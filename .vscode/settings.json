@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "*.kotoba": "json"
+    },
+    "json.schemas": [
+        {
+            "fileMatch": ["*.kotoba"],
+            "url": "./examples/http_server/config.kotoba.json"
+        }
+    ],
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+}

@@ -23,6 +23,7 @@ pub enum Value {
     Null,
     Bool(bool),
     Int(i64),
+    Integer(i64), // 互換性のため
     // Float(f64), // Hashを実装できないので除外
     String(String),
     // List(Vec<Value>), // 再帰的なHashが複雑なので除外
@@ -44,6 +45,16 @@ pub struct TxId(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContentHash(pub String);
 
+impl ContentHash {
+    pub fn sha256(data: [u8; 32]) -> Self {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        let result = hasher.finalize();
+        Self(hex::encode(result))
+    }
+}
+
 /// エラー型
 #[derive(Debug, thiserror::Error)]
 pub enum KotobaError {
@@ -59,6 +70,12 @@ pub enum KotobaError {
     Rewrite(String),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("IO error: {0}")]
+    IoError(String),
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
+    #[error("Not found: {0}")]
+    NotFound(String),
 }
 
 pub type Result<T> = std::result::Result<T, KotobaError>;

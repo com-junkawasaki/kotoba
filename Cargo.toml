@@ -15,6 +15,9 @@ dashmap = "6.0"
 anyhow = "1.0"
 log = "0.4"
 env_logger = "0.11"
+urlencoding = "2.1"
+clap = { version = "4.0", features = ["derive"] }
+hex = "0.4"
 
 [features]
 default = ["types", "ir", "graph"]
@@ -53,3 +56,7 @@ harness = false
 [[example]]
 name = "social_network"
 path = "examples/social_network/main.rs"
+
+[[example]]
+name = "http_server"
+path = "examples/http_server/main.rs"

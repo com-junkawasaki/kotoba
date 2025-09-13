@@ -1,0 +1,19 @@
+# Kotoba HTTP Server Configuration (JSON Lines format)
+# Each line is a JSON object representing either a route, middleware, or config
+
+# Server configuration
+{"type": "config", "host": "127.0.0.1", "port": 8080, "max_connections": 1000, "timeout_ms": 30000}
+
+# Routes
+{"type": "route", "method": "GET", "pattern": "/ping", "handler": "ping_handler", "metadata": {"description": "Simple ping endpoint"}}
+{"type": "route", "method": "GET", "pattern": "/health", "handler": "health_check", "metadata": {"description": "Health check with detailed status"}}
+{"type": "route", "method": "GET", "pattern": "/api/v1/status", "handler": "api_status", "metadata": {"version": "v1"}}
+{"type": "route", "method": "POST", "pattern": "/api/v1/echo", "handler": "echo_handler", "metadata": {"description": "Echo endpoint"}}
+{"type": "route", "method": "GET", "pattern": "/api/v1/users/{id}", "handler": "get_user", "metadata": {"description": "Get user by ID"}}
+{"type": "route", "method": "GET", "pattern": "/api/v1/posts", "handler": "list_posts", "metadata": {"description": "List posts"}}
+
+# Middlewares (applied in order)
+{"type": "middleware", "name": "cors", "order": 10, "function": "cors_middleware", "metadata": {"allowed_origins": ["*"]}}
+{"type": "middleware", "name": "rate_limit", "order": 20, "function": "rate_limiter", "metadata": {"rpm": 60}}
+{"type": "middleware", "name": "auth", "order": 30, "function": "auth_middleware", "metadata": {"type": "bearer"}}
+{"type": "middleware", "name": "logger", "order": 100, "function": "request_logger", "metadata": {"format": "combined"}}
