@@ -1,0 +1,76 @@
+# Blog Post Page Component (Dynamic Route)
+# Next.jsのapp/blog/[slug]/page.jsに相当
+
+component: BlogPostPage
+type: page
+environment: server
+
+props:
+  slug: "{{slug}}" # 動的パラメータ
+
+children:
+  - component: BlogHeader
+    type: server
+    props:
+      title: "{{post.title}}"
+      author: "{{post.author}}"
+      published_at: "{{post.publishedAt}}"
+      tags: "{{post.tags}}"
+
+  - component: BlogContent
+    type: server
+    props:
+      content: "{{post.content}}"
+      toc: "{{post.tableOfContents}}"
+
+  - component: RelatedPosts
+    type: server
+    props:
+      posts: "{{relatedPosts}}"
+
+  - component: Comments
+    type: client
+    props:
+      post_id: "{{post.id}}"
+
+imports:
+  - module: "react"
+    specifiers: ["useState", "useEffect"]
+  - module: "../../../components/BlogHeader"
+    specifiers: ["BlogHeader"]
+    is_default: true
+  - module: "../../../components/BlogContent"
+    specifiers: ["BlogContent"]
+    is_default: true
+  - module: "../../../components/RelatedPosts"
+    specifiers: ["RelatedPosts"]
+    is_default: true
+  - module: "../../../components/Comments"
+    specifiers: ["Comments"]
+    is_default: true
+  - module: "../../../lib/posts"
+    specifiers: ["getPostBySlug", "getRelatedPosts"]
+
+state:
+  post: null
+  related_posts: []
+
+hooks:
+  - type: useEffect
+    dependencies: ["slug"]
+    effect_code: |
+      // スラッグから記事データをフェッチ
+      const post = await getPostBySlug(params.slug);
+      const related = await getRelatedPosts(post.id);
+      setPost(post);
+      setRelatedPosts(related);
+
+metadata:
+  title: "{{post.title}} | Kotoba Blog"
+  description: "{{post.excerpt}}"
+  keywords: "{{post.tags}}"
+  open_graph:
+    title: "{{post.title}}"
+    description: "{{post.excerpt}}"
+    image: "{{post.featuredImage}}"
+    type: "article"

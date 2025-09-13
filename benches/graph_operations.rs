@@ -171,7 +171,8 @@ fn bench_memory_usage(c: &mut Criterion) {
             let _edges = graph.edges.len();
             let _adj_out = graph.adj_out.len();
             let _adj_in = graph.adj_in.len();
-            black_box(graph_ref);
+            // graph_refを直接使用せずにクローンしてblack_box
+            black_box(graph_ref.clone());
         });
     });
 }

@@ -292,7 +292,7 @@ fn bench_patch_application(c: &mut Criterion) {
     };
     let patch_result = engine.rewrite(&graph_ref, &rule, &strategy);
     let patch = match patch_result {
-        Ok(Some(p)) => p,
+        Ok(p) => p,
         _ => Patch::empty(),
     };
 

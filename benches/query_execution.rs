@@ -68,9 +68,7 @@ fn bench_simple_node_scan(c: &mut Criterion) {
         b.iter(|| {
             let gql = "MATCH (p:Person) RETURN p";
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -85,9 +83,7 @@ fn bench_node_scan_with_filter(c: &mut Criterion) {
         b.iter(|| {
             let gql = "MATCH (p:Person) WHERE p.value > 50 RETURN p";
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -102,9 +98,7 @@ fn bench_edge_expansion(c: &mut Criterion) {
         b.iter(|| {
             let gql = "MATCH (p:Person)-[:FOLLOWS]->(f:Person) RETURN p, f";
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -125,9 +119,7 @@ fn bench_complex_query(c: &mut Criterion) {
                 LIMIT 10
             "#;
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -142,9 +134,7 @@ fn bench_path_traversal(c: &mut Criterion) {
         b.iter(|| {
             let gql = "MATCH (p:Person)-[:FOLLOWS*1..3]->(f:Person) RETURN p, f";
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -166,9 +156,7 @@ fn bench_aggregation_query(c: &mut Criterion) {
                     max(p.value) as max_value
             "#;
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -187,9 +175,7 @@ fn bench_group_by_query(c: &mut Criterion) {
                 ORDER BY group_key
             "#;
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -204,9 +190,7 @@ fn bench_large_dataset(c: &mut Criterion) {
         b.iter(|| {
             let gql = "MATCH (p:Person) WHERE p.value > 50 RETURN count(p)";
             let result = executor.execute_gql(gql, &graph_ref, &catalog);
-            let _ = result.map(|r| black_box(r)).unwrap_or_default();
-            black_box(result);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -225,7 +209,7 @@ fn bench_query_parsing(c: &mut Criterion) {
         b.iter(|| {
             let parser = execution::GqlParser::new();
             let result = parser.parse(gql);
-            black_box(result);
+            black_box(&result);
         });
     });
 }
@@ -251,7 +235,7 @@ fn bench_planner_optimization(c: &mut Criterion) {
     c.bench_function("planner_optimization", |b| {
         b.iter(|| {
             let optimized = optimizer.optimize(&logical_plan, &catalog);
-            black_box(optimized);
+            black_box(&optimized);
         });
     });
 }

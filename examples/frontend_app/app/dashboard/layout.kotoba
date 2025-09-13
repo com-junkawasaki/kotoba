@@ -1,0 +1,47 @@
+# Dashboard Layout Component
+# Next.jsのapp/dashboard/layout.jsに相当
+
+component: DashboardLayout
+type: layout
+environment: server
+
+props:
+  title: "Dashboard"
+  requires_auth: true
+
+children:
+  - component: Sidebar
+    type: client
+    props:
+      menu_items:
+        - label: "Overview"
+          href: "/dashboard"
+          icon: "📊"
+        - label: "Analytics"
+          href: "/dashboard/analytics"
+          icon: "📈"
+        - label: "Settings"
+          href: "/dashboard/settings"
+          icon: "⚙️"
+
+  - component: DashboardContent
+    type: layout
+    children: [] # 子ページがここに挿入される
+
+imports:
+  - module: "react"
+    specifiers: ["useContext"]
+  - module: "../../components/Sidebar"
+    specifiers: ["Sidebar"]
+    is_default: true
+  - module: "../../middleware/auth"
+    specifiers: ["requireAuth"]
+    is_default: true
+
+middleware:
+  - name: auth
+    function: requireAuth
+
+metadata:
+  requires_auth: true
+  sidebar: true
