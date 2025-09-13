@@ -174,3 +174,210 @@ trait Externs { fn deg_ge(&self, v: Vid, k: u32) -> bool; fn edge_count_nonincre
 ```
 
 > 内部表現は**列指向+ID圧縮**、Node-Linkは**入出力/可視化**専用。
+
+
+いいですね。\*\*「DPO + GQL(論理IR) + Patch + 極小Strategy + Rust」\*\*だけで、HTTPサーバを“グラフ駆動”で書く最小構成を示します。要点は、**ソケット等の副作用はRust**、**ルーティング～処理～レスポンス生成はグラフ書換え**で表します。
+
+# 設計の骨格（最小で動く形）
+
+* **データ型（Catalogの例）**
+  `Route(method, pattern, handlerRef)` / `Middleware(order, fnRef)` /
+  `Request(id, method, path, headers*, bodyRef)` / `Response(status, headers*, bodyRef)`
+  物理ボディは **外部blob**（ファイル/LFS/オブジェクトストア）に置き、**グラフはメタ**（ハッシュ/長さ/MIME）だけ持つ。
+
+* **イベントモデル**
+
+  1. Rustがソケット受信→`Request`ノードを追加（Patch）
+  2. **Strategy**を1回実行（`seq(route→mw→handler→finalize)`）
+  3. 生成された`Response`ノードからRustが書き戻し
+
+* **インデックス**
+  `(:Route{method})`, `Route.pattern`（トライ/正規化セグメント）, `(:Middleware{order})` でヒットを絞る。
+  前件照合は**GQLの論理プラン**で最適化（述語押下げ＋結合順序）。
+
+---
+
+# IR最小例（JSON）
+
+## 1) ルーティング（DPO ルール）
+
+`GET /ping` を `handlerRef="h_ping"` に振る最小例。
+
+```json
+{
+  "rule": {
+    "name": "route_match_ping",
+    "L": {
+      "nodes": [
+        {"id":"req","type":"Request","props":{"method":"GET","path":"/ping"}},
+        {"id":"r","type":"Route","props":{"method":"GET","pattern":"/ping"}}
+      ],
+      "edges": []
+    },
+    "K": {"nodes":[{"id":"req"},{"id":"r"}]},
+    "R": {
+      "nodes":[{"id":"req"},{"id":"r"}],
+      "edges":[{"src":"req","dst":"r","type":"ROUTED"}]
+    },
+    "NAC": [{"edges":[{"src":"req","dst":"_","type":"ROUTED"}]}],
+    "guards": []
+  }
+}
+```
+
+* `NAC`で「既にルーティング済みなら適用しない」を表現。
+* 一般化するなら `pattern_match(req.path, r.pattern)` を **extern 述語**にする。
+
+## 2) ミドルウェア適用（例：`X-Req-Id`付与）
+
+```json
+{
+  "rule": {
+    "name": "mw_request_id",
+    "L": {
+      "nodes":[
+        {"id":"req","type":"Request"},
+        {"id":"mw","type":"Middleware","props":{"order":100,"fnRef":"mw_reqid"}}
+      ],
+      "edges":[{"src":"req","dst":"mw","type":"NEXT_MW"}]
+    },
+    "K":{"nodes":[{"id":"req"},{"id":"mw"}],"edges":[{"src":"req","dst":"mw","type":"NEXT_MW"}]},
+    "R":{
+      "nodes":[{"id":"req"},{"id":"mw"}],
+      "edges":[{"src":"req","dst":"mw","type":"APPLIED_MW"}]
+    },
+    "NAC":[{"edges":[{"src":"req","dst":"mw","type":"APPLIED_MW"}]}],
+    "guards":[{"ref":"set_header_absent","args":{"node":"req","key":"x-req-id"}}]
+  }
+}
+```
+
+* `set_header_absent` は **extern**（索引に乗るヘッダ存在チェック＋生成をPatchへ反映）。
+
+## 3) ハンドラ（`GET /ping` → 200 JSON）
+
+```json
+{
+  "rule": {
+    "name": "handler_ping",
+    "L": {
+      "nodes": [
+        {"id":"req","type":"Request"},
+        {"id":"r","type":"Route","props":{"pattern":"/ping","method":"GET"}}
+      ],
+      "edges": [{"src":"req","dst":"r","type":"ROUTED"}]
+    },
+    "K": {"nodes":[{"id":"req"},{"id":"r"}],"edges":[{"src":"req","dst":"r","type":"ROUTED"}]},
+    "R": {
+      "nodes":[
+        {"id":"req"},{"id":"r"},
+        {"id":"resp","type":"Response","props":{"status":200,"mime":"application/json","bodyRef":"blob:sha256:…"}}
+      ],
+      "edges":[
+        {"src":"req","dst":"resp","type":"PRODUCES"}
+      ]
+    },
+    "NAC":[{"edges":[{"src":"req","dst":"_","type":"PRODUCES"}]}],
+    "guards":[]
+  }
+}
+```
+
+* `bodyRef` は外部blob（`{"ok":true}`をハッシュ保存）。
+* 動的レスポンスなら `extern:"render_json"` で Patch 生成時に blob を作る。
+
+## 4) Strategy（1リクエスト分の処理）
+
+```json
+{
+  "strategy": {
+    "op": "seq",
+    "steps": [
+      {"op":"once", "rule":"sha256:route_match_*", "order":"topdown"},
+      {"op":"exhaust", "rule":"sha256:mw_*", "order":"topdown"},
+      {"op":"once", "rule":"sha256:handler_*", "order":"topdown"},
+      {"op":"once", "rule":"sha256:finalize_response", "order":"topdown"}
+    ]
+  }
+}
+```
+
+* `finalize_response` はヘッダ確定・ログ連結などを行う最終化ルール。
+
+---
+
+# GQL（論理プラン）での前件マッチ例
+
+ルーティング候補を引く論理プラン（イメージ）：
+
+```json
+{
+  "plan": {
+    "op":"Join",
+    "how":"hash",
+    "left": {"op":"Filter","pred":{"eq":[{"col":"label(n)"}, "Request"]},
+             "input":{"op":"NodeScan","as":"n"}},
+    "right":{"op":"Filter","pred":{"and":[
+                {"eq":[{"prop":"m.method"}, {"prop":"n.method"}]},
+                {"fn":"pattern_match","args":[{"prop":"n.path"},{"prop":"m.pattern"}]}
+              ]},
+             "input":{"op":"NodeScan","label":"Route","as":"m"}}
+  }
+}
+```
+
+この結果束縛を DPO 適用器へ流す（**クエリと書換えが同じ最適化器**を通る）。
+
+---
+
+# Rust 側の骨格（超要約）
+
+```rust
+struct Engine { catalog: Catalog, store: Store, planner: Planner, rewriter: Rewriter }
+
+impl Engine {
+    async fn handle(&self, raw: HttpRequest) -> HttpResponse {
+        // 1) Requestノードを追加（Patch→MVCC）
+        let (tx, g0) = self.store.begin();
+        let req_ref = self.store.add_request(&tx, &raw).await; // bodyはblob保存、metaのみGraph
+        let g1 = self.store.commit(tx, "new request");
+
+        // 2) Strategy実行（seq: route→mw→handler→finalize）
+        let strat = self.load_strategy("http_request_seq");
+        let patch = self.rewriter.run(&g1, &strat).await?;
+        let (tx2, _) = self.store.begin();
+        let g2 = self.store.apply_patch(&tx2, g1, patch);
+        let g3 = self.store.commit(tx2, "handled");
+
+        // 3) Responseノードの取り出し
+        let resp = self.store.lookup_response(g3, req_ref).await?;
+        self.to_http(resp).await
+    }
+}
+```
+
+* **副作用**（ソケット入出力/Blob I/O）は**Tx境界外で**行い、**グラフ変更はPatchで純粋→Txで可視化**。
+* ハンドラの“計算”が重い場合は **extern 関数**（Rust）に寄せ、IRは**構造と依存**だけを持つ。
+
+---
+
+# 実運用Tips（批判的に）
+
+* **高スループット**：ルーティングはDPO前件をそのまま照合せず、**パターンをトライに事前コンパイル**（`pattern_match`を索引化）→ DPOは整合/生成に集中。
+* **大きなボディ**：Graphにはハッシュ/長さのみ。Blobは**メモリマップ/零コピー**で返す。
+* **安全モード**：`exhaust`連発は禁止、**measure必須**で停止性を強制（本番OLTP）。
+* **観測性**：`Request --LOG--> Event` をPatchで積み、**由来**（`(input_graph, rule_hash, plan_hash)`）をコミットに記録。
+
+---
+
+## まず動く最小ターゲット
+
+* ルート：`GET /ping`（固定JSON）/ `GET /static/:file`（blob返却）
+* ミドルウェア：`req-id` / `server` / `content-type`
+* これで**1ワーカー=1グラフ分岐**のPoCが成立。次に**複数接続/分散**では、`Request`をシャードローカルに格納し、ログだけ集約。
+
+---
+
+小さなユーモア：
+
+> “HTTP”も結局は**グラフに来てグラフから去るパケット**。路地（Route）で会わせて、茶（Middleware）を出し、土産（Response）を持たせて帰すだけです ☕️➡️📦
