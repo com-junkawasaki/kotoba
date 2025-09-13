@@ -9,6 +9,7 @@ pub mod execution;
 pub mod storage;
 pub mod planner;
 pub mod rewrite;
+pub mod topology;
 
 pub use types::{Value, Properties, GraphRef_, TxId, ContentHash, KotobaError, Result};
 pub use ir::*;
@@ -17,3 +18,4 @@ pub use execution::*;
 pub use storage::*;
 pub use planner::*;
 pub use rewrite::*;
+pub use topology::*;
