@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// HTTPリクエストプロセッサ
+#[derive(Clone)]
 pub struct HttpRequestProcessor {
     rewrite_engine: Arc<RewriteEngine>,
     mvcc: Arc<MVCCManager>,
@@ -94,7 +95,7 @@ impl RewriteExterns for HttpRewriteExterns {
         true
     }
 
-    fn edge_count_nonincreasing(&self, _g0: GraphRef, _g1: GraphRef) -> bool {
+    fn edge_count_nonincreasing(&self, _g0: &GraphRef, _g1: &GraphRef) -> bool {
         // TODO: エッジ数非増加チェックを実装
         true
     }
@@ -106,6 +107,7 @@ impl RewriteExterns for HttpRewriteExterns {
 }
 
 /// ミドルウェアプロセッサ
+#[derive(Clone)]
 pub struct MiddlewareProcessor {
     middlewares: Vec<HttpMiddleware>,
 }
@@ -157,6 +159,7 @@ impl MiddlewareProcessor {
 }
 
 /// ハンドラープロセッサ
+#[derive(Clone)]
 pub struct HandlerProcessor;
 
 impl HandlerProcessor {

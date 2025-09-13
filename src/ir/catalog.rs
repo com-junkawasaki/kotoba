@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::types::*;
 
 /// プロパティ定義
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PropertyDef {
     pub name: PropertyKey,
     pub type_: ValueType,
@@ -33,8 +33,23 @@ pub enum ValueType {
     Map,
 }
 
+impl PartialEq for ValueType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ValueType::Null, ValueType::Null) => true,
+            (ValueType::Bool, ValueType::Bool) => true,
+            (ValueType::Int, ValueType::Int) => true,
+            (ValueType::Float, ValueType::Float) => true,
+            (ValueType::String, ValueType::String) => true,
+            (ValueType::List(a), ValueType::List(b)) => a == b,
+            (ValueType::Map, ValueType::Map) => true,
+            _ => false,
+        }
+    }
+}
+
 /// ラベル定義
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LabelDef {
     pub name: Label,
     pub properties: Vec<PropertyDef>,

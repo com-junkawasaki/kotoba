@@ -288,77 +288,92 @@ impl Default for HttpCatalog {
                 LabelDef {
                     name: "Request".to_string(),
                     properties: vec![
-                        PropertyDef {
-                            name: "id".to_string(),
-                            value_type: "string".to_string(),
-                            nullable: false,
-                        },
-                        PropertyDef {
-                            name: "method".to_string(),
-                            value_type: "string".to_string(),
-                            nullable: false,
-                        },
-                        PropertyDef {
-                            name: "path".to_string(),
-                            value_type: "string".to_string(),
-                            nullable: false,
-                        },
-                        PropertyDef {
-                            name: "timestamp".to_string(),
-                            value_type: "integer".to_string(),
-                            nullable: false,
-                        },
+                    PropertyDef {
+                        name: "id".to_string(),
+                        type_: crate::ir::catalog::ValueType::String,
+                        nullable: false,
+                        default: None,
+                    },
+                    PropertyDef {
+                        name: "method".to_string(),
+                        type_: crate::ir::catalog::ValueType::String,
+                        nullable: false,
+                        default: None,
+                    },
+                    PropertyDef {
+                        name: "path".to_string(),
+                        type_: crate::ir::catalog::ValueType::String,
+                        nullable: false,
+                        default: None,
+                    },
+                    PropertyDef {
+                        name: "timestamp".to_string(),
+                        type_: crate::ir::catalog::ValueType::Int,
+                        nullable: false,
+                        default: None,
+                    },
                     ],
+                    super_labels: None,
                 },
                 LabelDef {
                     name: "Response".to_string(),
                     properties: vec![
-                        PropertyDef {
-                            name: "request_id".to_string(),
-                            value_type: "string".to_string(),
-                            nullable: false,
-                        },
-                        PropertyDef {
-                            name: "status_code".to_string(),
-                            value_type: "integer".to_string(),
-                            nullable: false,
-                        },
+                    PropertyDef {
+                        name: "request_id".to_string(),
+                        type_: crate::ir::catalog::ValueType::String,
+                        nullable: false,
+                        default: None,
+                    },
+                    PropertyDef {
+                        name: "status_code".to_string(),
+                        type_: crate::ir::catalog::ValueType::Int,
+                        nullable: false,
+                        default: None,
+                    },
                         PropertyDef {
                             name: "timestamp".to_string(),
-                            value_type: "integer".to_string(),
+                            type_: crate::ir::catalog::ValueType::Int,
                             nullable: false,
+                            default: None,
                         },
                     ],
+                    super_labels: None,
                 },
                 LabelDef {
                     name: "Route".to_string(),
                     properties: vec![
                         PropertyDef {
                             name: "method".to_string(),
-                            value_type: "string".to_string(),
+                            type_: crate::ir::catalog::ValueType::String,
                             nullable: false,
+                            default: None,
                         },
                         PropertyDef {
                             name: "pattern".to_string(),
-                            value_type: "string".to_string(),
+                            type_: crate::ir::catalog::ValueType::String,
                             nullable: false,
+                            default: None,
                         },
                     ],
+                    super_labels: None,
                 },
                 LabelDef {
                     name: "Middleware".to_string(),
                     properties: vec![
                         PropertyDef {
                             name: "name".to_string(),
-                            value_type: "string".to_string(),
+                            type_: crate::ir::catalog::ValueType::String,
                             nullable: false,
+                            default: None,
                         },
                         PropertyDef {
                             name: "order".to_string(),
-                            value_type: "integer".to_string(),
+                            type_: crate::ir::catalog::ValueType::Int,
                             nullable: false,
+                            default: None,
                         },
                     ],
+                    super_labels: None,
                 },
             ],
             properties: vec![],

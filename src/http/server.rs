@@ -68,9 +68,10 @@ impl HttpServer {
                 let (socket, addr) = listener.accept().await?;
                 println!("New connection from: {}", addr);
 
-                let engine = &self.engine;
+                // engineをクローンして渡す（ライフタイム問題を解決）
+                let engine = self.engine.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = Self::handle_connection(socket, engine).await {
+                    if let Err(e) = Self::handle_connection(socket, &engine).await {
                         eprintln!("Error handling connection: {}", e);
                     }
                 });

@@ -24,12 +24,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .short('c')
                 .long("config")
                 .value_name("FILE")
-                .help("Sets the configuration file (.kotoba.json or .kotoba)")
-                .required(true),
+                .help("Sets the configuration file (.kotoba.json or .kotoba)"),
         )
         .arg(
             Arg::new("host")
-                .short('h')
                 .long("host")
                 .value_name("HOST")
                 .help("Sets the server host (default: 127.0.0.1)")
@@ -47,15 +45,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arg::new("example")
                 .long("example")
                 .value_name("TYPE")
-                .help("Creates and runs an example server (ping|api)")
-                .possible_values(["ping", "api"]),
+                .help("Creates and runs an example server (ping|api)"),
         )
         .get_matches();
 
     // ストレージとエンジンの初期化
-    let mvcc = Arc::new(InMemoryMVCCManager::new());
-    let merkle = Arc::new(InMemoryMerkleDAGManager::new());
-    let rewrite_engine = Arc::new(RewriteEngine::new(Arc::clone(&mvcc), Arc::clone(&merkle)));
+    let mvcc = Arc::new(MVCCManager::new());
+    let merkle = Arc::new(MerkleDAG::new());
+    let rewrite_engine = Arc::new(RewriteEngine::new());
 
     let mut server = if let Some(example) = matches.get_one::<String>("example") {
         // 例のサーバーを作成
@@ -68,7 +65,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build(mvcc, merkle, rewrite_engine)
             .await?
     } else {
-        return Err("Either config file or example must be specified".into());
+        eprintln!("Error: Either --config <FILE> or --example <TYPE> must be specified");
+        eprintln!();
+        eprintln!("For more information, try: {} --help", env!("CARGO_PKG_NAME"));
+        std::process::exit(1);
     };
 
     // サーバーを起動
@@ -123,7 +123,7 @@ async fn create_ping_server(
         "ping_get".to_string(),
         HttpMethod::GET,
         "/ping".to_string(),
-        kotoba::types::ContentHash::Sha256([1; 32]), // ダミーハッシュ
+        kotoba::types::ContentHash::sha256([1; 32]), // ダミーハッシュ
     );
     config.routes.push(ping_route);
 
@@ -132,7 +132,7 @@ async fn create_ping_server(
         "logger".to_string(),
         "request_logger".to_string(),
         100,
-        kotoba::types::ContentHash::Sha256([2; 32]), // ダミーハッシュ
+        kotoba::types::ContentHash::sha256([2; 32]), // ダミーハッシュ
     );
     config.middlewares.push(logger_middleware);
 
@@ -170,7 +170,7 @@ async fn create_api_server(
             route_id,
             method,
             pattern.to_string(),
-            kotoba::types::ContentHash::Sha256([3; 32]), // ダミーハッシュ
+            kotoba::types::ContentHash::sha256([3; 32]), // ダミーハッシュ
         );
         config.routes.push(route);
     }
@@ -188,7 +188,7 @@ async fn create_api_server(
             name.to_string(),
             function.to_string(),
             order,
-            kotoba::types::ContentHash::Sha256([4; 32]), // ダミーハッシュ
+            kotoba::types::ContentHash::sha256([4; 32]), // ダミーハッシュ
         );
         config.middlewares.push(middleware);
     }
@@ -204,8 +204,8 @@ mod tests {
     #[tokio::test]
     async fn test_create_ping_server() {
         let mvcc = Arc::new(MVCCManager::new());
-        let merkle = Arc::new(MerkleDAGManager::new());
-        let rewrite_engine = Arc::new(RewriteEngine::new(Arc::clone(&mvcc), Arc::clone(&merkle)));
+        let merkle = Arc::new(MerkleDAG::new());
+        let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let server = create_ping_server(mvcc, merkle, rewrite_engine).await.unwrap();
         let status = server.get_status().await;
@@ -218,8 +218,8 @@ mod tests {
     #[tokio::test]
     async fn test_create_api_server() {
         let mvcc = Arc::new(MVCCManager::new());
-        let merkle = Arc::new(MerkleDAGManager::new());
-        let rewrite_engine = Arc::new(RewriteEngine::new(Arc::clone(&mvcc), Arc::clone(&merkle)));
+        let merkle = Arc::new(MerkleDAG::new());
+        let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let server = create_api_server(mvcc, merkle, rewrite_engine).await.unwrap();
         let status = server.get_status().await;

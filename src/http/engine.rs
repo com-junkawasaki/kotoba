@@ -14,6 +14,7 @@ use tokio::sync::RwLock;
 use std::collections::HashMap;
 
 /// HTTPサーバーエンジン
+#[derive(Clone)]
 pub struct HttpEngine {
     config: HttpConfig,
     request_processor: HttpRequestProcessor,
