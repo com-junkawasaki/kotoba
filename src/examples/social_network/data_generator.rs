@@ -2,8 +2,10 @@
 //!
 //! ソーシャルネットワークのテストデータを生成するモジュール
 
-use kotoba::*;
+use crate::*;
+use crate::types::VertexId;
 use std::collections::HashMap;
+use rand::prelude::*;
 
 /// ソーシャルネットワークのデータ構造
 #[derive(Debug, Clone)]
@@ -88,7 +90,7 @@ impl SocialNetworkGenerator {
         let name = format!("{} {}", names[index % names.len()], (index / names.len()) + 1);
         let age = (20 + (index % 50)) as u32;
         let location = locations[index % locations.len()].to_string();
-        let user_interests = interests.iter()
+        let user_interests: Vec<String> = interests.iter()
             .enumerate()
             .filter(|(i, _)| index % (i + 2) == 0)
             .map(|(_, interest)| interest.to_string())
@@ -152,14 +154,14 @@ impl SocialNetworkGenerator {
             "Love this new technology", "Inspiring day!", "Making progress every day"
         ];
 
-        let author_idx = rand::random::<usize>() % users.len();
+        let author_idx = thread_rng().gen_range(0..users.len());
         let author = &users[author_idx];
-        let content = contents[rand::random::<usize>() % contents.len()].to_string();
+        let content = contents[thread_rng().gen_range(0..contents.len())].to_string();
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs() - (rand::random::<u64>() % (30 * 24 * 60 * 60)); // 過去30日以内
-        let likes = rand::random::<u32>() % 100;
+            .as_secs() - (thread_rng().gen_range(0..(30 * 24 * 60 * 60))); // 過去30日以内
+        let likes = thread_rng().gen_range(0..100);
 
         let vertex = graph.add_vertex(VertexData {
             id: uuid::Uuid::new_v4(),
@@ -196,7 +198,7 @@ impl SocialNetworkGenerator {
             let mut liked_users = std::collections::HashSet::new();
 
             for _ in 0..like_count {
-                let user_idx = rand::random::<usize>() % users.len();
+                let user_idx = thread_rng().gen_range(0..users.len());
                 if liked_users.insert(user_idx) {
                     graph.add_edge(EdgeData {
                         id: uuid::Uuid::new_v4(),
@@ -224,15 +226,15 @@ impl SocialNetwork {
         println!("Edges: {}", graph.edge_count());
 
         // ユーザーラベル別のカウント
-        let person_count = graph.vertices_by_label("Person").len();
-        let post_count = graph.vertices_by_label("Post").len();
+        let person_count = graph.vertices_by_label(&"Person".to_string()).len();
+        let post_count = graph.vertices_by_label(&"Post".to_string()).len();
         println!("Person nodes: {}", person_count);
         println!("Post nodes: {}", post_count);
 
         // エッジラベル別のカウント
-        let follows_count = graph.edges_by_label("FOLLOWS").len();
-        let posted_count = graph.edges_by_label("POSTED").len();
-        let likes_count = graph.edges_by_label("LIKES").len();
+        let follows_count = graph.edges_by_label(&"FOLLOWS".to_string()).len();
+        let posted_count = graph.edges_by_label(&"POSTED".to_string()).len();
+        let likes_count = graph.edges_by_label(&"LIKES".to_string()).len();
         println!("FOLLOWS edges: {}", follows_count);
         println!("POSTED edges: {}", posted_count);
         println!("LIKES edges: {}", likes_count);

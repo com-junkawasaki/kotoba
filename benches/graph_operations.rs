@@ -166,8 +166,7 @@ fn bench_memory_usage(c: &mut Criterion) {
         b.iter(|| {
             let graph_ref = create_test_graph(1000);
             // メモリ使用量を測定するための操作
-            let graph_binding = graph_ref.clone();
-            let graph = graph_binding.read();
+            let graph = graph_ref.read();
             let _vertices = graph.vertices.len();
             let _edges = graph.edges.len();
             let _adj_out = graph.adj_out.len();

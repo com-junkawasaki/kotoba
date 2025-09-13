@@ -3,7 +3,7 @@
 //! ソーシャルネットワークの典型的なクエリを実装
 
 use crate::examples::social_network::*;
-use kotoba::*;
+use crate::*;
 
 /// ソーシャルネットワーククエリ実行器
 pub struct SocialNetworkQueries {

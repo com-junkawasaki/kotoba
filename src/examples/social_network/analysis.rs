@@ -3,7 +3,8 @@
 //! ソーシャルネットワークのグラフ分析を行うモジュール
 
 use crate::examples::social_network::*;
-use kotoba::*;
+use crate::*;
+use crate::types::VertexId;
 use std::collections::{HashMap, HashSet};
 
 /// ソーシャルネットワーク分析器
@@ -30,10 +31,9 @@ impl SocialNetworkAnalyzer {
         let mut coefficients = HashMap::new();
 
         for user in &network.users {
-            let neighbors: HashSet<_> = graph.adj_out.get(&user.id)
-                .unwrap_or(&HashSet::new())
-                .iter()
-                .collect();
+            let empty_set = HashSet::new();
+            let neighbors_set = graph.adj_out.get(&user.id).unwrap_or(&empty_set);
+            let neighbors: HashSet<_> = neighbors_set.iter().collect();
 
             if neighbors.len() < 2 {
                 coefficients.insert(user.name.clone(), 0.0);

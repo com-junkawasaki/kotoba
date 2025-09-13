@@ -16,6 +16,18 @@ anyhow = "1.0"
 log = "0.4"
 env_logger = "0.11"
 
+[features]
+default = ["types", "ir", "graph"]
+full = ["types", "ir", "graph", "storage", "execution", "planner", "rewrite"]
+examples = ["full"]
+types = []
+ir = ["types"]
+graph = ["types", "ir"]
+storage = ["types", "graph"]
+execution = ["types", "ir", "graph", "storage"]
+planner = ["types", "ir", "graph"]
+rewrite = ["types", "ir", "graph", "storage"]
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"

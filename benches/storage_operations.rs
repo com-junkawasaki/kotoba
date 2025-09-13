@@ -81,10 +81,11 @@ fn bench_merkle_hashing(c: &mut Criterion) {
     c.bench_function("merkle_hashing", |b| {
         b.iter(|| {
             let hash_result = merkle.hash_graph(&graph);
-            match hash_result {
-                Ok(hash) => black_box(hash),
-                Err(_) => black_box(()),
-            }
+            let _hash = match hash_result {
+                Ok(hash) => hash,
+                Err(_) => return,
+            };
+            black_box(_hash);
             black_box(hash);
         });
     });
@@ -256,10 +257,11 @@ fn bench_large_dataset_persistence(c: &mut Criterion) {
     c.bench_function("large_dataset_persistence", |b| {
         b.iter(|| {
             let hash_result = merkle.hash_graph(&graph);
-            match hash_result {
-                Ok(hash) => black_box(hash),
-                Err(_) => black_box(()),
-            }
+            let _hash = match hash_result {
+                Ok(hash) => hash,
+                Err(_) => return,
+            };
+            black_box(_hash);
             black_box(hash);
         });
     });
