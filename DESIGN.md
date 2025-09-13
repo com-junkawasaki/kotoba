@@ -8,7 +8,6 @@
   3. **更新**: **Patch-IR**（`addV/E, delV/E, setProp, relink`）
   4. **戦略**: **極小 Strategy-IR**（`once|exhaust|while|seq|choice|priority`）
   5. **実行**: **Rustコア**（プランナ/実行器/MVCC/ストア）
-* **任意（外周）**: Jsonnet/XState/Serverless Workflow/JSONata は不要。必要時のみ外付け。
 
 ---
 
