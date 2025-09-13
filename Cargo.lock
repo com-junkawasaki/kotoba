@@ -558,6 +558,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonnet"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "970444ea10b23ca1003ed807074ee3f25ee3fb213009e2175d1d93de42af17cd"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "kotoba"
 version = "0.1.0"
 dependencies = [
@@ -567,6 +576,7 @@ dependencies = [
  "dashmap",
  "env_logger 0.11.8",
  "hex",
+ "jsonnet",
  "log",
  "parking_lot",
  "proptest",

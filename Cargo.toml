@@ -19,6 +19,7 @@ urlencoding = "2.1"
 clap = { version = "4.0", features = ["derive"] }
 hex = "0.4"
 tempfile = "3.0"
+jsonnet = "0.1"
 
 [features]
 default = ["types", "ir", "graph"]

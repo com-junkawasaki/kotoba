@@ -238,49 +238,6 @@
     // HTTPサーバー層
 
 
-    'http_parser': {
-      name: 'http_parser',
-      path: 'src/http/parser.rs',
-      type: 'http',
-      description: '.kotoba.json/.kotobaファイルのパーサー',
-      dependencies: ['types', 'http_ir'],
-      provides: ['HttpConfigParser', 'KotobaParser'],
-      status: 'pending',
-      build_order: 5,
-    },
-
-    'http_handlers': {
-      name: 'http_handlers',
-      path: 'src/http/handlers.rs',
-      type: 'http',
-      description: 'HTTPハンドラーとミドルウェア処理',
-      dependencies: ['types', 'http_ir', 'graph_core', 'rewrite_engine', 'storage_mvcc', 'storage_merkle'],
-      provides: ['HttpHandler', 'MiddlewareProcessor', 'RequestProcessor'],
-      status: 'pending',
-      build_order: 8,
-    },
-
-    'http_engine': {
-      name: 'http_engine',
-      path: 'src/http/engine.rs',
-      type: 'http',
-      description: 'HTTPサーバーエンジン',
-      dependencies: ['types', 'http_ir', 'http_handlers', 'graph_core', 'storage_mvcc', 'storage_merkle', 'rewrite_engine'],
-      provides: ['HttpEngine', 'ServerState'],
-      status: 'pending',
-      build_order: 9,
-    },
-
-    'http_server': {
-      name: 'http_server',
-      path: 'src/http/server.rs',
-      type: 'http',
-      description: 'メインHTTPサーバー',
-      dependencies: ['types', 'http_ir', 'http_parser', 'http_engine', 'http_handlers'],
-      provides: ['HttpServer', 'ServerBuilder'],
-      status: 'pending',
-      build_order: 10,
-    },
 
     // メインライブラリ
     'lib': {
@@ -390,32 +347,6 @@
     { from: 'rewrite_applier', to: 'lib' },
     { from: 'rewrite_engine', to: 'lib' },
 
-    // HTTPサーバー層依存
-    { from: 'types', to: 'http_ir' },
-    { from: 'ir_catalog', to: 'http_ir' },
-
-    { from: 'http_ir', to: 'http_parser' },
-    { from: 'types', to: 'http_parser' },
-    { from: 'http_ir', to: 'http_handlers' },
-    { from: 'graph_core', to: 'http_handlers' },
-    { from: 'rewrite_engine', to: 'http_handlers' },
-    { from: 'storage_mvcc', to: 'http_handlers' },
-    { from: 'storage_merkle', to: 'http_handlers' },
-    { from: 'http_ir', to: 'http_engine' },
-    { from: 'http_handlers', to: 'http_engine' },
-    { from: 'graph_core', to: 'http_engine' },
-    { from: 'storage_mvcc', to: 'http_engine' },
-    { from: 'storage_merkle', to: 'http_engine' },
-    { from: 'rewrite_engine', to: 'http_engine' },
-    { from: 'http_ir', to: 'http_server' },
-    { from: 'http_parser', to: 'http_server' },
-    { from: 'http_engine', to: 'http_server' },
-    { from: 'http_handlers', to: 'http_server' },
-    { from: 'http_ir', to: 'lib' },
-    { from: 'http_parser', to: 'lib' },
-    { from: 'http_handlers', to: 'lib' },
-    { from: 'http_engine', to: 'lib' },
-    { from: 'http_server', to: 'lib' },
   ],
 
   // ==========================================
@@ -430,13 +361,11 @@
     'ir_patch',
     'graph_vertex',
     'graph_edge',
-    'http_ir',
     'ir_strategy',
     'graph_core',
     'storage_mvcc',
     'storage_merkle',
     'storage_lsm',
-    'http_parser',
     'planner_logical',
     'planner_physical',
     'execution_parser',
@@ -445,9 +374,6 @@
     'planner_optimizer',
     'rewrite_engine',
     'execution_engine',
-    'http_handlers',
-    'http_engine',
-    'http_server',
     'lib',
   ],
 
@@ -457,9 +383,6 @@
 
   reverse_topological_order: [
     'lib',
-    'http_server',
-    'http_engine',
-    'http_handlers',
     'execution_engine',
     'rewrite_engine',
     'planner_optimizer',
@@ -468,13 +391,11 @@
     'execution_parser',
     'planner_physical',
     'planner_logical',
-    'http_parser',
     'storage_lsm',
     'storage_merkle',
     'storage_mvcc',
     'graph_core',
     'ir_strategy',
-    'http_ir',
     'graph_edge',
     'graph_vertex',
     'ir_patch',
