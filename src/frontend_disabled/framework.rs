@@ -7,6 +7,7 @@ use crate::frontend::component_ir::*;
 use crate::frontend::route_ir::*;
 use crate::frontend::render_ir::*;
 use crate::frontend::build_ir::*;
+use crate::frontend::api_ir::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -77,8 +78,9 @@ impl WebFramework {
         Ok(crate::http::HttpResponse {
             request_id: context.request.id.clone(),
             status: crate::http::HttpStatus { code: 404, reason: "Not Found".to_string() },
-            headers: Properties::new(),
+            headers: crate::http::HttpHeaders::new(),
             body_ref: None,
+            timestamp: 1234567890,
         })
     }
 
@@ -105,7 +107,7 @@ impl WebFramework {
             table.find_route(path)
         } {
             // ページルートが見つかった場合
-            let render_result = self.navigate_with_params(path, params).await?;
+            let render_result = self.render_route_with_params(route, params).await?;
             let response = self.create_page_response(render_result)?;
             Ok(Some(response))
         } else {
@@ -135,15 +137,15 @@ impl WebFramework {
             _ => None, // 他のフォーマットは未実装
         };
 
+        let mut http_headers = crate::http::HttpHeaders::new();
+        http_headers.insert("Content-Type".to_string(), "application/json".to_string());
+
         Ok(crate::http::HttpResponse {
             request_id: context.request.id.clone(),
             status: crate::http::HttpStatus { code: 200, reason: "OK".to_string() },
-            headers: {
-                let mut headers = Properties::new();
-                headers.insert("Content-Type".to_string(), Value::String("application/json".to_string()));
-                headers
-            },
-            body_ref: response_body.map(|body| ContentHash::sha256(body.as_bytes())),
+            headers: http_headers,
+            body_ref: response_body.map(|body| ContentHash::sha256(body.as_bytes().try_into().unwrap())),
+            timestamp: 1234567890,
         })
     }
 
@@ -168,7 +170,7 @@ impl WebFramework {
     async fn execute_database_query(&self, route: &ApiRouteIR, params: &Properties) -> Result<Value> {
         // TODO: 実際のデータベースクエリ実行を実装
         // ここではモックデータを返す
-        Ok(Value::Object(Properties::new()))
+        Ok(Value::Null)
     }
 
     /// ミドルウェアを実行
@@ -176,9 +178,9 @@ impl WebFramework {
         match middleware.middleware_type {
             MiddlewareType::CORS => {
                 // CORSヘッダーを設定
-                context.add_header("Access-Control-Allow-Origin", "*");
-                context.add_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-                context.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                context.add_header("Access-Control-Allow-Origin", "*".to_string());
+                context.add_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS".to_string());
+                context.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization".to_string());
             },
             MiddlewareType::Authentication => {
                 // 認証チェック
@@ -207,15 +209,15 @@ impl WebFramework {
 
     /// ページレスポンスを作成
     fn create_page_response(&self, render_result: RenderResultIR) -> Result<crate::http::HttpResponse> {
+        let mut http_headers = crate::http::HttpHeaders::new();
+        http_headers.insert("Content-Type".to_string(), "text/html".to_string());
+
         Ok(crate::http::HttpResponse {
             request_id: uuid::Uuid::new_v4().to_string(),
             status: crate::http::HttpStatus { code: 200, reason: "OK".to_string() },
-            headers: {
-                let mut headers = Properties::new();
-                headers.insert("Content-Type".to_string(), Value::String("text/html".to_string()));
-                headers
-            },
-            body_ref: Some(ContentHash::sha256(render_result.html.as_bytes())),
+            headers: http_headers,
+            body_ref: Some(ContentHash::sha256(render_result.html.as_bytes().try_into().unwrap())),
+            timestamp: 1234567890,
         })
     }
 }
@@ -238,8 +240,8 @@ impl RequestContext {
         }
     }
 
-    pub fn add_header(&mut self, key: String, value: &str) {
-        self.response_headers.insert(key, Value::String(value.to_string()));
+    pub fn add_header(&mut self, key: &str, value: &str) {
+        self.response_headers.insert(key.to_string(), value.to_string());
     }
 
     pub fn terminate_with_status(&mut self, status: u16) {
@@ -276,63 +278,36 @@ impl RequestContext {
         let table = self.route_table.read().await;
 
         if let Some((route, params)) = table.find_route(path) {
-            // ルートパラメータをグローバル状態に設定
-            let mut global_props = Properties::new();
-            for (key, value) in params {
-                global_props.insert(key, crate::types::Value::String(value));
-            }
-
-            let context = RenderContext {
-                environment: ExecutionEnvironment::Universal,
-                route_params: global_props,
-                query_params: Properties::new(),
-                global_state: Properties::new(),
-                is_server_side: true,
-                is_client_side: false,
-                hydration_id: Some(format!("route_{}", uuid::Uuid::new_v4())),
-            };
-
-            // 現在のルートを更新
-            let mut current_route = self.current_route.write().await;
-            *current_route = Some(route.clone());
-
-            // ルートをレンダリング
-            self.render_route(route, context).await
+            self.render_route_with_params(&route, params).await
         } else {
             Err(KotobaError::NotFound(format!("Route not found: {}", path)))
         }
     }
 
-    /// パスとパラメータによるナビゲーション
-    async fn navigate_with_params(&self, path: &str, params: HashMap<String, String>) -> Result<RenderResultIR> {
-        let table = self.route_table.read().await;
-
-        if let Some((route, _)) = table.find_route(path) {
-            // ルートパラメータをグローバル状態に設定
-            let mut global_props = Properties::new();
-            for (key, value) in params {
-                global_props.insert(key, crate::types::Value::String(value));
-            }
-
-            let context = RenderContext {
-                environment: ExecutionEnvironment::Universal,
-                route_params: global_props,
-                query_params: Properties::new(),
-                global_state: Properties::new(),
-                is_server_side: true,
-                is_client_side: false,
-                hydration_id: Some(format!("route_{}", uuid::Uuid::new_v4())),
-            };
-
-            // 現在のルートを更新
-            let mut current_route = self.current_route.write().await;
-            *current_route = Some(route.clone());
-
-            // ルートをレンダリング
-            self.render_route(route, context).await
-        } else {
-            Err(KotobaError::NotFound(format!("Route not found: {}", path)))
+    /// パスとパラメータによるルートレンダリング
+    async fn render_route_with_params(&self, route: &RouteIR, params: HashMap<String, String>) -> Result<RenderResultIR> {
+        // ルートパラメータをグローバル状態に設定
+        let mut global_props = Properties::new();
+        for (key, value) in params {
+            global_props.insert(key, crate::types::Value::String(value));
         }
+
+        let context = RenderContext {
+            environment: ExecutionEnvironment::Universal,
+            route_params: global_props,
+            query_params: Properties::new(),
+            global_state: Properties::new(),
+            is_server_side: true,
+            is_client_side: false,
+            hydration_id: Some(format!("route_{}", uuid::Uuid::new_v4())),
+        };
+
+        // 現在のルートを更新
+        let mut current_route = self.current_route.write().await;
+        *current_route = Some(route.clone());
+
+        // ルートをレンダリング
+        self.render_route(route, context).await
     }
 
     /// ルートをレンダリング
@@ -851,6 +826,7 @@ impl BuildEngine {
 mod tests {
     use super::*;
     use crate::frontend::component_ir::ComponentType;
+    use crate::frontend::api_ir::*;
 
     #[tokio::test]
     async fn test_web_framework_creation() {
@@ -958,18 +934,18 @@ mod tests {
     fn test_request_context() {
         let request = crate::http::HttpRequest {
             id: "test-123".to_string(),
-            method: "GET".to_string(),
+            method: crate::http::HttpMethod::GET,
             path: "/test".to_string(),
-            headers: Properties::new(),
-            query_string: None,
-            body: None,
-            timestamp: std::time::SystemTime::now(),
+            query: std::collections::HashMap::new(),
+            headers: crate::http::HttpHeaders::new(),
+            body_ref: None,
+            timestamp: 1234567890,
         };
 
         let mut context = RequestContext::new(request);
         assert!(!context.is_terminated());
 
-        context.add_header("X-Test", "value");
+        context.add_header("X-Test", "value".to_string());
         context.terminate_with_status(404);
 
         assert!(context.is_terminated());

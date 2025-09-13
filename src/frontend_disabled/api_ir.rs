@@ -160,7 +160,7 @@ pub enum ApiResponseBody {
     HTML(String),
     Binary(Vec<u8>),
     File { path: String, filename: String },
-    Stream(Box<dyn std::io::Read>), // ストリーミングレスポンス用
+    // Stream(Box<dyn std::io::Read>), // ストリーミングレスポンス用 - TODO: 実装予定
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -607,15 +607,8 @@ mod tests {
             middleware_type: MiddlewareType::CORS,
             config: {
                 let mut props = Properties::new();
-                props.insert("allowed_origins".to_string(), Value::Array(vec![
-                    Value::String("*".to_string())
-                ]));
-                props.insert("allowed_methods".to_string(), Value::Array(vec![
-                    Value::String("GET".to_string()),
-                    Value::String("POST".to_string()),
-                    Value::String("PUT".to_string()),
-                    Value::String("DELETE".to_string()),
-                ]));
+                props.insert("allowed_origins".to_string(), Value::String("*".to_string()));
+                props.insert("allowed_methods".to_string(), Value::String("GET,POST,PUT,DELETE".to_string()));
                 props
             },
             order: 1,

@@ -9,8 +9,6 @@ pub mod execution;
 pub mod storage;
 pub mod planner;
 pub mod rewrite;
-pub mod http;
-pub mod frontend;
 
 // Examples
 #[cfg(feature = "examples")]
