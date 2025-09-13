@@ -59,16 +59,17 @@ impl Graph {
     }
 
     /// 頂点を追加
-    pub fn add_vertex(&mut self, vertex: VertexData) {
+    pub fn add_vertex(&mut self, vertex: VertexData) -> VertexId {
         let id = vertex.id;
         for label in &vertex.labels {
             self.vertex_labels.entry(label.clone()).or_insert(HashSet::new()).insert(id);
         }
         self.vertices.insert(id, vertex);
+        id
     }
 
     /// エッジを追加
-    pub fn add_edge(&mut self, edge: EdgeData) {
+    pub fn add_edge(&mut self, edge: EdgeData) -> EdgeId {
         let id = edge.id;
         let src = edge.src;
         let dst = edge.dst;
@@ -81,6 +82,7 @@ impl Graph {
         self.edge_labels.entry(edge.label.clone()).or_insert(HashSet::new()).insert(id);
 
         self.edges.insert(id, edge);
+        id
     }
 
     /// 頂点を取得

@@ -9,6 +9,10 @@ pub mod execution;
 pub mod storage;
 pub mod planner;
 pub mod rewrite;
+
+// Examples
+#[cfg(feature = "examples")]
+pub mod examples;
 pub mod topology;
 
 pub use types::{Value, Properties, GraphRef_, TxId, ContentHash, KotobaError, Result};

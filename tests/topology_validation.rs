@@ -233,8 +233,9 @@ fn test_dependency_graph_properties() {
         println!("  {}: in={}, out={}", node_name, in_degree, out_degree);
 
         // ノードの依存関係とエッジの整合性を確認
-        assert_eq!(node.dependencies.len(), out_degree as usize,
-            "Node {} dependency count mismatch", node_name);
+        // dependenciesは「このノードが依存しているノード」なので、エッジグラフでの入次数と比較
+        assert_eq!(node.dependencies.len(), in_degree as usize,
+            "Node {} dependency count mismatch (expected {}, got {})", node_name, in_degree, node.dependencies.len());
     }
 
     // グラフが連結であることを確認（弱連結）
