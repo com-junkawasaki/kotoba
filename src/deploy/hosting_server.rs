@@ -21,8 +21,6 @@ pub struct HttpServer {
 pub struct HttpConfig {
     pub host: String,
     pub port: u16,
-    pub max_connections: usize,
-    pub timeout_ms: u32,
 }
 
 #[derive(Debug)]
@@ -36,8 +34,6 @@ impl HttpConfig {
         Self {
             host: config.host,
             port: config.port,
-            max_connections: 1000,
-            timeout_ms: 30000,
         }
     }
 }
@@ -101,8 +97,6 @@ impl HostingServer {
         let http_config = HttpConfig::new(ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 8080,
-            max_connections: 1000,
-            timeout_ms: 30000,
         });
 
         // HTTPサーバーを作成（モック依存関係）

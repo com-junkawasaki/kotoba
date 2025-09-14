@@ -9,7 +9,7 @@ use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::*;
 use std::time::SystemTimeError;
 use uuid::Uuid;
-use parking_lot::RwLockReadGuard;
+// use parking_lot::RwLockReadGuard; // 既にRwLockを使用しているので不要
 use crate::deploy::config::{DeployConfig};
 use crate::deploy::scaling::ScalingEngine;
 use crate::deploy::network::NetworkManager;
@@ -336,7 +336,7 @@ impl DeployController {
                 props.insert("updated_at".to_string(), Value::String(updated_at.to_string()));
 
                 let updated_vertex = VertexData {
-                    id: deployment_id,
+                    id: deployment_id.into(),
                     labels: vec!["Deployment".to_string()],
                     props,
                 };
@@ -511,8 +511,8 @@ impl DeployController {
     }
 
     /// デプロイメントグラフを取得
-    pub fn get_deployment_graph(&self) -> RwLockReadGuard<Graph> {
-        self.deployment_graph.read()
+    pub fn get_deployment_graph(&self) -> std::sync::RwLockReadGuard<Graph> {
+        self.deployment_graph.read().unwrap()
     }
 
     /// デプロイメント状態を取得

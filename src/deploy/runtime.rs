@@ -196,8 +196,8 @@ impl DeployRuntime {
         if let Some(instance) = instances.get_mut(instance_id) {
             instance.resource_usage.execution_time_sec += execution_time;
             // CPUとメモリは実際の計測が必要だが、ここでは簡易実装
-            instance.resource_usage.cpu_percent = 45.0 + (rand::random::<f64>() - 0.5) * 20.0;
-            instance.resource_usage.memory_mb = 50.0 + (rand::random::<f64>() - 0.5) * 30.0;
+            instance.resource_usage.cpu_percent = 45.0 + (0.4 - 0.5) * 20.0;
+            instance.resource_usage.memory_mb = 50.0 + (0.3 - 0.5) * 30.0;
         }
     }
 

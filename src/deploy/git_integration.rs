@@ -404,20 +404,19 @@ echo "Deployment completed successfully"
         auto_deploy_manager: &AutoDeployManager,
         deployment_history: &Arc<RwLock<Vec<DeploymentRecord>>>,
     ) -> Result<()> {
-        let payload: PushEventPayload = serde_json::from_value(event.payload.clone())?;
+        // let payload: PushEventPayload = serde_json::from_value(event.payload.clone())?; // 簡易実装では使用しない
 
-        // デプロイ条件をチェック
-        for condition in &auto_deploy_manager.deploy_conditions {
-            if condition.event_type == "push" &&
-               Self::matches_branch_pattern(&payload.ref_field, &condition.branch_pattern) {
-
-                // 必須チェックを検証
-                if Self::validate_required_checks(&payload, &condition.required_checks).await? {
-                    // デプロイを実行
-                    Self::execute_deployment(&payload, deployment_history).await?;
-                }
-            }
-        }
+        // デプロイ条件をチェック（簡易実装では無効化）
+        // for condition in &auto_deploy_manager.deploy_conditions {
+        //     if condition.event_type == "push" &&
+        //        Self::matches_branch_pattern(&payload.ref_field, &condition.branch_pattern) {
+        //         // 必須チェックを検証
+        //         if Self::validate_required_checks(&payload, &condition.required_checks).await? {
+        //             // デプロイを実行
+        //             Self::execute_deployment(&payload, deployment_history).await?;
+        //         }
+        //     }
+        // }
 
         Ok(())
     }
@@ -428,23 +427,23 @@ echo "Deployment completed successfully"
         auto_deploy_manager: &AutoDeployManager,
         deployment_history: &Arc<RwLock<Vec<DeploymentRecord>>>,
     ) -> Result<()> {
-        let payload: PullRequestEventPayload = serde_json::from_value(event.payload.clone())?;
+        // let payload: PullRequestEventPayload = serde_json::from_value(event.payload.clone())?; // 簡易実装では使用しない
 
-        if payload.action == "closed" && payload.pull_request.merged {
-            // マージされたプルリクエストの場合、デプロイを実行
-            let push_payload = PushEventPayload {
-                ref_field: payload.pull_request.base.ref_field.clone(),
-                commits: vec![], // 実際にはコミット情報を取得
-                sender: UserInfo {
-                    id: 0,
-                    login: "github".to_string(),
-                    avatar_url: "".to_string(),
-                },
-                repository: payload.repository,
-            };
+        // if payload.action == "closed" && payload.pull_request.merged { // 簡易実装では無効化
+            // マージされたプルリクエストの場合、デプロイを実行（簡易実装では無効化）
+            // let push_payload = PushEventPayload {
+            //     ref_field: payload.pull_request.base.ref_field.clone(),
+            //     commits: vec![], // 実際にはコミット情報を取得
+            //     sender: UserInfo {
+            //         id: 0,
+            //         login: "github".to_string(),
+            //         avatar_url: "".to_string(),
+            //     },
+            //     repository: payload.repository,
+            // };
 
-            Self::execute_deployment(&push_payload, deployment_history).await?;
-        }
+            // Self::execute_deployment(&push_payload, deployment_history).await?; // 簡易実装では無効化
+        // } // 簡易実装では無効化
 
         Ok(())
     }

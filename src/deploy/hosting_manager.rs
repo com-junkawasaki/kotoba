@@ -374,10 +374,10 @@ impl HostingManager {
         for lifecycle in states.values_mut() {
             if lifecycle.phase == LifecyclePhase::Running {
                 // 簡易メトリクス収集
-                lifecycle.metrics.cpu_usage = 45.0 + (rand::random::<f64>() - 0.5) * 20.0;
-                lifecycle.metrics.memory_usage = 60.0 + (rand::random::<f64>() - 0.5) * 30.0;
+                lifecycle.metrics.cpu_usage = 45.0 + (0.6 - 0.5) * 20.0;
+                lifecycle.metrics.memory_usage = 60.0 + (0.4 - 0.5) * 30.0;
                 lifecycle.metrics.request_count += 10; // 簡易増加
-                lifecycle.metrics.response_time_ms = 100.0 + (rand::random::<f64>() - 0.5) * 50.0;
+                lifecycle.metrics.response_time_ms = 100.0 + (0.2 - 0.5) * 50.0;
             }
         }
 

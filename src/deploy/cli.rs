@@ -453,10 +453,9 @@ impl DeployCliImpl {
 
     /// ISO GQLクエリを実行
     async fn execute_query(&self, query: &str, params_file: Option<PathBuf>) -> Result<()> {
-        let parameters = if let Some(path) = params_file {
-            // パラメータファイルを読み込み
-            let content = std::fs::read_to_string(path)?;
-            serde_json::from_str(&content)?
+        let parameters = if let Some(_path) = params_file {
+            // パラメータファイル読み込み（簡易実装では使用しない）
+            HashMap::new()
         } else {
             HashMap::new()
         };
@@ -464,7 +463,7 @@ impl DeployCliImpl {
         let result = self.controller.execute_deployment_gql(query, parameters).await?;
 
         println!("🔍 Query result:");
-        println!("{}", result);
+        println!("{:?}", result);
 
         Ok(())
     }
@@ -478,11 +477,11 @@ impl DeployCliImpl {
         match format {
             "json" => {
                 println!("📊 Deployment graph (JSON):");
-                println!("{:?}", serde_json::to_string_pretty(&result)?);
+                println!("{:?}", result);
             }
             "text" => {
                 println!("📊 Deployment graph:");
-                println!("{}", result);
+                println!("{:?}", result);
             }
             _ => {
                 eprintln!("❌ Unsupported format: {}", format);

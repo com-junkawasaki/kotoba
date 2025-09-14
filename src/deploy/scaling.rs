@@ -401,7 +401,7 @@ impl MetricsCollector {
         });
 
         // リクエスト数を収集
-        let request_count = 50.0 + (rand::random::<f64>() - 0.5) * 25.0;
+        let request_count = 50.0 + (0.2 - 0.5) * 25.0;
         self.request_metrics.write().unwrap().push(MetricPoint {
             timestamp,
             value: request_count.max(0.0),
@@ -531,7 +531,7 @@ impl LoadBalancer {
             // 実際の実装ではHTTPヘルスチェックを実行
             // ここでは簡易的な実装
 
-            let is_healthy = rand::random::<bool>(); // 実際にはヘルスチェックの結果
+            let is_healthy = true; // 簡易実装では常に正常
 
             instance.last_health_check = SystemTime::now();
 

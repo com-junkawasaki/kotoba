@@ -45,7 +45,7 @@ pub use scaling::{
     ScalingEngine, LoadBalancer, AutoScaler, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm,
 };
 pub use network::{
-    NetworkManager, RegionManager, EdgeRouter, NetworkConfig as NetworkConfigTrait,
+    NetworkManager, RegionManager, EdgeRouter,
 };
 pub use git_integration::{
     GitIntegration, WebhookHandler, GitHubConfig, GitHubEvent,
