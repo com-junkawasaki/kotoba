@@ -9,6 +9,9 @@ pub mod types;
 pub mod parser;
 pub mod generator;
 pub mod error;
+pub mod swc_integration;
+pub mod css_processor;
+pub mod styled_components;
 
 #[cfg(feature = "cli")]
 pub mod cli;

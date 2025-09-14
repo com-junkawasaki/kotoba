@@ -2,12 +2,20 @@
 
 use crate::error::Result;
 use crate::types::*;
+use crate::swc_integration::SwcCodeGenerator;
+use crate::css_processor::CssProcessor;
+use crate::styled_components::{StyledComponentsGenerator, EmotionGenerator, ThemeProviderGenerator};
 use std::collections::HashMap;
 use tokio::fs as async_fs;
 
 /// TSX code generator
 pub struct TsxGenerator {
     options: TsxGenerationOptions,
+    swc_generator: SwcCodeGenerator,
+    css_processor: CssProcessor,
+    styled_generator: StyledComponentsGenerator,
+    emotion_generator: EmotionGenerator,
+    theme_generator: ThemeProviderGenerator,
 }
 
 impl TsxGenerator {
@@ -15,12 +23,24 @@ impl TsxGenerator {
     pub fn new() -> Self {
         Self {
             options: TsxGenerationOptions::default(),
+            swc_generator: SwcCodeGenerator::new(),
+            css_processor: CssProcessor::new(),
+            styled_generator: StyledComponentsGenerator::new(),
+            emotion_generator: EmotionGenerator::new(),
+            theme_generator: ThemeProviderGenerator::new(),
         }
     }
 
     /// Create a new TsxGenerator with custom options
     pub fn with_options(options: TsxGenerationOptions) -> Self {
-        Self { options }
+        Self {
+            options: options.clone(),
+            swc_generator: SwcCodeGenerator::new(),
+            css_processor: CssProcessor::new(),
+            styled_generator: StyledComponentsGenerator::new(),
+            emotion_generator: EmotionGenerator::new(),
+            theme_generator: ThemeProviderGenerator::new(),
+        }
     }
 
     /// Generate TSX code from KotobaConfig

@@ -62,6 +62,42 @@ pub struct ComponentStyle {
     pub inline_styles: HashMap<String, String>,
 }
 
+/// CSS-in-JS library type
+#[derive(Debug, Clone, PartialEq)]
+pub enum CssInJsLibrary {
+    None,
+    StyledComponents,
+    Emotion,
+}
+
+/// SWC code generation options
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwcOptions {
+    /// Enable SWC code formatting
+    pub format_code: bool,
+    /// Enable SWC minification
+    pub minify: bool,
+    /// Target ECMAScript version
+    pub target: String,
+    /// Enable JSX transformation
+    pub jsx_transform: bool,
+}
+
+/// CSS processing options
+#[derive(Debug, Clone, PartialEq)]
+pub struct CssOptions {
+    /// Enable CSS processing with Lightning CSS
+    pub enable_processing: bool,
+    /// Enable CSS minification
+    pub minify: bool,
+    /// Enable CSS modules support
+    pub css_modules: bool,
+    /// CSS-in-JS library to use
+    pub css_in_js: CssInJsLibrary,
+    /// Enable theme support
+    pub enable_theme: bool,
+}
+
 /// TSX generation options
 #[derive(Debug, Clone, PartialEq)]
 pub struct TsxGenerationOptions {
@@ -77,6 +113,10 @@ pub struct TsxGenerationOptions {
     pub include_default_props: bool,
     /// Format the output code
     pub format_output: bool,
+    /// SWC options for enhanced code generation
+    pub swc_options: SwcOptions,
+    /// CSS processing options
+    pub css_options: CssOptions,
 }
 
 impl Default for TsxGenerationOptions {
@@ -88,6 +128,19 @@ impl Default for TsxGenerationOptions {
             include_prop_types: true,
             include_default_props: true,
             format_output: true,
+            swc_options: SwcOptions {
+                format_code: true,
+                minify: false,
+                target: "es2020".to_string(),
+                jsx_transform: true,
+            },
+            css_options: CssOptions {
+                enable_processing: true,
+                minify: false,
+                css_modules: false,
+                css_in_js: CssInJsLibrary::None,
+                enable_theme: false,
+            },
         }
     }
 }

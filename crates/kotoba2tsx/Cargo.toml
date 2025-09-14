@@ -26,6 +26,22 @@ parking_lot = "0.12"
 hex = { workspace = true }
 sha2 = { workspace = true }
 
+# SWC integration for enhanced code generation
+swc_core = { version = "0.90", features = ["ecma_codegen", "ecma_parser", "ecma_transforms", "ecma_visit", "common"] }
+swc_ecma_codegen = "0.146"
+swc_ecma_parser = "0.141"
+swc_ecma_transforms = "0.226"
+swc_ecma_visit = "0.96"
+
+# Lightning CSS for CSS processing and optimization
+lightningcss = "1.0"
+
+# Additional dependencies for CSS-in-JS and enhanced functionality
+phf = { version = "0.11", features = ["macros"] }
+indexmap = "2.0"
+cssparser = "0.31"
+selectors = "0.25"
+
 [features]
 default = ["std", "cli"]
 std = []

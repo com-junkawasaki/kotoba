@@ -213,27 +213,6 @@ pub struct DistributedResult {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ResultId(pub String);
 
-/// 分散実行エラー
-#[derive(Debug, thiserror::Error)]
-pub enum DistributedError {
-    #[error("Task execution failed: {message}")]
-    TaskExecutionFailed { message: String },
-
-    #[error("Network communication error: {source}")]
-    NetworkError { source: Box<dyn std::error::Error + Send + Sync> },
-
-    #[error("Node unavailable: {node_id}")]
-    NodeUnavailable { node_id: NodeId },
-
-    #[error("CID cache miss: {cid}")]
-    CacheMiss { cid: Cid },
-
-    #[error("Timeout exceeded: {duration:?}")]
-    Timeout { duration: std::time::Duration },
-
-    #[error("Invalid task configuration: {message}")]
-    InvalidConfiguration { message: String },
-}
 
 /// 結果データ
 #[derive(Debug)]
@@ -243,7 +222,7 @@ pub enum ResultData {
     /// 部分成功
     Partial(Vec<PartialResult>),
     /// エラー
-    Error(DistributedError),
+    Error(KotobaError),
 }
 
 /// 部分結果
