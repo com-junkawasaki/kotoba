@@ -11,7 +11,7 @@
 3. kotoba-storage (depends on kotoba-core)
 4. kotoba-execution (depends on kotoba-core)
 5. kotoba-rewrite (depends on kotoba-core, kotoba-graph, kotoba-storage)
-6. kotoba-web (depends on kotoba-core)
+6. kotoba-server (depends on kotoba-core)
 
 ## Publish Commands
 cargo publish -p kotoba-core
@@ -19,7 +19,7 @@ cargo publish -p kotoba-graph
 cargo publish -p kotoba-storage
 cargo publish -p kotoba-execution
 cargo publish -p kotoba-rewrite
-cargo publish -p kotoba-web
+cargo publish -p kotoba-server
 
 ## Verification
 After publishing, verify at:

@@ -1976,6 +1976,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-server"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "hex",
+ "hyper 0.14.32",
+ "js-sys",
+ "kotoba-core 0.1.1",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.16",
+ "tokio",
+ "tower 0.4.13",
+ "tower-http 0.4.4",
+ "uuid",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "kotoba-storage"
 version = "0.1.1"
 dependencies = [
@@ -2008,28 +2030,6 @@ dependencies = [
  "sha2",
  "thiserror 2.0.16",
  "uuid",
-]
-
-[[package]]
-name = "kotoba-web"
-version = "0.1.1"
-dependencies = [
- "anyhow",
- "hex",
- "hyper 0.14.32",
- "js-sys",
- "kotoba-core 0.1.1",
- "parking_lot",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.16",
- "tokio",
- "tower 0.4.13",
- "tower-http 0.4.4",
- "uuid",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]

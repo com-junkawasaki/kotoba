@@ -35,7 +35,7 @@ class CrateGenerator:
             'kotoba-rewrite': [
                 'rewrite_matcher', 'rewrite_applier', 'rewrite_engine'
             ],
-            'kotoba-web': [
+            'kotoba-server': [
                 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server',
                 'frontend_component_ir', 'frontend_route_ir', 'frontend_render_ir',
                 'frontend_build_ir', 'frontend_api_ir', 'frontend_framework'
@@ -183,7 +183,7 @@ repository = "https://github.com/jun784/kotoba"
                 toml_content += f'{dep} = {{ path = "../{dep}", version = "{dep_version}" }}\n'
 
         # WASM対応
-        if crate_name in ['kotoba-core', 'kotoba-graph', 'kotoba-web']:
+        if crate_name in ['kotoba-core', 'kotoba-graph', 'kotoba-server']:
             toml_content += """
 [features]
 default = ["std"]

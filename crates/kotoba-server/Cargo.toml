@@ -1,17 +1,17 @@
 [package]
-name = "kotoba-web"
+name = "kotoba-server"
 version = "0.1.1"
 edition = "2021"
-description = "Kotoba Web Components"
+description = "Kotoba Server Components"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 
 
 authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["web", "http", "frontend", "framework"]
+keywords = ["server", "http", "backend", "framework"]
 categories = ["web-programming", "api-bindings"]
 readme = "README.md"
-documentation = "https://docs.rs/kotoba-web"
+documentation = "https://docs.rs/kotoba-server"
 homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]

@@ -59,7 +59,7 @@ kotoba-storage = "0.1.1"
 kotoba-execution = "0.1.1"
 kotoba-rewrite = "0.1.1"
 # kotoba-security = "0.1.0" # まだ安定していないためコメントアウト
-# kotoba-web = "0.1.1" # オプション機能のためコメントアウト
+# kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
 # Kotoba internal crates
 kotoba-jsonnet.workspace = true

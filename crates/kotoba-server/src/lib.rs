@@ -1,4 +1,4 @@
-//! kotoba-web - Kotoba Web Components
+//! kotoba-server - Kotoba Server Components
 
 pub mod prelude {
     // Re-export commonly used items

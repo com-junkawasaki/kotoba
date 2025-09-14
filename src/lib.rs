@@ -10,7 +10,7 @@
 //! - `kotoba-storage`: 永続化層
 //! - `kotoba-execution`: クエリ実行とプランナー
 //! - `kotoba-rewrite`: グラフ書き換え
-//! - `kotoba-web`: WebフレームワークとHTTP
+//! - `kotoba-server`: ServerフレームワークとHTTP
 
 // Re-export from individual crates
 pub use kotoba_core as core;

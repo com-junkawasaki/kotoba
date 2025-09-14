@@ -108,7 +108,7 @@ Kotobaは以下のmulti crateアーキテクチャを採用しています：
 ├── kotoba-storage/        # 永続化層 (MVCC + Merkle)
 ├── kotoba-execution/      # クエリ実行とプランナー
 ├── kotoba-rewrite/        # グラフ書き換えエンジン
-├── kotoba-web/            # WebフレームワークとHTTP
+├── kotoba-server/          # ServerフレームワークとHTTP
 └── kotoba/                # 統合crate (全機能利用)
 ```
 
