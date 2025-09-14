@@ -1,11 +1,13 @@
 # Multi-stage build for Kotoba (local development and GKE)
-FROM rust:1.75-slim AS builder
+FROM rust:1.82-slim AS builder
 
 # Install required packages
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     build-essential \
+    clang \
+    libclang-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

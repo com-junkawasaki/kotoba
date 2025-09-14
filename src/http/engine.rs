@@ -42,7 +42,7 @@ impl HttpEngine {
             security_service,
         );
 
-        let middleware_processor = MiddlewareProcessor::new(config.middlewares.clone(), security_service);
+        let middleware_processor = MiddlewareProcessor::new(config.middlewares.clone(), security_service.clone());
         let handler_processor = HandlerProcessor::new();
 
         // ルートをマップにインデックス化

@@ -55,7 +55,11 @@ authors = ["Jun Kawasaki <jun784@example.com>"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba"
 homepage = "https://github.com/jun784/kotoba"
-exclude = ["examples/**/*", "benches/**/*", "tests/**/*", "src/topology.rs", "src/bin/**/*"]
+exclude = ["examples/**/*", "tests/**/*", "src/topology.rs"]
+
+[[bin]]
+name = "kotoba"
+path = "src/main.rs"
 
 [profile.bench]
 opt-level = 3
@@ -67,17 +71,17 @@ panic = "abort"
 
 [dependencies]
 # Core crates - published versions
-kotoba-core = "0.1.1"
-kotoba-graph = "0.1.1"
-kotoba-storage = "0.1.1"
-kotoba-execution = "0.1.1"
-kotoba-rewrite = "0.1.1"
+kotoba-core = "0.1.2"
+kotoba-graph = "0.1.2"
+kotoba-storage = "0.1.2"
+kotoba-execution = "0.1.2"
+kotoba-rewrite = "0.1.2"
 # kotoba-security = "0.1.0" # まだ安定していないためコメントアウト
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
 # Kotoba internal crates
 kotoba-jsonnet.workspace = true
-kotoba-kotobanet.workspace = true
+# kotoba-kotobanet.workspace = true  # まだ安定していないためコメントアウト
 
 # Schema and CID dependencies
 schemars.workspace = true
@@ -131,22 +135,27 @@ uuid = { version = "1.0", features = ["v4"] }
 
 [[bench]]
 name = "graph_operations"
+path = "benches/graph_operations.rs"
 harness = false
 
 [[bench]]
 name = "query_execution"
+path = "benches/query_execution.rs"
 harness = false
 
 [[bench]]
 name = "rewrite_operations"
+path = "benches/rewrite_operations.rs"
 harness = false
 
 [[bench]]
 name = "storage_operations"
+path = "benches/storage_operations.rs"
 harness = false
 
 [[bench]]
 name = "jsonnet_benchmark"
+path = "benches/jsonnet_benchmark.rs"
 harness = false
 
 # Examples are excluded from publish to avoid dependency issues

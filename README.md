@@ -28,6 +28,38 @@ Kotoba is a powerful graph processing system built on graph theory foundations. 
 - Rust 1.70.0 or later
 - Cargo package manager
 
+### 🐳 Nix Development Environment (Recommended)
+
+For a reproducible and stable development environment, use Nix with flakes:
+
+```bash
+# Install Nix (if not already installed)
+curl -L https://nixos.org/nix/install | sh
+
+# Enable flakes (add to ~/.config/nix/nix.conf)
+experimental-features = nix-command flakes
+
+# Clone and enter the project
+git clone https://github.com/jun784/kotoba.git
+cd kotoba
+
+# Run setup script
+./scripts/setup-nix.sh
+
+# Enter development environment
+nix develop
+
+# Or use direnv for automatic activation
+direnv allow  # (if direnv is installed)
+```
+
+The Nix environment provides:
+- ✅ Exact Rust version (1.82.0)
+- ✅ All required dependencies
+- ✅ Development tools (docker, kind, kubectl, helm)
+- ✅ Reproducible builds
+- ✅ Cross-platform support
+
 ### Installation
 
 ```bash

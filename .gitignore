@@ -1,1 +1,23 @@
 /target
+
+# Nix
+result
+result-*
+.direnv/
+.envrc.local
+
+# Docker
+.dockerignore.backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

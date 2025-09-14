@@ -1,7 +1,7 @@
 [package]
 name = "kotoba-kotobanet"
 description = "Kotoba-specific Jsonnet extensions - HTTP Parser, Frontend Framework, Deploy Config, and Configuration"
-version.workspace = true
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

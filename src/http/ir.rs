@@ -348,7 +348,7 @@ impl Default for HttpCatalog {
                     },
                         PropertyDef {
                             name: "timestamp".to_string(),
-                            type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                             nullable: false,
                             default: None,
                         },
@@ -360,13 +360,13 @@ impl Default for HttpCatalog {
                     properties: vec![
                         PropertyDef {
                             name: "method".to_string(),
-                            type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                             nullable: false,
                             default: None,
                         },
                         PropertyDef {
                             name: "pattern".to_string(),
-                            type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                             nullable: false,
                             default: None,
                         },
@@ -378,13 +378,13 @@ impl Default for HttpCatalog {
                     properties: vec![
                         PropertyDef {
                             name: "name".to_string(),
-                            type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                             nullable: false,
                             default: None,
                         },
                         PropertyDef {
                             name: "order".to_string(),
-                            type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                             nullable: false,
                             default: None,
                         },

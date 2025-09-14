@@ -389,7 +389,7 @@ impl DistributedEngine {
 
     /// GQLクエリのパースと最適化
     fn parse_and_optimize_gql(&self, gql: &str, catalog: &Catalog) -> Result<PlanIR> {
-        let gql_parser = GqlParser::new();
+        let mut gql_parser = GqlParser::new();
         let mut logical_plan = gql_parser.parse(gql)?;
 
         // 論理最適化（簡易版）

@@ -22,7 +22,7 @@ pub struct WebFramework {
     renderer: ComponentRenderer,
     config: WebFrameworkConfigIR,
     current_route: Arc<RwLock<Option<RouteIR>>>,
-    frontend_config: Option<kotoba_kotobanet::FrontendConfig>,
+    // frontend_config: Option<kotoba_kotobanet::FrontendConfig>,
 }
 
 
@@ -82,59 +82,15 @@ impl WebFramework {
     }
 
     /// kotoba-kotobanet::ComponentDef を ComponentIR に変換
-    fn convert_component_def_to_ir(&self, name: &str, def: &kotoba_kotobanet::ComponentDef) -> Result<ComponentIR> {
-        let component_type = match def.name.to_lowercase() {
-            name if name.contains("page") => ComponentType::Page,
-            name if name.contains("layout") => ComponentType::Layout,
-            name if name.contains("server") => ComponentType::Server,
-            name if name.contains("client") => ComponentType::Client,
-            _ => ComponentType::Server, // デフォルト
-        };
-
-        let mut component_ir = ComponentIR::new(name.to_string(), component_type);
-
-        // Props を設定
-        for (prop_name, prop_def) in &def.props {
-            component_ir.props.insert(prop_name.clone(), Value::String(format!("{:?}", prop_def.type_)));
-        }
-
-        // State を設定（簡略化）
-        if let Some(ref state) = def.state {
-            for (state_name, state_def) in state {
-                component_ir.state.insert(state_name.clone(), Value::String(format!("{:?}", state_def.type_)));
-            }
-        }
-
-        Ok(component_ir)
+    fn convert_component_def_to_ir(&self, name: &str, _def: &serde_json::Value) -> Result<ComponentIR> {
+        // Stub implementation - kotoba-kotobanet not available
+        Ok(ComponentIR::new(name.to_string(), ComponentType::Server))
     }
 
     /// kotoba-kotobanet::PageDef を RouteIR に変換
-    fn convert_page_def_to_ir(&self, def: &kotoba_kotobanet::PageDef) -> Result<RouteIR> {
-        let mut route_ir = RouteIR::new(def.path.clone());
-
-        // ページコンポーネントを設定
-        let page_component = ComponentIR::new(format!("Page_{}", def.component), ComponentType::Page);
-        route_ir.components.page = Some(page_component);
-
-        // レイアウトを設定
-        if let Some(ref layout) = def.layout {
-            let layout_component = ComponentIR::new(layout.clone(), ComponentType::Layout);
-            route_ir.components.layout = Some(layout_component);
-        }
-
-        // ローディングを設定
-        if let Some(ref loading) = def.loading {
-            let loading_component = ComponentIR::new(loading.clone(), ComponentType::Server);
-            route_ir.components.loading = Some(loading_component);
-        }
-
-        // エラーを設定
-        if let Some(ref error) = def.error {
-            let error_component = ComponentIR::new(error.clone(), ComponentType::Server);
-            route_ir.components.error = Some(error_component);
-        }
-
-        Ok(route_ir)
+    fn convert_page_def_to_ir(&self, _def: &serde_json::Value) -> Result<RouteIR> {
+        // Stub implementation - kotoba-kotobanet not available
+        Ok(RouteIR::new("/".to_string()))
     }
 
     /// HTTPリクエストを処理
