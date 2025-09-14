@@ -1071,7 +1071,7 @@ mod tests {
 
     #[test]
     fn test_parse_external_services_config() {
-        let config = r#"
+        let config = r##"
         {
             app: {
                 name: "TestApp",
@@ -1101,7 +1101,7 @@ mod tests {
                 }
             }
         }
-        "#;
+        "##;
 
         let result = ConfigParser::parse(config);
         assert!(result.is_ok());
@@ -1293,8 +1293,8 @@ mod tests {
         assert!(*app_config.features.flags.get("newCheckout").unwrap());
 
         // Test custom config
-        assert!(app_config.config.get("stripePublishableKey").is_some());
-        assert!(app_config.config.get("maxOrderAmount").is_some());
+        assert!(app_config.custom.get("stripePublishableKey").is_some());
+        assert!(app_config.custom.get("maxOrderAmount").is_some());
     }
 
     #[test]
@@ -1542,12 +1542,12 @@ mod tests {
         let app_config = result.unwrap();
 
         // Test various JSON value types in custom config
-        assert!(app_config.config.get("apiKey").is_some());
-        assert!(app_config.config.get("maxRetries").is_some());
-        assert!(app_config.config.get("timeout").is_some());
-        assert!(app_config.config.get("enabled").is_some());
-        assert!(app_config.config.get("tags").is_some());
-        assert!(app_config.config.get("nested").is_some());
+        assert!(app_config.custom.get("apiKey").is_some());
+        assert!(app_config.custom.get("maxRetries").is_some());
+        assert!(app_config.custom.get("timeout").is_some());
+        assert!(app_config.custom.get("enabled").is_some());
+        assert!(app_config.custom.get("tags").is_some());
+        assert!(app_config.custom.get("nested").is_some());
     }
 
     #[test]

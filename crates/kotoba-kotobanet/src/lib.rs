@@ -39,6 +39,8 @@ pub fn evaluate_kotoba_to_json(code: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_kotoba_evaluation() {
@@ -495,7 +497,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_http() {
-        use tempfile::NamedTempFile;
         use crate::http_parser::HttpParser;
 
         let http_config = r#"
@@ -532,7 +533,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_frontend() {
-        use tempfile::NamedTempFile;
         use crate::frontend::FrontendParser;
 
         let frontend_config = r#"
@@ -570,7 +570,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_deploy() {
-        use tempfile::NamedTempFile;
         use crate::deploy::DeployParser;
 
         let deploy_config = r#"
@@ -606,7 +605,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_config() {
-        use tempfile::NamedTempFile;
         use crate::config::ConfigParser;
 
         let app_config = r#"
@@ -643,7 +641,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_complex() {
-        use tempfile::NamedTempFile;
         use crate::http_parser::HttpParser;
         use crate::frontend::FrontendParser;
         use crate::deploy::DeployParser;
@@ -746,8 +743,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_errors() {
-        use std::io::Write;
-        use tempfile::NamedTempFile;
         use crate::http_parser::HttpParser;
 
         // Test non-existent file
@@ -767,8 +762,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_different_extensions() {
-        use std::io::Write;
-        use tempfile::NamedTempFile;
         use crate::http_parser::HttpParser;
 
         let config = r#"
@@ -801,8 +794,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_large_files() {
-        use std::io::Write;
-        use tempfile::NamedTempFile;
         use crate::config::ConfigParser;
 
         // Create a large configuration file
@@ -839,8 +830,6 @@ mod tests {
 
     #[test]
     fn test_integration_file_parsing_unicode() {
-        use std::io::Write;
-        use tempfile::NamedTempFile;
         use crate::frontend::FrontendParser;
 
         let unicode_config = r#"
