@@ -1,0 +1,45 @@
+# Headless service for StatefulSet DNS resolution
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kotoba.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kotoba.labels" . | nindent 4 }}
+    component: storage
+spec:
+  clusterIP: None  # Headless service
+  selector:
+    {{- include "kotoba.selectorLabels" . | nindent 4 }}
+    component: storage
+  ports:
+  - name: http
+    port: {{ .Values.service.targetPort }}
+    targetPort: {{ .Values.service.targetPort }}
+  - name: grpc
+    port: {{ .Values.service.grpcPort }}
+    targetPort: {{ .Values.service.grpcTargetPort }}
+---
+# External service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kotoba.fullname" . }}-external
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kotoba.labels" . | nindent 4 }}
+    component: api
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "kotoba.selectorLabels" . | nindent 4 }}
+    component: storage
+  ports:
+  - name: http
+    port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.targetPort }}
+    protocol: TCP
+  - name: grpc
+    port: {{ .Values.service.grpcPort }}
+    targetPort: {{ .Values.service.grpcTargetPort }}
+    protocol: TCP

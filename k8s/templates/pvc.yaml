@@ -1,0 +1,19 @@
+{{- if .Values.storage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kotoba.fullname" . }}-storage-template
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kotoba.labels" . | nindent 4 }}
+    component: storage
+spec:
+  accessModes:
+    - {{ .Values.storage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}
+  {{- if .Values.storage.className }}
+  storageClassName: {{ .Values.storage.className }}
+  {{- end }}
+{{- end }}
