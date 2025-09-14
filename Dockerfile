@@ -1,4 +1,4 @@
-# Multi-stage build for Kotoba on GKE
+# Multi-stage build for Kotoba (local development and GKE)
 FROM rust:1.75-slim AS builder
 
 # Install required packages
@@ -25,6 +25,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
