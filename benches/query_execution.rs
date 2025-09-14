@@ -239,18 +239,22 @@ fn bench_planner_optimization(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_simple_node_scan,
-    bench_node_scan_with_filter,
-    bench_edge_expansion,
-    bench_complex_query,
-    bench_path_traversal,
-    bench_aggregation_query,
-    bench_group_by_query,
-    bench_large_dataset,
-    bench_query_parsing,
-    bench_planner_optimization
-);
+criterion_group! {
+    name = benches;
+    config = Criterion::default()
+        .sample_size(10)
+        .measurement_time(std::time::Duration::from_secs(1))
+        .warm_up_time(std::time::Duration::from_millis(100));
+    targets = bench_simple_node_scan,
+             bench_node_scan_with_filter,
+             bench_edge_expansion,
+             bench_complex_query,
+             bench_path_traversal,
+             bench_aggregation_query,
+             bench_group_by_query,
+             bench_large_dataset,
+             bench_query_parsing,
+             bench_planner_optimization
+}
 
 criterion_main!(benches);

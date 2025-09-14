@@ -57,6 +57,14 @@ documentation = "https://docs.rs/kotoba"
 homepage = "https://github.com/jun784/kotoba"
 exclude = ["examples/**/*", "benches/**/*", "tests/**/*", "src/topology.rs", "src/bin/**/*"]
 
+[profile.bench]
+opt-level = 3
+debug = false
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+
 [dependencies]
 # Core crates - published versions
 kotoba-core = "0.1.1"
@@ -137,10 +145,16 @@ harness = false
 name = "storage_operations"
 harness = false
 
+[[bench]]
+name = "jsonnet_benchmark"
+harness = false
+
 # Examples are excluded from publish to avoid dependency issues
 # [[example]]
 # name = "http_server"
 # path = "examples/http_server/main.rs"
+
+# Jsonnet benchmark binary removed due to compilation issues
 
 # [[example]]
 # name = "tauri_react_app"

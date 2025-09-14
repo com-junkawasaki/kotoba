@@ -1,7 +1,13 @@
 //! グラフ操作のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba::*;
+
+// コンパイル時間を短縮するため、必要な型のみを直接インポート
+#[cfg(feature = "graph")]
+use kotoba_graph::{graph::{Graph, GraphRef}, vertex::VertexData, edge::EdgeData};
+#[cfg(feature = "graph")]
+use kotoba_core::types::Value;
+#[cfg(feature = "graph")]
 use std::collections::HashMap;
 
 /// テスト用グラフデータの生成
@@ -177,17 +183,21 @@ fn bench_memory_usage(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_add_vertex,
-    bench_add_edge,
-    bench_find_vertex,
-    bench_find_edge,
-    bench_vertices_by_label,
-    bench_degree_calculation,
-    bench_graph_statistics,
-    bench_large_graph_construction,
-    bench_memory_usage
-);
+criterion_group! {
+    name = benches;
+    config = Criterion::default()
+        .sample_size(10)  // 測定回数を減らす
+        .measurement_time(std::time::Duration::from_secs(1))  // 測定時間を短く
+        .warm_up_time(std::time::Duration::from_millis(100));  // ウォームアップ時間を短く
+    targets = bench_add_vertex,
+             bench_add_edge,
+             bench_find_vertex,
+             bench_find_edge,
+             bench_vertices_by_label,
+             bench_degree_calculation,
+             bench_graph_statistics,
+             bench_large_graph_construction,
+             bench_memory_usage
+}
 
 criterion_main!(benches);
