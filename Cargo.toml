@@ -39,14 +39,14 @@ homepage = "https://github.com/jun784/kotoba"
 exclude = ["examples/**/*", "benches/**/*", "tests/**/*", "src/topology.rs", "src/bin/**/*"]
 
 [dependencies]
-# Core crates - local development versions for benchmarks
-kotoba-core = { path = "crates/kotoba-core" }
-kotoba-graph = { path = "crates/kotoba-graph" }
-kotoba-storage = { path = "crates/kotoba-storage" }
-kotoba-execution = { path = "crates/kotoba-execution" }
-kotoba-rewrite = { path = "crates/kotoba-rewrite" }
-kotoba-security = { path = "crates/kotoba-security" }
-# kotoba-web = { version = "0.1.0", optional = true } # まだpublishされていないため一時的にコメントアウト
+# Core crates - published versions
+kotoba-core = "0.1.1"
+kotoba-graph = "0.1.1"
+kotoba-storage = "0.1.1"
+kotoba-execution = "0.1.1"
+kotoba-rewrite = "0.1.1"
+# kotoba-security = "0.1.0" # まだ安定していないためコメントアウト
+# kotoba-web = "0.1.1" # オプション機能のためコメントアウト
 
 # For binary
 clap = { version = "4.0", optional = true }
