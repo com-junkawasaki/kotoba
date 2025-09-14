@@ -4,6 +4,8 @@ use crate::ir::*;
 use crate::graph::*;
 use crate::types::*;
 use crate::rewrite::*;
+use crate::schema::*;
+use crate::cid::*;
 
 /// 書換えエンジン
 #[derive(Debug)]
@@ -193,6 +195,146 @@ impl RewriteEngine {
             _ => true, // デフォルトでtrue
         }
     }
+
+    /// RuleDPOでマッチングと適用を行う
+    pub fn match_and_apply_rule_dpo(&self, graph: &GraphRef, rule_dpo: &RuleDPO, cid_manager: &mut CidManager) -> Result<Option<GraphInstance>> {
+        // GraphをGraphInstanceに変換
+        let graph_instance = graph.to_graph_instance_with_cid(cid_manager)?;
+
+        // 簡易的なマッチング（実際の実装ではグラフマッチングアルゴリズムが必要）
+        let matches = self.find_dpo_matches(&graph_instance, rule_dpo)?;
+
+        if matches.is_empty() {
+            return Ok(None);
+        }
+
+        // 最初のマッチを選択（実際の実装ではより洗練された選択）
+        let match_info = &matches[0];
+
+        // DPO適用
+        let result_graph = self.apply_dpo_rule(&graph_instance, rule_dpo, match_info, cid_manager)?;
+
+        Ok(Some(result_graph))
+    }
+
+    /// DPOマッチング
+    fn find_dpo_matches(&self, graph: &GraphInstance, rule: &RuleDPO) -> Result<Vec<DPOMatch>> {
+        // 簡易版の実装 - 実際にはグラフマッチングが必要
+        let mut matches = Vec::new();
+
+        // LHSパターンとグラフの比較（簡易版）
+        if self.graph_contains_pattern(graph, &rule.l) {
+            let match_info = DPOMatch {
+                node_mapping: HashMap::new(), // 簡易版
+                edge_mapping: HashMap::new(),
+            };
+            matches.push(match_info);
+        }
+
+        Ok(matches)
+    }
+
+    /// グラフがパターンを含むかチェック（簡易版）
+    fn graph_contains_pattern(&self, graph: &GraphInstance, pattern: &GraphInstance) -> bool {
+        // 簡易版の実装 - 実際にはグラフ同型性チェックが必要
+        // ノード数とエッジ数の基本チェック
+        if graph.core.nodes.len() < pattern.core.nodes.len() ||
+           graph.core.edges.len() < pattern.core.edges.len() {
+            return false;
+        }
+
+        // ラベルベースの簡単なチェック
+        for pattern_node in &pattern.core.nodes {
+            let has_matching_node = graph.core.nodes.iter()
+                .any(|node| node.labels == pattern_node.labels && node.r#type == pattern_node.r#type);
+            if !has_matching_node {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// DPOルールを適用
+    fn apply_dpo_rule(&self, host_graph: &GraphInstance, rule: &RuleDPO, match_info: &DPOMatch, cid_manager: &mut CidManager) -> Result<GraphInstance> {
+        let mut result_graph = host_graph.clone();
+
+        // L - K（削除）
+        self.remove_l_minus_k(&mut result_graph, rule, match_info)?;
+
+        // R - K（追加）
+        self.add_r_minus_k(&mut result_graph, rule, match_info)?;
+
+        // CID再計算
+        let new_cid = cid_manager.compute_graph_cid(&result_graph.core)?;
+        result_graph.cid = new_cid;
+
+        Ok(result_graph)
+    }
+
+    /// L - K の削除
+    fn remove_l_minus_k(&self, graph: &mut GraphInstance, rule: &RuleDPO, match_info: &DPOMatch) -> Result<()> {
+        // 簡易版の実装
+        // 実際の実装ではマッピングに基づいて正確な削除が必要
+
+        // Lに含まれKに含まれないノード/エッジを削除
+        let nodes_to_remove: Vec<String> = rule.l.core.nodes.iter()
+            .filter(|lhs_node| {
+                !rule.k.core.nodes.iter()
+                    .any(|k_node| k_node.cid == lhs_node.cid)
+            })
+            .map(|node| node.cid.as_str().to_string())
+            .collect();
+
+        let edges_to_remove: Vec<String> = rule.l.core.edges.iter()
+            .filter(|lhs_edge| {
+                !rule.k.core.edges.iter()
+                    .any(|k_edge| k_edge.cid == lhs_edge.cid)
+            })
+            .map(|edge| edge.cid.as_str().to_string())
+            .collect();
+
+        // ノード削除
+        graph.core.nodes.retain(|node| !nodes_to_remove.contains(&node.cid.as_str().to_string()));
+
+        // エッジ削除（接続されているノードも削除された場合）
+        graph.core.edges.retain(|edge| {
+            !edges_to_remove.contains(&edge.cid.as_str().to_string()) &&
+            nodes_to_remove.iter().all(|removed_node| {
+                !edge.src.contains(removed_node) && !edge.tgt.contains(removed_node)
+            })
+        });
+
+        Ok(())
+    }
+
+    /// R - K の追加
+    fn add_r_minus_k(&self, graph: &mut GraphInstance, rule: &RuleDPO, match_info: &DPOMatch) -> Result<()> {
+        // 簡易版の実装
+        // 実際の実装ではマッピングに基づいて正確な追加が必要
+
+        // Rに含まれKに含まれないノード/エッジを追加
+        for rhs_node in &rule.r.core.nodes {
+            if !rule.k.core.nodes.iter().any(|k_node| k_node.cid == rhs_node.cid) {
+                graph.core.nodes.push(rhs_node.clone());
+            }
+        }
+
+        for rhs_edge in &rule.r.core.edges {
+            if !rule.k.core.edges.iter().any(|k_edge| k_edge.cid == rhs_edge.cid) {
+                graph.core.edges.push(rhs_edge.clone());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// DPOマッチング結果
+#[derive(Debug, Clone)]
+pub struct DPOMatch {
+    pub node_mapping: std::collections::HashMap<String, String>,
+    pub edge_mapping: std::collections::HashMap<String, String>,
 }
 
 /// 外部関数インターフェース

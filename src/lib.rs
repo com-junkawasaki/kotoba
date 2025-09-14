@@ -23,6 +23,7 @@ pub use kotoba_rewrite as rewrite;
 // Local modules
 pub mod cid;
 pub mod cli;
+pub mod pgview;
 pub mod schema;
 pub mod schema_test;
 #[cfg(feature = "deploy")]

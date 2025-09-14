@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use parking_lot::RwLock;
 use crate::types::*;
+use crate::schema::*;
+use crate::cid::*;
 
 /// 頂点データ
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +196,138 @@ impl Graph {
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
+
+    /// GraphInstanceからGraphに変換
+    pub fn from_graph_instance(graph_instance: &GraphInstance, cid_manager: &mut CidManager) -> Result<Self> {
+        let mut graph = Graph::empty();
+        let mut vertex_id_map = HashMap::new();
+
+        // Node -> Vertex変換
+        for node in &graph_instance.core.nodes {
+            let vertex_id = uuid::Uuid::new_v4(); // 実際の実装ではCIDから決定論的に生成
+
+            // 属性をValueに変換
+            let props = if let Some(attrs) = &node.attrs {
+                attrs.iter()
+                    .map(|(k, v)| (k.clone(), json_value_to_value(v)))
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+
+            let vertex_data = VertexData {
+                id: vertex_id,
+                labels: node.labels.clone(),
+                props,
+            };
+
+            graph.add_vertex(vertex_data);
+            vertex_id_map.insert(node.cid.as_str(), vertex_id);
+        }
+
+        // Edge -> Edge変換
+        for edge in &graph_instance.core.edges {
+            let edge_id = uuid::Uuid::new_v4(); // 実際の実装ではCIDから決定論的に生成
+
+            // ソースとターゲットのVertex IDを取得
+            let src_vertex_id = *vertex_id_map.get(edge.src.trim_start_matches('#'))
+                .ok_or_else(|| KotobaError::Validation(format!("Source node not found: {}", edge.src)))?;
+
+            let dst_vertex_id = *vertex_id_map.get(edge.tgt.trim_start_matches('#'))
+                .ok_or_else(|| KotobaError::Validation(format!("Target node not found: {}", edge.tgt)))?;
+
+            // 属性をValueに変換
+            let props = if let Some(attrs) = &edge.attrs {
+                attrs.iter()
+                    .map(|(k, v)| (k.clone(), json_value_to_value(v)))
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+
+            let edge_data = EdgeData {
+                id: edge_id,
+                src: src_vertex_id,
+                dst: dst_vertex_id,
+                label: edge.r#type.clone(),
+                props,
+            };
+
+            graph.add_edge(edge_data);
+        }
+
+        Ok(graph)
+    }
+
+    /// GraphからGraphInstanceに変換
+    pub fn to_graph_instance(&self, graph_cid: Cid) -> GraphInstance {
+        let mut nodes = Vec::new();
+        let mut edges = Vec::new();
+
+        // Vertex -> Node変換
+        for (vertex_id, vertex_data) in &self.vertices {
+            let node = Node {
+                cid: Cid::new(&format!("node_{}", vertex_id)), // 実際の実装では決定論的に生成
+                labels: vertex_data.labels.clone(),
+                r#type: vertex_data.labels.first()
+                    .cloned()
+                    .unwrap_or_else(|| "Node".to_string()),
+                ports: vec![], // 現在のGraph構造ではポート情報がない
+                attrs: if vertex_data.props.is_empty() {
+                    None
+                } else {
+                    Some(vertex_data.props.iter()
+                        .map(|(k, v)| (k.clone(), value_to_json_value(v)))
+                        .collect())
+                },
+                component_ref: None,
+            };
+            nodes.push(node);
+        }
+
+        // Edge -> Edge変換
+        for (edge_id, edge_data) in &self.edges {
+            let edge = Edge {
+                cid: Cid::new(&format!("edge_{}", edge_id)), // 実際の実装では決定論的に生成
+                label: Some(edge_data.label.clone()),
+                r#type: edge_data.label.clone(),
+                src: format!("#{}", edge_data.src),
+                tgt: format!("#{}", edge_data.dst),
+                attrs: if edge_data.props.is_empty() {
+                    None
+                } else {
+                    Some(edge_data.props.iter()
+                        .map(|(k, v)| (k.clone(), value_to_json_value(v)))
+                        .collect())
+                },
+            };
+            edges.push(edge);
+        }
+
+        let graph_core = GraphCore {
+            nodes,
+            edges,
+            boundary: None, // 現在のGraph構造では境界情報がない
+            attrs: None,
+        };
+
+        GraphInstance {
+            core: graph_core,
+            kind: GraphKind::Instance,
+            cid: graph_cid,
+            typing: None,
+        }
+    }
+
+    /// CIDを計算してGraphInstanceに変換
+    pub fn to_graph_instance_with_cid(&self, cid_manager: &mut CidManager) -> Result<GraphInstance> {
+        let graph_instance = self.to_graph_instance(Cid::new("temp"));
+        let computed_cid = cid_manager.compute_graph_cid(&graph_instance.core)?;
+        Ok(GraphInstance {
+            cid: computed_cid,
+            ..graph_instance
+        })
+    }
 }
 
 /// スレッドセーフなグラフ参照
@@ -215,5 +349,54 @@ impl GraphRef {
 
     pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, Graph> {
         self.inner.write()
+    }
+
+    /// GraphInstanceからGraphRefに変換
+    pub fn from_graph_instance(graph_instance: &GraphInstance, cid_manager: &mut CidManager) -> Result<Self> {
+        let graph = Graph::from_graph_instance(graph_instance, cid_manager)?;
+        Ok(Self::new(graph))
+    }
+
+    /// GraphRefからGraphInstanceに変換
+    pub fn to_graph_instance(&self, graph_cid: Cid) -> GraphInstance {
+        let graph = self.read();
+        graph.to_graph_instance(graph_cid)
+    }
+
+    /// CIDを計算してGraphInstanceに変換
+    pub fn to_graph_instance_with_cid(&self, cid_manager: &mut CidManager) -> Result<GraphInstance> {
+        let graph = self.read();
+        graph.to_graph_instance_with_cid(cid_manager)
+    }
+}
+
+/// JSON ValueとValueの相互変換ヘルパー
+fn json_value_to_value(json_value: &serde_json::Value) -> Value {
+    match json_value {
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(b) => Value::Bool(*b),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Value::Int(i)
+            } else if let Some(f) = n.as_f64() {
+                // 注意: 現在のValue型はFloatをサポートしていないため、Stringに変換
+                Value::String(f.to_string())
+            } else {
+                Value::String(n.to_string())
+            }
+        }
+        serde_json::Value::String(s) => Value::String(s.clone()),
+        serde_json::Value::Array(_) => Value::String("Array".to_string()), // 簡易版
+        serde_json::Value::Object(_) => Value::String("Object".to_string()), // 簡易版
+    }
+}
+
+fn value_to_json_value(value: &Value) -> serde_json::Value {
+    match value {
+        Value::Null => serde_json::Value::Null,
+        Value::Bool(b) => serde_json::json!(b),
+        Value::Int(i) => serde_json::json!(i),
+        Value::Integer(i) => serde_json::json!(i),
+        Value::String(s) => serde_json::json!(s),
     }
 }
