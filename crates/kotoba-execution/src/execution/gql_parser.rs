@@ -462,7 +462,7 @@ impl GqlParser {
                 aggregations.push(agg);
             } else {
                 let expr = self.parse_expression()?;
-                cols.push(expr.to_string());
+                cols.push(format!("{:?}", expr));
             }
 
             if !self.check_token(&GqlToken::Comma) {
@@ -497,12 +497,12 @@ impl GqlParser {
                 self.advance();
                 self.parse_identifier()?
             } else {
-                format!("{}_{}", fn_name, arg)
+                format!("{}_{:?}", fn_name, arg)
             };
 
             Ok(Some(Aggregation {
                 fn_: fn_name.to_string(),
-                args: vec![arg.to_string()],
+                args: vec![format!("{:?}", arg)],
                 as_: as_name,
             }))
         } else {
