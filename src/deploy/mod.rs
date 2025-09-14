@@ -1,10 +1,11 @@
 //! Kotoba Deploy モジュール
 //!
 //! このモジュールはDeno Deployと同等の機能をKotoba上で提供します。
-//! Live Graph ModelとGraphSON v3プロトコルを使用して、
+//! Live Graph ModelとISO GQLプロトコルを使用して、
 //! グローバル分散ネットワーク、自動スケーリング、GitHub連携を実現します。
 
 pub mod config;
+pub mod controller;
 
 // 再エクスポート
 pub use config::{
@@ -14,6 +15,11 @@ pub use config::{
     CdnConfig, CdnProvider, TlsConfig, HstsConfig, RegionConfig,
     GeographyConfig, DeploymentStatus, DeployScript, ScriptTrigger,
     DeployConfigBuilder,
+};
+pub use controller::{
+    DeployController, DeploymentManager, DeploymentState, DeploymentRequest,
+    RunningDeployment, ResourceUsage, DeploymentPriority, GqlDeploymentQuery,
+    DeploymentQueryType, GqlDeploymentResponse, GqlDeploymentExtensions,
 };
 
 /// デプロイモジュールのバージョン
