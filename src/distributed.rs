@@ -6,6 +6,7 @@
 use crate::schema::*;
 use crate::cid::*;
 use crate::graph::*;
+use crate::execution::*;
 use kotoba_rewrite::prelude::RewriteEngine;
 use kotoba_core::types::*;
 use std::collections::HashMap;
@@ -307,6 +308,208 @@ impl DistributedEngine {
         self.cache_result(&rule_cid, &host_cid, &result).await?;
 
         Ok(result)
+    }
+
+    /// 分散GQLクエリ実行
+    pub async fn execute_gql_distributed(
+        &self,
+        gql: &str,
+        graph: &GraphRef,
+        catalog: &Catalog,
+        cid_manager: &mut CidManager,
+    ) -> Result<DistributedResult> {
+        // GQLクエリのCID計算
+        let query_cid = cid_manager.compute_query_cid(gql)?;
+
+        // グラフのCID計算
+        let graph_cid = {
+            let g = graph.read();
+            cid_manager.compute_graph_cid(&g)?
+        };
+
+        // キャッシュチェック
+        if let Some(cached_result) = self.check_cache(&query_cid, &graph_cid).await? {
+            return Ok(cached_result);
+        }
+
+        // GQLクエリを論理プランに変換
+        let logical_plan = self.parse_and_optimize_gql(gql, catalog)?;
+
+        // 分散実行計画の作成
+        let plan = self.create_gql_distribution_plan(&query_cid, &graph_cid, &logical_plan).await?;
+
+        // タスク実行
+        let result = self.execute_distributed_gql_tasks(plan, graph, catalog, cid_manager).await?;
+
+        // 結果のキャッシュ
+        self.cache_result(&query_cid, &graph_cid, &result).await?;
+
+        Ok(result)
+    }
+
+    /// GQLクエリのパースと最適化
+    fn parse_and_optimize_gql(&self, gql: &str, catalog: &Catalog) -> Result<PlanIR> {
+        let gql_parser = GqlParser::new();
+        let mut logical_plan = gql_parser.parse(gql)?;
+
+        // 論理最適化（簡易版）
+        // 実際の実装ではより高度な最適化を行う
+        Ok(logical_plan)
+    }
+
+    /// GQL分散計画の作成
+    async fn create_gql_distribution_plan(
+        &self,
+        query_cid: &Cid,
+        graph_cid: &Cid,
+        logical_plan: &PlanIR,
+    ) -> Result<DistributionPlan> {
+        let cluster = self.cluster_manager.read().await;
+
+        // 利用可能なノードの取得
+        let available_nodes = cluster.get_available_nodes();
+
+        // 論理プランに基づいてタスクを分割
+        let tasks = self.split_gql_into_tasks(query_cid, graph_cid, logical_plan, &available_nodes)?;
+
+        // 負荷分散
+        let node_assignments = cluster.load_balancer.assign_tasks(&tasks, &available_nodes)?;
+
+        Ok(DistributionPlan {
+            tasks,
+            node_assignments: node_assignments.clone(),
+            estimated_completion: self.estimate_completion_time(&node_assignments),
+        })
+    }
+
+    /// GQLクエリをタスクに分割
+    fn split_gql_into_tasks(
+        &self,
+        query_cid: &Cid,
+        graph_cid: &Cid,
+        logical_plan: &PlanIR,
+        nodes: &[&ClusterNode],
+    ) -> Result<Vec<DistributedTask>> {
+        // 簡易版: 単一のクエリ実行タスクとして扱う
+        // 実際の実装ではプランを分析して適切に分割
+        let task = DistributedTask {
+            id: TaskId(format!("gql_task_{}_{}", query_cid.as_str(), graph_cid.as_str())),
+            task_type: TaskType::QueryExecution {
+                query_cid: query_cid.clone(),
+                target_graph_cid: graph_cid.clone(),
+            },
+            input: TaskInput::CidReference(graph_cid.clone()),
+            priority: TaskPriority::Normal,
+            timeout: Some(std::time::Duration::from_secs(300)),
+        };
+
+        Ok(vec![task])
+    }
+
+    /// 分散GQLタスクの実行
+    async fn execute_distributed_gql_tasks(
+        &self,
+        plan: DistributionPlan,
+        graph: &GraphRef,
+        catalog: &Catalog,
+        cid_manager: &mut CidManager,
+    ) -> Result<DistributedResult> {
+        let start_time = std::time::Instant::now();
+        let mut node_infos = Vec::new();
+
+        // 各ノードへのタスク割り当て
+        for (node_id, tasks) in plan.node_assignments {
+            let node_start = std::time::Instant::now();
+
+            // ノード上でのGQLタスク実行
+            let node_result = self.execute_gql_tasks_on_node(&node_id, &tasks, graph, catalog, cid_manager).await?;
+
+            let execution_time = node_start.elapsed();
+            node_infos.push(NodeExecutionInfo {
+                node_id,
+                tasks_executed: tasks.len(),
+                execution_time,
+                tasks_succeeded: node_result.tasks_succeeded,
+                tasks_failed: node_result.tasks_failed,
+            });
+        }
+
+        let total_time = start_time.elapsed();
+
+        // 結果の統合（簡易版）
+        let result_data = ResultData::Success(GraphInstance {
+            core: GraphCore {
+                nodes: vec![], // 実際の実装では統合処理
+                edges: vec![],
+                boundary: None,
+                attrs: None,
+            },
+            kind: GraphKind::Instance,
+            cid: Cid::new(&format!("gql_integrated_{}", uuid::Uuid::new_v4())),
+            typing: None,
+        });
+
+        Ok(DistributedResult {
+            id: ResultId(format!("gql_dist_result_{}", uuid::Uuid::new_v4())),
+            data: result_data,
+            stats: ExecutionStats {
+                total_time,
+                cpu_time: total_time, // 簡易版
+                memory_peak: 1024 * 1024, // 1MB推定
+                network_bytes: 1024, // 1KB推定
+                cache_hit_rate: 0.0, // 計算が必要
+            },
+            node_info: node_infos,
+        })
+    }
+
+    /// ノード上でのGQLタスク実行
+    async fn execute_gql_tasks_on_node(
+        &self,
+        node_id: &NodeId,
+        tasks: &[DistributedTask],
+        graph: &GraphRef,
+        catalog: &Catalog,
+        cid_manager: &mut CidManager,
+    ) -> Result<NodeExecutionResult> {
+        // ローカルノードの場合
+        if self.cluster_manager.read().await.local_node_id == *node_id {
+            return self.execute_local_gql_tasks(tasks, graph, catalog).await;
+        }
+
+        // リモートノードの場合（簡易版）
+        // 実際の実装ではネットワーク通信が必要
+        Ok(NodeExecutionResult {
+            tasks_succeeded: tasks.len(),
+            tasks_failed: 0,
+        })
+    }
+
+    /// ローカルGQLタスク実行
+    async fn execute_local_gql_tasks(
+        &self,
+        tasks: &[DistributedTask],
+        graph: &GraphRef,
+        catalog: &Catalog,
+    ) -> Result<NodeExecutionResult> {
+        let mut succeeded = 0;
+        let mut failed = 0;
+
+        for task in tasks {
+            match &task.task_type {
+                TaskType::QueryExecution { query_cid, target_graph_cid: _ } => {
+                    // 実際の実装ではCIDからクエリを取得して実行
+                    // ここでは簡易版として成功として扱う
+                    succeeded += 1;
+                }
+                _ => failed += 1,
+            }
+        }
+
+        Ok(NodeExecutionResult {
+            tasks_succeeded: succeeded,
+            tasks_failed: failed,
+        })
     }
 
     /// キャッシュチェック

@@ -2,11 +2,23 @@
 
 use crate::value::JsonnetValue;
 
+/// Part of a string interpolation
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringInterpolationPart {
+    /// Literal string part
+    Literal(String),
+    /// Interpolated expression
+    Interpolation(Box<Expr>),
+}
+
 /// Expression node in the AST
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// Literal value (null, boolean, number, string)
     Literal(JsonnetValue),
+
+    /// String with interpolation
+    StringInterpolation(Vec<StringInterpolationPart>),
 
     /// Variable reference
     Var(String),

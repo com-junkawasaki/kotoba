@@ -34,7 +34,7 @@ swc_ecma_transforms = "0.226"
 swc_ecma_visit = "0.96"
 
 # Lightning CSS for CSS processing and optimization
-lightningcss = "1.0"
+lightningcss = "1.0.0-alpha.67"
 
 # Additional dependencies for CSS-in-JS and enhanced functionality
 phf = { version = "0.11", features = ["macros"] }

@@ -383,6 +383,33 @@ impl CidManager {
 
         Ok(self.calculator.compute_cid(&hash_input)?)
     }
+
+    /// クエリのCIDを計算
+    pub fn compute_query_cid(&mut self, query: &str) -> kotoba_core::types::Result<Cid> {
+        let cache_key = format!("query:{}", query);
+        if let Some(cid) = self.cache.get(&cache_key) {
+            return Ok(cid.clone());
+        }
+
+        // クエリ文字列を正規化してCID計算
+        let normalized_query = self.normalize_query(query);
+        let cid = self.calculator.compute_cid(&normalized_query)?;
+        self.cache.insert(cache_key, cid.clone());
+        Ok(cid)
+    }
+
+    /// クエリ文字列を正規化
+    fn normalize_query(&self, query: &str) -> String {
+        // 空白と改行を正規化
+        query
+            .lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .trim()
+            .to_string()
+    }
 }
 
 /// CID検証器

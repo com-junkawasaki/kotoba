@@ -192,6 +192,130 @@ impl JsonnetValue {
             _ => false,
         }
     }
+
+    // Binary operations
+    pub fn add(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::number(a + b)),
+            (JsonnetValue::String(a), JsonnetValue::String(b)) => Ok(JsonnetValue::string(format!("{}{}", a, b))),
+            (JsonnetValue::Array(a), JsonnetValue::Array(b)) => {
+                let mut result = a.clone();
+                result.extend(b.clone());
+                Ok(JsonnetValue::Array(result))
+            }
+            _ => Err(JsonnetError::runtime_error("Cannot add these types")),
+        }
+    }
+
+    pub fn sub(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::number(a - b)),
+            _ => Err(JsonnetError::runtime_error("Cannot subtract these types")),
+        }
+    }
+
+    pub fn mul(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::number(a * b)),
+            _ => Err(JsonnetError::runtime_error("Cannot multiply these types")),
+        }
+    }
+
+    pub fn div(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => {
+                if *b == 0.0 {
+                    Err(JsonnetError::runtime_error("Division by zero"))
+                } else {
+                    Ok(JsonnetValue::number(a / b))
+                }
+            }
+            _ => Err(JsonnetError::runtime_error("Cannot divide these types")),
+        }
+    }
+
+    pub fn modulo(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => {
+                if *b == 0.0 {
+                    Err(JsonnetError::runtime_error("Modulo by zero"))
+                } else {
+                    Ok(JsonnetValue::number(a % b))
+                }
+            }
+            _ => Err(JsonnetError::runtime_error("Cannot modulo these types")),
+        }
+    }
+
+    // Comparison operations
+    pub fn lt(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::boolean(a < b)),
+            (JsonnetValue::String(a), JsonnetValue::String(b)) => Ok(JsonnetValue::boolean(a < b)),
+            _ => Err(JsonnetError::runtime_error("Cannot compare these types")),
+        }
+    }
+
+    pub fn le(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::boolean(a <= b)),
+            (JsonnetValue::String(a), JsonnetValue::String(b)) => Ok(JsonnetValue::boolean(a <= b)),
+            _ => Err(JsonnetError::runtime_error("Cannot compare these types")),
+        }
+    }
+
+    pub fn gt(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::boolean(a > b)),
+            (JsonnetValue::String(a), JsonnetValue::String(b)) => Ok(JsonnetValue::boolean(a > b)),
+            _ => Err(JsonnetError::runtime_error("Cannot compare these types")),
+        }
+    }
+
+    pub fn ge(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        match (self, other) {
+            (JsonnetValue::Number(a), JsonnetValue::Number(b)) => Ok(JsonnetValue::boolean(a >= b)),
+            (JsonnetValue::String(a), JsonnetValue::String(b)) => Ok(JsonnetValue::boolean(a >= b)),
+            _ => Err(JsonnetError::runtime_error("Cannot compare these types")),
+        }
+    }
+
+    pub fn eq(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        Ok(JsonnetValue::boolean(self.equals(other)))
+    }
+
+    pub fn ne(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        Ok(JsonnetValue::boolean(!self.equals(other)))
+    }
+
+    // Logical operations
+    pub fn and(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        if self.is_truthy() {
+            Ok(other.clone())
+        } else {
+            Ok(self.clone())
+        }
+    }
+
+    pub fn or(&self, other: &JsonnetValue) -> Result<JsonnetValue> {
+        if self.is_truthy() {
+            Ok(self.clone())
+        } else {
+            Ok(other.clone())
+        }
+    }
+
+    // Unary operations
+    pub fn not(&self) -> Result<JsonnetValue> {
+        Ok(JsonnetValue::boolean(!self.is_truthy()))
+    }
+
+    pub fn neg(&self) -> Result<JsonnetValue> {
+        match self {
+            JsonnetValue::Number(n) => Ok(JsonnetValue::number(-n)),
+            _ => Err(JsonnetError::runtime_error("Cannot negate this type")),
+        }
+    }
 }
 
 impl fmt::Display for JsonnetValue {

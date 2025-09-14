@@ -49,10 +49,16 @@ impl TsxGenerator {
         let mut component_codes = Vec::new();
         let mut interfaces = Vec::new();
         let mut default_props = Vec::new();
+        let mut css_styles = Vec::new();
 
         // Collect all imports
         if self.options.include_imports {
             imports.extend(self.generate_imports(config));
+        }
+
+        // Add CSS-in-JS imports if needed
+        if self.options.css_options.css_in_js != CssInJsLibrary::None {
+            imports.extend(self.generate_css_in_js_imports());
         }
 
         // Generate component code and collect interfaces/default props
@@ -80,6 +86,13 @@ impl TsxGenerator {
             }
             if let Some(default_prop) = generated.default_props {
                 default_props.push(default_prop);
+            }
+
+            // Generate CSS-in-JS styles if enabled
+            if self.options.css_options.enable_processing {
+                if let Some(css_code) = self.generate_component_styles(name, component) {
+                    css_styles.push(css_code);
+                }
             }
         }
 
@@ -118,13 +131,24 @@ impl TsxGenerator {
             result.push('\n');
         }
 
+        // Add CSS-in-JS styles
+        for css in css_styles {
+            result.push_str(&css);
+            result.push('\n');
+        }
+
         // Add component codes
         for code in component_codes {
             result.push_str(&code);
             result.push('\n');
         }
 
-        Ok(result)
+        // Apply SWC formatting if enabled
+        if self.options.swc_options.format_code {
+            self.swc_generator.format_code(&result)
+        } else {
+            Ok(result)
+        }
     }
 
     /// Generate TSX file from KotobaConfig
@@ -162,6 +186,84 @@ impl TsxGenerator {
         }
 
         imports
+    }
+
+    /// Generate CSS-in-JS import statements
+    fn generate_css_in_js_imports(&self) -> Vec<ImportStatement> {
+        let mut imports = Vec::new();
+
+        match self.options.css_options.css_in_js {
+            CssInJsLibrary::StyledComponents => {
+                imports.push(ImportStatement {
+                    module: "styled-components".to_string(),
+                    items: vec!["styled".to_string(), "css".to_string(), "keyframes".to_string(), "createGlobalStyle".to_string()],
+                    default_import: None,
+                });
+
+                if self.options.css_options.enable_theme {
+                    imports.push(ImportStatement {
+                        module: "styled-components".to_string(),
+                        items: vec!["ThemeProvider".to_string()],
+                        default_import: None,
+                    });
+                }
+            }
+            CssInJsLibrary::Emotion => {
+                imports.push(ImportStatement {
+                    module: "@emotion/react".to_string(),
+                    items: vec!["css".to_string(), "styled".to_string()],
+                    default_import: None,
+                });
+
+                imports.push(ImportStatement {
+                    module: "@emotion/css".to_string(),
+                    items: vec!["cx".to_string()],
+                    default_import: None,
+                });
+
+                if self.options.css_options.enable_theme {
+                    imports.push(ImportStatement {
+                        module: "@emotion/react".to_string(),
+                        items: vec!["ThemeProvider".to_string()],
+                        default_import: None,
+                    });
+                }
+            }
+            CssInJsLibrary::None => {}
+        }
+
+        imports
+    }
+
+    /// Generate CSS-in-JS styles for a component
+    fn generate_component_styles(&self, name: &str, component: &KotobaComponent) -> Option<String> {
+        // Extract inline styles from component props
+        let mut css_rules = Vec::new();
+
+        for (key, value) in &component.props {
+            if key.starts_with("style_") || key == "css" {
+                if let serde_json::Value::String(css_value) = value {
+                    css_rules.push(css_value.clone());
+                }
+            }
+        }
+
+        if css_rules.is_empty() {
+            return None;
+        }
+
+        let combined_css = css_rules.join("\n");
+        let tag_name = component.component_type.as_deref().unwrap_or("div");
+
+        match self.options.css_options.css_in_js {
+            CssInJsLibrary::StyledComponents => {
+                self.styled_generator.generate_styled_component(name, &combined_css, tag_name).ok()
+            }
+            CssInJsLibrary::Emotion => {
+                self.emotion_generator.generate_emotion_styled(name, tag_name, &combined_css).ok()
+            }
+            CssInJsLibrary::None => None,
+        }
     }
 
     /// Generate a single component
@@ -500,6 +602,63 @@ impl TsxGenerator {
 impl Default for TsxGenerator {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Enhanced TSX generator with SWC, CSS processing, and styled-components support
+impl TsxGenerator {
+    /// Create a generator configured for styled-components
+    pub fn with_styled_components() -> Self {
+        let mut options = TsxGenerationOptions::default();
+        options.css_options.css_in_js = CssInJsLibrary::StyledComponents;
+        options.css_options.enable_processing = true;
+        Self::with_options(options)
+    }
+
+    /// Create a generator configured for Emotion
+    pub fn with_emotion() -> Self {
+        let mut options = TsxGenerationOptions::default();
+        options.css_options.css_in_js = CssInJsLibrary::Emotion;
+        options.css_options.enable_processing = true;
+        Self::with_options(options)
+    }
+
+    /// Create a generator with SWC minification enabled
+    pub fn with_minification() -> Self {
+        let mut options = TsxGenerationOptions::default();
+        options.swc_options.minify = true;
+        options.css_options.minify = true;
+        Self::with_options(options)
+    }
+
+    /// Generate theme provider wrapper
+    pub fn generate_theme_provider(&self, theme_data: HashMap<String, serde_json::Value>) -> Result<String> {
+        let library = match self.options.css_options.css_in_js {
+            CssInJsLibrary::StyledComponents => "styled-components",
+            CssInJsLibrary::Emotion => "emotion",
+            CssInJsLibrary::None => return Ok(String::new()),
+        };
+
+        let mut theme_structure = HashMap::new();
+        for (key, value) in &theme_data {
+            let type_str = match value {
+                serde_json::Value::String(_) => "string",
+                serde_json::Value::Number(_) => "number",
+                serde_json::Value::Bool(_) => "boolean",
+                serde_json::Value::Object(_) => "object",
+                _ => "any",
+            };
+            theme_structure.insert(key.clone(), type_str.to_string());
+        }
+
+        let mut result = String::new();
+        result.push_str(&self.theme_generator.generate_theme_types(theme_structure));
+        result.push('\n');
+        result.push_str(&self.theme_generator.generate_theme_object(theme_data));
+        result.push('\n');
+        result.push_str(&self.theme_generator.generate_theme_provider(library));
+
+        Ok(result)
     }
 }
 

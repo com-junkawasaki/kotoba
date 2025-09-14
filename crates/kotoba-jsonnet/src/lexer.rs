@@ -2,15 +2,25 @@
 
 use crate::error::{JsonnetError, Result};
 
+/// Part of a string interpolation
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringPart {
+    /// Literal string part
+    Literal(String),
+    /// Interpolated variable/expression
+    Interpolation(String), // For now, just store as string
+}
+
 /// Token types for Jsonnet
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    // Literals
-    Null,
-    True,
-    False,
-    Number(f64),
-    String(String),
+// Literals
+Null,
+True,
+False,
+Number(f64),
+String(String),
+StringInterpolation(Vec<StringPart>),
 
     // Identifiers
     Identifier(String),
@@ -300,12 +310,13 @@ impl Lexer {
         }
     }
 
-    /// Parse a string literal
+    /// Parse a string literal (potentially with interpolation)
     fn string(&mut self) -> Result<TokenWithPos> {
         let start_pos = Position::new(self.line, self.column);
         let quote = self.advance(); // consume opening quote
 
-        let mut string = String::new();
+        let mut parts = Vec::new();
+        let mut current_literal = String::new();
         let mut escape = false;
 
         while !self.is_at_end() && (escape || self.peek() != quote) {
@@ -313,19 +324,58 @@ impl Lexer {
 
             if escape {
                 match ch {
-                    'n' => string.push('\n'),
-                    't' => string.push('\t'),
-                    'r' => string.push('\r'),
-                    '\\' => string.push('\\'),
-                    '"' => string.push('"'),
-                    '\'' => string.push('\''),
-                    _ => string.push(ch),
+                    'n' => current_literal.push('\n'),
+                    't' => current_literal.push('\t'),
+                    'r' => current_literal.push('\r'),
+                    '\\' => current_literal.push('\\'),
+                    '"' => current_literal.push('"'),
+                    '\'' => current_literal.push('\''),
+                    _ => current_literal.push(ch),
                 }
                 escape = false;
             } else if ch == '\\' {
                 escape = true;
+            } else if ch == '%' && !self.is_at_end() && self.peek() == '(' {
+                // Start of interpolation
+                if !current_literal.is_empty() {
+                    parts.push(StringPart::Literal(current_literal));
+                    current_literal = String::new();
+                }
+
+                // Parse interpolation
+                self.advance(); // consume '('
+                let expr_start = self.position;
+
+                // Find the closing ')s'
+                let mut paren_count = 1;
+                let mut expr_content = String::new();
+
+                while !self.is_at_end() && paren_count > 0 {
+                    let ch = self.advance();
+                    if ch == '(' {
+                        paren_count += 1;
+                    } else if ch == ')' {
+                        paren_count -= 1;
+                    }
+
+                    if paren_count > 0 {
+                        expr_content.push(ch);
+                    }
+                }
+
+                if paren_count > 0 {
+                    return Err(JsonnetError::parse_error(
+                        start_pos.line,
+                        start_pos.column,
+                        "Unterminated string interpolation"
+                    ));
+                }
+
+                // For now, just treat the content as a variable name
+                // TODO: Parse the expression properly
+                parts.push(StringPart::Interpolation(expr_content.trim().to_string()));
             } else {
-                string.push(ch);
+                current_literal.push(ch);
             }
         }
 
@@ -339,8 +389,13 @@ impl Lexer {
 
         self.advance(); // consume closing quote
 
+        // Add final literal part if any
+        if !current_literal.is_empty() {
+            parts.push(StringPart::Literal(current_literal));
+        }
+
         Ok(TokenWithPos {
-            token: Token::String(string),
+            token: Token::StringInterpolation(parts),
             position: start_pos,
         })
     }

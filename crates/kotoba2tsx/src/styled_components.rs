@@ -3,7 +3,7 @@
 //! This module provides support for generating styled-components and Emotion
 //! CSS-in-JS code from Kotoba configurations and CSS styles.
 
-use crate::error::{Kotoba2TSError, Result};
+use crate::error::Result;
 use crate::css_processor::CssProcessor;
 use crate::swc_integration::SwcCodeGenerator;
 use std::collections::HashMap;
@@ -102,7 +102,7 @@ impl StyledComponentsGenerator {
         component_name: &str,
         css: &str,
         tag_name: &str,
-        props_interface: &str,
+        _props_interface: &str,
     ) -> Result<String> {
         let processed_css = self.css_processor.minify_css(css, &format!("{}.css", component_name))?;
 
@@ -250,6 +250,9 @@ impl EmotionGenerator {
             base_processed
         ));
 
+        // Collect keys before moving conditional_styles
+        let keys: Vec<String> = conditional_styles.keys().cloned().collect();
+
         // Conditional styles
         for (condition, css) in conditional_styles {
             let processed = self.css_processor.minify_css(&css, &format!("{}_{}.css", component_name, condition))?;
@@ -262,19 +265,21 @@ impl EmotionGenerator {
         }
 
         // Component function
+        let props_list = keys.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ");
         code.push_str(&format!(
             "const {} = ({{ {}, className, ...props }}) => {{\n",
             component_name,
-            conditional_styles.keys().collect::<Vec<_>>().join(", ")
+            props_list
         ));
         code.push_str("  const conditionalClasses = [\n");
 
-        for condition in conditional_styles.keys() {
+        for condition in &keys {
             code.push_str(&format!("    {} && {}{}Styles,\n", condition, component_name, condition));
         }
 
         code.push_str("  ].filter(Boolean);\n\n");
-        code.push_str(&format!("  return (\n    <div\n      className={cx({}, ...conditionalClasses, className)}\n      {{...props}}\n    />\n  );\n}};\n", format!("{}BaseStyles", component_name)));
+        let base_styles = format!("{}BaseStyles", component_name);
+        code.push_str(&format!("  return (\n    <div\n      className={{cx({}, ...conditionalClasses, className)}} \n      {{...props}}\n    />\n  );\n}};\n", base_styles));
 
         Ok(code)
     }

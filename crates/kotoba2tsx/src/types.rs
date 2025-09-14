@@ -63,15 +63,16 @@ pub struct ComponentStyle {
 }
 
 /// CSS-in-JS library type
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum CssInJsLibrary {
+    #[default]
     None,
     StyledComponents,
     Emotion,
 }
 
 /// SWC code generation options
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SwcOptions {
     /// Enable SWC code formatting
     pub format_code: bool,
@@ -84,7 +85,7 @@ pub struct SwcOptions {
 }
 
 /// CSS processing options
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CssOptions {
     /// Enable CSS processing with Lightning CSS
     pub enable_processing: bool,
@@ -128,19 +129,8 @@ impl Default for TsxGenerationOptions {
             include_prop_types: true,
             include_default_props: true,
             format_output: true,
-            swc_options: SwcOptions {
-                format_code: true,
-                minify: false,
-                target: "es2020".to_string(),
-                jsx_transform: true,
-            },
-            css_options: CssOptions {
-                enable_processing: true,
-                minify: false,
-                css_modules: false,
-                css_in_js: CssInJsLibrary::None,
-                enable_theme: false,
-            },
+            swc_options: SwcOptions::default(),
+            css_options: CssOptions::default(),
         }
     }
 }

@@ -176,6 +176,18 @@ impl Parser {
                     self.advance();
                     Ok(Expr::Literal(crate::value::JsonnetValue::string(s)))
                 }
+                Token::StringInterpolation(parts) => {
+                    self.advance();
+                    let interpolation_parts: Vec<ast::StringInterpolationPart> = parts.into_iter()
+                        .map(|part| match part {
+                            crate::lexer::StringPart::Literal(s) =>
+                                ast::StringInterpolationPart::Literal(s),
+                            crate::lexer::StringPart::Interpolation(var) =>
+                                ast::StringInterpolationPart::Interpolation(Box::new(Expr::Var(var))),
+                        })
+                        .collect();
+                    Ok(Expr::StringInterpolation(interpolation_parts))
+                }
                 Token::Identifier(id) => {
                     self.advance();
                     Ok(Expr::Var(id))

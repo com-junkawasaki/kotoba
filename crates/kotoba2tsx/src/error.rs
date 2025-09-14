@@ -29,6 +29,9 @@ pub enum Kotoba2TSError {
     #[error("Code generation error: {0}")]
     CodeGeneration(String),
 
+    #[error("CSS processing error: {0}")]
+    CssProcessing(String),
+
     #[error("File not found: {0}")]
     FileNotFound(String),
 
