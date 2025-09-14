@@ -110,6 +110,40 @@ pub enum Predicate {
     Not { not: Box<Predicate> },
 }
 
+impl std::fmt::Display for Predicate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Predicate::Eq { eq } => write!(f, "{} = {}", eq[0], eq[1]),
+            Predicate::Ne { ne } => write!(f, "{} <> {}", ne[0], ne[1]),
+            Predicate::Lt { lt } => write!(f, "{} < {}", lt[0], lt[1]),
+            Predicate::Le { le } => write!(f, "{} <= {}", le[0], le[1]),
+            Predicate::Gt { gt } => write!(f, "{} > {}", gt[0], gt[1]),
+            Predicate::Ge { ge } => write!(f, "{} >= {}", ge[0], ge[1]),
+            Predicate::And { and } => {
+                write!(f, "(")?;
+                for (i, p) in and.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " AND ")?;
+                    }
+                    write!(f, "{}", p)?;
+                }
+                write!(f, ")")
+            }
+            Predicate::Or { or } => {
+                write!(f, "(")?;
+                for (i, p) in or.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " OR ")?;
+                    }
+                    write!(f, "{}", p)?;
+                }
+                write!(f, ")")
+            }
+            Predicate::Not { not } => write!(f, "NOT {}", not),
+        }
+    }
+}
+
 /// 式
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]

@@ -416,24 +416,389 @@ impl QueryExecutor {
     }
 
     /// 式評価
-    fn evaluate_expr(&self, row: &Row, expr: &Expr) -> Result<Value> {
+    pub fn evaluate_expr(&self, row: &Row, expr: &Expr) -> Result<Value> {
         match expr {
             Expr::Var(var) => {
                 row.values.get(var)
                     .cloned()
-                    .ok_or_else(|| KotobaError::Execution(format!("Variable {} not found", var)))
+                    .ok_or_else(|| KotobaError::Execution(format!("Variable {} not found in row", var)))
             }
             Expr::Const(val) => Ok(val.clone()),
-            Expr::Fn { fn_: name, args: _ } => {
-                // 簡易的な関数評価
-                match name.as_str() {
-                    "degree" => {
-                        // 次数関数（簡易版）
-                        Ok(Value::Int(1))
-                    }
-                    _ => Ok(Value::Null),
+            Expr::Fn { fn_: name, args } => {
+                self.evaluate_function(name, args, row)
+            }
+        }
+    }
+
+    /// 関数呼び出し評価
+    fn evaluate_function(&self, name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+        match name {
+            // グラフ関数
+            "degree" => self.evaluate_degree_function(args, row),
+            "labels" => self.evaluate_labels_function(args, row),
+            "keys" => self.evaluate_keys_function(args, row),
+            "hasLabel" => self.evaluate_has_label_function(args, row),
+            "properties" => self.evaluate_properties_function(args, row),
+
+            // 数学関数
+            "abs" | "sqrt" | "sin" | "cos" | "tan" | "log" | "exp" | "floor" | "ceil" | "round" =>
+                self.evaluate_math_function(name, args, row),
+
+            // 文字列関数
+            "length" | "substring" | "startsWith" | "endsWith" | "contains" |
+            "toLower" | "toUpper" | "trim" | "split" =>
+                self.evaluate_string_function(name, args, row),
+
+            // コレクション関数
+            "size" | "isEmpty" | "reverse" =>
+                self.evaluate_collection_function(name, args, row),
+
+            // 型変換関数
+            "toString" | "toInteger" | "toFloat" | "toBoolean" =>
+                self.evaluate_conversion_function(name, args, row),
+
+            // 集計関数（クエリ実行時のみ使用）
+            "count" | "sum" | "avg" | "min" | "max" => {
+                Err(KotobaError::Execution(format!("Aggregate function {} should be handled in Group operator", name)))
+            }
+
+            _ => Err(KotobaError::Execution(format!("Unknown function: {}", name))),
+        }
+    }
+
+    /// degree関数評価
+    fn evaluate_degree_function(&self, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 1 {
+            return Err(KotobaError::Execution("degree() function requires exactly 1 argument".to_string()));
+        }
+
+        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+            Value::String(s) => s,
+            _ => return Err(KotobaError::Execution("degree() argument must be a vertex ID string".to_string())),
+        };
+
+        // 簡易実装：実際のグラフから次数を取得する必要がある
+        // ここでは仮に固定値を返す
+        Ok(Value::Int(1))
+    }
+
+    /// labels関数評価
+    fn evaluate_labels_function(&self, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 1 {
+            return Err(KotobaError::Execution("labels() function requires exactly 1 argument".to_string()));
+        }
+
+        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+            Value::String(s) => s,
+            _ => return Err(KotobaError::Execution("labels() argument must be a vertex ID string".to_string())),
+        };
+
+        // 簡易実装：実際のグラフからラベルを取得する必要がある
+        // ここでは仮に空のリストを返す
+        Ok(Value::String("[]".to_string()))
+    }
+
+    /// keys関数評価
+    fn evaluate_keys_function(&self, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 1 {
+            return Err(KotobaError::Execution("keys() function requires exactly 1 argument".to_string()));
+        }
+
+        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+            Value::String(s) => s,
+            _ => return Err(KotobaError::Execution("keys() argument must be a vertex ID string".to_string())),
+        };
+
+        // 簡易実装：実際のグラフからプロパティキーを取得する必要がある
+        // ここでは仮に空のリストを返す
+        Ok(Value::String("[]".to_string()))
+    }
+
+    /// hasLabel関数評価
+    fn evaluate_has_label_function(&self, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 2 {
+            return Err(KotobaError::Execution("hasLabel() function requires exactly 2 arguments".to_string()));
+        }
+
+        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+            Value::String(s) => s,
+            _ => return Err(KotobaError::Execution("hasLabel() first argument must be a vertex ID string".to_string())),
+        };
+
+        let label = match self.evaluate_expr(row, &args[1])? {
+            Value::String(s) => s,
+            _ => return Err(KotobaError::Execution("hasLabel() second argument must be a label string".to_string())),
+        };
+
+        // 簡易実装：実際のグラフからラベルチェックを行う必要がある
+        // ここでは仮にfalseを返す
+        Ok(Value::Bool(false))
+    }
+
+    /// properties関数評価
+    fn evaluate_properties_function(&self, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 1 {
+            return Err(KotobaError::Execution("properties() function requires exactly 1 argument".to_string()));
+        }
+
+        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+            Value::String(s) => s,
+            _ => return Err(KotobaError::Execution("properties() argument must be a vertex ID string".to_string())),
+        };
+
+        // 簡易実装：実際のグラフからプロパティを取得する必要がある
+        // ここでは仮に空のマップを返す
+        Ok(Value::String("{}".to_string()))
+    }
+
+    /// 数学関数評価
+    fn evaluate_math_function(&self, name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 1 {
+            return Err(KotobaError::Execution(format!("{}() function requires exactly 1 argument", name)));
+        }
+
+        let value = self.evaluate_expr(row, &args[0])?;
+        let num = match value {
+            Value::Int(n) => n as f64,
+            Value::Integer(n) => n as f64,
+            _ => return Err(KotobaError::Execution(format!("{}() argument must be a number", name))),
+        };
+
+        let result = match name {
+            "abs" => num.abs(),
+            "sqrt" if num >= 0.0 => num.sqrt(),
+            "sqrt" => return Err(KotobaError::Execution("sqrt() of negative number".to_string())),
+            "sin" => num.sin(),
+            "cos" => num.cos(),
+            "tan" => num.tan(),
+            "log" if num > 0.0 => num.ln(),
+            "log" => return Err(KotobaError::Execution("log() of non-positive number".to_string())),
+            "exp" => num.exp(),
+            "floor" => num.floor(),
+            "ceil" => num.ceil(),
+            "round" => num.round(),
+            _ => return Err(KotobaError::Execution(format!("Unknown math function: {}", name))),
+        };
+
+        Ok(Value::Int(result as i64))
+    }
+
+    /// 文字列関数評価
+    fn evaluate_string_function(&self, name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+        match name {
+            "length" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("length() function requires exactly 1 argument".to_string()));
+                }
+                match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => Ok(Value::Int(s.len() as i64)),
+                    _ => Err(KotobaError::Execution("length() argument must be a string".to_string())),
                 }
             }
+            "substring" => {
+                if args.len() != 3 {
+                    return Err(KotobaError::Execution("substring() function requires exactly 3 arguments".to_string()));
+                }
+                let s = match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("substring() first argument must be a string".to_string())),
+                };
+                let start = match self.evaluate_expr(row, &args[1])? {
+                    Value::Int(n) => n as usize,
+                    _ => return Err(KotobaError::Execution("substring() second argument must be an integer".to_string())),
+                };
+                let len = match self.evaluate_expr(row, &args[2])? {
+                    Value::Int(n) => n as usize,
+                    _ => return Err(KotobaError::Execution("substring() third argument must be an integer".to_string())),
+                };
+
+                if start >= s.len() {
+                    Ok(Value::String(String::new()))
+                } else {
+                    let end = (start + len).min(s.len());
+                    Ok(Value::String(s[start..end].to_string()))
+                }
+            }
+            "startsWith" => {
+                if args.len() != 2 {
+                    return Err(KotobaError::Execution("startsWith() function requires exactly 2 arguments".to_string()));
+                }
+                let s = match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("startsWith() first argument must be a string".to_string())),
+                };
+                let prefix = match self.evaluate_expr(row, &args[1])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("startsWith() second argument must be a string".to_string())),
+                };
+                Ok(Value::Bool(s.starts_with(&prefix)))
+            }
+            "endsWith" => {
+                if args.len() != 2 {
+                    return Err(KotobaError::Execution("endsWith() function requires exactly 2 arguments".to_string()));
+                }
+                let s = match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("endsWith() first argument must be a string".to_string())),
+                };
+                let suffix = match self.evaluate_expr(row, &args[1])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("endsWith() second argument must be a string".to_string())),
+                };
+                Ok(Value::Bool(s.ends_with(&suffix)))
+            }
+            "contains" => {
+                if args.len() != 2 {
+                    return Err(KotobaError::Execution("contains() function requires exactly 2 arguments".to_string()));
+                }
+                let s = match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("contains() first argument must be a string".to_string())),
+                };
+                let substr = match self.evaluate_expr(row, &args[1])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("contains() second argument must be a string".to_string())),
+                };
+                Ok(Value::Bool(s.contains(&substr)))
+            }
+            "toLower" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("toLower() function requires exactly 1 argument".to_string()));
+                }
+                match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => Ok(Value::String(s.to_lowercase())),
+                    _ => Err(KotobaError::Execution("toLower() argument must be a string".to_string())),
+                }
+            }
+            "toUpper" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("toUpper() function requires exactly 1 argument".to_string()));
+                }
+                match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => Ok(Value::String(s.to_uppercase())),
+                    _ => Err(KotobaError::Execution("toUpper() argument must be a string".to_string())),
+                }
+            }
+            "trim" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("trim() function requires exactly 1 argument".to_string()));
+                }
+                match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => Ok(Value::String(s.trim().to_string())),
+                    _ => Err(KotobaError::Execution("trim() argument must be a string".to_string())),
+                }
+            }
+            "split" => {
+                if args.len() != 2 {
+                    return Err(KotobaError::Execution("split() function requires exactly 2 arguments".to_string()));
+                }
+                let s = match self.evaluate_expr(row, &args[0])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("split() first argument must be a string".to_string())),
+                };
+                let sep = match self.evaluate_expr(row, &args[1])? {
+                    Value::String(s) => s,
+                    _ => return Err(KotobaError::Execution("split() second argument must be a string".to_string())),
+                };
+                // 簡易実装：実際にはリストを返すべき
+                Ok(Value::String(format!("[{}]", s.split(&sep).collect::<Vec<_>>().join(", "))))
+            }
+            _ => Err(KotobaError::Execution(format!("Unknown string function: {}", name))),
+        }
+    }
+
+    /// コレクション関数評価
+    fn evaluate_collection_function(&self, name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+        match name {
+            "size" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("size() function requires exactly 1 argument".to_string()));
+                }
+                // 簡易実装：実際のコレクションサイズを計算する必要がある
+                Ok(Value::Int(0))
+            }
+            "isEmpty" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("isEmpty() function requires exactly 1 argument".to_string()));
+                }
+                // 簡易実装：実際のコレクションの空チェックを行う必要がある
+                Ok(Value::Bool(true))
+            }
+            "reverse" => {
+                if args.len() != 1 {
+                    return Err(KotobaError::Execution("reverse() function requires exactly 1 argument".to_string()));
+                }
+                // 簡易実装：実際のコレクションを逆順にする必要がある
+                Ok(Value::String("[]".to_string()))
+            }
+            _ => Err(KotobaError::Execution(format!("Unknown collection function: {}", name))),
+        }
+    }
+
+    /// 型変換関数評価
+    fn evaluate_conversion_function(&self, name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+        if args.len() != 1 {
+            return Err(KotobaError::Execution(format!("{}() function requires exactly 1 argument", name)));
+        }
+
+        let value = self.evaluate_expr(row, &args[0])?;
+
+        match name {
+            "toString" => Ok(Value::String(self.value_to_string(&value))),
+            "toInteger" => {
+                match value {
+                    Value::String(s) => {
+                        match s.parse::<i64>() {
+                            Ok(n) => Ok(Value::Int(n)),
+                            Err(_) => Err(KotobaError::Execution(format!("Cannot convert '{}' to integer", s))),
+                        }
+                    }
+                    Value::Int(n) => Ok(Value::Int(n)),
+                    Value::Integer(n) => Ok(Value::Integer(n)),
+                    _ => Err(KotobaError::Execution(format!("Cannot convert {:?} to integer", value))),
+                }
+            }
+            "toFloat" => {
+                match value {
+                    Value::String(s) => {
+                        match s.parse::<f64>() {
+                            Ok(n) => Ok(Value::Int(n as i64)), // 簡易的にIntとして扱う
+                            Err(_) => Err(KotobaError::Execution(format!("Cannot convert '{}' to float", s))),
+                        }
+                    }
+                    Value::Int(n) => Ok(Value::Int(n)), // 簡易的にIntとして扱う
+                    Value::Integer(n) => Ok(Value::Integer(n)), // 簡易的にIntとして扱う
+                    _ => Err(KotobaError::Execution(format!("Cannot convert {:?} to float", value))),
+                }
+            }
+            "toBoolean" => {
+                match value {
+                    Value::String(s) => {
+                        let b = match s.to_lowercase().as_str() {
+                            "true" | "1" | "yes" => true,
+                            "false" | "0" | "no" => false,
+                            _ => return Err(KotobaError::Execution(format!("Cannot convert '{}' to boolean", s))),
+                        };
+                        Ok(Value::Bool(b))
+                    }
+                    Value::Int(n) => Ok(Value::Bool(n != 0)),
+                    Value::Integer(n) => Ok(Value::Bool(n != 0)),
+                    Value::Bool(b) => Ok(Value::Bool(b)),
+                    _ => Err(KotobaError::Execution(format!("Cannot convert {:?} to boolean", value))),
+                }
+            }
+            _ => Err(KotobaError::Execution(format!("Unknown conversion function: {}", name))),
+        }
+    }
+
+    /// 値を文字列に変換
+    fn value_to_string(&self, value: &Value) -> String {
+        match value {
+            Value::Null => "null".to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Int(n) => n.to_string(),
+            Value::Integer(n) => n.to_string(),
+            Value::String(s) => s.clone(),
         }
     }
 
