@@ -3,6 +3,7 @@
 //! Next.js風App Routerフレームワークの主要コンポーネントを実装します。
 
 use crate::types::{Result, KotobaError, Value, Properties, ContentHash};
+use crate::frontend::component_ir::ExecutionEnvironment;
 use crate::frontend::component_ir::*;
 use crate::frontend::route_ir::*;
 use crate::frontend::render_ir::*;
@@ -16,25 +17,11 @@ use tokio::sync::RwLock;
 pub struct WebFramework {
     route_table: Arc<RwLock<RouteTableIR>>,
     component_registry: Arc<RwLock<ComponentRegistry>>,
-    api_router: ApiRouter,
-    database_manager: Option<DatabaseManager>,
-    middleware_chain: Vec<MiddlewareIR>,
     renderer: ComponentRenderer,
     config: WebFrameworkConfigIR,
     current_route: Arc<RwLock<Option<RouteIR>>>,
 }
 
-/// API Router - REST APIとGraphQLのルーティング
-pub struct ApiRouter {
-    routes: Arc<RwLock<HashMap<String, Vec<ApiRouteIR>>>>, // method -> routes
-    graphql_schema: Option<GraphQLIR>,
-}
-
-/// Database Manager - データベース接続とクエリ実行
-pub struct DatabaseManager {
-    config: DatabaseIR,
-    connection_pool: Option<tokio_postgres::Client>, // 実際の実装では適切なDBクライアントを使用
-}
 
 impl WebFramework {
     pub fn new(config: WebFrameworkConfigIR) -> Result<Self> {
@@ -43,9 +30,6 @@ impl WebFramework {
         Ok(Self {
             route_table: Arc::new(RwLock::new(RouteTableIR::new())),
             component_registry: Arc::new(RwLock::new(ComponentRegistry::new())),
-            api_router: ApiRouter::new(),
-            database_manager: config.database.as_ref().map(|db_config| DatabaseManager::new(db_config.clone())),
-            middleware_chain: config.middlewares.clone(),
             renderer,
             config,
             current_route: Arc::new(RwLock::new(None)),
@@ -54,29 +38,20 @@ impl WebFramework {
 
     /// HTTPリクエストを処理
     pub async fn handle_request(&self, request: crate::http::HttpRequest) -> Result<crate::http::HttpResponse> {
-        // ミドルウェアチェーンを実行
-        let mut context = RequestContext::new(request);
-
-        for middleware in &self.middleware_chain {
-            self.execute_middleware(middleware, &mut context).await?;
-            if context.is_terminated() {
-                break;
-            }
-        }
-
-        // APIルートをチェック
-        if let Some(api_response) = self.handle_api_request(&context).await? {
-            return Ok(api_response);
-        }
+        let path = &request.path;
 
         // ページルートをチェック
-        if let Some(page_response) = self.handle_page_request(&context).await? {
-            return Ok(page_response);
+        let table = self.route_table.read().await;
+        if let Some((route, params)) = table.find_route(path) {
+            // ページルートが見つかった場合
+            let render_result = self.render_route_with_params(&route, params).await?;
+            let response = self.create_page_response(render_result)?;
+            return Ok(response);
         }
 
         // 404 Not Found
         Ok(crate::http::HttpResponse {
-            request_id: context.request.id.clone(),
+            request_id: request.id.clone(),
             status: crate::http::HttpStatus { code: 404, reason: "Not Found".to_string() },
             headers: crate::http::HttpHeaders::new(),
             body_ref: None,
@@ -84,133 +59,12 @@ impl WebFramework {
         })
     }
 
-    /// APIリクエストを処理
-    async fn handle_api_request(&self, context: &RequestContext) -> Result<Option<crate::http::HttpResponse>> {
-        let path = &context.request.path;
-        let method = context.request.method.clone();
 
-        if let Some(route) = self.api_router.find_route(&method, path).await? {
-            // APIルートが見つかった場合
-            let response = self.execute_api_handler(&route, context).await?;
-            Ok(Some(response))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// ページリクエストを処理
-    async fn handle_page_request(&self, context: &RequestContext) -> Result<Option<crate::http::HttpResponse>> {
-        let path = &context.request.path;
-
-        if let Some((route, params)) = {
-            let table = self.route_table.read().await;
-            table.find_route(path)
-        } {
-            // ページルートが見つかった場合
-            let render_result = self.render_route_with_params(route, params).await?;
-            let response = self.create_page_response(render_result)?;
-            Ok(Some(response))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// APIハンドラーを実行
-    async fn execute_api_handler(&self, route: &ApiRouteIR, context: &RequestContext) -> Result<crate::http::HttpResponse> {
-        // パラメータ検証
-        let params = self.validate_api_parameters(route, context)?;
-
-        // データベースクエリ実行（必要に応じて）
-        let data = if let Some(db) = &self.database_manager {
-            Some(self.execute_database_query(route, &params).await?)
-        } else {
-            None
-        };
-
-        // レスポンス生成
-        let response_body = match route.response_format {
-            ResponseFormat::JSON => {
-                // JSONレスポンスを生成
-                Some(serde_json::to_string(&data.unwrap_or(serde_json::Value::Null))
-                    .map_err(|e| KotobaError::InvalidArgument(e.to_string()))?)
-            },
-            _ => None, // 他のフォーマットは未実装
-        };
-
-        let mut http_headers = crate::http::HttpHeaders::new();
-        http_headers.insert("Content-Type".to_string(), "application/json".to_string());
-
-        Ok(crate::http::HttpResponse {
-            request_id: context.request.id.clone(),
-            status: crate::http::HttpStatus { code: 200, reason: "OK".to_string() },
-            headers: http_headers,
-            body_ref: response_body.map(|body| ContentHash::sha256(body.as_bytes().try_into().unwrap())),
-            timestamp: 1234567890,
-        })
-    }
-
-    /// パラメータ検証
-    fn validate_api_parameters(&self, route: &ApiRouteIR, context: &RequestContext) -> Result<Properties> {
-        let mut validated_params = Properties::new();
-
-        // パスパラメータの検証
-        for param in &route.parameters.path_params {
-            // TODO: パスパラメータの抽出と検証を実装
-        }
-
-        // クエリパラメータの検証
-        for param in &route.parameters.query_params {
-            // TODO: クエリパラメータの検証を実装
-        }
-
-        Ok(validated_params)
-    }
-
-    /// データベースクエリ実行
-    async fn execute_database_query(&self, route: &ApiRouteIR, params: &Properties) -> Result<Value> {
-        // TODO: 実際のデータベースクエリ実行を実装
-        // ここではモックデータを返す
-        Ok(Value::Null)
-    }
-
-    /// ミドルウェアを実行
-    async fn execute_middleware(&self, middleware: &MiddlewareIR, context: &mut RequestContext) -> Result<()> {
-        match middleware.middleware_type {
-            MiddlewareType::CORS => {
-                // CORSヘッダーを設定
-                context.add_header("Access-Control-Allow-Origin", "*".to_string());
-                context.add_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS".to_string());
-                context.add_header("Access-Control-Allow-Headers", "Content-Type, Authorization".to_string());
-            },
-            MiddlewareType::Authentication => {
-                // 認証チェック
-                if !self.check_authentication(context).await? {
-                    context.terminate_with_status(401);
-                }
-            },
-            MiddlewareType::Logging => {
-                // リクエストログ記録
-                println!("Request: {} {}", context.request.method, context.request.path);
-            },
-            _ => {
-                // その他のミドルウェアは未実装
-            }
-        }
-
-        Ok(())
-    }
-
-    /// 認証チェック
-    async fn check_authentication(&self, context: &RequestContext) -> Result<bool> {
-        // TODO: 実際の認証ロジックを実装
-        // Authorizationヘッダーをチェック
-        Ok(true) // 仮に常に認証成功
-    }
 
     /// ページレスポンスを作成
     fn create_page_response(&self, render_result: RenderResultIR) -> Result<crate::http::HttpResponse> {
         let mut http_headers = crate::http::HttpHeaders::new();
-        http_headers.insert("Content-Type".to_string(), "text/html".to_string());
+        http_headers.set("Content-Type".to_string(), "text/html".to_string());
 
         Ok(crate::http::HttpResponse {
             request_id: uuid::Uuid::new_v4().to_string(),
@@ -220,39 +74,6 @@ impl WebFramework {
             timestamp: 1234567890,
         })
     }
-}
-
-/// リクエストコンテキスト
-pub struct RequestContext {
-    pub request: crate::http::HttpRequest,
-    pub response_headers: Properties,
-    pub terminated: bool,
-    pub status_code: Option<u16>,
-}
-
-impl RequestContext {
-    pub fn new(request: crate::http::HttpRequest) -> Self {
-        Self {
-            request,
-            response_headers: Properties::new(),
-            terminated: false,
-            status_code: None,
-        }
-    }
-
-    pub fn add_header(&mut self, key: &str, value: &str) {
-        self.response_headers.insert(key.to_string(), value.to_string());
-    }
-
-    pub fn terminate_with_status(&mut self, status: u16) {
-        self.terminated = true;
-        self.status_code = Some(status);
-    }
-
-    pub fn is_terminated(&self) -> bool {
-        self.terminated
-    }
-}
 
     /// ルートを追加
     pub async fn add_route(&self, route: RouteIR) -> Result<()> {
@@ -266,11 +87,6 @@ impl RequestContext {
         let mut registry = self.component_registry.write().await;
         registry.register(component);
         Ok(())
-    }
-
-    /// APIルートを追加
-    pub async fn add_api_route(&self, route: ApiRouteIR) -> Result<()> {
-        self.api_router.add_route(route).await
     }
 
     /// パスによるナビゲーション
@@ -289,7 +105,7 @@ impl RequestContext {
         // ルートパラメータをグローバル状態に設定
         let mut global_props = Properties::new();
         for (key, value) in params {
-            global_props.insert(key, crate::types::Value::String(value));
+            global_props.insert(key, Value::String(value));
         }
 
         let context = RenderContext {
@@ -356,68 +172,6 @@ impl RequestContext {
     /// 設定を取得
     pub fn get_config(&self) -> &WebFrameworkConfigIR {
         &self.config
-    }
-
-impl ApiRouter {
-    pub fn new() -> Self {
-        Self {
-            routes: Arc::new(RwLock::new(HashMap::new())),
-            graphql_schema: None,
-        }
-    }
-
-    /// APIルートを追加
-    pub async fn add_route(&self, route: ApiRouteIR) -> Result<()> {
-        let mut routes = self.routes.write().await;
-        let method_routes = routes.entry(route.method.to_string()).or_insert_with(Vec::new);
-        method_routes.push(route);
-        Ok(())
-    }
-
-    /// ルートを検索
-    pub async fn find_route(&self, method: &str, path: &str) -> Result<Option<ApiRouteIR>> {
-        let routes = self.routes.read().await;
-        if let Some(method_routes) = routes.get(method) {
-            // パスベースのマッチング（簡略化）
-            for route in method_routes {
-                if route.path == path {
-                    return Ok(Some(route.clone()));
-                }
-            }
-        }
-        Ok(None)
-    }
-}
-
-impl DatabaseManager {
-    pub fn new(config: DatabaseIR) -> Self {
-        Self {
-            config,
-            connection_pool: None, // TODO: 実際のDB接続プール実装
-        }
-    }
-
-    /// データベース接続を初期化
-    pub async fn initialize(&mut self) -> Result<()> {
-        // TODO: 実際のデータベース接続初期化
-        println!("Initializing database connection for: {:?}", self.config.db_type);
-        Ok(())
-    }
-
-    /// クエリ実行
-    pub async fn execute_query(&self, query: &str, params: Vec<Value>) -> Result<Vec<Properties>> {
-        // TODO: 実際のクエリ実行
-        println!("Executing query: {}", query);
-        Ok(Vec::new())
-    }
-
-    /// マイグレーション実行
-    pub async fn run_migrations(&self) -> Result<()> {
-        for migration in &self.config.migrations {
-            println!("Running migration: {}", migration.version);
-            // TODO: マイグレーション実行
-        }
-        Ok(())
     }
 }
 
@@ -831,7 +585,7 @@ mod tests {
     #[tokio::test]
     async fn test_web_framework_creation() {
         let config = WebFrameworkConfigIR {
-            server: ServerConfig {
+            server: crate::frontend::api_ir::ServerConfig {
                 host: "localhost".to_string(),
                 port: 3000,
                 tls: None,
@@ -852,59 +606,6 @@ mod tests {
         assert_eq!(framework.get_config().server.port, 3000);
     }
 
-    #[tokio::test]
-    async fn test_api_router() {
-        let router = ApiRouter::new();
-
-        let api_route = ApiRouteIR {
-            path: "/api/test".to_string(),
-            method: ApiMethod::GET,
-            handler: ApiHandlerIR {
-                function_name: "testHandler".to_string(),
-                component: None,
-                is_async: true,
-                timeout_ms: Some(5000),
-            },
-            middlewares: Vec::new(),
-            response_format: ResponseFormat::JSON,
-            parameters: ApiParameters {
-                path_params: Vec::new(),
-                query_params: Vec::new(),
-                body_params: None,
-                headers: Vec::new(),
-            },
-            metadata: ApiMetadata {
-                description: Some("Test API".to_string()),
-                summary: Some("Test".to_string()),
-                tags: vec!["test".to_string()],
-                deprecated: false,
-                rate_limit: None,
-                cache: None,
-            },
-        };
-
-        router.add_route(api_route).await.unwrap();
-
-        let found = router.find_route("GET", "/api/test").await.unwrap();
-        assert!(found.is_some());
-        assert_eq!(found.unwrap().path, "/api/test");
-    }
-
-    #[tokio::test]
-    async fn test_database_manager() {
-        let db_config = DatabaseIR {
-            connection_string: "postgresql://test:test@localhost/test".to_string(),
-            db_type: DatabaseType::PostgreSQL,
-            models: Vec::new(),
-            migrations: Vec::new(),
-        };
-
-        let mut manager = DatabaseManager::new(db_config);
-        manager.initialize().await.unwrap();
-
-        let result = manager.execute_query("SELECT 1", Vec::new()).await.unwrap();
-        assert!(result.is_empty()); // モックなので空の結果
-    }
 
     #[tokio::test]
     async fn test_component_rendering() {
@@ -923,32 +624,11 @@ mod tests {
 
     #[test]
     fn test_build_engine_creation() {
-        let config = BuildConfigIR::new(build_ir::BundlerType::Vite);
+        let config = BuildConfigIR::new(BundlerType::Vite);
         let engine = BuildEngine::new(config);
 
         // 設定が正しく適用されていることを確認
-        assert_eq!(engine.config.bundler, build_ir::BundlerType::Vite);
+        assert_eq!(engine.config.bundler, BundlerType::Vite);
     }
 
-    #[test]
-    fn test_request_context() {
-        let request = crate::http::HttpRequest {
-            id: "test-123".to_string(),
-            method: crate::http::HttpMethod::GET,
-            path: "/test".to_string(),
-            query: std::collections::HashMap::new(),
-            headers: crate::http::HttpHeaders::new(),
-            body_ref: None,
-            timestamp: 1234567890,
-        };
-
-        let mut context = RequestContext::new(request);
-        assert!(!context.is_terminated());
-
-        context.add_header("X-Test", "value".to_string());
-        context.terminate_with_status(404);
-
-        assert!(context.is_terminated());
-        assert_eq!(context.status_code, Some(404));
-    }
 }

@@ -3,89 +3,89 @@
 //! JsonnetベースのフルスタックWebフレームワークの使用例
 
 use kotoba::frontend::*;
-use kotoba::http;
-use std::path::Path;
-use std::fs;
+use kotoba::frontend::api_ir::{WebFrameworkConfigIR, ServerConfig};
+use kotoba::http::{HttpRequest, HttpMethod, HttpHeaders};
+use tokio::net::TcpListener;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Starting Kotoba Web Framework Example");
 
-    // Jsonnet設定ファイルを読み込み
-    let config_path = "examples/frontend_app/kotoba.libsonnet";
-    println!("📄 Loading Jsonnet config from: {}", config_path);
-
-    let config_content = fs::read_to_string(config_path)?;
-    println!("📊 Parsing Jsonnet configuration...");
-
-    // TODO: Jsonnetパーサーを実装
-    // 現在は簡易的な設定を使用
+    // Web Frameworkの設定を作成
+    println!("📄 Creating Web Framework configuration...");
     let web_config = create_default_config();
 
     // WebFrameworkを作成
-    let framework = WebFramework::new(web_config)?;
+    let framework = Arc::new(WebFramework::new(web_config)?);
     println!("✅ WebFramework initialized");
 
-    // データベース初期化
-    if let Some(db_manager) = framework.get_config().database.as_ref() {
-        println!("🗄️  Initializing database...");
-        // TODO: 実際のデータベース初期化
-        println!("✅ Database initialized");
-    }
+    // TCPリスナーを開始
+    let listener = TcpListener::bind("127.0.0.1:3000").await?;
+    println!("🌐 Frontend App Server listening on http://127.0.0.1:3000");
+    println!("Press Ctrl+C to stop the server");
 
-    // アプリ構造を定義
-    setup_app_structure(&framework).await?;
+    loop {
+        let (mut socket, _) = listener.accept().await?;
+        let framework = Arc::clone(&framework);
 
-    // コマンドライン引数の処理
-    let args: Vec<String> = std::env::args().collect();
+        tokio::spawn(async move {
+            let mut buf = [0; 1024];
+            let n = socket.read(&mut buf).await.unwrap();
 
-    if args.contains(&"--build".to_string()) {
-        // ビルド実行
-        println!("🔨 Building application...");
-        let build_config = BuildConfigIR::new(build_ir::BundlerType::Vite);
-        let build_engine = BuildEngine::new(build_config);
-        let build_result = build_engine.build().await?;
-        println!("✅ Build completed!");
-        println!("📊 Build Stats:");
-        println!("  - Chunks: {}", build_result.stats.chunk_count);
-        println!("  - Total Size: {} KB", build_result.stats.total_size / 1024);
-        println!("  - Gzipped: {} KB", build_result.stats.gzip_size / 1024);
+            if n == 0 {
+                return;
+            }
 
-    } else if args.contains(&"--dev".to_string()) {
-        // 開発サーバー起動
-        println!("🚀 Starting development server...");
-        start_dev_server(framework).await?;
-        println!("📡 Server running at http://localhost:3000");
-
-    } else {
-        // デフォルト：特定のルートをレンダリング
-        let route_path = args.get(2).unwrap_or(&"/".to_string()).clone();
-        println!("🎨 Rendering route: {}", route_path);
-
-        match framework.navigate(&route_path).await {
-            Ok(result) => {
-                println!("✅ Route rendered successfully!");
-                println!("📊 Render Stats:");
-                println!("  - Components: {}", result.render_stats.component_count);
-                println!("  - HTML Size: {} bytes", result.html.len());
-
-                // HTMLファイルに保存（デモ用）
-                fs::create_dir_all("dist")?;
-                fs::write("dist/index.html", &result.html)?;
-                if let Some(hydration) = &result.hydration_script {
-                    fs::write("dist/hydrate.js", hydration)?;
+            // シンプルなHTTPリクエストのパース
+            let request_str = String::from_utf8_lossy(&buf[..n]);
+            let path = if request_str.starts_with("GET ") {
+                let line = request_str.lines().next().unwrap_or("");
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    parts[1].to_string()
+                } else {
+                    "/".to_string()
                 }
+            } else {
+                "/".to_string()
+            };
 
-                println!("💾 Output saved to dist/");
-            }
-            Err(e) => {
-                eprintln!("❌ Failed to render route: {}", e);
-                std::process::exit(1);
-            }
-        }
-    }
+            // HttpRequestを作成
+            let request = kotoba::http::HttpRequest {
+                id: format!("req_{}", uuid::Uuid::new_v4()),
+                method: kotoba::http::HttpMethod::GET,
+                path,
+                query: std::collections::HashMap::new(),
+                headers: kotoba::http::HttpHeaders::new(),
+                body_ref: None,
+                timestamp: 1234567890,
+            };
 
-    Ok(())
+            // Web Frameworkでリクエストを処理
+            match framework.handle_request(request).await {
+                Ok(response) => {
+                    // HTTPレスポンスを送信
+                    let response_str = format!(
+                        "HTTP/1.1 {} {}\r\nContent-Type: text/html\r\n\r\n{}",
+                        if response.status.code == 200 { "200" } else { "404" },
+                        response.status.reason,
+                        if response.status.code == 200 {
+                            "<html><head><title>Kotoba Web Framework</title></head><body><h1>Welcome to Kotoba Web Framework!</h1><p>This is a Next.js-like framework built with Rust.</p></body></html>"
+                        } else {
+                            "<html><body><h1>404 Not Found</h1></body></html>"
+                        }
+                    );
+
+                    let _ = socket.write_all(response_str.as_bytes()).await;
+                }
+                Err(_) => {
+                    let error_response = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nInternal Server Error";
+                    let _ = socket.write_all(error_response.as_bytes()).await;
+                }
+            }
+        });
 }
 
 /// デフォルト設定を作成

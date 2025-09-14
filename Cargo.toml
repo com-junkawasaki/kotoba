@@ -62,3 +62,7 @@ path = "examples/social_network/main.rs"
 [[example]]
 name = "http_server"
 path = "examples/http_server/main.rs"
+
+[[example]]
+name = "frontend_app"
+path = "examples/frontend_app/main.rs"

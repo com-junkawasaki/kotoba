@@ -1,10 +1,12 @@
-//! HTTP Server Example
+//! Web Framework HTTP Server Example
 //!
-//! この例は.kotoba.jsonファイルを使ってHTTPサーバーを起動する方法を示します。
+//! この例はWeb Frameworkを使ってシンプルなHTTPサーバーを起動する方法を示します。
 
-use kotoba::http::server::HttpServer;
-use kotoba::storage::{InMemoryMVCCManager, InMemoryMerkleDAGManager};
-use kotoba::rewrite::RewriteEngine;
+use kotoba::frontend::WebFramework;
+use kotoba::frontend::api_ir::WebFrameworkConfigIR;
+use kotoba::http::{HttpRequest, HttpResponse, HttpMethod, HttpHeaders};
+use tokio::net::TcpListener;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -12,48 +14,101 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ロガーの初期化
     env_logger::init();
 
-    println!("🚀 Starting Kotoba HTTP Server Example");
+    println!("🚀 Starting Kotoba Web Framework HTTP Server Example");
 
-    // ストレージとエンジンの初期化
-    let mvcc = Arc::new(InMemoryMVCCManager::new());
-    let merkle = Arc::new(InMemoryMerkleDAGManager::new());
-    let rewrite_engine = Arc::new(RewriteEngine::new(
-        Arc::clone(&mvcc),
-        Arc::clone(&merkle),
-    ));
+    // Web Frameworkの設定を作成
+    let config = WebFrameworkConfigIR {
+        server: kotoba::frontend::api_ir::ServerConfig {
+            host: "localhost".to_string(),
+            port: 3000,
+            tls: None,
+            workers: 4,
+            max_connections: 1000,
+        },
+        database: None,
+        api_routes: Vec::new(),
+        web_sockets: Vec::new(),
+        graph_ql: None,
+        middlewares: Vec::new(),
+        static_files: Vec::new(),
+        authentication: None,
+        session: None,
+    };
 
-    // 設定ファイルからサーバーを作成
-    let config_path = "examples/http_server/config.kotoba.json";
-    println!("📄 Loading configuration from: {}", config_path);
+    // Web Frameworkを作成
+    let framework = Arc::new(WebFramework::new(config)?);
+    println!("📄 Web Framework initialized");
 
-    let mut server = HttpServer::from_config_file(
-        config_path,
-        mvcc,
-        merkle,
-        rewrite_engine,
-    ).await?;
+    // TCPリスナーを開始
+    let listener = TcpListener::bind("127.0.0.1:3000").await?;
+    println!("🌐 Server listening on http://127.0.0.1:3000");
+    println!("Press Ctrl+C to stop the server");
 
-    // サーバーを起動
-    server.start().await?;
+    loop {
+        let (mut socket, _) = listener.accept().await?;
+        let framework = Arc::clone(&framework);
 
-    // サーバーの情報を表示
-    let status = server.get_status().await;
-    println!("✅ Server started successfully!");
-    println!("📡 Listening on {}:{}", status.host, status.port);
-    println!("📊 Routes: {}, Middlewares: {}", status.routes_count, status.middlewares_count);
-    println!("🔗 Available endpoints:");
-    println!("   GET  /ping");
-    println!("   GET  /health");
-    println!("   GET  /api/v1/status");
-    println!("   POST /api/v1/echo");
-    println!("   GET  /api/v1/users/{{id}}");
-    println!("   GET  /api/v1/posts");
-    println!();
-    println!("💡 Try: curl http://{}:{}/ping", status.host, status.port);
-    println!("🔄 Ready to accept connections...");
+        tokio::spawn(async move {
+            let mut buf = [0; 1024];
+            let n = socket.read(&mut buf).await.unwrap();
 
-    // メインループを実行
-    server.run().await?;
+            if n == 0 {
+                return;
+            }
 
-    Ok(())
+            // シンプルなHTTPリクエストのパース（本番では適切なパーサーを使用）
+            let request_str = String::from_utf8_lossy(&buf[..n]);
+            let path = if request_str.starts_with("GET ") {
+                let line = request_str.lines().next().unwrap_or("");
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    parts[1].to_string()
+                } else {
+                    "/".to_string()
+                }
+            } else {
+                "/".to_string()
+            };
+
+            // HttpRequestを作成
+            let request = HttpRequest {
+                id: format!("req_{}", uuid::Uuid::new_v4()),
+                method: HttpMethod::GET,
+                path,
+                query: std::collections::HashMap::new(),
+                headers: HttpHeaders::new(),
+                body_ref: None,
+                timestamp: 1234567890,
+            };
+
+            // Web Frameworkでリクエストを処理
+            match framework.handle_request(request).await {
+                Ok(response) => {
+                    // HTTPレスポンスを送信
+                    let response_str = format!(
+                        "HTTP/1.1 {} {}\r\nContent-Type: text/html\r\nContent-Length: {}\r\n\r\n{}",
+                        if response.status.code == 200 { "200" } else { "404" },
+                        response.status.reason,
+                        if let Some(ref body) = response.body_ref {
+                            // 実際の実装ではbody_refからコンテンツを取得
+                            "<html><body><h1>Hello from Web Framework!</h1></body></html>".len()
+                        } else {
+                            0
+                        },
+                        if let Some(_) = response.body_ref {
+                            "<html><body><h1>Hello from Web Framework!</h1></body></html>"
+                        } else {
+                            ""
+                        }
+                    );
+
+                    let _ = socket.write_all(response_str.as_bytes()).await;
+                }
+                Err(_) => {
+                    let error_response = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nInternal Server Error";
+                    let _ = socket.write_all(error_response.as_bytes()).await;
+                }
+            }
+        });
+    }
 }
