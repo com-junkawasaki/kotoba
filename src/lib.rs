@@ -28,9 +28,9 @@ pub use kotoba_execution::prelude::*;
 pub use kotoba_rewrite::prelude::*;
 // pub use kotoba_web::prelude::*; // まだpublishされていないため一時的にコメントアウト
 
-// Examples are excluded from publish
+// Examples and topology are excluded from publish
 // #[cfg(feature = "examples")]
 // pub mod examples;
-pub mod topology;
+// pub mod topology;
 
-pub use topology::*;
+// pub use topology::*;
