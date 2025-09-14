@@ -7,8 +7,10 @@ use std::fmt;
 
 /// Jsonnet value types
 #[derive(Debug, Clone, PartialEq)]
+#[derive(Default)]
 pub enum JsonnetValue {
     /// Null value
+    #[default]
     Null,
     /// Boolean value
     Boolean(bool),
@@ -193,7 +195,7 @@ impl JsonnetValue {
             }
             (JsonnetValue::Object(a), JsonnetValue::Object(b)) => {
                 a.len() == b.len() && a.iter().all(|(k, v)| {
-                    b.get(k).map_or(false, |bv| v.equals(bv))
+                    b.get(k).is_some_and(|bv| v.equals(bv))
                 })
             }
             _ => false,
@@ -358,11 +360,6 @@ impl fmt::Display for JsonnetValue {
     }
 }
 
-impl Default for JsonnetValue {
-    fn default() -> Self {
-        JsonnetValue::Null
-    }
-}
 
 /// Jsonnet builtin function types
 #[derive(Debug, Clone, PartialEq)]

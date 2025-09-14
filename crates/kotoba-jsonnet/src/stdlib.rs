@@ -179,7 +179,7 @@ impl StdLib {
         let s = args[0].as_string()?;
         let sep = args[1].as_string()?;
 
-        let parts: Vec<JsonnetValue> = s.split(sep).map(|p| JsonnetValue::string(p)).collect();
+        let parts: Vec<JsonnetValue> = s.split(sep).map(JsonnetValue::string).collect();
         Ok(JsonnetValue::array(parts))
     }
 

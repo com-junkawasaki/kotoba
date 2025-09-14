@@ -58,12 +58,7 @@ impl CssProcessor {
         let mut variables = HashMap::new();
 
         // Simplified implementation - extract CSS custom properties
-        // Handle both single-line and multi-line CSS
-        let css_content = if css.contains('\n') {
-            css.to_string()
-        } else {
-            css.to_string()
-        };
+        let css_content = css.to_string();
 
         for declaration in css_content.split(';') {
             let trimmed = declaration.trim();

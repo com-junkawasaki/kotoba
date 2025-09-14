@@ -319,7 +319,7 @@ pub enum PreloadPriority {
 pub struct DeploymentIR {
     pub strategy: DeploymentStrategy,
     pub cdn_config: Option<CDNConfig>,
-    pub cache_config: CacheConfig,
+    pub cache_config: BuildCacheConfig,
     pub monitoring: MonitoringConfig,
 }
 
@@ -348,7 +348,7 @@ pub enum CDNProvider {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CacheConfig {
+pub struct BuildCacheConfig {
     pub static_cache_ttl: u64,
     pub api_cache_ttl: u64,
     pub cache_invalidation: CacheInvalidationStrategy,

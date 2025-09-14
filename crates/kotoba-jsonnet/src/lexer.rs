@@ -215,7 +215,7 @@ impl Lexer {
                 if self.match_char('=') {
                     Ok(TokenWithPos { token: Token::Equal, position })
                 } else {
-                    return Err(JsonnetError::parse_error(self.line, self.column, "Unexpected '='"));
+                    Err(JsonnetError::parse_error(self.line, self.column, "Unexpected '='"))
                 }
             }
             '!' => {
@@ -344,7 +344,7 @@ impl Lexer {
 
                 // Parse interpolation
                 self.advance(); // consume '('
-                let expr_start = self.position;
+                let _expr_start = self.position;
 
                 // Find the closing ')s'
                 let mut paren_count = 1;

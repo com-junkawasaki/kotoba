@@ -29,6 +29,10 @@ pub mod schema_test;
 pub mod distributed;
 pub mod network_protocol;
 pub mod schema_validator;
+pub mod topology;
+pub mod types;
+pub mod frontend;
+pub mod http;
 #[cfg(feature = "deploy")]
 pub mod deploy;
 

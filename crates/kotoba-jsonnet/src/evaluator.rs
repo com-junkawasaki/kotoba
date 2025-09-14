@@ -1,6 +1,6 @@
 //! Jsonnet expression evaluator
 
-use crate::ast::{self, BinaryOp, Expr, ObjectField, Program, Stmt, UnaryOp};
+use crate::ast::{self, BinaryOp, Expr, Program, Stmt, UnaryOp};
 use crate::error::{JsonnetError, Result};
 use crate::value::{JsonnetBuiltin, JsonnetFunction, JsonnetValue};
 use std::collections::HashMap;
@@ -9,10 +9,6 @@ use std::collections::HashMap;
 pub struct Evaluator {
     /// Global environment
     globals: HashMap<String, JsonnetValue>,
-    /// Stack for tracking recursion depth
-    stack_depth: usize,
-    /// Maximum allowed stack depth
-    max_stack_depth: usize,
 }
 
 impl Evaluator {
@@ -20,8 +16,6 @@ impl Evaluator {
     pub fn new() -> Self {
         let mut evaluator = Evaluator {
             globals: HashMap::new(),
-            stack_depth: 0,
-            max_stack_depth: 1000,
         };
         evaluator.init_stdlib();
         evaluator
@@ -29,7 +23,6 @@ impl Evaluator {
 
     /// Initialize the standard library
     fn init_stdlib(&mut self) {
-        use crate::stdlib::*;
 
         // Add std object with functions
         let mut std_object = HashMap::new();
@@ -41,7 +34,7 @@ impl Evaluator {
     }
 
     /// Evaluate a Jsonnet file
-    pub fn evaluate_file(&mut self, source: &str, filename: &str) -> Result<JsonnetValue> {
+    pub fn evaluate_file(&mut self, source: &str, _filename: &str) -> Result<JsonnetValue> {
         use crate::parser::Parser;
 
         // Try to parse as a single expression first
@@ -57,157 +50,7 @@ impl Evaluator {
         }
     }
 
-    /// Evaluate a simple expression string (temporary implementation)
-    fn evaluate_expr(&mut self, source: &str) -> Result<JsonnetValue> {
-        let source = source.trim();
 
-        // Handle null
-        if source == "null" {
-            return Ok(JsonnetValue::Null);
-        }
-
-        // Handle booleans
-        if source == "true" {
-            return Ok(JsonnetValue::boolean(true));
-        }
-        if source == "false" {
-            return Ok(JsonnetValue::boolean(false));
-        }
-
-        // Handle numbers
-        if let Ok(num) = source.parse::<f64>() {
-            return Ok(JsonnetValue::number(num));
-        }
-
-        // Handle strings
-        if source.starts_with('"') && source.ends_with('"') {
-            let content = &source[1..source.len() - 1];
-            return Ok(JsonnetValue::string(content));
-        }
-        if source.starts_with('\'') && source.ends_with('\'') {
-            let content = &source[1..source.len() - 1];
-            return Ok(JsonnetValue::string(content));
-        }
-
-        // Handle arrays (basic)
-        if source.starts_with('[') && source.ends_with(']') {
-            if source.len() == 2 {
-                return Ok(JsonnetValue::array(vec![]));
-            }
-            // TODO: Parse array elements
-            return Err(JsonnetError::runtime_error("Complex arrays not yet supported"));
-        }
-
-        // Handle objects (basic)
-        if source.starts_with('{') && source.ends_with('}') {
-            if source.len() == 2 {
-                return Ok(JsonnetValue::object(HashMap::new()));
-            }
-            // TODO: Parse object fields
-            return Err(JsonnetError::runtime_error("Complex objects not yet supported"));
-        }
-
-        // Handle local variables (basic pattern)
-        if source.starts_with("local ") {
-            if let Some(eq_pos) = source.find('=') {
-                let _var_part = &source[6..eq_pos].trim();
-                let expr_part = &source[eq_pos + 1..].trim();
-
-                // For now, just evaluate the expression part
-                return self.evaluate_expr(expr_part);
-            }
-        }
-
-        // Handle binary operations (basic)
-        if let Some(op_pos) = source.find(" + ") {
-            let left = &source[..op_pos].trim();
-            let right = &source[op_pos + 3..].trim();
-
-            let left_val = self.evaluate_expr(left)?;
-            let right_val = self.evaluate_expr(right)?;
-
-            match (left_val, right_val) {
-                (JsonnetValue::Number(a), JsonnetValue::Number(b)) => return Ok(JsonnetValue::number(a + b)),
-                (JsonnetValue::String(a), JsonnetValue::String(b)) => return Ok(JsonnetValue::string(a + &b)),
-                _ => return Err(JsonnetError::runtime_error("Invalid operands for +")),
-            }
-        }
-
-        if let Some(op_pos) = source.find(" - ") {
-            let left = &source[..op_pos].trim();
-            let right = &source[op_pos + 3..].trim();
-
-            let left_val = self.evaluate_expr(left)?;
-            let right_val = self.evaluate_expr(right)?;
-
-            match (left_val, right_val) {
-                (JsonnetValue::Number(a), JsonnetValue::Number(b)) => return Ok(JsonnetValue::number(a - b)),
-                _ => return Err(JsonnetError::runtime_error("Invalid operands for -")),
-            }
-        }
-
-        if let Some(op_pos) = source.find(" * ") {
-            let left = &source[..op_pos].trim();
-            let right = &source[op_pos + 3..].trim();
-
-            let left_val = self.evaluate_expr(left)?;
-            let right_val = self.evaluate_expr(right)?;
-
-            match (left_val, right_val) {
-                (JsonnetValue::Number(a), JsonnetValue::Number(b)) => return Ok(JsonnetValue::number(a * b)),
-                _ => return Err(JsonnetError::runtime_error("Invalid operands for *")),
-            }
-        }
-
-        if let Some(op_pos) = source.find(" / ") {
-            let left = &source[..op_pos].trim();
-            let right = &source[op_pos + 3..].trim();
-
-            let left_val = self.evaluate_expr(left)?;
-            let right_val = self.evaluate_expr(right)?;
-
-            match (left_val, right_val) {
-                (JsonnetValue::Number(a), JsonnetValue::Number(b)) => {
-                    if b == 0.0 {
-                        return Err(JsonnetError::DivisionByZero);
-                    }
-                    return Ok(JsonnetValue::number(a / b));
-                }
-                _ => return Err(JsonnetError::runtime_error("Invalid operands for /")),
-            }
-        }
-
-        // Handle std library calls (basic)
-        if source.starts_with("std.length(") && source.ends_with(")") {
-            let arg = &source[11..source.len() - 1];
-            let arg_val = self.evaluate_expr(arg)?;
-
-            match arg_val {
-                JsonnetValue::Array(arr) => return Ok(JsonnetValue::number(arr.len() as f64)),
-                JsonnetValue::String(s) => return Ok(JsonnetValue::number(s.len() as f64)),
-                JsonnetValue::Object(obj) => return Ok(JsonnetValue::number(obj.len() as f64)),
-                _ => return Err(JsonnetError::runtime_error("std.length requires array, string, or object")),
-            }
-        }
-
-        // If nothing matches, treat as identifier
-        Err(JsonnetError::undefined_variable(source.to_string()))
-    }
-
-
-    /// Check stack depth to prevent infinite recursion
-    fn check_stack_depth(&mut self) -> Result<()> {
-        self.stack_depth += 1;
-        if self.stack_depth > self.max_stack_depth {
-            return Err(JsonnetError::MaxRecursionExceeded);
-        }
-        Ok(())
-    }
-
-    /// Reset stack depth
-    fn reset_stack_depth(&mut self) {
-        self.stack_depth = 0;
-    }
 
     /// Evaluate a parsed program
     fn evaluate_program(&mut self, program: Program) -> Result<JsonnetValue> {
@@ -286,7 +129,7 @@ impl Evaluator {
                 if let Some(value) = self.globals.get(name) {
                     Ok(value.clone())
                 } else {
-                    Err(JsonnetError::runtime_error(&format!("Undefined variable: {}", name)))
+                    Err(JsonnetError::runtime_error(format!("Undefined variable: {}", name)))
                 }
             }
             Expr::BinaryOp { left, op, right } => {
@@ -416,12 +259,12 @@ impl Evaluator {
             JsonnetValue::Function(f) => {
                 if args.len() != f.parameters.len() {
                     return Err(JsonnetError::runtime_error(
-                        &format!("Expected {} arguments, got {}", f.parameters.len(), args.len())
+                        format!("Expected {} arguments, got {}", f.parameters.len(), args.len())
                     ));
                 }
 
                 // Create parameter bindings
-                let mut old_globals = self.globals.clone();
+                let old_globals = self.globals.clone();
                 for (param, arg) in f.parameters.iter().zip(args) {
                     self.globals.insert(param.clone(), arg);
                 }
@@ -560,5 +403,11 @@ mod tests {
             JsonnetError::RuntimeError { message: _ } => {}, // Undefined variable is now a runtime error
             _ => panic!("Expected runtime error"),
         }
+    }
+}
+
+impl Default for Evaluator {
+    fn default() -> Self {
+        Self::new()
     }
 }

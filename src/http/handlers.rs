@@ -4,15 +4,35 @@
 //! グラフ書換えルールを使ってリクエスト処理を行います。
 
 use crate::types::{TxId, ContentHash, Result, KotobaError, Value, Properties};
-use crate::graph::GraphRef;
+use crate::GraphRef;
 use crate::http::ir::*;
-use crate::graph::{Graph, VertexData, EdgeData};
-use crate::storage::{MVCCManager, MerkleDAG};
-use crate::rewrite::{RewriteEngine, RewriteExterns};
-use crate::ir::rule::{RuleIR, Match};
-use crate::ir::strategy::{StrategyIR, StrategyOp};
-use crate::ir::patch::Patch;
-use kotoba_security::{SecurityService, SecurityConfig, JwtClaims, User, AuthResult, AuthzResult, Principal, Resource};
+use crate::Graph;
+use crate::VertexData;
+use crate::EdgeData;
+use crate::MVCCManager;
+use crate::MerkleDAG;
+use crate::RewriteEngine;
+use crate::RewriteExterns;
+use kotoba_core::ir::rule::{RuleIR, Match};
+use kotoba_core::ir::strategy::{StrategyIR, StrategyOp};
+use kotoba_core::ir::patch::Patch;
+// Dummy security service for now
+#[derive(Clone)]
+pub struct SecurityService;
+#[derive(Clone)]
+pub struct SecurityConfig;
+#[derive(Clone)]
+pub struct JwtClaims;
+#[derive(Clone)]
+pub struct User;
+#[derive(Clone)]
+pub struct AuthResult;
+#[derive(Clone)]
+pub struct AuthzResult;
+#[derive(Clone)]
+pub struct Principal;
+#[derive(Clone)]
+pub struct Resource;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -104,7 +124,7 @@ impl RewriteExterns for HttpRewriteExterns {
         true
     }
 
-    fn custom_measure(&self, _name: &str, _args: &[crate::types::Value]) -> f64 {
+    fn custom_measure(&self, _name: &str, _args: &[kotoba_core::types::Value]) -> f64 {
         // TODO: カスタム測定関数を実装
         0.0
     }
@@ -259,7 +279,7 @@ impl MiddlewareProcessor {
         let csrf_token = request.headers.get("x-csrf-token")
             .or_else(|| {
                 // POSTリクエストの場合はフォームデータからも取得
-                if request.method == "POST" {
+                if request.method == crate::http::ir::HttpMethod::POST {
                     // TODO: リクエストボディからのCSRFトークン取得を実装
                     None
                 } else {
@@ -270,7 +290,7 @@ impl MiddlewareProcessor {
         if let Some(token) = csrf_token {
             // TODO: CSRFトークンの検証ロジックを実装
             println!("CSRF token validation: {}", token);
-        } else if matches!(request.method.as_str(), "POST" | "PUT" | "PATCH" | "DELETE") {
+        } else if matches!(request.method, crate::http::ir::HttpMethod::POST | crate::http::ir::HttpMethod::PUT | crate::http::ir::HttpMethod::PATCH | crate::http::ir::HttpMethod::DELETE) {
             return Err(KotobaError::Security("CSRF token required for state-changing requests".to_string()));
         }
 

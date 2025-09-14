@@ -13,6 +13,12 @@ pub struct EdgeBuilder {
     props: Properties,
 }
 
+impl Default for EdgeBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EdgeBuilder {
     pub fn new() -> Self {
         Self {
@@ -56,7 +62,7 @@ impl EdgeBuilder {
 
     pub fn build(self) -> crate::graph::EdgeData {
         crate::graph::EdgeData {
-            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4()),
+            id: self.id.unwrap_or_else(uuid::Uuid::new_v4),
             src: self.src.expect("src must be set"),
             dst: self.dst.expect("dst must be set"),
             label: self.label.expect("label must be set"),

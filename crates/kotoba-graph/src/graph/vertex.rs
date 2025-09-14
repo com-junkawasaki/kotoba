@@ -11,6 +11,12 @@ pub struct VertexBuilder {
     props: Properties,
 }
 
+impl Default for VertexBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VertexBuilder {
     pub fn new() -> Self {
         Self {
@@ -47,7 +53,7 @@ impl VertexBuilder {
 
     pub fn build(self) -> crate::graph::VertexData {
         crate::graph::VertexData {
-            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4()),
+            id: self.id.unwrap_or_else(uuid::Uuid::new_v4),
             labels: self.labels,
             props: self.props,
         }

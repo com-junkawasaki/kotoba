@@ -164,7 +164,7 @@ impl TsxGenerator {
 
         // React imports - use modern React import
         let mut react_items = vec!["FC".to_string()];
-        if config.handlers.len() > 0 {
+        if !config.handlers.is_empty() {
             react_items.push("useState".to_string());
             react_items.push("useEffect".to_string());
         }
@@ -319,7 +319,7 @@ impl TsxGenerator {
         // Generate JSX
         let jsx = self.generate_jsx_element(component, config, 4)?;
         code.push_str(&jsx);
-        code.push_str("\n");
+        code.push('\n');
 
         code.push_str("  );\n");
         code.push_str("};\n\n");
@@ -339,7 +339,7 @@ impl TsxGenerator {
         // Generate JSX
         let jsx = self.generate_jsx_element(component, config, 6)?;
         code.push_str(&jsx);
-        code.push_str("\n");
+        code.push('\n');
 
         code.push_str("    );\n");
         code.push_str("  }\n");
@@ -370,7 +370,7 @@ impl TsxGenerator {
                 let mut jsx = format!("{}<{}", indent_str, component_type);
 
                 // Add props
-                for (key, _value) in &component.props {
+                for key in component.props.keys() {
                     let camel_key = self.to_camel_case(key);
                     jsx.push_str(&format!(" {}={{props.{}}}", camel_key, camel_key));
                 }
@@ -495,11 +495,11 @@ impl TsxGenerator {
         if let Some(root_component) = config.components.get("App") {
             let jsx = self.generate_jsx_element(root_component, config, 4)?;
             code.push_str(&jsx);
-            code.push_str("\n");
+            code.push('\n');
         } else if let Some((_, root_component)) = config.components.iter().next() {
             let jsx = self.generate_jsx_element(root_component, config, 4)?;
             code.push_str(&jsx);
-            code.push_str("\n");
+            code.push('\n');
         } else {
             // No components defined, create a simple app
             code.push_str("    <div>\n");

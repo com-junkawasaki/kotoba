@@ -3,7 +3,7 @@
 //! このモジュールはHTTPサーバー関連のデータ構造とIR定義を提供します。
 
 use crate::types::{Value, Properties, ContentHash, Result, KotobaError};
-use crate::ir::catalog::{LabelDef, PropertyDef};
+use kotoba_core::ir::catalog::{LabelDef, PropertyDef, ValueType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,6 +19,22 @@ pub enum HttpMethod {
     OPTIONS,
     CONNECT,
     TRACE,
+}
+
+impl HttpMethod {
+    pub fn as_str(&self) -> &str {
+        match self {
+            HttpMethod::GET => "GET",
+            HttpMethod::POST => "POST",
+            HttpMethod::PUT => "PUT",
+            HttpMethod::DELETE => "DELETE",
+            HttpMethod::PATCH => "PATCH",
+            HttpMethod::HEAD => "HEAD",
+            HttpMethod::OPTIONS => "OPTIONS",
+            HttpMethod::CONNECT => "CONNECT",
+            HttpMethod::TRACE => "TRACE",
+        }
+    }
 }
 
 impl std::fmt::Display for HttpMethod {

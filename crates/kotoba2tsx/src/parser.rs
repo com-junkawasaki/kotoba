@@ -190,7 +190,7 @@ impl KotobaParser {
             components,
             handlers,
             states,
-            config: config.into_iter().map(|(k, v)| (k, v)).collect(),
+            config: config.into_iter().collect(),
         })
     }
 

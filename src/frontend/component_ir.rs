@@ -210,12 +210,12 @@ pub struct ComponentMetadata {
     pub is_async: bool,
     pub uses_suspense: bool,
     pub has_error_boundary: bool,
-    pub cache_strategy: Option<CacheStrategy>,
+    pub cache_strategy: Option<ComponentCacheStrategy>,
     pub revalidation_strategy: Option<RevalidationStrategy>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CacheStrategy {
+pub enum ComponentCacheStrategy {
     NoCache,
     Cache { duration: u64 },
     Revalidate { tags: Vec<String> },

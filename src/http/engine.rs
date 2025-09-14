@@ -4,14 +4,16 @@
 //! 設定管理、リクエスト処理、状態管理を行います。
 
 use crate::types::{ContentHash, Result, KotobaError};
-use crate::graph::GraphRef;
+use crate::GraphRef;
 use crate::http::ir::*;
 use crate::http::handlers::*;
-use crate::storage::{MVCCManager, MerkleDAG};
-use crate::rewrite::RewriteEngine;
+use crate::MVCCManager;
+use crate::MerkleDAG;
+use crate::RewriteEngine;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
+use urlencoding;
 
 /// HTTPサーバーエンジン
 #[derive(Clone)]
@@ -32,13 +34,15 @@ impl HttpEngine {
         merkle: Arc<MerkleDAG>,
         rewrite_engine: Arc<RewriteEngine>,
     ) -> Self {
+        let security_service = Arc::new(crate::http::handlers::SecurityService);
         let request_processor = HttpRequestProcessor::new(
             rewrite_engine,
             mvcc,
             merkle,
+            security_service,
         );
 
-        let middleware_processor = MiddlewareProcessor::new(config.middlewares.clone());
+        let middleware_processor = MiddlewareProcessor::new(config.middlewares.clone(), security_service);
         let handler_processor = HandlerProcessor::new();
 
         // ルートをマップにインデックス化

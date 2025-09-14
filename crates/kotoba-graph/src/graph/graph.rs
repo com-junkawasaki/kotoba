@@ -62,7 +62,7 @@ impl Graph {
     pub fn add_vertex(&mut self, vertex: VertexData) -> VertexId {
         let id = vertex.id;
         for label in &vertex.labels {
-            self.vertex_labels.entry(label.clone()).or_insert(HashSet::new()).insert(id);
+            self.vertex_labels.entry(label.clone()).or_default().insert(id);
         }
         self.vertices.insert(id, vertex);
         id
@@ -75,11 +75,11 @@ impl Graph {
         let dst = edge.dst;
 
         // 隣接リスト更新
-        self.adj_out.entry(src).or_insert(HashSet::new()).insert(dst);
-        self.adj_in.entry(dst).or_insert(HashSet::new()).insert(src);
+        self.adj_out.entry(src).or_default().insert(dst);
+        self.adj_in.entry(dst).or_default().insert(src);
 
         // ラベルインデックス更新
-        self.edge_labels.entry(edge.label.clone()).or_insert(HashSet::new()).insert(id);
+        self.edge_labels.entry(edge.label.clone()).or_default().insert(id);
 
         self.edges.insert(id, edge);
         id

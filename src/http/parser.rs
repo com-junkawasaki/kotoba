@@ -77,9 +77,9 @@ impl HttpConfigParser {
         // Static files を変換
         if let Some(static_files) = kotobanet_config.static_files {
             http_config.static_files = Some(StaticConfig {
-                root: static_files.root,
-                index_file: static_files.index_file,
-                cache_control: static_files.cache_control,
+                root_dir: static_files.root_dir,
+                url_prefix: static_files.url_prefix,
+                cache_max_age: static_files.cache_max_age,
             });
         }
 
@@ -122,12 +122,12 @@ impl HttpConfigParser {
 
         // メタデータを設定
         http_route.metadata.insert("handler_source".to_string(), Value::String(route.handler));
-        http_route.metadata.insert("auth_required".to_string(), Value::Boolean(route.auth_required));
-        http_route.metadata.insert("cors_enabled".to_string(), Value::Boolean(route.cors_enabled));
+        http_route.metadata.insert("auth_required".to_string(), Value::Bool(route.auth_required));
+        http_route.metadata.insert("cors_enabled".to_string(), Value::Bool(route.cors_enabled));
 
         if let Some(rate_limit) = route.rate_limit {
-            http_route.metadata.insert("rate_limit_requests".to_string(), Value::Number(rate_limit.requests_per_minute as f64));
-            http_route.metadata.insert("rate_limit_burst".to_string(), Value::Number(rate_limit.burst_limit as f64));
+            http_route.metadata.insert("rate_limit_requests".to_string(), Value::Int(rate_limit.requests_per_minute as i64));
+            http_route.metadata.insert("rate_limit_burst".to_string(), Value::Int(rate_limit.burst_limit as i64));
         }
 
         Ok(http_route)
