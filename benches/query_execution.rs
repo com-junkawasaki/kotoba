@@ -1,12 +1,8 @@
 //! クエリ実行のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba_core::*;
-use kotoba_graph::*;
-use kotoba_execution::*;
+use kotoba::*;
 use std::collections::HashMap;
-use uuid::Uuid;
-use rand;
 
 /// テスト用グラフデータの生成（クエリ用）
 fn create_query_test_graph(vertex_count: usize, edge_count: usize) -> GraphRef {
@@ -211,7 +207,7 @@ fn bench_query_parsing(c: &mut Criterion) {
 
     c.bench_function("query_parsing", |b| {
         b.iter(|| {
-            let parser = execution::GqlParser::new();
+            let parser = GqlParser::new();
             let result = parser.parse(gql);
             black_box(&result);
         });
@@ -221,12 +217,11 @@ fn bench_query_parsing(c: &mut Criterion) {
 /// プランナー最適化ベンチマーク
 fn bench_planner_optimization(c: &mut Criterion) {
     let _graph_ref = create_query_test_graph(1000, 5000);
-    let _planner = planner::LogicalPlanner::new();
-    let optimizer = planner::QueryOptimizer::new();
+    let _planner = LogicalPlanner::new();
+    let optimizer = QueryOptimizer::new();
     let catalog = Catalog::empty();
 
     // テスト用のプランを作成
-    use kotoba::ir::*;
     let logical_plan = PlanIR {
         plan: LogicalOp::NodeScan {
             label: "Person".to_string(),

@@ -1,10 +1,8 @@
 //! グラフ操作のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba_core::*;
-use kotoba_graph::*;
+use kotoba::*;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 /// テスト用グラフデータの生成
 fn create_test_graph(size: usize) -> GraphRef {

@@ -80,6 +80,7 @@ rewrite = []
 http = []
 frontend = []
 wasm = []
+deploy = []
 
 # Platform-specific features
 [target.'cfg(target_arch = "wasm32")'.dependencies]
