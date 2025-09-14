@@ -971,7 +971,7 @@ kotoba version
 
 | コマンド | 説明 |
 |---------|------|
-| `run` | .kotobaファイルやGraphSONファイルを実行 |
+| `run` | .kotobaファイルを実行 |
 | `query` | GQLクエリを実行 |
 | `rewrite` | グラフ書換えルールを適用 |
 | `check` | ファイルを検証 |

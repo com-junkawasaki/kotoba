@@ -2,7 +2,7 @@ class Kotoba < Formula
   desc "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
   homepage "https://github.com/jun784/kotoba"
   url "https://github.com/jun784/kotoba/archive/refs/tags/v0.1.2.tar.gz"
-  sha256 "114a54b76f6a6d7552d709be8746bc99406ecaac1b8b057f60b26ef53aa2ab7e"
+  sha256 "e52940ce7c5ed56a4ae68a772147d006912002712bae59c354cdab9ec00fe899"
   license "MIT OR Apache-2.0"
 
   depends_on "rust" => :build

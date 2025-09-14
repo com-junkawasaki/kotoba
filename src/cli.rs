@@ -31,7 +31,7 @@ pub struct Cli {
 /// Kotoba CLIのサブコマンド
 #[derive(Subcommand)]
 pub enum Commands {
-    /// .kotobaファイルやGraphSONファイルを実行
+    /// .kotobaファイルを実行
     Run {
         /// 実行するファイル
         file: PathBuf,
