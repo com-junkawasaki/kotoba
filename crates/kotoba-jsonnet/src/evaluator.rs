@@ -475,7 +475,6 @@ impl Evaluator {
             _ => Err(JsonnetError::runtime_error("Invalid index operation")),
         }
     }
-}
 
 impl Default for Evaluator {
     fn default() -> Self {
