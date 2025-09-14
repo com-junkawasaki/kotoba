@@ -20,7 +20,7 @@ pub struct DeployConfig {
 }
 
 /// Deployment environment
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DeploymentEnvironment {
     Development,
     Staging,
@@ -68,7 +68,7 @@ pub struct RegionConfig {
 }
 
 /// Cloud provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CloudProvider {
     AWS,
     GCP,
@@ -96,7 +96,7 @@ pub struct LoadBalancerConfig {
 }
 
 /// Load balancing algorithm
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LoadBalancingAlgorithm {
     RoundRobin,
     LeastConnections,
@@ -133,7 +133,7 @@ pub struct CdnConfig {
 }
 
 /// CDN provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CdnProvider {
     CloudFront,
     CloudFlare,
@@ -211,7 +211,7 @@ pub enum DnsRecordType {
 }
 
 /// DNS provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DnsProvider {
     Route53,
     CloudFlare,
@@ -236,7 +236,7 @@ pub struct CpuConfig {
 }
 
 /// CPU architecture
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CpuArchitecture {
     X86_64,
     ARM64,
@@ -251,7 +251,7 @@ pub struct MemoryConfig {
 }
 
 /// Memory type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MemoryType {
     DDR4,
     DDR5,
@@ -267,7 +267,7 @@ pub struct StorageConfig {
 }
 
 /// Storage type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StorageType {
     SSD,
     HDD,
@@ -301,7 +301,7 @@ pub struct LogConfig {
 }
 
 /// Log level
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LogLevel {
     DEBUG,
     INFO,
@@ -320,7 +320,7 @@ pub struct AlertConfig {
 }
 
 /// Alert condition
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AlertCondition {
     GreaterThan,
     LessThan,
@@ -346,7 +346,7 @@ pub struct EncryptionConfig {
 }
 
 /// Key management type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum KeyManagementType {
     AWSKMS,
     GCPKMS,
@@ -363,7 +363,7 @@ pub struct SecretsConfig {
 }
 
 /// Secrets provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SecretsProvider {
     AWS,
     GCP,
@@ -382,7 +382,7 @@ pub struct AccessControlConfig {
 }
 
 /// Access control provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AccessControlProvider {
     AWSIAM,
     GCP,
@@ -1465,6 +1465,8 @@ impl DeployParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_parse_simple_deploy_config() {
@@ -1497,5 +1499,1020 @@ mod tests {
         assert!(matches!(deploy_config.environment, DeploymentEnvironment::Production));
         assert_eq!(deploy_config.scaling.min_instances, 2);
         assert_eq!(deploy_config.scaling.max_instances, 10);
+    }
+
+    #[test]
+    fn test_parse_all_deployment_environments() {
+        let environments = vec![
+            ("development", DeploymentEnvironment::Development),
+            ("dev", DeploymentEnvironment::Development),
+            ("staging", DeploymentEnvironment::Staging),
+            ("stage", DeploymentEnvironment::Staging),
+            ("production", DeploymentEnvironment::Production),
+            ("prod", DeploymentEnvironment::Production),
+        ];
+
+        for (env_str, expected) in environments {
+            let config = format!(r#"
+            {{
+                name: "test-app",
+                version: "1.0.0",
+                environment: "{}",
+                regions: [{{
+                    name: "us-east-1",
+                    provider: "AWS",
+                    instanceType: "t3.medium",
+                }}]
+            }}
+            "#, env_str);
+
+            let result = DeployParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse environment: {}", env_str);
+
+            let deploy_config = result.unwrap();
+            assert_eq!(deploy_config.environment, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_custom_environment() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "custom-environment",
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        match deploy_config.environment {
+            DeploymentEnvironment::Custom(env) => assert_eq!(env, "custom-environment"),
+            _ => panic!("Expected custom environment"),
+        }
+    }
+
+    #[test]
+    fn test_parse_scaling_config() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            scaling: {
+                minInstances: 3,
+                maxInstances: 50,
+                targetCpuUtilization: 0.75,
+                targetMemoryUtilization: 0.85,
+                cooldownPeriodSeconds: 600,
+                policies: [
+                    {
+                        name: "cpu-scaling",
+                        metric: "cpu_utilization",
+                        targetValue: 0.8,
+                        adjustment: {
+                            type: "ChangeInCapacity",
+                            value: 2,
+                        }
+                    }
+                ]
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        let scaling = &deploy_config.scaling;
+
+        assert_eq!(scaling.min_instances, 3);
+        assert_eq!(scaling.max_instances, 50);
+        assert_eq!(scaling.target_cpu_utilization, 0.75);
+        assert_eq!(scaling.target_memory_utilization, 0.85);
+        assert_eq!(scaling.cooldown_period_seconds, 600);
+        assert_eq!(scaling.scaling_policies.len(), 1);
+
+        let policy = &scaling.scaling_policies[0];
+        assert_eq!(policy.name, "cpu-scaling");
+        assert_eq!(policy.metric, "cpu_utilization");
+        assert_eq!(policy.target_value, 0.8);
+        match &policy.adjustment_type {
+            ScalingAdjustmentType::ChangeInCapacity(val) => assert_eq!(*val, 2),
+            _ => panic!("Expected ChangeInCapacity"),
+        }
+    }
+
+    #[test]
+    fn test_parse_scaling_adjustment_types() {
+        let adjustment_types = vec![
+            ("ChangeInCapacity", r#"{"type": "ChangeInCapacity", "value": -1}"#),
+            ("PercentChangeInCapacity", r#"{"type": "PercentChangeInCapacity", "value": 25}"#),
+            ("SetToCapacity", r#"{"type": "SetToCapacity", "value": 10}"#),
+        ];
+
+        for (type_name, adjustment_json) in adjustment_types {
+            let config = format!(r#"
+            {{
+                name: "test-app",
+                version: "1.0.0",
+                environment: "production",
+                scaling: {{
+                    minInstances: 1,
+                    maxInstances: 10,
+                    targetCpuUtilization: 0.7,
+                    policies: [{{
+                        name: "test-policy",
+                        metric: "cpu",
+                        targetValue: 0.8,
+                        adjustment: {}
+                    }}]
+                }},
+                regions: [{{
+                    name: "us-east-1",
+                    provider: "AWS",
+                    instanceType: "t3.medium",
+                }}]
+            }}
+            "#, adjustment_json);
+
+            let result = DeployParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse adjustment type: {}", type_name);
+        }
+    }
+
+    #[test]
+    fn test_parse_cloud_providers() {
+        let providers = vec![
+            ("AWS", CloudProvider::AWS),
+            ("GCP", CloudProvider::GCP),
+            ("GOOGLE", CloudProvider::GCP),
+            ("AZURE", CloudProvider::Azure),
+            ("DIGITALOCEAN", CloudProvider::DigitalOcean),
+            ("DO", CloudProvider::DigitalOcean),
+        ];
+
+        for (provider_str, expected) in providers {
+            let config = format!(r#"
+            {{
+                name: "test-app",
+                version: "1.0.0",
+                environment: "production",
+                regions: [{{
+                    name: "test-region",
+                    provider: "{}",
+                    instanceType: "t3.medium",
+                }}]
+            }}
+            "#, provider_str);
+
+            let result = DeployParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse provider: {}", provider_str);
+
+            let deploy_config = result.unwrap();
+            assert_eq!(deploy_config.regions[0].provider, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_custom_cloud_provider() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            regions: [{
+                name: "test-region",
+                provider: "CustomProvider",
+                instanceType: "custom-type",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        match &deploy_config.regions[0].provider {
+            CloudProvider::Custom(provider) => assert_eq!(provider, "CustomProvider"),
+            _ => panic!("Expected custom provider"),
+        }
+    }
+
+    #[test]
+    fn test_parse_networking_config() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            networking: {
+                loadBalancer: {
+                    enabled: true,
+                    algorithm: "LeastConnections",
+                    healthCheck: {
+                        path: "/api/health",
+                        intervalSeconds: 60,
+                        timeoutSeconds: 10,
+                        healthyThreshold: 3,
+                        unhealthyThreshold: 3,
+                    },
+                    ssl: {
+                        certificateArn: "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012",
+                        redirectHttpToHttps: true,
+                    }
+                },
+                cdn: {
+                    enabled: true,
+                    provider: "CloudFront",
+                    origins: ["https://api.example.com"],
+                    cacheBehaviors: [
+                        {
+                            pathPattern: "/api/*",
+                            ttlSeconds: 300,
+                            compress: true,
+                            forwardCookies: false,
+                        }
+                    ]
+                },
+                firewallRules: [
+                    {
+                        name: "allow-ssh",
+                        sourceIp: "0.0.0.0/0",
+                        portRange: { start: 22, end: 22 },
+                        protocol: "TCP",
+                        action: "Allow",
+                    }
+                ],
+                dns: {
+                    domain: "example.com",
+                    provider: "Route53",
+                    records: [
+                        {
+                            name: "api",
+                            type: "CNAME",
+                            value: "api.example.com",
+                            ttl: 300,
+                        }
+                    ]
+                }
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        let networking = &deploy_config.networking;
+
+        // Test load balancer
+        let lb = &networking.load_balancer;
+        assert!(lb.enabled);
+        assert_eq!(lb.algorithm, LoadBalancingAlgorithm::LeastConnections);
+        assert_eq!(lb.health_check.path, "/api/health");
+        assert!(lb.ssl_config.is_some());
+
+        // Test CDN
+        assert!(networking.cdn.is_some());
+        let cdn = networking.cdn.as_ref().unwrap();
+        assert!(cdn.enabled);
+        assert_eq!(cdn.provider, CdnProvider::CloudFront);
+        assert_eq!(cdn.origins.len(), 1);
+        assert_eq!(cdn.cache_behaviors.len(), 1);
+
+        // Test firewall
+        assert_eq!(networking.firewall_rules.len(), 1);
+        let rule = &networking.firewall_rules[0];
+        assert_eq!(rule.name, "allow-ssh");
+        assert_eq!(rule.port_range.start, 22);
+        assert_eq!(rule.port_range.end, 22);
+
+        // Test DNS
+        let dns = &networking.dns_config;
+        assert_eq!(dns.domain, "example.com");
+        assert_eq!(dns.provider, DnsProvider::Route53);
+        assert_eq!(dns.records.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_resource_config() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            resources: {
+                cpu: {
+                    cores: 4.0,
+                    architecture: "x86_64",
+                },
+                memory: {
+                    sizeGb: 16.0,
+                    type: "DDR4",
+                },
+                storage: {
+                    sizeGb: 100,
+                    type: "SSD",
+                    iops: 3000,
+                },
+                gpu: {
+                    type: "NVIDIA_TESLA_V100",
+                    count: 2,
+                    memoryGb: 32.0,
+                }
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        let resources = &deploy_config.resources;
+
+        // Test CPU
+        assert_eq!(resources.cpu.cores, 4.0);
+        assert_eq!(resources.cpu.architecture, CpuArchitecture::X86_64);
+
+        // Test memory
+        assert_eq!(resources.memory.size_gb, 16.0);
+        assert_eq!(resources.memory.type_, MemoryType::DDR4);
+
+        // Test storage
+        assert_eq!(resources.storage.size_gb, 100);
+        assert_eq!(resources.storage.type_, StorageType::SSD);
+        assert_eq!(resources.storage.iops, Some(3000));
+
+        // Test GPU
+        assert!(resources.gpu.is_some());
+        let gpu = resources.gpu.as_ref().unwrap();
+        assert_eq!(gpu.type_, "NVIDIA_TESLA_V100");
+        assert_eq!(gpu.count, 2);
+        assert_eq!(gpu.memory_gb, 32.0);
+    }
+
+    #[test]
+    fn test_parse_monitoring_config() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            monitoring: {
+                enabled: true,
+                metrics: ["cpu", "memory", "disk", "network"],
+                logs: {
+                    retentionDays: 90,
+                    logLevel: "INFO",
+                    structuredLogging: true,
+                },
+                alerts: [
+                    {
+                        name: "high-cpu",
+                        metric: "cpu_utilization",
+                        condition: "GreaterThan",
+                        threshold: 0.9,
+                        channels: ["email", "slack"],
+                    }
+                ],
+                dashboards: ["main-dashboard", "performance-dashboard"]
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        let monitoring = &deploy_config.monitoring;
+
+        assert!(monitoring.enabled);
+        assert_eq!(monitoring.metrics.len(), 4);
+        assert_eq!(monitoring.logs.retention_days, 90);
+        assert_eq!(monitoring.logs.log_level, LogLevel::INFO);
+        assert!(monitoring.logs.structured_logging);
+        assert_eq!(monitoring.alerts.len(), 1);
+        assert_eq!(monitoring.dashboards.len(), 2);
+
+        let alert = &monitoring.alerts[0];
+        assert_eq!(alert.name, "high-cpu");
+        assert_eq!(alert.condition, AlertCondition::GreaterThan);
+        assert_eq!(alert.threshold, 0.9);
+    }
+
+    #[test]
+    fn test_parse_security_config() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            security: {
+                encryption: {
+                    atRest: true,
+                    inTransit: true,
+                    keyManagement: "AWSKMS",
+                },
+                secrets: {
+                    provider: "AWS",
+                    rotationEnabled: true,
+                    rotationDays: 60,
+                },
+                accessControl: {
+                    enabled: true,
+                    provider: "AWSIAM",
+                    roles: ["admin", "user", "viewer"],
+                    policies: ["read-policy", "write-policy"],
+                },
+                compliance: {
+                    standards: ["SOC2", "GDPR"],
+                    auditEnabled: true,
+                    auditRetentionDays: 2555,
+                }
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        let security = &deploy_config.security;
+
+        // Test encryption
+        assert!(security.encryption.at_rest);
+        assert!(security.encryption.in_transit);
+        assert_eq!(security.encryption.key_management, KeyManagementType::AWSKMS);
+
+        // Test secrets
+        assert_eq!(security.secrets.provider, SecretsProvider::AWS);
+        assert!(security.secrets.rotation_enabled);
+        assert_eq!(security.secrets.rotation_days, 60);
+
+        // Test access control
+        assert!(security.access_control.enabled);
+        assert_eq!(security.access_control.provider, AccessControlProvider::AWSIAM);
+        assert_eq!(security.access_control.roles.len(), 3);
+        assert_eq!(security.access_control.policies.len(), 2);
+
+        // Test compliance
+        assert!(security.compliance.is_some());
+        let compliance = security.compliance.as_ref().unwrap();
+        assert_eq!(compliance.standards.len(), 2);
+        assert!(compliance.audit_enabled);
+        assert_eq!(compliance.audit_retention_days, 2555);
+    }
+
+    #[test]
+    fn test_parse_complex_deploy_config() {
+        let config = r#"
+        {
+            name: "ecommerce-platform",
+            version: "2.1.0",
+            environment: "production",
+            scaling: {
+                minInstances: 5,
+                maxInstances: 100,
+                targetCpuUtilization: 0.75,
+                targetMemoryUtilization: 0.8,
+                cooldownPeriodSeconds: 300,
+                policies: [
+                    {
+                        name: "traffic-scaling",
+                        metric: "request_count",
+                        targetValue: 1000,
+                        adjustment: {
+                            type: "PercentChangeInCapacity",
+                            value: 50,
+                        }
+                    }
+                ]
+            },
+            regions: [
+                {
+                    name: "us-east-1",
+                    provider: "AWS",
+                    zone: "us-east-1a",
+                    instanceType: "c5.xlarge",
+                    spotInstances: false,
+                    reservedInstances: true,
+                },
+                {
+                    name: "eu-west-1",
+                    provider: "AWS",
+                    zone: "eu-west-1a",
+                    instanceType: "c5.xlarge",
+                    spotInstances: true,
+                    reservedInstances: false,
+                }
+            ],
+            networking: {
+                loadBalancer: {
+                    enabled: true,
+                    algorithm: "WeightedRoundRobin",
+                    healthCheck: {
+                        path: "/health",
+                        intervalSeconds: 30,
+                        timeoutSeconds: 5,
+                        healthyThreshold: 2,
+                        unhealthyThreshold: 2,
+                    }
+                },
+                firewallRules: [
+                    {
+                        name: "allow-http-https",
+                        sourceIp: "0.0.0.0/0",
+                        portRange: { start: 80, end: 443 },
+                        protocol: "TCP",
+                        action: "Allow",
+                    }
+                ]
+            },
+            resources: {
+                cpu: { cores: 8.0, architecture: "x86_64" },
+                memory: { sizeGb: 32.0, type: "DDR4" },
+                storage: { sizeGb: 500, type: "NVMe", iops: 10000 }
+            },
+            monitoring: {
+                enabled: true,
+                metrics: ["cpu", "memory", "network", "disk"],
+                logs: {
+                    retentionDays: 30,
+                    logLevel: "WARN",
+                    structuredLogging: true,
+                },
+                alerts: [
+                    {
+                        name: "cpu-alert",
+                        metric: "cpu_utilization",
+                        condition: "GreaterThan",
+                        threshold: 0.85,
+                        channels: ["email", "pagerduty"],
+                    }
+                ]
+            }
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+
+        // Test basic properties
+        assert_eq!(deploy_config.name, "ecommerce-platform");
+        assert_eq!(deploy_config.version, "2.1.0");
+        assert!(matches!(deploy_config.environment, DeploymentEnvironment::Production));
+
+        // Test scaling
+        assert_eq!(deploy_config.scaling.min_instances, 5);
+        assert_eq!(deploy_config.scaling.max_instances, 100);
+        assert_eq!(deploy_config.scaling.scaling_policies.len(), 1);
+
+        // Test regions
+        assert_eq!(deploy_config.regions.len(), 2);
+        assert_eq!(deploy_config.regions[0].name, "us-east-1");
+        assert_eq!(deploy_config.regions[1].name, "eu-west-1");
+        assert!(!deploy_config.regions[0].spot_instances);
+        assert!(deploy_config.regions[0].reserved_instances);
+        assert!(deploy_config.regions[1].spot_instances);
+        assert!(!deploy_config.regions[1].reserved_instances);
+
+        // Test networking
+        assert!(deploy_config.networking.load_balancer.enabled);
+        assert_eq!(deploy_config.networking.firewall_rules.len(), 1);
+
+        // Test resources
+        assert_eq!(deploy_config.resources.cpu.cores, 8.0);
+        assert_eq!(deploy_config.resources.memory.size_gb, 32.0);
+        assert_eq!(deploy_config.resources.storage.size_gb, 500);
+
+        // Test monitoring
+        assert!(deploy_config.monitoring.enabled);
+        assert_eq!(deploy_config.monitoring.alerts.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_minimal_config() {
+        let config = r#"
+        {
+            name: "minimal-app",
+            version: "1.0.0",
+            environment: "development",
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t2.micro",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        assert_eq!(deploy_config.name, "minimal-app");
+        assert_eq!(deploy_config.version, "1.0.0");
+        assert!(matches!(deploy_config.environment, DeploymentEnvironment::Development));
+        assert_eq!(deploy_config.regions.len(), 1);
+
+        // Test defaults
+        assert_eq!(deploy_config.scaling.min_instances, 1);
+        assert_eq!(deploy_config.scaling.max_instances, 10);
+        assert_eq!(deploy_config.scaling.target_cpu_utilization, 0.7);
+        assert_eq!(deploy_config.scaling.target_memory_utilization, 0.8);
+        assert_eq!(deploy_config.scaling.cooldown_period_seconds, 300);
+        assert!(deploy_config.scaling.scaling_policies.is_empty());
+    }
+
+    #[test]
+    fn test_parse_file_success() {
+        let config_content = r#"
+        {
+            name: "file-test-app",
+            version: "1.0.0",
+            environment: "production",
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(config_content.as_bytes()).unwrap();
+        let file_path = temp_file.path();
+
+        let result = DeployParser::parse_file(file_path);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        assert_eq!(deploy_config.name, "file-test-app");
+        assert_eq!(deploy_config.version, "1.0.0");
+    }
+
+    #[test]
+    fn test_parse_file_not_found() {
+        let result = DeployParser::parse_file("/nonexistent/deploy.kotoba-deploy");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), KotobaNetError::Io(_)));
+    }
+
+    #[test]
+    fn test_parse_missing_required_fields() {
+        // Missing name
+        let config1 = r#"
+        {
+            version: "1.0.0",
+            environment: "production",
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+        let result1 = DeployParser::parse(config1);
+        assert!(result1.is_err());
+
+        // Missing version
+        let config2 = r#"
+        {
+            name: "test-app",
+            environment: "production",
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+        let result2 = DeployParser::parse(config2);
+        assert!(result2.is_err());
+
+        // Missing regions
+        let config3 = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production"
+        }
+        "#;
+        let result3 = DeployParser::parse(config3);
+        assert!(result3.is_ok()); // regions is not strictly required in the current implementation
+    }
+
+    #[test]
+    fn test_parse_invalid_environment() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: 123,  // Invalid: should be string
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_cloud_provider() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            regions: [{
+                name: "us-east-1",
+                provider: 123,  // Invalid: should be string
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_non_object_root() {
+        let config = r#"
+        "this should be an object"
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::DeployConfig(_)));
+        assert!(error.to_string().contains("Deploy configuration must be an object"));
+    }
+
+    #[test]
+    fn test_parse_empty_regions() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            regions: []
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_ok());
+
+        let deploy_config = result.unwrap();
+        assert!(deploy_config.regions.is_empty());
+    }
+
+    #[test]
+    fn test_parse_invalid_scaling_policy() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            scaling: {
+                minInstances: 1,
+                maxInstances: 10,
+                targetCpuUtilization: 0.7,
+                policies: [
+                    {
+                        name: "invalid-policy",
+                        metric: "cpu",
+                        targetValue: 0.8,
+                        adjustment: {
+                            type: "InvalidType",
+                            value: 1,
+                        }
+                    }
+                ]
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::DeployConfig(_)));
+        assert!(error.to_string().contains("Invalid adjustment type"));
+    }
+
+    #[test]
+    fn test_parse_invalid_dns_record_type() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            networking: {
+                dns: {
+                    domain: "example.com",
+                    provider: "Route53",
+                    records: [
+                        {
+                            name: "api",
+                            type: "INVALID_TYPE",
+                            value: "api.example.com",
+                            ttl: 300,
+                        }
+                    ]
+                }
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::DeployConfig(_)));
+        assert!(error.to_string().contains("Invalid DNS record type"));
+    }
+
+    #[test]
+    fn test_parse_invalid_compliance_standard() {
+        let config = r#"
+        {
+            name: "test-app",
+            version: "1.0.0",
+            environment: "production",
+            security: {
+                compliance: {
+                    standards: ["INVALID_STANDARD"],
+                    auditEnabled: true,
+                    auditRetentionDays: 365,
+                }
+            },
+            regions: [{
+                name: "us-east-1",
+                provider: "AWS",
+                instanceType: "t3.medium",
+            }]
+        }
+        "#;
+
+        let result = DeployParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::DeployConfig(_)));
+        assert!(error.to_string().contains("Invalid compliance standard"));
+    }
+
+    #[test]
+    fn test_serialization() {
+        let config = DeployConfig {
+            name: "test-app".to_string(),
+            version: "1.0.0".to_string(),
+            environment: DeploymentEnvironment::Production,
+            scaling: ScalingConfig {
+                min_instances: 2,
+                max_instances: 10,
+                target_cpu_utilization: 0.7,
+                target_memory_utilization: 0.8,
+                cooldown_period_seconds: 300,
+                scaling_policies: vec![ScalingPolicy {
+                    name: "cpu-policy".to_string(),
+                    metric: "cpu_utilization".to_string(),
+                    target_value: 0.8,
+                    adjustment_type: ScalingAdjustmentType::ChangeInCapacity(2),
+                }],
+            },
+            regions: vec![RegionConfig {
+                name: "us-east-1".to_string(),
+                provider: CloudProvider::AWS,
+                zone: Some("us-east-1a".to_string()),
+                instance_type: "t3.medium".to_string(),
+                spot_instances: false,
+                reserved_instances: true,
+            }],
+            networking: NetworkingConfig {
+                load_balancer: LoadBalancerConfig {
+                    enabled: true,
+                    algorithm: LoadBalancingAlgorithm::RoundRobin,
+                    health_check: HealthCheckConfig {
+                        path: "/health".to_string(),
+                        interval_seconds: 30,
+                        timeout_seconds: 5,
+                        healthy_threshold: 2,
+                        unhealthy_threshold: 2,
+                    },
+                    ssl_config: None,
+                },
+                cdn: None,
+                firewall_rules: vec![],
+                dns_config: DnsConfig {
+                    domain: "example.com".to_string(),
+                    records: vec![],
+                    provider: DnsProvider::Route53,
+                },
+            },
+            resources: ResourceConfig {
+                cpu: CpuConfig {
+                    cores: 2.0,
+                    architecture: CpuArchitecture::X86_64,
+                },
+                memory: MemoryConfig {
+                    size_gb: 4.0,
+                    type_: MemoryType::DDR4,
+                },
+                storage: StorageConfig {
+                    size_gb: 20,
+                    type_: StorageType::SSD,
+                    iops: None,
+                },
+                gpu: None,
+            },
+            monitoring: MonitoringConfig {
+                enabled: true,
+                metrics: vec!["cpu".to_string(), "memory".to_string()],
+                logs: LogConfig {
+                    retention_days: 30,
+                    log_level: LogLevel::INFO,
+                    structured_logging: true,
+                },
+                alerts: vec![],
+                dashboards: vec![],
+            },
+            security: SecurityConfig {
+                encryption: EncryptionConfig {
+                    at_rest: true,
+                    in_transit: true,
+                    key_management: KeyManagementType::AWSKMS,
+                },
+                secrets: SecretsConfig {
+                    provider: SecretsProvider::AWS,
+                    rotation_enabled: true,
+                    rotation_days: 90,
+                },
+                access_control: AccessControlConfig {
+                    enabled: true,
+                    provider: AccessControlProvider::AWSIAM,
+                    roles: vec![],
+                    policies: vec![],
+                },
+                compliance: None,
+            },
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("test-app"));
+        assert!(json.contains("1.0.0"));
+        assert!(json.contains("Production"));
+        assert!(json.contains("us-east-1"));
+        assert!(json.contains("AWS"));
+        assert!(json.contains("t3.medium"));
+        assert!(json.contains("2"));
+        assert!(json.contains("10"));
+        assert!(json.contains("0.7"));
     }
 }

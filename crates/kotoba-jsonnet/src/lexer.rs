@@ -372,6 +372,11 @@ impl Lexer {
                     ));
                 }
 
+                // Skip the format specifier (usually 's')
+                if !self.is_at_end() && self.peek().is_ascii_alphabetic() {
+                    self.advance();
+                }
+
                 // For now, just treat the content as a variable name
                 // TODO: Parse the expression properly
                 parts.push(StringPart::Interpolation(expr_content.trim().to_string()));

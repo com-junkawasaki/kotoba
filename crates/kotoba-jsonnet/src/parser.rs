@@ -56,7 +56,7 @@ impl Parser {
         } else if self.match_token(Token::Assert) {
             self.parse_assert_statement()
         } else {
-            Ok(Stmt::Expr(self.parse_expr()?))
+            Ok(Stmt::Expr(self.parse_conditional()?))
         }
     }
 
@@ -66,7 +66,7 @@ impl Parser {
 
         loop {
             let name = self.consume_identifier("Expected identifier after local")?;
-            self.consume_token(Token::Equal, "Expected '=' after identifier")?;
+            self.consume_token(Token::Assign, "Expected '=' after identifier")?;
             let expr = self.parse_conditional()?;
             bindings.push((name, expr));
 
@@ -239,7 +239,30 @@ impl Parser {
 
     /// Parse primary expressions
     fn parse_primary(&mut self) -> Result<Expr> {
-        if self.match_token(Token::Null) {
+        if self.match_token(Token::Function) {
+            // Parse function definition: function(params) body
+            self.consume_token(Token::LParen, "Expected '(' after function")?;
+            let mut parameters = Vec::new();
+            if !self.check_token(Token::RParen) {
+                loop {
+                    let param = self.consume_identifier("Expected parameter name")?;
+                    parameters.push(param);
+                    if !self.match_token(Token::Comma) {
+                        break;
+                    }
+                }
+            }
+            self.consume_token(Token::RParen, "Expected ')' after function parameters")?;
+            let body = self.parse_conditional()?;
+            Ok(Expr::Function {
+                parameters,
+                body: Box::new(body),
+            })
+        } else if self.match_token(Token::LBrace) {
+            self.parse_object()
+        } else if self.match_token(Token::LBracket) {
+            self.parse_array()
+        } else if self.match_token(Token::Null) {
             Ok(Expr::Literal(crate::value::JsonnetValue::Null))
         } else if self.match_token(Token::True) {
             Ok(Expr::Literal(crate::value::JsonnetValue::boolean(true)))
@@ -296,7 +319,7 @@ impl Parser {
 
         if !self.check_token(Token::RBracket) {
             loop {
-                elements.push(self.parse_expr()?);
+                elements.push(self.parse_conditional()?);
                 if !self.match_token(Token::Comma) {
                     break;
                 }
@@ -337,7 +360,7 @@ impl Parser {
         };
 
         self.consume_token(Token::Colon, "Expected ':' after field name")?;
-        let expr = self.parse_expr()?;
+        let expr = self.parse_conditional()?;
 
         Ok(ObjectField {
             name,
@@ -360,7 +383,7 @@ impl Parser {
                 }
                 _ => {
                     if self.match_token(Token::LBracket) {
-                        let expr = self.parse_expr()?;
+                        let expr = self.parse_conditional()?;
                         self.consume_token(Token::RBracket, "Expected ']' after computed field name")?;
                         Ok(FieldName::Computed(Box::new(expr)))
                     } else {

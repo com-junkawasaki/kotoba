@@ -18,7 +18,7 @@ pub struct HttpRouteConfig {
 }
 
 /// HTTP method
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HttpMethod {
     GET,
     POST,
@@ -337,6 +337,8 @@ impl HttpParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_parse_simple_http_config() {
@@ -371,5 +373,559 @@ mod tests {
         assert_eq!(http_config.routes.len(), 1);
         assert_eq!(http_config.routes[0].path, "/api/users");
         assert!(http_config.middleware.contains_key("auth"));
+    }
+
+    #[test]
+    fn test_parse_all_http_methods() {
+        let methods = vec!["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"];
+        let expected_methods = vec![
+            HttpMethod::GET,
+            HttpMethod::POST,
+            HttpMethod::PUT,
+            HttpMethod::DELETE,
+            HttpMethod::PATCH,
+            HttpMethod::OPTIONS,
+            HttpMethod::HEAD,
+        ];
+
+        for (method_str, expected) in methods.iter().zip(expected_methods.iter()) {
+            let config = format!(r#"
+            {{
+                routes: [
+                    {{
+                        path: "/test",
+                        method: "{}",
+                        handler: "testHandler",
+                    }}
+                ]
+            }}
+            "#, method_str);
+
+            let result = HttpParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse method: {}", method_str);
+
+            let http_config = result.unwrap();
+            assert_eq!(http_config.routes[0].method, *expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_invalid_http_method() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/test",
+                    method: "INVALID",
+                    handler: "testHandler",
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::HttpParse(_)));
+        assert!(error.to_string().contains("Invalid HTTP method"));
+    }
+
+    #[test]
+    fn test_parse_rate_limiting_config() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/api/rate-limited",
+                    method: "POST",
+                    handler: "rateLimitedHandler",
+                    rateLimit: {
+                        requestsPerMinute: 100,
+                        burstLimit: 200,
+                    }
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        let route = &http_config.routes[0];
+        assert!(route.rate_limit.is_some());
+        let rate_limit = route.rate_limit.as_ref().unwrap();
+        assert_eq!(rate_limit.requests_per_minute, 100);
+        assert_eq!(rate_limit.burst_limit, 200);
+    }
+
+    #[test]
+    fn test_parse_rate_limiting_default_burst() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/api/rate-limited",
+                    method: "POST",
+                    handler: "rateLimitedHandler",
+                    rateLimit: {
+                        requestsPerMinute: 60,
+                    }
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        let rate_limit = http_config.routes[0].rate_limit.as_ref().unwrap();
+        assert_eq!(rate_limit.requests_per_minute, 60);
+        assert_eq!(rate_limit.burst_limit, 120); // Should be 2x requests_per_minute
+    }
+
+    #[test]
+    fn test_parse_authentication_config() {
+        let config = r#"
+        {
+            auth: {
+                enabled: true,
+                provider: "oauth2",
+                config: {
+                    clientId: "client123",
+                    clientSecret: "secret123",
+                }
+            },
+            routes: [
+                {
+                    path: "/api/users",
+                    method: "GET",
+                    handler: "getUsers",
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert!(http_config.auth.is_some());
+        let auth = http_config.auth.as_ref().unwrap();
+        assert!(auth.enabled);
+        assert_eq!(auth.provider, "oauth2");
+        assert!(auth.config.get("clientId").is_some());
+    }
+
+    #[test]
+    fn test_parse_cors_config() {
+        let config = r#"
+        {
+            cors: {
+                allowedOrigins: ["https://example.com", "https://app.example.com"],
+                allowedMethods: ["GET", "POST", "PUT"],
+                allowedHeaders: ["Content-Type", "Authorization"],
+                allowCredentials: true,
+                maxAge: 3600,
+            },
+            routes: [
+                {
+                    path: "/api/data",
+                    method: "GET",
+                    handler: "getData",
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert!(http_config.cors.is_some());
+        let cors = http_config.cors.as_ref().unwrap();
+        assert_eq!(cors.allowed_origins.len(), 2);
+        assert_eq!(cors.allowed_methods.len(), 3);
+        assert_eq!(cors.allowed_headers.len(), 2);
+        assert!(cors.allow_credentials);
+        assert_eq!(cors.max_age, Some(3600));
+    }
+
+    #[test]
+    fn test_parse_static_files_config() {
+        let config = r#"
+        {
+            staticFiles: {
+                root: "/var/www/static",
+                indexFile: "index.html",
+                cacheControl: "public, max-age=31536000",
+            },
+            routes: [
+                {
+                    path: "/static/*",
+                    method: "GET",
+                    handler: "serveStatic",
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert!(http_config.static_files.is_some());
+        let static_files = http_config.static_files.as_ref().unwrap();
+        assert_eq!(static_files.root, "/var/www/static");
+        assert_eq!(static_files.index_file, Some("index.html".to_string()));
+        assert_eq!(static_files.cache_control, Some("public, max-age=31536000".to_string()));
+    }
+
+    #[test]
+    fn test_parse_complex_http_config() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/api/users",
+                    method: "GET",
+                    handler: "getUsers",
+                    middleware: ["auth", "cors", "rateLimit"],
+                    authRequired: true,
+                    corsEnabled: true,
+                    rateLimit: {
+                        requestsPerMinute: 60,
+                        burstLimit: 120,
+                    }
+                },
+                {
+                    path: "/api/users",
+                    method: "POST",
+                    handler: "createUser",
+                    middleware: ["auth", "validation"],
+                    authRequired: true,
+                    corsEnabled: true,
+                }
+            ],
+            middleware: {
+                auth: {
+                    type: "jwt",
+                    secret: "secret-key",
+                    issuer: "myapp",
+                },
+                cors: {
+                    origins: ["https://myapp.com"],
+                    methods: ["GET", "POST", "PUT", "DELETE"],
+                },
+                rateLimit: {
+                    type: "redis",
+                    host: "localhost",
+                },
+                validation: {
+                    schema: "user",
+                    strict: true,
+                }
+            },
+            auth: {
+                enabled: true,
+                provider: "jwt",
+                config: {
+                    secret: "jwt-secret",
+                    algorithm: "HS256",
+                }
+            },
+            cors: {
+                allowedOrigins: ["https://myapp.com", "https://admin.myapp.com"],
+                allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+                allowCredentials: true,
+                maxAge: 86400,
+            },
+            staticFiles: {
+                root: "./public",
+                indexFile: "index.html",
+                cacheControl: "public, max-age=3600",
+            }
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+
+        // Test routes
+        assert_eq!(http_config.routes.len(), 2);
+        assert_eq!(http_config.routes[0].path, "/api/users");
+        assert_eq!(http_config.routes[0].method, HttpMethod::GET);
+        assert_eq!(http_config.routes[0].middleware, vec!["auth", "cors", "rateLimit"]);
+        assert!(http_config.routes[0].auth_required);
+        assert!(http_config.routes[0].cors_enabled);
+
+        // Test middleware
+        assert_eq!(http_config.middleware.len(), 4);
+        assert!(http_config.middleware.contains_key("auth"));
+        assert!(http_config.middleware.contains_key("cors"));
+        assert!(http_config.middleware.contains_key("rateLimit"));
+        assert!(http_config.middleware.contains_key("validation"));
+
+        // Test auth
+        assert!(http_config.auth.is_some());
+
+        // Test CORS
+        assert!(http_config.cors.is_some());
+
+        // Test static files
+        assert!(http_config.static_files.is_some());
+    }
+
+    #[test]
+    fn test_parse_minimal_config() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/",
+                    method: "GET",
+                    handler: "home",
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert_eq!(http_config.routes.len(), 1);
+        assert_eq!(http_config.routes[0].path, "/");
+        assert_eq!(http_config.routes[0].method, HttpMethod::GET);
+        assert_eq!(http_config.routes[0].handler, "home");
+        assert!(!http_config.routes[0].auth_required);
+        assert!(http_config.routes[0].cors_enabled); // Default value
+        assert!(http_config.routes[0].rate_limit.is_none());
+        assert!(http_config.middleware.is_empty());
+        assert!(http_config.auth.is_none());
+        assert!(http_config.cors.is_none());
+        assert!(http_config.static_files.is_none());
+    }
+
+    #[test]
+    fn test_parse_file_success() {
+        let config_content = r#"
+        {
+            routes: [
+                {
+                    path: "/api/test",
+                    method: "GET",
+                    handler: "testHandler",
+                }
+            ]
+        }
+        "#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(config_content.as_bytes()).unwrap();
+        let file_path = temp_file.path();
+
+        let result = HttpParser::parse_file(file_path);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert_eq!(http_config.routes.len(), 1);
+        assert_eq!(http_config.routes[0].path, "/api/test");
+    }
+
+    #[test]
+    fn test_parse_file_not_found() {
+        let result = HttpParser::parse_file("/nonexistent/file.kotoba.json");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), KotobaNetError::Io(_)));
+    }
+
+    #[test]
+    fn test_parse_invalid_jsonnet() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: /api/test,  // Invalid: missing quotes
+                    method: "GET",
+                    handler: "testHandler",
+                }
+            ]
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_required_fields() {
+        // Missing path
+        let config1 = r#"
+        {
+            routes: [
+                {
+                    method: "GET",
+                    handler: "testHandler",
+                }
+            ]
+        }
+        "#;
+        let result1 = HttpParser::parse(config1);
+        assert!(result1.is_err());
+
+        // Missing method
+        let config2 = r#"
+        {
+            routes: [
+                {
+                    path: "/api/test",
+                    handler: "testHandler",
+                }
+            ]
+        }
+        "#;
+        let result2 = HttpParser::parse(config2);
+        assert!(result2.is_err());
+
+        // Missing handler
+        let config3 = r#"
+        {
+            routes: [
+                {
+                    path: "/api/test",
+                    method: "GET",
+                }
+            ]
+        }
+        "#;
+        let result3 = HttpParser::parse(config3);
+        assert!(result3.is_err());
+    }
+
+    #[test]
+    fn test_parse_empty_routes() {
+        let config = r#"
+        {
+            routes: []
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert!(http_config.routes.is_empty());
+    }
+
+    #[test]
+    fn test_parse_non_object_root() {
+        let config = r#"
+        ["this", "should", "be", "an", "object"]
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::HttpParse(_)));
+        assert!(error.to_string().contains("Root configuration must be an object"));
+    }
+
+    #[test]
+    fn test_parse_invalid_middleware_config() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/api/test",
+                    method: "GET",
+                    handler: "testHandler",
+                }
+            ],
+            middleware: "this should be an object"
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_empty_middleware() {
+        let config = r#"
+        {
+            routes: [
+                {
+                    path: "/api/test",
+                    method: "GET",
+                    handler: "testHandler",
+                    middleware: [],
+                }
+            ],
+            middleware: {}
+        }
+        "#;
+
+        let result = HttpParser::parse(config);
+        assert!(result.is_ok());
+
+        let http_config = result.unwrap();
+        assert!(http_config.middleware.is_empty());
+        assert!(http_config.routes[0].middleware.is_empty());
+    }
+
+    #[test]
+    fn test_parse_case_insensitive_methods() {
+        let methods = vec!["get", "post", "put", "delete", "patch", "options", "head"];
+
+        for method in methods {
+            let config = format!(r#"
+            {{
+                routes: [
+                    {{
+                        path: "/test",
+                        method: "{}",
+                        handler: "testHandler",
+                    }}
+                ]
+            }}
+            "#, method.to_uppercase());
+
+            let result = HttpParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse uppercase method: {}", method);
+        }
+    }
+
+    #[test]
+    fn test_serialization() {
+        let config = HttpConfig {
+            routes: vec![HttpRouteConfig {
+                path: "/api/test".to_string(),
+                method: HttpMethod::GET,
+                handler: "testHandler".to_string(),
+                middleware: vec!["auth".to_string()],
+                auth_required: true,
+                cors_enabled: true,
+                rate_limit: Some(RateLimitConfig {
+                    requests_per_minute: 100,
+                    burst_limit: 200,
+                }),
+            }],
+            middleware: HashMap::new(),
+            auth: None,
+            cors: None,
+            static_files: None,
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("/api/test"));
+        assert!(json.contains("GET"));
+        assert!(json.contains("testHandler"));
+        assert!(json.contains("100"));
+        assert!(json.contains("200"));
     }
 }

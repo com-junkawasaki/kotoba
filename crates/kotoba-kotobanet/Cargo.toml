@@ -29,3 +29,4 @@ async = ["tokio"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
+tempfile = "3.0"

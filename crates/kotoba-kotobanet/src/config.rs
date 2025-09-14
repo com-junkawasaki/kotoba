@@ -44,8 +44,7 @@ pub struct DatabaseConfig {
 }
 
 /// Database driver
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DatabaseDriver {
     PostgreSQL,
     MySQL,
@@ -85,7 +84,7 @@ pub struct CacheConfig {
 }
 
 /// Cache driver
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CacheDriver {
     Redis,
     Memcached,
@@ -105,7 +104,7 @@ pub struct MessagingConfig {
 }
 
 /// Messaging driver
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MessagingDriver {
     RabbitMQ,
     Kafka,
@@ -737,6 +736,8 @@ impl ConfigParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_parse_simple_app_config() {
@@ -773,5 +774,869 @@ mod tests {
         assert_eq!(app_config.database.driver, DatabaseDriver::PostgreSQL);
         assert!(app_config.features.flags.get("newFeature").unwrap());
         assert!(!app_config.features.flags.get("experimentalFeature").unwrap());
+    }
+
+    #[test]
+    fn test_parse_all_database_drivers() {
+        let drivers = vec![
+            ("PostgreSQL", DatabaseDriver::PostgreSQL),
+            ("MySQL", DatabaseDriver::MySQL),
+            ("SQLite", DatabaseDriver::SQLite),
+            ("MongoDB", DatabaseDriver::MongoDB),
+            ("Redis", DatabaseDriver::Redis),
+        ];
+
+        for (driver_str, expected) in drivers {
+            let config = format!(r#"
+            {{
+                app: {{
+                    name: "TestApp",
+                    version: "1.0.0",
+                }},
+                database: {{
+                    enabled: true,
+                    driver: "{}",
+                    host: "localhost",
+                    port: 5432,
+                    database: "testdb",
+                    username: "user",
+                }}
+            }}
+            "#, driver_str);
+
+            let result = ConfigParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse driver: {}", driver_str);
+
+            let app_config = result.unwrap();
+            assert_eq!(app_config.database.driver, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_custom_database_driver() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            database: {
+                enabled: true,
+                driver: "CustomDB",
+                host: "localhost",
+                port: 5432,
+                database: "testdb",
+                username: "user",
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        match &app_config.database.driver {
+            DatabaseDriver::Custom(driver) => assert_eq!(driver, "CustomDB"),
+            _ => panic!("Expected custom database driver"),
+        }
+    }
+
+    #[test]
+    fn test_parse_database_config() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            database: {
+                enabled: true,
+                driver: "PostgreSQL",
+                host: "db.example.com",
+                port: 5432,
+                database: "myapp_prod",
+                username: "app_user",
+                password: "secret123",
+                connectionPool: {
+                    maxConnections: 20,
+                    minConnections: 5,
+                    acquireTimeoutSeconds: 30,
+                    idleTimeoutSeconds: 300,
+                    maxLifetimeSeconds: 3600,
+                },
+                ssl: true,
+                migrations: {
+                    enabled: true,
+                    directory: "db/migrations",
+                    autoRun: true,
+                }
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        let db = &app_config.database;
+
+        assert!(db.enabled);
+        assert_eq!(db.driver, DatabaseDriver::PostgreSQL);
+        assert_eq!(db.host, "db.example.com");
+        assert_eq!(db.port, 5432);
+        assert_eq!(db.database, "myapp_prod");
+        assert_eq!(db.username, "app_user");
+        assert_eq!(db.password, Some("secret123".to_string()));
+        assert!(db.ssl);
+
+        let pool = &db.connection_pool;
+        assert_eq!(pool.max_connections, 20);
+        assert_eq!(pool.min_connections, 5);
+        assert_eq!(pool.acquire_timeout_seconds, 30);
+        assert_eq!(pool.idle_timeout_seconds, 300);
+        assert_eq!(pool.max_lifetime_seconds, 3600);
+
+        let migrations = &db.migrations;
+        assert!(migrations.enabled);
+        assert_eq!(migrations.directory, "db/migrations");
+        assert!(migrations.auto_run);
+    }
+
+    #[test]
+    fn test_parse_cache_config() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            cache: {
+                enabled: true,
+                driver: "Redis",
+                host: "redis.example.com",
+                port: 6379,
+                ttlSeconds: 3600,
+                maxMemoryMb: 512,
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        let cache = &app_config.cache;
+
+        assert!(cache.enabled);
+        assert_eq!(cache.driver, CacheDriver::Redis);
+        assert_eq!(cache.host, "redis.example.com");
+        assert_eq!(cache.port, 6379);
+        assert_eq!(cache.ttl_seconds, 3600);
+        assert_eq!(cache.max_memory_mb, 512);
+    }
+
+    #[test]
+    fn test_parse_all_cache_drivers() {
+        let drivers = vec![
+            ("Redis", CacheDriver::Redis),
+            ("Memcached", CacheDriver::Memcached),
+            ("InMemory", CacheDriver::InMemory),
+        ];
+
+        for (driver_str, expected) in drivers {
+            let config = format!(r#"
+            {{
+                app: {{
+                    name: "TestApp",
+                    version: "1.0.0",
+                }},
+                cache: {{
+                    enabled: true,
+                    driver: "{}",
+                    host: "localhost",
+                    port: 6379,
+                    ttlSeconds: 3600,
+                    maxMemoryMb: 512,
+                }}
+            }}
+            "#, driver_str);
+
+            let result = ConfigParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse cache driver: {}", driver_str);
+
+            let app_config = result.unwrap();
+            assert_eq!(app_config.cache.driver, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_messaging_config() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            messaging: {
+                enabled: true,
+                driver: "RabbitMQ",
+                host: "rabbitmq.example.com",
+                port: 5672,
+                queues: {
+                    "user-events": {
+                        name: "user-events",
+                        durable: true,
+                        autoDelete: false,
+                        maxLength: 10000,
+                    },
+                    "notifications": {
+                        name: "notifications",
+                        durable: true,
+                        autoDelete: false,
+                    }
+                },
+                topics: {
+                    "orders": {
+                        name: "orders",
+                        partitions: 3,
+                        replicationFactor: 2,
+                    }
+                }
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        let messaging = &app_config.messaging;
+
+        assert!(messaging.enabled);
+        assert_eq!(messaging.driver, MessagingDriver::RabbitMQ);
+        assert_eq!(messaging.host, "rabbitmq.example.com");
+        assert_eq!(messaging.port, 5672);
+
+        assert_eq!(messaging.queues.len(), 2);
+        assert!(messaging.queues.contains_key("user-events"));
+        assert!(messaging.queues.contains_key("notifications"));
+
+        let user_events_queue = &messaging.queues["user-events"];
+        assert_eq!(user_events_queue.name, "user-events");
+        assert!(user_events_queue.durable);
+        assert!(!user_events_queue.auto_delete);
+        assert_eq!(user_events_queue.max_length, Some(10000));
+
+        assert_eq!(messaging.topics.len(), 1);
+        assert!(messaging.topics.contains_key("orders"));
+
+        let orders_topic = &messaging.topics["orders"];
+        assert_eq!(orders_topic.name, "orders");
+        assert_eq!(orders_topic.partitions, 3);
+        assert_eq!(orders_topic.replication_factor, 2);
+    }
+
+    #[test]
+    fn test_parse_all_messaging_drivers() {
+        let drivers = vec![
+            ("RabbitMQ", MessagingDriver::RabbitMQ),
+            ("Kafka", MessagingDriver::Kafka),
+            ("SQS", MessagingDriver::SQS),
+            ("PubSub", MessagingDriver::PubSub),
+        ];
+
+        for (driver_str, expected) in drivers {
+            let config = format!(r#"
+            {{
+                app: {{
+                    name: "TestApp",
+                    version: "1.0.0",
+                }},
+                messaging: {{
+                    enabled: true,
+                    driver: "{}",
+                    host: "localhost",
+                    port: 5672,
+                }}
+            }}
+            "#, driver_str);
+
+            let result = ConfigParser::parse(&config);
+            assert!(result.is_ok(), "Failed to parse messaging driver: {}", driver_str);
+
+            let app_config = result.unwrap();
+            assert_eq!(app_config.messaging.driver, expected);
+        }
+    }
+
+    #[test]
+    fn test_parse_external_services_config() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            apis: {
+                "payment-api": {
+                    name: "payment-api",
+                    baseUrl: "https://api.stripe.com/v1",
+                    timeoutSeconds: 30,
+                    retryCount: 3,
+                    headers: {
+                        "Authorization": "Bearer sk_test_...",
+                        "Content-Type": "application/json",
+                    }
+                }
+            },
+            integrations: {
+                "slack": {
+                    name: "slack",
+                    provider: "slack",
+                    config: {
+                        token: "xoxb-...",
+                        channel: "#notifications",
+                    },
+                    enabled: true,
+                }
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        let external = &app_config.external;
+
+        // Test APIs
+        assert_eq!(external.apis.len(), 2);
+        assert!(external.apis.contains_key("payment-api"));
+        assert!(external.apis.contains_key("email-api"));
+
+        let payment_api = &external.apis["payment-api"];
+        assert_eq!(payment_api.name, "payment-api");
+        assert_eq!(payment_api.base_url, "https://api.stripe.com/v1");
+        assert_eq!(payment_api.timeout_seconds, 30);
+        assert_eq!(payment_api.retry_count, 3);
+        assert_eq!(payment_api.headers.len(), 2);
+
+        // Test webhooks
+        assert_eq!(external.webhooks.len(), 1);
+        let webhook = &external.webhooks[0];
+        assert_eq!(webhook.name, "stripe-webhook");
+        assert_eq!(webhook.url, "https://myapp.com/webhooks/stripe");
+        assert_eq!(webhook.events.len(), 2);
+        assert_eq!(webhook.secret, Some("whsec_...".to_string()));
+        assert_eq!(webhook.retry_count, 5);
+
+        // Test integrations
+        assert_eq!(external.integrations.len(), 1);
+        assert!(external.integrations.contains_key("slack"));
+        let slack_integration = &external.integrations["slack"];
+        assert_eq!(slack_integration.name, "slack");
+        assert_eq!(slack_integration.provider, "slack");
+        assert!(slack_integration.enabled);
+    }
+
+    #[test]
+    fn test_parse_feature_flags() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            features: {
+                newDashboard: true,
+                darkMode: false,
+                betaFeatures: true,
+                analytics: false,
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        let features = &app_config.features.flags;
+
+        assert_eq!(features.len(), 4);
+        assert!(*features.get("newDashboard").unwrap());
+        assert!(!*features.get("darkMode").unwrap());
+        assert!(*features.get("betaFeatures").unwrap());
+        assert!(!*features.get("analytics").unwrap());
+    }
+
+    #[test]
+    fn test_parse_complex_app_config() {
+        let config = r#"
+        {
+            app: {
+                name: "EcommercePlatform",
+                version: "2.1.0",
+                environment: "production",
+                debug: false,
+                logLevel: "INFO",
+                timezone: "UTC",
+            },
+            database: {
+                enabled: true,
+                driver: "PostgreSQL",
+                host: "prod-db.cluster.example.com",
+                port: 5432,
+                database: "ecommerce_prod",
+                username: "app_user",
+                connectionPool: {
+                    maxConnections: 50,
+                    minConnections: 10,
+                    acquireTimeoutSeconds: 60,
+                    idleTimeoutSeconds: 600,
+                    maxLifetimeSeconds: 7200,
+                },
+                ssl: true,
+                migrations: {
+                    enabled: true,
+                    directory: "migrations",
+                    autoRun: false,
+                }
+            },
+            cache: {
+                enabled: true,
+                driver: "Redis",
+                host: "redis-cluster.example.com",
+                port: 6379,
+                ttlSeconds: 1800,
+                maxMemoryMb: 2048,
+            },
+            messaging: {
+                enabled: true,
+                driver: "Kafka",
+                host: "kafka-cluster.example.com",
+                port: 9092,
+                topics: {
+                    "order-events": {
+                        name: "order-events",
+                        partitions: 6,
+                        replicationFactor: 3,
+                    },
+                    "user-events": {
+                        name: "user-events",
+                        partitions: 3,
+                        replicationFactor: 2,
+                    }
+                }
+            },
+            apis: {
+                "payment": {
+                    name: "payment",
+                    baseUrl: "https://api.stripe.com/v1",
+                    timeoutSeconds: 30,
+                    retryCount: 3,
+                },
+                "shipping": {
+                    name: "shipping",
+                    baseUrl: "https://api.shippo.com/v1",
+                    timeoutSeconds: 20,
+                    retryCount: 2,
+                }
+            },
+            features: {
+                newCheckout: true,
+                advancedAnalytics: true,
+                betaFeatures: false,
+                maintenanceMode: false,
+            },
+            config: {
+                stripePublishableKey: "pk_live_...",
+                googleAnalyticsId: "GA_MEASUREMENT_ID",
+                maxOrderAmount: 10000,
+                supportedCurrencies: ["USD", "EUR", "GBP"],
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+
+        // Test app settings
+        assert_eq!(app_config.app.name, "EcommercePlatform");
+        assert_eq!(app_config.app.version, "2.1.0");
+        assert_eq!(app_config.app.environment, "production");
+        assert!(!app_config.app.debug);
+        assert_eq!(app_config.app.log_level, "INFO");
+        assert_eq!(app_config.app.timezone, "UTC");
+
+        // Test database
+        assert!(app_config.database.enabled);
+        assert_eq!(app_config.database.driver, DatabaseDriver::PostgreSQL);
+        assert_eq!(app_config.database.connection_pool.max_connections, 50);
+
+        // Test cache
+        assert!(app_config.cache.enabled);
+        assert_eq!(app_config.cache.driver, CacheDriver::Redis);
+        assert_eq!(app_config.cache.max_memory_mb, 2048);
+
+        // Test messaging
+        assert!(app_config.messaging.enabled);
+        assert_eq!(app_config.messaging.driver, MessagingDriver::Kafka);
+        assert_eq!(app_config.messaging.topics.len(), 2);
+
+        // Test APIs
+        assert_eq!(app_config.external.apis.len(), 2);
+
+        // Test features
+        assert_eq!(app_config.features.flags.len(), 4);
+        assert!(*app_config.features.flags.get("newCheckout").unwrap());
+
+        // Test custom config
+        assert!(app_config.config.get("stripePublishableKey").is_some());
+        assert!(app_config.config.get("maxOrderAmount").is_some());
+    }
+
+    #[test]
+    fn test_parse_minimal_config() {
+        let config = r#"
+        {
+            app: {
+                name: "MinimalApp",
+                version: "1.0.0",
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+
+        // Test defaults
+        assert_eq!(app_config.app.name, "MinimalApp");
+        assert_eq!(app_config.app.version, "1.0.0");
+        assert_eq!(app_config.app.environment, "development");
+        assert!(!app_config.app.debug);
+        assert_eq!(app_config.app.log_level, "info");
+        assert_eq!(app_config.app.timezone, "UTC");
+
+        // Test disabled services by default
+        assert!(!app_config.database.enabled);
+        assert!(!app_config.cache.enabled);
+        assert!(!app_config.messaging.enabled);
+
+        // Test empty collections
+        assert!(app_config.external.apis.is_empty());
+        assert!(app_config.external.webhooks.is_empty());
+        assert!(app_config.external.integrations.is_empty());
+        assert!(app_config.features.flags.is_empty());
+    }
+
+    #[test]
+    fn test_parse_file_success() {
+        let config_content = r#"
+        {
+            app: {
+                name: "FileTestApp",
+                version: "1.0.0",
+            },
+            database: {
+                enabled: true,
+                driver: "SQLite",
+                database: "test.db",
+                username: "user",
+            }
+        }
+        "#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(config_content.as_bytes()).unwrap();
+        let file_path = temp_file.path();
+
+        let result = ConfigParser::parse_file(file_path);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        assert_eq!(app_config.app.name, "FileTestApp");
+        assert!(app_config.database.enabled);
+        assert_eq!(app_config.database.driver, DatabaseDriver::SQLite);
+    }
+
+    #[test]
+    fn test_parse_file_not_found() {
+        let result = ConfigParser::parse_file("/nonexistent/config.jsonnet");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), KotobaNetError::Io(_)));
+    }
+
+    #[test]
+    fn test_parse_missing_required_fields() {
+        // Missing app name
+        let config1 = r#"
+        {
+            app: {
+                version: "1.0.0",
+            }
+        }
+        "#;
+        let result1 = ConfigParser::parse(config1);
+        assert!(result1.is_err());
+
+        // Missing app version
+        let config2 = r#"
+        {
+            app: {
+                name: "TestApp",
+            }
+        }
+        "#;
+        let result2 = ConfigParser::parse(config2);
+        assert!(result2.is_err());
+
+        // Missing required database fields
+        let config3 = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            database: {
+                enabled: true,
+                driver: "PostgreSQL",
+                host: "localhost",
+                port: 5432,
+                // missing database and username
+            }
+        }
+        "#;
+        let result3 = ConfigParser::parse(config3);
+        assert!(result3.is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_database_driver() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            database: {
+                enabled: true,
+                driver: 123,  // Invalid: should be string
+                host: "localhost",
+                port: 5432,
+                database: "test",
+                username: "user",
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_cache_driver() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            cache: {
+                enabled: true,
+                driver: ["invalid"],  // Invalid: should be string
+                host: "localhost",
+                port: 6379,
+                ttlSeconds: 3600,
+                maxMemoryMb: 512,
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_non_object_root() {
+        let config = r#"
+        "this should be an object"
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::Config(_)));
+        assert!(error.to_string().contains("Configuration must be an object"));
+    }
+
+    #[test]
+    fn test_parse_empty_features() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            features: {}
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+        assert!(app_config.features.flags.is_empty());
+    }
+
+    #[test]
+    fn test_parse_invalid_feature_flag() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            features: {
+                validFlag: true,
+                invalidFlag: "not a boolean",  // Invalid: should be boolean
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_custom_config() {
+        let config = r#"
+        {
+            app: {
+                name: "TestApp",
+                version: "1.0.0",
+            },
+            config: {
+                apiKey: "secret-key",
+                maxRetries: 5,
+                timeout: 30.5,
+                enabled: true,
+                tags: ["web", "api", "production"],
+                nested: {
+                    databaseUrl: "postgresql://localhost/db",
+                    features: {
+                        caching: true,
+                        logging: false,
+                    }
+                }
+            }
+        }
+        "#;
+
+        let result = ConfigParser::parse(config);
+        assert!(result.is_ok());
+
+        let app_config = result.unwrap();
+
+        // Test various JSON value types in custom config
+        assert!(app_config.config.get("apiKey").is_some());
+        assert!(app_config.config.get("maxRetries").is_some());
+        assert!(app_config.config.get("timeout").is_some());
+        assert!(app_config.config.get("enabled").is_some());
+        assert!(app_config.config.get("tags").is_some());
+        assert!(app_config.config.get("nested").is_some());
+    }
+
+    #[test]
+    fn test_serialization() {
+        let config = AppConfig {
+            app: AppSettings {
+                name: "TestApp".to_string(),
+                version: "1.0.0".to_string(),
+                environment: "production".to_string(),
+                debug: false,
+                log_level: "INFO".to_string(),
+                timezone: "UTC".to_string(),
+            },
+            database: DatabaseConfig {
+                enabled: true,
+                driver: DatabaseDriver::PostgreSQL,
+                host: "localhost".to_string(),
+                port: 5432,
+                database: "testdb".to_string(),
+                username: "user".to_string(),
+                password: Some("password".to_string()),
+                connection_pool: ConnectionPoolConfig {
+                    max_connections: 10,
+                    min_connections: 1,
+                    acquire_timeout_seconds: 30,
+                    idle_timeout_seconds: 300,
+                    max_lifetime_seconds: 3600,
+                },
+                ssl: true,
+                migrations: MigrationConfig {
+                    enabled: true,
+                    directory: "migrations".to_string(),
+                    auto_run: true,
+                },
+            },
+            cache: CacheConfig {
+                enabled: true,
+                driver: CacheDriver::Redis,
+                host: "localhost".to_string(),
+                port: 6379,
+                ttl_seconds: 3600,
+                max_memory_mb: 512,
+            },
+            messaging: MessagingConfig {
+                enabled: true,
+                driver: MessagingDriver::RabbitMQ,
+                host: "localhost".to_string(),
+                port: 5672,
+                queues: HashMap::new(),
+                topics: HashMap::new(),
+            },
+            external: ExternalServicesConfig {
+                apis: HashMap::from([
+                    ("test-api".to_string(), ApiConfig {
+                        name: "test-api".to_string(),
+                        base_url: "https://api.example.com".to_string(),
+                        timeout_seconds: 30,
+                        retry_count: 3,
+                        headers: HashMap::new(),
+                    })
+                ]),
+                webhooks: vec![],
+                integrations: HashMap::new(),
+            },
+            features: FeatureFlags {
+                flags: HashMap::from([
+                    ("feature1".to_string(), true),
+                    ("feature2".to_string(), false),
+                ]),
+            },
+            custom: serde_json::json!({
+                "customKey": "customValue",
+                "number": 42
+            }),
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("TestApp"));
+        assert!(json.contains("1.0.0"));
+        assert!(json.contains("PostgreSQL"));
+        assert!(json.contains("localhost"));
+        assert!(json.contains("5432"));
+        assert!(json.contains("testdb"));
+        assert!(json.contains("Redis"));
+        assert!(json.contains("RabbitMQ"));
+        assert!(json.contains("test-api"));
+        assert!(json.contains("https://api.example.com"));
+        assert!(json.contains("feature1"));
+        assert!(json.contains("customValue"));
+        assert!(json.contains("42"));
     }
 }

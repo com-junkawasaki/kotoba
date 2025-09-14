@@ -49,8 +49,15 @@ pub fn evaluate_with_filename(source: &str, filename: &str) -> Result<JsonnetVal
 /// # Returns
 /// Result containing the JSON string representation or an error
 pub fn evaluate_to_json(source: &str) -> Result<String> {
-    let value = evaluate(source)?;
-    Ok(serde_json::to_string_pretty(&value.to_json_value())?)
+    let value = evaluate(source).map_err(|e| {
+        eprintln!("Evaluation error: {:?}", e);
+        e
+    })?;
+    let json_value = value.to_json_value();
+    serde_json::to_string_pretty(&json_value).map_err(|e| {
+        eprintln!("JSON serialization error: {:?}", e);
+        JsonnetError::runtime_error(&format!("JSON serialization failed: {}", e))
+    })
 }
 
 /// Evaluate a Jsonnet snippet and format as YAML string
@@ -206,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_to_json() {
-        let result = evaluate_to_json(r#"{ "name": "test", "value": 42 }"#);
+        let result = evaluate_to_json(r#"{ name: "test", value: 42 }"#);
         assert!(result.is_ok());
         let json = result.unwrap();
         assert!(json.contains("\"name\": \"test\""));

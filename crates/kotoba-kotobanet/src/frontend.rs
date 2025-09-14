@@ -27,7 +27,7 @@ pub struct PropDef {
 }
 
 /// Property type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PropType {
     String,
     Number,
@@ -514,6 +514,8 @@ impl FrontendParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_parse_simple_component() {
@@ -548,5 +550,656 @@ mod tests {
         assert_eq!(button.name, "Button");
         assert!(button.props.contains_key("text"));
         assert!(button.props.contains_key("onClick"));
+    }
+
+    #[test]
+    fn test_parse_all_prop_types() {
+        let prop_types = vec![
+            ("string", PropType::String),
+            ("number", PropType::Number),
+            ("boolean", PropType::Boolean),
+            ("array", PropType::Array),
+            ("object", PropType::Object),
+            ("function", PropType::Function),
+            ("component", PropType::Component),
+        ];
+
+        for (type_str, expected_type) in prop_types {
+            let component_def = format!(r#"
+            {{
+                components: {{
+                    TestComponent: {{
+                        props: {{
+                            testProp: {{
+                                type: "{}",
+                                required: true,
+                            }}
+                        }},
+                        render: "<div>{{props.testProp}}</div>",
+                        imports: ["React"],
+                    }}
+                }}
+            }}
+            "#, type_str);
+
+            let result = FrontendParser::parse(&component_def);
+            assert!(result.is_ok(), "Failed to parse prop type: {}", type_str);
+
+            let config = result.unwrap();
+            let component = &config.components["TestComponent"];
+            let prop = &component.props["testProp"];
+            assert_eq!(prop.type_, expected_type);
+        }
+    }
+
+    #[test]
+    fn test_parse_custom_prop_type() {
+        let component_def = r#"
+        {
+            components: {
+                CustomComponent: {
+                    props: {
+                        customProp: {
+                            type: "CustomType",
+                            required: true,
+                        }
+                    },
+                    render: "<div>{props.customProp}</div>",
+                    imports: ["React"],
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(component_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        let component = &config.components["CustomComponent"];
+        let prop = &component.props["customProp"];
+
+        match &prop.type_ {
+            PropType::Custom(custom_type) => assert_eq!(custom_type, "CustomType"),
+            _ => panic!("Expected custom prop type"),
+        }
+    }
+
+    #[test]
+    fn test_parse_component_with_state() {
+        let component_def = r#"
+        {
+            components: {
+                Counter: {
+                    props: {
+                        initialValue: {
+                            type: "number",
+                            required: false,
+                            default: 0,
+                        }
+                    },
+                    state: {
+                        count: {
+                            initialValue: 0,
+                            type: "number",
+                            description: "Current counter value",
+                        },
+                        isActive: {
+                            initialValue: true,
+                            type: "boolean",
+                            description: "Whether counter is active",
+                        }
+                    },
+                    render: "<div>{state.count}</div>",
+                    imports: ["React", "useState"],
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(component_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        let component = &config.components["Counter"];
+
+        assert!(component.state.is_some());
+        let state = component.state.as_ref().unwrap();
+        assert_eq!(state.len(), 2);
+        assert!(state.contains_key("count"));
+        assert!(state.contains_key("isActive"));
+
+        let count_state = &state["count"];
+        assert_eq!(count_state.type_, PropType::Number);
+        assert_eq!(count_state.description, Some("Current counter value".to_string()));
+
+        let active_state = &state["isActive"];
+        assert_eq!(active_state.type_, PropType::Boolean);
+        assert_eq!(active_state.description, Some("Whether counter is active".to_string()));
+    }
+
+    #[test]
+    fn test_parse_component_with_lifecycle() {
+        let component_def = r#"
+        {
+            components: {
+                LifecycleComponent: {
+                    props: {
+                        id: {
+                            type: "string",
+                            required: true,
+                        }
+                    },
+                    lifecycle: {
+                        componentDidMount: "console.log('Component mounted');",
+                        componentDidUpdate: "console.log('Component updated');",
+                        componentWillUnmount: "console.log('Component will unmount');",
+                        shouldComponentUpdate: "return true;",
+                    },
+                    render: "<div id={props.id}>Lifecycle Component</div>",
+                    imports: ["React"],
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(component_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        let component = &config.components["LifecycleComponent"];
+
+        assert!(component.lifecycle.is_some());
+        let lifecycle = component.lifecycle.as_ref().unwrap();
+        assert_eq!(lifecycle.component_did_mount, Some("console.log('Component mounted');".to_string()));
+        assert_eq!(lifecycle.component_did_update, Some("console.log('Component updated');".to_string()));
+        assert_eq!(lifecycle.component_will_unmount, Some("console.log('Component will unmount');".to_string()));
+        assert_eq!(lifecycle.should_component_update, Some("return true;".to_string()));
+    }
+
+    #[test]
+    fn test_parse_component_with_styles() {
+        let component_def = r#"
+        {
+            components: {
+                StyledComponent: {
+                    props: {
+                        variant: {
+                            type: "string",
+                            required: false,
+                            default: "primary",
+                        }
+                    },
+                    styles: {
+                        container: "display: flex; align-items: center;",
+                        button: "padding: 10px 20px; border-radius: 5px;",
+                    },
+                    render: "<div className='container'><button className='button'>{props.variant}</button></div>",
+                    imports: ["React"],
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(component_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        let component = &config.components["StyledComponent"];
+
+        assert!(component.styles.is_some());
+        let styles = component.styles.as_ref().unwrap();
+        assert_eq!(styles.len(), 2);
+        assert_eq!(styles["container"], "display: flex; align-items: center;");
+        assert_eq!(styles["button"], "padding: 10px 20px; border-radius: 5px;");
+    }
+
+    #[test]
+    fn test_parse_pages() {
+        let config_def = r#"
+        {
+            pages: [
+                {
+                    path: "/",
+                    component: "HomePage",
+                    layout: "MainLayout",
+                    loading: "LoadingSpinner",
+                    error: "ErrorPage",
+                    meta: {
+                        title: "Home Page",
+                        description: "Welcome to our application",
+                    }
+                },
+                {
+                    path: "/about",
+                    component: "AboutPage",
+                    meta: {
+                        title: "About Us",
+                    }
+                }
+            ]
+        }
+        "#;
+
+        let result = FrontendParser::parse(config_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.pages.len(), 2);
+
+        let home_page = &config.pages[0];
+        assert_eq!(home_page.path, "/");
+        assert_eq!(home_page.component, "HomePage");
+        assert_eq!(home_page.layout, Some("MainLayout".to_string()));
+        assert_eq!(home_page.loading, Some("LoadingSpinner".to_string()));
+        assert_eq!(home_page.error, Some("ErrorPage".to_string()));
+
+        let meta = home_page.meta.as_ref().unwrap();
+        assert_eq!(meta["title"], "Home Page");
+        assert_eq!(meta["description"], "Welcome to our application");
+
+        let about_page = &config.pages[1];
+        assert_eq!(about_page.path, "/about");
+        assert_eq!(about_page.component, "AboutPage");
+        assert!(about_page.layout.is_none());
+        assert!(about_page.loading.is_none());
+        assert!(about_page.error.is_none());
+    }
+
+    #[test]
+    fn test_parse_api_routes() {
+        let config_def = r#"
+        {
+            apiRoutes: [
+                {
+                    path: "/api/users",
+                    method: "GET",
+                    handler: "getUsers",
+                    authRequired: false,
+                    schema: {
+                        input: {
+                            query: {
+                                page: "number",
+                                limit: "number",
+                            }
+                        },
+                        output: {
+                            users: "array",
+                            total: "number",
+                        },
+                        errors: [
+                            {
+                                code: "VALIDATION_ERROR",
+                                message: "Invalid input parameters",
+                                statusCode: 400,
+                            }
+                        ]
+                    }
+                },
+                {
+                    path: "/api/users",
+                    method: "POST",
+                    handler: "createUser",
+                    authRequired: true,
+                }
+            ]
+        }
+        "#;
+
+        let result = FrontendParser::parse(config_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.api_routes.len(), 2);
+
+        let get_users_route = &config.api_routes[0];
+        assert_eq!(get_users_route.path, "/api/users");
+        assert_eq!(get_users_route.method, "GET");
+        assert_eq!(get_users_route.handler, "getUsers");
+        assert!(!get_users_route.auth_required);
+
+        assert!(get_users_route.schema.is_some());
+        let schema = get_users_route.schema.as_ref().unwrap();
+        assert!(schema.input.is_some());
+        assert!(schema.output.is_some());
+        assert!(schema.errors.is_some());
+        assert_eq!(schema.errors.as_ref().unwrap().len(), 1);
+
+        let create_user_route = &config.api_routes[1];
+        assert_eq!(create_user_route.path, "/api/users");
+        assert_eq!(create_user_route.method, "POST");
+        assert_eq!(create_user_route.handler, "createUser");
+        assert!(create_user_route.auth_required);
+        assert!(create_user_route.schema.is_none());
+    }
+
+    #[test]
+    fn test_parse_global_styles() {
+        let config_def = r#"
+        {
+            globalStyles: {
+                "body": "margin: 0; font-family: Arial, sans-serif;",
+                ".container": "max-width: 1200px; margin: 0 auto;",
+                ".button-primary": "background: blue; color: white; padding: 10px 20px;",
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(config_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert!(config.global_styles.is_some());
+        let global_styles = config.global_styles.as_ref().unwrap();
+        assert_eq!(global_styles.len(), 3);
+        assert!(global_styles.contains_key("body"));
+        assert!(global_styles.contains_key(".container"));
+        assert!(global_styles.contains_key(".button-primary"));
+    }
+
+    #[test]
+    fn test_parse_complex_frontend_config() {
+        let config_def = r#"
+        {
+            components: {
+                Button: {
+                    props: {
+                        text: { type: "string", required: true },
+                        variant: { type: "string", required: false, default: "primary" },
+                        onClick: { type: "function", required: false }
+                    },
+                    state: {
+                        isHovered: { initialValue: false, type: "boolean" }
+                    },
+                    lifecycle: {
+                        componentDidMount: "console.log('Button mounted');"
+                    },
+                    styles: {
+                        button: "padding: 10px 20px; border: none; border-radius: 5px;"
+                    },
+                    render: "<button className='button' onClick={props.onClick}>{props.text}</button>",
+                    imports: ["React"]
+                }
+            },
+            pages: [
+                {
+                    path: "/",
+                    component: "HomePage",
+                    layout: "AppLayout",
+                    meta: { title: "Home" }
+                }
+            ],
+            apiRoutes: [
+                {
+                    path: "/api/users",
+                    method: "GET",
+                    handler: "getUsers",
+                    authRequired: true
+                }
+            ],
+            globalStyles: {
+                body: "font-family: sans-serif;"
+            },
+            config: {
+                theme: "light",
+                apiUrl: "https://api.example.com"
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(config_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+
+        // Test components
+        assert_eq!(config.components.len(), 1);
+        assert!(config.components.contains_key("Button"));
+        let button = &config.components["Button"];
+        assert_eq!(button.props.len(), 3);
+        assert!(button.state.is_some());
+        assert!(button.lifecycle.is_some());
+        assert!(button.styles.is_some());
+
+        // Test pages
+        assert_eq!(config.pages.len(), 1);
+
+        // Test API routes
+        assert_eq!(config.api_routes.len(), 1);
+
+        // Test global styles
+        assert!(config.global_styles.is_some());
+
+        // Test config
+        assert!(config.config.get("theme").is_some());
+        assert!(config.config.get("apiUrl").is_some());
+    }
+
+    #[test]
+    fn test_parse_minimal_config() {
+        let config_def = r#"
+        {
+            components: {
+                SimpleDiv: {
+                    render: "<div>Hello World</div>",
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(config_def);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.components.len(), 1);
+        let component = &config.components["SimpleDiv"];
+        assert_eq!(component.name, "SimpleDiv");
+        assert!(component.props.is_empty());
+        assert!(component.state.is_none());
+        assert!(component.lifecycle.is_none());
+        assert!(component.styles.is_none());
+        assert!(component.imports.contains(&"React".to_string()));
+    }
+
+    #[test]
+    fn test_parse_file_success() {
+        let config_content = r#"
+        {
+            components: {
+                TestComponent: {
+                    render: "<div>Test</div>",
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(config_content.as_bytes()).unwrap();
+        let file_path = temp_file.path();
+
+        let result = FrontendParser::parse_file(file_path);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.components.len(), 1);
+        assert!(config.components.contains_key("TestComponent"));
+    }
+
+    #[test]
+    fn test_parse_file_not_found() {
+        let result = FrontendParser::parse_file("/nonexistent/file.jsonnet");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), KotobaNetError::Io(_)));
+    }
+
+    #[test]
+    fn test_parse_missing_required_fields() {
+        // Missing render
+        let config1 = r#"
+        {
+            components: {
+                BadComponent: {
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+        let result1 = FrontendParser::parse(config1);
+        assert!(result1.is_err());
+
+        // Missing component name in props
+        let config2 = r#"
+        {
+            components: {
+                TestComponent: {
+                    props: {
+                        "": { type: "string" }
+                    },
+                    render: "<div></div>",
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+        let result2 = FrontendParser::parse(config2);
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_prop_type() {
+        let config = r#"
+        {
+            components: {
+                BadComponent: {
+                    props: {
+                        badProp: { type: 123 }
+                    },
+                    render: "<div></div>",
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_non_object_root() {
+        let config = r#"
+        "this should be an object"
+        "#;
+
+        let result = FrontendParser::parse(config);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(matches!(error, KotobaNetError::FrontendParse(_)));
+        assert!(error.to_string().contains("Frontend configuration must be an object"));
+    }
+
+    #[test]
+    fn test_parse_empty_components() {
+        let config = r#"
+        {
+            components: {}
+        }
+        "#;
+
+        let result = FrontendParser::parse(config);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert!(config.components.is_empty());
+    }
+
+    #[test]
+    fn test_parse_invalid_state_definition() {
+        let config = r#"
+        {
+            components: {
+                BadComponent: {
+                    state: {
+                        badState: {}
+                    },
+                    render: "<div></div>",
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_component_with_default_values() {
+        let config = r#"
+        {
+            components: {
+                ComponentWithDefaults: {
+                    props: {
+                        optionalProp: {
+                            type: "string",
+                            required: false,
+                            default: "default value",
+                            description: "An optional property"
+                        }
+                    },
+                    render: "<div>{props.optionalProp}</div>",
+                    imports: ["React"]
+                }
+            }
+        }
+        "#;
+
+        let result = FrontendParser::parse(config);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        let component = &config.components["ComponentWithDefaults"];
+        let prop = &component.props["optionalProp"];
+
+        assert!(!prop.required);
+        assert!(prop.default.is_some());
+        assert_eq!(prop.description, Some("An optional property".to_string()));
+    }
+
+    #[test]
+    fn test_serialization() {
+        let config = FrontendConfig {
+            components: HashMap::new(),
+            pages: vec![PageDef {
+                path: "/test".to_string(),
+                component: "TestPage".to_string(),
+                layout: Some("TestLayout".to_string()),
+                loading: None,
+                error: None,
+                meta: Some(HashMap::from([
+                    ("title".to_string(), "Test Page".to_string()),
+                ])),
+            }],
+            api_routes: vec![ApiRouteDef {
+                path: "/api/test".to_string(),
+                method: "GET".to_string(),
+                handler: "testHandler".to_string(),
+                schema: None,
+                auth_required: true,
+            }],
+            global_styles: Some(HashMap::from([
+                ("body".to_string(), "margin: 0;".to_string()),
+            ])),
+            config: serde_json::json!({"test": "value"}),
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("/test"));
+        assert!(json.contains("TestPage"));
+        assert!(json.contains("/api/test"));
+        assert!(json.contains("testHandler"));
+        assert!(json.contains("margin: 0"));
+        assert!(json.contains("value"));
     }
 }
