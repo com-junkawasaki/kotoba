@@ -1,13 +1,24 @@
-# 目的と結論（最小核のみ）
+# Kotoba Design - .kotoba 言語中心のアーキテクチャ
 
-* **目的**: GP2系のグラフ書換えを核に、**ISO GQL**準拠クエリ、**MVCC+Merkle**永続、分散実行まで一貫させる。
-* **最小構成（必須のみ）**
+## 🎯 目的と設計思想
 
-  1. **書換え仕様**: **DPO（Double Pushout）型付き属性グラフ**
-  2. **クエリ**: **GQL → 論理プランIR（代数）**
-  3. **更新**: **Patch-IR**（`addV/E, delV/E, setProp, relink`）
-  4. **戦略**: **極小 Strategy-IR**（`once|exhaust|while|seq|choice|priority`）
-  5. **実行**: **Rustコア**（プランナ/実行器/MVCC/ストア）
+**Kotoba** は `.kotoba` ファイル（Jsonnet形式）で全てを定義し、Rustランタイムで実行する**宣言型プログラミング言語**です。
+
+* **目的**: GP2系のグラフ書換えを核に、**ISO GQL**準拠クエリ、**MVCC+Merkle**永続、分散実行まで一貫させた**宣言型グラフ処理システム**
+* **設計原則**:
+  - **宣言型**: 何をするかを記述、どのように実行するかはランタイムが決める
+  - **.kotoba中心**: ユーザーはRustを書かず、.kotobaファイルのみを使用
+  - **統一モデル**: グラフが全てのものを表現（HTTP, データ, ロジック）
+
+### 最小構成（必須のみ）
+
+1. **言語仕様**: **.kotoba**（Jsonnetベースの宣言型設定言語）
+2. **実行モデル**: **グラフ中心**（HTTPリクエストもグラフ変換として表現）
+3. **書換え仕様**: **DPO（Double Pushout）型付き属性グラフ**
+4. **クエリ**: **GQL → 論理プランIR（代数）**
+5. **更新**: **Patch-IR**（`addV/E, delV/E, setProp, relink`）
+6. **戦略**: **極小 Strategy-IR**（`once|exhaust|while|seq|choice|priority`）
+7. **実行**: **Rustコア**（プランナ/実行器/MVCC/ストア、.kotobaパーサー）
 
 ---
 
@@ -100,22 +111,48 @@
 
 ---
 
-# Rust 実行系（API骨格）
+# .kotoba 実行系（宣言型実行モデル）
+
+## .kotoba パーサー（中心）
 
 ```rust
-// GQL → 論理/物理プラン → 実行
+// .kotobaファイル → 実行可能な構造体
+fn parse_kotoba(src: &str) -> KotobaConfig;
+fn validate_config(config: &KotobaConfig) -> Result<(), ValidationError>;
+fn execute_kotoba(config: KotobaConfig) -> Result<(), ExecutionError>;
+
+// 設定構造体（.kotobaファイルの内容）
+struct KotobaConfig {
+    config: AppConfig,
+    graph: Option<GraphData>,
+    queries: Vec<GqlQuery>,
+    rules: Vec<RewriteRule>,
+    strategies: Vec<ExecutionStrategy>,
+    routes: Vec<HttpRoute>,
+    handlers: Vec<EventHandler>,
+    security: SecurityConfig,  // ← ここにCapability設定を含む
+}
+```
+
+## 内部実行エンジン（ユーザーは意識しない）
+
+```rust
+// GQL → 論理/物理プラン → 実行（内部使用）
 fn parse_gql(src: &str) -> PlanIR;
 fn plan_to_physical(ir: &PlanIR, cat: &Catalog) -> PhysPlan;
 fn execute_plan(g: GraphRef, p: &PhysPlan) -> RowStream;
 
-// DPO 書換え → Patch → MVCC
+// DPO 書換え → Patch → MVCC（内部使用）
 fn match_rule(g: GraphRef, r: &RuleIR, cat: &Catalog) -> Matches;
 fn rewrite(g: GraphRef, r: &RuleIR, strat: &StrategyIR) -> Patch;
-fn apply_patch(tx: &mut Tx, g: GraphRef, patch: Patch) -> GraphRef; // 純粋→Tx境界で副作用
+fn apply_patch(tx: &mut Tx, g: GraphRef, patch: Patch) -> GraphRef;
 fn commit(tx: &mut Tx, g: GraphRef, msg: &str) -> GraphRef;
 
 // extern 述語/測度（索引利用可能なものに限定）
-trait Externs { fn deg_ge(&self, v: Vid, k: u32) -> bool; fn edge_count_nonincreasing(&self, g0: GraphRef, g1: GraphRef) -> bool; }
+trait Externs {
+    fn deg_ge(&self, v: Vid, k: u32) -> bool;
+    fn edge_count_nonincreasing(&self, g0: GraphRef, g1: GraphRef) -> bool;
+}
 ```
 
 ---

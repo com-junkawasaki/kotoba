@@ -45,44 +45,55 @@ cargo build --release
 
 ### Basic Usage Example
 
-```rust
-use kotoba::*;
+ユーザーは `.kotoba` ファイル（Jsonnet形式）を作成し、`kotoba run` コマンドで実行します：
 
-fn main() -> Result<()> {
-    // Create a graph
-    let mut graph = Graph::empty();
+**app.kotoba**
+```jsonnet
+{
+  // アプリケーション設定
+  config: {
+    type: "config",
+    name: "MyGraphApp",
+    version: "1.0.0",
+  },
 
-    // Add vertices
-    let v1 = graph.add_vertex(VertexData {
-        id: uuid::Uuid::new_v4(),
-        labels: vec!["Person".to_string()],
-        props: [("name".to_string(), Value::String("Alice".to_string()))].into(),
-    });
+  // グラフデータ
+  graph: {
+    vertices: [
+      { id: "alice", labels: ["Person"], properties: { name: "Alice", age: 30 } },
+      { id: "bob", labels: ["Person"], properties: { name: "Bob", age: 25 } },
+    ],
+    edges: [
+      { id: "follows_1", src: "alice", dst: "bob", label: "FOLLOWS" },
+    ],
+  },
 
-    let v2 = graph.add_vertex(VertexData {
-        id: uuid::Uuid::new_v4(),
-        labels: vec!["Person".to_string()],
-        props: [("name".to_string(), Value::String("Bob".to_string()))].into(),
-    });
+  // GQLクエリ
+  queries: [
+    {
+      name: "find_people",
+      gql: "MATCH (p:Person) RETURN p.name, p.age",
+    },
+  ],
 
-    // Add edge
-    graph.add_edge(EdgeData {
-        id: uuid::Uuid::new_v4(),
-        src: v1,
-        dst: v2,
-        label: "FOLLOWS".to_string(),
-        props: HashMap::new(),
-    });
-
-    // Execute GQL query
-    let gql = "MATCH (p:Person) RETURN p.name";
-    let executor = QueryExecutor::new();
-    let catalog = Catalog::empty();
-    let results = executor.execute_gql(gql, &GraphRef::new(graph), &catalog)?;
-
-    println!("Query results: {:?}", results);
-    Ok(())
+  // 実行ロジック
+  handlers: [
+    {
+      name: "main",
+      function: "execute_queries",
+      metadata: { description: "Execute all defined queries" },
+    },
+  ],
 }
+```
+
+**実行方法**
+```bash
+# .kotobaファイルを実行
+kotoba run app.kotoba
+
+# またはサーバーモードで起動
+kotoba server --config app.kotoba
 ```
 
 ## 🏗️ Architecture
@@ -105,11 +116,17 @@ Kotobaは以下のmulti crateアーキテクチャを採用しています：
 
 #### 使用例
 
-```rust
-// 統合crateを使用する場合
-use kotoba::prelude::*;
+```bash
+# .kotobaファイルで全て定義
+kotoba run myapp.kotoba
 
-// 個別crateを使用する場合
+# 開発時はウォッチモード
+kotoba run myapp.kotoba --watch
+```
+
+**Rust API（内部使用）**
+```rust
+// Rust APIは主に内部実装で使用
 use kotoba_core::types::*;
 use kotoba_graph::prelude::*;
 ```
@@ -182,59 +199,160 @@ $ jsonnet eval dag.jsonnet | jq .topological_order
 
 ### 1. Basic GQL Queries
 
-```rust
-use kotoba::{QueryExecutor, Catalog, GraphRef};
+**queries.kotoba**
+```jsonnet
+{
+  config: {
+    type: "config",
+    name: "QueryExample",
+  },
 
-// Create query executor
-let executor = QueryExecutor::new();
-let catalog = Catalog::empty();
+  // グラフデータ
+  graph: {
+    vertices: [
+      { id: "alice", labels: ["Person"], properties: { name: "Alice", age: 30 } },
+      { id: "bob", labels: ["Person"], properties: { name: "Bob", age: 25 } },
+      { id: "charlie", labels: ["Person"], properties: { name: "Charlie", age: 35 } },
+    ],
+    edges: [
+      { id: "f1", src: "alice", dst: "bob", label: "FOLLOWS" },
+      { id: "f2", src: "bob", dst: "charlie", label: "FOLLOWS" },
+    ],
+  },
 
-// Execute GQL query
-let gql = r#"
-    MATCH (p:Person)-[:FOLLOWS]->(f:Person)
-    WHERE p.age > 20
-    RETURN p.name, f.name
-"#;
+  // GQLクエリ定義
+  queries: [
+    {
+      name: "follow_network",
+      gql: "MATCH (p:Person)-[:FOLLOWS]->(f:Person) WHERE p.age > 25 RETURN p.name, f.name",
+      description: "25歳以上の人がフォローしている人を取得",
+    },
+  ],
 
-let results = executor.execute_gql(gql, &graph_ref, &catalog)?;
+  handlers: [
+    {
+      name: "execute_query",
+      function: "run_gql_query",
+      parameters: { query_name: "follow_network" },
+    },
+  ],
+}
+```
+
+```bash
+kotoba run queries.kotoba
 ```
 
 ### 2. Graph Rewriting
 
-```rust
-use kotoba::{RewriteEngine, RuleIR, StrategyIR};
+**rewrite.kotoba**
+```jsonnet
+{
+  config: {
+    type: "config",
+    name: "RewriteExample",
+  },
 
-// Create rewrite engine
-let engine = RewriteEngine::new();
+  // グラフ書換えルール
+  rules: [
+    {
+      name: "triangle_collapse",
+      description: "三角形を折りたたむ",
+      lhs: {
+        nodes: [
+          { id: "u", type: "Person" },
+          { id: "v", type: "Person" },
+          { id: "w", type: "Person" },
+        ],
+        edges: [
+          { id: "e1", src: "u", dst: "v", type: "FOLLOWS" },
+          { id: "e2", src: "v", dst: "w", type: "FOLLOWS" },
+        ],
+      },
+      rhs: {
+        nodes: [
+          { id: "u", type: "Person" },
+          { id: "w", type: "Person" },
+        ],
+        edges: [
+          { id: "e3", src: "u", dst: "w", type: "FOLLOWS" },
+        ],
+      },
+    },
+  ],
 
-// Define rules
-let rule = RuleIR { /* rule definition */ };
-let strategy = StrategyIR { /* strategy definition */ };
+  // 実行戦略
+  strategies: [
+    {
+      name: "exhaust_triangle_collapse",
+      rule: "triangle_collapse",
+      strategy: "exhaust",
+      order: "topdown",
+    },
+  ],
 
-// Execute rewrite
-let patch = engine.rewrite(&graph_ref, &rule, &strategy)?;
+  handlers: [
+    {
+      name: "apply_rewrite",
+      function: "execute_rewrite",
+      parameters: { strategy_name: "exhaust_triangle_collapse" },
+    },
+  ],
+}
 ```
 
-### 3. Manual Graph Operations
+### 3. HTTP Server with Graph Operations
 
-```rust
-use kotoba::{Graph, VertexBuilder, EdgeBuilder};
+**server.kotoba**
+```jsonnet
+{
+  config: {
+    type: "config",
+    name: "GraphServer",
+    server: { host: "127.0.0.1", port: 3000 },
+  },
 
-// Create graph
-let mut graph = Graph::empty();
+  // ルート定義
+  routes: [
+    {
+      method: "GET",
+      pattern: "/api/users",
+      handler: "list_users",
+      description: "ユーザー一覧を取得",
+    },
+    {
+      method: "POST",
+      pattern: "/api/users",
+      handler: "create_user",
+      description: "ユーザーを作成",
+    },
+  ],
 
-// Add vertices
-let v1 = graph.add_vertex(VertexBuilder::new()
-    .label("Person")
-    .prop("name", Value::String("Alice"))
-    .build());
+  // グラフスキーマ
+  schema: {
+    node_types: ["User", "Post"],
+    edge_types: ["FOLLOWS", "LIKES"],
+  },
 
-// Add edge
-let e1 = graph.add_edge(EdgeBuilder::new()
-    .src(v1)
-    .dst(v2)
-    .label("FOLLOWS")
-    .build());
+  handlers: [
+    {
+      name: "list_users",
+      function: "execute_gql",
+      parameters: {
+        query: "MATCH (u:User) RETURN u.name, u.email",
+        format: "json",
+      },
+    },
+    {
+      name: "create_user",
+      function: "create_graph_node",
+      parameters: {
+        type: "User",
+        properties: ["name", "email", "age"],
+      },
+    },
+  ],
+}
 ```
 
 ## 📄 .kotoba File Format
@@ -971,19 +1089,14 @@ kotoba version
 
 | コマンド | 説明 |
 |---------|------|
-| `run` | .kotobaファイルを実行 |
-| `query` | GQLクエリを実行 |
-| `rewrite` | グラフ書換えルールを適用 |
-| `check` | ファイルを検証 |
-| `fmt` | ファイルをフォーマット |
-| `info` | プロジェクト/グラフ情報を表示 |
-| `task` | Jsonnetタスクを実行 |
+| `run <file.kotoba>` | .kotobaファイルを実行 |
+| `server --config <file.kotoba>` | HTTPサーバーを起動 |
+| `query "MATCH..." --graph <file>` | GQLクエリを直接実行 |
+| `check <file.kotoba>` | .kotobaファイルを検証 |
+| `fmt <file.kotoba>` | .kotobaファイルをフォーマット |
+| `info` | プロジェクト情報を表示 |
 | `repl` | インタラクティブGQL REPL |
-| `compile` | ファイルをコンパイル/変換 |
-| `generate` | コードを生成 |
-| `server` | HTTPサーバーを起動 |
-| `doc` | ドキュメント生成 |
-| `init` | 新規プロジェクトを初期化 |
+| `init <project>` | 新規.kotobaプロジェクトを初期化 |
 | `version` | バージョン情報を表示 |
 
 #### グローバルオプション
@@ -999,23 +1112,29 @@ kotoba version
 #### 使用例
 
 ```bash
-# 詳細なプロジェクト情報をJSON形式で表示
-kotoba info --detailed --json
+# .kotobaファイルを実行
+kotoba run app.kotoba
 
-# 特定のファイルを検証
-kotoba check src/main.rs src/lib.rs
-
-# ウォッチモードでファイルを実行（開発中）
+# ウォッチモードで開発（ファイル変更時に自動再実行）
 kotoba run app.kotoba --watch
 
-# インタラクティブREPL起動
-kotoba repl --graph initial.graph.json
+# サーバーモードで起動
+kotoba server --config server.kotoba --port 3000
 
-# TypeScript型定義を生成
-kotoba generate types --schema schema.gql --lang typescript
+# ファイルを検証
+kotoba check app.kotoba
 
-# デプロイ（開発中）
-kotoba deploy status --all
+# ファイルをフォーマット
+kotoba fmt app.kotoba
+
+# インタラクティブREPLでクエリを実行
+kotoba repl
+
+# 新規プロジェクトを作成
+kotoba init my-project --template web
+
+# プロジェクト情報を表示
+kotoba info --detailed
 ```
 
 ## 📚 API Documentation

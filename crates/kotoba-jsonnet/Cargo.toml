@@ -1,0 +1,30 @@
+[package]
+name = "kotoba-jsonnet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kotoba-specific Jsonnet implementation compatible with Jsonnet 0.21.0"
+keywords = ["jsonnet", "template", "configuration", "json", "yaml"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = { version = "0.9", optional = true }
+thiserror = "2.0"
+anyhow = "1.0"
+regex = "1.10"
+uuid = { workspace = true, features = ["v4"] }
+parking_lot = "0.12"
+hex = { workspace = true }
+sha2 = { workspace = true }
+tokio = { version = "1.0", features = ["full"] }
+base64 = "0.22"
+md-5 = "0.10"
+
+[features]
+default = []
+yaml = ["serde_yaml"]
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }

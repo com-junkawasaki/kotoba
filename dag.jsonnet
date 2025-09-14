@@ -296,10 +296,21 @@
       path: 'crates/kotoba-security/src/lib.rs',
       type: 'security',
       description: 'セキュリティ統合サービス',
-      dependencies: ['types', 'security_jwt', 'security_oauth2', 'security_mfa', 'security_password', 'security_session'],
+      dependencies: ['types', 'security_jwt', 'security_oauth2', 'security_mfa', 'security_password', 'security_session', 'security_capabilities'],
       provides: ['SecurityService', 'SecurityError'],
       status: 'completed',
       build_order: 6,
+    },
+
+    'security_capabilities': {
+      name: 'security_capabilities',
+      path: 'crates/kotoba-security/src/capabilities.rs',
+      type: 'security',
+      description: 'Deno風capabilityベースセキュリティシステム',
+      dependencies: ['types'],
+      provides: ['Capability', 'CapabilitySet', 'CapabilityService', 'ResourceType', 'Action'],
+      status: 'completed',
+      build_order: 4,
     },
 
     // HTTPサーバー層
@@ -737,11 +748,13 @@
     { from: 'types', to: 'security_mfa' },
     { from: 'types', to: 'security_password' },
     { from: 'types', to: 'security_session' },
+    { from: 'types', to: 'security_capabilities' },
     { from: 'security_jwt', to: 'security_core' },
     { from: 'security_oauth2', to: 'security_core' },
     { from: 'security_mfa', to: 'security_core' },
     { from: 'security_password', to: 'security_core' },
     { from: 'security_session', to: 'security_core' },
+    { from: 'security_capabilities', to: 'security_core' },
     { from: 'security_core', to: 'http_ir' },
 
     // HTTPサーバー層依存
@@ -911,6 +924,7 @@
     'security_mfa',
     'security_password',
     'security_session',
+    'security_capabilities',
     'security_oauth2',
     'security_core',
     'planner_logical',
