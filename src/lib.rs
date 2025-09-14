@@ -21,7 +21,10 @@ pub use kotoba_rewrite as rewrite;
 // pub use kotoba_web as web; // まだpublishされていないため一時的にコメントアウト
 
 // Local modules
+pub mod cid;
 pub mod cli;
+pub mod schema;
+pub mod schema_test;
 #[cfg(feature = "deploy")]
 pub mod deploy;
 

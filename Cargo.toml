@@ -20,7 +20,7 @@ serde_yaml = "0.9"
 thiserror = "2.0"
 anyhow = "1.0"
 uuid = { version = "1.18", features = ["v4", "serde"] }
-sha2 = "0.10"
+sha2 = { version = "0.10", features = ["std"] }
 hex = "0.4"
 parking_lot = "0.12"
 regex = "1.10"
@@ -30,6 +30,9 @@ rand = "0.8"
 futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.21"
+schemars = { version = "0.8", features = ["uuid1"] }
+jsonschema = "0.17"
+blake3 = "1.5"
 
 # Kotoba internal crates
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.0", features = ["yaml"] }
@@ -64,6 +67,16 @@ kotoba-rewrite = "0.1.1"
 # Kotoba internal crates
 kotoba-jsonnet.workspace = true
 kotoba-kotobanet.workspace = true
+
+# Schema and CID dependencies
+schemars.workspace = true
+jsonschema.workspace = true
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+regex.workspace = true
 
 # For binary
 clap = { version = "4.0", features = ["derive"], optional = true }
