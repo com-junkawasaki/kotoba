@@ -157,7 +157,7 @@ impl JwtService {
         }
 
         if config.validate_iss {
-            validation.iss = Some(config.issuer.clone());
+            validation.iss = Some(HashSet::from_iter(vec![config.issuer.clone()]));
         }
 
         Ok(Self {
@@ -279,7 +279,8 @@ impl JwtService {
             JwtAlgorithm::RS512 => Ok(Algorithm::RS512),
             JwtAlgorithm::ES256 => Ok(Algorithm::ES256),
             JwtAlgorithm::ES384 => Ok(Algorithm::ES384),
-            JwtAlgorithm::ES512 => Ok(Algorithm::ES512),
+            // ES512 is not supported in jsonwebtoken crate
+            JwtAlgorithm::ES512 => Err(SecurityError::Configuration("ES512 algorithm not supported".to_string())),
         }
     }
 

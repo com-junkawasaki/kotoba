@@ -25,6 +25,7 @@ jsonwebtoken = "9.0"
 ring = "0.17"
 rustls = "0.23"
 rustls-pemfile = "2.0"
+hex = { workspace = true }
 
 # OAuth2
 oauth2 = "4.4"

@@ -1717,6 +1717,7 @@ dependencies = [
  "async-trait",
  "bcrypt",
  "chrono",
+ "hex",
  "jsonwebtoken",
  "kotoba-core",
  "kotoba-graph",

@@ -137,7 +137,7 @@ impl GraphVersion {
     }
 
     /// 新しいバージョンをコミット
-    pub fn commit(&mut self, graph: &Graph) -> Result<ContentHash, Box<dyn std::error::Error>> {
+    pub fn commit(&mut self, graph: &Graph) -> Result<ContentHash> {
         let hash = self.dag.hash_graph(graph)?;
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

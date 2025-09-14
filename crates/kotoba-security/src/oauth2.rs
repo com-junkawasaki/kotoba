@@ -139,7 +139,7 @@ pub struct OAuth2Tokens {
 }
 
 /// OAuth2 authorization state
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct OAuth2State {
     provider: OAuth2Provider,
     csrf_token: CsrfToken,
@@ -186,7 +186,7 @@ impl OAuth2Service {
     }
 
     /// Get authorization URL for OAuth2 flow
-    pub fn get_authorization_url(&self, provider: OAuth2Provider) -> Result<String> {
+    pub async fn get_authorization_url(&self, provider: OAuth2Provider) -> Result<String> {
         let provider_name = provider.as_str();
         let client = self.clients.get(provider_name)
             .ok_or_else(|| SecurityError::Configuration(format!("OAuth2 provider '{}' not configured", provider_name)))?;
@@ -221,10 +221,7 @@ impl OAuth2Service {
         };
 
         let state_key = csrf_token.secret().clone();
-        {
-            let mut states = self.states.write().await;
-            states.insert(state_key, state);
-        }
+        self.states.write().await.insert(state_key, state);
 
         Ok(auth_url.to_string())
     }
