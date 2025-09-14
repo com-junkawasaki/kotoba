@@ -1,0 +1,404 @@
+// Kotoba Security Example - セキュリティ機能を直接実装
+// このファイルはJsonnet形式で記述され、セキュリティ機能を直接呼び出せます
+
+{
+  // セキュリティ設定
+  security: {
+    jwt: {
+      algorithm: "HS256",
+      secret: "your-super-secret-jwt-key-change-in-production",
+      issuer: "kotoba-security-example",
+      audience: ["kotoba-users"],
+      access_token_expiration: 900,    // 15分
+      refresh_token_expiration: 86400, // 24時間
+    },
+    oauth2: {
+      providers: {
+        google: {
+          client_id: "your-google-client-id",
+          client_secret: "your-google-client-secret",
+        },
+        github: {
+          client_id: "your-github-client-id",
+          client_secret: "your-github-client-secret",
+        }
+      },
+      redirect_uri: "http://localhost:3000/auth/callback"
+    },
+    mfa: {
+      issuer: "Kotoba Security Example",
+      digits: 6,
+      step: 30
+    },
+    password: {
+      algorithm: "Argon2",
+      min_length: 8,
+      require_uppercase: true,
+      require_lowercase: true,
+      require_digits: true,
+      require_special_chars: false
+    },
+    session: {
+      store_type: "Memory",
+      cookie_name: "kotoba_session",
+      max_age_seconds: 3600,  // 1時間
+    }
+  },
+
+  // サーバー設定
+  config: {
+    host: "127.0.0.1",
+    port: 3000,
+    max_connections: 100,
+    timeout_ms: 30000,
+  },
+
+  // セキュリティ関連の関数定義
+  functions: [
+    // JWTトークン生成関数
+    {
+      name: "generate_user_token",
+      function_type: "Jwt",
+      code: "generate_token_pair",
+      metadata: {
+        description: "ユーザー用のJWTトークンペアを生成",
+      }
+    },
+
+    // JWTトークン検証関数
+    {
+      name: "validate_user_token",
+      function_type: "Jwt",
+      code: "validate_token",
+      metadata: {
+        description: "JWTトークンを検証",
+      }
+    },
+
+    // OAuth2認証URL生成関数
+    {
+      name: "get_google_auth_url",
+      function_type: "OAuth2",
+      code: "get_authorization_url",
+      metadata: {
+        description: "Google OAuth2認証URLを生成",
+      }
+    },
+
+    // OAuth2コード交換関数
+    {
+      name: "exchange_google_code",
+      function_type: "OAuth2",
+      code: "exchange_code",
+      metadata: {
+        description: "OAuth2認証コードをトークンと交換",
+      }
+    },
+
+    // MFAシークレット生成関数
+    {
+      name: "setup_user_mfa",
+      function_type: "Mfa",
+      code: "generate_secret",
+      metadata: {
+        description: "ユーザー用のMFAシークレットを生成",
+      }
+    },
+
+    // MFAコード検証関数
+    {
+      name: "verify_mfa_code",
+      function_type: "Mfa",
+      code: "verify_code",
+      metadata: {
+        description: "MFAコードを検証",
+      }
+    },
+
+    // パスワードハッシュ関数
+    {
+      name: "hash_user_password",
+      function_type: "Password",
+      code: "hash_password",
+      metadata: {
+        description: "ユーザーパスワードをハッシュ化",
+      }
+    },
+
+    // パスワード検証関数
+    {
+      name: "verify_user_password",
+      function_type: "Password",
+      code: "verify_password",
+      metadata: {
+        description: "ハッシュ化されたパスワードを検証",
+      }
+    },
+
+    // パスワード強度検証関数
+    {
+      name: "validate_password_strength",
+      function_type: "Password",
+      code: "validate_password_complexity",
+      metadata: {
+        description: "パスワードの強度を検証",
+      }
+    },
+
+    // セッション作成関数
+    {
+      name: "create_user_session",
+      function_type: "Session",
+      code: "create_session",
+      metadata: {
+        description: "ユーザーセッションを作成",
+      }
+    },
+
+    // セッション取得関数
+    {
+      name: "get_user_session",
+      function_type: "Session",
+      code: "get_session",
+      metadata: {
+        description: "セッション情報を取得",
+      }
+    },
+
+    // ユーザー認証関数
+    {
+      name: "authenticate_user",
+      function_type: "Security",
+      code: "authenticate",
+      metadata: {
+        description: "ユーザーを認証",
+      }
+    },
+  ],
+
+  // ルート定義（セキュリティ機能を活用）
+  routes: [
+    // JWT認証が必要なルート
+    {
+      method: "GET",
+      pattern: "/api/user/profile",
+      handler: "get_user_profile",
+      metadata: {
+        requires_auth: true,
+        description: "ユーザー情報を取得（JWT認証必須）"
+      }
+    },
+
+    // OAuth2認証ルート
+    {
+      method: "GET",
+      pattern: "/auth/google",
+      handler: "google_auth_redirect",
+      metadata: {
+        description: "Google OAuth2認証を開始"
+      }
+    },
+
+    {
+      method: "GET",
+      pattern: "/auth/google/callback",
+      handler: "google_auth_callback",
+      metadata: {
+        description: "Google OAuth2コールバック処理"
+      }
+    },
+
+    // MFAセットアップルート
+    {
+      method: "POST",
+      pattern: "/api/user/mfa/setup",
+      handler: "setup_mfa",
+      metadata: {
+        requires_auth: true,
+        description: "MFAをセットアップ"
+      }
+    },
+
+    {
+      method: "POST",
+      pattern: "/api/user/mfa/verify",
+      handler: "verify_mfa",
+      metadata: {
+        requires_auth: true,
+        description: "MFAコードを検証"
+      }
+    },
+
+    // パスワード変更ルート
+    {
+      method: "POST",
+      pattern: "/api/user/change-password",
+      handler: "change_password",
+      metadata: {
+        requires_auth: true,
+        description: "パスワードを変更"
+      }
+    },
+
+    // セッション管理ルート
+    {
+      method: "POST",
+      pattern: "/api/session/logout",
+      handler: "logout",
+      metadata: {
+        requires_auth: true,
+        description: "ログアウトしてセッションを削除"
+      }
+    },
+
+    // 認証不要のルート
+    {
+      method: "POST",
+      pattern: "/api/auth/login",
+      handler: "login",
+      metadata: {
+        description: "ユーザーログイン"
+      }
+    },
+
+    {
+      method: "POST",
+      pattern: "/api/auth/register",
+      handler: "register",
+      metadata: {
+        description: "ユーザー登録"
+      }
+    },
+  ],
+
+  // ミドルウェア定義
+  middlewares: [
+    {
+      name: "jwt_auth",
+      order: 30,
+      function: "jwt_auth_middleware",
+      metadata: {
+        description: "JWT認証ミドルウェア",
+        type: "Authentication"
+      }
+    },
+
+    {
+      name: "authorization",
+      order: 40,
+      function: "authorization_middleware",
+      metadata: {
+        description: "認可ミドルウェア",
+        type: "Authorization"
+      }
+    },
+
+    {
+      name: "rate_limit",
+      order: 20,
+      function: "rate_limit_middleware",
+      metadata: {
+        description: "レート制限ミドルウェア",
+        requests_per_minute: 60
+      }
+    },
+
+    {
+      name: "csrf_protection",
+      order: 25,
+      function: "csrf_middleware",
+      metadata: {
+        description: "CSRF保護ミドルウェア"
+      }
+    },
+  ],
+
+  // ユーティリティ関数
+  local utils = {
+    // セキュリティ設定のヘルパー
+    getSecurityConfig():: self.security,
+
+    // 関数リストのヘルパー
+    getFunction(name):: [f for f in self.functions if f.name == name][0],
+
+    // ルートリストのヘルパー
+    getRoutes():: self.routes,
+
+    // 認証が必要なルートを取得
+    getProtectedRoutes():: [r for r in self.routes if std.objectHas(r.metadata, "requires_auth")],
+
+    // 公開ルートを取得
+    getPublicRoutes():: [r for r in self.routes if !std.objectHas(r.metadata, "requires_auth")],
+  },
+
+  // 計算プロパティ
+  protectedRoutes:: utils.getProtectedRoutes(),
+  publicRoutes:: utils.getPublicRoutes(),
+  securityFunctions:: [f for f in self.functions if f.function_type == "Security" || f.function_type == "Jwt" || f.function_type == "OAuth2"],
+
+  // 設定検証関数
+  validateConfig():: {
+    local config = self.security,
+    local errors = [],
+
+    // JWT設定の検証
+    if !std.objectHas(config, "jwt") then
+      errors = errors + ["JWT設定がありません"]
+    else if !std.objectHas(config.jwt, "secret") then
+      errors = errors + ["JWTシークレットが設定されていません"]
+    else if std.length(config.jwt.secret) < 32 then
+      errors = errors + ["JWTシークレットは32文字以上である必要があります"]
+    ,
+
+    // OAuth2設定の検証
+    if std.objectHas(config, "oauth2") then
+      if !std.objectHas(config.oauth2, "providers") then
+        errors = errors + ["OAuth2プロバイダーが設定されていません"]
+      else if std.length(config.oauth2.providers) == 0 then
+        errors = errors + ["少なくとも1つのOAuth2プロバイダーを設定してください"]
+      ,
+
+    // パスワード設定の検証
+    if std.objectHas(config, "password") then
+      if config.password.min_length < 8 then
+        errors = errors + ["パスワードの最小長は8文字以上である必要があります"]
+      ,
+
+    if std.length(errors) == 0 then
+      "設定は有効です"
+    else
+      "設定エラー: " + std.join(", ", errors)
+  },
+
+  // 設定サマリー
+  configSummary:: {
+    server: {
+      host: self.config.host,
+      port: self.config.port,
+    },
+    security: {
+      jwt_enabled: std.objectHas(self.security, "jwt"),
+      oauth2_enabled: std.objectHas(self.security, "oauth2"),
+      mfa_enabled: std.objectHas(self.security, "mfa"),
+      password_policy: std.objectHas(self.security, "password"),
+      session_management: std.objectHas(self.security, "session"),
+    },
+    routes: {
+      total: std.length(self.routes),
+      protected: std.length(self.protectedRoutes),
+      public: std.length(self.publicRoutes),
+    },
+    functions: {
+      total: std.length(self.functions),
+      by_type: {
+        jwt: std.length([f for f in self.functions if f.function_type == "Jwt"]),
+        oauth2: std.length([f for f in self.functions if f.function_type == "OAuth2"]),
+        mfa: std.length([f for f in self.functions if f.function_type == "Mfa"]),
+        password: std.length([f for f in self.functions if f.function_type == "Password"]),
+        session: std.length([f for f in self.functions if f.function_type == "Session"]),
+        security: std.length([f for f in self.functions if f.function_type == "Security"]),
+      }
+    },
+    middlewares: std.length(self.middlewares),
+  }
+}
