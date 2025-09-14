@@ -76,7 +76,7 @@ impl MVCCManager {
     }
 
     /// トランザクションをコミット
-    pub fn commit_tx(&self, tx_id: &TxId) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().commit();

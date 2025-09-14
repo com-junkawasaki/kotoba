@@ -1,0 +1,60 @@
+[package]
+name = "kotoba-security"
+version = "0.1.0"
+edition = "2021"
+description = "Kotoba Security Components - JWT, OAuth2, MFA"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jun784/kotoba"
+authors = ["Jun Kawasaki <jun784@example.com>"]
+keywords = ["security", "jwt", "oauth2", "authentication", "mfa"]
+categories = ["authentication", "cryptography", "web-programming"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-security"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# JWT and cryptography
+jsonwebtoken = "9.0"
+ring = "0.17"
+rustls = "0.23"
+rustls-pemfile = "2.0"
+
+# OAuth2
+oauth2 = "4.4"
+openidconnect = "3.0"
+url = "2.5"
+
+# Password hashing
+argon2 = "0.5"
+pbkdf2 = { version = "0.12", features = ["simple"] }
+bcrypt = "0.15"
+
+# MFA/TOTP
+totp-rs = "5.4"
+qrcode = { version = "0.13", features = ["svg"] }
+
+# HTTP client for OAuth2
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# Time utilities
+chrono = { version = "0.4", features = ["serde"] }
+
+# Random generation
+rand = "0.8"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Kotoba core dependencies
+kotoba-core = { path = "../kotoba-core", version = "0.1.0" }
+kotoba-graph = { path = "../kotoba-graph", version = "0.1.0" }
+kotoba-storage = { path = "../kotoba-storage", version = "0.1.0" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1.2"

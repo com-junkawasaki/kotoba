@@ -79,7 +79,7 @@ impl MerkleDAG {
     }
 
     /// 正規化されたJSONをハッシュ化
-    pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash, Box<dyn std::error::Error>> {
+    pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash> {
         let json = serde_json::to_string(value)
             .map_err(|e| KotobaError::Storage(format!("JSON serialization error: {}", e)))?;
 
@@ -94,7 +94,7 @@ impl MerkleDAG {
     }
 
     /// グラフのMerkleハッシュを計算
-    pub fn hash_graph(&mut self, graph: &Graph) -> Result<ContentHash, Box<dyn std::error::Error>> {
+    pub fn hash_graph(&mut self, graph: &Graph) -> Result<ContentHash> {
         let mut children = Vec::new();
 
         // 頂点をハッシュ化

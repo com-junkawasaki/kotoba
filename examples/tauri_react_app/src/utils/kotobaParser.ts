@@ -1,5 +1,5 @@
 // Kotobaファイルパーサー
-// .kotobaファイルを解析してReactコンポーネント構造に変換
+// .kotobaファイル（Jsonnet形式）を解析してReactコンポーネント構造に変換
 
 export interface KotobaComponent {
   type: 'component' | 'config' | 'handler' | 'state';
@@ -28,13 +28,13 @@ export class KotobaParser {
   private config: Partial<KotobaConfig> = {};
 
   /**
-   * .kotobaファイルを解析
+   * .kotobaファイルを解析（Jsonnet形式）
    */
   async parseFile(filePath: string): Promise<KotobaConfig> {
     try {
       const response = await fetch(filePath);
       const text = await response.text();
-      return this.parse(text);
+      return this.parseJsonnet(text);
     } catch (error) {
       console.error('Failed to parse kotoba file:', error);
       throw error;
@@ -42,31 +42,68 @@ export class KotobaParser {
   }
 
   /**
-   * .kotobaテキストを解析
+   * .kotobaテキストを解析（Jsonnet形式）
    */
-  parse(content: string): KotobaConfig {
-    const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+  parseJsonnet(content: string): KotobaConfig {
+    try {
+      // Jsonnetを評価してJSONに変換（実際の環境ではjsonnetコマンドやライブラリを使用）
+      const jsonContent = this.evaluateJsonnet(content);
+      return this.parseJsonObject(jsonContent);
+    } catch (error) {
+      console.error('Failed to parse Jsonnet:', error);
+      throw error;
+    }
+  }
 
-    for (const line of lines) {
-      try {
-        const item: KotobaComponent = JSON.parse(line.trim());
+  /**
+   * Jsonnetコンテンツを評価（簡易実装）
+   * 実際の環境ではjsonnetコマンドやライブラリを使用
+   */
+  private evaluateJsonnet(content: string): any {
+    // 簡易的なJsonnet評価（実際には外部プロセスやライブラリを使用）
+    // ここでは基本的なJsonnet構文のみサポート
+    try {
+      // 基本的なJsonnetをJavaScriptオブジェクトに変換
+      const processedContent = content
+        .replace(/\/\/.*$/gm, '') // コメント除去
+        .replace(/\s+/g, ' ') // 余分な空白除去
+        .trim();
 
-        switch (item.type) {
-          case 'config':
-            this.config = { ...this.config, ...item };
-            break;
-          case 'component':
-            this.components.set(item.name, item);
-            break;
-          case 'handler':
-            this.handlers.set(item.name, item);
-            break;
-          case 'state':
-            this.states.set(item.name, item.initial);
-            break;
-        }
-      } catch (error) {
-        console.warn('Failed to parse line:', line, error);
+      // 簡易的なJsonnet評価（実際のアプリケーションでは適切なライブラリを使用）
+      return JSON.parse(processedContent);
+    } catch (error) {
+      console.warn('Jsonnet evaluation failed, falling back to direct JSON parsing');
+      return JSON.parse(content);
+    }
+  }
+
+  /**
+   * JSONオブジェクトからKotoba設定を構築
+   */
+  private parseJsonObject(jsonContent: any): KotobaConfig {
+    // 設定の初期化
+    if (jsonContent.config) {
+      this.config = { ...this.config, ...jsonContent.config };
+    }
+
+    // コンポーネントの処理
+    if (jsonContent.components) {
+      for (const [name, component] of Object.entries(jsonContent.components)) {
+        this.components.set(name, component as KotobaComponent);
+      }
+    }
+
+    // ハンドラーの処理
+    if (jsonContent.handlers) {
+      for (const [name, handler] of Object.entries(jsonContent.handlers)) {
+        this.handlers.set(name, handler as KotobaComponent);
+      }
+    }
+
+    // 状態の処理
+    if (jsonContent.states) {
+      for (const [name, state] of Object.entries(jsonContent.states)) {
+        this.states.set(name, (state as any).initial);
       }
     }
 

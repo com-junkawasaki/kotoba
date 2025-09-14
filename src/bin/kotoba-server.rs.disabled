@@ -1,6 +1,6 @@
 //! Kotoba HTTP Server
 //!
-//! このバイナリは.kotoba.jsonまたは.kotobaファイルで設定されたHTTPサーバーを起動します。
+//! このバイナリは.kotoba.jsonまたは.kotobaファイル（Jsonnet形式）で設定されたHTTPサーバーを起動します。
 
 use clap::{Arg, Command};
 use kotoba::http::{HttpConfig, ServerConfig, HttpRoute, HttpMiddleware, HttpMethod};
@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .short('c')
                 .long("config")
                 .value_name("FILE")
-                .help("Sets the configuration file (.kotoba.json or .kotoba)"),
+                .help("Sets the configuration file (.kotoba.json or .kotoba - Jsonnet format)"),
         )
         .arg(
             Arg::new("host")

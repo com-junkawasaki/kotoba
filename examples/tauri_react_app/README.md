@@ -4,7 +4,7 @@ Kotobaのプロセスネットワークグラフモデルに基づいた、Tauri
 
 ## 特徴
 
-- **.kotobaファイルベースのUI定義**: UIコンポーネントをJSON Lines形式の.kotobaファイルで定義
+- **.kotobaファイルベースのUI定義**: UIコンポーネントをJsonnet形式の.kotobaファイルで定義
 - **宣言的なUI**: Reactコンポーネントを.kotobaファイルから動的に生成
 - **Kotoba Graph Engine統合**: Rustベースのグラフデータベースエンジンを直接操作
 - **モダンなデスクトップアプリ**: Tauriによるクロスプラットフォーム対応

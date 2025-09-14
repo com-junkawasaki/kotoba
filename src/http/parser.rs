@@ -1,12 +1,13 @@
 //! HTTP設定ファイルパーサー
 //!
-//! .kotoba.jsonと.kotobaファイルのパースを担当します。
+//! .kotoba.jsonと.kotobaファイル（Jsonnet形式）のパースを担当します。
 
 use crate::types::{Value, ContentHash, Result, KotobaError};
 use crate::http::ir::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 use sha2::{Sha256, Digest};
 
 /// .kotoba.jsonファイルのフォーマット
@@ -18,16 +19,13 @@ pub struct KotobaJsonConfig {
     pub static_files: Option<StaticConfig>,
 }
 
-/// .kotobaファイルのフォーマット（JSON Lines形式）
+/// .kotobaファイルのフォーマット（Jsonnet形式）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum KotobaEntry {
-    #[serde(rename = "route")]
-    Route(KotobaRoute),
-    #[serde(rename = "middleware")]
-    Middleware(KotobaMiddleware),
-    #[serde(rename = "config")]
-    Config(KotobaServerConfig),
+pub struct KotobaJsonnetConfig {
+    pub config: Option<KotobaServerConfig>,
+    pub routes: Option<Vec<KotobaRoute>>,
+    pub middlewares: Option<Vec<KotobaMiddleware>>,
+    pub server: Option<ServerConfig>,
 }
 
 /// ルート設定（設定ファイル用）
@@ -44,7 +42,8 @@ pub struct KotobaRoute {
 pub struct KotobaMiddleware {
     pub name: String,
     pub order: i32,
-    pub function: String, // 関数名または関数定義
+    #[serde(alias = "function")]
+    pub handler: String, // 関数名または関数定義
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -73,44 +72,70 @@ impl HttpConfigParser {
         Self::convert_to_http_config(config)
     }
 
-    /// .kotobaファイルをパース（JSON Lines形式）
+    /// .kotobaファイルをパース（Jsonnet形式）
     pub fn parse_kotoba_file<P: AsRef<Path>>(path: P) -> Result<HttpConfig> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| KotobaError::IoError(format!("Failed to read config file: {}", e)))?;
+        let path = path.as_ref();
 
-        let mut config = HttpConfig::new(ServerConfig::default());
-        let mut server_config: Option<KotobaServerConfig> = None;
+        // Jsonnetファイルを評価してJSONに変換
+        let json_output = Self::evaluate_jsonnet(path)?;
 
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
-                continue; // 空行とコメントをスキップ
-            }
+        // JSONをパース
+        let kotoba_config: KotobaJsonnetConfig = serde_json::from_str(&json_output)
+            .map_err(|e| KotobaError::InvalidArgument(format!("Invalid Jsonnet output: {}", e)))?;
 
-            let entry: KotobaEntry = serde_json::from_str(line)
-                .map_err(|e| KotobaError::InvalidArgument(format!("Invalid JSON line: {} - {}", line, e)))?;
+        Self::convert_jsonnet_to_http_config(kotoba_config)
+    }
 
-            match entry {
-                KotobaEntry::Route(route) => {
-                    let route_ir = Self::convert_route(route)?;
-                    config.routes.push(route_ir);
-                }
-                KotobaEntry::Middleware(mw) => {
-                    let mw_ir = Self::convert_middleware(mw)?;
-                    config.middlewares.push(mw_ir);
-                }
-                KotobaEntry::Config(srv_config) => {
-                    server_config = Some(srv_config);
-                }
+    /// Jsonnetファイルを評価してJSON文字列を返す
+    fn evaluate_jsonnet<P: AsRef<Path>>(path: P) -> Result<String> {
+        let output = Command::new("jsonnet")
+            .arg("eval")
+            .arg("--output")
+            .arg("json")
+            .arg(path.as_ref())
+            .output()
+            .map_err(|e| KotobaError::IoError(format!("Failed to execute jsonnet: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(KotobaError::InvalidArgument(format!("Jsonnet evaluation failed: {}", stderr)));
+        }
+
+        let json_str = String::from_utf8(output.stdout)
+            .map_err(|e| KotobaError::IoError(format!("Invalid UTF-8 output from jsonnet: {}", e)))?;
+
+        Ok(json_str)
+    }
+
+    /// KotobaJsonnetConfigをHttpConfigに変換
+    fn convert_jsonnet_to_http_config(config: KotobaJsonnetConfig) -> Result<HttpConfig> {
+        let server_config = if let Some(server) = config.server {
+            server
+        } else if let Some(kotoba_config) = config.config {
+            Self::convert_server_config(kotoba_config)
+        } else {
+            ServerConfig::default()
+        };
+
+        let mut http_config = HttpConfig::new(server_config);
+
+        // ルートを変換
+        if let Some(routes) = config.routes {
+            for route in routes {
+                let route_ir = Self::convert_route(route)?;
+                http_config.routes.push(route_ir);
             }
         }
 
-        // サーバー設定を適用
-        if let Some(srv_config) = server_config {
-            config.server = Self::convert_server_config(srv_config);
+        // ミドルウェアを変換
+        if let Some(middlewares) = config.middlewares {
+            for mw in middlewares {
+                let mw_ir = Self::convert_middleware(mw)?;
+                http_config.middlewares.push(mw_ir);
+            }
         }
 
-        Ok(config)
+        Ok(http_config)
     }
 
     /// ファイル拡張子に基づいて適切なパーサーを選択
@@ -181,7 +206,7 @@ impl HttpConfigParser {
 
     /// KotobaMiddlewareをHttpMiddlewareに変換
     fn convert_middleware(mw: KotobaMiddleware) -> Result<HttpMiddleware> {
-        let function_hash = Self::hash_function(&mw.function);
+        let function_hash = Self::hash_function(&mw.handler);
 
         let mut http_mw = HttpMiddleware::new(
             format!("mw_{}_{}", mw.name, mw.order),
@@ -192,12 +217,12 @@ impl HttpConfigParser {
 
         // メタデータを設定
         if let Some(metadata) = mw.metadata {
-            http_mw.metadata.insert("function_source".to_string(), Value::String(mw.function));
+            http_mw.metadata.insert("function_source".to_string(), Value::String(mw.handler));
             if let Ok(json_str) = serde_json::to_string(&metadata) {
                 http_mw.metadata.insert("metadata".to_string(), Value::String(json_str));
             }
         } else {
-            http_mw.metadata.insert("function_source".to_string(), Value::String(mw.function));
+            http_mw.metadata.insert("function_source".to_string(), Value::String(mw.handler));
         }
 
         Ok(http_mw)
@@ -263,9 +288,26 @@ mod tests {
     #[test]
     fn test_parse_kotoba_file() {
         let config_str = r#"
-        {"type": "config", "host": "127.0.0.1", "port": 4000}
-        {"type": "route", "method": "GET", "pattern": "/health", "handler": "health_check"}
-        {"type": "middleware", "name": "logger", "order": 100, "function": "log_middleware"}
+        {
+          config: {
+            host: "127.0.0.1",
+            port: 4000
+          },
+          routes: [
+            {
+              method: "GET",
+              pattern: "/health",
+              handler: "health_check"
+            }
+          ],
+          middlewares: [
+            {
+              name: "logger",
+              order: 100,
+              handler: "log_middleware"
+            }
+          ]
+        }
         "#;
 
         let mut temp_file = NamedTempFile::with_suffix(".kotoba").unwrap();
