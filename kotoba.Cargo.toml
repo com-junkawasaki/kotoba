@@ -1,0 +1,74 @@
+[package]
+name = "kotoba"
+version = "0.1.0"
+edition = "2021"
+description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jun784/kotoba"
+keywords = ["graph", "database", "gql", "rewrite", "distributed"]
+categories = ["database", "data-structures", "algorithms"]
+
+[dependencies]
+# Core crates
+kotoba-core = { path = "./crates/kotoba-core", version = "0.1.0" }
+kotoba-graph = { path = "./crates/kotoba-graph", version = "0.1.0" }
+kotoba-storage = { path = "./crates/kotoba-storage", version = "0.1.0" }
+kotoba-execution = { path = "./crates/kotoba-execution", version = "0.1.0" }
+kotoba-rewrite = { path = "./crates/kotoba-rewrite", version = "0.1.0" }
+kotoba-web = { path = "./crates/kotoba-web", version = "0.1.0" }
+
+# Optional crates for different use cases
+tokio = { version = "1.0", features = ["full"], optional = true }
+log = { version = "0.4", optional = true }
+env_logger = { version = "0.11", optional = true }
+
+[features]
+default = ["full"]
+full = ["tokio", "log", "env_logger", "examples"]
+examples = []
+types = []
+ir = []
+graph = []
+storage = []
+execution = []
+planner = []
+rewrite = []
+http = []
+frontend = []
+wasm = []
+
+# Platform-specific features
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.0"
+quickcheck = "1.0"
+rand = "0.8"
+
+[[bench]]
+name = "graph_operations"
+harness = false
+
+[[bench]]
+name = "query_execution"
+harness = false
+
+[[bench]]
+name = "rewrite_operations"
+harness = false
+
+[[bench]]
+name = "storage_operations"
+harness = false
+
+[[example]]
+name = "http_server"
+path = "examples/http_server/main.rs"
+
+[[example]]
+name = "tauri_react_app"
+path = "examples/tauri_react_app/src-tauri/src/main.rs"

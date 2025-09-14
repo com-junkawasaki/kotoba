@@ -1,71 +1,19 @@
-[package]
-name = "kotoba"
+[workspace]
+members = [
+    "crates/*",
+    ".",  # Root crate
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
-description = "GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
-keywords = ["graph", "database", "gql", "rewrite", "distributed"]
-categories = ["database", "data-structures", "algorithms"]
 
-[dependencies]
+[workspace.dependencies]
+# Common dependencies can be defined here
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-sha2 = "0.10"
 thiserror = "2.0"
-tokio = { version = "1.0", features = ["full"] }
-parking_lot = "0.12"
-dashmap = "6.0"
 anyhow = "1.0"
-log = "0.4"
-env_logger = "0.11"
-urlencoding = "2.1"
-clap = { version = "4.0", features = ["derive"] }
-hex = "0.4"
-tempfile = "3.0"
-jsonnet = "0.1"
-
-[features]
-default = ["types", "ir", "graph"]
-full = ["types", "ir", "graph", "storage", "execution", "planner", "rewrite"]
-examples = ["full"]
-types = []
-ir = ["types"]
-graph = ["types", "ir"]
-storage = ["types", "graph"]
-execution = ["types", "ir", "graph", "storage"]
-planner = ["types", "ir", "graph"]
-rewrite = ["types", "ir", "graph", "storage"]
-
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-proptest = "1.0"
-quickcheck = "1.0"
-rand = "0.8"
-
-[[bench]]
-name = "graph_operations"
-harness = false
-
-[[bench]]
-name = "query_execution"
-harness = false
-
-[[bench]]
-name = "rewrite_operations"
-harness = false
-
-[[bench]]
-name = "storage_operations"
-harness = false
-
-
-[[example]]
-name = "http_server"
-path = "examples/http_server/main.rs"
-
-[[example]]
-name = "tauri_react_app"
-path = "examples/tauri_react_app/src-tauri/src/main.rs"
-

@@ -87,6 +87,42 @@ fn main() -> Result<()> {
 
 ## 🏗️ Architecture
 
+### Multi-Crate Architecture
+
+Kotobaは以下のmulti crateアーキテクチャを採用しています：
+
+```
+├── kotoba-core/           # 基本型とIR定義
+├── kotoba-graph/          # グラフデータ構造
+├── kotoba-storage/        # 永続化層 (MVCC + Merkle)
+├── kotoba-execution/      # クエリ実行とプランナー
+├── kotoba-rewrite/        # グラフ書き換えエンジン
+├── kotoba-web/            # WebフレームワークとHTTP
+└── kotoba/                # 統合crate (全機能利用)
+```
+
+各crateは独立して使用可能で、必要な機能のみを選択して利用できます。
+
+#### 使用例
+
+```rust
+// 統合crateを使用する場合
+use kotoba::prelude::*;
+
+// 個別crateを使用する場合
+use kotoba_core::types::*;
+use kotoba_graph::prelude::*;
+```
+
+#### WASM対応
+
+各crateは条件付きコンパイルによりWASMターゲットにも対応しています：
+
+```bash
+# WASMビルド
+cargo build --target wasm32-unknown-unknown --features wasm
+```
+
 ### Process Network Graph Model
 
 Kotoba is based on a **Process Network Graph Model**, where all components are centrally managed through `dag.jsonnet`.
