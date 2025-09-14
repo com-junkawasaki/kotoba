@@ -20,7 +20,9 @@ pub use kotoba_execution as execution;
 pub use kotoba_rewrite as rewrite;
 // pub use kotoba_web as web; // まだpublishされていないため一時的にコメントアウト
 
-// Local deploy module
+// Local modules
+pub mod cli;
+#[cfg(feature = "deploy")]
 pub mod deploy;
 
 // Convenient re-exports for common usage

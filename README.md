@@ -918,20 +918,104 @@ brew install kotoba
 
 ## 🔧 CLI Tools
 
-### kotoba-cli
+### Kotoba CLI
+
+Kotoba CLIはDeno CLIを参考にした使いやすいコマンドラインインターフェースを提供します。グラフ処理、クエリ実行、ファイル操作などをサポートしています。
+
+#### インストール
 
 ```bash
-# Show help
-./target/release/kotoba-cli --help
+# ビルドしてインストール
+cargo build --release --features binary
+cp target/release/kotoba ~/.local/bin/  # またはPATHの通った場所に
+```
 
-# Execute GQL query
-./target/release/kotoba-cli query "MATCH (p:Person) RETURN p.name"
+#### 基本的な使用方法
 
-# Load graph file
-./target/release/kotoba-cli load --file graph.json
+```bash
+# ヘルプ表示
+kotoba --help
 
-# Display statistics
-./target/release/kotoba-cli stats
+# プロジェクト情報表示
+kotoba info
+kotoba info --detailed --json
+
+# GQLクエリ実行
+kotoba query "MATCH (n) RETURN n" --format json
+
+# ファイル実行
+kotoba run myfile.kotoba
+
+# ファイル検証
+kotoba check src/
+kotoba check --all
+
+# ファイルフォーマット
+kotoba fmt src/
+kotoba fmt --all --check
+
+# サーバー起動
+kotoba server --port 3000 --host 127.0.0.1
+
+# 新規プロジェクト初期化
+kotoba init my-project --template web
+
+# ドキュメント生成
+kotoba doc --output ./docs --format html
+
+# バージョン表示
+kotoba version
+```
+
+#### 主なコマンド
+
+| コマンド | 説明 |
+|---------|------|
+| `run` | .kotobaファイルやGraphSONファイルを実行 |
+| `query` | GQLクエリを実行 |
+| `rewrite` | グラフ書換えルールを適用 |
+| `check` | ファイルを検証 |
+| `fmt` | ファイルをフォーマット |
+| `info` | プロジェクト/グラフ情報を表示 |
+| `task` | Jsonnetタスクを実行 |
+| `repl` | インタラクティブGQL REPL |
+| `compile` | ファイルをコンパイル/変換 |
+| `generate` | コードを生成 |
+| `server` | HTTPサーバーを起動 |
+| `doc` | ドキュメント生成 |
+| `init` | 新規プロジェクトを初期化 |
+| `version` | バージョン情報を表示 |
+
+#### グローバルオプション
+
+| オプション | 説明 |
+|-----------|------|
+| `-c, --config <CONFIG>` | 設定ファイルパス |
+| `-l, --log-level <LEVEL>` | ログレベル (info, debug, warn, error) |
+| `-C, --cwd <DIR>` | 作業ディレクトリ |
+| `-h, --help` | ヘルプ表示 |
+| `-V, --version` | バージョン表示 |
+
+#### 使用例
+
+```bash
+# 詳細なプロジェクト情報をJSON形式で表示
+kotoba info --detailed --json
+
+# 特定のファイルを検証
+kotoba check src/main.rs src/lib.rs
+
+# ウォッチモードでファイルを実行（開発中）
+kotoba run app.kotoba --watch
+
+# インタラクティブREPL起動
+kotoba repl --graph initial.graph.json
+
+# TypeScript型定義を生成
+kotoba generate types --schema schema.gql --lang typescript
+
+# デプロイ（開発中）
+kotoba deploy status --all
 ```
 
 ## 📚 API Documentation

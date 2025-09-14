@@ -65,38 +65,82 @@ cat app.kotoba | kotoba2tsx pipe > App.tsx
 
 ## Kotoba File Format
 
-Kotoba files use Jsonnet syntax to define UI components declaratively:
+Kotoba files currently use JSON format to define UI components declaratively. Full Jsonnet syntax support is planned for future releases.
+
+### Basic JSON Format
+
+```json
+{
+  "config": {
+    "name": "MyApp",
+    "version": "1.0.0",
+    "theme": "light"
+  },
+
+  "components": {
+    "App": {
+      "type": "component",
+      "name": "App",
+      "component_type": "div",
+      "props": {
+        "className": "app-container"
+      },
+      "children": ["Header", "Content"]
+    },
+
+    "Header": {
+      "type": "component",
+      "name": "Header",
+      "component_type": "header",
+      "props": {
+        "className": "app-header",
+        "title": "My App"
+      },
+      "children": []
+    },
+
+    "Content": {
+      "type": "component",
+      "name": "Content",
+      "component_type": "main",
+      "props": {
+        "className": "app-content"
+      },
+      "children": []
+    }
+  },
+
+  "handlers": {
+    "handleClick": {
+      "type": "handler",
+      "name": "handleClick",
+      "function": "console.log('Button clicked');"
+    }
+  },
+
+  "states": {
+    "isOpen": false,
+    "userName": "Guest"
+  }
+}
+```
+
+### Jsonnet Support (Future)
+
+Jsonnet syntax support is planned for future releases, which will enable:
 
 ```jsonnet
-// app.kotoba
+// Future Jsonnet support
+local appName = "MyApp";
+local theme = "light";
+
 {
   config: {
-    name: "MyApp",
+    name: appName,
     version: "1.0.0",
-    theme: "light",
+    theme: theme,
   },
-
-  components: {
-    App: {
-      type: "component",
-      name: "App",
-      component_type: "div",
-      props: {
-        className: "app-container",
-      },
-      children: ["Header", "Main", "Footer"],
-    },
-
-    Header: {
-      type: "component",
-      name: "Header",
-      component_type: "header",
-      props: {
-        className: "app-header",
-      },
-      children: ["Title"],
-    },
-  },
+  // ... component definitions
 }
 ```
 

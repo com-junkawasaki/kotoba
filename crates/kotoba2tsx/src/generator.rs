@@ -1,6 +1,6 @@
 //! TSX code generator for Kotoba components
 
-use crate::error::{Kotoba2TSError, Result};
+use crate::error::Result;
 use crate::types::*;
 use std::collections::HashMap;
 use tokio::fs as async_fs;
@@ -27,16 +27,40 @@ impl TsxGenerator {
     pub fn generate_tsx(&self, config: &KotobaConfig) -> Result<String> {
         let mut imports = Vec::new();
         let mut component_codes = Vec::new();
+        let mut interfaces = Vec::new();
+        let mut default_props = Vec::new();
 
         // Collect all imports
         if self.options.include_imports {
             imports.extend(self.generate_imports(config));
         }
 
-        // Generate component code
-        for (_name, component) in &config.components {
+        // Generate component code and collect interfaces/default props
+        for (name, component) in &config.components {
+            // Skip generating App component here if it exists - we'll generate it specially
+            if name == "App" {
+                // Still generate interface and default props for App
+                if let Some(interface) = self.generate_props_interface_only(name, &component.props) {
+                    interfaces.push(interface);
+                }
+                if let Some(default_prop) = self.generate_default_props_only(name, &component.props) {
+                    default_props.push(default_prop);
+                }
+                continue;
+            }
+
             let generated = self.generate_component(component, config)?;
+
+            // Add component code
             component_codes.push(generated.code);
+
+            // Collect interfaces and default props
+            if let Some(interface) = generated.props_interface {
+                interfaces.push(interface);
+            }
+            if let Some(default_prop) = generated.default_props {
+                default_props.push(default_prop);
+            }
         }
 
         // Generate handler functions
@@ -47,7 +71,7 @@ impl TsxGenerator {
             }
         }
 
-        // Generate main app component
+        // Generate main app component (always generate this specially)
         let app_component = self.generate_main_app_component(config)?;
         component_codes.push(app_component);
 
@@ -61,6 +85,18 @@ impl TsxGenerator {
         }
 
         result.push('\n');
+
+        // Add interfaces
+        for interface in interfaces {
+            result.push_str(&interface);
+            result.push('\n');
+        }
+
+        // Add default props
+        for default_prop in default_props {
+            result.push_str(&default_prop);
+            result.push('\n');
+        }
 
         // Add component codes
         for code in component_codes {
@@ -82,8 +118,8 @@ impl TsxGenerator {
     fn generate_imports(&self, config: &KotobaConfig) -> Vec<ImportStatement> {
         let mut imports = Vec::new();
 
-        // React imports
-        let mut react_items = vec!["React".to_string()];
+        // React imports - use modern React import
+        let mut react_items = vec!["FC".to_string()];
         if config.handlers.len() > 0 {
             react_items.push("useState".to_string());
             react_items.push("useEffect".to_string());
@@ -92,14 +128,15 @@ impl TsxGenerator {
         imports.push(ImportStatement {
             module: "react".to_string(),
             items: react_items,
-            default_import: None,
+            default_import: Some("React".to_string()),
         });
 
-        // TypeScript types if needed
-        if self.options.include_types {
+        // TypeScript types if needed (but FC is already imported from react)
+        if self.options.include_types && config.handlers.is_empty() {
+            // Only import additional types if we don't already have them
             imports.push(ImportStatement {
                 module: "@types/react".to_string(),
-                items: vec!["FC".to_string(), "ReactElement".to_string()],
+                items: vec!["ReactElement".to_string()],
                 default_import: None,
             });
         }
@@ -112,15 +149,15 @@ impl TsxGenerator {
         let mut code = String::new();
 
         // Generate component props interface if needed
-        let props_interface = if self.options.include_prop_types && !component.props.is_empty() {
-            Some(self.generate_props_interface(&component.name, &component.props))
+        let props_interface = if self.options.include_prop_types {
+            self.generate_props_interface_only(&component.name, &component.props)
         } else {
             None
         };
 
         // Generate default props if needed
-        let default_props = if self.options.include_default_props && !component.props.is_empty() {
-            Some(self.generate_default_props(&component.name, &component.props))
+        let default_props = if self.options.include_default_props {
+            self.generate_default_props_only(&component.name, &component.props)
         } else {
             None
         };
@@ -192,43 +229,61 @@ impl TsxGenerator {
         let indent_str = " ".repeat(indent);
 
         if let Some(component_type) = &component.component_type {
-            let mut jsx = format!("{}<{}", indent_str, component_type);
+            // Check if this is a custom component (defined in components) or HTML element
+            if config.components.contains_key(component_type) {
+                // This is a custom component reference
+                let mut jsx = format!("{}<{}", indent_str, component_type);
 
-            // Add props
-            for (key, value) in &component.props {
-                let prop_value = self.format_prop_value(value);
-                jsx.push_str(&format!(" {}={}", self.to_camel_case(key), prop_value));
-            }
-
-            if component.children.is_empty() {
-                jsx.push_str(" />");
-            } else {
-                jsx.push_str(">\n");
-
-                // Add children
-                for child_name in &component.children {
-                    if let Some(child_component) = config.components.get(child_name) {
-                        let child_jsx = self.generate_jsx_element(child_component, config, indent + 2)?;
-                        jsx.push_str(&child_jsx);
-                    } else {
-                        // Simple text child or component reference
-                        jsx.push_str(&format!("{}{}\n", " ".repeat(indent + 2), child_name));
-                    }
+                // Add props
+                for (key, value) in &component.props {
+                    let prop_value = self.format_prop_value(value);
+                    jsx.push_str(&format!(" {}={}", self.to_camel_case(key), prop_value));
                 }
 
-                jsx.push_str(&format!("{}</{}>", indent_str, component_type));
-            }
+                jsx.push_str(" />");
+                Ok(jsx)
+            } else {
+                // This is an HTML element
+                let mut jsx = format!("{}<{}", indent_str, component_type);
 
-            Ok(jsx)
+                // Add props
+                for (key, value) in &component.props {
+                    let prop_value = self.format_prop_value(value);
+                    jsx.push_str(&format!(" {}={}", self.to_camel_case(key), prop_value));
+                }
+
+                if component.children.is_empty() {
+                    jsx.push_str(" />");
+                } else {
+                    jsx.push_str(">\n");
+
+                    // Add children
+                    for child_name in &component.children {
+                        if config.components.contains_key(child_name) {
+                            // Child is a defined component - use component reference
+                            let child_jsx = format!("{}<{} />\n", " ".repeat(indent + 2), child_name);
+                            jsx.push_str(&child_jsx);
+                        } else {
+                            // Simple text child or other content
+                            jsx.push_str(&format!("{}{}\n", " ".repeat(indent + 2), child_name));
+                        }
+                    }
+
+                    jsx.push_str(&format!("{}</{}>", indent_str, component_type));
+                }
+
+                Ok(jsx)
+            }
         } else {
-            // Fragment or custom component
+            // Fragment or custom component without component_type
             let mut jsx = format!("{}<>\n", indent_str);
 
             for child_name in &component.children {
-                if let Some(child_component) = config.components.get(child_name) {
-                    let child_jsx = self.generate_jsx_element(child_component, config, indent + 2)?;
-                    jsx.push_str(&child_jsx);
+                if let Some(_child_component) = config.components.get(child_name) {
+                    // Child is a defined component - use component reference
+                    jsx.push_str(&format!("{}<{} />\n", " ".repeat(indent + 2), child_name));
                 } else {
+                    // Simple text child or other content
                     jsx.push_str(&format!("{}{}\n", " ".repeat(indent + 2), child_name));
                 }
             }
@@ -240,6 +295,10 @@ impl TsxGenerator {
 
     /// Generate props interface
     fn generate_props_interface(&self, component_name: &str, props: &HashMap<String, serde_json::Value>) -> String {
+        if props.is_empty() {
+            return String::new();
+        }
+
         let mut interface = format!("interface {}Props {{\n", component_name);
 
         for (key, value) in props {
@@ -251,8 +310,20 @@ impl TsxGenerator {
         interface
     }
 
+    /// Generate props interface only (returns Option for empty props)
+    fn generate_props_interface_only(&self, component_name: &str, props: &HashMap<String, serde_json::Value>) -> Option<String> {
+        if props.is_empty() {
+            return None;
+        }
+        Some(self.generate_props_interface(component_name, props))
+    }
+
     /// Generate default props
     fn generate_default_props(&self, component_name: &str, props: &HashMap<String, serde_json::Value>) -> String {
+        if props.is_empty() {
+            return String::new();
+        }
+
         let mut default_props = format!("const {}DefaultProps: Partial<{}Props> = {{\n",
             component_name, component_name);
 
@@ -263,6 +334,14 @@ impl TsxGenerator {
 
         default_props.push_str("};\n\n");
         default_props
+    }
+
+    /// Generate default props only (returns Option for empty props)
+    fn generate_default_props_only(&self, component_name: &str, props: &HashMap<String, serde_json::Value>) -> Option<String> {
+        if props.is_empty() {
+            return None;
+        }
+        Some(self.generate_default_props(component_name, props))
     }
 
     /// Generate handler function
@@ -289,13 +368,19 @@ impl TsxGenerator {
 
         code.push_str("\n  return (\n");
 
-        // Find root component
-        let root_component = config.components.get("App")
-            .or_else(|| config.components.values().next())
-            .ok_or_else(|| Kotoba2TSError::ComponentNotFound("No root component found".to_string()))?;
-
-        let jsx = self.generate_jsx_element(root_component, config, 4)?;
-        code.push_str(&jsx);
+        // Find root component - prefer "App" or use the first component
+        if let Some(root_component) = config.components.get("App") {
+            let jsx = self.generate_jsx_element(root_component, config, 4)?;
+            code.push_str(&jsx);
+        } else if let Some((_, root_component)) = config.components.iter().next() {
+            let jsx = self.generate_jsx_element(root_component, config, 4)?;
+            code.push_str(&jsx);
+        } else {
+            // No components defined, create a simple app
+            code.push_str("    <div>\n");
+            code.push_str("      <h1>Hello from Kotoba!</h1>\n");
+            code.push_str("    </div>\n");
+        }
 
         code.push_str("  );\n");
         code.push_str("};\n\n");
@@ -310,8 +395,16 @@ impl TsxGenerator {
         let mut result = String::new();
 
         if let Some(default) = &import.default_import {
-            result.push_str(&format!("import {} from '{}';", default, import.module));
+            if !import.items.is_empty() {
+                // Both default and named imports
+                result.push_str(&format!("import {}, {{ {} }} from '{}';",
+                    default, import.items.join(", "), import.module));
+            } else {
+                // Only default import
+                result.push_str(&format!("import {} from '{}';", default, import.module));
+            }
         } else if !import.items.is_empty() {
+            // Only named imports
             result.push_str(&format!("import {{ {} }} from '{}';",
                 import.items.join(", "), import.module));
         }
