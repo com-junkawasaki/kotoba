@@ -3,7 +3,7 @@
 //! このモジュールはJsonnetベースの.kotoba-deployファイルの構造を定義します。
 //! Deno Deployと同等の機能をサポートしつつ、KotobaのLive Graph Modelに適応しています。
 
-use crate::types::{Result, Value, ContentHash};
+use kotoba_core::types::{Result, Value, ContentHash};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

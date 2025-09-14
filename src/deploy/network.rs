@@ -3,8 +3,8 @@
 //! このモジュールは世界中のエッジロケーションにアプリケーションを分散配置し、
 //! 低遅延で高可用性のネットワークを実現します。
 
-use crate::types::{Result, Value, VertexId, EdgeId, GraphRef};
-use crate::graph::{Graph, VertexData, EdgeData};
+use kotoba_core::types::{Result, Value};
+use kotoba_graph::prelude::*;
 use crate::deploy::config::{NetworkConfig, RegionConfig, GeographyConfig};
 use crate::deploy::scaling::{LoadBalancer, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm};
 use std::collections::HashMap;

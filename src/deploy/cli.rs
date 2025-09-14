@@ -3,7 +3,7 @@
 //! このモジュールはコマンドラインインターフェースを提供し、
 //! ISO GQLベースのデプロイメント管理を可能にします。
 
-use crate::types::{Result, Value};
+use kotoba_core::types::{Result, Value};
 use crate::deploy::controller::{DeployController, DeploymentManager, GqlDeploymentQuery, DeploymentQueryType, GqlDeploymentExtensions};
 use crate::deploy::config::{DeployConfig, DeployConfigBuilder, RuntimeType};
 use crate::deploy::parser::DeployConfigParser;

@@ -3,12 +3,11 @@
 //! このモジュールはISO GQLプロトコルを使用してデプロイメントを管理し、
 //! ライブグラフモデルとの統合を実現します。
 
-use crate::types::{Result, Value, VertexId, EdgeId, GraphRef};
-use crate::graph::{Graph, VertexData, EdgeData};
-use crate::execution::QueryExecutor;
-use crate::planner::QueryPlanner;
-use crate::rewrite::RewriteEngine;
-use crate::deploy::config::{DeployConfig, DeploymentStatus};
+use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_graph::prelude::*;
+use kotoba_execution::prelude::*;
+use kotoba_rewrite::prelude::*;
+use crate::deploy::config::{DeployConfig};
 use crate::deploy::scaling::ScalingEngine;
 use crate::deploy::network::NetworkManager;
 use crate::deploy::git_integration::GitIntegration;
@@ -16,6 +15,27 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, Duration};
 use serde::{Deserialize, Serialize};
+
+/// デプロイメント状態
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeploymentStatus {
+    /// 作成済み
+    Created,
+    /// ビルド中
+    Building,
+    /// デプロイ中
+    Deploying,
+    /// 実行中
+    Running,
+    /// 停止中
+    Stopping,
+    /// 停止済み
+    Stopped,
+    /// 失敗
+    Failed,
+    /// 削除済み
+    Deleted,
+}
 
 /// デプロイコントローラー
 pub struct DeployController {
@@ -177,7 +197,7 @@ impl DeployController {
             scaling_engine,
             network_manager,
             git_integration: None,
-            deployment_graph: Arc::new(RwLock::new(Graph::new())),
+            deployment_graph: Arc::new(RwLock::new(Graph::empty())),
             deployment_states: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -249,13 +269,13 @@ impl DeployController {
         let deployment_id = format!("deployment-{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs());
 
         let vertex_data = VertexData {
-            id: VertexId(deployment_id.clone()),
+            id: deployment_id.clone(),
             labels: vec!["Deployment".to_string()],
-            properties: HashMap::from([
+            props: HashMap::from([
                 ("name".to_string(), Value::String(config.metadata.name.clone())),
                 ("version".to_string(), Value::String(config.metadata.version.clone())),
                 ("status".to_string(), Value::String("creating".to_string())),
-                ("created_at".to_string(), Value::String(chrono::Utc::now().to_rfc3339())),
+                ("created_at".to_string(), Value::String(format!("{:?}", SystemTime::now()))),
             ]),
         };
 
@@ -300,15 +320,14 @@ impl DeployController {
 
             // デプロイメントグラフを更新
             let mut graph = self.deployment_graph.write().unwrap();
-            let vertex_id = VertexId(deployment_id.clone());
 
-            if let Some(vertex) = graph.get_vertex(&vertex_id) {
-                let mut properties = vertex.properties.clone();
-                properties.insert("status".to_string(), Value::String("updating".to_string()));
-                properties.insert("updated_at".to_string(), Value::String(chrono::Utc::now().to_rfc3339()));
+            if let Some(vertex) = graph.get_vertex(&deployment_id) {
+                let mut props = vertex.props.clone();
+                props.insert("status".to_string(), Value::String("updating".to_string()));
+                props.insert("updated_at".to_string(), Value::String(format!("{:?}", SystemTime::now())));
 
                 let updated_vertex = VertexData {
-                    properties,
+                    props,
                     ..vertex.clone()
                 };
 
@@ -330,11 +349,9 @@ impl DeployController {
         // デプロイメント状態を削除
         let mut states = self.deployment_states.write().unwrap();
         if states.remove(&deployment_id).is_some() {
-            // デプロイメントグラフから頂点を削除
-            let mut graph = self.deployment_graph.write().unwrap();
-            let vertex_id = VertexId(deployment_id.clone());
-
-            graph.remove_vertex(&vertex_id)?;
+        // デプロイメントグラフから頂点を削除
+        let mut graph = self.deployment_graph.write().unwrap();
+        graph.remove_vertex(&deployment_id)?;
 
             Ok(Value::String(format!("Deployment {} deleted successfully", deployment_id)))
         } else {

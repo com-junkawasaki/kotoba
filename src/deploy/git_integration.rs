@@ -3,7 +3,7 @@
 //! このモジュールはGitHubリポジトリとの連携を管理し、
 //! プッシュやプルリクエストなどのイベントに基づいて自動デプロイを実行します。
 
-use crate::types::{Result, Value, ContentHash};
+use kotoba_core::types::{Result, Value, ContentHash};
 use crate::deploy::config::{DeployConfig, RuntimeType};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

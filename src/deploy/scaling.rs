@@ -4,8 +4,8 @@
 //! CPU使用率、メモリ使用率、リクエスト数などのメトリクスに基づいて
 //! インスタンス数を動的に調整します。
 
-use crate::types::{Result, Value, VertexId, EdgeId, GraphRef};
-use crate::graph::{Graph, VertexData, EdgeData};
+use kotoba_core::types::{Result, Value};
+use kotoba_graph::prelude::*;
 use crate::deploy::config::{ScalingConfig, ScalingPolicy};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
