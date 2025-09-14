@@ -15,7 +15,7 @@ impl RuleMatcher {
     }
 
     /// グラフに対してルールをマッチング
-    pub fn find_matches(&self, graph: &GraphRef, rule: &RuleIR, catalog: &Catalog) -> Result<Vec<Match>> {
+    pub fn find_matches(&self, graph: &GraphRef, rule: &RuleIR, catalog: &Catalog) -> Result<Vec<Match>, Box<dyn std::error::Error>> {
         let graph = graph.read();
 
         // LHS（Left-hand side）のマッチング
@@ -75,7 +75,7 @@ impl RuleMatcher {
 
     /// LHSパターンマッチング
     fn match_lhs(&self, graph: &Graph, lhs: &GraphPattern,
-                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
+                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool, Box<dyn std::error::Error>> {
 
         // ノードマッチング
         for node in &lhs.nodes {
@@ -126,7 +126,7 @@ impl RuleMatcher {
 
     /// NACチェック
     fn check_nacs(&self, graph: &Graph, nacs: &[Nac],
-                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
+                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool, Box<dyn std::error::Error>> {
 
         for nac in nacs {
             // NACパターンがマッチしないことを確認
@@ -140,7 +140,7 @@ impl RuleMatcher {
 
     /// NACマッチング
     fn match_nac(&self, graph: &Graph, nac: &Nac,
-                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
+                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool, Box<dyn std::error::Error>> {
 
         // NAC内のノードをマッチング
         for node in &nac.nodes {

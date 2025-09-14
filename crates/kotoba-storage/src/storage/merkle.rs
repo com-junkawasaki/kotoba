@@ -3,7 +3,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use crate::types::*;
+use kotoba_core::types::*;
+use kotoba_graph::prelude::*;
 
 /// Merkleノード
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,7 +79,7 @@ impl MerkleDAG {
     }
 
     /// 正規化されたJSONをハッシュ化
-    pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash> {
+    pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash, Box<dyn std::error::Error>> {
         let json = serde_json::to_string(value)
             .map_err(|e| KotobaError::Storage(format!("JSON serialization error: {}", e)))?;
 
@@ -93,7 +94,7 @@ impl MerkleDAG {
     }
 
     /// グラフのMerkleハッシュを計算
-    pub fn hash_graph(&mut self, graph: &crate::graph::Graph) -> Result<ContentHash> {
+    pub fn hash_graph(&mut self, graph: &Graph) -> Result<ContentHash, Box<dyn std::error::Error>> {
         let mut children = Vec::new();
 
         // 頂点をハッシュ化
@@ -136,7 +137,7 @@ impl GraphVersion {
     }
 
     /// 新しいバージョンをコミット
-    pub fn commit(&mut self, graph: &crate::graph::Graph) -> Result<ContentHash> {
+    pub fn commit(&mut self, graph: &Graph) -> Result<ContentHash, Box<dyn std::error::Error>> {
         let hash = self.dag.hash_graph(graph)?;
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

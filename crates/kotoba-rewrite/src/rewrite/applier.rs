@@ -15,7 +15,7 @@ impl RuleApplier {
     }
 
     /// ルールを適用してパッチを生成
-    pub fn apply_rule(&self, graph: &GraphRef, rule: &RuleIR, match_: &Match) -> Result<Patch> {
+    pub fn apply_rule(&self, graph: &GraphRef, rule: &RuleIR, match_: &Match) -> Result<Patch, Box<dyn std::error::Error>> {
         let mut patch = Patch::empty();
 
         // 削除操作（L - K）
@@ -32,7 +32,7 @@ impl RuleApplier {
 
     /// 削除操作を生成（L - K）
     fn generate_deletions(&self, patch: &mut Patch, graph: &GraphRef,
-                         rule: &RuleIR, match_: &Match) -> Result<()> {
+                         rule: &RuleIR, match_: &Match) -> Result<(), Box<dyn std::error::Error>> {
 
         let _graph = graph.read();
 
@@ -80,7 +80,7 @@ impl RuleApplier {
     }
 
     /// 追加操作を生成（R - K）
-    fn generate_additions(&self, patch: &mut Patch, rule: &RuleIR, match_: &Match) -> Result<()> {
+    fn generate_additions(&self, patch: &mut Patch, rule: &RuleIR, match_: &Match) -> Result<(), Box<dyn std::error::Error>> {
 
         // R（右辺）の要素をK（文脈）と比較して追加対象を決定
         for rhs_node in &rule.rhs.nodes {
@@ -135,7 +135,7 @@ impl RuleApplier {
 
     /// 更新操作を生成（Kの変更）
     fn generate_updates(&self, patch: &mut Patch, graph: &GraphRef,
-                       rule: &RuleIR, match_: &Match) -> Result<()> {
+                       rule: &RuleIR, match_: &Match) -> Result<(), Box<dyn std::error::Error>> {
 
         let _graph = graph.read();
 

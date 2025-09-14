@@ -102,7 +102,7 @@ pub struct SSTable {
 
 impl SSTable {
     /// SSTableを作成
-    pub fn create(path: PathBuf, entries: &BTreeMap<String, LSMEntry>) -> Result<Self> {
+    pub fn create(path: PathBuf, entries: &BTreeMap<String, LSMEntry>) -> Result<Self, Box<dyn std::error::Error>> {
         let file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -147,7 +147,7 @@ impl SSTable {
     }
 
     /// SSTableを読み込み
-    pub fn load(path: PathBuf) -> Result<Self> {
+    pub fn load(path: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         let file = File::open(&path)
             .map_err(|e| KotobaError::Storage(format!("Failed to open SSTable: {}", e)))?;
 
@@ -189,7 +189,7 @@ impl SSTable {
     }
 
     /// キーを検索
-    pub fn get(&self, key: &str) -> Result<Option<LSMEntry>> {
+    pub fn get(&self, key: &str) -> Result<Option<LSMEntry>, Box<dyn std::error::Error>> {
         if key < self.min_key.as_str() || key > self.max_key.as_str() {
             return Ok(None);
         }
@@ -221,7 +221,7 @@ impl SSTable {
     }
 
     /// 範囲クエリ
-    pub fn range(&self, start: &str, end: &str) -> Result<Vec<LSMEntry>> {
+    pub fn range(&self, start: &str, end: &str) -> Result<Vec<LSMEntry>, Box<dyn std::error::Error>> {
         let mut results = Vec::new();
 
         for (_key, &offset) in self.index.range(start.to_string()..=end.to_string()) {
@@ -271,7 +271,7 @@ impl LSMTree {
     }
 
     /// データを書き込み
-    pub fn put(&mut self, key: String, value: Vec<u8>) -> Result<()> {
+    pub fn put(&mut self, key: String, value: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         self.memtable.put(key, value);
 
         if self.memtable.should_flush() {
@@ -282,7 +282,7 @@ impl LSMTree {
     }
 
     /// データを削除
-    pub fn delete(&mut self, key: String) -> Result<()> {
+    pub fn delete(&mut self, key: String) -> Result<(), Box<dyn std::error::Error>> {
         self.memtable.delete(key);
 
         if self.memtable.should_flush() {
@@ -293,7 +293,7 @@ impl LSMTree {
     }
 
     /// データを読み込み
-    pub fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+    pub fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
         // まずMemTableを検索
         if let Some(entry) = self.memtable.get(key) {
             return if entry.deleted {
@@ -318,7 +318,7 @@ impl LSMTree {
     }
 
     /// MemTableをSSTableにフラッシュ
-    pub fn flush(&mut self) -> Result<()> {
+    pub fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.memtable.len() == 0 {
             return Ok(());
         }
@@ -340,7 +340,7 @@ impl LSMTree {
     }
 
     /// コンパクションを実行
-    pub fn compact(&mut self) -> Result<()> {
+    pub fn compact(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.sstables.len() < 2 {
             return Ok(());
         }

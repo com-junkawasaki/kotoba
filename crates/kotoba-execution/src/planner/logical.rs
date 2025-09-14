@@ -1,7 +1,6 @@
 //! 論理プランナー（GQL → 論理プラン）
 
-use crate::ir::*;
-use crate::types::*;
+use kotoba_core::{types::*, ir::*};
 
 /// 論理プランナー
 #[derive(Debug)]
@@ -13,7 +12,7 @@ impl LogicalPlanner {
     }
 
     /// GQL文字列を論理プランに変換
-    pub fn parse_gql(&self, gql: &str) -> Result<PlanIR> {
+    pub fn parse_gql(&self, gql: &str) -> Result<PlanIR, Box<dyn std::error::Error>> {
         // 簡易パーサー（実際の実装ではPEGパーサー等を使用）
         // ここではサンプルクエリのみ対応
 
@@ -25,7 +24,7 @@ impl LogicalPlanner {
     }
 
     /// MATCHクエリのパース
-    fn parse_match_query(&self, _gql: &str) -> Result<PlanIR> {
+    fn parse_match_query(&self, _gql: &str) -> Result<PlanIR, Box<dyn std::error::Error>> {
         // 非常に簡易的なパーサー
         // 実際の実装では構文解析器を使用
 

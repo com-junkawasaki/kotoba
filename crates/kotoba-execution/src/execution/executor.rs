@@ -1,9 +1,8 @@
 //! クエリ実行器
 
-use crate::ir::*;
-use crate::graph::*;
+use kotoba_core::{types::*, ir::*};
+use kotoba_graph::prelude::*;
 use crate::planner::*;
-use crate::types::*;
 use std::collections::{HashMap, HashSet};
 
 /// クエリ実行器
@@ -24,7 +23,7 @@ impl QueryExecutor {
     }
 
     /// GQLクエリを実行
-    pub fn execute_gql(&self, gql: &str, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream> {
+    pub fn execute_gql(&self, gql: &str, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream, Box<dyn std::error::Error>> {
         // GQL → 論理プラン
         let mut logical_plan = self.logical_planner.parse_gql(gql)?;
 
@@ -42,7 +41,7 @@ impl QueryExecutor {
     }
 
     /// 論理プランを実行
-    pub fn execute_plan(&self, plan: &PlanIR, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream> {
+    pub fn execute_plan(&self, plan: &PlanIR, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream, Box<dyn std::error::Error>> {
         // 論理プラン → 物理プラン
         let physical_plan = self.physical_planner.plan_to_physical(plan, catalog)?;
 
@@ -51,7 +50,7 @@ impl QueryExecutor {
     }
 
     /// 物理プランを実行
-    pub fn execute_physical_plan(&self, plan: &PhysicalPlan, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream> {
+    pub fn execute_physical_plan(&self, plan: &PhysicalPlan, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream, Box<dyn std::error::Error>> {
         match &plan.op {
             PhysicalOp::NodeScan { label, as_, props } => {
                 self.execute_node_scan(graph, label, as_, props.as_ref())
@@ -135,7 +134,7 @@ impl QueryExecutor {
     }
 
     /// ノードスキャン実行
-    fn execute_node_scan(&self, graph: &GraphRef, label: &Label, as_: &str, props: Option<&Properties>) -> Result<RowStream> {
+    fn execute_node_scan(&self, graph: &GraphRef, label: &Label, as_: &str, props: Option<&Properties>) -> Result<RowStream, Box<dyn std::error::Error>> {
         let graph = graph.read();
         let mut rows = Vec::new();
 
@@ -162,13 +161,13 @@ impl QueryExecutor {
     }
 
     /// インデックススキャン実行
-    fn execute_index_scan(&self, graph: &GraphRef, label: &Label, as_: &str, _index: &str, _value: &Value) -> Result<RowStream> {
+    fn execute_index_scan(&self, graph: &GraphRef, label: &Label, as_: &str, _index: &str, _value: &Value) -> Result<RowStream, Box<dyn std::error::Error>> {
         // 簡易的なインデックススキャン（実際の実装ではインデックスを使用）
         self.execute_node_scan(graph, label, as_, None)
     }
 
     /// フィルタ実行
-    fn execute_filter(&self, input_rows: RowStream, pred: &Predicate) -> Result<RowStream> {
+    fn execute_filter(&self, input_rows: RowStream, pred: &Predicate) -> Result<RowStream, Box<dyn std::error::Error>> {
         let mut result = Vec::new();
 
         for row in input_rows {
@@ -181,7 +180,7 @@ impl QueryExecutor {
     }
 
     /// エッジ展開実行
-    fn execute_expand(&self, graph: &GraphRef, input_rows: RowStream, edge: &EdgePattern, to_as: &str) -> Result<RowStream> {
+    fn execute_expand(&self, graph: &GraphRef, input_rows: RowStream, edge: &EdgePattern, to_as: &str) -> Result<RowStream, Box<dyn std::error::Error>> {
         let graph = graph.read();
         let mut result = Vec::new();
 
@@ -224,7 +223,7 @@ impl QueryExecutor {
     }
 
     /// ネステッドループ結合実行
-    fn execute_nested_loop_join(&self, left_rows: RowStream, right_rows: RowStream, on: &[String]) -> Result<RowStream> {
+    fn execute_nested_loop_join(&self, left_rows: RowStream, right_rows: RowStream, on: &[String]) -> Result<RowStream, Box<dyn std::error::Error>> {
         let mut result = Vec::new();
 
         for left_row in &left_rows {
@@ -241,7 +240,7 @@ impl QueryExecutor {
     }
 
     /// ハッシュ結合実行
-    fn execute_hash_join(&self, left_rows: RowStream, right_rows: RowStream, on: &[String]) -> Result<RowStream> {
+    fn execute_hash_join(&self, left_rows: RowStream, right_rows: RowStream, on: &[String]) -> Result<RowStream, Box<dyn std::error::Error>> {
         let mut hash_table = HashMap::new();
         let mut result = Vec::new();
 
@@ -267,7 +266,7 @@ impl QueryExecutor {
     }
 
     /// 射影実行
-    fn execute_project(&self, input_rows: RowStream, cols: &[String]) -> Result<RowStream> {
+    fn execute_project(&self, input_rows: RowStream, cols: &[String]) -> Result<RowStream, Box<dyn std::error::Error>> {
         let mut result = Vec::new();
 
         for row in input_rows {
@@ -284,7 +283,7 @@ impl QueryExecutor {
     }
 
     /// 重複除去実行
-    fn execute_distinct(&self, input_rows: RowStream) -> Result<RowStream> {
+    fn execute_distinct(&self, input_rows: RowStream) -> Result<RowStream, Box<dyn std::error::Error>> {
         let mut seen = HashSet::new();
         let mut result = Vec::new();
 
@@ -326,7 +325,7 @@ impl QueryExecutor {
     }
 
     /// グループ化実行
-    fn execute_group(&self, input_rows: RowStream, keys: &[String], aggregations: &[Aggregation]) -> Result<RowStream> {
+    fn execute_group(&self, input_rows: RowStream, keys: &[String], aggregations: &[Aggregation]) -> Result<RowStream, Box<dyn std::error::Error>> {
         let mut groups: HashMap<String, Vec<Row>> = HashMap::new();
 
         // グループ化
@@ -387,7 +386,7 @@ impl QueryExecutor {
     }
 
     /// 述語評価
-    fn evaluate_predicate(&self, row: &Row, pred: &Predicate) -> Result<bool> {
+    fn evaluate_predicate(&self, row: &Row, pred: &Predicate) -> Result<bool, Box<dyn std::error::Error>> {
         match pred {
             Predicate::Eq { eq } if eq.len() == 2 => {
                 let left = self.evaluate_expr(row, &eq[0])?;
@@ -415,7 +414,7 @@ impl QueryExecutor {
     }
 
     /// 式評価
-    fn evaluate_expr(&self, row: &Row, expr: &Expr) -> Result<Value> {
+    fn evaluate_expr(&self, row: &Row, expr: &Expr) -> Result<Value, Box<dyn std::error::Error>> {
         match expr {
             Expr::Var(var) => {
                 row.values.get(var)

@@ -1,7 +1,7 @@
 //! 頂点関連構造体
 
 use std::collections::HashMap;
-use crate::types::*;
+use kotoba_core::types::*;
 
 /// 頂点ビルダー
 #[derive(Debug, Clone)]

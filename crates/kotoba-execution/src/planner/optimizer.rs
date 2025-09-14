@@ -1,7 +1,6 @@
 //! クエリ最適化器
 
-use crate::ir::*;
-use crate::types::*;
+use kotoba_core::{types::*, ir::*};
 
 /// 最適化ルール
 #[derive(Debug)]

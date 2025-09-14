@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use parking_lot::RwLock;
-use crate::types::*;
+use kotoba_core::types::*;
 
 /// 頂点データ
 #[derive(Debug, Clone, Serialize, Deserialize)]

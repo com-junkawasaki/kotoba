@@ -237,6 +237,203 @@ let e1 = graph.add_edge(EdgeBuilder::new()
     .build());
 ```
 
+## 📄 .kotoba File Format
+
+Kotobaプロジェクトでは、設定ファイルやUI定義などに`.kotoba`ファイル形式を使用します。これはJSON Lines (JSONL)形式をベースとした構造化された設定フォーマットです。
+
+### 概要
+
+`.kotoba`ファイルは以下の特徴を持ちます：
+
+- **JSON Lines形式**: 各行が独立したJSONオブジェクト
+- **コメント対応**: `#`で始まる行はコメントとして無視
+- **型付け**: `type`フィールドによりオブジェクトの種類を明示
+- **階層構造**: コンポーネント間の親子関係を表現可能
+- **メタデータ**: 各オブジェクトに説明や追加情報を付与
+
+### ファイル形式仕様
+
+#### 基本構造
+
+```json
+{
+  "type": "object_type",
+  "name": "object_name",
+  "property1": "value1",
+  "property2": "value2",
+  "metadata": {
+    "description": "オブジェクトの説明",
+    "version": "1.0"
+  }
+}
+```
+
+#### 主要なプロパティ
+
+- **`type`** (必須): オブジェクトの種類を指定
+- **`name`** (推奨): オブジェクトの一意な識別子
+- **`metadata`** (オプション): 追加情報（説明、バージョンなど）
+
+### オブジェクトタイプ
+
+#### 1. `config` - 設定オブジェクト
+
+アプリケーション全体の設定を定義します。
+
+```json
+{
+  "type": "config",
+  "name": "MyApp",
+  "version": "1.0.0",
+  "host": "127.0.0.1",
+  "port": 8080,
+  "theme": "light",
+  "metadata": {
+    "description": "アプリケーション設定",
+    "environment": "development"
+  }
+}
+```
+
+#### 2. `route` - HTTPルート定義
+
+HTTPサーバーのエンドポイントを定義します。
+
+```json
+{
+  "type": "route",
+  "method": "GET|POST|PUT|DELETE",
+  "pattern": "/api/v1/users/{id}",
+  "handler": "user_handler",
+  "metadata": {
+    "description": "ユーザー取得エンドポイント",
+    "version": "v1",
+    "auth_required": true
+  }
+}
+```
+
+#### 3. `middleware` - ミドルウェア定義
+
+HTTPリクエスト処理の中間層を定義します。
+
+```json
+{
+  "type": "middleware",
+  "name": "cors",
+  "order": 10,
+  "function": "cors_middleware",
+  "metadata": {
+    "description": "CORS処理ミドルウェア",
+    "allowed_origins": ["*"]
+  }
+}
+```
+
+#### 4. `component` - UIコンポーネント定義
+
+ユーザーインターフェースのコンポーネントを定義します。
+
+```json
+{
+  "type": "component",
+  "name": "Header",
+  "component_type": "header",
+  "props": {
+    "title": "My App",
+    "className": "app-header"
+  },
+  "children": ["Logo", "Navigation"],
+  "metadata": {
+    "description": "アプリケーションのヘッダーコンポーネント"
+  }
+}
+```
+
+#### 5. `handler` - イベントハンドラー定義
+
+UIコンポーネントのイベント処理を定義します。
+
+```json
+{
+  "type": "handler",
+  "name": "onButtonClick",
+  "function": "handleButtonClick",
+  "metadata": {
+    "description": "ボタンクリックイベントハンドラー"
+  }
+}
+```
+
+#### 6. `state` - 状態管理定義
+
+アプリケーションの状態を定義します。
+
+```json
+{
+  "type": "state",
+  "name": "user",
+  "initial": null,
+  "metadata": {
+    "description": "現在のユーザー状態"
+  }
+}
+```
+
+### 使用例
+
+#### HTTPサーバー設定例
+
+```json
+# config.kotoba
+{"type": "config", "host": "127.0.0.1", "port": 8080, "max_connections": 1000}
+{"type": "route", "method": "GET", "pattern": "/health", "handler": "health_check"}
+{"type": "route", "method": "GET", "pattern": "/api/users", "handler": "list_users"}
+{"type": "middleware", "name": "cors", "order": 10, "function": "cors_middleware"}
+{"type": "middleware", "name": "auth", "order": 20, "function": "auth_middleware"}
+```
+
+#### React UI設定例
+
+```json
+# app.kotoba
+{"type": "config", "name": "MyApp", "version": "1.0.0", "theme": "light"}
+{"type": "component", "name": "App", "component_type": "div", "children": ["Header", "Main"]}
+{"type": "component", "name": "Header", "component_type": "header", "props": {"title": "My App"}}
+{"type": "handler", "name": "toggleTheme", "function": "handleThemeToggle"}
+{"type": "state", "name": "theme", "initial": "light"}
+```
+
+### パースと使用方法
+
+```rust
+use kotoba::http::parser::KotobaParser;
+
+// .kotobaファイルをパース
+let parser = KotobaParser::new();
+let config = parser.parse_file("config.kotoba")?;
+
+// HTTPサーバーを設定
+let server = HttpServer::from_config(config);
+```
+
+### ベストプラクティス
+
+1. **コメントの活用**: 各オブジェクトの目的をコメントで明確に記述
+2. **一貫した命名**: コンポーネント名やハンドラー名を一貫して命名
+3. **メタデータの活用**: バージョン管理やドキュメントのためにmetadataを活用
+4. **型の一貫性**: 同じtypeのオブジェクトは同じプロパティ構造を使用
+5. **階層構造の整理**: 複雑なUIの場合は論理的な階層構造を使用
+
+### 拡張性
+
+`.kotoba`形式は拡張可能です。新しい`type`を定義することで、プロジェクト固有の設定や定義を追加できます。拡張する場合のガイドライン：
+
+- 新しいtypeは既存の命名規則に従う
+- 必須プロパティは明確に定義する
+- metadataフィールドは常にオプションとする
+- ドキュメントに新しいtypeの仕様を記載する
+
 ## 🛠️ Development
 
 ### Using dag.jsonnet

@@ -76,7 +76,7 @@ pub struct StrategyIR {
 #[derive(Debug, Clone)]
 pub struct StrategyResult {
     pub applied_count: usize,
-    pub final_graph: crate::graph::GraphRef,
+    pub final_graph: GraphRef_,
     pub patches: Vec<crate::ir::patch::Patch>,
 }
 
@@ -86,7 +86,7 @@ pub trait Externs {
     fn deg_ge(&self, v: VertexId, k: u32) -> bool;
 
     /// エッジ数が非増加かチェック（停止測度）
-    fn edge_count_nonincreasing(&self, g0: &crate::graph::GraphRef, g1: &crate::graph::GraphRef) -> bool;
+    fn edge_count_nonincreasing(&self, g0: &GraphRef_, g1: &GraphRef_) -> bool;
 
     /// カスタム述語
     fn custom_pred(&self, name: &str, args: &[Value]) -> bool;

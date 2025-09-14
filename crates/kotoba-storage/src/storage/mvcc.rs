@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use parking_lot::RwLock;
-use crate::types::*;
-use crate::graph::GraphRef;
+use kotoba_core::types::*;
+use kotoba_graph::prelude::*;
 
 /// トランザクション状態
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,7 +76,7 @@ impl MVCCManager {
     }
 
     /// トランザクションをコミット
-    pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {
+    pub fn commit_tx(&self, tx_id: &TxId) -> Result<(), Box<dyn std::error::Error>> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().commit();
@@ -87,7 +87,7 @@ impl MVCCManager {
     }
 
     /// トランザクションをアボート
-    pub fn abort_tx(&self, tx_id: &TxId) -> Result<()> {
+    pub fn abort_tx(&self, tx_id: &TxId) -> Result<(), Box<dyn std::error::Error>> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().abort();

@@ -1,8 +1,12 @@
 //! クエリ実行のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba::*;
+use kotoba_core::*;
+use kotoba_graph::*;
+use kotoba_execution::*;
 use std::collections::HashMap;
+use uuid::Uuid;
+use rand;
 
 /// テスト用グラフデータの生成（クエリ用）
 fn create_query_test_graph(vertex_count: usize, edge_count: usize) -> GraphRef {

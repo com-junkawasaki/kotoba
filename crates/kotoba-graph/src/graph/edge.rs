@@ -1,7 +1,7 @@
 //! エッジ関連構造体
 
 use std::collections::HashMap;
-use crate::types::*;
+use kotoba_core::types::*;
 
 /// エッジビルダー
 #[derive(Debug, Clone)]

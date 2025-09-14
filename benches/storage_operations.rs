@@ -1,8 +1,11 @@
 //! ストレージ操作のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba::*;
+use kotoba_core::*;
+use kotoba_graph::*;
+use kotoba_storage::*;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// テスト用データの生成
 fn generate_test_data(size: usize) -> Vec<(String, Vec<u8>)> {
