@@ -15,21 +15,21 @@ impl RuleMatcher {
     }
 
     /// グラフに対してルールをマッチング
-    pub fn find_matches(&self, graph: &GraphRef, rule: &RuleIR, catalog: &Catalog) -> Result<Vec<Match>, Box<dyn std::error::Error>> {
+    pub fn find_matches(&self, graph: &GraphRef, rule: &RuleIR, catalog: &Catalog) -> Result<Vec<Match>> {
         let graph = graph.read();
 
         // LHS（Left-hand side）のマッチング
         let mut matches = Vec::new();
 
         // 初期マッチング候補を生成
-        let initial_candidates = self.generate_initial_candidates(&graph, &rule.lhs)?;
+        let initial_candidates = self.generate_initial_candidates(&graph, &rule.lhs);
 
         for candidate in initial_candidates {
-            if self.match_lhs(&graph, &rule.lhs, &candidate, catalog)? {
+            if self.match_lhs(&graph, &rule.lhs, &candidate, catalog) {
                 // NAC（Negative Application Condition）をチェック
-                if self.check_nacs(&graph, &rule.nacs, &candidate, catalog)? {
+                if self.check_nacs(&graph, &rule.nacs, &candidate, catalog) {
                     // ガード条件をチェック
-                    if self.check_guards(&graph, &rule.guards, &candidate, catalog)? {
+                    if self.check_guards(&graph, &rule.guards, &candidate, catalog) {
                         let match_score = self.calculate_match_score(&candidate);
                         matches.push(Match {
                             mapping: candidate,
@@ -75,7 +75,7 @@ impl RuleMatcher {
 
     /// LHSパターンマッチング
     fn match_lhs(&self, graph: &Graph, lhs: &GraphPattern,
-                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
+                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> bool {
 
         // ノードマッチング
         for node in &lhs.nodes {
@@ -84,7 +84,7 @@ impl RuleMatcher {
                     // ラベルチェック
                     if let Some(expected_label) = &node.type_ {
                         if !vertex.labels.contains(expected_label) {
-                            return Ok(false);
+                            return false;
                         }
                     }
 
@@ -113,7 +113,7 @@ impl RuleMatcher {
                 if !graph.adj_out.get(&src_id)
                     .map(|neighbors| neighbors.contains(&dst_id))
                     .unwrap_or(false) {
-                    return Ok(false);
+                    return false;
                 }
 
                 // エッジラベルチェック（簡易版）
@@ -121,26 +121,26 @@ impl RuleMatcher {
             }
         }
 
-        Ok(true)
+        true
     }
 
     /// NACチェック
     fn check_nacs(&self, graph: &Graph, nacs: &[Nac],
-                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
+                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> bool {
 
         for nac in nacs {
             // NACパターンがマッチしないことを確認
-            if self.match_nac(graph, nac, mapping, catalog)? {
-                return Ok(false);
+            if self.match_nac(graph, nac, mapping, catalog) {
+                return false;
             }
         }
 
-        Ok(true)
+        true
     }
 
     /// NACマッチング
     fn match_nac(&self, graph: &Graph, nac: &Nac,
-                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
+                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
 
         // NAC内のノードをマッチング
         for node in &nac.nodes {
@@ -149,7 +149,7 @@ impl RuleMatcher {
                     // NAC条件に合致する場合、falseを返す
                     if let Some(expected_label) = &node.type_ {
                         if vertex.labels.contains(expected_label) {
-                            return Ok(true);
+                            return true;
                         }
                     }
                 }
@@ -162,12 +162,12 @@ impl RuleMatcher {
                 if graph.adj_out.get(&src_id)
                     .map(|neighbors| neighbors.contains(&dst_id))
                     .unwrap_or(false) {
-                    return Ok(true);
+                    return true;
                 }
             }
         }
 
-        Ok(false)
+        false
     }
 
     /// ガード条件チェック

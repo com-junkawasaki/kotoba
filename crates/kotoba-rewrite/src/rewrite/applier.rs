@@ -4,6 +4,7 @@ use kotoba_core::{ir::*, types::*};
 use kotoba_graph::graph::*;
 use std::collections::HashMap;
 use kotoba_core::types::Result;
+use uuid;
 
 /// ルール適用器
 #[derive(Debug)]
