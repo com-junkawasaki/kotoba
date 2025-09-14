@@ -159,7 +159,7 @@ pub struct OAuth2Service {
 
 impl OAuth2Service {
     /// Create new OAuth2 service
-    pub fn new(config: OAuth2Config) -> Result<Self> {
+    pub async fn new(config: OAuth2Config) -> Result<Self> {
         let mut clients = HashMap::new();
         let mut oidc_clients = HashMap::new();
 
@@ -171,7 +171,7 @@ impl OAuth2Service {
             clients.insert(name.clone(), client);
 
             // Try to create OpenID Connect client
-            if let Ok(oidc_client) = Self::create_oidc_client(&provider_config, &config.redirect_uri) {
+            if let Ok(oidc_client) = Self::create_oidc_client(&provider_config, &config.redirect_uri).await {
                 oidc_clients.insert(name.clone(), oidc_client);
             }
         }

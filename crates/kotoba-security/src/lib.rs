@@ -122,7 +122,7 @@ pub struct SecurityService {
 
 impl SecurityService {
     /// Create a new security service with the given configuration
-    pub fn new(config: SecurityConfig) -> Result<Self> {
+    pub async fn new(config: SecurityConfig) -> Result<Self> {
         let jwt = JwtService::new(config.jwt_config)?;
         let oauth2 = config.oauth2_config.map(OAuth2Service::new).transpose()?;
         let mfa = MfaService::new();
