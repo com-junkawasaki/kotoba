@@ -3,6 +3,7 @@
 use kotoba_core::{types::*, ir::*};
 use kotoba_graph::prelude::*;
 use crate::rewrite::*;
+use kotoba_core::types::Result;
 
 /// 書換えエンジン
 #[derive(Debug)]
@@ -20,12 +21,12 @@ impl RewriteEngine {
     }
 
     /// ルールをマッチングして適用
-    pub fn match_rule(&self, graph: &GraphRef, rule: &RuleIR, catalog: &Catalog) -> Result<Vec<Match>, Box<dyn std::error::Error>> {
+    pub fn match_rule(&self, graph: &GraphRef, rule: &RuleIR, catalog: &Catalog) -> Result<Vec<Match>> {
         self.matcher.find_matches(graph, rule, catalog)
     }
 
     /// ルールを適用してパッチを生成
-    pub fn rewrite(&self, graph: &GraphRef, rule: &RuleIR, strategy: &StrategyIR) -> Result<Patch, Box<dyn std::error::Error>> {
+    pub fn rewrite(&self, graph: &GraphRef, rule: &RuleIR, strategy: &StrategyIR) -> Result<Patch> {
         match &strategy.strategy {
             StrategyOp::Once { rule: rule_name } => {
                 self.apply_once(graph, rule, rule_name)
@@ -49,7 +50,7 @@ impl RewriteEngine {
     }
 
     /// 1回だけ適用
-    fn apply_once(&self, graph: &GraphRef, rule: &RuleIR, _rule_name: &str) -> Result<Patch, Box<dyn std::error::Error>> {
+    fn apply_once(&self, graph: &GraphRef, rule: &RuleIR, _rule_name: &str) -> Result<Patch> {
         let matches = self.matcher.find_matches(graph, rule, &Catalog::empty())?;
 
         if let Some(match_) = matches.into_iter().next() {
@@ -61,7 +62,7 @@ impl RewriteEngine {
 
     /// 適用可能になるまで繰り返し
     fn apply_exhaust(&self, graph: &GraphRef, rule: &RuleIR, _rule_name: &str,
-                     order: &Order, _measure: Option<&str>) -> Result<Patch, Box<dyn std::error::Error>> {
+                     order: &Order, _measure: Option<&str>) -> Result<Patch> {
         let mut total_patch = Patch::empty();
         let mut iteration = 0;
         let max_iterations = 1000; // 無限ループ防止

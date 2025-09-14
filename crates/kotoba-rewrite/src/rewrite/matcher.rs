@@ -1,9 +1,9 @@
 //! ルールマッチング
 
-use crate::ir::*;
-use crate::graph::*;
-use crate::types::*;
+use kotoba_core::{ir::*, types::*};
+use kotoba_graph::graph::*;
 use std::collections::HashMap;
+use kotoba_core::types::Result;
 
 /// ルールマッチャー
 #[derive(Debug)]
@@ -48,10 +48,10 @@ impl RuleMatcher {
 
     /// 初期マッチング候補を生成
     fn generate_initial_candidates(&self, graph: &Graph, lhs: &GraphPattern)
-        -> Result<Vec<HashMap<String, VertexId>>> {
+        -> Vec<HashMap<String, VertexId>> {
 
         if lhs.nodes.is_empty() {
-            return Ok(vec![HashMap::new()]);
+            return vec![HashMap::new()];
         }
 
         let mut candidates = Vec::new();
@@ -70,12 +70,12 @@ impl RuleMatcher {
             candidates.push(mapping);
         }
 
-        Ok(candidates)
+        candidates
     }
 
     /// LHSパターンマッチング
     fn match_lhs(&self, graph: &Graph, lhs: &GraphPattern,
-                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool, Box<dyn std::error::Error>> {
+                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
 
         // ノードマッチング
         for node in &lhs.nodes {
@@ -126,7 +126,7 @@ impl RuleMatcher {
 
     /// NACチェック
     fn check_nacs(&self, graph: &Graph, nacs: &[Nac],
-                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool, Box<dyn std::error::Error>> {
+                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
 
         for nac in nacs {
             // NACパターンがマッチしないことを確認
@@ -140,7 +140,7 @@ impl RuleMatcher {
 
     /// NACマッチング
     fn match_nac(&self, graph: &Graph, nac: &Nac,
-                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool, Box<dyn std::error::Error>> {
+                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
 
         // NAC内のノードをマッチング
         for node in &nac.nodes {
@@ -172,20 +172,20 @@ impl RuleMatcher {
 
     /// ガード条件チェック
     fn check_guards(&self, graph: &Graph, guards: &[Guard],
-                    mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
+                    mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
 
         for guard in guards {
-            if !self.evaluate_guard(graph, guard, mapping, _catalog)? {
-                return Ok(false);
+            if !self.evaluate_guard(graph, guard, mapping, _catalog) {
+                return false;
             }
         }
 
-        Ok(true)
+        true
     }
 
     /// ガード条件評価
     fn evaluate_guard(&self, graph: &Graph, guard: &Guard,
-                      mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
+                      mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
 
         match guard.ref_.as_str() {
             "deg_ge" => {
@@ -194,15 +194,15 @@ impl RuleMatcher {
                     if let Some(Value::String(var)) = guard.args.get("var") {
                         if let Some(&vertex_id) = mapping.get(var) {
                             let degree = graph.degree(&vertex_id);
-                            return Ok(degree >= *k as usize);
+                            return degree >= *k as usize;
                         }
                     }
                 }
-                Ok(false)
+                false
             }
             _ => {
                 // その他のガードはtrueとして扱う（実際の実装では関数テーブルを使用）
-                Ok(true)
+                true
             }
         }
     }
