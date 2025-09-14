@@ -32,7 +32,7 @@ authors = ["Jun Kawasaki <jun784@example.com>"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba"
 homepage = "https://github.com/jun784/kotoba"
-exclude = ["examples/**/*", "benches/**/*", "tests/**/*", "src/topology.rs"]
+exclude = ["examples/**/*", "benches/**/*", "tests/**/*", "src/topology.rs", "src/bin/**/*"]
 
 [dependencies]
 # Core crates - published versions
