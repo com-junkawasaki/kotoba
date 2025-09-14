@@ -197,6 +197,7 @@ impl TsxGenerator {
         // Generate JSX
         let jsx = self.generate_jsx_element(component, config, 4)?;
         code.push_str(&jsx);
+        code.push_str("\n");
 
         code.push_str("  );\n");
         code.push_str("};\n\n");
@@ -216,6 +217,7 @@ impl TsxGenerator {
         // Generate JSX
         let jsx = self.generate_jsx_element(component, config, 6)?;
         code.push_str(&jsx);
+        code.push_str("\n");
 
         code.push_str("    );\n");
         code.push_str("  }\n");
@@ -234,10 +236,9 @@ impl TsxGenerator {
                 // This is a custom component reference
                 let mut jsx = format!("{}<{}", indent_str, component_type);
 
-                // Add props
-                for (key, value) in &component.props {
-                    let prop_value = self.format_prop_value(value);
-                    jsx.push_str(&format!(" {}={}", self.to_camel_case(key), prop_value));
+                // Add props - pass all props as spread if any exist
+                if !component.props.is_empty() {
+                    jsx.push_str(" {...props}");
                 }
 
                 jsx.push_str(" />");
@@ -247,9 +248,9 @@ impl TsxGenerator {
                 let mut jsx = format!("{}<{}", indent_str, component_type);
 
                 // Add props
-                for (key, value) in &component.props {
-                    let prop_value = self.format_prop_value(value);
-                    jsx.push_str(&format!(" {}={}", self.to_camel_case(key), prop_value));
+                for (key, _value) in &component.props {
+                    let camel_key = self.to_camel_case(key);
+                    jsx.push_str(&format!(" {}={{props.{}}}", camel_key, camel_key));
                 }
 
                 if component.children.is_empty() {
@@ -269,7 +270,7 @@ impl TsxGenerator {
                         }
                     }
 
-                    jsx.push_str(&format!("{}</{}>", indent_str, component_type));
+                    jsx.push_str(&format!("{}</{}>\n", indent_str, component_type));
                 }
 
                 Ok(jsx)
@@ -288,7 +289,7 @@ impl TsxGenerator {
                 }
             }
 
-            jsx.push_str(&format!("{}</>", indent_str));
+            jsx.push_str(&format!("{}</>\n", indent_str));
             Ok(jsx)
         }
     }
@@ -372,9 +373,11 @@ impl TsxGenerator {
         if let Some(root_component) = config.components.get("App") {
             let jsx = self.generate_jsx_element(root_component, config, 4)?;
             code.push_str(&jsx);
+            code.push_str("\n");
         } else if let Some((_, root_component)) = config.components.iter().next() {
             let jsx = self.generate_jsx_element(root_component, config, 4)?;
             code.push_str(&jsx);
+            code.push_str("\n");
         } else {
             // No components defined, create a simple app
             code.push_str("    <div>\n");
@@ -477,5 +480,341 @@ impl TsxGenerator {
 impl Default for TsxGenerator {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn create_test_config() -> KotobaConfig {
+        let mut components = HashMap::new();
+        let mut props = HashMap::new();
+        props.insert("className".to_string(), json!("btn"));
+        props.insert("disabled".to_string(), json!(false));
+
+        components.insert("Button".to_string(), KotobaComponent {
+            r#type: ComponentType::Component,
+            name: "Button".to_string(),
+            component_type: Some("button".to_string()),
+            props,
+            children: vec![],
+            function: None,
+            initial: None,
+            metadata: HashMap::new(),
+        });
+
+        KotobaConfig {
+            name: "TestApp".to_string(),
+            version: "1.0.0".to_string(),
+            theme: "light".to_string(),
+            components,
+            handlers: HashMap::new(),
+            states: HashMap::new(),
+            config: HashMap::new(),
+        }
+    }
+
+    fn create_test_config_with_handlers() -> KotobaConfig {
+        let mut config = create_test_config();
+        let mut handlers = HashMap::new();
+        handlers.insert("onClick".to_string(), KotobaComponent {
+            r#type: ComponentType::Handler,
+            name: "onClick".to_string(),
+            component_type: None,
+            props: HashMap::new(),
+            children: vec![],
+            function: Some("console.log('clicked');".to_string()),
+            initial: None,
+            metadata: HashMap::new(),
+        });
+        config.handlers = handlers;
+        config
+    }
+
+    fn create_test_config_with_states() -> KotobaConfig {
+        let mut config = create_test_config();
+        let mut states = HashMap::new();
+        states.insert("count".to_string(), json!(0));
+        states.insert("isVisible".to_string(), json!(true));
+        config.states = states;
+        config
+    }
+
+    #[test]
+    fn test_generator_new() {
+        let generator = TsxGenerator::new();
+        assert_eq!(generator.options.include_types, true);
+        assert_eq!(generator.options.include_imports, true);
+        assert_eq!(generator.options.use_functional, true);
+    }
+
+    #[test]
+    fn test_generator_with_options() {
+        let options = TsxGenerationOptions {
+            include_types: false,
+            include_imports: false,
+            use_functional: false,
+            include_prop_types: false,
+            include_default_props: false,
+            format_output: false,
+        };
+        let generator = TsxGenerator::with_options(options);
+        assert_eq!(generator.options.include_types, false);
+        assert_eq!(generator.options.include_imports, false);
+        assert_eq!(generator.options.use_functional, false);
+    }
+
+    #[test]
+    fn test_generate_imports_basic() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+
+        let imports = generator.generate_imports(&config);
+        assert!(!imports.is_empty());
+
+        // Should include React import
+        let react_import = imports.iter().find(|i| i.module == "react").unwrap();
+        assert_eq!(react_import.default_import, Some("React".to_string()));
+        assert!(react_import.items.contains(&"FC".to_string()));
+    }
+
+    #[test]
+    fn test_generate_imports_with_handlers() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config_with_handlers();
+
+        let imports = generator.generate_imports(&config);
+        let react_import = imports.iter().find(|i| i.module == "react").unwrap();
+        assert!(react_import.items.contains(&"useState".to_string()));
+        assert!(react_import.items.contains(&"useEffect".to_string()));
+    }
+
+    #[test]
+    fn test_generate_props_interface() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+        let component = &config.components["Button"];
+
+        let interface = generator.generate_props_interface("Button", &component.props);
+        assert!(interface.contains("interface ButtonProps"));
+        assert!(interface.contains("className: string;"));
+        assert!(interface.contains("disabled: boolean;"));
+    }
+
+    #[test]
+    fn test_generate_props_interface_empty() {
+        let generator = TsxGenerator::new();
+        let props = HashMap::new();
+
+        let interface = generator.generate_props_interface("Empty", &props);
+        assert_eq!(interface, "");
+    }
+
+    #[test]
+    fn test_generate_default_props() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+        let component = &config.components["Button"];
+
+        let default_props = generator.generate_default_props("Button", &component.props);
+        assert!(default_props.contains("const ButtonDefaultProps"));
+        assert!(default_props.contains("className: \"btn\""));
+        assert!(default_props.contains("disabled: false"));
+    }
+
+    #[test]
+    fn test_generate_handler_function() {
+        let generator = TsxGenerator::new();
+        let result = generator.generate_handler_function("onClick", "console.log('test');");
+
+        assert!(result.is_ok());
+        let code = result.unwrap();
+        assert!(code.contains("const onClick = () => {"));
+        assert!(code.contains("console.log('test');"));
+    }
+
+    #[test]
+    fn test_generate_functional_component() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+        let component = &config.components["Button"];
+
+        let result = generator.generate_functional_component(component, &config);
+        assert!(result.is_ok());
+        let code = result.unwrap();
+        assert!(code.contains("const Button: FC<ButtonProps>"));
+        assert!(code.contains("return ("));
+    }
+
+    #[test]
+    fn test_generate_class_component() {
+        let mut options = TsxGenerationOptions::default();
+        options.use_functional = false;
+        let generator = TsxGenerator::with_options(options);
+        let config = create_test_config();
+        let component = &config.components["Button"];
+
+        let result = generator.generate_class_component(component, &config);
+        assert!(result.is_ok());
+        let code = result.unwrap();
+        assert!(code.contains("class Button extends React.Component<ButtonProps>"));
+        assert!(code.contains("render()"));
+    }
+
+    #[test]
+    fn test_generate_jsx_element_html() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+        let component = &config.components["Button"];
+
+        let result = generator.generate_jsx_element(component, &config, 0);
+        assert!(result.is_ok());
+        let jsx = result.unwrap();
+        println!("Generated JSX: {}", jsx); // Debug output
+        assert!(jsx.contains("<button"));
+        assert!(jsx.contains("className={props.className}"));
+        assert!(jsx.contains("disabled={props.disabled}"));
+        assert!(jsx.contains("/>"));
+    }
+
+    #[test]
+    fn test_generate_jsx_element_with_children() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+        let mut component = config.components["Button"].clone();
+        component.children = vec!["Child".to_string()];
+
+        let result = generator.generate_jsx_element(&component, &config, 0);
+        assert!(result.is_ok());
+        let jsx = result.unwrap();
+        assert!(jsx.contains("<button"));
+        assert!(jsx.contains("</button>"));
+    }
+
+    #[test]
+    fn test_format_prop_value_string() {
+        let generator = TsxGenerator::new();
+        let value = json!("hello");
+        let result = generator.format_prop_value(&value);
+        assert_eq!(result, "\"hello\"");
+    }
+
+    #[test]
+    fn test_format_prop_value_boolean() {
+        let generator = TsxGenerator::new();
+        let value = json!(true);
+        let result = generator.format_prop_value(&value);
+        assert_eq!(result, "true");
+    }
+
+    #[test]
+    fn test_format_prop_value_number() {
+        let generator = TsxGenerator::new();
+        let value = json!(42);
+        let result = generator.format_prop_value(&value);
+        assert_eq!(result, "42");
+    }
+
+    #[test]
+    fn test_format_prop_value_array() {
+        let generator = TsxGenerator::new();
+        let value = json!([1, 2, 3]);
+        let result = generator.format_prop_value(&value);
+        assert_eq!(result, "[1, 2, 3]");
+    }
+
+    #[test]
+    fn test_format_prop_value_object() {
+        let generator = TsxGenerator::new();
+        let value = json!({"key": "value"});
+        let result = generator.format_prop_value(&value);
+        assert_eq!(result, "{key: \"value\"}");
+    }
+
+    #[test]
+    fn test_to_camel_case() {
+        let generator = TsxGenerator::new();
+        assert_eq!(generator.to_camel_case("snake_case"), "snakeCase");
+        assert_eq!(generator.to_camel_case("already_camel"), "alreadyCamel");
+        assert_eq!(generator.to_camel_case("single"), "single");
+        assert_eq!(generator.to_camel_case("a_b_c"), "aBC");
+    }
+
+    #[test]
+    fn test_capitalize_first() {
+        let generator = TsxGenerator::new();
+        assert_eq!(generator.capitalize_first("hello"), "Hello");
+        assert_eq!(generator.capitalize_first("Hello"), "Hello");
+        assert_eq!(generator.capitalize_first(""), "");
+    }
+
+    #[test]
+    fn test_infer_type() {
+        let generator = TsxGenerator::new();
+        assert_eq!(generator.infer_type(&json!("string")), "string");
+        assert_eq!(generator.infer_type(&json!(42)), "number");
+        assert_eq!(generator.infer_type(&json!(true)), "boolean");
+        assert_eq!(generator.infer_type(&json!([1, 2, 3])), "any[]");
+        assert_eq!(generator.infer_type(&json!({"key": "value"})), "any");
+        assert_eq!(generator.infer_type(&json!(null)), "any");
+    }
+
+    #[test]
+    fn test_generate_tsx_basic() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config();
+
+        let result = generator.generate_tsx(&config);
+        assert!(result.is_ok());
+        let code = result.unwrap();
+        assert!(code.contains("import React"));
+        assert!(code.contains("interface ButtonProps"));
+        assert!(code.contains("const Button: FC<ButtonProps>"));
+    }
+
+    #[test]
+    fn test_generate_tsx_with_states() {
+        let generator = TsxGenerator::new();
+        let config = create_test_config_with_states();
+
+        let result = generator.generate_tsx(&config);
+        assert!(result.is_ok());
+        let code = result.unwrap();
+        assert!(code.contains("const [count, setCount] = useState(0);"));
+        assert!(code.contains("const [isVisible, setIsVisible] = useState(true);"));
+    }
+
+    #[test]
+    fn test_format_import_statement() {
+        let generator = TsxGenerator::new();
+
+        let import = ImportStatement {
+            module: "react".to_string(),
+            items: vec!["FC".to_string(), "useState".to_string()],
+            default_import: Some("React".to_string()),
+        };
+
+        let result = generator.format_import(&import);
+        assert_eq!(result, "import React, { FC, useState } from 'react';");
+
+        let import_no_default = ImportStatement {
+            module: "utils".to_string(),
+            items: vec!["helper".to_string()],
+            default_import: None,
+        };
+
+        let result_no_default = generator.format_import(&import_no_default);
+        assert_eq!(result_no_default, "import { helper } from 'utils';");
+
+        let import_only_default = ImportStatement {
+            module: "react".to_string(),
+            items: vec![],
+            default_import: Some("React".to_string()),
+        };
+
+        let result_only_default = generator.format_import(&import_only_default);
+        assert_eq!(result_only_default, "import React from 'react';");
     }
 }

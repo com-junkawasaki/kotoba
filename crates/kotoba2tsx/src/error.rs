@@ -11,6 +11,9 @@ pub enum Kotoba2TSError {
     #[error("JSON parsing error: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[error("Regex error: {0}")]
+    Regex(#[from] regex::Error),
+
     #[error("Jsonnet evaluation error: {0}")]
     Jsonnet(String),
 

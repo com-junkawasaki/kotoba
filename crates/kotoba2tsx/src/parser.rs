@@ -5,6 +5,7 @@ use crate::types::{ComponentType, KotobaComponent, KotobaConfig};
 use serde_json;
 use std::collections::HashMap;
 use tokio::fs as async_fs;
+use jsonnet::JsonnetVm;
 
 /// Parser for .kotoba files
 pub struct KotobaParser {
@@ -58,23 +59,28 @@ impl KotobaParser {
         self.default_jsonnet_evaluation(content)
     }
 
-    /// Default simple Jsonnet evaluation (basic implementation)
+    /// Default Jsonnet evaluation using jsonnet-rs
     fn default_jsonnet_evaluation(&self, content: &str) -> Result<String> {
-        // Remove comments (basic implementation)
-        let cleaned = self.remove_comments(content);
-
-        // Try to parse as JSON directly first
-        match serde_json::from_str::<serde_json::Value>(&cleaned) {
-            Ok(value) => {
-                // If it's already valid JSON, return it
-                Ok(serde_json::to_string_pretty(&value)?)
+        // Try to evaluate with jsonnet-rs first
+        let mut vm = JsonnetVm::new();
+        let result = vm.evaluate_snippet("input", content);
+        match result {
+            Ok(result_str) => {
+                // Convert to owned string immediately to avoid lifetime issues
+                Ok(result_str.to_string())
             }
-            Err(_) => {
-                // Try basic Jsonnet evaluation
-                self.evaluate_basic_jsonnet(&cleaned)
+            Err(e) => {
+                // If jsonnet evaluation fails, try to parse as plain JSON
+                match serde_json::from_str::<serde_json::Value>(content) {
+                    Ok(value) => Ok(serde_json::to_string_pretty(&value)?),
+                    Err(_) => {
+                        Err(Kotoba2TSError::Jsonnet(format!("Failed to evaluate as Jsonnet or JSON: {}", e)))
+                    }
+                }
             }
         }
     }
+
 
     /// Remove comments from Jsonnet content
     fn remove_comments(&self, content: &str) -> String {
@@ -117,38 +123,6 @@ impl KotobaParser {
         result
     }
 
-    /// Basic Jsonnet evaluation (simplified implementation)
-    fn evaluate_basic_jsonnet(&self, content: &str) -> Result<String> {
-        // This is a very basic implementation that handles some Jsonnet features
-        // For production use, you should use a proper Jsonnet library
-
-        let mut processed = content.to_string();
-
-        // Handle local variables (very basic)
-        processed = self.process_local_variables(&processed)?;
-
-        // Handle object comprehensions (basic)
-        processed = self.process_object_comprehensions(&processed)?;
-
-        // Try to parse as JSON
-        match serde_json::from_str::<serde_json::Value>(&processed) {
-            Ok(value) => Ok(serde_json::to_string_pretty(&value)?),
-            Err(e) => Err(Kotoba2TSError::Jsonnet(format!("Failed to evaluate Jsonnet: {}", e))),
-        }
-    }
-
-    /// Process local variables (basic implementation)
-    fn process_local_variables(&self, content: &str) -> Result<String> {
-        // This is a very simplified implementation
-        // A real Jsonnet implementation would be much more complex
-        Ok(content.to_string())
-    }
-
-    /// Process object comprehensions (basic implementation)
-    fn process_object_comprehensions(&self, content: &str) -> Result<String> {
-        // This is a very simplified implementation
-        Ok(content.to_string())
-    }
 
     /// Parse JSON value into KotobaConfig
     fn parse_json_value(&self, value: serde_json::Value) -> Result<KotobaConfig> {
@@ -198,7 +172,13 @@ impl KotobaParser {
         let mut states = HashMap::new();
         if let Some(sts) = obj.get("states").and_then(|s| s.as_object()) {
             for (name, state) in sts {
-                let initial = state.get("initial").cloned().unwrap_or(serde_json::Value::Null);
+                // Check if state is defined as object with "initial" field or direct value
+                let initial = if let Some(obj) = state.as_object() {
+                    obj.get("initial").cloned().unwrap_or(serde_json::Value::Null)
+                } else {
+                    // Direct value (boolean, string, number, etc.)
+                    state.clone()
+                };
                 states.insert(name.clone(), initial);
             }
         }
@@ -281,5 +261,314 @@ impl KotobaParser {
 impl Default for KotobaParser {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_parser_new() {
+        let parser = KotobaParser::new();
+        assert!(parser.jsonnet_evaluator.is_none());
+    }
+
+    #[test]
+    fn test_parser_with_jsonnet_evaluator() {
+        let evaluator = |content: &str| Ok(content.to_string());
+        let parser = KotobaParser::new().with_jsonnet_evaluator(evaluator);
+        assert!(parser.jsonnet_evaluator.is_some());
+    }
+
+    #[test]
+    fn test_parse_content_simple_json() {
+        let parser = KotobaParser::new();
+        let content = r#"{
+            "config": {
+                "name": "TestApp",
+                "version": "1.0.0",
+                "theme": "dark"
+            },
+            "components": {},
+            "handlers": {},
+            "states": {}
+        }"#;
+
+        let result = parser.parse_content(content);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.name, "TestApp");
+        assert_eq!(config.version, "1.0.0");
+        assert_eq!(config.theme, "dark");
+    }
+
+    #[test]
+    fn test_parse_content_with_component() {
+        let parser = KotobaParser::new();
+        let content = r#"{
+            "config": {
+                "name": "TestApp",
+                "version": "1.0.0"
+            },
+            "components": {
+                "Button": {
+                    "type": "component",
+                    "name": "Button",
+                    "component_type": "button",
+                    "props": {
+                        "className": "btn",
+                        "disabled": false
+                    },
+                    "children": []
+                }
+            },
+            "handlers": {},
+            "states": {}
+        }"#;
+
+        let result = parser.parse_content(content);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert!(config.components.contains_key("Button"));
+
+        let button = &config.components["Button"];
+        assert_eq!(button.name, "Button");
+        assert_eq!(button.component_type, Some("button".to_string()));
+        assert_eq!(button.props["className"], json!("btn"));
+        assert_eq!(button.props["disabled"], json!(false));
+    }
+
+    #[test]
+    fn test_parse_content_with_handler() {
+        let parser = KotobaParser::new();
+        let content = r#"{
+            "config": {
+                "name": "TestApp",
+                "version": "1.0.0"
+            },
+            "components": {},
+            "handlers": {
+                "onClick": {
+                    "type": "handler",
+                    "name": "onClick",
+                    "function": "console.log('clicked');"
+                }
+            },
+            "states": {}
+        }"#;
+
+        let result = parser.parse_content(content);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert!(config.handlers.contains_key("onClick"));
+
+        let handler = &config.handlers["onClick"];
+        assert_eq!(handler.name, "onClick");
+        assert_eq!(handler.function, Some("console.log('clicked');".to_string()));
+    }
+
+    #[test]
+    fn test_parse_content_with_state() {
+        let parser = KotobaParser::new();
+        let content = r#"{
+            "config": {
+                "name": "TestApp",
+                "version": "1.0.0"
+            },
+            "components": {},
+            "handlers": {},
+            "states": {
+                "count": 0,
+                "isVisible": true,
+                "userName": "John"
+            }
+        }"#;
+
+        let result = parser.parse_content(content);
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.states["count"], json!(0));
+        assert_eq!(config.states["isVisible"], json!(true));
+        assert_eq!(config.states["userName"], json!("John"));
+    }
+
+    #[test]
+    fn test_parse_invalid_json() {
+        let parser = KotobaParser::new();
+        let content = r#"{
+            "config": {
+                "name": "TestApp",
+                invalid json here
+            }
+        }"#;
+
+        let result = parser.parse_content(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_required_fields() {
+        let parser = KotobaParser::new();
+        let content = r#"{
+            "config": {},
+            "components": {
+                "Test": {
+                    "type": "component"
+                }
+            }
+        }"#;
+
+        let result = parser.parse_content(content);
+        assert!(result.is_err());
+        // Should fail due to missing "name" field
+    }
+
+    #[test]
+    fn test_remove_comments() {
+        let parser = KotobaParser::new();
+
+        let content = r#"// This is a comment
+{
+    "config": {
+        "name": "Test" // inline comment
+    }
+}
+/* Multi-line
+   comment */"#;
+
+        let result = parser.remove_comments(content);
+        // Should remove comments but keep valid JSON
+        assert!(result.contains("Test"));
+        assert!(!result.contains("//"));
+        assert!(!result.contains("/*"));
+    }
+
+    #[test]
+    fn test_parse_jsonnet_basic() {
+        let parser = KotobaParser::new();
+        let jsonnet_content = r#"{
+            "config": {
+                "name": "JsonnetApp",
+                "version": "1.0.0",
+                "theme": "dark"
+            },
+            "components": {},
+            "handlers": {},
+            "states": {}
+        }"#;
+
+        let result = parser.parse_content(jsonnet_content);
+        if let Err(ref e) = result {
+            println!("Jsonnet parse error: {:?}", e);
+        }
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.name, "JsonnetApp");
+        assert_eq!(config.version, "1.0.0");
+        assert_eq!(config.theme, "dark");
+    }
+
+    #[test]
+    fn test_parse_jsonnet_with_variables() {
+        let parser = KotobaParser::new();
+        // Test Jsonnet local variables
+        let jsonnet_content = r#"local appName = "VariableApp";
+local version = "2.0.0";
+
+{
+    config: {
+        name: appName,
+        version: version,
+        theme: "light"
+    },
+    components: {},
+    handlers: {},
+    states: {}
+}"#;
+
+        let result = parser.parse_content(jsonnet_content);
+        if let Err(ref e) = result {
+            println!("Jsonnet parse error: {:?}", e);
+        }
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert_eq!(config.name, "VariableApp");
+        assert_eq!(config.version, "2.0.0");
+    }
+
+    #[test]
+    fn test_parse_jsonnet_with_functions() {
+        let parser = KotobaParser::new();
+        // Test Jsonnet functions
+        let jsonnet_content = r#"local makeButton = function(name, className) {
+    type: "component",
+    name: name,
+    component_type: "button",
+    props: {
+        className: className,
+        disabled: false
+    },
+    children: []
+};
+
+{
+    config: {
+        name: "FunctionApp",
+        version: "1.0.0",
+        theme: "light"
+    },
+    components: {
+        PrimaryButton: makeButton("PrimaryButton", "btn-primary"),
+        SecondaryButton: makeButton("SecondaryButton", "btn-secondary")
+    },
+    handlers: {},
+    states: {}
+}"#;
+
+        let result = parser.parse_content(jsonnet_content);
+        if let Err(ref e) = result {
+            println!("Jsonnet parse error: {:?}", e);
+        }
+        assert!(result.is_ok());
+
+        let config = result.unwrap();
+        assert!(config.components.contains_key("PrimaryButton"));
+        assert!(config.components.contains_key("SecondaryButton"));
+
+        let primary_btn = &config.components["PrimaryButton"];
+        assert_eq!(primary_btn.props["className"], serde_json::json!("btn-primary"));
+    }
+
+    #[test]
+    fn test_parse_jsonnet_invalid() {
+        let parser = KotobaParser::new();
+        let invalid_jsonnet = r#"local invalid = ;
+{
+    config: {
+        name: "InvalidApp",
+    },
+}"#;
+
+        let result = parser.parse_content(invalid_jsonnet);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_parse_file_nonexistent() {
+        let parser = KotobaParser::new();
+        let result = parser.parse_file("nonexistent_file.kotoba").await;
+        assert!(result.is_err());
+        match result.err().unwrap() {
+            Kotoba2TSError::FileNotFound(_) => {},
+            _ => panic!("Expected FileNotFound error"),
+        }
     }
 }

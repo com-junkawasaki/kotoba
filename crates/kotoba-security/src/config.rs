@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::capabilities::CapabilityConfig;
 
 /// Main security configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,6 +12,7 @@ pub struct SecurityConfig {
     pub mfa_config: MfaConfig,
     pub password_config: PasswordConfig,
     pub session_config: SessionConfig,
+    pub capability_config: CapabilityConfig,
     pub rate_limit_config: RateLimitConfig,
     pub audit_config: AuditConfig,
 }
@@ -23,6 +25,7 @@ impl Default for SecurityConfig {
             mfa_config: MfaConfig::default(),
             password_config: PasswordConfig::default(),
             session_config: SessionConfig::default(),
+            capability_config: CapabilityConfig::default(),
             rate_limit_config: RateLimitConfig::default(),
             audit_config: AuditConfig::default(),
         }

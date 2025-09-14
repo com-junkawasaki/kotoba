@@ -16,6 +16,7 @@ pub mod password;
 pub mod session;
 pub mod error;
 pub mod config;
+pub mod capabilities;
 
 pub use jwt::{JwtService, JwtClaims, TokenPair};
 pub use oauth2::{OAuth2Service, OAuth2Provider, OAuth2Config, OAuth2Tokens};
@@ -24,6 +25,7 @@ pub use password::{PasswordService, PasswordHash};
 pub use session::{SessionManager, SessionData};
 pub use error::{SecurityError, Result};
 pub use config::{SecurityConfig, AuthMethod};
+pub use capabilities::{Capability, CapabilitySet, CapabilityService, ResourceType, Action};
 
 use serde::{Deserialize, Serialize};
 
@@ -62,16 +64,49 @@ pub struct Principal {
     pub user_id: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
+    pub capabilities: CapabilitySet,
     pub attributes: std::collections::HashMap<String, serde_json::Value>,
 }
 
 /// Resource for authorization checks
 #[derive(Debug, Clone)]
 pub struct Resource {
-    pub resource_type: String,
+    pub resource_type: ResourceType,
     pub resource_id: Option<String>,
-    pub action: String,
+    pub action: Action,
     pub attributes: std::collections::HashMap<String, serde_json::Value>,
+}
+
+impl Resource {
+    /// Helper method to get resource type as string (for backward compatibility)
+    pub fn resource_type_as_str(&self) -> &str {
+        match &self.resource_type {
+            ResourceType::Graph => "graph",
+            ResourceType::FileSystem => "filesystem",
+            ResourceType::Network => "network",
+            ResourceType::Environment => "environment",
+            ResourceType::System => "system",
+            ResourceType::Plugin => "plugin",
+            ResourceType::Query => "query",
+            ResourceType::Admin => "admin",
+            ResourceType::User => "user",
+            ResourceType::Custom(name) => name,
+        }
+    }
+
+    /// Helper method to get action as string (for backward compatibility)
+    pub fn action_as_str(&self) -> &str {
+        match &self.action {
+            Action::Read => "read",
+            Action::Write => "write",
+            Action::Execute => "execute",
+            Action::Delete => "delete",
+            Action::Create => "create",
+            Action::Update => "update",
+            Action::Admin => "admin",
+            Action::Custom(name) => name,
+        }
+    }
 }
 
 /// Main security service combining all components
@@ -81,6 +116,7 @@ pub struct SecurityService {
     mfa: MfaService,
     password: PasswordService,
     session: SessionManager,
+    capabilities: CapabilityService,
 }
 
 impl SecurityService {
@@ -91,6 +127,7 @@ impl SecurityService {
         let mfa = MfaService::new();
         let password = PasswordService::new();
         let session = SessionManager::new(config.session_config);
+        let capabilities = CapabilityService::with_config(config.capability_config);
 
         Ok(Self {
             jwt,
@@ -98,6 +135,7 @@ impl SecurityService {
             mfa,
             password,
             session,
+            capabilities,
         })
     }
 
@@ -155,14 +193,63 @@ impl SecurityService {
         self.jwt.refresh_access_token(refresh_token)
     }
 
-    /// Check authorization for principal on resource
+    /// Check authorization for principal on resource using capabilities
     pub fn check_authorization(
         &self,
         principal: &Principal,
         resource: &Resource,
     ) -> AuthzResult {
-        // Implementation will be added
-        todo!("Implement authorization check")
+        // First check capabilities (primary authorization mechanism)
+        let scope = resource.resource_id.as_deref();
+        let allowed = self.capabilities.check_capability(
+            &principal.capabilities,
+            &resource.resource_type,
+            &resource.action,
+            scope,
+        );
+
+        if allowed {
+            return AuthzResult {
+                allowed: true,
+                reason: None,
+            };
+        }
+
+        // Fallback to legacy role-based permissions for backward compatibility
+        // This can be removed in future versions when all permissions are migrated to capabilities
+        self.check_legacy_authorization(principal, resource)
+    }
+
+    /// Legacy role-based authorization (for backward compatibility)
+    fn check_legacy_authorization(
+        &self,
+        principal: &Principal,
+        resource: &Resource,
+    ) -> AuthzResult {
+        // Simple role-based check for backward compatibility
+        // In practice, this should be migrated to capabilities
+
+        let required_permission = format!("{}:{}", resource.resource_type_as_str(), resource.action_as_str());
+
+        if principal.permissions.contains(&required_permission) {
+            return AuthzResult {
+                allowed: true,
+                reason: Some("Legacy permission check passed".to_string()),
+            };
+        }
+
+        // Check admin roles
+        if principal.roles.contains(&"admin".to_string()) {
+            return AuthzResult {
+                allowed: true,
+                reason: Some("Admin role override".to_string()),
+            };
+        }
+
+        AuthzResult {
+            allowed: false,
+            reason: Some(format!("Missing capability for {}:{}", required_permission, principal.user_id)),
+        }
     }
 
     /// Hash password
@@ -173,6 +260,67 @@ impl SecurityService {
     /// Verify password against hash
     pub fn verify_password(&self, password: &str, hash: &PasswordHash) -> Result<bool> {
         self.password.verify_password(password, hash)
+    }
+
+    /// Grant capabilities to a principal
+    pub fn grant_capabilities(
+        &self,
+        principal_caps: &CapabilitySet,
+        new_caps: Vec<Capability>,
+    ) -> CapabilitySet {
+        self.capabilities.grant_capabilities(principal_caps, new_caps)
+    }
+
+    /// Revoke capabilities from a principal
+    pub fn revoke_capabilities(
+        &self,
+        principal_caps: &CapabilitySet,
+        caps_to_revoke: Vec<Capability>,
+    ) -> CapabilitySet {
+        self.capabilities.revoke_capabilities(principal_caps, caps_to_revoke)
+    }
+
+    /// Create an attenuated capability set for safer operations
+    pub fn attenuate_capabilities(
+        &self,
+        cap_set: &CapabilitySet,
+        restrictions: Vec<Capability>,
+    ) -> CapabilitySet {
+        self.capabilities.attenuate_capabilities(cap_set, restrictions)
+    }
+
+    /// Create a principal with specific capabilities
+    pub fn create_principal_with_capabilities(
+        &self,
+        user_id: String,
+        capabilities: CapabilitySet,
+        roles: Vec<String>,
+        permissions: Vec<String>,
+        attributes: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Principal {
+        Principal {
+            user_id,
+            roles,
+            permissions,
+            capabilities,
+            attributes,
+        }
+    }
+
+    /// Create a resource for authorization checks
+    pub fn create_resource(
+        &self,
+        resource_type: ResourceType,
+        action: Action,
+        resource_id: Option<String>,
+        attributes: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Resource {
+        Resource {
+            resource_type,
+            resource_id,
+            action,
+            attributes,
+        }
     }
 }
 
