@@ -65,6 +65,12 @@ enum GqlToken {
     Eof,
 }
 
+impl Default for GqlParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GqlParser {
     pub fn new() -> Self {
         Self {
@@ -491,7 +497,7 @@ impl GqlParser {
                 self.advance();
                 self.parse_identifier()?
             } else {
-                format!("{}_{}", fn_name, arg.to_string())
+                format!("{}_{}", fn_name, arg)
             };
 
             Ok(Some(Aggregation {

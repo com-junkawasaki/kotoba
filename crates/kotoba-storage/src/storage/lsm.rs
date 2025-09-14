@@ -1,381 +1,206 @@
-//! LSMツリー（Log-Structured Merge Tree）
+//! RocksDBベースのストレージエンジン
 
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read, Write, Seek};
+use rocksdb::{DB, Options};
 use std::path::PathBuf;
 use kotoba_core::types::*;
 
-/// LSMエントリ
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LSMEntry {
-    pub key: String,
-    pub value: Vec<u8>,
-    pub timestamp: u64,
-    pub deleted: bool,
-}
 
-/// MemTable（メモリ内）
-#[derive(Debug)]
-pub struct MemTable {
-    entries: BTreeMap<String, LSMEntry>,
-    size_threshold: usize,
-}
-
-impl MemTable {
-    pub fn new(size_threshold: usize) -> Self {
-        Self {
-            entries: BTreeMap::new(),
-            size_threshold,
-        }
-    }
-
-    /// エントリを追加
-    pub fn put(&mut self, key: String, value: Vec<u8>) {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let entry = LSMEntry {
-            key: key.clone(),
-            value,
-            timestamp,
-            deleted: false,
-        };
-
-        self.entries.insert(key, entry);
-    }
-
-    /// エントリを削除
-    pub fn delete(&mut self, key: String) {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let entry = LSMEntry {
-            key,
-            value: Vec::new(),
-            timestamp,
-            deleted: true,
-        };
-
-        self.entries.insert(entry.key.clone(), entry);
-    }
-
-    /// エントリを取得
-    pub fn get(&self, key: &str) -> Option<&LSMEntry> {
-        self.entries.get(key)
-    }
-
-    /// サイズ閾値を超えているか
-    pub fn should_flush(&self) -> bool {
-        self.entries.len() >= self.size_threshold
-    }
-
-    /// 全てのエントリを取得（フラッシュ用）
-    pub fn entries(&self) -> &BTreeMap<String, LSMEntry> {
-        &self.entries
-    }
-
-    /// クリア
-    pub fn clear(&mut self) {
-        self.entries.clear();
-    }
-
-    /// サイズを取得
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-}
-
-/// SSTable（ソート済み文字列テーブル）
-#[derive(Debug)]
-pub struct SSTable {
-    path: PathBuf,
-    index: BTreeMap<String, u64>,  // key -> offset
-    min_key: String,
-    max_key: String,
-}
-
-impl SSTable {
-    /// SSTableを作成
-    pub fn create(path: PathBuf, entries: &BTreeMap<String, LSMEntry>) -> Result<Self> {
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(&path)
-            .map_err(|e| KotobaError::Storage(format!("Failed to create SSTable: {}", e)))?;
-
-        let mut writer = BufWriter::new(file);
-        let mut index = BTreeMap::new();
-        let mut min_key = String::new();
-        let mut max_key = String::new();
-        let mut offset = 0u64;
-
-        for (key, entry) in entries {
-            if min_key.is_empty() {
-                min_key = key.clone();
-            }
-            max_key = key.clone();
-
-            index.insert(key.clone(), offset);
-
-            let data = serde_json::to_vec(entry)
-                .map_err(|e| KotobaError::Storage(format!("Serialization error: {}", e)))?;
-
-            let size = data.len() as u32;
-            writer.write_all(&size.to_le_bytes())
-                .map_err(|e| KotobaError::Storage(format!("Write error: {}", e)))?;
-            writer.write_all(&data)
-                .map_err(|e| KotobaError::Storage(format!("Write error: {}", e)))?;
-
-            offset += 4 + data.len() as u64;
-        }
-
-        writer.flush()
-            .map_err(|e| KotobaError::Storage(format!("Flush error: {}", e)))?;
-
-        Ok(Self {
-            path,
-            index,
-            min_key,
-            max_key,
-        })
-    }
-
-    /// SSTableを読み込み
-    pub fn load(path: PathBuf) -> Result<Self> {
-        let file = File::open(&path)
-            .map_err(|e| KotobaError::Storage(format!("Failed to open SSTable: {}", e)))?;
-
-        let mut reader = BufReader::new(file);
-        let mut index = BTreeMap::new();
-        let mut min_key = String::new();
-        let mut max_key = String::new();
-        let mut offset = 0u64;
-
-        loop {
-            let mut size_buf = [0u8; 4];
-            if reader.read_exact(&mut size_buf).is_err() {
-                break;  // EOF
-            }
-            let size = u32::from_le_bytes(size_buf) as usize;
-
-            let mut data = vec![0u8; size];
-            reader.read_exact(&mut data)
-                .map_err(|e| KotobaError::Storage(format!("Read error: {}", e)))?;
-
-            let entry: LSMEntry = serde_json::from_slice(&data)
-                .map_err(|e| KotobaError::Storage(format!("Deserialization error: {}", e)))?;
-
-            if min_key.is_empty() {
-                min_key = entry.key.clone();
-            }
-            max_key = entry.key.clone();
-
-            index.insert(entry.key, offset);
-            offset += 4 + size as u64;
-        }
-
-        Ok(Self {
-            path,
-            index,
-            min_key,
-            max_key,
-        })
-    }
-
-    /// キーを検索
-    pub fn get(&self, key: &str) -> Result<Option<LSMEntry>> {
-        if key < self.min_key.as_str() || key > self.max_key.as_str() {
-            return Ok(None);
-        }
-
-        if let Some(&offset) = self.index.get(key) {
-            let file = File::open(&self.path)
-                .map_err(|e| KotobaError::Storage(format!("Failed to open SSTable: {}", e)))?;
-
-            let mut reader = BufReader::new(file);
-            reader.seek(std::io::SeekFrom::Start(offset))
-                .map_err(|e| KotobaError::Storage(format!("Seek error: {}", e)))?;
-
-            let mut size_buf = [0u8; 4];
-            reader.read_exact(&mut size_buf)
-                .map_err(|e| KotobaError::Storage(format!("Read error: {}", e)))?;
-            let size = u32::from_le_bytes(size_buf) as usize;
-
-            let mut data = vec![0u8; size];
-            reader.read_exact(&mut data)
-                .map_err(|e| KotobaError::Storage(format!("Read error: {}", e)))?;
-
-            let entry: LSMEntry = serde_json::from_slice(&data)
-                .map_err(|e| KotobaError::Storage(format!("Deserialization error: {}", e)))?;
-
-            Ok(Some(entry))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// 範囲クエリ
-    pub fn range(&self, start: &str, end: &str) -> Result<Vec<LSMEntry>> {
-        let mut results = Vec::new();
-
-        for (_key, &offset) in self.index.range(start.to_string()..=end.to_string()) {
-            let file = File::open(&self.path)
-                .map_err(|e| KotobaError::Storage(format!("Failed to open SSTable: {}", e)))?;
-
-            let mut reader = BufReader::new(file);
-            reader.seek(std::io::SeekFrom::Start(offset))
-                .map_err(|e| KotobaError::Storage(format!("Seek error: {}", e)))?;
-
-            let mut size_buf = [0u8; 4];
-            reader.read_exact(&mut size_buf)
-                .map_err(|e| KotobaError::Storage(format!("Read error: {}", e)))?;
-            let size = u32::from_le_bytes(size_buf) as usize;
-
-            let mut data = vec![0u8; size];
-            reader.read_exact(&mut data)
-                .map_err(|e| KotobaError::Storage(format!("Read error: {}", e)))?;
-
-            let entry: LSMEntry = serde_json::from_slice(&data)
-                .map_err(|e| KotobaError::Storage(format!("Deserialization error: {}", e)))?;
-
-            results.push(entry);
-        }
-
-        Ok(results)
-    }
-}
-
-/// LSMツリーマネージャー
+/// RocksDBベースのストレージマネージャー
 #[derive(Debug)]
 pub struct LSMTree {
-    memtable: MemTable,
-    sstables: Vec<SSTable>,
+    db: DB,
     data_dir: PathBuf,
-    next_sstable_id: u64,
 }
 
 impl LSMTree {
-    pub fn new(data_dir: PathBuf, memtable_size: usize) -> Self {
-        Self {
-            memtable: MemTable::new(memtable_size),
-            sstables: Vec::new(),
+    pub fn new(data_dir: PathBuf, memtable_size: usize, sstable_max_size: usize) -> Result<Self> {
+        // データディレクトリ作成
+        std::fs::create_dir_all(&data_dir)?;
+
+        // RocksDBオプション設定
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.set_max_write_buffer_number(3);
+        opts.set_write_buffer_size(memtable_size * 1024 * 1024); // MB単位に変換
+        opts.set_target_file_size_base((sstable_max_size * 1024 * 1024) as u64); // MB単位に変換
+        opts.set_max_background_compactions(4);
+        opts.set_max_background_flushes(2);
+
+        // データベースを開く
+        let db = DB::open(&opts, &data_dir)
+            .map_err(|e| KotobaError::Storage(format!("Failed to open RocksDB: {}", e)))?;
+
+        Ok(Self {
+            db,
             data_dir,
-            next_sstable_id: 0,
-        }
+        })
     }
 
     /// データを書き込み
     pub fn put(&mut self, key: String, value: Vec<u8>) -> Result<()> {
-        self.memtable.put(key, value);
-
-        if self.memtable.should_flush() {
-            self.flush()?;
-        }
-
+        self.db.put(key, value)
+            .map_err(|e| KotobaError::Storage(format!("Failed to put data: {}", e)))?;
         Ok(())
     }
 
     /// データを削除
     pub fn delete(&mut self, key: String) -> Result<()> {
-        self.memtable.delete(key);
-
-        if self.memtable.should_flush() {
-            self.flush()?;
-        }
-
+        self.db.delete(key)
+            .map_err(|e| KotobaError::Storage(format!("Failed to delete data: {}", e)))?;
         Ok(())
     }
 
     /// データを読み込み
     pub fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        // まずMemTableを検索
-        if let Some(entry) = self.memtable.get(key) {
-            return if entry.deleted {
-                Ok(None)
-            } else {
-                Ok(Some(entry.value.clone()))
-            };
+        match self.db.get(key) {
+            Ok(Some(value)) => Ok(Some(value)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(KotobaError::Storage(format!("Failed to get data: {}", e))),
         }
-
-        // SSTableを検索（新しい順）
-        for sstable in self.sstables.iter().rev() {
-            if let Some(entry) = sstable.get(key)? {
-                return if entry.deleted {
-                    Ok(None)
-                } else {
-                    Ok(Some(entry.value))
-                };
-            }
-        }
-
-        Ok(None)
     }
 
-    /// MemTableをSSTableにフラッシュ
-    pub fn flush(&mut self) -> Result<()> {
-        if self.memtable.len() == 0 {
-            return Ok(());
-        }
-
-        let sstable_path = self.data_dir.join(format!("sstable_{}.sst", self.next_sstable_id));
-        self.next_sstable_id += 1;
-
-        let sstable = SSTable::create(sstable_path, self.memtable.entries())?;
-        self.sstables.push(sstable);
-
-        self.memtable.clear();
-
-        // 必要に応じてコンパクションを実行
-        if self.sstables.len() > 5 {
-            self.compact()?;
-        }
-
-        Ok(())
-    }
-
-    /// コンパクションを実行
+    /// 手動コンパクションを実行（RocksDBに委譲）
     pub fn compact(&mut self) -> Result<()> {
-        if self.sstables.len() < 2 {
-            return Ok(());
-        }
-
-        // 最も古い2つのSSTableをマージ
-        let old_sstable1 = self.sstables.remove(0);
-        let old_sstable2 = self.sstables.remove(0);
-
-        let mut merged_entries = BTreeMap::new();
-
-        // 最初のSSTableのエントリを収集
-        for (key, _) in &old_sstable1.index {
-            if let Some(entry) = old_sstable1.get(key)? {
-                merged_entries.insert(key.clone(), entry);
-            }
-        }
-
-        // 2番目のSSTableのエントリをマージ
-        for (key, _) in &old_sstable2.index {
-            if let Some(entry) = old_sstable2.get(key)? {
-                merged_entries.insert(key.clone(), entry);
-            }
-        }
-
-        // 新しいSSTableを作成
-        let sstable_path = self.data_dir.join(format!("sstable_{}.sst", self.next_sstable_id));
-        self.next_sstable_id += 1;
-
-        let new_sstable = SSTable::create(sstable_path, &merged_entries)?;
-        self.sstables.insert(0, new_sstable);
-
-        // 古いSSTableファイルを削除
-        std::fs::remove_file(&old_sstable1.path)?;
-        std::fs::remove_file(&old_sstable2.path)?;
-
+        // RocksDBのフルコンパクションを実行
+        self.db.compact_range(None::<&[u8]>, None::<&[u8]>);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn create_test_db() -> (LSMTree, TempDir) {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().to_path_buf();
+        let lsm_tree = LSMTree::new(db_path, 64, 128).unwrap();
+        (lsm_tree, temp_dir)
+    }
+
+    #[test]
+    fn test_put_and_get() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Put some data
+        lsm_tree.put("key1".to_string(), b"value1".to_vec()).unwrap();
+        lsm_tree.put("key2".to_string(), b"value2".to_vec()).unwrap();
+
+        // Get the data back
+        assert_eq!(lsm_tree.get("key1").unwrap(), Some(b"value1".to_vec()));
+        assert_eq!(lsm_tree.get("key2").unwrap(), Some(b"value2".to_vec()));
+        assert_eq!(lsm_tree.get("key3").unwrap(), None);
+    }
+
+    #[test]
+    fn test_delete() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Put and then delete
+        lsm_tree.put("key1".to_string(), b"value1".to_vec()).unwrap();
+        assert_eq!(lsm_tree.get("key1").unwrap(), Some(b"value1".to_vec()));
+
+        lsm_tree.delete("key1".to_string()).unwrap();
+        assert_eq!(lsm_tree.get("key1").unwrap(), None);
+    }
+
+    #[test]
+    fn test_compaction() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Add some data
+        for i in 0..100 {
+            lsm_tree.put(format!("key{}", i), format!("value{}", i).into_bytes()).unwrap();
+        }
+
+        // Force compaction
+        lsm_tree.compact().unwrap();
+
+        // Verify data is still accessible
+        for i in 0..100 {
+            let expected = format!("value{}", i).into_bytes();
+            assert_eq!(lsm_tree.get(&format!("key{}", i)).unwrap(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn test_large_data() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Test with larger data
+        let large_value = vec![0u8; 1024 * 1024]; // 1MB
+        lsm_tree.put("large_key".to_string(), large_value.clone()).unwrap();
+
+        let retrieved = lsm_tree.get("large_key").unwrap();
+        assert_eq!(retrieved, Some(large_value));
+    }
+
+    #[test]
+    fn test_concurrent_operations() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Test multiple operations
+        for i in 0..50 {
+            lsm_tree.put(format!("concurrent_key{}", i), format!("concurrent_value{}", i).into_bytes()).unwrap();
+        }
+
+        for i in (0..25).step_by(2) {
+            lsm_tree.delete(format!("concurrent_key{}", i)).unwrap();
+        }
+
+        // Verify results
+        for i in 0..50 {
+            let result = lsm_tree.get(&format!("concurrent_key{}", i)).unwrap();
+            if i % 2 == 0 && i < 25 {
+                assert_eq!(result, None); // Deleted
+            } else {
+                assert_eq!(result, Some(format!("concurrent_value{}", i).into_bytes())); // Still exists
+            }
+        }
+    }
+
+    #[test]
+    fn test_unicode_keys() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Test with Unicode keys
+        let unicode_key = "テストキー🚀";
+        let unicode_value = "テスト値🌟".as_bytes().to_vec();
+
+        lsm_tree.put(unicode_key.to_string(), unicode_value.clone()).unwrap();
+        assert_eq!(lsm_tree.get(unicode_key).unwrap(), Some(unicode_value));
+    }
+
+    #[test]
+    fn test_empty_values() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Test with empty values
+        lsm_tree.put("empty_key".to_string(), vec![]).unwrap();
+        assert_eq!(lsm_tree.get("empty_key").unwrap(), Some(vec![]));
+    }
+
+    #[test]
+    fn test_overwrite() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Put initial value
+        lsm_tree.put("overwrite_key".to_string(), b"initial".to_vec()).unwrap();
+        assert_eq!(lsm_tree.get("overwrite_key").unwrap(), Some(b"initial".to_vec()));
+
+        // Overwrite
+        lsm_tree.put("overwrite_key".to_string(), b"updated".to_vec()).unwrap();
+        assert_eq!(lsm_tree.get("overwrite_key").unwrap(), Some(b"updated".to_vec()));
+    }
+
+    #[test]
+    fn test_nonexistent_keys() {
+        let (lsm_tree, _temp_dir) = create_test_db();
+
+        // Test various non-existent keys
+        assert_eq!(lsm_tree.get("nonexistent").unwrap(), None);
+        assert_eq!(lsm_tree.get("").unwrap(), None);
+        assert_eq!(lsm_tree.get("very_long_key_that_does_not_exist_1234567890").unwrap(), None);
     }
 }

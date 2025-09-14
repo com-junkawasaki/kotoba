@@ -90,6 +90,12 @@ pub struct PhysicalPlan {
 #[derive(Debug)]
 pub struct PhysicalPlanner;
 
+impl Default for PhysicalPlanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PhysicalPlanner {
     pub fn new() -> Self {
         Self

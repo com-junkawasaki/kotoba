@@ -23,6 +23,8 @@ parking_lot = "0.12"
 sha2 = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 hex = { workspace = true }
+rocksdb = "0.21"
+tempfile = "3.0"
 kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
 kotoba-graph = { path = "../kotoba-graph", version = "0.1.1" }
 

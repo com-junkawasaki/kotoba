@@ -15,6 +15,12 @@ pub struct QueryExecutor {
     optimizer: QueryOptimizer,
 }
 
+impl Default for QueryExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QueryExecutor {
     pub fn new() -> Self {
         Self {
@@ -191,7 +197,7 @@ impl QueryExecutor {
             for value in row.values.values() {
                 if let Value::String(vertex_id_str) = value {
                     if let Ok(vertex_id) = vertex_id_str.parse::<uuid::Uuid>() {
-                        if let Some(vertex_id) = graph.vertices.get_key_value(&vertex_id.into()).map(|(id, _)| *id) {
+                        if let Some(vertex_id) = graph.vertices.get_key_value(&vertex_id).map(|(id, _)| *id) {
                             let neighbors = match edge.dir {
                                 Direction::Out => graph.adj_out.get(&vertex_id).cloned(),
                                 Direction::In => graph.adj_in.get(&vertex_id).cloned(),
@@ -333,7 +339,7 @@ impl QueryExecutor {
         // グループ化
         for row in input_rows {
             let group_key = self.extract_group_key(&row, keys);
-            groups.entry(group_key).or_insert(Vec::new()).push(row);
+            groups.entry(group_key).or_default().push(row);
         }
 
         // 集計

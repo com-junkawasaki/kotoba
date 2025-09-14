@@ -7,6 +7,12 @@ use kotoba_core::types::Result;
 #[derive(Debug)]
 pub struct LogicalPlanner;
 
+impl Default for LogicalPlanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LogicalPlanner {
     pub fn new() -> Self {
         Self
@@ -53,6 +59,12 @@ impl LogicalPlanner {
 /// コスト推定器
 #[derive(Debug)]
 pub struct CostEstimator;
+
+impl Default for CostEstimator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl CostEstimator {
     pub fn new() -> Self {

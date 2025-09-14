@@ -128,16 +128,12 @@ impl Default for SwcCodeGenerator {
 }
 
 /// SWC-based code optimizer
-pub struct SwcOptimizer {
-    generator: SwcCodeGenerator,
-}
+pub struct SwcOptimizer {}
 
 impl SwcOptimizer {
     /// Create a new SWC optimizer
     pub fn new() -> Self {
-        Self {
-            generator: SwcCodeGenerator::new(),
-        }
+        Self {}
     }
 
     /// Optimize TypeScript/JavaScript code (placeholder)

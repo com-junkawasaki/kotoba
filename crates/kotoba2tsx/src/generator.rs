@@ -3,7 +3,6 @@
 use crate::error::Result;
 use crate::types::*;
 use crate::swc_integration::SwcCodeGenerator;
-use crate::css_processor::CssProcessor;
 use crate::styled_components::{StyledComponentsGenerator, EmotionGenerator, ThemeProviderGenerator};
 use std::collections::HashMap;
 use tokio::fs as async_fs;
@@ -12,7 +11,6 @@ use tokio::fs as async_fs;
 pub struct TsxGenerator {
     options: TsxGenerationOptions,
     swc_generator: SwcCodeGenerator,
-    css_processor: CssProcessor,
     styled_generator: StyledComponentsGenerator,
     emotion_generator: EmotionGenerator,
     theme_generator: ThemeProviderGenerator,
@@ -24,7 +22,6 @@ impl TsxGenerator {
         Self {
             options: TsxGenerationOptions::default(),
             swc_generator: SwcCodeGenerator::new(),
-            css_processor: CssProcessor::new(),
             styled_generator: StyledComponentsGenerator::new(),
             emotion_generator: EmotionGenerator::new(),
             theme_generator: ThemeProviderGenerator::new(),
@@ -36,7 +33,6 @@ impl TsxGenerator {
         Self {
             options: options.clone(),
             swc_generator: SwcCodeGenerator::new(),
-            css_processor: CssProcessor::new(),
             styled_generator: StyledComponentsGenerator::new(),
             emotion_generator: EmotionGenerator::new(),
             theme_generator: ThemeProviderGenerator::new(),

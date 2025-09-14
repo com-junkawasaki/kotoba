@@ -27,6 +27,12 @@ pub struct QueryOptimizer {
     rules: Vec<OptimizationRule>,
 }
 
+impl Default for QueryOptimizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QueryOptimizer {
     pub fn new() -> Self {
         Self {

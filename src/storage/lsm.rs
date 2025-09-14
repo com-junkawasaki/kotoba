@@ -173,3 +173,104 @@ pub struct LSMStats {
     pub total_entries: usize,
     pub total_size: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn create_test_db() -> (LSMTree, TempDir) {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().to_path_buf();
+        let lsm_tree = LSMTree::new(db_path, 64, 128).unwrap();
+        (lsm_tree, temp_dir)
+    }
+
+    #[test]
+    fn test_put_and_get() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Put some data
+        lsm_tree.put("key1".to_string(), b"value1".to_vec()).unwrap();
+        lsm_tree.put("key2".to_string(), b"value2".to_vec()).unwrap();
+
+        // Get the data back
+        assert_eq!(lsm_tree.get("key1").unwrap(), Some(b"value1".to_vec()));
+        assert_eq!(lsm_tree.get("key2").unwrap(), Some(b"value2".to_vec()));
+        assert_eq!(lsm_tree.get("key3").unwrap(), None);
+    }
+
+    #[test]
+    fn test_delete() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Put and then delete
+        lsm_tree.put("key1".to_string(), b"value1".to_vec()).unwrap();
+        assert_eq!(lsm_tree.get("key1").unwrap(), Some(b"value1".to_vec()));
+
+        lsm_tree.delete("key1".to_string()).unwrap();
+        assert_eq!(lsm_tree.get("key1").unwrap(), None);
+    }
+
+    #[test]
+    fn test_compaction() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Add some data
+        for i in 0..100 {
+            lsm_tree.put(format!("key{}", i), format!("value{}", i).into_bytes()).unwrap();
+        }
+
+        // Force compaction
+        lsm_tree.compact().unwrap();
+
+        // Verify data is still accessible
+        for i in 0..100 {
+            let expected = format!("value{}", i).into_bytes();
+            assert_eq!(lsm_tree.get(&format!("key{}", i)).unwrap(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn test_stats() {
+        let (mut lsm_tree, _temp_dir) = create_test_db();
+
+        // Initially should have minimal stats
+        let stats = lsm_tree.stats();
+        assert_eq!(stats.memtable_entries, 0);
+
+        // Add some data
+        lsm_tree.put("key1".to_string(), b"value1".to_vec()).unwrap();
+        lsm_tree.put("key2".to_string(), b"value2".to_vec()).unwrap();
+
+        let stats = lsm_tree.stats();
+        assert!(stats.total_entries >= 2); // RocksDB may have internal entries
+    }
+
+    #[test]
+    fn test_snapshot() {
+        let (mut lsm_tree, temp_dir) = create_test_db();
+
+        // Add some data
+        lsm_tree.put("key1".to_string(), b"value1".to_vec()).unwrap();
+        lsm_tree.put("key2".to_string(), b"value2".to_vec()).unwrap();
+
+        // Create snapshot
+        lsm_tree.create_snapshot("test_snapshot").unwrap();
+
+        // Modify data
+        lsm_tree.put("key1".to_string(), b"modified_value1".to_vec()).unwrap();
+        lsm_tree.delete("key2".to_string()).unwrap();
+
+        // Verify current state
+        assert_eq!(lsm_tree.get("key1").unwrap(), Some(b"modified_value1".to_vec()));
+        assert_eq!(lsm_tree.get("key2").unwrap(), None);
+
+        // Restore from snapshot
+        lsm_tree.restore_from_snapshot("test_snapshot").unwrap();
+
+        // Verify restored state
+        assert_eq!(lsm_tree.get("key1").unwrap(), Some(b"value1".to_vec()));
+        assert_eq!(lsm_tree.get("key2").unwrap(), Some(b"value2".to_vec()));
+    }
+}

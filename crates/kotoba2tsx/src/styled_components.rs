@@ -10,7 +10,6 @@ use std::collections::HashMap;
 
 /// Styled-components generator
 pub struct StyledComponentsGenerator {
-    swc_generator: SwcCodeGenerator,
     css_processor: CssProcessor,
 }
 
@@ -18,7 +17,6 @@ impl StyledComponentsGenerator {
     /// Create a new styled-components generator
     pub fn new() -> Self {
         Self {
-            swc_generator: SwcCodeGenerator::new(),
             css_processor: CssProcessor::new(),
         }
     }
@@ -163,7 +161,6 @@ impl Default for StyledComponentsGenerator {
 
 /// Emotion CSS-in-JS generator
 pub struct EmotionGenerator {
-    swc_generator: SwcCodeGenerator,
     css_processor: CssProcessor,
 }
 
@@ -171,7 +168,6 @@ impl EmotionGenerator {
     /// Create a new Emotion generator
     pub fn new() -> Self {
         Self {
-            swc_generator: SwcCodeGenerator::new(),
             css_processor: CssProcessor::new(),
         }
     }
@@ -297,16 +293,12 @@ impl Default for EmotionGenerator {
 }
 
 /// CSS-in-JS theme provider generator
-pub struct ThemeProviderGenerator {
-    swc_generator: SwcCodeGenerator,
-}
+pub struct ThemeProviderGenerator {}
 
 impl ThemeProviderGenerator {
     /// Create a new theme provider generator
     pub fn new() -> Self {
-        Self {
-            swc_generator: SwcCodeGenerator::new(),
-        }
+        Self {}
     }
 
     /// Generate theme type definitions

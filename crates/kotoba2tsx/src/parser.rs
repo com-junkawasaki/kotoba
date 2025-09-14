@@ -83,46 +83,6 @@ impl KotobaParser {
 
 
     /// Remove comments from Jsonnet content
-    fn remove_comments(&self, content: &str) -> String {
-        let mut result = String::new();
-        let mut in_multiline_comment = false;
-
-        for line in content.lines() {
-            let trimmed = line.trim();
-
-            if in_multiline_comment {
-                if trimmed.ends_with("*/") {
-                    in_multiline_comment = false;
-                }
-                continue;
-            }
-
-            if trimmed.starts_with("/*") {
-                if !trimmed.ends_with("*/") {
-                    in_multiline_comment = true;
-                }
-                continue;
-            }
-
-            // Remove single-line comments
-            if let Some(comment_start) = trimmed.find("//") {
-                let before_comment = &trimmed[..comment_start];
-                if !before_comment.trim().is_empty() {
-                    result.push_str(before_comment);
-                    result.push('\n');
-                }
-                continue;
-            }
-
-            if !trimmed.is_empty() {
-                result.push_str(line);
-                result.push('\n');
-            }
-        }
-
-        result
-    }
-
 
     /// Parse JSON value into KotobaConfig
     fn parse_json_value(&self, value: serde_json::Value) -> Result<KotobaConfig> {
