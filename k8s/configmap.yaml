@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kotoba-config
+  namespace: kotoba-system
+  labels:
+    app: kotoba
+data:
+  # Kotoba configuration in Jsonnet format
+  kotoba-config.jsonnet: |
+    {
+      metadata: {
+        name: "kotoba-cluster",
+        version: "1.0.0",
+        description: "Kotoba distributed storage cluster on GKE",
+      },
+
+      cluster: {
+        // Cluster configuration for GKE
+        nodes: [
+          {
+            id: "node-0",
+            address: "kotoba-cluster-0.kotoba-cluster.kotoba-system.svc.cluster.local:8080",
+            role: "storage",
+            cid_ranges: [
+              { start: 0, end: 4294967295 }, // First quarter of u64 space
+            ],
+          },
+          {
+            id: "node-1",
+            address: "kotoba-cluster-1.kotoba-cluster.kotoba-system.svc.cluster.local:8080",
+            role: "storage",
+            cid_ranges: [
+              { start: 4294967296, end: 8589934591 }, // Second quarter
+            ],
+          },
+          {
+            id: "node-2",
+            address: "kotoba-cluster-2.kotoba-cluster.kotoba-system.svc.cluster.local:8080",
+            role: "storage",
+            cid_ranges: [
+              { start: 8589934592, end: 12884901887 }, // Third quarter
+            ],
+          },
+        ],
+        replication_factor: 3,
+        read_consistency: "quorum",
+        write_consistency: "quorum",
+      },
+
+      storage: {
+        data_dir: "/data",
+        memtable_size: 1000,
+        sstable_max_size: 1073741824, // 1GB
+        compaction_interval: 3600,
+        snapshot_interval: 86400,
+      },
+
+      server: {
+        http_port: 3000,
+        grpc_port: 8080,
+        host: "0.0.0.0",
+        max_connections: 1000,
+      },
+
+      monitoring: {
+        metrics_enabled: true,
+        health_check_enabled: true,
+        prometheus_endpoint: "/metrics",
+        health_endpoint: "/health",
+      },
+
+      environment: {
+        NODE_ENV: "production",
+        RUST_LOG: "info,kotoba=debug",
+        GKE_CLUSTER: "true",
+      },
+    }

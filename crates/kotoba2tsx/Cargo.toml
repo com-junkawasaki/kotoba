@@ -1,6 +1,6 @@
 [package]
 name = "kotoba2tsx"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 description = "Kotoba to TSX converter - Convert .kotoba configuration files to React TSX components"
 license = "MIT OR Apache-2.0"
