@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.org/gts-dpo-opengraph-merkle.schema.json",
+  "$id": "https://raw.githubusercontent.com/jun784/kotoba/refs/heads/main/kotoba.schema.json",
   "title": "Process Network as GTS(DPO)+OpenGraph with Merkle DAG & PG view",
   "type": "object",
   "required": ["typeGraph", "graphs"],
