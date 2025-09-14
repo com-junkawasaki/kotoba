@@ -1,19 +1,139 @@
-# Kotoba HTTP Server Configuration (JSON Lines format)
-# Each line is a JSON object representing either a route, middleware, or config
+// Kotoba HTTP Server Configuration (Jsonnet format)
+// Structured configuration using Jsonnet's object and array syntax
 
-# Server configuration
-{"type": "config", "host": "127.0.0.1", "port": 8080, "max_connections": 1000, "timeout_ms": 30000}
+// ==========================================
+// Configuration Variables
+// ==========================================
 
-# Routes
-{"type": "route", "method": "GET", "pattern": "/ping", "handler": "ping_handler", "metadata": {"description": "Simple ping endpoint"}}
-{"type": "route", "method": "GET", "pattern": "/health", "handler": "health_check", "metadata": {"description": "Health check with detailed status"}}
-{"type": "route", "method": "GET", "pattern": "/api/v1/status", "handler": "api_status", "metadata": {"version": "v1"}}
-{"type": "route", "method": "POST", "pattern": "/api/v1/echo", "handler": "echo_handler", "metadata": {"description": "Echo endpoint"}}
-{"type": "route", "method": "GET", "pattern": "/api/v1/users/{id}", "handler": "get_user", "metadata": {"description": "Get user by ID"}}
-{"type": "route", "method": "GET", "pattern": "/api/v1/posts", "handler": "list_posts", "metadata": {"description": "List posts"}}
+local apiVersion = "v1";
+local defaultTimeout = 30000;
+local maxConnections = 1000;
 
-# Middlewares (applied in order)
-{"type": "middleware", "name": "cors", "order": 10, "function": "cors_middleware", "metadata": {"allowed_origins": ["*"]}}
-{"type": "middleware", "name": "rate_limit", "order": 20, "function": "rate_limiter", "metadata": {"rpm": 60}}
-{"type": "middleware", "name": "auth", "order": 30, "function": "auth_middleware", "metadata": {"type": "bearer"}}
-{"type": "middleware", "name": "logger", "order": 100, "function": "request_logger", "metadata": {"format": "combined"}}
+// ==========================================
+// Utility Functions
+// ==========================================
+
+// Create a route object
+local makeRoute = function(method, pattern, handler, description=null, version=apiVersion) {
+  type: "route",
+  method: method,
+  pattern: pattern,
+  handler: handler,
+  metadata: {
+    description: description,
+    version: version,
+  } + (if description == null then {} else {}),
+};
+
+// Create a middleware object
+local makeMiddleware = function(name, order, func, metadata={}) {
+  type: "middleware",
+  name: name,
+  order: order,
+  function: func,
+  metadata: metadata,
+};
+
+// ==========================================
+// Server Configuration
+// ==========================================
+
+{
+  // Main server configuration
+  config: {
+    type: "config",
+    host: "127.0.0.1",
+    port: 8080,
+    max_connections: maxConnections,
+    timeout_ms: defaultTimeout,
+    metadata: {
+      description: "HTTP server configuration",
+      environment: "development",
+    },
+  },
+
+  // ==========================================
+  // Routes Configuration
+  // ==========================================
+
+  routes: [
+    makeRoute("GET", "/ping", "ping_handler", "Simple ping endpoint"),
+    makeRoute("GET", "/health", "health_check", "Health check with detailed status"),
+    makeRoute("GET", "/api/" + apiVersion + "/status", "api_status", "API status endpoint"),
+    makeRoute("POST", "/api/" + apiVersion + "/echo", "echo_handler", "Echo endpoint"),
+    makeRoute("GET", "/api/" + apiVersion + "/users/{id}", "get_user", "Get user by ID"),
+    makeRoute("GET", "/api/" + apiVersion + "/posts", "list_posts", "List posts"),
+  ],
+
+  // ==========================================
+  // Middlewares Configuration (applied in order)
+  // ==========================================
+
+  middlewares: [
+    makeMiddleware("cors", 10, "cors_middleware", {
+      description: "CORS handling middleware",
+      allowed_origins: ["*"],
+    }),
+    makeMiddleware("rate_limit", 20, "rate_limiter", {
+      description: "Rate limiting middleware",
+      rpm: 60,
+    }),
+    makeMiddleware("auth", 30, "auth_middleware", {
+      description: "Authentication middleware",
+      type: "bearer",
+    }),
+    makeMiddleware("logger", 100, "request_logger", {
+      description: "Request logging middleware",
+      format: "combined",
+    }),
+  ],
+
+  // ==========================================
+  // Computed Properties
+  // ==========================================
+
+  // All routes with their full paths
+  allRoutes:: [
+    r + { fullPath: r.pattern }
+    for r in self.routes
+  ],
+
+  // All middlewares sorted by order
+  sortedMiddlewares:: std.sort(self.middlewares, function(x) x.order),
+
+  // Server info
+  serverInfo:: {
+    host: self.config.host,
+    port: self.config.port,
+    routes_count: std.length(self.routes),
+    middlewares_count: std.length(self.middlewares),
+    api_version: apiVersion,
+  },
+
+  // ==========================================
+  // Validation Functions
+  // ==========================================
+
+  // Validate route patterns
+  validateRoutes:: function() {
+    local duplicatePatterns = [
+      p
+      for p in std.set([r.pattern for r in self.routes])
+      if std.count([r.pattern for r in self.routes], p) > 1
+    ];
+    if std.length(duplicatePatterns) > 0 then
+      error "Duplicate route patterns found: " + std.join(", ", duplicatePatterns)
+    else
+      "Routes validation passed";
+  },
+
+  // Validate middleware orders
+  validateMiddlewares:: function() {
+    local orders = [m.order for m in self.middlewares];
+    local uniqueOrders = std.set(orders);
+    if std.length(orders) != std.length(uniqueOrders) then
+      error "Duplicate middleware orders found"
+    else
+      "Middlewares validation passed";
+  },
+}

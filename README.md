@@ -239,32 +239,44 @@ let e1 = graph.add_edge(EdgeBuilder::new()
 
 ## 📄 .kotoba File Format
 
-Kotobaプロジェクトでは、設定ファイルやUI定義などに`.kotoba`ファイル形式を使用します。これはJSON Lines (JSONL)形式をベースとした構造化された設定フォーマットです。
+Kotobaプロジェクトでは、設定ファイルやUI定義などに`.kotoba`ファイル形式を使用します。これはJsonnet形式をベースとした構造化された設定フォーマットです。
 
 ### 概要
 
 `.kotoba`ファイルは以下の特徴を持ちます：
 
-- **JSON Lines形式**: 各行が独立したJSONオブジェクト
-- **コメント対応**: `#`で始まる行はコメントとして無視
-- **型付け**: `type`フィールドによりオブジェクトの種類を明示
-- **階層構造**: コンポーネント間の親子関係を表現可能
-- **メタデータ**: 各オブジェクトに説明や追加情報を付与
+- **Jsonnet形式**: JSONのスーパーセットで、変数、関数、条件分岐などの機能を活用
+- **構造化設定**: オブジェクトと配列による階層的な設定構造
+- **ユーティリティ関数**: 設定生成のための再利用可能な関数定義
+- **計算プロパティ**: 動的な設定生成とバリデーション
+- **型安全**: Jsonnetの型システムによる設定の整合性確保
 
 ### ファイル形式仕様
 
 #### 基本構造
 
-```json
+```jsonnet
+// 設定ファイルの基本構造
 {
-  "type": "object_type",
-  "name": "object_name",
-  "property1": "value1",
-  "property2": "value2",
-  "metadata": {
-    "description": "オブジェクトの説明",
-    "version": "1.0"
-  }
+  // 設定セクション
+  config: {
+    type: "config",
+    name: "MyApp",
+    version: "1.0.0",
+    metadata: {
+      description: "アプリケーション設定",
+    },
+  },
+
+  // コンポーネント定義
+  components: [
+    // コンポーネントオブジェクト
+  ],
+
+  // ユーティリティ関数
+  makeComponent: function(name, type, props={}) {
+    // コンポーネント生成関数
+  },
 }
 ```
 
@@ -273,166 +285,499 @@ Kotobaプロジェクトでは、設定ファイルやUI定義などに`.kotoba`
 - **`type`** (必須): オブジェクトの種類を指定
 - **`name`** (推奨): オブジェクトの一意な識別子
 - **`metadata`** (オプション): 追加情報（説明、バージョンなど）
+- **`local`変数**: Jsonnetのローカル変数による設定の共通化
+- **`関数`**: 設定生成のための再利用可能な関数
+- **`::`演算子**: 計算プロパティによる動的設定生成
 
-### オブジェクトタイプ
+### 主要なセクション
 
 #### 1. `config` - 設定オブジェクト
 
 アプリケーション全体の設定を定義します。
 
-```json
-{
-  "type": "config",
-  "name": "MyApp",
-  "version": "1.0.0",
-  "host": "127.0.0.1",
-  "port": 8080,
-  "theme": "light",
-  "metadata": {
-    "description": "アプリケーション設定",
-    "environment": "development"
-  }
-}
-```
+```jsonnet
+local appVersion = "1.0.0";
 
-#### 2. `route` - HTTPルート定義
-
-HTTPサーバーのエンドポイントを定義します。
-
-```json
-{
-  "type": "route",
-  "method": "GET|POST|PUT|DELETE",
-  "pattern": "/api/v1/users/{id}",
-  "handler": "user_handler",
-  "metadata": {
-    "description": "ユーザー取得エンドポイント",
-    "version": "v1",
-    "auth_required": true
-  }
-}
-```
-
-#### 3. `middleware` - ミドルウェア定義
-
-HTTPリクエスト処理の中間層を定義します。
-
-```json
-{
-  "type": "middleware",
-  "name": "cors",
-  "order": 10,
-  "function": "cors_middleware",
-  "metadata": {
-    "description": "CORS処理ミドルウェア",
-    "allowed_origins": ["*"]
-  }
-}
-```
-
-#### 4. `component` - UIコンポーネント定義
-
-ユーザーインターフェースのコンポーネントを定義します。
-
-```json
-{
-  "type": "component",
-  "name": "Header",
-  "component_type": "header",
-  "props": {
-    "title": "My App",
-    "className": "app-header"
+config: {
+  type: "config",
+  name: "MyApp",
+  version: appVersion,
+  host: "127.0.0.1",
+  port: 8080,
+  theme: "light",
+  metadata: {
+    description: "アプリケーション設定",
+    environment: "development",
   },
-  "children": ["Logo", "Navigation"],
-  "metadata": {
-    "description": "アプリケーションのヘッダーコンポーネント"
-  }
 }
 ```
 
-#### 5. `handler` - イベントハンドラー定義
+#### 2. `routes` / `middlewares` - HTTP設定
 
-UIコンポーネントのイベント処理を定義します。
+HTTPサーバーのルートとミドルウェアを構造化して定義します。
 
-```json
-{
-  "type": "handler",
-  "name": "onButtonClick",
-  "function": "handleButtonClick",
-  "metadata": {
-    "description": "ボタンクリックイベントハンドラー"
-  }
-}
+```jsonnet
+// ユーティリティ関数
+local makeRoute = function(method, pattern, handler, desc) {
+  type: "route",
+  method: method,
+  pattern: pattern,
+  handler: handler,
+  metadata: { description: desc },
+};
+
+routes: [
+  makeRoute("GET", "/api/" + appVersion + "/users", "list_users", "List users"),
+  makeRoute("POST", "/api/" + appVersion + "/users", "create_user", "Create user"),
+],
+
+middlewares: [
+  {
+    type: "middleware",
+    name: "cors",
+    order: 10,
+    function: "cors_middleware",
+    metadata: {
+      description: "CORS handling middleware",
+      allowed_origins: ["*"],
+    },
+  },
+],
 ```
 
-#### 6. `state` - 状態管理定義
+#### 3. `components` - UIコンポーネント定義
 
-アプリケーションの状態を定義します。
+Reactコンポーネントを構造化して定義します。
 
-```json
-{
-  "type": "state",
-  "name": "user",
-  "initial": null,
-  "metadata": {
-    "description": "現在のユーザー状態"
-  }
-}
+```jsonnet
+local styles = {
+  button: { primary: "button primary", secondary: "button secondary" },
+  layout: { header: "header", sidebar: "sidebar" },
+};
+
+local makeButton = function(name, text, style, onClick) {
+  type: "component",
+  name: name,
+  component_type: "button",
+  props: {
+    text: text,
+    className: style,
+    onClick: onClick,
+  },
+  metadata: { description: name + " button" },
+};
+
+components: [
+  makeButton("SaveButton", "Save", styles.button.primary, "handleSave"),
+  makeButton("CancelButton", "Cancel", styles.button.secondary, "handleCancel"),
+],
+```
+
+#### 4. `handlers` / `states` - イベントと状態管理
+
+イベントハンドラーと状態を定義します。
+
+```jsonnet
+handlers: [
+  {
+    type: "handler",
+    name: "handleSave",
+    function: "handleSave",
+    metadata: { description: "Save form data" },
+  },
+],
+
+states: [
+  {
+    type: "state",
+    name: "user",
+    initial: null,
+    metadata: { description: "Current user state" },
+  },
+  {
+    type: "state",
+    name: "loading",
+    initial: false,
+    metadata: { description: "Loading state" },
+  },
+],
+```
+
+#### 5. 計算プロパティとバリデーション
+
+Jsonnetの機能を活用した動的設定とバリデーション。
+
+```jsonnet
+// 計算プロパティ
+allRoutes:: [r.pattern for r in self.routes],
+routeCount:: std.length(self.routes),
+
+// バリデーション関数
+validateRoutes:: function() {
+  local duplicates = [
+    pattern
+    for pattern in std.set([r.pattern for r in self.routes])
+    if std.count([r.pattern for r in self.routes], pattern) > 1
+  ];
+  if std.length(duplicates) > 0 then
+    error "Duplicate route patterns: " + std.join(", ", duplicates)
+  else
+    "Routes validation passed";
+},
 ```
 
 ### 使用例
 
 #### HTTPサーバー設定例
 
-```json
-# config.kotoba
-{"type": "config", "host": "127.0.0.1", "port": 8080, "max_connections": 1000}
-{"type": "route", "method": "GET", "pattern": "/health", "handler": "health_check"}
-{"type": "route", "method": "GET", "pattern": "/api/users", "handler": "list_users"}
-{"type": "middleware", "name": "cors", "order": 10, "function": "cors_middleware"}
-{"type": "middleware", "name": "auth", "order": 20, "function": "auth_middleware"}
+```jsonnet
+// config.kotoba - HTTPサーバー設定
+local apiVersion = "v1";
+local defaultTimeout = 30000;
+
+{
+  // サーバー設定
+  config: {
+    type: "config",
+    host: "127.0.0.1",
+    port: 8080,
+    max_connections: 1000,
+    timeout_ms: defaultTimeout,
+    metadata: {
+      description: "HTTP server configuration",
+      environment: "development",
+    },
+  },
+
+  // ユーティリティ関数
+  makeRoute: function(method, pattern, handler, desc) {
+    type: "route",
+    method: method,
+    pattern: pattern,
+    handler: handler,
+    metadata: { description: desc },
+  },
+
+  makeMiddleware: function(name, order, func, desc) {
+    type: "middleware",
+    name: name,
+    order: order,
+    function: func,
+    metadata: { description: desc },
+  },
+
+  // ルート定義
+  routes: [
+    $.makeRoute("GET", "/ping", "ping_handler", "Simple ping endpoint"),
+    $.makeRoute("GET", "/health", "health_check", "Health check endpoint"),
+    $.makeRoute("GET", "/api/" + apiVersion + "/users", "list_users", "List users"),
+    $.makeRoute("POST", "/api/" + apiVersion + "/users", "create_user", "Create user"),
+  ],
+
+  // ミドルウェア定義
+  middlewares: [
+    $.makeMiddleware("cors", 10, "cors_middleware", "CORS handling"),
+    $.makeMiddleware("auth", 20, "auth_middleware", "Authentication"),
+    $.makeMiddleware("logger", 100, "request_logger", "Request logging"),
+  ],
+
+  // 計算プロパティ
+  serverInfo:: {
+    host: $.config.host,
+    port: $.config.port,
+    routes_count: std.length($.routes),
+    middlewares_count: std.length($.middlewares),
+  },
+}
 ```
 
 #### React UI設定例
 
-```json
-# app.kotoba
-{"type": "config", "name": "MyApp", "version": "1.0.0", "theme": "light"}
-{"type": "component", "name": "App", "component_type": "div", "children": ["Header", "Main"]}
-{"type": "component", "name": "Header", "component_type": "header", "props": {"title": "My App"}}
-{"type": "handler", "name": "toggleTheme", "function": "handleThemeToggle"}
-{"type": "state", "name": "theme", "initial": "light"}
+```jsonnet
+// app.kotoba - React UI設定
+local appName = "MyApp";
+local appVersion = "1.0.0";
+
+{
+  // アプリケーション設定
+  config: {
+    type: "config",
+    name: appName,
+    version: appVersion,
+    theme: "light",
+    title: "My App",
+    metadata: {
+      framework: "React",
+      description: "Sample React application",
+    },
+  },
+
+  // スタイル定数
+  styles: {
+    button: {
+      primary: "button primary",
+      secondary: "button secondary",
+    },
+    layout: {
+      header: "header",
+      main: "main-content",
+    },
+  },
+
+  // ユーティリティ関数
+  makeComponent: function(name, componentType, props={}, children=[], desc="") {
+    type: "component",
+    name: name,
+    component_type: componentType,
+    props: props,
+    children: children,
+    metadata: { description: desc },
+  },
+
+  makeButton: function(name, text, style, onClick, desc) {
+    $.makeComponent(name, "button", {
+      text: text,
+      className: style,
+      onClick: onClick,
+    }, [], desc),
+  },
+
+  // コンポーネント定義
+  components: [
+    $.makeComponent("App", "div", {}, ["Header", "Main"], "Root application component"),
+    $.makeComponent("Header", "header", {
+      title: $.config.title,
+      className: $.styles.layout.header,
+    }, ["Nav"], "Application header"),
+    $.makeButton("SaveBtn", "Save", $.styles.button.primary, "handleSave", "Save button"),
+    $.makeButton("CancelBtn", "Cancel", $.styles.button.secondary, "handleCancel", "Cancel button"),
+  ],
+
+  // イベントハンドラー
+  handlers: [
+    {
+      type: "handler",
+      name: "handleSave",
+      function: "handleSave",
+      metadata: { description: "Handle save action" },
+    },
+    {
+      type: "handler",
+      name: "handleCancel",
+      function: "handleCancel",
+      metadata: { description: "Handle cancel action" },
+    },
+  ],
+
+  // 状態管理
+  states: [
+    {
+      type: "state",
+      name: "user",
+      initial: null,
+      metadata: { description: "Current user state" },
+    },
+    {
+      type: "state",
+      name: "theme",
+      initial: $.config.theme,
+      metadata: { description: "Current theme state" },
+    },
+  ],
+}
 ```
 
 ### パースと使用方法
 
+Jsonnetファイルは`jsonnet`コマンドまたはプログラムによる評価が必要です：
+
+```bash
+# Jsonnetファイルを評価してJSONに変換
+jsonnet eval config.kotoba
+
+# またはプログラムで直接使用
+jsonnet eval config.kotoba | jq .routes
+```
+
 ```rust
-use kotoba::http::parser::KotobaParser;
+// Rustでの使用例
+use std::process::Command;
 
-// .kotobaファイルをパース
-let parser = KotobaParser::new();
-let config = parser.parse_file("config.kotoba")?;
+// Jsonnetファイルを評価
+let output = Command::new("jsonnet")
+    .arg("eval")
+    .arg("config.kotoba")
+    .output()?;
 
-// HTTPサーバーを設定
-let server = HttpServer::from_config(config);
+let config_json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+// 設定を使用
+if let Some(routes) = config_json.get("routes") {
+    println!("Found {} routes", routes.as_array().unwrap().len());
+}
+```
+
+### Jsonnet固有の機能活用
+
+#### 1. 変数と定数の使用
+
+```jsonnet
+local appVersion = "v1";
+local defaultPort = 8080;
+
+{
+  config: {
+    version: appVersion,
+    port: defaultPort,
+  },
+  routes: [
+    { pattern: "/api/" + appVersion + "/users" },
+  ],
+}
+```
+
+#### 2. 関数による設定生成
+
+```jsonnet
+local makeApiRoute = function(method, resource, action) {
+  type: "route",
+  method: method,
+  pattern: "/api/v1/" + resource + "/" + action,
+  handler: resource + "_" + action,
+};
+
+routes: [
+  makeApiRoute("GET", "users", "list"),
+  makeApiRoute("POST", "users", "create"),
+],
+```
+
+#### 3. 計算プロパティによる動的設定
+
+```jsonnet
+{
+  components: [/* ... */],
+  // コンポーネント数の計算
+  componentCount:: std.length(self.components),
+
+  // コンポーネントタイプ別の集計
+  componentTypes:: std.set([c.component_type for c in self.components]),
+}
+```
+
+#### 4. 条件分岐とバリデーション
+
+```jsonnet
+local environment = "production";
+
+{
+  config: {
+    debug: if environment == "development" then true else false,
+    port: if environment == "production" then 80 else 3000,
+  },
+
+  // バリデーション
+  validate:: function() {
+    if std.length(self.config.name) == 0 then
+      error "Application name is required"
+    else
+      "Configuration is valid";
+  },
+}
 ```
 
 ### ベストプラクティス
 
-1. **コメントの活用**: 各オブジェクトの目的をコメントで明確に記述
-2. **一貫した命名**: コンポーネント名やハンドラー名を一貫して命名
-3. **メタデータの活用**: バージョン管理やドキュメントのためにmetadataを活用
-4. **型の一貫性**: 同じtypeのオブジェクトは同じプロパティ構造を使用
-5. **階層構造の整理**: 複雑なUIの場合は論理的な階層構造を使用
+1. **変数の活用**: 共通の値を`local`変数で定義してDRY原則を守る
+2. **関数による抽象化**: 設定生成パターンを関数化して再利用性を高める
+3. **計算プロパティの使用**: `::`演算子で動的な設定値を生成
+4. **構造化**: 設定を論理的なセクション（config, routes, components等）に分ける
+5. **バリデーション**: 設定の妥当性を検証する関数を定義
+6. **コメント**: Jsonnetの`//`コメントを活用して設定の意図を明確に
+7. **再利用**: 共通の関数やスタイルを別ファイルに分離してimport
 
 ### 拡張性
 
-`.kotoba`形式は拡張可能です。新しい`type`を定義することで、プロジェクト固有の設定や定義を追加できます。拡張する場合のガイドライン：
+`.kotoba`形式（Jsonnet）は非常に拡張性が高く、Jsonnetの全機能を活用できます：
 
-- 新しいtypeは既存の命名規則に従う
-- 必須プロパティは明確に定義する
-- metadataフィールドは常にオプションとする
-- ドキュメントに新しいtypeの仕様を記載する
+#### カスタム関数ライブラリ
+
+```jsonnet
+// utils.libsonnet
+{
+  // 汎用ユーティリティ関数
+  makeCrudRoutes(resource):: [
+    {
+      type: "route",
+      method: "GET",
+      pattern: "/api/v1/" + resource,
+      handler: resource + "_list",
+    },
+    {
+      type: "route",
+      method: "POST",
+      pattern: "/api/v1/" + resource,
+      handler: resource + "_create",
+    },
+  ],
+
+  // スタイル定数
+  themes: {
+    light: { bg: "#ffffff", fg: "#000000" },
+    dark: { bg: "#000000", fg: "#ffffff" },
+  },
+}
+```
+
+#### 設定の合成
+
+```jsonnet
+// 複数の設定ファイルを合成
+local base = import "base.libsonnet";
+local api = import "api.libsonnet";
+
+base + api + {
+  // 追加設定
+  customRoutes: [
+    { pattern: "/health", handler: "health_check" },
+  ],
+}
+```
+
+#### 環境別設定
+
+```jsonnet
+// 環境に応じた設定切り替え
+local environment = std.extVar("ENVIRONMENT");
+
+{
+  config: {
+    debug: environment != "production",
+    port: if environment == "production" then 80 else 3000,
+    database: {
+      host: if environment == "production"
+            then "prod-db.example.com"
+            else "localhost",
+    },
+  },
+}
+```
+
+### 開発ワークフロー
+
+```bash
+# 設定ファイルの検証
+jsonnet eval config.kotoba
+
+# 特定のセクションのみ取得
+jsonnet eval -e "(import 'config.kotoba').routes"
+
+# バリデーション実行
+jsonnet eval -e "(import 'config.kotoba').validate()"
+
+# 設定をJSONとして保存
+jsonnet eval config.kotoba > config.json
+```
 
 ## 🛠️ Development
 
