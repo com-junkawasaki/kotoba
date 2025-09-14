@@ -1,0 +1,126 @@
+# Kotoba Tauri React App UI Configuration (JSON Lines format)
+# Each line is a JSON object representing UI components, layouts, and interactions
+
+# Application configuration
+{"type": "config", "name": "KotobaTauriApp", "version": "0.1.0", "theme": "light", "description": "Graph Database Desktop Application"}
+
+# Main layout component
+{"type": "component", "name": "App", "component_type": "layout", "children": ["Header", "MainContent", "Footer"]}
+
+# Header component with logo and navigation
+{"type": "component", "name": "Header", "component_type": "header", "props": {"title": "Kotoba Graph Studio", "subtitle": "Desktop Graph Database Application", "className": "header"}, "children": ["HeaderActions"]}
+
+# Header actions
+{"type": "component", "name": "HeaderActions", "component_type": "div", "props": {"className": "header-actions"}, "children": ["ThemeToggle", "SettingsButton"]}
+
+# Theme toggle button
+{"type": "component", "name": "ThemeToggle", "component_type": "button", "props": {"text": "🌙", "className": "button icon-button", "onClick": "toggleTheme"}}
+
+# Settings button
+{"type": "component", "name": "SettingsButton", "component_type": "button", "props": {"text": "⚙️", "className": "button icon-button", "onClick": "openSettings"}}
+
+# Main content area with sidebar and main panel
+{"type": "component", "name": "MainContent", "component_type": "div", "props": {"className": "main-content"}, "children": ["Sidebar", "MainPanel"]}
+
+# Sidebar with navigation
+{"type": "component", "name": "Sidebar", "component_type": "aside", "props": {"className": "sidebar"}, "children": ["NavMenu"]}
+
+# Navigation menu
+{"type": "component", "name": "NavMenu", "component_type": "nav", "children": ["GraphNav", "QueryNav", "AnalyticsNav"]}
+
+# Graph navigation item
+{"type": "component", "name": "GraphNav", "component_type": "nav-item", "props": {"text": "📊 Graph", "active": true, "onClick": "showGraphPanel"}}
+
+# Query navigation item
+{"type": "component", "name": "QueryNav", "component_type": "nav-item", "props": {"text": "🔍 Query", "onClick": "showQueryPanel"}}
+
+# Analytics navigation item
+{"type": "component", "name": "AnalyticsNav", "component_type": "nav-item", "props": {"text": "📈 Analytics", "onClick": "showAnalyticsPanel"}}
+
+# Main panel
+{"type": "component", "name": "MainPanel", "component_type": "main", "children": ["GraphPanel"]}
+
+# Graph panel
+{"type": "component", "name": "GraphPanel", "component_type": "div", "props": {"className": "panel"}, "children": ["GraphControls", "GraphCanvas", "GraphStats"]}
+
+# Graph controls section
+{"type": "component", "name": "GraphControls", "component_type": "section", "props": {"title": "Graph Operations", "className": "card"}, "children": ["ActionButtons", "AddVertexForm"]}
+
+# Action buttons row
+{"type": "component", "name": "ActionButtons", "component_type": "div", "props": {"className": "button-row"}, "children": ["CreateGraphButton", "ClearGraphButton", "ExportButton"]}
+
+# Create graph button
+{"type": "component", "name": "CreateGraphButton", "component_type": "button", "props": {"text": "🆕 New Graph", "className": "button primary", "onClick": "createGraph"}}
+
+# Clear graph button
+{"type": "component", "name": "ClearGraphButton", "component_type": "button", "props": {"text": "🗑️ Clear", "className": "button secondary", "onClick": "clearGraph"}}
+
+# Export button
+{"type": "component", "name": "ExportButton", "component_type": "button", "props": {"text": "💾 Export", "className": "button secondary", "onClick": "exportGraph"}}
+
+# Add vertex form
+{"type": "component", "name": "AddVertexForm", "component_type": "form", "props": {"className": "form-grid"}, "children": ["VertexLabelInput", "VertexPropsInput", "AddVertexButton"]}
+
+# Vertex label input
+{"type": "component", "name": "VertexLabelInput", "component_type": "input", "props": {"type": "text", "placeholder": "Vertex label (e.g., Person, Product)", "className": "input", "required": true}}
+
+# Vertex properties input
+{"type": "component", "name": "VertexPropsInput", "component_type": "textarea", "props": {"placeholder": "Properties (JSON format)\nExample: {\"name\": \"John\", \"age\": 30}", "className": "input", "rows": 3}}
+
+# Add vertex button
+{"type": "component", "name": "AddVertexButton", "component_type": "button", "props": {"text": "➕ Add Vertex", "className": "button success", "onClick": "addVertex"}}
+
+# Graph canvas placeholder
+{"type": "component", "name": "GraphCanvas", "component_type": "div", "props": {"className": "graph-canvas", "text": "Graph visualization will be displayed here"}}
+
+# Graph statistics section
+{"type": "component", "name": "GraphStats", "component_type": "section", "props": {"title": "Statistics", "className": "card"}, "children": ["StatsGrid"]}
+
+# Statistics grid
+{"type": "component", "name": "StatsGrid", "component_type": "div", "props": {"className": "stats-grid"}, "children": ["VertexCount", "EdgeCount", "DensityStat", "LastUpdate"]}
+
+# Vertex count stat
+{"type": "component", "name": "VertexCount", "component_type": "stat", "props": {"label": "Vertices", "value": "0", "icon": "🔵", "className": "stat-card"}}
+
+# Edge count stat
+{"type": "component", "name": "EdgeCount", "component_type": "stat", "props": {"label": "Edges", "value": "0", "icon": "🔗", "className": "stat-card"}}
+
+# Graph density stat
+{"type": "component", "name": "DensityStat", "component_type": "stat", "props": {"label": "Density", "value": "0.00", "icon": "📊", "className": "stat-card"}}
+
+# Last update stat
+{"type": "component", "name": "LastUpdate", "component_type": "stat", "props": {"label": "Last Update", "value": "Never", "icon": "🕒", "className": "stat-card"}}
+
+# Footer with status and info
+{"type": "component", "name": "Footer", "component_type": "footer", "props": {"className": "footer"}, "children": ["StatusBar", "Credits"]}
+
+# Status bar
+{"type": "component", "name": "StatusBar", "component_type": "div", "props": {"className": "status-bar"}, "children": ["ConnectionStatus", "MemoryUsage"]}
+
+# Connection status
+{"type": "component", "name": "ConnectionStatus", "component_type": "status", "props": {"text": "Connected to Kotoba Engine", "status": "success"}}
+
+# Memory usage
+{"type": "component", "name": "MemoryUsage", "component_type": "status", "props": {"text": "Memory: 25.3 MB", "status": "info"}}
+
+# Credits
+{"type": "component", "name": "Credits", "component_type": "div", "props": {"className": "credits", "text": "Built with Kotoba Graph Engine & Tauri"}}
+
+# Event handlers
+{"type": "handler", "name": "createGraph", "function": "handleCreateGraph"}
+{"type": "handler", "name": "clearGraph", "function": "handleClearGraph"}
+{"type": "handler", "name": "addVertex", "function": "handleAddVertex"}
+{"type": "handler", "name": "exportGraph", "function": "handleExportGraph"}
+{"type": "handler", "name": "toggleTheme", "function": "handleToggleTheme"}
+{"type": "handler", "name": "openSettings", "function": "handleOpenSettings"}
+{"type": "handler", "name": "showGraphPanel", "function": "handleShowGraphPanel"}
+{"type": "handler", "name": "showQueryPanel", "function": "handleShowQueryPanel"}
+{"type": "handler", "name": "showAnalyticsPanel", "function": "handleShowAnalyticsPanel"}
+
+# State management
+{"type": "state", "name": "graph", "initial": null}
+{"type": "state", "name": "stats", "initial": {"vertices": 0, "edges": 0, "density": 0.0, "lastUpdate": null}}
+{"type": "state", "name": "currentPanel", "initial": "graph"}
+{"type": "state", "name": "theme", "initial": "light"}
+{"type": "state", "name": "loading", "initial": false}
+{"type": "state", "name": "notification", "initial": null}

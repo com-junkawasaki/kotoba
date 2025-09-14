@@ -65,3 +65,7 @@ harness = false
 name = "http_server"
 path = "examples/http_server/main.rs"
 
+[[example]]
+name = "tauri_react_app"
+path = "examples/tauri_react_app/src-tauri/src/main.rs"
+
