@@ -6,6 +6,7 @@
 
 pub mod config;
 pub mod controller;
+pub mod cli;
 
 // 再エクスポート
 pub use config::{
@@ -20,6 +21,9 @@ pub use controller::{
     DeployController, DeploymentManager, DeploymentState, DeploymentRequest,
     RunningDeployment, ResourceUsage, DeploymentPriority, GqlDeploymentQuery,
     DeploymentQueryType, GqlDeploymentResponse, GqlDeploymentExtensions,
+};
+pub use cli::{
+    DeployCli, DeployCommands, DeployCliImpl, run_cli,
 };
 
 /// デプロイモジュールのバージョン
