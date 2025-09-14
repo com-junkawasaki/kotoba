@@ -405,6 +405,76 @@
       build_order: 6,
     },
 
+    // ==========================================
+    // Kotoba Kotobanet 拡張層 (Kotoba特化拡張)
+    // ==========================================
+
+    'kotobanet_error': {
+      name: 'kotobanet_error',
+      path: 'crates/kotoba-kotobanet/src/error.rs',
+      type: 'kotobanet',
+      description: 'Kotoba Kotobanet エラー定義',
+      dependencies: [],
+      provides: ['KotobaNetError', 'Result<T>'],
+      status: 'completed',
+      build_order: 7,
+    },
+
+    'kotobanet_http_parser': {
+      name: 'kotobanet_http_parser',
+      path: 'crates/kotoba-kotobanet/src/http_parser.rs',
+      type: 'kotobanet',
+      description: 'HTTP Parser for .kotoba.json configuration files',
+      dependencies: ['kotobanet_error', 'jsonnet_core'],
+      provides: ['HttpParser', 'HttpRouteConfig', 'HttpConfig'],
+      status: 'completed',
+      build_order: 8,
+    },
+
+    'kotobanet_frontend': {
+      name: 'kotobanet_frontend',
+      path: 'crates/kotoba-kotobanet/src/frontend.rs',
+      type: 'kotobanet',
+      description: 'Frontend Framework for React component definitions',
+      dependencies: ['kotobanet_error', 'jsonnet_core'],
+      provides: ['FrontendParser', 'ComponentDef', 'PageDef', 'ApiRouteDef', 'FrontendConfig'],
+      status: 'completed',
+      build_order: 8,
+    },
+
+    'kotobanet_deploy': {
+      name: 'kotobanet_deploy',
+      path: 'crates/kotoba-kotobanet/src/deploy.rs',
+      type: 'kotobanet',
+      description: 'Deploy Configuration for deployment settings',
+      dependencies: ['kotobanet_error', 'jsonnet_core'],
+      provides: ['DeployParser', 'DeployConfig', 'ScalingConfig', 'RegionConfig'],
+      status: 'completed',
+      build_order: 8,
+    },
+
+    'kotobanet_config': {
+      name: 'kotobanet_config',
+      path: 'crates/kotoba-kotobanet/src/config.rs',
+      type: 'kotobanet',
+      description: 'General configuration management',
+      dependencies: ['kotobanet_error', 'jsonnet_core'],
+      provides: ['ConfigParser', 'AppConfig', 'DatabaseConfig', 'CacheConfig'],
+      status: 'completed',
+      build_order: 8,
+    },
+
+    'kotobanet_core': {
+      name: 'kotobanet_core',
+      path: 'crates/kotoba-kotobanet/src/lib.rs',
+      type: 'kotobanet',
+      description: 'Kotoba Kotobanet コアAPI - evaluate_kotoba(), HTTP/Frontend/Deploy/Config パーサー統合',
+      dependencies: ['kotobanet_error', 'kotobanet_http_parser', 'kotobanet_frontend', 'kotobanet_deploy', 'kotobanet_config', 'jsonnet_core'],
+      provides: ['evaluate_kotoba', 'evaluate_kotoba_to_json', 'evaluate_kotoba_to_yaml', 'HttpParser', 'FrontendParser', 'DeployParser', 'ConfigParser'],
+      status: 'completed',
+      build_order: 9,
+    },
+
     // HTTPサーバー層
     'http_ir': {
       name: 'http_ir',
@@ -882,6 +952,36 @@
     { from: 'jsonnet_core', to: 'lib' },
     { from: 'jsonnet_core', to: 'http_parser' },  // Jsonnet parser integration
 
+    // ==========================================
+    // Kotoba Kotobanet 依存関係
+    // ==========================================
+
+    // Kotobanet error dependencies
+    { from: 'kotobanet_error', to: 'kotobanet_http_parser' },
+    { from: 'kotobanet_error', to: 'kotobanet_frontend' },
+    { from: 'kotobanet_error', to: 'kotobanet_deploy' },
+    { from: 'kotobanet_error', to: 'kotobanet_config' },
+    { from: 'kotobanet_error', to: 'kotobanet_core' },
+
+    // Kotobanet components dependencies
+    { from: 'jsonnet_core', to: 'kotobanet_http_parser' },
+    { from: 'jsonnet_core', to: 'kotobanet_frontend' },
+    { from: 'jsonnet_core', to: 'kotobanet_deploy' },
+    { from: 'jsonnet_core', to: 'kotobanet_config' },
+
+    // Kotobanet core dependencies
+    { from: 'kotobanet_http_parser', to: 'kotobanet_core' },
+    { from: 'kotobanet_frontend', to: 'kotobanet_core' },
+    { from: 'kotobanet_deploy', to: 'kotobanet_core' },
+    { from: 'kotobanet_config', to: 'kotobanet_core' },
+
+    // Integration with other components
+    { from: 'kotobanet_core', to: 'lib' },
+    { from: 'kotobanet_http_parser', to: 'http_parser' },  // HTTP parser enhancement
+    { from: 'kotobanet_frontend', to: 'frontend_framework' },  // Frontend enhancement
+    { from: 'kotobanet_deploy', to: 'deploy_parser' },  // Deploy enhancement
+    { from: 'kotobanet_config', to: 'deploy_config' },  // Config enhancement
+
     // HTTPサーバー層依存
     { from: 'types', to: 'http_ir' },
     { from: 'ir_catalog', to: 'http_ir' },
@@ -1042,6 +1142,12 @@
     'jsonnet_evaluator',
     'jsonnet_stdlib',
     'jsonnet_core',
+    'kotobanet_error',
+    'kotobanet_http_parser',
+    'kotobanet_frontend',
+    'kotobanet_deploy',
+    'kotobanet_config',
+    'kotobanet_core',
     'ir_catalog',
     'ir_rule',
     'ir_query',
@@ -1153,6 +1259,12 @@
     'ir_rule',
     'ir_catalog',
     'jsonnet_core',
+    'kotobanet_core',
+    'kotobanet_config',
+    'kotobanet_deploy',
+    'kotobanet_frontend',
+    'kotobanet_http_parser',
+    'kotobanet_error',
     'jsonnet_stdlib',
     'jsonnet_evaluator',
     'jsonnet_parser',
@@ -1242,6 +1354,39 @@
         'json_yaml_output',
       ],
       status: 'fully_compatible',
+    },
+    kotobanet_extensions: {
+      crate: 'kotoba-kotobanet',
+      description: 'Kotoba-specific Jsonnet extensions',
+      components: [
+        {
+          name: 'http_parser',
+          description: '.kotoba.json configuration file parsing',
+          features: ['route_config', 'middleware_config', 'auth_config', 'cors_config'],
+        },
+        {
+          name: 'frontend',
+          description: 'React component definitions in Jsonnet',
+          features: ['component_defs', 'page_routes', 'api_routes', 'state_management'],
+        },
+        {
+          name: 'deploy',
+          description: 'Deployment configuration management',
+          features: ['scaling_config', 'region_config', 'networking', 'monitoring', 'security'],
+        },
+        {
+          name: 'config',
+          description: 'General application configuration',
+          features: ['database_config', 'cache_config', 'messaging_config', 'external_services'],
+        },
+      ],
+      integration_points: [
+        'http_parser',
+        'frontend_framework',
+        'deploy_parser',
+        'deploy_config',
+      ],
+      status: 'fully_implemented',
     },
   },
 }
