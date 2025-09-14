@@ -5,9 +5,11 @@
 use kotoba::frontend::*;
 use kotoba::frontend::api_ir::{WebFrameworkConfigIR, ServerConfig};
 use kotoba::http::{HttpRequest, HttpMethod, HttpHeaders};
+use kotoba::Properties;
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::sync::Arc;
+use std::path::Path;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,14 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok((mut socket, addr)) => {
                 println!("📡 New connection from: {:?}", addr);
                 let framework = Arc::clone(&framework);
-            }
-            Err(e) => {
-                eprintln!("❌ Accept error: {:?}", e);
-                break;
-            }
-        }
 
-        tokio::spawn(async move {
+                tokio::spawn(async move {
             let mut buf = [0; 1024];
             match socket.read(&mut buf).await {
                 Ok(n) => {
@@ -166,7 +162,7 @@ async fn start_dev_server(framework: WebFramework) -> Result<(), Box<dyn std::er
 
     loop {
         let (socket, _) = listener.accept().await?;
-        let framework = framework.clone();
+        let framework = Arc::clone(&framework);
 
         tokio::spawn(async move {
             // TODO: HTTPリクエストのパースと処理を実装
@@ -287,7 +283,8 @@ async fn setup_app_structure(framework: &WebFramework) -> Result<(), Box<dyn std
                 },
             };
 
-            framework.add_api_route(api_route).await?;
+            // TODO: API route registration not implemented yet
+            // framework.add_api_route(api_route).await?;
             api_count += 1;
         }
     }

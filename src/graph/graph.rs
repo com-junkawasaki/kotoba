@@ -209,11 +209,11 @@ impl GraphRef {
         }
     }
 
-    pub fn read(&self) -> parking_lot::RwLockReadGuard<Graph> {
+    pub fn read(&self) -> parking_lot::RwLockReadGuard<'_, Graph> {
         self.inner.read()
     }
 
-    pub fn write(&self) -> parking_lot::RwLockWriteGuard<Graph> {
+    pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, Graph> {
         self.inner.write()
     }
 }
