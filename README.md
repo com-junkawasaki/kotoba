@@ -1,58 +1,58 @@
-# Kotoba (言葉)
+# Kotoba
 
-**GP2系グラフ書換え言語** - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム
+**GP2-based Graph Rewriting Language** - A comprehensive graph processing system with ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution.
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/github/workflow/status/jun784/kotoba/CI)](https://github.com/jun784/kotoba/actions)
 
-## 📖 概要
+## 📖 Overview
 
-Kotobaは、グラフ理論に基づく強力なグラフ処理システムです。GP2 (Graph Programs 2) の書換えシステムを核に、ISO GQL準拠のクエリ言語、MVCC+Merkleツリーによる永続化、分散実行までを一貫して実装しています。
+Kotoba is a powerful graph processing system based on graph theory. Built around GP2 (Graph Programs 2) rewriting system, it provides comprehensive implementation of ISO GQL-compliant query language, MVCC+Merkle tree persistence, and distributed execution.
 
-### 🎯 主な特徴
+### 🎯 Key Features
 
-- **DPO (Double Pushout) 型付き属性グラフ書換え**: 理論的基盤のあるグラフ変換
-- **ISO GQL準拠クエリ**: 標準化されたグラフクエリ言語
-- **MVCC + Merkle DAG**: 一貫性のある分散永続化
-- **列指向ストレージ**: LSMツリーによる効率的なデータアクセス
-- **プロセスネットワークグラフモデル**: dag.jsonnetによる一元管理
-- **Rustネイティブ**: メモリ安全で高性能
+- **DPO (Double Pushout) Typed Attribute Graph Rewriting**: Graph transformation with theoretical foundation
+- **ISO GQL-compliant Queries**: Standardized graph query language
+- **MVCC + Merkle DAG**: Consistent distributed persistence
+- **Column-oriented Storage**: Efficient data access with LSM trees
+- **Process Network Graph Model**: Centralized management via dag.jsonnet
+- **Rust Native**: Memory-safe and high-performance
 
-## 🚀 クイックスタート
+## 🚀 Quick Start
 
-### 必要条件
+### Prerequisites
 
-- Rust 1.70.0 以上
-- Cargo パッケージマネージャー
+- Rust 1.70.0 or later
+- Cargo package manager
 
-### インストール
+### Installation
 
 ```bash
-# リポジトリをクローン
+# Clone the repository
 git clone https://github.com/jun784/kotoba.git
 cd kotoba
 
-# 依存関係をインストール
+# Install dependencies
 cargo build
 
-# テストを実行
+# Run tests
 cargo test
 
-# CLIツールをビルド
+# Build CLI tool
 cargo build --release
 ```
 
-### 基本的な使用例
+### Basic Usage Example
 
 ```rust
 use kotoba::*;
 
 fn main() -> Result<()> {
-    // グラフを作成
+    // Create a graph
     let mut graph = Graph::empty();
 
-    // 頂点を追加
+    // Add vertices
     let v1 = graph.add_vertex(VertexData {
         id: uuid::Uuid::new_v4(),
         labels: vec!["Person".to_string()],
@@ -65,7 +65,7 @@ fn main() -> Result<()> {
         props: [("name".to_string(), Value::String("Bob".to_string()))].into(),
     });
 
-    // エッジを追加
+    // Add edge
     graph.add_edge(EdgeData {
         id: uuid::Uuid::new_v4(),
         src: v1,
@@ -74,7 +74,7 @@ fn main() -> Result<()> {
         props: HashMap::new(),
     });
 
-    // GQLクエリを実行
+    // Execute GQL query
     let gql = "MATCH (p:Person) RETURN p.name";
     let executor = QueryExecutor::new();
     let catalog = Catalog::empty();
@@ -85,37 +85,37 @@ fn main() -> Result<()> {
 }
 ```
 
-## 🏗️ アーキテクチャ
+## 🏗️ Architecture
 
-### プロセスネットワークグラフモデル
+### Process Network Graph Model
 
-Kotobaは**プロセスネットワークグラフモデル**に基づいており、すべてのコンポーネントが`dag.jsonnet`で一元管理されています。
+Kotoba is based on a **Process Network Graph Model**, where all components are centrally managed through `dag.jsonnet`.
 
-#### 主要コンポーネント
+#### Main Components
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                          lib.rs                             │
-│                    (メインライブラリ)                       │
+│                    (Main Library)                           │
 ├─────────────────────────────────────────────────────────────┤
 │          execution/          │          rewrite/            │
-│       (クエリ実行器)         │       (DPO書換え器)          │
+│       (Query Executor)       │       (DPO Rewriter)         │
 ├─────────────────────────────────────────────────────────────┤
 │          planner/            │          storage/            │
-│       (クエリプランナー)      │       (MVCC+Merkle)         │
+│       (Query Planner)        │       (MVCC+Merkle)          │
 ├─────────────────────────────────────────────────────────────┤
 │           graph/             │            ir/               │
-│       (データ構造)           │       (中核IR)               │
+│       (Data Structures)      │       (Core IR)              │
 ├─────────────────────────────────────────────────────────────┤
 │                          types.rs                           │
-│                    (共通型定義)                            │
+│                    (Common Types)                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### ビルド順序 (トポロジカルソート)
+### Build Order (Topological Sort)
 
 ```jsonnet
-// dag.jsonnetからビルド順序を取得
+// Get build order from dag.jsonnet
 $ jsonnet eval dag.jsonnet | jq .topological_order
 [
   "types",
@@ -142,18 +142,18 @@ $ jsonnet eval dag.jsonnet | jq .topological_order
 ]
 ```
 
-## 📋 使用方法
+## 📋 Usage
 
-### 1. 基本的なGQLクエリ
+### 1. Basic GQL Queries
 
 ```rust
 use kotoba::{QueryExecutor, Catalog, GraphRef};
 
-// クエリ実行器を作成
+// Create query executor
 let executor = QueryExecutor::new();
 let catalog = Catalog::empty();
 
-// GQLクエリを実行
+// Execute GQL query
 let gql = r#"
     MATCH (p:Person)-[:FOLLOWS]->(f:Person)
     WHERE p.age > 20
@@ -163,37 +163,37 @@ let gql = r#"
 let results = executor.execute_gql(gql, &graph_ref, &catalog)?;
 ```
 
-### 2. グラフ書換え
+### 2. Graph Rewriting
 
 ```rust
 use kotoba::{RewriteEngine, RuleIR, StrategyIR};
 
-// 書換えエンジンを作成
+// Create rewrite engine
 let engine = RewriteEngine::new();
 
-// ルールを定義
-let rule = RuleIR { /* ルール定義 */ };
-let strategy = StrategyIR { /* 戦略定義 */ };
+// Define rules
+let rule = RuleIR { /* rule definition */ };
+let strategy = StrategyIR { /* strategy definition */ };
 
-// 書換えを実行
+// Execute rewrite
 let patch = engine.rewrite(&graph_ref, &rule, &strategy)?;
 ```
 
-### 3. 手動によるグラフ操作
+### 3. Manual Graph Operations
 
 ```rust
 use kotoba::{Graph, VertexBuilder, EdgeBuilder};
 
-// グラフを作成
+// Create graph
 let mut graph = Graph::empty();
 
-// 頂点を追加
+// Add vertices
 let v1 = graph.add_vertex(VertexBuilder::new()
     .label("Person")
     .prop("name", Value::String("Alice"))
     .build());
 
-// エッジを追加
+// Add edge
 let e1 = graph.add_edge(EdgeBuilder::new()
     .src(v1)
     .dst(v2)
@@ -201,217 +201,217 @@ let e1 = graph.add_edge(EdgeBuilder::new()
     .build());
 ```
 
-## 🛠️ 開発方法
+## 🛠️ Development
 
-### dag.jsonnetの利用
+### Using dag.jsonnet
 
-#### 1. 依存関係分析
+#### 1. Dependency Analysis
 
 ```bash
-# 特定のコンポーネントの依存関係を確認
+# Check dependencies of specific component
 jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.get_dependencies('execution_engine')"
 
-# 依存されているコンポーネントを確認
+# Check components that depend on this component
 jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.get_dependents('types')"
 ```
 
-#### 2. ビルド順序の確認
+#### 2. Build Order Verification
 
 ```bash
-# 全体のビルド順序を取得
+# Get overall build order
 jsonnet eval dag.jsonnet | jq .topological_order[]
 
-# 特定のノードのビルド順序を確認
+# Check build order for specific node
 jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.get_build_order('graph_core')"
 ```
 
-#### 3. 問題解決時の因果特定
+#### 3. Causality Identification During Troubleshooting
 
 ```bash
-# 問題発生時の調査順序を取得
+# Get investigation order when problems occur
 jsonnet eval dag.jsonnet | jq .reverse_topological_order[]
 ```
 
-### lib.jsonnetの利用
+### Using lib.jsonnet
 
-#### 1. ビルド設定の確認
+#### 1. Build Configuration Verification
 
 ```bash
-# 特定のターゲットの設定を取得
+# Get configuration for specific target
 jsonnet eval -e "local lib = import 'lib.jsonnet'; lib.get_target_config('x86_64-apple-darwin')"
 
-# コンポーネントの依存関係を解決
+# Resolve component dependencies
 jsonnet eval -e "local lib = import 'lib.jsonnet'; lib.resolve_dependencies('kotoba-core', ['full'])"
 ```
 
-#### 2. パッケージング設定
+#### 2. Packaging Configuration
 
 ```bash
-# Dockerイメージ設定を取得
+# Get Docker image configuration
 jsonnet eval lib.jsonnet | jq .packaging.docker
 
-# Debianパッケージ設定を取得
+# Get Debian package configuration
 jsonnet eval lib.jsonnet | jq .packaging.debian
 ```
 
-### 開発ワークフロー
+### Development Workflow
 
 ```bash
-# 1. コード変更
+# 1. Make code changes
 vim src/some_component.rs
 
-# 2. 依存関係を確認
+# 2. Check dependencies
 jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.get_dependencies('some_component')"
 
-# 3. テストを実行
+# 3. Run tests
 cargo test --package some_component
 
-# 4. 全体の整合性をチェック
+# 4. Check overall consistency
 cargo check
 
-# 5. DAGの検証
+# 5. Validate DAG
 jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.validate_dag()"
 
-# 6. コミット
+# 6. Commit
 git add .
 git commit -m "Update some_component"
 ```
 
-## 🧪 テスト
+## 🧪 Testing
 
-### ユニットテスト
+### Unit Tests
 
 ```bash
-# 全テストを実行
+# Run all tests
 cargo test
 
-# 特定のテストを実行
+# Run specific test
 cargo test test_graph_operations
 
-# ドキュメントテストを実行
+# Run documentation tests
 cargo test --doc
 ```
 
-### 統合テスト
+### Integration Tests
 
 ```bash
-# 統合テストを実行
+# Run integration tests
 cargo test --test integration
 
-# ベンチマークを実行
+# Run benchmarks
 cargo bench
 ```
 
-### LDBC-SNBベンチマーク
+### LDBC-SNB Benchmark
 
 ```bash
-# LDBC-SNBデータセットでベンチマーク
+# Run benchmark with LDBC-SNB dataset
 cargo run --bin kotoba-bench -- --dataset ldbc-snb
 ```
 
-## 📦 パッケージング
+## 📦 Packaging
 
-### Dockerイメージ
+### Docker Image
 
 ```bash
-# Dockerイメージをビルド
+# Build Docker image
 docker build -t kotoba:latest .
 
-# イメージを実行
+# Run the image
 docker run -p 8080:8080 kotoba:latest
 ```
 
-### Debianパッケージ
+### Debian Package
 
 ```bash
-# Debianパッケージを作成
+# Create Debian package
 cargo deb
 
-# パッケージをインストール
+# Install the package
 sudo dpkg -i target/debian/kotoba_0.1.0_amd64.deb
 ```
 
 ### Homebrew
 
 ```bash
-# Homebrew Formulaをインストール
+# Install Homebrew Formula
 brew install kotoba
 ```
 
-## 🔧 CLIツール
+## 🔧 CLI Tools
 
 ### kotoba-cli
 
 ```bash
-# ヘルプを表示
+# Show help
 ./target/release/kotoba-cli --help
 
-# GQLクエリを実行
+# Execute GQL query
 ./target/release/kotoba-cli query "MATCH (p:Person) RETURN p.name"
 
-# グラフファイルをロード
+# Load graph file
 ./target/release/kotoba-cli load --file graph.json
 
-# 統計情報を表示
+# Display statistics
 ./target/release/kotoba-cli stats
 ```
 
-## 📚 APIドキュメント
+## 📚 API Documentation
 
 ```bash
-# ドキュメントを生成
+# Generate documentation
 cargo doc --open
 
-# プライベートアイテムを含むドキュメントを生成
+# Generate documentation including private items
 cargo doc --document-private-items --open
 ```
 
-## 🤝 貢献
+## 🤝 Contributing
 
-### 貢献ガイドライン
+### Contribution Guidelines
 
-1. **Issueを作成**: バグ報告や機能リクエスト
-2. **ブランチを作成**: `feature/your-feature-name`
-3. **変更を実装**:
-   - テストを追加
-   - ドキュメントを更新
-   - dag.jsonnetの整合性を確認
-4. **Pull Requestを作成**
+1. **Create Issue**: Bug reports or feature requests
+2. **Create Branch**: `feature/your-feature-name`
+3. **Implement Changes**:
+   - Add tests
+   - Update documentation
+   - Verify dag.jsonnet consistency
+4. **Create Pull Request**
 
-### 開発環境のセットアップ
+### Development Environment Setup
 
 ```bash
-# 開発用依存関係をインストール
+# Install development dependencies
 cargo install cargo-edit cargo-watch cargo-deb
 
-# pre-commit hooksを設定
+# Set up pre-commit hooks
 cp pre-commit.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
-### コーディング規約
+### Coding Standards
 
-- **Rust**: `rustfmt` と `clippy` を使用
-- **コミットメッセージ**: [Conventional Commits](https://conventionalcommits.org/)
-- **テスト**: すべての変更にテストを追加
-- **ドキュメント**: すべての公開APIにドキュメントを追加
+- **Rust**: Use `rustfmt` and `clippy`
+- **Commit Messages**: [Conventional Commits](https://conventionalcommits.org/)
+- **Testing**: Add tests for all changes
+- **Documentation**: Add documentation for all public APIs
 
-## 📄 ライセンス
+## 📄 License
 
-このプロジェクトは MIT ライセンスの下で公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🙏 謝辞
+## 🙏 Acknowledgments
 
-- GP2チーム: グラフ書換えシステムの理論的基盤
-- ISO/IEC: GQL標準仕様
-- Rustコミュニティ: 優れたプログラミング言語
+- GP2 Team: Theoretical foundation for graph rewriting systems
+- ISO/IEC: GQL standard specification
+- Rust Community: Excellent programming language
 
-## 📞 サポート
+## 📞 Support
 
-- **ドキュメント**: [https://kotoba.jun784.dev](https://kotoba.jun784.dev)
+- **Documentation**: [https://kotoba.jun784.dev](https://kotoba.jun784.dev)
 - **Issues**: [GitHub Issues](https://github.com/jun784/kotoba/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/jun784/kotoba/discussions)
 
 ---
 
-**Kotoba** - 言葉を通じてグラフの世界を探索する
+**Kotoba** - Exploring the world of graphs through words
