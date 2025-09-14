@@ -2,6 +2,11 @@
 name = "kotoba"
 version = "0.1.0"
 edition = "2021"
+description = "GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jun784/kotoba"
+keywords = ["graph", "database", "gql", "rewrite", "distributed"]
+categories = ["database", "data-structures", "algorithms"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
