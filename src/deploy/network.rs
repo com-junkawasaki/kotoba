@@ -539,7 +539,7 @@ impl RegionManager {
                 a.utilization.partial_cmp(&b.utilization).unwrap()
             })
             .ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(
+                kotoba_core::types::KotobaError::InvalidArgument(
                     "No active regions available".to_string()
                 )
             })?;
@@ -599,7 +599,7 @@ impl EdgeRouter {
                 dist_a.partial_cmp(&dist_b).unwrap()
             })
             .ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(
+                kotoba_core::types::KotobaError::InvalidArgument(
                     "No edge locations available".to_string()
                 )
             })?;

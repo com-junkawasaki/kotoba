@@ -385,7 +385,7 @@ impl MetricsCollector {
         let timestamp = SystemTime::now();
 
         // CPU使用率を収集（実際にはインスタンスから取得）
-        let cpu_usage = 45.0 + (rand::random::<f64>() - 0.5) * 20.0;
+        let cpu_usage = 45.0 + (0.5 - 0.5) * 20.0;
         self.cpu_metrics.write().unwrap().push(MetricPoint {
             timestamp,
             value: cpu_usage.max(0.0).min(100.0),
@@ -393,7 +393,7 @@ impl MetricsCollector {
         });
 
         // メモリ使用率を収集
-        let memory_usage = 60.0 + (rand::random::<f64>() - 0.5) * 30.0;
+        let memory_usage = 60.0 + (0.3 - 0.5) * 30.0;
         self.memory_metrics.write().unwrap().push(MetricPoint {
             timestamp,
             value: memory_usage.max(0.0).min(100.0),

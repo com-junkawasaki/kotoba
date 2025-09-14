@@ -74,7 +74,7 @@ pub struct WebhookInfo {
 }
 
 /// GitHubイベント
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct GitHubEvent {
     /// イベントタイプ
     pub event_type: String,
@@ -87,7 +87,7 @@ pub struct GitHubEvent {
 }
 
 /// プッシュイベントペイロード
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct PushEventPayload {
     /// リファレンス
     pub ref_field: String,
@@ -100,7 +100,7 @@ pub struct PushEventPayload {
 }
 
 /// プルリクエストイベントペイロード
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct PullRequestEventPayload {
     /// アクション
     pub action: String,
@@ -113,7 +113,7 @@ pub struct PullRequestEventPayload {
 }
 
 /// コミット情報
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct CommitInfo {
     /// コミットID
     pub id: String,
@@ -126,7 +126,7 @@ pub struct CommitInfo {
 }
 
 /// ユーザー情報
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct UserInfo {
     /// ユーザーID
     pub id: u32,
@@ -137,7 +137,7 @@ pub struct UserInfo {
 }
 
 /// リポジトリ情報
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct RepositoryInfo {
     /// リポジトリID
     pub id: u32,
@@ -148,7 +148,7 @@ pub struct RepositoryInfo {
 }
 
 /// プルリクエスト情報
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct PullRequestInfo {
     /// ID
     pub id: u32,
@@ -169,7 +169,7 @@ pub struct PullRequestInfo {
 }
 
 /// ブランチ情報
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct BranchInfo {
     /// ラベル
     pub label: String,

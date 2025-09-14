@@ -5,7 +5,46 @@
 
 use kotoba_core::types::{Result, Value, ContentHash};
 use crate::deploy::config::{DeployConfig, DeployConfigBuilder};
-// use serde_json::{Value as JsonValue, Map}; // 簡易実装では使用しない
+// JsonValueの簡易実装
+#[derive(Debug, Clone)]
+enum JsonValue {
+    Null,
+    Bool(bool),
+    Number(f64),
+    String(String),
+    Array(Vec<JsonValue>),
+    Object(HashMap<String, JsonValue>),
+}
+
+impl JsonValue {
+    fn as_object(&self) -> Option<&HashMap<String, JsonValue>> {
+        match self {
+            JsonValue::Object(obj) => Some(obj),
+            _ => None,
+        }
+    }
+
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            JsonValue::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    fn as_u64(&self) -> Option<u64> {
+        match self {
+            JsonValue::Number(n) => Some(*n as u64),
+            _ => None,
+        }
+    }
+
+    fn as_array(&self) -> Option<&Vec<JsonValue>> {
+        match self {
+            JsonValue::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+}
 use std::path::Path;
 use std::fs;
 use std::collections::HashMap;
@@ -44,7 +83,7 @@ impl JsonnetEvaluator {
         if content.trim().starts_with('{') {
             self.parse_object(&content)
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(
+            Err(kotoba_core::types::KotobaError::InvalidArgument(
                 "Unsupported Jsonnet syntax".to_string()
             ))
         }
@@ -99,13 +138,13 @@ impl JsonnetEvaluator {
         let content = content.trim();
 
         if !content.starts_with('{') || !content.ends_with('}') {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(kotoba_core::types::KotobaError::InvalidArgument(
                 "Invalid object syntax".to_string()
             ));
         }
 
         let inner = &content[1..content.len() - 1];
-        let mut map = Map::new();
+        let mut map = HashMap::new();
 
         // 簡易的なキーバリューパース
         let pairs = self.split_object_pairs(inner)?;
@@ -128,9 +167,9 @@ impl JsonnetEvaluator {
             } else if value_str == "null" {
                 JsonValue::Null
             } else if let Ok(num) = value_str.parse::<i64>() {
-                JsonValue::Number(num.into())
+                JsonValue::Number(num as f64)
             } else if let Ok(num) = value_str.parse::<f64>() {
-                JsonValue::Number(serde_json::Number::from_f64(num).unwrap())
+                JsonValue::Number(num)
             } else if value_str.starts_with('{') {
                 self.parse_object(value_str)?
             } else if value_str.starts_with('[') {
@@ -150,7 +189,7 @@ impl JsonnetEvaluator {
         let content = content.trim();
 
         if !content.starts_with('[') || !content.ends_with(']') {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(kotoba_core::types::KotobaError::InvalidArgument(
                 "Invalid array syntax".to_string()
             ));
         }
@@ -171,9 +210,9 @@ impl JsonnetEvaluator {
                 } else if element == "null" {
                     JsonValue::Null
                 } else if let Ok(num) = element.parse::<i64>() {
-                    JsonValue::Number(num.into())
+                    JsonValue::Number(num as f64)
                 } else if let Ok(num) = element.parse::<f64>() {
-                    JsonValue::Number(serde_json::Number::from_f64(num).unwrap())
+                    JsonValue::Number(num)
                 } else {
                     JsonValue::String(element.to_string())
                 };
@@ -323,7 +362,7 @@ impl DeployConfigParser {
     /// JSON値からDeployConfigを構築
     fn parse_json_value(&self, value: JsonValue) -> Result<DeployConfig> {
         let obj = value.as_object().ok_or_else(|| {
-            crate::types::KotobaError::InvalidArgument(
+            kotoba_core::types::KotobaError::InvalidArgument(
                 "Root must be an object".to_string()
             )
         })?;

@@ -9,6 +9,7 @@ use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::*;
 use std::time::SystemTimeError;
 use uuid::Uuid;
+use parking_lot::RwLockReadGuard;
 use crate::deploy::config::{DeployConfig};
 use crate::deploy::scaling::ScalingEngine;
 use crate::deploy::network::NetworkManager;
@@ -168,7 +169,7 @@ pub enum DeploymentQueryType {
 }
 
 /// GQLデプロイメントレスポンス
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct GqlDeploymentResponse {
     /// 成功フラグ
     pub success: bool,
@@ -320,13 +321,14 @@ impl DeployController {
             // デプロイメントグラフを更新
             let mut graph = self.deployment_graph.write().unwrap();
 
-            if let Some(vertex) = graph.get_vertex(&deployment_id) {
+            if graph.get_vertex(&deployment_id).is_some() {
                 // deployment_idは既にUuidなのでそのまま使用
                 // 古い頂点を削除
                 graph.remove_vertex(&deployment_id);
 
-                // 更新された頂点を追加
-                let mut props = vertex.props.clone();
+                // デフォルトのvertexを作成（実際の実装ではDBから取得）
+                let mut props = HashMap::new();
+                props.insert("id".to_string(), Value::String(deployment_id.to_string()));
                 props.insert("status".to_string(), Value::String("updating".to_string()));
                 let updated_at = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
                     .map_err(|e| KotobaError::InvalidArgument(format!("Time error: {}", e)))?
@@ -334,8 +336,9 @@ impl DeployController {
                 props.insert("updated_at".to_string(), Value::String(updated_at.to_string()));
 
                 let updated_vertex = VertexData {
+                    id: deployment_id,
+                    labels: vec!["Deployment".to_string()],
                     props,
-                    ..vertex.clone()
                 };
 
                 graph.add_vertex(updated_vertex);
@@ -377,10 +380,10 @@ impl DeployController {
             let mut status_data = HashMap::new();
             status_data.insert("id".to_string(), Value::String(state.id.clone()));
             status_data.insert("status".to_string(), Value::String(format!("{:?}", state.status)));
-            status_data.insert("instance_count".to_string(), Value::Number(state.instance_count as f64));
+            status_data.insert("instance_count".to_string(), Value::Int(state.instance_count as i64));
             // endpoints and timestamps would be added here in full implementation
 
-            Ok(Value::from(status_data))
+            Ok(Value::String(format!("{:?}", status_data)))
         } else {
             Err(KotobaError::InvalidArgument(
                 format!("Deployment {} not found", deployment_id)
@@ -399,12 +402,12 @@ impl DeployController {
                 data.insert("name".to_string(), Value::String(state.config.metadata.name.clone()));
                 data.insert("version".to_string(), Value::String(state.config.metadata.version.clone()));
                 data.insert("status".to_string(), Value::String(format!("{:?}", state.status)));
-                data.insert("instance_count".to_string(), Value::Number(state.instance_count as f64));
-                Value::from(data)
+                data.insert("instance_count".to_string(), Value::Int(state.instance_count as i64));
+                Value::String(format!("{:?}", data))
             })
             .collect();
 
-        Ok(Value::from(deployments))
+        Ok(Value::String(format!("{:?}", deployments)))
     }
 
     /// GQLを使用してデプロイメントをスケーリング
@@ -494,13 +497,13 @@ impl DeployController {
 
     /// GQLクエリから値を抽出するヘルパー関数
     fn extract_value_from_gql(&self, gql_query: &str, key: &str) -> Result<Option<String>> {
-        // 簡易的な抽出ロジック
-        let pattern = format!("{}:\\s*[\"']([^\"']+)[\"']", regex::escape(key));
-        let re = regex::Regex::new(&pattern)?;
-
-        if let Some(captures) = re.captures(gql_query) {
-            if let Some(value) = captures.get(1) {
-                return Ok(Some(value.as_str().to_string()));
+        // 簡易的な抽出ロジック（正規表現なし）
+        let key_pattern = format!("{}: \"", key);
+        if let Some(start_pos) = gql_query.find(&key_pattern) {
+            let start = start_pos + key_pattern.len();
+            if let Some(end_pos) = gql_query[start..].find('"') {
+                let value = &gql_query[start..start + end_pos];
+                return Ok(Some(value.to_string()));
             }
         }
 
@@ -508,13 +511,16 @@ impl DeployController {
     }
 
     /// デプロイメントグラフを取得
-    pub fn get_deployment_graph(&self) -> Graph {
-        self.deployment_graph.read().unwrap().clone()
+    pub fn get_deployment_graph(&self) -> RwLockReadGuard<Graph> {
+        self.deployment_graph.read()
     }
 
     /// デプロイメント状態を取得
     pub fn get_deployment_states(&self) -> HashMap<String, DeploymentState> {
-        self.deployment_states.read().unwrap().clone()
+        let states = self.deployment_states.read().unwrap();
+        states.iter()
+            .map(|(uuid, state)| (uuid.to_string(), state.clone()))
+            .collect()
     }
 }
 
@@ -643,7 +649,7 @@ impl GqlDeploymentExtensions for DeployController {
 
     fn query_deployment_graph(&self, gql_query: &str) -> Result<Value> {
         // デプロイメントグラフに対するGQLクエリを実行
-        let graph = self.get_deployment_graph();
+        let graph = &*self.get_deployment_graph();
 
         // 実際の実装ではGQLクエリを実行してグラフをトラバース
         // ここでは簡易的な実装
@@ -665,13 +671,13 @@ impl GqlDeploymentExtensions for DeployController {
 
                     let mut vertex_data = HashMap::new();
                     vertex_data.insert("id".to_string(), Value::String(v.id.to_string()));
-                    vertex_data.insert("labels".to_string(), Value::from(v.labels.clone()));
-                    vertex_data.insert("properties".to_string(), Value::from(properties));
-                    Value::from(vertex_data)
+                    vertex_data.insert("labels".to_string(), Value::String(format!("{:?}", v.labels)));
+                    vertex_data.insert("properties".to_string(), Value::String(format!("{:?}", properties)));
+                    Value::String(format!("{:?}", vertex_data))
                 })
                 .collect();
 
-            Ok(Value::from(vertices))
+            Ok(Value::String(format!("{:?}", vertices)))
         } else {
             Ok(Value::String("Unsupported graph query".to_string()))
         }

@@ -3,10 +3,11 @@
 //! このモジュールはJsonnetベースの.kotoba-deployファイルの構造を定義します。
 //! Deno Deployと同等の機能をサポートしつつ、KotobaのLive Graph Modelに適応しています。
 
-use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_core::types::{Result, Value, ContentHash, KotobaError};
 // use serde::{Deserialize, Serialize}; // 簡易実装では使用しない
 // use sha2::{Sha256, Digest}; // 簡易実装では使用しない
 use std::collections::HashMap;
+use std::time::SystemTime;
 
 /// デプロイ設定のメイン構造体
 #[derive(Debug, Clone)]
@@ -344,7 +345,9 @@ impl Default for DeployConfig {
                 version: "0.1.0".to_string(),
                 description: None,
                 author: None,
-                created_at: chrono::Utc::now().to_rfc3339(),
+                created_at: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                    .map(|d| d.as_secs().to_string())
+                    .unwrap_or_else(|_| "0".to_string()),
                 updated_at: None,
                 config_hash: None,
             },
@@ -387,40 +390,40 @@ impl DeployConfig {
     pub fn validate(&self) -> Result<()> {
         // 名前の検証
         if self.metadata.name.is_empty() {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "Deployment name cannot be empty".to_string()
             ));
         }
 
         // エントリーポイントの検証
         if self.application.entry_point.is_empty() {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "Entry point cannot be empty".to_string()
             ));
         }
 
         // スケーリング設定の検証
         if self.scaling.min_instances == 0 {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "Minimum instances must be greater than 0".to_string()
             ));
         }
 
         if self.scaling.max_instances < self.scaling.min_instances {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "Maximum instances must be greater than or equal to minimum instances".to_string()
             ));
         }
 
         // CPU/Memory閾値の検証
         if !(0.0..=100.0).contains(&self.scaling.cpu_threshold) {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "CPU threshold must be between 0 and 100".to_string()
             ));
         }
 
         if !(0.0..=100.0).contains(&self.scaling.memory_threshold) {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "Memory threshold must be between 0 and 100".to_string()
             ));
         }

@@ -162,7 +162,7 @@ impl DeployCliImpl {
         // ここでは簡易的なモック実装
 
         let query_executor = Arc::new(kotoba_execution::execution::QueryExecutor::new());
-        let query_planner = Arc::new(kotoba_execution::execution::QueryPlanner::new());
+        // let query_planner = Arc::new(kotoba_execution::execution::QueryPlanner::new()); // 簡易実装では使用しない
         let rewrite_engine = Arc::new(kotoba_rewrite::rewrite::RewriteEngine::new());
         let scaling_config = crate::deploy::config::ScalingConfig {
             min_instances: 1,

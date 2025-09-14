@@ -10,6 +10,45 @@ use crate::deploy::scaling::LoadBalancer;
 use crate::deploy::network::NetworkManager;
 // use crate::http::server::HttpServer; // 簡易実装では使用しない
 // use crate::http::ir::{HttpConfig, ServerConfig, RouteConfig, MiddlewareConfig};
+
+// 簡易HTTPサーバー実装
+#[derive(Debug)]
+pub struct HttpServer {
+    config: HttpConfig,
+}
+
+#[derive(Debug)]
+pub struct HttpConfig {
+    pub host: String,
+    pub port: u16,
+    pub max_connections: usize,
+    pub timeout_ms: u32,
+}
+
+#[derive(Debug)]
+pub struct ServerConfig {
+    pub host: String,
+    pub port: u16,
+}
+
+impl HttpConfig {
+    pub fn new(config: ServerConfig) -> Self {
+        Self {
+            host: config.host,
+            port: config.port,
+            max_connections: 1000,
+            timeout_ms: 30000,
+        }
+    }
+}
+
+impl HttpServer {
+    pub async fn new(_config: HttpConfig, _mvcc: Arc<dyn std::any::Any>, _merkle: Arc<dyn std::any::Any>, _rewrite_engine: Arc<dyn std::any::Any>) -> Result<Self> {
+        Ok(Self {
+            config: _config,
+        })
+    }
+}
 use std::sync::Arc;
 use std::collections::HashMap;
 use tokio::net::TcpListener;
@@ -71,7 +110,7 @@ impl HostingServer {
         let merkle = Arc::new(kotoba_storage::storage::MerkleDAG::new());
         let rewrite_engine = Arc::new(kotoba_rewrite::rewrite::RewriteEngine::new());
 
-        let http_server = HttpServer::new(http_config, mvcc, merkle, rewrite_engine).await?;
+        let http_server = HttpServer::new(http_config, Arc::new(()), Arc::new(()), Arc::new(())).await?;
 
         Ok(Self {
             http_server,
@@ -135,8 +174,8 @@ impl HostingServer {
             app.request_count += 1;
         }
 
-        // ランタイムでリクエストを処理
-        let params = vec![wasmtime::Val::I32(path.len() as i32)];
+        // ランタイムでリクエストを処理 (簡易実装)
+        let params = vec![path.len() as i32];
         let result = self.runtime_manager.call(&app.instance_id, "handle_request", &params).await?;
 
         // レスポンスを構築
@@ -201,7 +240,7 @@ impl HostingServer {
             println!("✅ Application {} removed", app_id);
             Ok(())
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(format!("Application {} not found", app_id)))
+            Err(kotoba_core::types::KotobaError::InvalidArgument(format!("Application {} not found", app_id)))
         }
     }
 }
@@ -244,8 +283,8 @@ async fn process_http_request(
 
     match app {
         Some(app) => {
-            // ランタイムでリクエストを処理
-            let params = vec![wasmtime::Val::I32(path.len() as i32)];
+            // ランタイムでリクエストを処理 (簡易実装)
+            let params = vec![path.len() as i32];
             match runtime_manager.call(&app.instance_id, "handle_request", &params).await {
                 Ok(_) => {
                     let response = format!(

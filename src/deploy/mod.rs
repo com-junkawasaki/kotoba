@@ -48,7 +48,7 @@ pub use network::{
     NetworkManager, RegionManager, EdgeRouter, NetworkConfig as NetworkConfigTrait,
 };
 pub use git_integration::{
-    GitIntegration, WebhookHandler, GitHubConfig, GitHubEvent, DeploymentStatus,
+    GitIntegration, WebhookHandler, GitHubConfig, GitHubEvent,
 };
 pub use parser::{
     DeployConfigParser,
