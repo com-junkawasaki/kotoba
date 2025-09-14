@@ -19,7 +19,8 @@ pub mod config;
 pub mod capabilities;
 
 pub use jwt::{JwtService, JwtClaims, TokenPair};
-pub use oauth2::{OAuth2Service, OAuth2Provider, OAuth2Config, OAuth2Tokens};
+pub use oauth2::{OAuth2Service, OAuth2Provider, OAuth2Tokens};
+pub use crate::config::OAuth2Config;
 pub use mfa::{MfaService, MfaSecret, MfaCode};
 pub use password::{PasswordService, PasswordHash};
 pub use session::{SessionManager, SessionData};

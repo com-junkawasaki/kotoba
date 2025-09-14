@@ -415,7 +415,7 @@ impl OAuth2Service {
     }
 
     /// Create OpenID Connect client
-    fn create_oidc_client(provider_config: &OAuth2ProviderConfig, redirect_uri: &str) -> Result<CoreClient> {
+    async fn create_oidc_client(provider_config: &OAuth2ProviderConfig, redirect_uri: &str) -> Result<CoreClient> {
         // For OpenID Connect, we need to discover the provider metadata
         // This is a simplified implementation - in production, you might want to cache this
         let issuer_url = match OAuth2Provider::from_str("google") {
