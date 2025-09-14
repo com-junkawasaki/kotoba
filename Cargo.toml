@@ -32,6 +32,7 @@ authors = ["Jun Kawasaki <jun784@example.com>"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba"
 homepage = "https://github.com/jun784/kotoba"
+exclude = ["examples/**/*", "benches/**/*", "tests/**/*"]
 
 [dependencies]
 # Core crates - published versions
@@ -90,10 +91,11 @@ harness = false
 name = "storage_operations"
 harness = false
 
-[[example]]
-name = "http_server"
-path = "examples/http_server/main.rs"
+# Examples are excluded from publish to avoid dependency issues
+# [[example]]
+# name = "http_server"
+# path = "examples/http_server/main.rs"
 
-[[example]]
-name = "tauri_react_app"
-path = "examples/tauri_react_app/src-tauri/src/main.rs"
+# [[example]]
+# name = "tauri_react_app"
+# path = "examples/tauri_react_app/src-tauri/src/main.rs"
