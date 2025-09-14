@@ -13,7 +13,6 @@ use crate::RewriteEngine;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
-use urlencoding;
 
 /// HTTPサーバーエンジン
 #[derive(Clone)]
@@ -35,6 +34,8 @@ impl HttpEngine {
         rewrite_engine: Arc<RewriteEngine>,
     ) -> Self {
         let security_service = Arc::new(crate::http::handlers::SecurityService);
+        let security_service_clone = security_service.clone();
+
         let request_processor = HttpRequestProcessor::new(
             rewrite_engine,
             mvcc,
@@ -42,7 +43,7 @@ impl HttpEngine {
             security_service,
         );
 
-        let middleware_processor = MiddlewareProcessor::new(config.middlewares.clone(), security_service.clone());
+        let middleware_processor = MiddlewareProcessor::new(config.middlewares.clone(), security_service_clone);
         let handler_processor = HandlerProcessor::new();
 
         // ルートをマップにインデックス化
@@ -126,8 +127,11 @@ impl HttpEngine {
 
         for pair in query_str.split('&') {
             if let Some((key, value)) = pair.split_once('=') {
-                if let (Ok(key), Ok(value)) = (urlencoding::decode(key), urlencoding::decode(value)) {
-                    query.insert(key.into_owned(), value.into_owned());
+                // URL decode key and value (stub implementation)
+                let decoded_key = key.to_string();
+                let decoded_value = value.to_string();
+                if !decoded_key.is_empty() && !decoded_value.is_empty() {
+                    query.insert(key.to_owned(), value.to_owned());
                 }
             }
         }

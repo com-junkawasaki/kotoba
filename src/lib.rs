@@ -29,7 +29,7 @@ pub mod schema_test;
 pub mod distributed;
 pub mod network_protocol;
 pub mod schema_validator;
-pub mod topology;
+// pub mod topology; // Excluded from publish
 pub mod types;
 pub mod frontend;
 pub mod http;
@@ -47,6 +47,6 @@ pub use kotoba_rewrite::prelude::*;
 // Examples and topology are excluded from publish
 // #[cfg(feature = "examples")]
 // pub mod examples;
-// pub mod topology;
+// // pub mod topology; // Excluded from publish
 
 // pub use topology::*;

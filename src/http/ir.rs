@@ -306,25 +306,25 @@ impl Default for HttpCatalog {
                     properties: vec![
                     PropertyDef {
                         name: "id".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "method".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "path".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "timestamp".to_string(),
-                        type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                         nullable: false,
                         default: None,
                     },
@@ -336,13 +336,13 @@ impl Default for HttpCatalog {
                     properties: vec![
                     PropertyDef {
                         name: "request_id".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "status_code".to_string(),
-                        type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                         nullable: false,
                         default: None,
                     },

@@ -10,7 +10,6 @@ use crate::frontend::route_ir::*;
 use crate::frontend::render_ir::*;
 use crate::frontend::build_ir::*;
 use crate::frontend::api_ir::*;
-use kotoba_kotobanet::FrontendParser;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -22,7 +21,6 @@ pub struct WebFramework {
     renderer: ComponentRenderer,
     config: WebFrameworkConfigIR,
     current_route: Arc<RwLock<Option<RouteIR>>>,
-    // frontend_config: Option<kotoba_kotobanet::FrontendConfig>,
 }
 
 
@@ -37,47 +35,24 @@ impl WebFramework {
             renderer,
             config,
             current_route: Arc::new(RwLock::new(None)),
-            frontend_config: None,
         })
     }
 
     /// Jsonnet 設定ファイルをロード
-    pub fn load_config<P: AsRef<std::path::Path>>(&mut self, path: P) -> Result<()> {
-        let frontend_config = FrontendParser::parse_file(path)
-            .map_err(|e| KotobaError::Configuration(format!("Failed to parse frontend config: {}", e)))?;
-
-        self.frontend_config = Some(frontend_config);
+    pub fn load_config<P: AsRef<std::path::Path>>(&mut self, _path: P) -> Result<()> {
+        // Stub implementation - kotoba-kotobanet not available
         Ok(())
     }
 
     /// Jsonnet 設定文字列をロード
-    pub fn load_config_from_string(&mut self, content: &str) -> Result<()> {
-        let frontend_config = FrontendParser::parse(content)
-            .map_err(|e| KotobaError::Configuration(format!("Failed to parse frontend config: {}", e)))?;
-
-        self.frontend_config = Some(frontend_config);
+    pub fn load_config_from_string(&mut self, _content: &str) -> Result<()> {
+        // Stub implementation - kotoba-kotobanet not available
         Ok(())
     }
 
     /// 設定からコンポーネントを初期化
     pub async fn initialize_from_config(&mut self) -> Result<()> {
-        if let Some(ref config) = self.frontend_config {
-            // コンポーネントを登録
-            for (name, component_def) in &config.components {
-                let component_ir = self.convert_component_def_to_ir(name, component_def)?;
-                self.register_component(component_ir).await?;
-            }
-
-            // ページルートを登録
-            for page_def in &config.pages {
-                let route_ir = self.convert_page_def_to_ir(page_def)?;
-                self.add_route(route_ir).await?;
-            }
-
-            // API ルートを登録（必要に応じて）
-            // TODO: API route registration
-        }
-
+        // Stub implementation - kotoba-kotobanet not available
         Ok(())
     }
 

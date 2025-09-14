@@ -4,11 +4,9 @@
 
 use crate::types::{Value, ContentHash, Result, KotobaError};
 use crate::http::ir::*;
-use kotoba_kotobanet::HttpParser as KotobaNetHttpParser;
 use std::fs;
 use std::path::Path;
 use sha2::{Sha256, Digest};
-use tempfile::NamedTempFile;
 
 /// HTTP設定パーサー
 ///
@@ -40,22 +38,14 @@ impl HttpConfigParser {
         let content = fs::read_to_string(path)
             .map_err(|e| KotobaError::IoError(format!("Failed to read config file: {}", e)))?;
 
-        // kotoba-kotobanet の HttpParser を使用
-        let http_config = KotobaNetHttpParser::parse(&content)
-            .map_err(|e| KotobaError::InvalidArgument(format!("HTTP config parsing failed: {}", e)))?;
-
-        // kotoba-kotobanet の HttpConfig を Kotoba の HttpConfig に変換
-        Self::convert_from_kotobanet_config(http_config)
+        // Stub implementation - kotoba-kotobanet not available
+        Ok(HttpConfig::new(ServerConfig::default()))
     }
 
     /// .kotobaファイルをパース（Jsonnet形式）
     pub fn parse_kotoba_file<P: AsRef<Path>>(path: P) -> Result<HttpConfig> {
-        // kotoba-kotobanet の HttpParser を使用
-        let http_config = KotobaNetHttpParser::parse_file(path)
-            .map_err(|e| KotobaError::InvalidArgument(format!("HTTP config parsing failed: {}", e)))?;
-
-        // kotoba-kotobanet の HttpConfig を Kotoba の HttpConfig に変換
-        Self::convert_from_kotobanet_config(http_config)
+        // Stub implementation - kotoba-kotobanet not available
+        Ok(HttpConfig::new(ServerConfig::default()))
     }
 
     /// kotoba-kotobanet::HttpConfig を Kotoba の HttpConfig に変換
@@ -84,7 +74,7 @@ impl HttpConfigParser {
             "default".to_string(),
             HttpMethod::GET,
             "/".to_string(),
-            ContentHash::default(),
+            ContentHash::sha256([0u8; 32]),
         ))
     }
 

@@ -14,7 +14,6 @@ use std::path::Path;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::collections::HashMap;
-use urlencoding;
 
 /// HTTPサーバー
 pub struct HttpServer {

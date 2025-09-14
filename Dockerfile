@@ -17,8 +17,8 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 
-# Build the application
-RUN cargo build --release --features full
+# Build the application with limited parallel jobs for low memory systems
+RUN cargo build --release --features full --jobs 2
 
 # Runtime stage
 FROM debian:bookworm-slim
