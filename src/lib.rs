@@ -18,7 +18,7 @@ pub use kotoba_graph as graph;
 pub use kotoba_storage as storage;
 pub use kotoba_execution as execution;
 pub use kotoba_rewrite as rewrite;
-pub use kotoba_web as web;
+// pub use kotoba_web as web; // まだpublishされていないため一時的にコメントアウト
 
 // Convenient re-exports for common usage
 pub use kotoba_core::prelude::*;
@@ -26,7 +26,7 @@ pub use kotoba_graph::prelude::*;
 pub use kotoba_storage::prelude::*;
 pub use kotoba_execution::prelude::*;
 pub use kotoba_rewrite::prelude::*;
-pub use kotoba_web::prelude::*;
+// pub use kotoba_web::prelude::*; // まだpublishされていないため一時的にコメントアウト
 
 // Examples
 #[cfg(feature = "examples")]

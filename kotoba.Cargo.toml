@@ -7,15 +7,19 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 keywords = ["graph", "database", "gql", "rewrite", "distributed"]
 categories = ["database", "data-structures", "algorithms"]
+authors = ["Jun Kawasaki <jun784@example.com>"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba"
+homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
-# Core crates
-kotoba-core = { path = "./crates/kotoba-core", version = "0.1.0" }
-kotoba-graph = { path = "./crates/kotoba-graph", version = "0.1.0" }
-kotoba-storage = { path = "./crates/kotoba-storage", version = "0.1.0" }
-kotoba-execution = { path = "./crates/kotoba-execution", version = "0.1.0" }
-kotoba-rewrite = { path = "./crates/kotoba-rewrite", version = "0.1.0" }
-kotoba-web = { path = "./crates/kotoba-web", version = "0.1.0" }
+# Core crates - published versions
+kotoba-core = "0.1.0"
+kotoba-graph = "0.1.0"
+kotoba-storage = "0.1.0"
+kotoba-execution = "0.1.0"
+kotoba-rewrite = "0.1.0"
+# kotoba-web = { version = "0.1.0", optional = true } # まだpublishされていないため一時的にコメントアウト
 
 # Optional crates for different use cases
 tokio = { version = "1.0", features = ["full"], optional = true }
