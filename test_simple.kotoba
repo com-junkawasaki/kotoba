@@ -1,0 +1,41 @@
+{
+  "config": {
+    "type": "config",
+    "name": "TestApp",
+    "version": "1.0.0",
+    "theme": "light"
+  },
+
+  "components": {
+    "App": {
+      "type": "component",
+      "name": "App",
+      "component_type": "div",
+      "props": {
+        "className": "app-container"
+      },
+      "children": ["Header", "Content"]
+    },
+
+    "Header": {
+      "type": "component",
+      "name": "Header",
+      "component_type": "header",
+      "props": {
+        "className": "app-header",
+        "title": "Test Application"
+      },
+      "children": []
+    },
+
+    "Content": {
+      "type": "component",
+      "name": "Content",
+      "component_type": "main",
+      "props": {
+        "className": "app-content"
+      },
+      "children": []
+    }
+  }
+}

@@ -1723,6 +1723,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonnet"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "970444ea10b23ca1003ed807074ee3f25ee3fb213009e2175d1d93de42af17cd"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "jsonwebtoken"
 version = "9.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1970,6 +1979,27 @@ dependencies = [
  "tokio",
  "tower 0.4.13",
  "tower-http 0.4.4",
+ "uuid",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "kotoba2tsx"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "hex",
+ "js-sys",
+ "jsonnet",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.16",
+ "tokio",
  "uuid",
  "wasm-bindgen",
  "web-sys",

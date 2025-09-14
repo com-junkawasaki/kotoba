@@ -2,6 +2,7 @@
 members = [
     "crates/*",
     ".",  # Root crate
+    "crates/kotoba2tsx",  # Kotoba to TSX converter
 ]
 resolver = "2"
 
