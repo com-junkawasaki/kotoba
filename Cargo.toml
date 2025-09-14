@@ -16,6 +16,7 @@ repository = "https://github.com/jun784/kotoba"
 # Common dependencies can be defined here
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_yaml = "0.9"
 thiserror = "2.0"
 anyhow = "1.0"
 uuid = { version = "1.18", features = ["v4", "serde"] }
@@ -29,6 +30,10 @@ rand = "0.8"
 futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.21"
+
+# Kotoba internal crates
+kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.0", features = ["yaml"] }
+kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
 
 # Root crate configuration
 [package]
@@ -55,6 +60,10 @@ kotoba-execution = "0.1.1"
 kotoba-rewrite = "0.1.1"
 # kotoba-security = "0.1.0" # まだ安定していないためコメントアウト
 # kotoba-web = "0.1.1" # オプション機能のためコメントアウト
+
+# Kotoba internal crates
+kotoba-jsonnet.workspace = true
+kotoba-kotobanet.workspace = true
 
 # For binary
 clap = { version = "4.0", features = ["derive"], optional = true }

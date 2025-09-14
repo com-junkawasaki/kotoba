@@ -36,7 +36,6 @@ pub fn evaluate_kotoba_to_json(code: &str) -> Result<String> {
 }
 
 /// Evaluate Kotoba Jsonnet to YAML with extensions
-#[cfg(feature = "yaml")]
 pub fn evaluate_kotoba_to_yaml(code: &str) -> Result<String> {
     // TODO: Add Kotoba-specific extensions
     Ok(kotoba_jsonnet::evaluate_to_yaml(code)?)
@@ -61,7 +60,6 @@ mod tests {
         assert!(json.contains("Hello Kotobanet"));
     }
 
-    #[cfg(feature = "yaml")]
     #[test]
     fn test_kotoba_to_yaml() {
         let result = evaluate_kotoba_to_yaml(r#"{ config: "yaml" }"#);

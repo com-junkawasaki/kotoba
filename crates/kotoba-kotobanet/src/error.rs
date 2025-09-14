@@ -26,7 +26,6 @@ pub enum KotobaNetError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[cfg(feature = "yaml")]
     #[error("YAML error: {0}")]
     Yaml(#[from] serde_yaml::Error),
 

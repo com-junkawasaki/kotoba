@@ -1,6 +1,7 @@
 //! App Routerフレームワークのコア実装
 //!
 //! Next.js風App Routerフレームワークの主要コンポーネントを実装します。
+//! kotoba-kotobanet を使用して Jsonnet ベースの設定ファイルをパースします。
 
 use crate::types::{Result, KotobaError, Value, Properties, ContentHash};
 use crate::frontend::component_ir::ExecutionEnvironment;
@@ -9,6 +10,7 @@ use crate::frontend::route_ir::*;
 use crate::frontend::render_ir::*;
 use crate::frontend::build_ir::*;
 use crate::frontend::api_ir::*;
+use kotoba_kotobanet::FrontendParser;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -20,10 +22,12 @@ pub struct WebFramework {
     renderer: ComponentRenderer,
     config: WebFrameworkConfigIR,
     current_route: Arc<RwLock<Option<RouteIR>>>,
+    frontend_config: Option<kotoba_kotobanet::FrontendConfig>,
 }
 
 
 impl WebFramework {
+    /// 新しい WebFramework を作成
     pub fn new(config: WebFrameworkConfigIR) -> Result<Self> {
         let renderer = ComponentRenderer::new();
 
@@ -33,7 +37,104 @@ impl WebFramework {
             renderer,
             config,
             current_route: Arc::new(RwLock::new(None)),
+            frontend_config: None,
         })
+    }
+
+    /// Jsonnet 設定ファイルをロード
+    pub fn load_config<P: AsRef<std::path::Path>>(&mut self, path: P) -> Result<()> {
+        let frontend_config = FrontendParser::parse_file(path)
+            .map_err(|e| KotobaError::Configuration(format!("Failed to parse frontend config: {}", e)))?;
+
+        self.frontend_config = Some(frontend_config);
+        Ok(())
+    }
+
+    /// Jsonnet 設定文字列をロード
+    pub fn load_config_from_string(&mut self, content: &str) -> Result<()> {
+        let frontend_config = FrontendParser::parse(content)
+            .map_err(|e| KotobaError::Configuration(format!("Failed to parse frontend config: {}", e)))?;
+
+        self.frontend_config = Some(frontend_config);
+        Ok(())
+    }
+
+    /// 設定からコンポーネントを初期化
+    pub async fn initialize_from_config(&mut self) -> Result<()> {
+        if let Some(ref config) = self.frontend_config {
+            // コンポーネントを登録
+            for (name, component_def) in &config.components {
+                let component_ir = self.convert_component_def_to_ir(name, component_def)?;
+                self.register_component(component_ir).await?;
+            }
+
+            // ページルートを登録
+            for page_def in &config.pages {
+                let route_ir = self.convert_page_def_to_ir(page_def)?;
+                self.add_route(route_ir).await?;
+            }
+
+            // API ルートを登録（必要に応じて）
+            // TODO: API route registration
+        }
+
+        Ok(())
+    }
+
+    /// kotoba-kotobanet::ComponentDef を ComponentIR に変換
+    fn convert_component_def_to_ir(&self, name: &str, def: &kotoba_kotobanet::ComponentDef) -> Result<ComponentIR> {
+        let component_type = match def.name.to_lowercase() {
+            name if name.contains("page") => ComponentType::Page,
+            name if name.contains("layout") => ComponentType::Layout,
+            name if name.contains("server") => ComponentType::Server,
+            name if name.contains("client") => ComponentType::Client,
+            _ => ComponentType::Server, // デフォルト
+        };
+
+        let mut component_ir = ComponentIR::new(name.to_string(), component_type);
+
+        // Props を設定
+        for (prop_name, prop_def) in &def.props {
+            component_ir.props.insert(prop_name.clone(), Value::String(format!("{:?}", prop_def.type_)));
+        }
+
+        // State を設定（簡略化）
+        if let Some(ref state) = def.state {
+            for (state_name, state_def) in state {
+                component_ir.state.insert(state_name.clone(), Value::String(format!("{:?}", state_def.type_)));
+            }
+        }
+
+        Ok(component_ir)
+    }
+
+    /// kotoba-kotobanet::PageDef を RouteIR に変換
+    fn convert_page_def_to_ir(&self, def: &kotoba_kotobanet::PageDef) -> Result<RouteIR> {
+        let mut route_ir = RouteIR::new(def.path.clone());
+
+        // ページコンポーネントを設定
+        let page_component = ComponentIR::new(format!("Page_{}", def.component), ComponentType::Page);
+        route_ir.components.page = Some(page_component);
+
+        // レイアウトを設定
+        if let Some(ref layout) = def.layout {
+            let layout_component = ComponentIR::new(layout.clone(), ComponentType::Layout);
+            route_ir.components.layout = Some(layout_component);
+        }
+
+        // ローディングを設定
+        if let Some(ref loading) = def.loading {
+            let loading_component = ComponentIR::new(loading.clone(), ComponentType::Server);
+            route_ir.components.loading = Some(loading_component);
+        }
+
+        // エラーを設定
+        if let Some(ref error) = def.error {
+            let error_component = ComponentIR::new(error.clone(), ComponentType::Server);
+            route_ir.components.error = Some(error_component);
+        }
+
+        Ok(route_ir)
     }
 
     /// HTTPリクエストを処理

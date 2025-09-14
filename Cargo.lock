@@ -1768,6 +1768,8 @@ dependencies = [
  "kotoba-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-execution 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-graph 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-jsonnet",
+ "kotoba-kotobanet",
  "kotoba-rewrite 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",

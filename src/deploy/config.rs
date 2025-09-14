@@ -2,10 +2,10 @@
 //!
 //! このモジュールはJsonnetベースの.kotoba-deployファイルの構造を定義します。
 //! Deno Deployと同等の機能をサポートしつつ、KotobaのLive Graph Modelに適応しています。
+//! kotoba-kotobanet を使用して一般設定も管理します。
 
 use kotoba_core::types::{Result, Value, ContentHash, KotobaError};
-// use serde::{Deserialize, Serialize}; // 簡易実装では使用しない
-// use sha2::{Sha256, Digest}; // 簡易実装では使用しない
+use kotoba_kotobanet::ConfigParser;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -525,6 +525,32 @@ mod tests {
         assert_eq!(config.network.domains.len(), 1);
         assert_eq!(config.environment.get("NODE_ENV"), Some(&"production".to_string()));
     }
+
+/// 一般アプリケーション設定管理
+///
+/// kotoba-kotobanet::ConfigParser を使用して一般的な設定を管理します。
+pub struct AppConfigManager;
+
+impl AppConfigManager {
+    /// 設定ファイルをパース
+    pub fn parse<P: AsRef<std::path::Path>>(path: P) -> Result<kotoba_kotobanet::AppConfig> {
+        ConfigParser::parse_file(path)
+            .map_err(|e| KotobaError::Configuration(format!("App config parsing failed: {}", e)))
+    }
+
+    /// 設定文字列をパース
+    pub fn parse_string(content: &str) -> Result<kotoba_kotobanet::AppConfig> {
+        ConfigParser::parse(content)
+            .map_err(|e| KotobaError::Configuration(format!("App config parsing failed: {}", e)))
+    }
+
+    /// デフォルト設定を生成
+    pub fn default() -> kotoba_kotobanet::AppConfig {
+        // TODO: デフォルト設定の実装
+        // 現時点では panic を避けるため、シンプルなデフォルトを返す
+        unimplemented!("Default app config not implemented")
+    }
+}
 
     #[test]
     fn test_invalid_scaling_config() {
