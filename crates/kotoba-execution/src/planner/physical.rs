@@ -1,6 +1,7 @@
 //! 物理プランナー（論理プラン → 物理プラン）
 
 use kotoba_core::{types::*, ir::*};
+use kotoba_core::types::Result;
 
 /// 物理演算子
 #[derive(Debug, Clone)]
@@ -95,7 +96,7 @@ impl PhysicalPlanner {
     }
 
     /// 論理プランを物理プランに変換
-    pub fn plan_to_physical(&self, logical: &PlanIR, catalog: &Catalog) -> Result<PhysicalPlan, Box<dyn std::error::Error>> {
+    pub fn plan_to_physical(&self, logical: &PlanIR, catalog: &Catalog) -> Result<PhysicalPlan> {
         let op = self.convert_logical_op(&logical.plan, catalog)?;
         let cost = self.estimate_cost(&op, catalog);
 
@@ -106,7 +107,7 @@ impl PhysicalPlanner {
     }
 
     /// 論理演算子を物理演算子に変換
-    fn convert_logical_op(&self, logical: &LogicalOp, catalog: &Catalog) -> Result<PhysicalOp, Box<dyn std::error::Error>> {
+    fn convert_logical_op(&self, logical: &LogicalOp, catalog: &Catalog) -> Result<PhysicalOp> {
         match logical {
             LogicalOp::NodeScan { label, as_, props } => {
                 // インデックスが存在する場合はIndexScanを使用

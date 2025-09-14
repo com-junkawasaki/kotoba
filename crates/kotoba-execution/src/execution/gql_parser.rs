@@ -1,6 +1,7 @@
 //! GQLパーサー（簡易版）
 
 use kotoba_core::{types::*, ir::*};
+use kotoba_core::types::Result;
 
 /// GQLパーサー
 #[derive(Debug)]
@@ -12,7 +13,7 @@ impl GqlParser {
     }
 
     /// GQL文字列をパース
-    pub fn parse(&self, gql: &str) -> Result<PlanIR, Box<dyn std::error::Error>> {
+    pub fn parse(&self, gql: &str) -> Result<PlanIR> {
         // 非常に簡易的なパーサー
         // 実際の実装ではPEGパーサー等を使用
 
@@ -28,7 +29,7 @@ impl GqlParser {
     }
 
     /// MATCHクエリのパース
-    fn parse_match_query(&self, _gql: &str) -> Result<PlanIR, Box<dyn std::error::Error>> {
+    fn parse_match_query(&self, _gql: &str) -> Result<PlanIR> {
         // 例: MATCH (n:Person) RETURN n
 
         let plan = LogicalOp::NodeScan {
@@ -44,7 +45,7 @@ impl GqlParser {
     }
 
     /// CREATEクエリのパース
-    fn parse_create_query(&self, _gql: &str) -> Result<PlanIR, Box<dyn std::error::Error>> {
+    fn parse_create_query(&self, _gql: &str) -> Result<PlanIR> {
         // 例: CREATE (n:Person {name: "Alice"})
 
         // CREATEは通常更新操作なので、クエリとしては空を返す
@@ -61,7 +62,7 @@ impl GqlParser {
     }
 
     /// GQLから論理プランへの変換
-    pub fn gql_to_plan(&self, gql: &str) -> Result<LogicalOp, Box<dyn std::error::Error>> {
+    pub fn gql_to_plan(&self, gql: &str) -> Result<LogicalOp> {
         // より詳細なパースロジック
         // ここではMATCH句のみ対応
 
@@ -91,7 +92,7 @@ impl GqlParser {
     }
 
     /// MATCH句のパース
-    fn parse_match_clause(&self, match_clause: &str) -> Result<LogicalOp, Box<dyn std::error::Error>> {
+    fn parse_match_clause(&self, match_clause: &str) -> Result<LogicalOp> {
         // 例: (n:Person)-[:FOLLOWS]->(m:Person)
 
         if match_clause.contains("->") || match_clause.contains("<-") {
@@ -102,7 +103,7 @@ impl GqlParser {
     }
 
     /// ノードパターンパース
-    fn parse_node_pattern(&self, pattern: &str) -> Result<LogicalOp, Box<dyn std::error::Error>> {
+    fn parse_node_pattern(&self, pattern: &str) -> Result<LogicalOp> {
         // 例: (n:Person {age: 30})
 
         let label = self.extract_label(pattern)
@@ -119,7 +120,7 @@ impl GqlParser {
     }
 
     /// パスパターンパース
-    fn parse_path_pattern(&self, pattern: &str) -> Result<LogicalOp, Box<dyn std::error::Error>> {
+    fn parse_path_pattern(&self, pattern: &str) -> Result<LogicalOp> {
         // 例: (n:Person)-[:FOLLOWS]->(m:Person)
 
         let parts: Vec<&str> = pattern.split("->").collect();
