@@ -3,8 +3,9 @@
 //! このモジュールはデプロイされたアプリケーションをWebAssemblyランタイムで実行します。
 //! ISO GQLプロトコルでコントロールされ、WASM Edge対応のグローバル分散実行を実現します。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::{Result, Value, KotobaError};
 use crate::deploy::controller::DeployController;
+use std::time::SystemTimeError;
 use crate::deploy::config::{DeployConfig, RuntimeType};
 // use wasmtime::*; // WASM runtime - will be implemented later
 use std::sync::{Arc, RwLock};
@@ -33,6 +34,7 @@ pub enum DeploymentStatus {
     /// 削除済み
     Deleted,
 }
+
 
 /// デプロイ実行ランタイム
 pub struct DeployRuntime {
@@ -184,7 +186,7 @@ impl DeployRuntime {
             self.log_message(instance_id, "Instance stopped");
             Ok(())
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
+            Err(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
         }
     }
 
@@ -221,7 +223,7 @@ impl DeployRuntime {
             println!("=== END LOG CONFIRMATION ===");
             Ok(())
         } else {
-            Err(crate::types::KotobaError::InvalidArgument("No logs found".to_string()))
+            Err(KotobaError::InvalidArgument("No logs found".to_string()))
         }
     }
 
@@ -239,7 +241,7 @@ impl DeployRuntime {
         if let Some(instance_logs) = logs.get(instance_id) {
             Ok(instance_logs.clone())
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
+            Err(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
         }
     }
 

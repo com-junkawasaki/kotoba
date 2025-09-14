@@ -10,6 +10,10 @@ pub mod cli;
 pub mod runtime;
 pub mod hosting_server;
 pub mod hosting_manager;
+pub mod scaling;
+pub mod network;
+pub mod git_integration;
+pub mod parser;
 
 // 再エクスポート
 pub use config::{
@@ -37,12 +41,24 @@ pub use hosting_server::{
 pub use hosting_manager::{
     HostingManager, DeploymentLifecycle, LifecyclePhase, DeploymentMetrics, SystemStats,
 };
+pub use scaling::{
+    ScalingEngine, LoadBalancer, AutoScaler, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm,
+};
+pub use network::{
+    NetworkManager, RegionManager, EdgeRouter, NetworkConfig as NetworkConfigTrait,
+};
+pub use git_integration::{
+    GitIntegration, WebhookHandler, GitHubConfig, GitHubEvent, DeploymentStatus,
+};
+pub use parser::{
+    DeployConfigParser,
+};
 
 /// デプロイモジュールのバージョン
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// デプロイモジュールの初期化
-pub fn init() -> crate::types::Result<()> {
+pub fn init() -> kotoba_core::types::Result<()> {
     println!("Initializing Kotoba Deploy v{}", VERSION);
     Ok(())
 }

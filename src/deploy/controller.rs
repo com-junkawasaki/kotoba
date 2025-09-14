@@ -3,10 +3,12 @@
 //! このモジュールはISO GQLプロトコルを使用してデプロイメントを管理し、
 //! ライブグラフモデルとの統合を実現します。
 
-use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_core::types::{Result, Value, ContentHash, KotobaError, VertexId};
 use kotoba_graph::prelude::*;
 use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::*;
+use std::time::SystemTimeError;
+use uuid::Uuid;
 use crate::deploy::config::{DeployConfig};
 use crate::deploy::scaling::ScalingEngine;
 use crate::deploy::network::NetworkManager;
@@ -14,7 +16,7 @@ use crate::deploy::git_integration::GitIntegration;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, Duration};
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize}; // 簡易実装では使用しない
 
 /// デプロイメント状態
 #[derive(Debug, Clone, PartialEq)]
@@ -37,12 +39,9 @@ pub enum DeploymentStatus {
     Deleted,
 }
 
+
 /// デプロイコントローラー
 pub struct DeployController {
-    /// クエリ実行器
-    query_executor: Arc<QueryExecutor>,
-    /// クエリプランナー
-    query_planner: Arc<QueryPlanner>,
     /// 書換えエンジン
     rewrite_engine: Arc<RewriteEngine>,
     /// スケーリングエンジン
@@ -54,7 +53,7 @@ pub struct DeployController {
     /// デプロイメントグラフ
     deployment_graph: Arc<RwLock<Graph>>,
     /// デプロイメント状態
-    deployment_states: Arc<RwLock<HashMap<String, DeploymentState>>>,
+    deployment_states: Arc<RwLock<HashMap<Uuid, DeploymentState>>>,
 }
 
 /// デプロイメントマネージャー
@@ -184,21 +183,17 @@ pub struct GqlDeploymentResponse {
 impl DeployController {
     /// 新しいデプロイコントローラーを作成
     pub fn new(
-        query_executor: Arc<QueryExecutor>,
-        query_planner: Arc<QueryPlanner>,
         rewrite_engine: Arc<RewriteEngine>,
         scaling_engine: Arc<ScalingEngine>,
         network_manager: Arc<NetworkManager>,
     ) -> Self {
         Self {
-            query_executor,
-            query_planner,
             rewrite_engine,
             scaling_engine,
             network_manager,
             git_integration: None,
             deployment_graph: Arc::new(RwLock::new(Graph::empty())),
-            deployment_states: Arc::new(RwLock::new(HashMap::new())),
+            deployment_states: Arc::new(RwLock::new(HashMap::<Uuid, DeploymentState>::new())),
         }
     }
 
@@ -266,36 +261,40 @@ impl DeployController {
         let config = self.parse_deployment_config_from_gql(&query.gql_query)?;
 
         // デプロイメントグラフに頂点を追加
-        let deployment_id = format!("deployment-{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs());
+        let deployment_id = Uuid::new_v4();
+        let created_at = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(|e| KotobaError::InvalidArgument(format!("Time error: {}", e)))?
+            .as_secs();
 
         let vertex_data = VertexData {
-            id: deployment_id.clone(),
+            id: deployment_id.to_string(),
             labels: vec!["Deployment".to_string()],
             props: HashMap::from([
                 ("name".to_string(), Value::String(config.metadata.name.clone())),
                 ("version".to_string(), Value::String(config.metadata.version.clone())),
                 ("status".to_string(), Value::String("creating".to_string())),
-                ("created_at".to_string(), Value::String(format!("{:?}", SystemTime::now()))),
+                ("created_at".to_string(), Value::String(created_at.to_string())),
             ]),
         };
 
+        // デプロイメントグラフに頂点を追加
         {
             let mut graph = self.deployment_graph.write().unwrap();
-            graph.add_vertex(vertex_data)?;
+            graph.add_vertex(vertex_data);
         }
 
         // デプロイメント状態を記録
         let state = DeploymentState {
-            id: deployment_id.clone(),
+            id: deployment_id.to_string(),
             config: config.clone(),
-            status: DeploymentStatus::Queued,
+            status: DeploymentStatus::Created,
             created_at: SystemTime::now(),
             updated_at: SystemTime::now(),
             instance_count: config.scaling.min_instances,
             endpoints: vec![],
         };
 
-        self.deployment_states.write().unwrap().insert(deployment_id.clone(), state);
+        self.deployment_states.write().unwrap().insert(deployment_id, state);
 
         // ネットワークを設定
         self.network_manager.initialize(&config.network).await?;
@@ -313,7 +312,7 @@ impl DeployController {
 
         // 既存のデプロイメント状態を取得
         let mut states = self.deployment_states.write().unwrap();
-        if let Some(state) = states.get_mut(&deployment_id) {
+        if let Some(state) = states.get_mut(&deployment_id) { // deployment_idは既にUuid
             state.config = new_config;
             state.updated_at = SystemTime::now();
             state.status = DeploymentStatus::Deploying;
@@ -322,21 +321,29 @@ impl DeployController {
             let mut graph = self.deployment_graph.write().unwrap();
 
             if let Some(vertex) = graph.get_vertex(&deployment_id) {
+                // deployment_idは既にUuidなのでそのまま使用
+                // 古い頂点を削除
+                graph.remove_vertex(&deployment_id);
+
+                // 更新された頂点を追加
                 let mut props = vertex.props.clone();
                 props.insert("status".to_string(), Value::String("updating".to_string()));
-                props.insert("updated_at".to_string(), Value::String(format!("{:?}", SystemTime::now())));
+                let updated_at = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                    .map_err(|e| KotobaError::InvalidArgument(format!("Time error: {}", e)))?
+                    .as_secs();
+                props.insert("updated_at".to_string(), Value::String(updated_at.to_string()));
 
                 let updated_vertex = VertexData {
                     props,
                     ..vertex.clone()
                 };
 
-                graph.update_vertex(updated_vertex)?;
+                graph.add_vertex(updated_vertex);
             }
 
             Ok(Value::String(format!("Deployment {} updated successfully", deployment_id)))
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(
+            Err(KotobaError::InvalidArgument(
                 format!("Deployment {} not found", deployment_id)
             ))
         }
@@ -348,14 +355,14 @@ impl DeployController {
 
         // デプロイメント状態を削除
         let mut states = self.deployment_states.write().unwrap();
-        if states.remove(&deployment_id).is_some() {
+        if states.remove(&deployment_id).is_some() { // deployment_idは既にUuid
         // デプロイメントグラフから頂点を削除
         let mut graph = self.deployment_graph.write().unwrap();
-        graph.remove_vertex(&deployment_id)?;
+        graph.remove_vertex(&deployment_id); // deployment_idはUuidなのでそのまま使用
 
             Ok(Value::String(format!("Deployment {} deleted successfully", deployment_id)))
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(
+            Err(KotobaError::InvalidArgument(
                 format!("Deployment {} not found", deployment_id)
             ))
         }
@@ -367,18 +374,15 @@ impl DeployController {
 
         let states = self.deployment_states.read().unwrap();
         if let Some(state) = states.get(&deployment_id) {
-            let status_data = serde_json::json!({
-                "id": state.id,
-                "status": format!("{:?}", state.status),
-                "instance_count": state.instance_count,
-                "endpoints": state.endpoints,
-                "created_at": state.created_at.duration_since(SystemTime::UNIX_EPOCH)?.as_secs(),
-                "updated_at": state.updated_at.duration_since(SystemTime::UNIX_EPOCH)?.as_secs(),
-            });
+            let mut status_data = HashMap::new();
+            status_data.insert("id".to_string(), Value::String(state.id.clone()));
+            status_data.insert("status".to_string(), Value::String(format!("{:?}", state.status)));
+            status_data.insert("instance_count".to_string(), Value::Number(state.instance_count as f64));
+            // endpoints and timestamps would be added here in full implementation
 
             Ok(Value::from(status_data))
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(
+            Err(KotobaError::InvalidArgument(
                 format!("Deployment {} not found", deployment_id)
             ))
         }
@@ -390,17 +394,17 @@ impl DeployController {
 
         let deployments: Vec<Value> = states.values()
             .map(|state| {
-                serde_json::json!({
-                    "id": state.id,
-                    "name": state.config.metadata.name,
-                    "version": state.config.metadata.version,
-                    "status": format!("{:?}", state.status),
-                    "instance_count": state.instance_count,
-                }).into()
+                let mut data = HashMap::new();
+                data.insert("id".to_string(), Value::String(state.id.clone()));
+                data.insert("name".to_string(), Value::String(state.config.metadata.name.clone()));
+                data.insert("version".to_string(), Value::String(state.config.metadata.version.clone()));
+                data.insert("status".to_string(), Value::String(format!("{:?}", state.status)));
+                data.insert("instance_count".to_string(), Value::Number(state.instance_count as f64));
+                Value::from(data)
             })
             .collect();
 
-        Ok(Value::from(serde_json::json!(deployments)))
+        Ok(Value::from(deployments))
     }
 
     /// GQLを使用してデプロイメントをスケーリング
@@ -441,32 +445,39 @@ impl DeployController {
 
             Ok(DeployConfig::new(name, entry_point))
         } else {
-            Err(crate::types::KotobaError::InvalidArgument(
+            Err(KotobaError::InvalidArgument(
                 "Invalid GQL deployment query".to_string()
             ))
         }
     }
 
     /// GQLクエリからデプロイメントIDを抽出
-    fn extract_deployment_id_from_gql(&self, gql_query: &str) -> Result<String> {
+    fn extract_deployment_id_from_gql(&self, gql_query: &str) -> Result<Uuid> {
         self.extract_value_from_gql(gql_query, "id")
             .and_then(|opt| opt.ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(
+                KotobaError::InvalidArgument(
                     "Deployment ID not found in GQL query".to_string()
                 )
             }))
+            .and_then(|id_str| {
+                Uuid::parse_str(&id_str).map_err(|_| {
+                    KotobaError::InvalidArgument(
+                        format!("Invalid UUID format: {}", id_str)
+                    )
+                })
+            })
     }
 
     /// GQLクエリからスケールターゲットを抽出
     fn extract_scale_target_from_gql(&self, gql_query: &str) -> Result<u32> {
         self.extract_value_from_gql(gql_query, "instances")
             .and_then(|opt| opt.ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(
+                KotobaError::InvalidArgument(
                     "Scale target not found in GQL query".to_string()
                 )
             }))?
             .parse()
-            .map_err(|_| crate::types::KotobaError::InvalidArgument(
+            .map_err(|_| KotobaError::InvalidArgument(
                 "Invalid scale target".to_string()
             ))
     }
@@ -475,7 +486,7 @@ impl DeployController {
     fn extract_rollback_target_from_gql(&self, gql_query: &str) -> Result<String> {
         self.extract_value_from_gql(gql_query, "version")
             .and_then(|opt| opt.ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(
+                KotobaError::InvalidArgument(
                     "Rollback target not found in GQL query".to_string()
                 )
             }))
@@ -573,14 +584,14 @@ impl DeploymentManager {
 /// ISO GQLデプロイメント拡張
 pub trait GqlDeploymentExtensions {
     /// デプロイメント関連のGQLクエリを実行
-    fn execute_deployment_gql(&self, query: &str, parameters: HashMap<String, Value>) -> Result<Value>;
+    async fn execute_deployment_gql(&self, query: &str, parameters: HashMap<String, Value>) -> Result<Value>;
 
     /// デプロイメントグラフをGQLでクエリ
     fn query_deployment_graph(&self, gql_query: &str) -> Result<Value>;
 }
 
 impl GqlDeploymentExtensions for DeployController {
-    fn execute_deployment_gql(&self, query: &str, parameters: HashMap<String, Value>) -> Result<Value> {
+    async fn execute_deployment_gql(&self, query: &str, parameters: HashMap<String, Value>) -> Result<Value> {
         // GQLクエリを解析してクエリタイプを決定
         let query_type = if query.contains("CREATE DEPLOYMENT") {
             DeploymentQueryType::CreateDeployment
@@ -597,7 +608,7 @@ impl GqlDeploymentExtensions for DeployController {
         } else if query.contains("ROLLBACK DEPLOYMENT") {
             DeploymentQueryType::RollbackDeployment
         } else {
-            return Err(crate::types::KotobaError::InvalidArgument(
+            return Err(KotobaError::InvalidArgument(
                 "Unknown deployment GQL query type".to_string()
             ));
         };
@@ -616,12 +627,12 @@ impl GqlDeploymentExtensions for DeployController {
                     .and_then(|response| {
                         if response.success {
                             response.data.ok_or_else(|| {
-                                crate::types::KotobaError::InvalidArgument(
+                                KotobaError::InvalidArgument(
                                     "No data in response".to_string()
                                 )
                             })
                         } else {
-                            Err(crate::types::KotobaError::InvalidArgument(
+                            Err(KotobaError::InvalidArgument(
                                 response.error.unwrap_or_default()
                             ))
                         }
@@ -639,10 +650,10 @@ impl GqlDeploymentExtensions for DeployController {
 
         if gql_query.contains("MATCH") {
             // デプロイメントノードを検索
-            let vertices: Vec<Value> = graph.vertices().values()
+            let vertices: Vec<Value> = graph.vertices.values()
                 .filter(|v| v.labels.contains(&"Deployment".to_string()))
                 .map(|v| {
-                    let properties: HashMap<String, String> = v.properties.iter()
+                    let properties: HashMap<String, String> = v.props.iter()
                         .filter_map(|(k, v)| {
                             if let Value::String(s) = v {
                                 Some((k.clone(), s.clone()))
@@ -652,15 +663,15 @@ impl GqlDeploymentExtensions for DeployController {
                         })
                         .collect();
 
-                    serde_json::json!({
-                        "id": v.id.0,
-                        "labels": v.labels,
-                        "properties": properties
-                    }).into()
+                    let mut vertex_data = HashMap::new();
+                    vertex_data.insert("id".to_string(), Value::String(v.id.to_string()));
+                    vertex_data.insert("labels".to_string(), Value::from(v.labels.clone()));
+                    vertex_data.insert("properties".to_string(), Value::from(properties));
+                    Value::from(vertex_data)
                 })
                 .collect();
 
-            Ok(Value::from(serde_json::json!(vertices)))
+            Ok(Value::from(vertices))
         } else {
             Ok(Value::String("Unsupported graph query".to_string()))
         }

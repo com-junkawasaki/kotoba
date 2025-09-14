@@ -3,13 +3,13 @@
 //! このモジュールはデプロイされたアプリケーションをホストするHTTPサーバーを提供します。
 //! WebAssemblyランタイムと統合され、グローバル分散実行を実現します。
 
-use crate::types::{Result, Value};
+use kotoba_core::types::{Result, Value};
 use crate::deploy::controller::DeployController;
 use crate::deploy::runtime::{DeployRuntime, RuntimeManager};
 use crate::deploy::scaling::LoadBalancer;
 use crate::deploy::network::NetworkManager;
-use crate::http::server::HttpServer;
-use crate::http::ir::{HttpConfig, ServerConfig, RouteConfig, MiddlewareConfig};
+// use crate::http::server::HttpServer; // 簡易実装では使用しない
+// use crate::http::ir::{HttpConfig, ServerConfig, RouteConfig, MiddlewareConfig};
 use std::sync::Arc;
 use std::collections::HashMap;
 use tokio::net::TcpListener;
@@ -67,9 +67,9 @@ impl HostingServer {
         });
 
         // HTTPサーバーを作成（モック依存関係）
-        let mvcc = Arc::new(crate::storage::MVCCManager::new());
-        let merkle = Arc::new(crate::storage::MerkleDAG::new());
-        let rewrite_engine = Arc::new(crate::rewrite::RewriteEngine::new());
+        let mvcc = Arc::new(kotoba_storage::storage::MVCCManager::new());
+        let merkle = Arc::new(kotoba_storage::storage::MerkleDAG::new());
+        let rewrite_engine = Arc::new(kotoba_rewrite::rewrite::RewriteEngine::new());
 
         let http_server = HttpServer::new(http_config, mvcc, merkle, rewrite_engine).await?;
 
@@ -124,7 +124,7 @@ impl HostingServer {
         let app = apps.values()
             .find(|a| a.domain == domain)
             .ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(format!("No application found for domain {}", domain))
+                kotoba_core::types::KotobaError::InvalidArgument(format!("No application found for domain {}", domain))
             })?;
 
         // アクセスを記録

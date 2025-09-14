@@ -26,6 +26,8 @@ tokio = { version = "1.0", features = ["full"] }
 wasmtime = "0.35"
 rand = "0.8"
 futures = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.21"
 
 # Root crate configuration
 [package]

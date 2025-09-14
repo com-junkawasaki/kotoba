@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, Duration};
 use tokio::time::interval;
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize}; // 簡易実装では使用しない
 
 /// Git統合マネージャー
 pub struct GitIntegration {

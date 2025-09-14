@@ -5,6 +5,7 @@
 
 use kotoba_core::types::{Result, Value};
 use crate::deploy::controller::{DeployController, DeploymentManager, GqlDeploymentQuery, DeploymentQueryType, GqlDeploymentExtensions};
+// use serde_json; // 簡易実装では使用しない
 use crate::deploy::config::{DeployConfig, DeployConfigBuilder, RuntimeType};
 use crate::deploy::parser::DeployConfigParser;
 use crate::deploy::scaling::ScalingEngine;
@@ -160,9 +161,9 @@ impl DeployCliImpl {
         // 実際のアプリケーションでは、これらのコンポーネントは適切に初期化される
         // ここでは簡易的なモック実装
 
-        let query_executor = Arc::new(crate::execution::QueryExecutor::new());
-        let query_planner = Arc::new(crate::planner::QueryPlanner::new());
-        let rewrite_engine = Arc::new(crate::rewrite::RewriteEngine::new());
+        let query_executor = Arc::new(kotoba_execution::execution::QueryExecutor::new());
+        let query_planner = Arc::new(kotoba_execution::execution::QueryPlanner::new());
+        let rewrite_engine = Arc::new(kotoba_rewrite::rewrite::RewriteEngine::new());
         let scaling_config = crate::deploy::config::ScalingConfig {
             min_instances: 1,
             max_instances: 10,
@@ -175,8 +176,6 @@ impl DeployCliImpl {
         let network_manager = Arc::new(NetworkManager::new());
 
         let controller = Arc::new(DeployController::new(
-            query_executor,
-            query_planner,
             rewrite_engine,
             scaling_engine,
             network_manager,
@@ -298,7 +297,7 @@ impl DeployCliImpl {
         if response.success {
             println!("✅ Deployment created successfully!");
             if let Some(data) = response.data {
-                println!("Response: {}", data);
+                println!("Response: {:?}", data);
             }
         } else {
             eprintln!("❌ Deployment failed: {:?}", response.error);
@@ -351,7 +350,7 @@ impl DeployCliImpl {
             if response.success {
                 if let Some(data) = response.data {
                     println!("📋 All deployments:");
-                    println!("{}", data);
+                    println!("{:?}", data);
                 }
             } else {
                 eprintln!("❌ Failed to get deployments: {:?}", response.error);
@@ -375,7 +374,7 @@ impl DeployCliImpl {
             if response.success {
                 if let Some(data) = response.data {
                     println!("📊 Deployment '{}' status:", name);
-                    println!("{}", data);
+                    println!("{:?}", data);
                 }
             } else {
                 eprintln!("❌ Failed to get deployment status: {:?}", response.error);
@@ -462,7 +461,7 @@ impl DeployCliImpl {
             HashMap::new()
         };
 
-        let result = self.controller.execute_deployment_gql(query, parameters)?;
+        let result = self.controller.execute_deployment_gql(query, parameters).await?;
 
         println!("🔍 Query result:");
         println!("{}", result);
@@ -479,7 +478,7 @@ impl DeployCliImpl {
         match format {
             "json" => {
                 println!("📊 Deployment graph (JSON):");
-                println!("{}", serde_json::to_string_pretty(&result)?);
+                println!("{:?}", serde_json::to_string_pretty(&result)?);
             }
             "text" => {
                 println!("📊 Deployment graph:");

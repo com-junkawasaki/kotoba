@@ -3,9 +3,9 @@
 //! このモジュールはJsonnet形式の.kotoba-deployファイルをパースします。
 //! Jsonnetの高度な機能を活用して、動的な設定生成をサポートします。
 
-use crate::types::{Result, Value, ContentHash};
+use kotoba_core::types::{Result, Value, ContentHash};
 use crate::deploy::config::{DeployConfig, DeployConfigBuilder};
-use serde_json::{Value as JsonValue, Map};
+// use serde_json::{Value as JsonValue, Map}; // 簡易実装では使用しない
 use std::path::Path;
 use std::fs;
 use std::collections::HashMap;

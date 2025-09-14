@@ -373,7 +373,7 @@ impl MetricsCollector {
             cpu_metrics: Arc::new(RwLock::new(Vec::new())),
             memory_metrics: Arc::new(RwLock::new(Vec::new())),
             request_metrics: Arc::new(RwLock::new(Vec::new())),
-            response_time_metrics: Arc::new(RwLock::new(Vec::new()))),
+            response_time_metrics: Arc::new(RwLock::new(Vec::new())),
         }
     }
 

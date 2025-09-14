@@ -3,7 +3,7 @@
 //! このモジュールはデプロイされたアプリケーションのライフサイクルを管理します。
 //! スケーリング、ネットワーク、モニタリングを統合的に制御します。
 
-use crate::types::{Result, Value};
+use kotoba_core::types::{Result, Value};
 use crate::deploy::controller::DeployController;
 use crate::deploy::runtime::{DeployRuntime, RuntimeManager};
 use crate::deploy::scaling::{ScalingEngine, LoadBalancer, AutoScaler};
@@ -214,7 +214,7 @@ impl HostingManager {
         states.get(deployment_id)
             .cloned()
             .ok_or_else(|| {
-                crate::types::KotobaError::InvalidArgument(format!("Deployment {} not found", deployment_id))
+                kotoba_core::types::KotobaError::InvalidArgument(format!("Deployment {} not found", deployment_id))
             })
     }
 
