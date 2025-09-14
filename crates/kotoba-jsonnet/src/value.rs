@@ -22,6 +22,8 @@ pub enum JsonnetValue {
     Object(HashMap<String, JsonnetValue>),
     /// Function value
     Function(JsonnetFunction),
+    /// Builtin function value
+    Builtin(JsonnetBuiltin),
 }
 
 impl JsonnetValue {
@@ -65,6 +67,7 @@ impl JsonnetValue {
             JsonnetValue::Array(a) => !a.is_empty(),
             JsonnetValue::Object(o) => !o.is_empty(),
             JsonnetValue::Function(_) => true,
+            JsonnetValue::Builtin(_) => true,
         }
     }
 
@@ -78,6 +81,7 @@ impl JsonnetValue {
             JsonnetValue::Array(_) => "array",
             JsonnetValue::Object(_) => "object",
             JsonnetValue::Function(_) => "function",
+            JsonnetValue::Builtin(_) => "function",
         }
     }
 
@@ -100,6 +104,9 @@ impl JsonnetValue {
                 serde_json::Value::Object(json_obj)
             }
             JsonnetValue::Function(_) => {
+                serde_json::Value::Null
+            }
+            JsonnetValue::Builtin(_) => {
                 // Functions cannot be serialized to JSON
                 serde_json::Value::String("<function>".to_string())
             }
@@ -353,6 +360,21 @@ impl fmt::Display for JsonnetValue {
 impl Default for JsonnetValue {
     fn default() -> Self {
         JsonnetValue::Null
+    }
+}
+
+/// Jsonnet builtin function types
+#[derive(Debug, Clone)]
+pub enum JsonnetBuiltin {
+    Length,
+    // Add more builtins as needed
+}
+
+impl JsonnetBuiltin {
+    pub fn call(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        match self {
+            JsonnetBuiltin::Length => crate::stdlib::StdLib::length(args),
+        }
     }
 }
 

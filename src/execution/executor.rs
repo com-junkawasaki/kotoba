@@ -490,16 +490,135 @@ impl QueryExecutor {
                     .ok_or_else(|| KotobaError::Execution(format!("Variable {} not found", var)))
             }
             Expr::Const(val) => Ok(val.clone()),
-            Expr::Fn { fn_: name, args: _ } => {
-                // 簡易的な関数評価
+            Expr::Fn { fn_: name, args } => {
+                // アルゴリズム関数かチェック
+                if name.starts_with("algorithm_") {
+                    return self.evaluate_algorithm_function(&name[10..], args, row);
+                }
+
+                // 通常の関数
                 match name.as_str() {
                     "degree" => {
                         // 次数関数（簡易版）
                         Ok(Value::Int(1))
                     }
+                    "property" => {
+                        // プロパティアクセス関数
+                        if args.len() >= 2 {
+                            if let (Expr::Var(var), Expr::Const(Value::String(prop))) = (&args[0], &args[1]) {
+                                if let Some(Value::String(vertex_id_str)) = row.values.get(var) {
+                                    // 実際の実装ではグラフから頂点を取得してプロパティを返す
+                                    // ここでは簡易版として固定値を返す
+                                    Ok(Value::String(format!("{}.{}", vertex_id_str, prop)))
+                                } else {
+                                    Ok(Value::Null)
+                                }
+                            } else {
+                                Ok(Value::Null)
+                            }
+                        } else {
+                            Ok(Value::Null)
+                        }
+                    }
                     _ => Ok(Value::Null),
                 }
             }
+        }
+    }
+
+    /// アルゴリズム関数評価
+    fn evaluate_algorithm_function(&self, algorithm_name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+        match algorithm_name {
+            "dijkstra" | "shortest_path" => {
+                // 例: shortest_path(source, target)
+                if args.len() >= 2 {
+                    if let (Expr::Var(source_var), Expr::Var(target_var)) = (&args[0], &args[1]) {
+                        if let (Some(Value::String(source_id)), Some(Value::String(target_id))) =
+                            (row.values.get(source_var), row.values.get(target_var)) {
+
+                            // 実際の実装ではグラフに対してDijkstraを実行
+                            // ここでは簡易版として距離を返す
+                            Ok(Value::Int(5)) // 仮の距離
+                        } else {
+                            Ok(Value::Null)
+                        }
+                    } else {
+                        Ok(Value::Null)
+                    }
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            "degree_centrality" => {
+                // 例: degree_centrality(vertex)
+                if args.len() >= 1 {
+                    if let Expr::Var(var) = &args[0] {
+                        if let Some(Value::String(_vertex_id)) = row.values.get(var) {
+                            // 実際の実装では次数中央性を計算
+                            Ok(Value::Int(3)) // 仮の次数
+                        } else {
+                            Ok(Value::Null)
+                        }
+                    } else {
+                        Ok(Value::Null)
+                    }
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            "betweenness_centrality" => {
+                // 媒介中央性
+                if args.len() >= 1 {
+                    if let Expr::Var(var) = &args[0] {
+                        if let Some(Value::String(_vertex_id)) = row.values.get(var) {
+                            Ok(Value::Int(10)) // 仮の媒介中央性
+                        } else {
+                            Ok(Value::Null)
+                        }
+                    } else {
+                        Ok(Value::Null)
+                    }
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            "closeness_centrality" => {
+                // 近接中央性
+                if args.len() >= 1 {
+                    if let Expr::Var(var) = &args[0] {
+                        if let Some(Value::String(_vertex_id)) = row.values.get(var) {
+                            Ok(Value::Int(8)) // 仮の近接中央性
+                        } else {
+                            Ok(Value::Null)
+                        }
+                    } else {
+                        Ok(Value::Null)
+                    }
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            "pagerank" => {
+                // PageRank
+                if args.len() >= 1 {
+                    if let Expr::Var(var) = &args[0] {
+                        if let Some(Value::String(_vertex_id)) = row.values.get(var) {
+                            Ok(Value::Int(15)) // 仮のPageRankスコア
+                        } else {
+                            Ok(Value::Null)
+                        }
+                    } else {
+                        Ok(Value::Null)
+                    }
+                } else {
+                    Ok(Value::Null)
+                }
+            }
+            "pattern_matching" => {
+                // パターンマッチング
+                Ok(Value::Int(2)) // 仮のマッチ数
+            }
+            _ => Ok(Value::Null),
         }
     }
 

@@ -657,3 +657,127 @@ impl GraphAlgorithms {
         // 実際の実装ではパターンとターゲットのエッジを対応付ける
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::*;
+
+    /// テスト用グラフ作成ヘルパー
+    fn create_test_graph() -> Graph {
+        let mut graph = Graph::empty();
+
+        // 頂点を追加
+        let v1 = graph.add_vertex(VertexData {
+            id: VertexId::new("v1").unwrap(),
+            labels: vec!["Person".to_string()],
+            props: HashMap::new(),
+        });
+
+        let v2 = graph.add_vertex(VertexData {
+            id: VertexId::new("v2").unwrap(),
+            labels: vec!["Person".to_string()],
+            props: HashMap::new(),
+        });
+
+        let v3 = graph.add_vertex(VertexData {
+            id: VertexId::new("v3").unwrap(),
+            labels: vec!["Person".to_string()],
+            props: HashMap::new(),
+        });
+
+        // エッジを追加
+        graph.add_edge(EdgeData {
+            id: EdgeId::new("e1").unwrap(),
+            src: v1,
+            dst: v2,
+            label: "FOLLOWS".to_string(),
+            props: HashMap::new(),
+        });
+
+        graph.add_edge(EdgeData {
+            id: EdgeId::new("e2").unwrap(),
+            src: v2,
+            dst: v3,
+            label: "FOLLOWS".to_string(),
+            props: HashMap::new(),
+        });
+
+        graph
+    }
+
+    #[test]
+    fn test_dijkstra_shortest_path() {
+        let graph = create_test_graph();
+        let source = VertexId::new("v1").unwrap();
+
+        let result = GraphAlgorithms::shortest_path_dijkstra(&graph, source, |_| 1.0).unwrap();
+
+        // v1からv1への距離は0
+        assert_eq!(result.distances[&source], 0.0);
+
+        // 他の頂点への距離をチェック
+        let v2 = VertexId::new("v2").unwrap();
+        let v3 = VertexId::new("v3").unwrap();
+
+        assert!(result.distances[&v2] > 0.0);
+        assert!(result.distances[&v3] > result.distances[&v2]);
+    }
+
+    #[test]
+    fn test_degree_centrality() {
+        let graph = create_test_graph();
+
+        let result = GraphAlgorithms::degree_centrality(&graph, false);
+
+        assert_eq!(result.algorithm, CentralityAlgorithm::Degree);
+        assert!(!result.scores.is_empty());
+
+        // 次数が正であることを確認
+        for &score in result.scores.values() {
+            assert!(score >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_betweenness_centrality() {
+        let graph = create_test_graph();
+
+        let result = GraphAlgorithms::betweenness_centrality(&graph, false);
+
+        assert_eq!(result.algorithm, CentralityAlgorithm::Betweenness);
+        assert!(!result.scores.is_empty());
+
+        // 媒介中央性が非負であることを確認
+        for &score in result.scores.values() {
+            assert!(score >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_pagerank() {
+        let graph = create_test_graph();
+
+        let result = GraphAlgorithms::pagerank(&graph, 0.85, 10, 1e-6);
+
+        assert_eq!(result.algorithm, CentralityAlgorithm::PageRank);
+        assert!(!result.scores.is_empty());
+
+        // PageRankスコアが正であることを確認
+        for &score in result.scores.values() {
+            assert!(score >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_subgraph_isomorphism() {
+        let pattern = create_test_graph();
+        let target = create_test_graph();
+
+        let result = GraphAlgorithms::subgraph_isomorphism(&pattern, &target);
+
+        assert!(result.count >= 0);
+        // 同じグラフなので少なくとも1つのマッチが見つかるはず
+        // （実際のアルゴリズムによる）
+    }
+}

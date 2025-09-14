@@ -738,6 +738,8 @@ mod tests {
             include_prop_types: false,
             include_default_props: false,
             format_output: false,
+            swc_options: Default::default(),
+            css_options: Default::default(),
         };
         let generator = TsxGenerator::with_options(options);
         assert_eq!(generator.options.include_types, false);

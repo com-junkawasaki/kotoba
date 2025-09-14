@@ -454,6 +454,30 @@ impl GqlParser {
     fn parse_expr(&self, expr_str: &str) -> Result<Expr> {
         let expr_str = expr_str.trim();
 
+        // 関数呼び出し
+        if let Some(paren_pos) = expr_str.find('(') {
+            if expr_str.ends_with(')') {
+                let func_name = expr_str[..paren_pos].trim();
+                let args_str = &expr_str[paren_pos + 1..expr_str.len() - 1];
+
+                // アルゴリズム関数かチェック
+                if let Some(algorithm) = self.parse_algorithm_function(func_name) {
+                    let args = self.parse_function_args(args_str)?;
+                    return Ok(Expr::Fn {
+                        fn_: format!("algorithm_{}", self.algorithm_to_string(&algorithm)),
+                        args,
+                    });
+                } else {
+                    // 通常の関数
+                    let args = self.parse_function_args(args_str)?;
+                    return Ok(Expr::Fn {
+                        fn_: func_name.to_string(),
+                        args,
+                    });
+                }
+            }
+        }
+
         // 文字列リテラル
         if expr_str.starts_with('"') && expr_str.ends_with('"') {
             let value = expr_str[1..expr_str.len()-1].to_string();
@@ -482,6 +506,76 @@ impl GqlParser {
 
         // 変数
         Ok(Expr::Var(expr_str.to_string()))
+    }
+
+    /// アルゴリズム関数をパース
+    fn parse_algorithm_function(&self, func_name: &str) -> Option<AlgorithmType> {
+        match func_name.to_lowercase().as_str() {
+            "dijkstra" | "shortest_path" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::Dijkstra,
+            }),
+            "bellman_ford" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::BellmanFord,
+            }),
+            "astar" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::AStar,
+            }),
+            "floyd_warshall" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::FloydWarshall,
+            }),
+            "degree_centrality" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::Degree,
+            }),
+            "betweenness_centrality" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::Betweenness,
+            }),
+            "closeness_centrality" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::Closeness,
+            }),
+            "pagerank" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::PageRank,
+            }),
+            "pattern_match" | "subgraph_isomorphism" => Some(AlgorithmType::PatternMatching),
+            _ => None,
+        }
+    }
+
+    /// アルゴリズムを文字列に変換
+    fn algorithm_to_string(&self, algorithm: &AlgorithmType) -> String {
+        match algorithm {
+            AlgorithmType::ShortestPath { algorithm: sp } => match sp {
+                ShortestPathAlgorithm::Dijkstra => "dijkstra",
+                ShortestPathAlgorithm::BellmanFord => "bellman_ford",
+                ShortestPathAlgorithm::AStar => "astar",
+                ShortestPathAlgorithm::FloydWarshall => "floyd_warshall",
+            }.to_string(),
+            AlgorithmType::Centrality { algorithm: c } => match c {
+                CentralityAlgorithm::Degree => "degree_centrality",
+                CentralityAlgorithm::Betweenness => "betweenness_centrality",
+                CentralityAlgorithm::Closeness => "closeness_centrality",
+                CentralityAlgorithm::Eigenvector => "eigenvector_centrality",
+                CentralityAlgorithm::PageRank => "pagerank",
+            }.to_string(),
+            AlgorithmType::PatternMatching => "pattern_matching".to_string(),
+        }
+    }
+
+    /// 関数引数をパース
+    fn parse_function_args(&self, args_str: &str) -> Result<Vec<Expr>> {
+        let mut args = Vec::new();
+
+        if args_str.trim().is_empty() {
+            return Ok(args);
+        }
+
+        for arg in args_str.split(',') {
+            let arg = arg.trim();
+            if !arg.is_empty() {
+                args.push(self.parse_expr(arg)?);
+            }
+        }
+
+        Ok(args)
     }
 
     /// RETURN句のパース

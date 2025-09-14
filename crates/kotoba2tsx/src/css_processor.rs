@@ -58,12 +58,23 @@ impl CssProcessor {
         let mut variables = HashMap::new();
 
         // Simplified implementation - extract CSS custom properties
-        for line in css.lines() {
-            let trimmed = line.trim();
+        // Handle both single-line and multi-line CSS
+        let css_content = if css.contains('\n') {
+            css.to_string()
+        } else {
+            css.to_string()
+        };
+
+        for declaration in css_content.split(';') {
+            let trimmed = declaration.trim();
             if trimmed.starts_with("--") {
                 if let Some(colon_pos) = trimmed.find(':') {
                     let name = trimmed[..colon_pos].trim().to_string();
-                    let value = trimmed[colon_pos + 1..].trim().trim_end_matches(';').to_string();
+                    let mut value = trimmed[colon_pos + 1..].trim().to_string();
+                    // Remove semicolon if present
+                    if value.ends_with(';') {
+                        value = value.trim_end_matches(';').to_string();
+                    }
                     variables.insert(name, value);
                 }
             }
@@ -77,9 +88,17 @@ impl CssProcessor {
         let mut js_object = String::from("{\n");
 
         // Simplified CSS to JS object conversion
-        for line in css.lines() {
-            let trimmed = line.trim();
-            if trimmed.contains(':') && !trimmed.starts_with('@') && !trimmed.starts_with('.') && !trimmed.starts_with('#') {
+        // Handle both single-line and multi-line CSS
+        let css_content = if css.contains('\n') {
+            css.to_string()
+        } else {
+            // If it's a single line, treat it as one declaration block
+            css.to_string()
+        };
+
+        for declaration in css_content.split(';') {
+            let trimmed = declaration.trim();
+            if trimmed.contains(':') && !trimmed.starts_with('@') && !trimmed.starts_with('.') && !trimmed.starts_with('#') && !trimmed.is_empty() {
                 if let Some(colon_pos) = trimmed.find(':') {
                     let prop = trimmed[..colon_pos].trim();
                     let value = trimmed[colon_pos + 1..].trim().trim_end_matches(';');
@@ -89,6 +108,12 @@ impl CssProcessor {
                     js_object.push_str(&format!("  {}: \"{}\",\n", js_prop, value));
                 }
             }
+        }
+
+        // Remove trailing comma if present
+        if js_object.ends_with(",\n") {
+            js_object = js_object.trim_end_matches(",\n").to_string();
+            js_object.push('\n');
         }
 
         js_object.push('}');
