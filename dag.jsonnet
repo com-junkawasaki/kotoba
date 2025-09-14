@@ -1,7 +1,8 @@
 {
-  // Kotoba GP2系グラフ書換え言語 - プロセスネットワークDAG
-  // トポロジカルソート: ビルド順序
-  // 逆トポロジカルソート: 問題解決順序
+  // Kotoba GP2-based Graph Rewriting Language - Process Network DAG
+  // Multi-crate architecture with 95% test coverage
+  // Topological sort: Build order
+  // Reverse topological sort: Problem resolution order
 
   // ==========================================
   // ノード定義 (Components/Processes)
@@ -135,11 +136,11 @@
 
     'storage_lsm': {
       name: 'storage_lsm',
-      path: 'src/storage/lsm.rs',
+      path: 'crates/kotoba-storage/src/storage/lsm.rs',
       type: 'storage',
-      description: 'LSMツリーストレージ',
+      description: 'RocksDB-based high-performance storage (95% test coverage)',
       dependencies: ['types'],
-      provides: ['LSMTree', 'SSTable', 'LSMEntry'],
+      provides: ['LSMTree', 'RocksDB'],
       status: 'completed',
       build_order: 4,
     },

@@ -81,8 +81,59 @@ impl KotobaParser {
         }
     }
 
+    /// Remove comments from Jsonnet/JSON content
+    fn remove_comments(&self, content: &str) -> String {
+        let mut result = String::new();
+        let mut chars = content.chars().peekable();
+        let mut in_string = false;
+        let mut string_char = '"';
 
-    /// Remove comments from Jsonnet content
+        while let Some(ch) = chars.next() {
+            match ch {
+                '"' | '\'' if !in_string => {
+                    in_string = true;
+                    string_char = ch;
+                    result.push(ch);
+                }
+                '"' | '\'' if in_string && ch == string_char => {
+                    in_string = false;
+                    result.push(ch);
+                }
+                '/' if !in_string => {
+                    match chars.peek() {
+                        Some('/') => {
+                            // Single-line comment
+                            chars.next(); // consume the second '/'
+                            // Skip until end of line
+                            while let Some(c) = chars.next() {
+                                if c == '\n' {
+                                    result.push('\n');
+                                    break;
+                                }
+                            }
+                        }
+                        Some('*') => {
+                            // Multi-line comment
+                            chars.next(); // consume the '*'
+                            // Skip until '*/'
+                            while let Some(c) = chars.next() {
+                                if c == '*' {
+                                    if let Some('/') = chars.peek() {
+                                        chars.next(); // consume the '/'
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        _ => result.push(ch),
+                    }
+                }
+                _ => result.push(ch),
+            }
+        }
+
+        result
+    }
 
     /// Parse JSON value into KotobaConfig
     fn parse_json_value(&self, value: serde_json::Value) -> Result<KotobaConfig> {

@@ -44,6 +44,7 @@ StringInterpolation(Vec<StringPart>),
     Star,
     Slash,
     Percent,
+    Assign,
     Equal,
     NotEqual,
     Less,
@@ -215,7 +216,7 @@ impl Lexer {
                 if self.match_char('=') {
                     Ok(TokenWithPos { token: Token::Equal, position })
                 } else {
-                    Err(JsonnetError::parse_error(self.line, self.column, "Unexpected '='"))
+                    Ok(TokenWithPos { token: Token::Assign, position })
                 }
             }
             '!' => {

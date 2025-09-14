@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn test_evaluate_null() {
         let mut evaluator = Evaluator::new();
-        let result = evaluator.evaluate_expr("null");
+        let result = evaluator.evaluate_file("null", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::Null);
     }
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_evaluate_boolean() {
         let mut evaluator = Evaluator::new();
-        let result = evaluator.evaluate_expr("true");
+        let result = evaluator.evaluate_file("true", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
     }
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn test_evaluate_number() {
         let mut evaluator = Evaluator::new();
-        let result = evaluator.evaluate_expr("42");
+        let result = evaluator.evaluate_file("42", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(42.0));
     }
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_evaluate_string() {
         let mut evaluator = Evaluator::new();
-        let result = evaluator.evaluate_expr(r#""hello""#);
+        let result = evaluator.evaluate_file(r#""hello""#, "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::string("hello"));
     }
@@ -345,19 +345,19 @@ mod tests {
     fn test_evaluate_arithmetic() {
         let mut evaluator = Evaluator::new();
 
-        let result = evaluator.evaluate_expr("2 + 3");
+        let result = evaluator.evaluate_file("2 + 3", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(5.0));
 
-        let result = evaluator.evaluate_expr("10 - 4");
+        let result = evaluator.evaluate_file("10 - 4", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(6.0));
 
-        let result = evaluator.evaluate_expr("3 * 4");
+        let result = evaluator.evaluate_file("3 * 4", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(12.0));
 
-        let result = evaluator.evaluate_expr("8 / 2");
+        let result = evaluator.evaluate_file("8 / 2", "");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(4.0));
     }

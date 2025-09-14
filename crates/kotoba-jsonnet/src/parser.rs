@@ -3,6 +3,7 @@
 use crate::ast::*;
 use crate::error::{JsonnetError, Result};
 use crate::lexer::{Lexer, Token, TokenWithPos};
+use crate::value::JsonnetValue;
 
 /// Jsonnet parser
 pub struct Parser {
@@ -66,7 +67,7 @@ impl Parser {
         loop {
             let name = self.consume_identifier("Expected identifier after local")?;
             self.consume_token(Token::Equal, "Expected '=' after identifier")?;
-            let expr = self.parse_expr()?;
+            let expr = self.parse_conditional()?;
             bindings.push((name, expr));
 
             if !self.match_token(Token::Comma) {
@@ -75,7 +76,7 @@ impl Parser {
         }
 
         self.consume_token(Token::Semicolon, "Expected ';' after local bindings")?;
-        let body = self.parse_expr()?;
+        let body = self.parse_conditional()?;
 
         Ok(Expr::Local {
             bindings,
@@ -111,15 +112,15 @@ impl Parser {
 
     /// Parse an assert statement
     fn parse_assert_statement(&mut self) -> Result<Stmt> {
-        let cond = self.parse_expr()?;
+        let cond = self.parse_conditional()?;
         let message = if self.match_token(Token::Colon) {
-            Some(self.parse_expr()?)
+            Some(self.parse_conditional()?)
         } else {
             None
         };
 
         self.consume_token(Token::Semicolon, "Expected ';' after assert")?;
-        let _expr = self.parse_expr()?;
+        let _expr = self.parse_conditional()?;
 
         Ok(Stmt::Assert { cond, message })
     }
@@ -127,11 +128,11 @@ impl Parser {
     /// Parse conditional expression (if-then-else)
     fn parse_conditional(&mut self) -> Result<Expr> {
         if self.match_token(Token::If) {
-            let cond = self.parse_expr()?;
+            let cond = self.parse_conditional()?;
             self.consume_token(Token::Then, "Expected 'then' after if condition")?;
-            let then_branch = self.parse_expr()?;
+            let then_branch = self.parse_conditional()?;
             let else_branch = if self.match_token(Token::Else) {
-                Some(self.parse_expr()?)
+                Some(self.parse_conditional()?)
             } else {
                 None
             };
@@ -188,8 +189,52 @@ impl Parser {
                 expr: Box::new(self.parse_unary()?),
             })
         } else {
-            self.parse_primary()
+            self.parse_postfix()
         }
+    }
+
+    /// Parse postfix expressions (function calls, index access)
+    fn parse_postfix(&mut self) -> Result<Expr> {
+        let mut expr = self.parse_primary()?;
+
+        loop {
+            if self.match_token(Token::LParen) {
+                // Function call
+                let mut args = Vec::new();
+                if !self.check_token(Token::RParen) {
+                    loop {
+                        args.push(self.parse_conditional()?);
+                        if !self.match_token(Token::Comma) {
+                            break;
+                        }
+                    }
+                }
+                self.consume_token(Token::RParen, "Expected ')' after function arguments")?;
+                expr = Expr::Call {
+                    func: Box::new(expr),
+                    args,
+                };
+            } else if self.match_token(Token::Dot) {
+                // Field access
+                let field_name = self.consume_identifier("Expected identifier after '.'")?;
+                expr = Expr::Index {
+                    target: Box::new(expr),
+                    index: Box::new(Expr::Literal(JsonnetValue::string(field_name))),
+                };
+            } else if self.match_token(Token::LBracket) {
+                // Array index
+                let index = self.parse_conditional()?;
+                self.consume_token(Token::RBracket, "Expected ']' after array index")?;
+                expr = Expr::Index {
+                    target: Box::new(expr),
+                    index: Box::new(index),
+                };
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
     }
 
     /// Parse primary expressions

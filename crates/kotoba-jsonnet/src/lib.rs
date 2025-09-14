@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_local_variables() {
-        let result = evaluate(r#"local x=42;x"#);
+        let result = evaluate(r#"local x = 42; x"#);
         if let Err(ref e) = result {
             println!("Error: {:?}", e);
         }
