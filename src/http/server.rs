@@ -324,9 +324,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_server_builder() {
-        let mvcc = Arc::new(InMemoryMVCCManager::new());
-        let merkle = Arc::new(InMemoryMerkleDAGManager::new());
-        let rewrite_engine = Arc::new(RewriteEngine::new(Arc::clone(&mvcc), Arc::clone(&merkle)));
+        let mvcc = Arc::new(MVCCManager::new());
+        let merkle = Arc::new(MerkleDAG::new());
+        let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let config = HttpConfig::new(ServerConfig::default());
         let server = ServerBuilder::new()

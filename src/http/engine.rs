@@ -276,8 +276,8 @@ mod tests {
     #[tokio::test]
     async fn test_pattern_matching() {
         let mvcc = Arc::new(MVCCManager::new());
-        let merkle = Arc::new(MerkleDAGManager::new());
-        let rewrite_engine = Arc::new(RewriteEngine::new(Arc::clone(&mvcc), Arc::clone(&merkle)));
+        let merkle = Arc::new(MerkleDAG::new());
+        let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let config = HttpConfig::new(ServerConfig::default());
         let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine);
@@ -299,8 +299,8 @@ mod tests {
     #[tokio::test]
     async fn test_convert_raw_request() {
         let mvcc = Arc::new(MVCCManager::new());
-        let merkle = Arc::new(MerkleDAGManager::new());
-        let rewrite_engine = Arc::new(RewriteEngine::new(Arc::clone(&mvcc), Arc::clone(&merkle)));
+        let merkle = Arc::new(MerkleDAG::new());
+        let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let config = HttpConfig::new(ServerConfig::default());
         let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine);

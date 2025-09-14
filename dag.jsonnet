@@ -369,6 +369,51 @@
       status: 'completed',
       build_order: 11,
     },
+
+    // Examples層
+    'example_frontend_app': {
+      name: 'example_frontend_app',
+      path: 'examples/frontend_app/main.rs',
+      type: 'example',
+      description: 'JsonnetベースのフルスタックWebフレームワークの使用例',
+      dependencies: ['lib', 'frontend_framework', 'http_server'],
+      provides: ['frontend_app_example'],
+      status: 'completed',
+      build_order: 12,
+    },
+
+    'example_http_server': {
+      name: 'example_http_server',
+      path: 'examples/http_server/main.rs',
+      type: 'example',
+      description: 'HTTPサーバーの使用例',
+      dependencies: ['lib', 'http_server'],
+      provides: ['http_server_example'],
+      status: 'completed',
+      build_order: 12,
+    },
+
+    'example_social_network': {
+      name: 'example_social_network',
+      path: 'examples/social_network/main.rs',
+      type: 'example',
+      description: 'ソーシャルネットワークグラフ処理の使用例',
+      dependencies: ['lib', 'graph_core', 'execution_engine', 'rewrite_engine'],
+      provides: ['social_network_example'],
+      status: 'completed',
+      build_order: 12,
+    },
+
+    'example_tauri_react_app': {
+      name: 'example_tauri_react_app',
+      path: 'examples/tauri_react_app/main.rs',
+      type: 'example',
+      description: 'Tauri + React + Kotoba Frontend Frameworkのデスクトップアプリケーション例',
+      dependencies: ['lib', 'frontend_framework', 'graph_core', 'storage_mvcc', 'storage_merkle'],
+      provides: ['tauri_react_app_example'],
+      status: 'in_progress',
+      build_order: 13,
+    },
   },
 
   // ==========================================
@@ -515,6 +560,22 @@
     { from: 'frontend_api_ir', to: 'lib' },
     { from: 'frontend_framework', to: 'lib' },
 
+    // Examples層依存
+    { from: 'lib', to: 'example_frontend_app' },
+    { from: 'frontend_framework', to: 'example_frontend_app' },
+    { from: 'http_server', to: 'example_frontend_app' },
+    { from: 'lib', to: 'example_http_server' },
+    { from: 'http_server', to: 'example_http_server' },
+    { from: 'lib', to: 'example_social_network' },
+    { from: 'graph_core', to: 'example_social_network' },
+    { from: 'execution_engine', to: 'example_social_network' },
+    { from: 'rewrite_engine', to: 'example_social_network' },
+    { from: 'lib', to: 'example_tauri_react_app' },
+    { from: 'frontend_framework', to: 'example_tauri_react_app' },
+    { from: 'graph_core', to: 'example_tauri_react_app' },
+    { from: 'storage_mvcc', to: 'example_tauri_react_app' },
+    { from: 'storage_merkle', to: 'example_tauri_react_app' },
+
   ],
 
   // ==========================================
@@ -554,6 +615,10 @@
     'frontend_framework',
     'http_server',
     'lib',
+    'example_frontend_app',
+    'example_http_server',
+    'example_social_network',
+    'example_tauri_react_app',
   ],
 
   // ==========================================
@@ -561,6 +626,10 @@
   // ==========================================
 
   reverse_topological_order: [
+    'example_tauri_react_app',
+    'example_social_network',
+    'example_http_server',
+    'example_frontend_app',
     'lib',
     'http_server',
     'frontend_framework',
