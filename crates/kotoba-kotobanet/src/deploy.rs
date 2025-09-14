@@ -1457,6 +1457,7 @@ impl DeployParser {
             }
             JsonnetValue::Object(obj) => Self::jsonnet_object_to_hashmap(obj),
             JsonnetValue::Function(_) => Err(KotobaNetError::DeployConfig("Functions cannot be converted to JSON".to_string())),
+            JsonnetValue::Builtin(_) => Err(KotobaNetError::DeployConfig("Builtins cannot be converted to JSON".to_string())),
         }
     }
 }

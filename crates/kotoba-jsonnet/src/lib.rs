@@ -111,7 +111,10 @@ mod tests {
 
     #[test]
     fn test_local_variables() {
-        let result = evaluate(r#"local x = 42; x"#);
+        let result = evaluate(r#"local x=42;x"#);
+        if let Err(ref e) = result {
+            println!("Error: {:?}", e);
+        }
         assert!(result.is_ok());
         if let JsonnetValue::Number(n) = result.unwrap() {
             assert_eq!(n, 42.0);

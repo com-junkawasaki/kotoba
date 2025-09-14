@@ -353,6 +353,7 @@ impl fmt::Display for JsonnetValue {
                 write!(f, "}}")
             }
             JsonnetValue::Function(_) => write!(f, "<function>"),
+            JsonnetValue::Builtin(_) => write!(f, "<builtin>"),
         }
     }
 }
@@ -364,7 +365,7 @@ impl Default for JsonnetValue {
 }
 
 /// Jsonnet builtin function types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum JsonnetBuiltin {
     Length,
     // Add more builtins as needed

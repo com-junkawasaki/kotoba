@@ -144,7 +144,7 @@ pub enum Visibility {
 }
 
 /// Binary operators
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum BinaryOp {
     // Arithmetic
     Add,
@@ -180,7 +180,7 @@ pub enum BinaryOp {
 }
 
 /// Unary operators
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum UnaryOp {
     /// Logical NOT
     Not,

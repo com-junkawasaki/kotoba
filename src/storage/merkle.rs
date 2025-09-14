@@ -20,6 +20,19 @@ pub struct MerkleDAG {
     nodes: HashMap<ContentHash, MerkleNode>,
 }
 
+/// Merkleツリー比較結果
+#[derive(Debug, Clone)]
+pub struct TreeComparison {
+    /// 完全に同一かどうか
+    pub identical: bool,
+    /// 内容が異なるハッシュ
+    pub differences: Vec<ContentHash>,
+    /// selfにのみ存在するハッシュ
+    pub self_only: Vec<ContentHash>,
+    /// otherにのみ存在するハッシュ
+    pub other_only: Vec<ContentHash>,
+}
+
 impl MerkleDAG {
     pub fn new() -> Self {
         Self {
@@ -75,6 +88,172 @@ impl MerkleDAG {
     /// 空かどうか
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
+    }
+
+    /// データ整合性を検証
+    pub fn verify_integrity(&self) -> Result<bool> {
+        for (hash, node) in &self.nodes {
+            // ハッシュの正しさを検証
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(&node.data);
+            for child in &node.children {
+                hasher.update(child.0.as_bytes());
+            }
+
+            let computed_hash = format!("{:x}", hasher.finalize());
+            if computed_hash != hash.0 {
+                return Ok(false);
+            }
+
+            // 子ノードの存在を確認
+            for child_hash in &node.children {
+                if !self.nodes.contains_key(child_hash) {
+                    return Ok(false);
+                }
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Merkleルートを計算
+    pub fn compute_root(&self) -> ContentHash {
+        if self.nodes.is_empty() {
+            return ContentHash("empty".to_string());
+        }
+
+        // 葉ノードを集める（子を持たないノード）
+        let mut leaves: Vec<_> = self.nodes.values()
+            .filter(|node| node.children.is_empty())
+            .collect();
+
+        // 葉ノードをソートして一貫性を確保
+        leaves.sort_by_key(|node| &node.hash);
+
+        // Merkleツリーを構築
+        while leaves.len() > 1 {
+            let mut new_level = Vec::new();
+
+            for chunk in leaves.chunks(2) {
+                let mut hasher = sha2::Sha256::new();
+                hasher.update(chunk[0].hash.0.as_bytes());
+                if chunk.len() > 1 {
+                    hasher.update(chunk[1].hash.0.as_bytes());
+                }
+
+                let combined_hash = ContentHash(format!("{:x}", hasher.finalize()));
+                new_level.push(combined_hash);
+            }
+
+            leaves = new_level.into_iter()
+                .map(|hash| MerkleNode {
+                    hash: hash.clone(),
+                    data: Vec::new(),
+                    children: Vec::new(),
+                    timestamp: 0,
+                })
+                .collect();
+        }
+
+        leaves[0].hash.clone()
+    }
+
+    /// サブツリーのMerkleルートを計算
+    pub fn compute_subtree_root(&self, root_hash: &ContentHash) -> Result<ContentHash> {
+        if !self.nodes.contains_key(root_hash) {
+            return Err(KotobaError::Storage("Root hash not found".to_string()));
+        }
+
+        // DFSでサブツリーを走査してMerkleルートを計算
+        self.compute_merkle_root_recursive(root_hash)
+    }
+
+    /// 再帰的にMerkleルートを計算
+    fn compute_merkle_root_recursive(&self, hash: &ContentHash) -> Result<ContentHash> {
+        let node = self.nodes.get(hash)
+            .ok_or_else(|| KotobaError::Storage("Node not found".to_string()))?;
+
+        if node.children.is_empty() {
+            // 葉ノード
+            return Ok(hash.clone());
+        }
+
+        // 子ノードのハッシュを集める
+        let mut child_hashes = Vec::new();
+        for child_hash in &node.children {
+            let child_root = self.compute_merkle_root_recursive(child_hash)?;
+            child_hashes.push(child_root.0);
+        }
+
+        // 子ノードのハッシュを組み合わせて新しいハッシュを計算
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&node.data);
+        for child_hash in child_hashes {
+            hasher.update(child_hash.as_bytes());
+        }
+
+        Ok(ContentHash(format!("{:x}", hasher.finalize())))
+    }
+
+    /// 2つのMerkleツリーを比較
+    pub fn compare_trees(&self, other: &MerkleDAG) -> TreeComparison {
+        let mut differences = Vec::new();
+        let mut self_only = Vec::new();
+        let mut other_only = Vec::new();
+
+        // 共通のハッシュを比較
+        for (hash, self_node) in &self.nodes {
+            if let Some(other_node) = other.nodes.get(hash) {
+                if self_node.data != other_node.data ||
+                   self_node.children != other_node.children {
+                    differences.push(hash.clone());
+                }
+            } else {
+                self_only.push(hash.clone());
+            }
+        }
+
+        // otherにしかないハッシュを収集
+        for hash in other.nodes.keys() {
+            if !self.nodes.contains_key(hash) {
+                other_only.push(hash.clone());
+            }
+        }
+
+        TreeComparison {
+            identical: differences.is_empty() && self_only.is_empty() && other_only.is_empty(),
+            differences,
+            self_only,
+            other_only,
+        }
+    }
+
+    /// 欠損データを特定
+    pub fn find_missing_data(&self, required_hashes: &[ContentHash]) -> Vec<ContentHash> {
+        required_hashes.iter()
+            .filter(|hash| !self.nodes.contains_key(hash))
+            .cloned()
+            .collect()
+    }
+
+    /// 破損したデータを検出
+    pub fn detect_corruption(&self) -> Result<Vec<ContentHash>> {
+        let mut corrupted = Vec::new();
+
+        for (hash, node) in &self.nodes {
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(&node.data);
+            for child in &node.children {
+                hasher.update(child.0.as_bytes());
+            }
+
+            let computed_hash = format!("{:x}", hasher.finalize());
+            if computed_hash != hash.0 {
+                corrupted.push(hash.clone());
+            }
+        }
+
+        Ok(corrupted)
     }
 
     /// 正規化されたJSONをハッシュ化

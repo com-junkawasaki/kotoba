@@ -8,7 +8,9 @@ use crate::cid::*;
 use crate::graph::*;
 use crate::execution::*;
 use kotoba_rewrite::prelude::RewriteEngine;
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
+use kotoba_execution::prelude::*;
+use kotoba_graph::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
@@ -324,7 +326,45 @@ impl DistributedEngine {
         // グラフのCID計算
         let graph_cid = {
             let g = graph.read();
-            cid_manager.compute_graph_cid(&g)?
+            let core = GraphCore {
+                nodes: g.vertices.values().map(|v| Node {
+                    cid: Cid::new(&v.id.to_string()),
+                    labels: v.labels.clone(),
+                    r#type: v.labels.first().cloned().unwrap_or_else(|| "unknown".to_string()),
+                    ports: vec![], // 簡易版
+                    attrs: Some(v.props.iter().map(|(k, v)| {
+                        let json_value = match v {
+                            kotoba_core::types::Value::Null => serde_json::Value::Null,
+                            kotoba_core::types::Value::Bool(b) => serde_json::Value::Bool(*b),
+                            kotoba_core::types::Value::Int(i) => serde_json::Value::Number((*i).into()),
+                            kotoba_core::types::Value::Integer(i) => serde_json::Value::Number((*i).into()),
+                            kotoba_core::types::Value::String(s) => serde_json::Value::String(s.clone()),
+                        };
+                        (k.clone(), json_value)
+                    }).collect()),
+                    component_ref: None,
+                }).collect(),
+                edges: g.edges.values().map(|e| Edge {
+                    cid: Cid::new(&e.id.to_string()),
+                    label: Some(e.label.clone()),
+                    r#type: e.label.clone(),
+                    src: e.src.to_string(),
+                    tgt: e.dst.to_string(),
+                    attrs: Some(e.props.iter().map(|(k, v)| {
+                        let json_value = match v {
+                            kotoba_core::types::Value::Null => serde_json::Value::Null,
+                            kotoba_core::types::Value::Bool(b) => serde_json::Value::Bool(*b),
+                            kotoba_core::types::Value::Int(i) => serde_json::Value::Number((*i).into()),
+                            kotoba_core::types::Value::Integer(i) => serde_json::Value::Number((*i).into()),
+                            kotoba_core::types::Value::String(s) => serde_json::Value::String(s.clone()),
+                        };
+                        (k.clone(), json_value)
+                    }).collect()),
+                }).collect(),
+                boundary: None,
+                attrs: None,
+            };
+            cid_manager.compute_graph_cid(&core)?
         };
 
         // キャッシュチェック

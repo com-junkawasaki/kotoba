@@ -40,6 +40,14 @@ impl Parser {
         Ok(program)
     }
 
+    /// Parse an expression (public method for evaluator)
+    pub fn parse_expression(&mut self, source: &str) -> Result<Expr> {
+        let mut lexer = Lexer::new(source);
+        self.tokens = lexer.tokenize()?;
+        self.current = 0;
+        self.parse_expr()
+    }
+
     /// Parse a statement
     fn parse_statement(&mut self) -> Result<Stmt> {
         if self.match_token(Token::Local) {
@@ -47,8 +55,37 @@ impl Parser {
         } else if self.match_token(Token::Assert) {
             self.parse_assert_statement()
         } else {
-            Ok(Stmt::Expr(self.parse_expression()?))
+            Ok(Stmt::Expr(self.parse_expr()?))
         }
+    }
+
+    /// Parse a local expression
+    fn parse_local_expression(&mut self) -> Result<Expr> {
+        let mut bindings = Vec::new();
+
+        loop {
+            let name = self.consume_identifier("Expected identifier after local")?;
+            self.consume_token(Token::Equal, "Expected '=' after identifier")?;
+            let expr = self.parse_expr()?;
+            bindings.push((name, expr));
+
+            if !self.match_token(Token::Comma) {
+                break;
+            }
+        }
+
+        self.consume_token(Token::Semicolon, "Expected ';' after local bindings")?;
+        let body = self.parse_expr()?;
+
+        Ok(Expr::Local {
+            bindings,
+            body: Box::new(body),
+        })
+    }
+
+    /// Parse an expression
+    fn parse_expr(&mut self) -> Result<Expr> {
+        self.parse_conditional()
     }
 
     /// Parse a local statement
@@ -58,7 +95,7 @@ impl Parser {
         loop {
             let name = self.consume_identifier("Expected identifier after local")?;
             self.consume_token(Token::Equal, "Expected '=' after identifier")?;
-            let expr = self.parse_expression()?;
+            let expr = self.parse_expr()?;
             bindings.push((name, expr));
 
             if !self.match_token(Token::Comma) {
@@ -67,39 +104,34 @@ impl Parser {
         }
 
         self.consume_token(Token::Semicolon, "Expected ';' after local bindings")?;
-        let _body = self.parse_expression()?;
+        let _body = self.parse_expr()?;
 
         Ok(Stmt::Local(bindings))
     }
 
     /// Parse an assert statement
     fn parse_assert_statement(&mut self) -> Result<Stmt> {
-        let cond = self.parse_expression()?;
+        let cond = self.parse_expr()?;
         let message = if self.match_token(Token::Colon) {
-            Some(self.parse_expression()?)
+            Some(self.parse_expr()?)
         } else {
             None
         };
 
         self.consume_token(Token::Semicolon, "Expected ';' after assert")?;
-        let _expr = self.parse_expression()?;
+        let _expr = self.parse_expr()?;
 
         Ok(Stmt::Assert { cond, message })
-    }
-
-    /// Parse an expression
-    fn parse_expression(&mut self) -> Result<Expr> {
-        self.parse_conditional()
     }
 
     /// Parse conditional expression (if-then-else)
     fn parse_conditional(&mut self) -> Result<Expr> {
         if self.match_token(Token::If) {
-            let cond = self.parse_expression()?;
+            let cond = self.parse_expr()?;
             self.consume_token(Token::Then, "Expected 'then' after if condition")?;
-            let then_branch = self.parse_expression()?;
+            let then_branch = self.parse_expr()?;
             let else_branch = if self.match_token(Token::Else) {
-                Some(self.parse_expression()?)
+                Some(self.parse_expr()?)
             } else {
                 None
             };
@@ -148,6 +180,8 @@ impl Parser {
                 op: UnaryOp::Neg,
                 expr: Box::new(self.parse_unary()?),
             })
+        } else if self.match_token(Token::Local) {
+            self.parse_local_expression()
         } else if self.match_token(Token::Plus) {
             Ok(Expr::UnaryOp {
                 op: UnaryOp::Pos,
@@ -178,12 +212,12 @@ impl Parser {
                 }
                 Token::StringInterpolation(parts) => {
                     self.advance();
-                    let interpolation_parts: Vec<ast::StringInterpolationPart> = parts.into_iter()
+                    let interpolation_parts: Vec<StringInterpolationPart> = parts.into_iter()
                         .map(|part| match part {
                             crate::lexer::StringPart::Literal(s) =>
-                                ast::StringInterpolationPart::Literal(s),
+                                StringInterpolationPart::Literal(s),
                             crate::lexer::StringPart::Interpolation(var) =>
-                                ast::StringInterpolationPart::Interpolation(Box::new(Expr::Var(var))),
+                                StringInterpolationPart::Interpolation(Box::new(Expr::Var(var))),
                         })
                         .collect();
                     Ok(Expr::StringInterpolation(interpolation_parts))
@@ -194,7 +228,7 @@ impl Parser {
                 }
                 _ => {
                     if self.match_token(Token::LParen) {
-                        let expr = self.parse_expression()?;
+                        let expr = self.parse_expr()?;
                         self.consume_token(Token::RParen, "Expected ')' after expression")?;
                         Ok(expr)
                     } else if self.match_token(Token::LBracket) {
@@ -217,7 +251,7 @@ impl Parser {
 
         if !self.check_token(Token::RBracket) {
             loop {
-                elements.push(self.parse_expression()?);
+                elements.push(self.parse_expr()?);
                 if !self.match_token(Token::Comma) {
                     break;
                 }
@@ -258,7 +292,7 @@ impl Parser {
         };
 
         self.consume_token(Token::Colon, "Expected ':' after field name")?;
-        let expr = self.parse_expression()?;
+        let expr = self.parse_expr()?;
 
         Ok(ObjectField {
             name,
@@ -281,7 +315,7 @@ impl Parser {
                 }
                 _ => {
                     if self.match_token(Token::LBracket) {
-                        let expr = self.parse_expression()?;
+                        let expr = self.parse_expr()?;
                         self.consume_token(Token::RBracket, "Expected ']' after computed field name")?;
                         Ok(FieldName::Computed(Box::new(expr)))
                     } else {
@@ -455,8 +489,14 @@ mod tests {
         let program = parser.parse(r#""hello""#).unwrap();
         assert_eq!(program.statements.len(), 1);
         match &program.statements[0] {
-            Stmt::Expr(Expr::Literal(val)) => assert_eq!(val, &crate::value::JsonnetValue::string("hello")),
-            _ => panic!("Expected literal expression"),
+            Stmt::Expr(Expr::StringInterpolation(parts)) => {
+                assert_eq!(parts.len(), 1);
+                match &parts[0] {
+                    crate::ast::StringInterpolationPart::Literal(s) => assert_eq!(s, "hello"),
+                    _ => panic!("Expected literal part"),
+                }
+            }
+            _ => panic!("Expected string interpolation expression"),
         }
     }
 

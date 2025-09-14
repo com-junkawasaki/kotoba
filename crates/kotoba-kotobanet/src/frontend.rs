@@ -446,6 +446,7 @@ impl FrontendParser {
             }
             JsonnetValue::Object(obj) => Self::jsonnet_object_to_json_value(obj),
             JsonnetValue::Function(_) => Err(KotobaNetError::FrontendParse("Functions cannot be converted to JSON".to_string())),
+            JsonnetValue::Builtin(_) => Err(KotobaNetError::FrontendParse("Builtins cannot be converted to JSON".to_string())),
         }
     }
 

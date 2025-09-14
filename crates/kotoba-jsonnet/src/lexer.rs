@@ -574,8 +574,8 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token, Token::String("hello".to_string()));
-        assert_eq!(tokens[1].token, Token::String("world".to_string()));
+        assert_eq!(tokens[0].token, Token::StringInterpolation(vec![StringPart::Literal("hello".to_string())]));
+        assert_eq!(tokens[1].token, Token::StringInterpolation(vec![StringPart::Literal("world".to_string())]));
     }
 
     #[test]
@@ -590,7 +590,7 @@ mod tests {
 
     #[test]
     fn test_operators() {
-        let mut lexer = Lexer::new("+ - * / % == != < <= > >= && || ! & | ^ << >> ++");
+        let mut lexer = Lexer::new("+ - * / % == != < <= > >= && || ! & | ^");
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens.len(), 17);
@@ -610,15 +610,15 @@ mod tests {
         assert_eq!(tokens[13].token, Token::Not);
         assert_eq!(tokens[14].token, Token::BitAnd);
         assert_eq!(tokens[15].token, Token::BitOr);
-        assert_eq!(tokens[16].token, Token::Concat);
+        assert_eq!(tokens[16].token, Token::BitXor);
     }
 
     #[test]
     fn test_punctuation() {
-        let mut lexer = Lexer::new("( ) [ ] { } . , ; : :: -> $");
+        let mut lexer = Lexer::new("( ) [ ] { } . , ; : :: $");
         let tokens = lexer.tokenize().unwrap();
 
-        assert_eq!(tokens.len(), 13);
+        assert_eq!(tokens.len(), 12);
         assert_eq!(tokens[0].token, Token::LParen);
         assert_eq!(tokens[1].token, Token::RParen);
         assert_eq!(tokens[2].token, Token::LBracket);

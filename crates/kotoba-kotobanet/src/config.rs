@@ -672,6 +672,7 @@ impl ConfigParser {
             }
             JsonnetValue::Object(obj) => Self::jsonnet_object_to_json_value(obj),
             JsonnetValue::Function(_) => Err(KotobaNetError::Config("Functions cannot be converted to JSON".to_string())),
+            JsonnetValue::Builtin(_) => Err(KotobaNetError::Config("Builtins cannot be converted to JSON".to_string())),
         }
     }
 

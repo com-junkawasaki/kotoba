@@ -92,7 +92,7 @@ impl StdLib {
     }
 
     /// std.length(x) - returns length of array, string, or object
-    fn length(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+    pub fn length(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "length")?;
         match &args[0] {
             JsonnetValue::Array(arr) => Ok(JsonnetValue::number(arr.len() as f64)),

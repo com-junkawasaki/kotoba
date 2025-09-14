@@ -329,6 +329,7 @@ impl HttpParser {
             }
             JsonnetValue::Object(obj) => Self::jsonnet_object_to_hashmap(obj),
             JsonnetValue::Function(_) => Err(KotobaNetError::HttpParse("Functions cannot be converted to JSON".to_string())),
+            JsonnetValue::Builtin(_) => Err(KotobaNetError::HttpParse("Builtins cannot be converted to JSON".to_string())),
         }
     }
 }
