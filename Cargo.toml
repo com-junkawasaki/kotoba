@@ -21,7 +21,7 @@ anyhow = "1.0"
 # Root crate configuration
 [package]
 name = "kotoba"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
 license = "MIT OR Apache-2.0"
