@@ -1,0 +1,795 @@
+//! 分散実行システム - CIDベースの分散グラフ処理
+//!
+//! このモジュールは、Kotobaの分散実行機能を担当します。
+//! CIDベースのキャッシュとタスク分散により、高いパフォーマンスを実現します。
+
+use crate::schema::*;
+use crate::cid::*;
+use crate::graph::*;
+use kotoba_rewrite::prelude::RewriteEngine;
+use kotoba_core::types::*;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::{RwLock, mpsc};
+
+/// 分散実行エンジン
+#[derive(Debug)]
+pub struct DistributedEngine {
+    /// ローカル実行エンジン
+    local_engine: RewriteEngine,
+    /// CIDキャッシュマネージャー
+    cid_cache: Arc<RwLock<CidCache>>,
+    /// クラスタマネージャー
+    cluster_manager: Arc<RwLock<ClusterManager>>,
+    /// タスクキュー
+    task_queue: mpsc::UnboundedSender<DistributedTask>,
+    task_receiver: mpsc::UnboundedReceiver<DistributedTask>,
+}
+
+/// CIDベースのキャッシュシステム
+#[derive(Debug)]
+pub struct CidCache {
+    /// CID → 計算結果のマッピング
+    cache: HashMap<Cid, CacheEntry>,
+    /// キャッシュ統計情報
+    stats: CacheStats,
+}
+
+/// キャッシュエントリ
+#[derive(Debug, Clone)]
+pub struct CacheEntry {
+    /// 計算結果
+    result: GraphInstance,
+    /// 最終アクセス時刻
+    last_accessed: std::time::Instant,
+    /// アクセス回数
+    access_count: u64,
+    /// エントリサイズ（推定）
+    size_bytes: usize,
+}
+
+/// キャッシュ統計情報
+#[derive(Debug, Clone)]
+pub struct CacheStats {
+    /// 総ヒット数
+    hits: u64,
+    /// 総ミス数
+    misses: u64,
+    /// 総エントリ数
+    entries: usize,
+    /// 総サイズ（バイト）
+    total_size: usize,
+}
+
+/// クラスタマネージャー
+#[derive(Debug)]
+pub struct ClusterManager {
+    /// クラスタ内のノード情報
+    nodes: HashMap<NodeId, ClusterNode>,
+    /// 現在のノードID
+    local_node_id: NodeId,
+    /// 負荷分散情報
+    load_balancer: LoadBalancer,
+}
+
+/// クラスタノード情報
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ClusterNode {
+    /// ノードID
+    id: NodeId,
+    /// ネットワークアドレス
+    address: String,
+    /// ノードの状態
+    status: NodeStatus,
+    /// 現在の負荷
+    load: f64,
+    /// サポートするCID範囲
+    cid_ranges: Vec<CidRange>,
+}
+
+/// ノードステータス
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum NodeStatus {
+    /// 正常稼働
+    Active,
+    /// 過負荷
+    Overloaded,
+    /// メンテナンス中
+    Maintenance,
+    /// 接続不可
+    Unreachable,
+}
+
+/// CID範囲（シャーディング用）
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CidRange {
+    /// 開始CID（ハッシュ値）
+    start: u64,
+    /// 終了CID（ハッシュ値）
+    end: u64,
+}
+
+/// ノードID
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct NodeId(pub String);
+
+/// 負荷分散器
+#[derive(Debug)]
+pub struct LoadBalancer {
+    /// ノードごとの負荷履歴
+    node_loads: HashMap<NodeId, Vec<f64>>,
+    /// シャーディング戦略
+    sharding_strategy: ShardingStrategy,
+}
+
+/// シャーディング戦略
+#[derive(Debug, Clone)]
+pub enum ShardingStrategy {
+    /// ハッシュベースのシャーディング
+    HashBased,
+    /// 範囲ベースのシャーディング
+    RangeBased,
+    /// 負荷ベースの動的シャーディング
+    LoadBased,
+}
+
+/// 分散タスク
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DistributedTask {
+    /// タスクID
+    pub id: TaskId,
+    /// タスク種別
+    pub task_type: TaskType,
+    /// 入力データ
+    pub input: TaskInput,
+    /// 優先度
+    pub priority: TaskPriority,
+    /// タイムアウト
+    pub timeout: Option<std::time::Duration>,
+}
+
+/// タスクID
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct TaskId(pub String);
+
+/// タスク種別
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum TaskType {
+    /// ルール適用
+    RuleApplication {
+        rule_cid: Cid,
+        host_graph_cid: Cid,
+    },
+    /// クエリ実行
+    QueryExecution {
+        query_cid: Cid,
+        target_graph_cid: Cid,
+    },
+    /// グラフ変換
+    GraphTransformation {
+        transformation_cid: Cid,
+        input_graph_cid: Cid,
+    },
+}
+
+/// タスク入力
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum TaskInput {
+    /// 直接データ
+    Direct(GraphInstance),
+    /// CID参照
+    CidReference(Cid),
+    /// 複合データ
+    Composite(Vec<TaskInput>),
+}
+
+/// タスク優先度
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+pub enum TaskPriority {
+    /// 低優先度
+    Low = 0,
+    /// 通常優先度
+    Normal = 1,
+    /// 高優先度
+    High = 2,
+    /// 緊急
+    Critical = 3,
+}
+
+/// 分散実行結果
+#[derive(Debug)]
+pub struct DistributedResult {
+    /// 結果ID
+    id: ResultId,
+    /// 結果データ
+    data: ResultData,
+    /// 実行統計
+    stats: ExecutionStats,
+    /// 実行ノード情報
+    node_info: Vec<NodeExecutionInfo>,
+}
+
+/// 結果ID
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct ResultId(pub String);
+
+/// 分散実行エラー
+#[derive(Debug, thiserror::Error)]
+pub enum DistributedError {
+    #[error("Task execution failed: {message}")]
+    TaskExecutionFailed { message: String },
+
+    #[error("Network communication error: {source}")]
+    NetworkError { source: Box<dyn std::error::Error + Send + Sync> },
+
+    #[error("Node unavailable: {node_id}")]
+    NodeUnavailable { node_id: NodeId },
+
+    #[error("CID cache miss: {cid}")]
+    CacheMiss { cid: Cid },
+
+    #[error("Timeout exceeded: {duration:?}")]
+    Timeout { duration: std::time::Duration },
+
+    #[error("Invalid task configuration: {message}")]
+    InvalidConfiguration { message: String },
+}
+
+/// 結果データ
+#[derive(Debug)]
+pub enum ResultData {
+    /// 成功結果
+    Success(GraphInstance),
+    /// 部分成功
+    Partial(Vec<PartialResult>),
+    /// エラー
+    Error(DistributedError),
+}
+
+/// 部分結果
+#[derive(Debug)]
+pub struct PartialResult {
+    /// サブタスクID
+    task_id: TaskId,
+    /// 結果
+    result: ResultData,
+    /// 実行時間
+    execution_time: std::time::Duration,
+}
+
+
+/// 実行統計情報
+#[derive(Debug, Clone)]
+pub struct ExecutionStats {
+    /// 総実行時間
+    total_time: std::time::Duration,
+    /// CPU使用時間
+    cpu_time: std::time::Duration,
+    /// メモリ使用量（ピーク）
+    memory_peak: usize,
+    /// ネットワーク転送量
+    network_bytes: usize,
+    /// キャッシュヒット率
+    cache_hit_rate: f64,
+}
+
+/// ノード実行情報
+#[derive(Debug, Clone)]
+pub struct NodeExecutionInfo {
+    /// ノードID
+    node_id: NodeId,
+    /// 実行タスク数
+    tasks_executed: usize,
+    /// 実行時間
+    execution_time: std::time::Duration,
+    /// 成功タスク数
+    tasks_succeeded: usize,
+    /// 失敗タスク数
+    tasks_failed: usize,
+}
+
+impl DistributedEngine {
+    /// 新しい分散実行エンジンを作成
+    pub fn new(local_node_id: NodeId) -> Self {
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        Self {
+            local_engine: RewriteEngine::new(),
+            cid_cache: Arc::new(RwLock::new(CidCache::new())),
+            cluster_manager: Arc::new(RwLock::new(ClusterManager::new(local_node_id))),
+            task_queue: tx,
+            task_receiver: rx,
+        }
+    }
+
+    /// 分散ルール適用を実行
+    pub async fn apply_rule_distributed(
+        &self,
+        rule_dpo: &RuleDPO,
+        host_graph: &GraphInstance,
+        cid_manager: &mut CidManager,
+    ) -> Result<DistributedResult> {
+        // CID計算
+        let rule_cid = cid_manager.compute_rule_cid(rule_dpo)?;
+        let host_cid = cid_manager.compute_graph_cid(&host_graph.core)?;
+
+        // キャッシュチェック
+        if let Some(cached_result) = self.check_cache(&rule_cid, &host_cid).await? {
+            return Ok(cached_result);
+        }
+
+        // タスク分散計画の作成
+        let plan = self.create_distribution_plan(&rule_cid, &host_cid).await?;
+
+        // タスク実行
+        let result = self.execute_distributed_tasks(plan, cid_manager).await?;
+
+        // 結果のキャッシュ
+        self.cache_result(&rule_cid, &host_cid, &result).await?;
+
+        Ok(result)
+    }
+
+    /// キャッシュチェック
+    async fn check_cache(&self, rule_cid: &Cid, host_cid: &Cid) -> Result<Option<DistributedResult>> {
+        let cache_key = self.create_cache_key(rule_cid, host_cid);
+        let cache = self.cid_cache.read().await;
+
+        if let Some(entry) = cache.cache.get(&cache_key) {
+            // 統計更新
+            let mut cache_mut = self.cid_cache.write().await;
+            if let Some(entry_mut) = cache_mut.cache.get_mut(&cache_key) {
+                entry_mut.access_count += 1;
+                entry_mut.last_accessed = std::time::Instant::now();
+            }
+
+            return Ok(Some(DistributedResult {
+                id: ResultId(format!("cached_{}", cache_key.as_str())),
+                data: ResultData::Success(entry.result.clone()),
+                stats: ExecutionStats {
+                    total_time: std::time::Duration::from_millis(0), // キャッシュヒット
+                    cpu_time: std::time::Duration::from_millis(0),
+                    memory_peak: 0,
+                    network_bytes: 0,
+                    cache_hit_rate: 1.0,
+                },
+                node_info: vec![],
+            }));
+        }
+
+        Ok(None)
+    }
+
+    /// 分散計画の作成
+    async fn create_distribution_plan(&self, rule_cid: &Cid, host_cid: &Cid) -> Result<DistributionPlan> {
+        let cluster = self.cluster_manager.read().await;
+
+        // 利用可能なノードの取得
+        let available_nodes = cluster.get_available_nodes();
+
+        // タスクの分割
+        let tasks = self.split_into_tasks(rule_cid, host_cid, &available_nodes)?;
+
+        // 負荷分散
+        let node_assignments = cluster.load_balancer.assign_tasks(&tasks, &available_nodes)?;
+
+        Ok(DistributionPlan {
+            tasks,
+            node_assignments: node_assignments.clone(),
+            estimated_completion: self.estimate_completion_time(&node_assignments),
+        })
+    }
+
+    /// 完了時間の見積もり
+    fn estimate_completion_time(&self, assignments: &HashMap<NodeId, Vec<DistributedTask>>) -> std::time::Duration {
+        // 簡易版: タスク数に基づいて時間を推定
+        let total_tasks: usize = assignments.values().map(|tasks| tasks.len()).sum();
+        std::time::Duration::from_millis((total_tasks as u64) * 1000) // 1秒 per タスク
+    }
+
+    /// タスクの分割
+    fn split_into_tasks(&self, rule_cid: &Cid, host_cid: &Cid, nodes: &[&ClusterNode]) -> Result<Vec<DistributedTask>> {
+        // 簡易版: 単一タスクとして扱う
+        // 実際の実装では、グラフをサブグラフに分割
+        let task = DistributedTask {
+            id: TaskId(format!("task_{}_{}", rule_cid.as_str(), host_cid.as_str())),
+            task_type: TaskType::RuleApplication {
+                rule_cid: rule_cid.clone(),
+                host_graph_cid: host_cid.clone(),
+            },
+            input: TaskInput::CidReference(host_cid.clone()),
+            priority: TaskPriority::Normal,
+            timeout: Some(std::time::Duration::from_secs(300)),
+        };
+
+        Ok(vec![task])
+    }
+
+    /// 分散タスクの実行
+    async fn execute_distributed_tasks(
+        &self,
+        plan: DistributionPlan,
+        cid_manager: &mut CidManager,
+    ) -> Result<DistributedResult> {
+        let start_time = std::time::Instant::now();
+        let mut node_infos = Vec::new();
+
+        // 各ノードへのタスク割り当て
+        for (node_id, tasks) in plan.node_assignments {
+            let node_start = std::time::Instant::now();
+
+            // ノードへのタスク送信（簡易版）
+            let node_result = self.execute_tasks_on_node(&node_id, &tasks, cid_manager).await?;
+
+            let execution_time = node_start.elapsed();
+            node_infos.push(NodeExecutionInfo {
+                node_id,
+                tasks_executed: tasks.len(),
+                execution_time,
+                tasks_succeeded: node_result.tasks_succeeded,
+                tasks_failed: node_result.tasks_failed,
+            });
+        }
+
+        let total_time = start_time.elapsed();
+
+        // 結果の統合（簡易版）
+        let result_data = ResultData::Success(GraphInstance {
+            core: GraphCore {
+                nodes: vec![], // 実際の実装では統合処理
+                edges: vec![],
+                boundary: None,
+                attrs: None,
+            },
+            kind: GraphKind::Instance,
+            cid: Cid::new(&format!("integrated_{}", uuid::Uuid::new_v4())),
+            typing: None,
+        });
+
+        Ok(DistributedResult {
+            id: ResultId(format!("dist_result_{}", uuid::Uuid::new_v4())),
+            data: result_data,
+            stats: ExecutionStats {
+                total_time,
+                cpu_time: total_time, // 簡易版
+                memory_peak: 1024 * 1024, // 1MB推定
+                network_bytes: 1024, // 1KB推定
+                cache_hit_rate: 0.0, // 計算が必要
+            },
+            node_info: node_infos,
+        })
+    }
+
+    /// ノード上でのタスク実行（簡易版）
+    async fn execute_tasks_on_node(
+        &self,
+        node_id: &NodeId,
+        tasks: &[DistributedTask],
+        cid_manager: &mut CidManager,
+    ) -> Result<NodeExecutionResult> {
+        // ローカルノードの場合
+        if self.cluster_manager.read().await.local_node_id == *node_id {
+            return self.execute_local_tasks(tasks, cid_manager).await;
+        }
+
+        // リモートノードの場合（簡易版）
+        // 実際の実装ではネットワーク通信が必要
+        Ok(NodeExecutionResult {
+            tasks_succeeded: tasks.len(),
+            tasks_failed: 0,
+        })
+    }
+
+    /// ローカルタスク実行
+    async fn execute_local_tasks(
+        &self,
+        tasks: &[DistributedTask],
+        cid_manager: &mut CidManager,
+    ) -> Result<NodeExecutionResult> {
+        let mut succeeded = 0;
+        let mut failed = 0;
+
+        for task in tasks {
+            match self.execute_single_task(task, cid_manager).await {
+                Ok(_) => succeeded += 1,
+                Err(_) => failed += 1,
+            }
+        }
+
+        Ok(NodeExecutionResult {
+            tasks_succeeded: succeeded,
+            tasks_failed: failed,
+        })
+    }
+
+    /// 単一タスク実行
+    async fn execute_single_task(
+        &self,
+        task: &DistributedTask,
+        cid_manager: &mut CidManager,
+    ) -> Result<()> {
+        match &task.task_type {
+            TaskType::RuleApplication { rule_cid, host_graph_cid } => {
+                // 簡易版: ローカル実行エンジンを使用
+                // 実際の実装ではRuleDPOの取得が必要
+                let _rule = RuleDPO {
+                    id: Id::new("temp_rule").map_err(|e| KotobaError::Validation(e))?,
+                    l: GraphInstance {
+                        core: GraphCore {
+                            nodes: vec![],
+                            edges: vec![],
+                            boundary: None,
+                            attrs: None,
+                        },
+                        kind: GraphKind::Instance,
+                        cid: rule_cid.clone(),
+                        typing: None,
+                    },
+                    k: GraphInstance {
+                        core: GraphCore {
+                            nodes: vec![],
+                            edges: vec![],
+                            boundary: None,
+                            attrs: None,
+                        },
+                        kind: GraphKind::Instance,
+                        cid: Cid::new(&format!("context_{}", uuid::Uuid::new_v4())),
+                        typing: None,
+                    },
+                    r: GraphInstance {
+                        core: GraphCore {
+                            nodes: vec![],
+                            edges: vec![],
+                            boundary: None,
+                            attrs: None,
+                        },
+                        kind: GraphKind::Instance,
+                        cid: Cid::new(&format!("result_{}", uuid::Uuid::new_v4())),
+                        typing: None,
+                    },
+                    m_l: Default::default(),
+                    m_r: Default::default(),
+                    nacs: vec![],
+                    app_cond: None,
+                    effects: None,
+                };
+
+                // 実際の実装ではここでルール適用を実行
+                Ok(())
+            }
+            _ => Err(KotobaError::Execution("Unsupported task type".to_string())),
+        }
+    }
+
+    /// 結果のキャッシュ
+    async fn cache_result(
+        &self,
+        rule_cid: &Cid,
+        host_cid: &Cid,
+        result: &DistributedResult,
+    ) -> Result<()> {
+        if let ResultData::Success(ref graph_instance) = result.data {
+            let cache_key = self.create_cache_key(rule_cid, host_cid);
+            let entry = CacheEntry {
+                result: graph_instance.clone(),
+                last_accessed: std::time::Instant::now(),
+                access_count: 1,
+                size_bytes: self.estimate_size(graph_instance),
+            };
+
+            let mut cache = self.cid_cache.write().await;
+            cache.cache.insert(cache_key, entry);
+        }
+
+        Ok(())
+    }
+
+    /// キャッシュキーの作成
+    fn create_cache_key(&self, rule_cid: &Cid, host_cid: &Cid) -> Cid {
+        // 簡易版: 2つのCIDを組み合わせた新しいCID
+        Cid::new(&format!("{}_{}", rule_cid.as_str(), host_cid.as_str()))
+    }
+
+    /// サイズ推定
+    fn estimate_size(&self, graph: &GraphInstance) -> usize {
+        // 簡易版: ノードとエッジの数を基に推定
+        graph.core.nodes.len() * 100 + graph.core.edges.len() * 50
+    }
+}
+
+/// 分散計画
+#[derive(Debug)]
+struct DistributionPlan {
+    tasks: Vec<DistributedTask>,
+    node_assignments: HashMap<NodeId, Vec<DistributedTask>>,
+    estimated_completion: std::time::Duration,
+}
+
+/// ノード実行結果
+#[derive(Debug)]
+struct NodeExecutionResult {
+    tasks_succeeded: usize,
+    tasks_failed: usize,
+}
+
+impl CidCache {
+    /// 新しいCIDキャッシュを作成
+    pub fn new() -> Self {
+        Self {
+            cache: HashMap::new(),
+            stats: CacheStats {
+                hits: 0,
+                misses: 0,
+                entries: 0,
+                total_size: 0,
+            },
+        }
+    }
+
+    /// キャッシュ統計を取得
+    pub fn get_stats(&self) -> &CacheStats {
+        &self.stats
+    }
+
+    /// キャッシュクリーンアップ
+    pub fn cleanup(&mut self, max_age: std::time::Duration, max_size: usize) {
+        let now = std::time::Instant::now();
+
+        // 古いエントリの削除
+        self.cache.retain(|_, entry| {
+            now.duration_since(entry.last_accessed) < max_age
+        });
+
+        // サイズ超過時の削除（LRU）
+        while self.stats.total_size > max_size && !self.cache.is_empty() {
+            // 最も古いエントリを削除
+            if let Some((key, _)) = self.cache.iter()
+                .min_by_key(|(_, entry)| entry.last_accessed) {
+                let key = key.clone();
+                if let Some(removed) = self.cache.remove(&key) {
+                    self.stats.total_size -= removed.size_bytes;
+                    self.stats.entries -= 1;
+                }
+            }
+        }
+    }
+}
+
+impl ClusterManager {
+    /// 新しいクラスタマネージャーを作成
+    pub fn new(local_node_id: NodeId) -> Self {
+        Self {
+            nodes: HashMap::new(),
+            local_node_id,
+            load_balancer: LoadBalancer::new(),
+        }
+    }
+
+    /// 利用可能なノードを取得
+    pub fn get_available_nodes(&self) -> Vec<&ClusterNode> {
+        self.nodes.values()
+            .filter(|node| node.status == NodeStatus::Active)
+            .collect()
+    }
+
+    /// ノードを追加
+    pub fn add_node(&mut self, node: ClusterNode) {
+        self.nodes.insert(node.id.clone(), node);
+    }
+
+    /// ノードを削除
+    pub fn remove_node(&mut self, node_id: &NodeId) {
+        self.nodes.remove(node_id);
+    }
+}
+
+impl LoadBalancer {
+    /// 新しい負荷分散器を作成
+    pub fn new() -> Self {
+        Self {
+            node_loads: HashMap::new(),
+            sharding_strategy: ShardingStrategy::LoadBased,
+        }
+    }
+
+    /// タスクをノードに割り当て
+    pub fn assign_tasks(
+        &self,
+        tasks: &[DistributedTask],
+        nodes: &[&ClusterNode],
+    ) -> Result<HashMap<NodeId, Vec<DistributedTask>>> {
+        let mut assignments: HashMap<NodeId, Vec<DistributedTask>> = HashMap::new();
+
+        for task in tasks {
+            let best_node = self.select_best_node(task, nodes)?;
+            assignments.entry(best_node.id.clone())
+                .or_insert_with(Vec::new)
+                .push(task.clone());
+        }
+
+        Ok(assignments)
+    }
+
+    /// 最適なノードを選択
+    fn select_best_node<'a>(&self, task: &DistributedTask, nodes: &[&'a ClusterNode]) -> Result<&'a ClusterNode> {
+        if nodes.is_empty() {
+            return Err(KotobaError::Execution("No available nodes".to_string()));
+        }
+
+        // 簡易版: 最も負荷の低いノードを選択
+        let best_node = nodes.iter()
+            .min_by(|a, b| a.load.partial_cmp(&b.load).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
+
+        Ok(best_node)
+    }
+}
+
+impl ClusterManager {
+    /// 完了時間の見積もり
+    fn estimate_completion_time(&self, assignments: &HashMap<NodeId, Vec<DistributedTask>>) -> std::time::Duration {
+        let mut max_time = std::time::Duration::from_millis(0);
+
+        for (node_id, tasks) in assignments {
+            if let Some(node) = self.nodes.get(node_id) {
+                let node_time = std::time::Duration::from_millis((tasks.len() as u64) * 1000 / (node.load as u64 + 1));
+                if node_time > max_time {
+                    max_time = node_time;
+                }
+            }
+        }
+
+        max_time
+    }
+}
+
+impl Default for crate::schema::Morphisms {
+    fn default() -> Self {
+        Self {
+            node_map: HashMap::new(),
+            edge_map: HashMap::new(),
+            port_map: HashMap::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_cid_cache() {
+        let cache = CidCache::new();
+        assert_eq!(cache.get_stats().entries, 0);
+    }
+
+    #[test]
+    fn test_cluster_manager() {
+        let node_id = NodeId("test_node".to_string());
+        let manager = ClusterManager::new(node_id.clone());
+        assert_eq!(manager.local_node_id, node_id);
+    }
+
+    #[test]
+    fn test_load_balancer() {
+        let balancer = LoadBalancer::new();
+        assert!(matches!(balancer.sharding_strategy, ShardingStrategy::LoadBased));
+    }
+
+    #[test]
+    fn test_distributed_task_creation() {
+        let task = DistributedTask {
+            id: TaskId("test_task".to_string()),
+            task_type: TaskType::RuleApplication {
+            rule_cid: Cid::new("rule_cid"),
+                host_graph_cid: Cid::new("host_cid"),
+            },
+            input: TaskInput::CidReference(Cid::new("input_cid")),
+            priority: TaskPriority::Normal,
+            timeout: Some(std::time::Duration::from_secs(60)),
+        };
+
+        assert_eq!(task.id.0, "test_task");
+        assert!(matches!(task.task_type, TaskType::RuleApplication { .. }));
+    }
+}

@@ -45,6 +45,7 @@ pub struct DatabaseConfig {
 
 /// Database driver
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq)]
 pub enum DatabaseDriver {
     PostgreSQL,
     MySQL,

@@ -26,6 +26,9 @@ pub mod cli;
 pub mod pgview;
 pub mod schema;
 pub mod schema_test;
+pub mod distributed;
+pub mod network_protocol;
+pub mod schema_validator;
 #[cfg(feature = "deploy")]
 pub mod deploy;
 

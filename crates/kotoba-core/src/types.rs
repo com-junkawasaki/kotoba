@@ -76,6 +76,10 @@ pub enum KotobaError {
     InvalidArgument(String),
     #[error("Not found: {0}")]
     NotFound(String),
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    #[error("Network error: {0}")]
+    Network(String),
 }
 
 pub type Result<T> = std::result::Result<T, KotobaError>;
