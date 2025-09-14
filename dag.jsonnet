@@ -481,6 +481,120 @@
       status: 'in_progress',
       build_order: 13,
     },
+
+    // ==========================================
+    // Deploy層 (Deno Deploy相当)
+    // ==========================================
+
+    'deploy_config': {
+      name: 'deploy_config',
+      path: 'src/deploy/config.rs',
+      type: 'deploy',
+      description: 'デプロイ設定のIR定義 (Jsonnetベースの.kotoba-deployファイル)',
+      dependencies: ['types'],
+      provides: ['DeployConfig', 'ScalingConfig', 'RegionConfig'],
+      status: 'pending',
+      build_order: 7,
+    },
+
+    'deploy_parser': {
+      name: 'deploy_parser',
+      path: 'src/deploy/parser.rs',
+      type: 'deploy',
+      description: '.kotoba-deployファイルのパーサー',
+      dependencies: ['types', 'deploy_config'],
+      provides: ['DeployConfigParser'],
+      status: 'pending',
+      build_order: 8,
+    },
+
+    'deploy_scaling': {
+      name: 'deploy_scaling',
+      path: 'src/deploy/scaling.rs',
+      type: 'deploy',
+      description: '自動スケーリングエンジン',
+      dependencies: ['types', 'deploy_config', 'graph_core'],
+      provides: ['ScalingEngine', 'LoadBalancer', 'AutoScaler'],
+      status: 'pending',
+      build_order: 9,
+    },
+
+    'deploy_network': {
+      name: 'deploy_network',
+      path: 'src/deploy/network.rs',
+      type: 'deploy',
+      description: 'グローバル分散ネットワーク管理',
+      dependencies: ['types', 'deploy_config', 'deploy_scaling'],
+      provides: ['NetworkManager', 'RegionManager', 'EdgeRouter'],
+      status: 'pending',
+      build_order: 10,
+    },
+
+    'deploy_git_integration': {
+      name: 'deploy_git_integration',
+      path: 'src/deploy/git_integration.rs',
+      type: 'deploy',
+      description: 'GitHub連携と自動デプロイ',
+      dependencies: ['types', 'deploy_config', 'deploy_network'],
+      provides: ['GitIntegration', 'AutoDeploy', 'WebhookHandler'],
+      status: 'pending',
+      build_order: 11,
+    },
+
+    'deploy_controller': {
+      name: 'deploy_controller',
+      path: 'src/deploy/controller.rs',
+      type: 'deploy',
+      description: 'GraphSON v3を使用したデプロイコントロール',
+      dependencies: ['types', 'deploy_config', 'deploy_scaling', 'deploy_network', 'deploy_git_integration', 'graph_core', 'rewrite_engine'],
+      provides: ['DeployController', 'DeploymentManager'],
+      status: 'pending',
+      build_order: 12,
+    },
+
+    'deploy_cli': {
+      name: 'deploy_cli',
+      path: 'src/deploy/cli.rs',
+      type: 'deploy',
+      description: 'kotoba deploy CLIコマンド',
+      dependencies: ['types', 'deploy_controller', 'http_server'],
+      provides: ['DeployCLI'],
+      status: 'pending',
+      build_order: 13,
+    },
+
+    'deploy_runtime': {
+      name: 'deploy_runtime',
+      path: 'src/deploy/runtime.rs',
+      type: 'deploy',
+      description: 'デプロイ実行ランタイム (WebAssembly + WASM Edge対応)',
+      dependencies: ['types', 'deploy_controller', 'wasm'],
+      provides: ['DeployRuntime', 'WasmRuntime'],
+      status: 'pending',
+      build_order: 14,
+    },
+
+    'deploy_example_simple': {
+      name: 'deploy_example_simple',
+      path: 'examples/deploy/simple.kotoba-deploy',
+      type: 'deploy_example',
+      description: 'シンプルなデプロイメント設定例',
+      dependencies: ['deploy_config'],
+      provides: ['simple_deploy_example'],
+      status: 'pending',
+      build_order: 15,
+    },
+
+    'deploy_example_microservices': {
+      name: 'deploy_example_microservices',
+      path: 'examples/deploy/microservices.kotoba-deploy',
+      type: 'deploy_example',
+      description: 'マイクロサービスデプロイメント設定例',
+      dependencies: ['deploy_config', 'deploy_example_simple'],
+      provides: ['microservices_deploy_example'],
+      status: 'pending',
+      build_order: 16,
+    },
   },
 
   // ==========================================
@@ -661,6 +775,64 @@
     { from: 'storage_mvcc', to: 'example_tauri_react_app' },
     { from: 'storage_merkle', to: 'example_tauri_react_app' },
 
+    // ==========================================
+    // Deploy層依存関係
+    // ==========================================
+
+    // Deploy config dependencies
+    { from: 'types', to: 'deploy_config' },
+    { from: 'deploy_config', to: 'deploy_parser' },
+    { from: 'types', to: 'deploy_parser' },
+
+    // Deploy scaling dependencies
+    { from: 'types', to: 'deploy_scaling' },
+    { from: 'deploy_config', to: 'deploy_scaling' },
+    { from: 'graph_core', to: 'deploy_scaling' },
+
+    // Deploy network dependencies
+    { from: 'types', to: 'deploy_network' },
+    { from: 'deploy_config', to: 'deploy_network' },
+    { from: 'deploy_scaling', to: 'deploy_network' },
+
+    // Deploy git integration dependencies
+    { from: 'types', to: 'deploy_git_integration' },
+    { from: 'deploy_config', to: 'deploy_git_integration' },
+    { from: 'deploy_network', to: 'deploy_git_integration' },
+
+    // Deploy controller dependencies
+    { from: 'types', to: 'deploy_controller' },
+    { from: 'deploy_config', to: 'deploy_controller' },
+    { from: 'deploy_scaling', to: 'deploy_controller' },
+    { from: 'deploy_network', to: 'deploy_controller' },
+    { from: 'deploy_git_integration', to: 'deploy_controller' },
+    { from: 'graph_core', to: 'deploy_controller' },
+    { from: 'rewrite_engine', to: 'deploy_controller' },
+
+    // Deploy CLI dependencies
+    { from: 'types', to: 'deploy_cli' },
+    { from: 'deploy_controller', to: 'deploy_cli' },
+    { from: 'http_server', to: 'deploy_cli' },
+
+    // Deploy runtime dependencies
+    { from: 'types', to: 'deploy_runtime' },
+    { from: 'deploy_controller', to: 'deploy_runtime' },
+    { from: 'wasm', to: 'deploy_runtime' },
+
+    // Deploy examples dependencies
+    { from: 'deploy_config', to: 'deploy_example_simple' },
+    { from: 'deploy_config', to: 'deploy_example_microservices' },
+    { from: 'deploy_example_simple', to: 'deploy_example_microservices' },
+
+    // Integration with main library
+    { from: 'deploy_config', to: 'lib' },
+    { from: 'deploy_parser', to: 'lib' },
+    { from: 'deploy_scaling', to: 'lib' },
+    { from: 'deploy_network', to: 'lib' },
+    { from: 'deploy_git_integration', to: 'lib' },
+    { from: 'deploy_controller', to: 'lib' },
+    { from: 'deploy_cli', to: 'lib' },
+    { from: 'deploy_runtime', to: 'lib' },
+
   ],
 
   // ==========================================
@@ -700,16 +872,26 @@
     'frontend_render_ir',
     'frontend_build_ir',
     'frontend_api_ir',
+    'deploy_config',
     'http_parser',
+    'deploy_parser',
+    'deploy_scaling',
     'http_handlers',
     'http_engine',
+    'deploy_network',
+    'deploy_git_integration',
     'frontend_framework',
+    'deploy_controller',
     'http_server',
+    'deploy_cli',
+    'deploy_runtime',
     'lib',
     'example_frontend_app',
     'example_http_server',
     'example_social_network',
     'example_tauri_react_app',
+    'deploy_example_simple',
+    'deploy_example_microservices',
   ],
 
   // ==========================================
@@ -717,16 +899,26 @@
   // ==========================================
 
   reverse_topological_order: [
+    'deploy_example_microservices',
+    'deploy_example_simple',
     'example_tauri_react_app',
     'example_social_network',
     'example_http_server',
     'example_frontend_app',
     'lib',
+    'deploy_runtime',
+    'deploy_cli',
     'http_server',
+    'deploy_controller',
     'frontend_framework',
+    'deploy_git_integration',
+    'deploy_network',
     'http_engine',
     'http_handlers',
+    'deploy_scaling',
+    'deploy_parser',
     'http_parser',
+    'deploy_config',
     'frontend_api_ir',
     'frontend_build_ir',
     'frontend_render_ir',
