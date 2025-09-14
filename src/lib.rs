@@ -20,6 +20,9 @@ pub use kotoba_execution as execution;
 pub use kotoba_rewrite as rewrite;
 // pub use kotoba_web as web; // まだpublishされていないため一時的にコメントアウト
 
+// Local deploy module
+pub mod deploy;
+
 // Convenient re-exports for common usage
 pub use kotoba_core::prelude::*;
 pub use kotoba_graph::prelude::*;

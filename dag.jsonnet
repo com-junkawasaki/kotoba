@@ -493,7 +493,7 @@
       description: 'デプロイ設定のIR定義 (Jsonnetベースの.kotoba-deployファイル)',
       dependencies: ['types'],
       provides: ['DeployConfig', 'ScalingConfig', 'RegionConfig'],
-      status: 'pending',
+      status: 'completed',
       build_order: 7,
     },
 
@@ -504,7 +504,7 @@
       description: '.kotoba-deployファイルのパーサー',
       dependencies: ['types', 'deploy_config'],
       provides: ['DeployConfigParser'],
-      status: 'pending',
+      status: 'completed',
       build_order: 8,
     },
 
@@ -515,7 +515,7 @@
       description: '自動スケーリングエンジン',
       dependencies: ['types', 'deploy_config', 'graph_core'],
       provides: ['ScalingEngine', 'LoadBalancer', 'AutoScaler'],
-      status: 'pending',
+      status: 'completed',
       build_order: 9,
     },
 
@@ -526,7 +526,7 @@
       description: 'グローバル分散ネットワーク管理',
       dependencies: ['types', 'deploy_config', 'deploy_scaling'],
       provides: ['NetworkManager', 'RegionManager', 'EdgeRouter'],
-      status: 'pending',
+      status: 'completed',
       build_order: 10,
     },
 
@@ -537,7 +537,7 @@
       description: 'GitHub連携と自動デプロイ',
       dependencies: ['types', 'deploy_config', 'deploy_network'],
       provides: ['GitIntegration', 'AutoDeploy', 'WebhookHandler'],
-      status: 'pending',
+      status: 'completed',
       build_order: 11,
     },
 
@@ -545,10 +545,10 @@
       name: 'deploy_controller',
       path: 'src/deploy/controller.rs',
       type: 'deploy',
-      description: 'GraphSON v3を使用したデプロイコントロール',
+      description: 'ISO GQLを使用したデプロイコントロール',
       dependencies: ['types', 'deploy_config', 'deploy_scaling', 'deploy_network', 'deploy_git_integration', 'graph_core', 'rewrite_engine'],
       provides: ['DeployController', 'DeploymentManager'],
-      status: 'pending',
+      status: 'completed',
       build_order: 12,
     },
 
@@ -559,7 +559,7 @@
       description: 'kotoba deploy CLIコマンド',
       dependencies: ['types', 'deploy_controller', 'http_server'],
       provides: ['DeployCLI'],
-      status: 'pending',
+      status: 'completed',
       build_order: 13,
     },
 
@@ -570,7 +570,7 @@
       description: 'デプロイ実行ランタイム (WebAssembly + WASM Edge対応)',
       dependencies: ['types', 'deploy_controller', 'wasm'],
       provides: ['DeployRuntime', 'WasmRuntime'],
-      status: 'pending',
+      status: 'completed',
       build_order: 14,
     },
 
@@ -594,6 +594,43 @@
       provides: ['microservices_deploy_example'],
       status: 'pending',
       build_order: 16,
+    },
+
+    // ==========================================
+    // Hosting Server 層
+    // ==========================================
+
+    'deploy_hosting_server': {
+      name: 'deploy_hosting_server',
+      path: 'src/deploy/hosting_server.rs',
+      type: 'deploy',
+      description: 'ホスティングサーバーの実装 - デプロイされたアプリをホスト',
+      dependencies: ['deploy_controller', 'http_server', 'frontend_framework', 'graph_core', 'execution_engine', 'storage_mvcc', 'storage_merkle'],
+      provides: ['HostingServer', 'AppHost', 'RuntimeManager'],
+      status: 'completed',
+      build_order: 17,
+    },
+
+    'deploy_hosting_manager': {
+      name: 'deploy_hosting_manager',
+      path: 'src/deploy/hosting_manager.rs',
+      type: 'deploy',
+      description: 'ホスティングマネージャー - アプリのライフサイクル管理',
+      dependencies: ['deploy_hosting_server', 'deploy_scaling', 'deploy_network'],
+      provides: ['HostingManager', 'DeploymentLifecycle'],
+      status: 'completed',
+      build_order: 18,
+    },
+
+    'deploy_hosting_example': {
+      name: 'deploy_hosting_example',
+      path: 'examples/deploy/hosting_example.rs',
+      type: 'deploy_example',
+      description: 'ホスティングサーバーの使用例',
+      dependencies: ['deploy_hosting_manager', 'deploy_cli'],
+      provides: ['hosting_server_example'],
+      status: 'pending',
+      build_order: 19,
     },
   },
 
@@ -833,6 +870,24 @@
     { from: 'deploy_cli', to: 'lib' },
     { from: 'deploy_runtime', to: 'lib' },
 
+    // Hosting Server dependencies
+    { from: 'deploy_controller', to: 'deploy_hosting_server' },
+    { from: 'http_server', to: 'deploy_hosting_server' },
+    { from: 'frontend_framework', to: 'deploy_hosting_server' },
+    { from: 'graph_core', to: 'deploy_hosting_server' },
+    { from: 'execution_engine', to: 'deploy_hosting_server' },
+    { from: 'storage_mvcc', to: 'deploy_hosting_server' },
+    { from: 'storage_merkle', to: 'deploy_hosting_server' },
+    { from: 'deploy_hosting_server', to: 'deploy_hosting_manager' },
+    { from: 'deploy_scaling', to: 'deploy_hosting_manager' },
+    { from: 'deploy_network', to: 'deploy_hosting_manager' },
+    { from: 'deploy_hosting_manager', to: 'deploy_hosting_example' },
+    { from: 'deploy_cli', to: 'deploy_hosting_example' },
+
+    // Hosting integration with main library
+    { from: 'deploy_hosting_server', to: 'lib' },
+    { from: 'deploy_hosting_manager', to: 'lib' },
+
   ],
 
   // ==========================================
@@ -892,6 +947,9 @@
     'example_tauri_react_app',
     'deploy_example_simple',
     'deploy_example_microservices',
+    'deploy_hosting_server',
+    'deploy_hosting_manager',
+    'deploy_hosting_example',
   ],
 
   // ==========================================
@@ -899,6 +957,9 @@
   // ==========================================
 
   reverse_topological_order: [
+    'deploy_hosting_example',
+    'deploy_hosting_manager',
+    'deploy_hosting_server',
     'deploy_example_microservices',
     'deploy_example_simple',
     'example_tauri_react_app',

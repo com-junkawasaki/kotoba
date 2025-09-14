@@ -7,6 +7,9 @@
 pub mod config;
 pub mod controller;
 pub mod cli;
+pub mod runtime;
+pub mod hosting_server;
+pub mod hosting_manager;
 
 // 再エクスポート
 pub use config::{
@@ -24,6 +27,15 @@ pub use controller::{
 };
 pub use cli::{
     DeployCli, DeployCommands, DeployCliImpl, run_cli,
+};
+pub use runtime::{
+    DeployRuntime, RuntimeManager, RuntimeConfig, WasmInstance, ResourceUsage as RuntimeResourceUsage, run_hosting_server,
+};
+pub use hosting_server::{
+    HostingServer, HostingManager as HostingManagerInner, HostedApp, HostingStats, run_hosting_server_system,
+};
+pub use hosting_manager::{
+    HostingManager, DeploymentLifecycle, LifecyclePhase, DeploymentMetrics, SystemStats,
 };
 
 /// デプロイモジュールのバージョン
