@@ -93,15 +93,15 @@ impl RuleMatcher {
                         for (key, expected_value) in expected_props {
                             if let Some(actual_value) = vertex.props.get(key) {
                                 if !self.values_match(actual_value, expected_value) {
-                                    return Ok(false);
+                                    return false;
                                 }
                             } else {
-                                return Ok(false);
+                                return false;
                             }
                         }
                     }
                 } else {
-                    return Ok(false);
+                    return false;
                 }
             }
         }
