@@ -1,6 +1,7 @@
 //! Security error types and handling
 
 use thiserror::Error;
+use totp_rs::SecretParseError;
 
 /// Result type for security operations
 pub type Result<T> = std::result::Result<T, SecurityError>;
@@ -224,6 +225,13 @@ impl From<anyhow::Error> for SecurityError {
 impl From<chrono::ParseError> for SecurityError {
     fn from(err: chrono::ParseError) -> Self {
         SecurityError::Time(err.to_string())
+    }
+}
+
+/// Convert from TOTP secret parse errors
+impl From<SecretParseError> for SecurityError {
+    fn from(err: SecretParseError) -> Self {
+        SecurityError::Mfa(format!("TOTP secret parsing failed: {}", err))
     }
 }
 

@@ -2,7 +2,7 @@
 //!
 //! Next.js App RouterのファイルベースルーティングをKotoba IRで表現します。
 
-use crate::types::Properties;
+use crate::types::{Properties, Value};
 use crate::frontend::component_ir::{ComponentIR, ComponentType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

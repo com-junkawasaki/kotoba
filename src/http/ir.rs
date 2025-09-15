@@ -2,7 +2,7 @@
 //!
 //! このモジュールはHTTPサーバー関連のデータ構造とIR定義を提供します。
 
-use crate::types::{Value, Properties, ContentHash, Result, KotobaError};
+use crate::types::{Value, Properties, ContentHash};
 use kotoba_core::ir::catalog::{LabelDef, PropertyDef, ValueType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
