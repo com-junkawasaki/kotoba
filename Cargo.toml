@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
@@ -38,13 +38,13 @@ jsonschema = "0.17"
 blake3 = "1.5"
 
 # Kotoba internal crates
-kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.5", features = ["yaml"] }
+kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.6", features = ["yaml"] }
 kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
 
 # Root crate configuration
 [package]
 name = "kotoba"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
 license = "MIT OR Apache-2.0"
