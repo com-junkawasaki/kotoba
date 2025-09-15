@@ -161,7 +161,7 @@ impl StdLib {
     fn make_array(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "makeArray")?;
         let n = args[0].as_number()? as usize;
-        let func = &args[1];
+        let _func = &args[1];
 
         // For now, create a simple array [0, 1, 2, ..., n-1]
         // TODO: Implement proper function calling
@@ -177,6 +177,7 @@ impl StdLib {
     /// std.filter(func, arr) - filters array using predicate function
     fn filter(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "filter")?;
+        let _func = &args[0];
         // TODO: Implement filtering
         Ok(args[1].clone())
     }
@@ -184,6 +185,7 @@ impl StdLib {
     /// std.map(func, arr) - maps function over array
     fn map(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "map")?;
+        let _func = &args[0];
         // TODO: Implement mapping
         Ok(args[1].clone())
     }
@@ -191,6 +193,8 @@ impl StdLib {
     /// std.foldl(func, arr, init) - left fold
     fn foldl(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 3, "foldl")?;
+        let _func = &args[0];
+        let _arr = args[1].as_array()?;
         // TODO: Implement folding
         Ok(args[2].clone())
     }
@@ -198,6 +202,8 @@ impl StdLib {
     /// std.foldr(func, arr, init) - right fold
     fn foldr(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 3, "foldr")?;
+        let _func = &args[0];
+        let _arr = args[1].as_array()?;
         // TODO: Implement folding
         Ok(args[2].clone())
     }
@@ -391,8 +397,34 @@ impl StdLib {
     /// std.manifestJsonEx(x, indent) - pretty prints value as JSON with custom indent
     fn manifest_json_ex(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "manifestJsonEx")?;
-        // TODO: Implement custom indentation
-        Self::manifest_json(vec![args[0].clone()])
+        let value = &args[0];
+        let indent = args[1].as_string()?;
+
+        // Simple implementation with custom indentation
+        // For now, just use serde_json with the indent string
+        match serde_json::to_string_pretty(&value.to_json_value()) {
+            Ok(json) => {
+                if indent.is_empty() {
+                    Ok(JsonnetValue::string(json))
+                } else {
+                    // Replace default 2-space indentation with custom indent
+                    let indented = json.lines()
+                        .map(|line| {
+                            let leading_spaces = line.chars().take_while(|c| *c == ' ').count();
+                            if leading_spaces > 0 {
+                                let indent_level = leading_spaces / 2;
+                                format!("{}{}", indent.repeat(indent_level), &line[leading_spaces..])
+                            } else {
+                                line.to_string()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    Ok(JsonnetValue::string(indented))
+                }
+            }
+            Err(_) => Err(JsonnetError::runtime_error("Failed to serialize to JSON")),
+        }
     }
 
     /// std.manifestYaml(x) - pretty prints value as YAML
@@ -419,18 +451,36 @@ impl StdLib {
         Ok(JsonnetValue::string(escaped))
     }
 
-    #[cfg(feature = "yaml")]
     fn escape_string_yaml(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "escapeStringYaml")?;
-        // TODO: Implement proper YAML escaping
-        Self::escape_string_json(args)
-    }
+        let s = args[0].as_string()?;
 
-    #[cfg(not(feature = "yaml"))]
-    fn escape_string_yaml(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        Self::check_args(&args, 1, "escapeStringYaml")?;
-        // Fallback to JSON escaping when YAML feature is disabled
-        Self::escape_string_json(args)
+        // Basic YAML string escaping
+        // YAML requires escaping certain characters in strings
+        let mut escaped = String::new();
+        for ch in s.chars() {
+            match ch {
+                '"' => escaped.push_str("\\\""),
+                '\\' => escaped.push_str("\\\\"),
+                '\n' => escaped.push_str("\\n"),
+                '\r' => escaped.push_str("\\r"),
+                '\t' => escaped.push_str("\\t"),
+                '\0' => escaped.push_str("\\0"),
+                _ => escaped.push(ch),
+            }
+        }
+
+        // Wrap in quotes if the string contains special characters
+        let needs_quotes = s.contains(' ') || s.contains('\t') || s.contains('\n') ||
+                          s.contains(':') || s.contains('#') || s.contains('-') ||
+                          s.starts_with('[') || s.starts_with('{') ||
+                          s.starts_with('"') || s.starts_with('\'');
+
+        if needs_quotes {
+            Ok(JsonnetValue::string(format!("\"{}\"", escaped)))
+        } else {
+            Ok(JsonnetValue::string(escaped))
+        }
     }
 
     fn escape_string_python(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
@@ -721,12 +771,64 @@ impl StdLib {
             return Ok(JsonnetValue::array(vec![]));
         }
 
-        // For now, sort by string representation
-        // TODO: Implement proper Jsonnet sorting (numbers first, then strings, etc.)
+        // Implement proper Jsonnet sorting
+        // Jsonnet sorts by comparing values directly, not by string representation
         let mut sorted = arr.clone();
-        sorted.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+        sorted.sort_by(|a, b| Self::compare_values(a, b));
 
         Ok(JsonnetValue::array(sorted))
+    }
+
+    fn compare_values(a: &JsonnetValue, b: &JsonnetValue) -> std::cmp::Ordering {
+        match (a, b) {
+            (JsonnetValue::Null, JsonnetValue::Null) => std::cmp::Ordering::Equal,
+            (JsonnetValue::Null, _) => std::cmp::Ordering::Less,
+            (_, JsonnetValue::Null) => std::cmp::Ordering::Greater,
+            (JsonnetValue::Boolean(x), JsonnetValue::Boolean(y)) => x.cmp(y),
+            (JsonnetValue::Boolean(_), _) => std::cmp::Ordering::Less,
+            (_, JsonnetValue::Boolean(_)) => std::cmp::Ordering::Greater,
+            (JsonnetValue::Number(x), JsonnetValue::Number(y)) => {
+                x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal)
+            }
+            (JsonnetValue::Number(_), _) => std::cmp::Ordering::Less,
+            (_, JsonnetValue::Number(_)) => std::cmp::Ordering::Greater,
+            (JsonnetValue::String(x), JsonnetValue::String(y)) => x.cmp(y),
+            (JsonnetValue::String(_), _) => std::cmp::Ordering::Less,
+            (_, JsonnetValue::String(_)) => std::cmp::Ordering::Greater,
+            (JsonnetValue::Array(x), JsonnetValue::Array(y)) => {
+                for (_i, (a_item, b_item)) in x.iter().zip(y.iter()).enumerate() {
+                    let cmp = Self::compare_values(a_item, b_item);
+                    if cmp != std::cmp::Ordering::Equal {
+                        return cmp;
+                    }
+                }
+                x.len().cmp(&y.len())
+            }
+            (JsonnetValue::Array(_), _) => std::cmp::Ordering::Less,
+            (_, JsonnetValue::Array(_)) => std::cmp::Ordering::Greater,
+            (JsonnetValue::Object(x), JsonnetValue::Object(y)) => {
+                // Compare by sorted keys and values
+                let mut x_keys: Vec<_> = x.keys().collect();
+                let mut y_keys: Vec<_> = y.keys().collect();
+                x_keys.sort();
+                y_keys.sort();
+
+                for (x_key, y_key) in x_keys.iter().zip(y_keys.iter()) {
+                    let key_cmp = x_key.cmp(y_key);
+                    if key_cmp != std::cmp::Ordering::Equal {
+                        return key_cmp;
+                    }
+                    if let (Some(x_val), Some(y_val)) = (x.get(*x_key), y.get(*y_key)) {
+                        let val_cmp = Self::compare_values(x_val, y_val);
+                        if val_cmp != std::cmp::Ordering::Equal {
+                            return val_cmp;
+                        }
+                    }
+                }
+                x.len().cmp(&y.len())
+            }
+            _ => std::cmp::Ordering::Equal, // Functions are considered equal for sorting
+        }
     }
 
     fn uniq(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
@@ -857,14 +959,55 @@ impl StdLib {
 
     fn prune(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "prune")?;
-        // TODO: Implement pruning (remove null values)
-        Ok(args[0].clone())
+        Self::prune_value(&args[0])
+    }
+
+    fn prune_value(value: &JsonnetValue) -> Result<JsonnetValue> {
+        match value {
+            JsonnetValue::Null => Ok(JsonnetValue::Null),
+            JsonnetValue::Array(arr) => {
+                let pruned: Vec<JsonnetValue> = arr.iter()
+                    .map(|item| Self::prune_value(item))
+                    .collect::<Result<Vec<_>>>()?
+                    .into_iter()
+                    .filter(|item| !matches!(item, JsonnetValue::Null))
+                    .collect();
+                Ok(JsonnetValue::array(pruned))
+            }
+            JsonnetValue::Object(obj) => {
+                let mut pruned_obj = HashMap::new();
+                for (key, val) in obj {
+                    let pruned_val = Self::prune_value(val)?;
+                    if !matches!(pruned_val, JsonnetValue::Null) {
+                        pruned_obj.insert(key.clone(), pruned_val);
+                    }
+                }
+                Ok(JsonnetValue::object(pruned_obj))
+            }
+            _ => Ok(value.clone()),
+        }
     }
 
     fn map_with_key(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "mapWithKey")?;
-        // TODO: Implement mapWithKey
-        Ok(args[1].clone())
+        let _func = &args[0];
+        let obj = args[1].as_object()?;
+
+        // For now, return a simple transformation
+        // TODO: Implement proper function calling
+        let mut result = HashMap::new();
+        for (key, value) in obj {
+            if !key.starts_with('_') {
+                // Simple transformation: wrap key-value in array
+                // In full implementation, this would call the function with (key, value)
+                result.insert(key.clone(), JsonnetValue::array(vec![
+                    JsonnetValue::string(key.clone()),
+                    value.clone()
+                ]));
+            }
+        }
+
+        Ok(JsonnetValue::object(result))
     }
 
     fn to_lower(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {

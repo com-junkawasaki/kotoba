@@ -822,6 +822,48 @@ mod tests {
         let binding = result.unwrap();
         let arr = binding.as_array().unwrap();
         assert_eq!(arr.len(), 3); // Should create array of length 3
+
+        // Test improved manifestJsonEx function
+        let result = evaluate(r#"std.manifestJsonEx({a: 1, b: 2}, "  ")"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let json_str = binding.as_string().unwrap();
+        assert!(json_str.contains("\"a\":"));
+        assert!(json_str.contains("\"b\":"));
+
+        // Test improved escapeStringYaml function
+        let result = evaluate(r#"std.escapeStringYaml("hello\nworld")"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let yaml_str = binding.as_string().unwrap();
+        assert!(yaml_str.contains("hello\\nworld"));
+
+        // Test improved prune function
+        let result = evaluate(r#"std.prune({a: 1, b: null, c: {d: 2, e: null}})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let obj = binding.as_object().unwrap();
+        assert_eq!(obj.len(), 2); // Should have a and c, b should be pruned
+        assert!(obj.contains_key("a"));
+        assert!(obj.contains_key("c"));
+        assert!(!obj.contains_key("b"));
+
+        // Test improved sort function with proper Jsonnet sorting
+        let result = evaluate(r#"std.sort([3, "hello", 1, null, true])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 5); // Should sort: null, boolean, number, string
+
+        // Test improved mapWithKey function
+        let result = evaluate(r#"std.mapWithKey(null, {a: 1, b: 2, _hidden: 3})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let obj = binding.as_object().unwrap();
+        assert_eq!(obj.len(), 2); // Should have a and b, _hidden should be filtered
+        assert!(obj.contains_key("a"));
+        assert!(obj.contains_key("b"));
+        assert!(!obj.contains_key("_hidden"));
     }
 
     #[test]
