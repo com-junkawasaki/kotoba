@@ -52,19 +52,29 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 **YAML Support (1/1):**
 - ✅ `manifestYaml` (with `yaml` feature flag)
 
-##### ❌ **Not Yet Implemented**
+##### ❌ **Not Yet Implemented (86 functions remaining)**
+
+**High Priority Missing Functions:**
 - `id` - Identity function
+- `equals` - Deep equality comparison
 - `lines` - String to lines conversion
-- `indent` - String indentation
-- `repeat` - String repetition
-- `lstripChars` / `rstripChars` - Character stripping
-- `stringReplace` - String replacement
-- `xnor` / `xor` - Logical XOR functions
-- `primitiveEquals` - Primitive equality check
-- `objectKeysValues` - Object key-value pairs
-- `objectRemoveKey` - Object key removal
-- `super` - Object inheritance reference
-- Additional encoding/decoding functions
+- `strReplace` - String replacement
+- `asciiLower`/`asciiUpper` - ASCII case conversion
+- `remove`/`removeAt` - Array element removal
+- `set`/`setDiff`/`setInter`/`setUnion` - Set operations
+- `sha1`/`sha256`/`sha3`/`sha512` - Hash functions
+
+**Extended Array/Object Operations:**
+- `flatMap`, `flattenArrays`, `mapWithIndex`
+- `lstripChars`/`rstripChars`/`stripChars`
+- `findSubstr`, `repeat`
+- `objectKeysValues`, `objectRemoveKey`
+
+**Advanced Math & Types:**
+- `log2`, `log10`, `deg2rad`, `rad2deg`
+- `isInteger`, `isDecimal`, `isEven`, `isOdd`
+
+**Compatibility:** **89/175 functions implemented (51%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue
