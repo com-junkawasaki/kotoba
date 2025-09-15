@@ -1,7 +1,9 @@
 //! クエリ実行のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba::*;
+use kotoba_core::prelude::*;
+use kotoba_graph::prelude::*;
+use kotoba_execution::prelude::*;
 use std::collections::HashMap;
 
 /// テスト用グラフデータの生成（クエリ用）
@@ -207,7 +209,7 @@ fn bench_query_parsing(c: &mut Criterion) {
 
     c.bench_function("query_parsing", |b| {
         b.iter(|| {
-            let parser = GqlParser::new();
+            let mut parser = GqlParser::new();
             let result = parser.parse(gql);
             black_box(&result);
         });

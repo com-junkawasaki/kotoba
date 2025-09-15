@@ -591,7 +591,7 @@ mod tests {
     }
 
     #[tokio::test]
-    fn test_cookie_header_generation() {
+    async fn test_cookie_header_generation() {
         let config = CookieConfig::default();
         let session_id = "session123";
 
@@ -604,7 +604,7 @@ mod tests {
     }
 
     #[tokio::test]
-    fn test_cookie_parsing() {
+    async fn test_cookie_parsing() {
         let cookie_header = "session_id=abc123; other=value; session_id=def456";
         let session_id = SessionCookie::parse_session_id(cookie_header, "session_id");
 
@@ -612,7 +612,7 @@ mod tests {
     }
 
     #[tokio::test]
-    fn test_delete_cookie_generation() {
+    async fn test_delete_cookie_generation() {
         let config = CookieConfig::default();
         let delete_header = SessionCookie::generate_delete_cookie_header(&config);
 

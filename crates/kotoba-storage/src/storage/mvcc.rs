@@ -7,7 +7,7 @@ use kotoba_core::types::*;
 use kotoba_graph::prelude::*;
 
 /// トランザクション状態
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TxState {
     Active,
     Committed,

@@ -2,12 +2,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-// コンパイル時間を短縮するため、必要な型のみを直接インポート
-#[cfg(feature = "graph")]
-use kotoba_graph::{graph::{Graph, GraphRef}, vertex::VertexData, edge::EdgeData};
-#[cfg(feature = "graph")]
-use kotoba_core::types::Value;
-#[cfg(feature = "graph")]
+use kotoba_core::prelude::*;
+use kotoba_graph::prelude::*;
 use std::collections::HashMap;
 
 /// テスト用グラフデータの生成

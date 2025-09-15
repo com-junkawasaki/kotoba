@@ -1,11 +1,10 @@
 //! ストレージ操作のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba_core::*;
-use kotoba_graph::*;
-use kotoba_storage::*;
+use kotoba_core::prelude::*;
+use kotoba_graph::prelude::*;
+use kotoba_storage::prelude::*;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 /// テスト用データの生成
 fn generate_test_data(size: usize) -> Vec<(String, Vec<u8>)> {
@@ -53,7 +52,7 @@ fn create_storage_test_graph(size: usize) -> Graph {
 
 /// MVCCトランザクション作成ベンチマーク
 fn bench_mvcc_transaction_creation(c: &mut Criterion) {
-    let mvcc = storage::MVCCManager::new();
+    let mvcc = MVCCManager::new();
 
     c.bench_function("mvcc_transaction_creation", |b| {
         b.iter(|| {
@@ -65,7 +64,7 @@ fn bench_mvcc_transaction_creation(c: &mut Criterion) {
 
 /// MVCCコミットベンチマーク
 fn bench_mvcc_commit(c: &mut Criterion) {
-    let mvcc = storage::MVCCManager::new();
+    let mvcc = MVCCManager::new();
 
     c.bench_function("mvcc_commit", |b| {
         b.iter(|| {
@@ -78,17 +77,17 @@ fn bench_mvcc_commit(c: &mut Criterion) {
 
 /// Merkleハッシュ計算ベンチマーク
 fn bench_merkle_hashing(c: &mut Criterion) {
-    let mut merkle = storage::MerkleDAG::new();
+    let mut merkle = MerkleDAG::new();
     let graph = create_storage_test_graph(100);
 
     c.bench_function("merkle_hashing", |b| {
         b.iter(|| {
             let hash_result = merkle.hash_graph(&graph);
-            let _hash = match hash_result {
+            let hash = match hash_result {
                 Ok(hash) => hash,
                 Err(_) => return,
             };
-            black_box(_hash);
+            black_box(hash.clone());
             black_box(hash);
         });
     });
@@ -96,7 +95,7 @@ fn bench_merkle_hashing(c: &mut Criterion) {
 
 /// Merkleノード格納ベンチマーク
 fn bench_merkle_storage(c: &mut Criterion) {
-    let mut merkle = storage::MerkleDAG::new();
+    let mut merkle = MerkleDAG::new();
     let test_data = b"test data for merkle storage benchmark";
 
     c.bench_function("merkle_storage", |b| {
@@ -113,7 +112,7 @@ fn bench_lsm_insert(c: &mut Criterion) {
 
     c.bench_function("lsm_insert", |b| {
         b.iter(|| {
-            let mut lsm = storage::LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 100);
+            let mut lsm = LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 100, 4096).expect("Failed to create LSMTree");
             for (key, value) in &test_data {
                 let _result = lsm.put(key.clone(), value.clone());
             black_box(_result);
@@ -126,7 +125,7 @@ fn bench_lsm_insert(c: &mut Criterion) {
 /// LSMツリーデータ検索ベンチマーク
 fn bench_lsm_get(c: &mut Criterion) {
     let test_data = generate_test_data(1000);
-    let mut lsm = storage::LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 100);
+    let mut lsm = LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 100, 4096).expect("Failed to create LSMTree");
 
     // データを挿入
     for (key, value) in &test_data {
@@ -147,7 +146,7 @@ fn bench_lsm_get(c: &mut Criterion) {
 fn bench_lsm_flush(c: &mut Criterion) {
     c.bench_function("lsm_flush", |b| {
         b.iter(|| {
-            let mut lsm = storage::LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 10); // 小さい閾値で頻繁にフラッシュ
+            let mut lsm = LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 10, 4096).expect("Failed to create LSMTree"); // 小さい閾値で頻繁にフラッシュ
 
             // 多くのデータを挿入してフラッシュをトリガー
             for i in 0..50 {
@@ -166,7 +165,7 @@ fn bench_lsm_flush(c: &mut Criterion) {
 fn bench_lsm_compaction(c: &mut Criterion) {
     c.bench_function("lsm_compaction", |b| {
         b.iter(|| {
-            let mut lsm = storage::LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 5); // 非常に小さい閾値
+            let mut lsm = LSMTree::new(std::path::PathBuf::from("/tmp/kotoba_lsm_bench"), 5, 4096).expect("Failed to create LSMTree"); // 非常に小さい閾値
 
             // 多くのSSTableを作成
             for i in 0..100 {
@@ -184,7 +183,7 @@ fn bench_lsm_compaction(c: &mut Criterion) {
 /// グラフ永続化ベンチマーク
 fn bench_graph_persistence(c: &mut Criterion) {
     let graph = create_storage_test_graph(1000);
-    let mut merkle = storage::MerkleDAG::new();
+    let mut merkle = MerkleDAG::new();
 
     c.bench_function("graph_persistence", |b| {
         b.iter(|| {
@@ -202,7 +201,7 @@ fn bench_graph_persistence(c: &mut Criterion) {
 
 /// バージョン管理ベンチマーク
 fn bench_version_management(c: &mut Criterion) {
-    let mut version_manager = storage::GraphVersion::new();
+    let mut version_manager = GraphVersion::new();
     let mut graph = create_storage_test_graph(100);
 
     c.bench_function("version_management", |b| {
@@ -224,14 +223,14 @@ fn bench_version_management(c: &mut Criterion) {
 /// 同時実行制御ベンチマーク
 fn bench_concurrency_control(c: &mut Criterion) {
     use std::sync::Arc;
-    use parking_lot::RwLock;
+    use std::sync::RwLock;
 
     let graph = Arc::new(RwLock::new(create_storage_test_graph(1000)));
-    let mvcc = Arc::new(storage::MVCCManager::new());
+    let mvcc = Arc::new(MVCCManager::new());
 
     c.bench_function("concurrency_control", |b| {
         b.iter(|| {
-            let graph_clone = Arc::clone(&graph);
+            let graph_clone: Arc<std::sync::RwLock<_>> = Arc::clone(&graph);
             let mvcc_clone = Arc::clone(&mvcc);
 
             // 複数のトランザクションをシミュレート
@@ -240,7 +239,7 @@ fn bench_concurrency_control(c: &mut Criterion) {
             // グラフを読み取り
             {
                 let graph_read = graph_clone.read();
-                let vertex_count = graph_read.vertex_count();
+                let vertex_count = graph_read.expect("Failed to read graph").vertex_count();
                 black_box(vertex_count);
             }
 
@@ -255,16 +254,16 @@ fn bench_concurrency_control(c: &mut Criterion) {
 /// 大規模データセット永続化ベンチマーク
 fn bench_large_dataset_persistence(c: &mut Criterion) {
     let graph = create_storage_test_graph(10000);
-    let mut merkle = storage::MerkleDAG::new();
+    let mut merkle = MerkleDAG::new();
 
     c.bench_function("large_dataset_persistence", |b| {
         b.iter(|| {
             let hash_result = merkle.hash_graph(&graph);
-            let _hash = match hash_result {
+            let hash = match hash_result {
                 Ok(hash) => hash,
                 Err(_) => return,
             };
-            black_box(_hash);
+            black_box(hash.clone());
             black_box(hash);
         });
     });
@@ -272,7 +271,7 @@ fn bench_large_dataset_persistence(c: &mut Criterion) {
 
 /// スナップショット作成ベンチマーク
 fn bench_snapshot_creation(c: &mut Criterion) {
-    let mvcc = storage::MVCCManager::new();
+    let mvcc = MVCCManager::new();
     let graph_ref = GraphRef::new(create_storage_test_graph(1000));
 
     c.bench_function("snapshot_creation", |b| {
@@ -290,7 +289,7 @@ fn bench_snapshot_creation(c: &mut Criterion) {
 
 /// スナップショット取得ベンチマーク
 fn bench_snapshot_retrieval(c: &mut Criterion) {
-    let mvcc = storage::MVCCManager::new();
+    let mvcc = MVCCManager::new();
     let graph_ref = GraphRef::new(create_storage_test_graph(1000));
 
     // スナップショットを作成

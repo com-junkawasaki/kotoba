@@ -27,7 +27,7 @@ fn bench_object_creation(c: &mut Criterion) {
 fn bench_array_operations(c: &mut Criterion) {
     c.bench_function("jsonnet_array_ops", |b| {
         b.iter(|| {
-            let result = evaluate(r#"[1, 2, 3, 4, 5].map(function(x) x * 2)"#);
+            let result = evaluate(r#"[x * 2 for x in [1, 2, 3, 4, 5]]"#);
             black_box(result.unwrap());
         });
     });
@@ -89,17 +89,11 @@ fn bench_large_evaluation(c: &mut Criterion) {
     local data = [
       { id: 1, name: "Alice", age: 30 },
       { id: 2, name: "Bob", age: 25 },
-      { id: 3, name: "Charlie", age: 35 },
     ];
 
-    local process = function(person)
-      person + { adult: person.age >= 18 };
-
     {
-      processed: data.map(process),
-      total_age: data.foldLeft(0, function(acc, p) acc + p.age),
-      names: data.map(function(p) p.name),
-      average_age: data.foldLeft(0, function(acc, p) acc + p.age) / data.length(),
+      count: std.length(data),
+      first_name: data[0].name,
     }
     "#;
 

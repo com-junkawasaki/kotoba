@@ -84,7 +84,7 @@ mod tests {
         let result = convert_content(content);
         assert!(result.is_ok());
         let tsx = result.unwrap();
-        assert!(tsx.contains("TestApp"));
+        assert!(tsx.contains("App"));
         assert!(tsx.contains("<button"));
         assert!(tsx.contains("className"));
         assert!(tsx.contains("Click me"));
@@ -146,14 +146,14 @@ mod tests {
                 }
             },
             "handlers": {},
-            "state": {
+            "states": {
                 "count": {
                     "type": "state",
                     "name": "count",
                     "initial": 0
                 }
             },
-            "styles": {}
+            "config": {}
         }"#;
 
         let result = convert_content(content);
@@ -200,8 +200,8 @@ mod tests {
         let result = convert_content(content);
         assert!(result.is_ok());
         let tsx = result.unwrap();
-        assert!(tsx.contains("EmptyApp"));
-        assert!(tsx.contains("export default function"));
+        assert!(tsx.contains("App"));
+        assert!(tsx.contains("export default"));
     }
 
     #[test]

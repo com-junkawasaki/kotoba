@@ -1,7 +1,7 @@
 //! OAuth2 and OpenID Connect integration
 
 use crate::error::{SecurityError, Result};
-use crate::config::OAuth2Config;
+use crate::config::{OAuth2Config, OAuth2ProviderConfig};
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{
@@ -115,17 +115,6 @@ impl OAuth2Provider {
     }
 }
 
-/// OAuth2 provider configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OAuth2ProviderConfig {
-    pub client_id: String,
-    pub client_secret: String,
-    pub authorization_url: String,
-    pub token_url: String,
-    pub userinfo_url: Option<String>,
-    pub scope_separator: String,
-    pub additional_params: HashMap<String, String>,
-}
 
 /// OAuth2 tokens
 #[derive(Debug, Clone, Serialize, Deserialize)]

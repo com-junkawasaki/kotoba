@@ -1,11 +1,10 @@
 //! 書換え操作のパフォーマンスベンチマーク
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kotoba_core::*;
-use kotoba_graph::*;
-use kotoba_rewrite::*;
+use kotoba_core::prelude::*;
+use kotoba_graph::prelude::*;
+use kotoba_rewrite::prelude::*;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 /// テスト用ルールの生成
 fn create_test_rule() -> RuleIR {
@@ -151,7 +150,7 @@ fn bench_rule_matching(c: &mut Criterion) {
 
     c.bench_function("rule_matching", |b| {
         b.iter(|| {
-            let matcher = rewrite::RuleMatcher::new();
+            let matcher = RuleMatcher::new();
             let matches = matcher.find_matches(&graph_ref, &rule, &catalog);
             black_box(matches);
         });
@@ -163,7 +162,7 @@ fn bench_rule_application_once(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     c.bench_function("rule_application_once", |b| {
         b.iter(|| {
@@ -183,7 +182,7 @@ fn bench_rule_application_exhaust(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     c.bench_function("rule_application_exhaust", |b| {
         b.iter(|| {
@@ -205,7 +204,7 @@ fn bench_rule_application_while(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     c.bench_function("rule_application_while", |b| {
         b.iter(|| {
@@ -227,7 +226,7 @@ fn bench_strategy_sequence(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     c.bench_function("strategy_sequence", |b| {
         b.iter(|| {
@@ -256,7 +255,7 @@ fn bench_strategy_choice(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     c.bench_function("strategy_choice", |b| {
         b.iter(|| {
@@ -285,7 +284,7 @@ fn bench_patch_application(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     // 事前にパッチを生成
     let strategy = StrategyIR {
@@ -315,7 +314,7 @@ fn bench_large_graph_rewrite(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(1000); // 333個の三角形
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let engine = rewrite::RewriteEngine::new();
+    let engine = RewriteEngine::new();
 
     c.bench_function("large_graph_rewrite", |b| {
         b.iter(|| {
@@ -379,7 +378,7 @@ fn bench_guard_evaluation(c: &mut Criterion) {
     let graph_ref = create_rewrite_test_graph(300);
     let rule = create_test_rule();
     let catalog = Catalog::empty();
-    let matcher = rewrite::RuleMatcher::new();
+    let matcher = RuleMatcher::new();
 
     c.bench_function("guard_evaluation", |b| {
         b.iter(|| {

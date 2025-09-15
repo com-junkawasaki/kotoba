@@ -9,8 +9,10 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::*;
     use kotoba_core::{types::*, ir::*};
-    use kotoba_graph::graph::GraphRef;
+    use kotoba_graph::prelude::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_rewrite_engine_creation() {
@@ -39,9 +41,12 @@ mod tests {
         // Test creating a basic rule
         let rule = RuleIR {
             name: "test_rule".to_string(),
-            lhs: Pattern::empty(),
-            rhs: Pattern::empty(),
-            conditions: vec![],
+            types: std::collections::HashMap::new(),
+            lhs: GraphPattern { nodes: vec![], edges: vec![] },
+            context: GraphPattern { nodes: vec![], edges: vec![] },
+            rhs: GraphPattern { nodes: vec![], edges: vec![] },
+            nacs: vec![],
+            guards: vec![],
         };
         assert_eq!(rule.name, "test_rule");
         assert!(rule.lhs.nodes.is_empty());
@@ -52,12 +57,10 @@ mod tests {
     fn test_strategy_ir_creation() {
         // Test creating a basic strategy
         let strategy = StrategyIR {
-            name: "test_strategy".to_string(),
             strategy: StrategyOp::Once {
                 rule: "test_rule".to_string(),
             },
         };
-        assert_eq!(strategy.name, "test_strategy");
 
         if let StrategyOp::Once { rule } = &strategy.strategy {
             assert_eq!(rule, "test_rule");
@@ -69,24 +72,28 @@ mod tests {
     #[test]
     fn test_pattern_creation() {
         // Test pattern creation
-        let mut pattern = Pattern::empty();
+        let mut pattern = GraphPattern { nodes: vec![], edges: vec![] };
         assert!(pattern.nodes.is_empty());
         assert!(pattern.edges.is_empty());
 
         // Add a node to pattern
-        let node_id = pattern.add_node("Person".to_string(), HashMap::new());
+        let element = GraphElement {
+            id: "person1".to_string(),
+            type_: Some("Person".to_string()),
+            props: Some(HashMap::new()),
+        };
+        pattern.nodes.push(element);
         assert_eq!(pattern.nodes.len(), 1);
-        assert!(pattern.nodes.contains_key(&node_id));
+        assert!(pattern.nodes.iter().any(|e| e.id == "person1"));
     }
 
     #[test]
     fn test_patch_creation() {
         // Test patch creation
         let patch = Patch::empty();
-        assert!(patch.add_nodes.is_empty());
-        assert!(patch.del_nodes.is_empty());
-        assert!(patch.add_edges.is_empty());
-        assert!(patch.del_edges.is_empty());
+        assert!(patch.adds.vertices.is_empty() && patch.adds.edges.is_empty());
+        assert!(patch.dels.vertices.is_empty() && patch.dels.edges.is_empty());
+        assert!(patch.updates.props.is_empty() && patch.updates.relinks.is_empty());
     }
 
     #[test]
@@ -95,7 +102,7 @@ mod tests {
         let mut mapping = HashMap::new();
         mapping.insert("x".to_string(), VertexId::new_v4());
 
-        let match_result = Match { mapping };
+        let match_result = Match { mapping, score: 1.0 };
         assert_eq!(match_result.mapping.len(), 1);
         assert!(match_result.mapping.contains_key("x"));
     }
@@ -104,7 +111,9 @@ mod tests {
     fn test_catalog_creation() {
         // Test catalog creation
         let catalog = Catalog::empty();
-        assert!(catalog.schemas.is_empty());
+        assert!(catalog.labels.is_empty());
+        assert!(catalog.indexes.is_empty());
+        assert!(catalog.invariants.is_empty());
     }
 
     #[test]
@@ -114,9 +123,12 @@ mod tests {
         let graph = GraphRef::new(Graph::empty());
         let rule = RuleIR {
             name: "empty_rule".to_string(),
-            lhs: Pattern::empty(),
-            rhs: Pattern::empty(),
-            conditions: vec![],
+            types: std::collections::HashMap::new(),
+            lhs: GraphPattern { nodes: vec![], edges: vec![] },
+            context: GraphPattern { nodes: vec![], edges: vec![] },
+            rhs: GraphPattern { nodes: vec![], edges: vec![] },
+            nacs: vec![],
+            guards: vec![],
         };
         let catalog = Catalog::empty();
 
@@ -132,12 +144,14 @@ mod tests {
         let graph = GraphRef::new(Graph::empty());
         let rule = RuleIR {
             name: "test_rule".to_string(),
-            lhs: Pattern::empty(),
-            rhs: Pattern::empty(),
-            conditions: vec![],
+            types: std::collections::HashMap::new(),
+            lhs: GraphPattern { nodes: vec![], edges: vec![] },
+            context: GraphPattern { nodes: vec![], edges: vec![] },
+            rhs: GraphPattern { nodes: vec![], edges: vec![] },
+            nacs: vec![],
+            guards: vec![],
         };
         let strategy = StrategyIR {
-            name: "once_strategy".to_string(),
             strategy: StrategyOp::Once {
                 rule: "test_rule".to_string(),
             },
