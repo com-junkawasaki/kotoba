@@ -15,6 +15,8 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ Expression evaluator with variable scoping
 - ✅ Function definitions and calls
 - ✅ Object and array literals
+- ✅ **Bracket notation** - `obj["key"]` and `arr[index]` syntax ⭐
+- ✅ **Array comprehensions** - `[x for x in arr if cond]` syntax ⭐
 - ✅ Local variable bindings
 - ✅ Conditional expressions (if/then/else)
 - ✅ Import and ImportStr
