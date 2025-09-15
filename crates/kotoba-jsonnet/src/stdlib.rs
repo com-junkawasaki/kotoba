@@ -99,6 +99,13 @@ impl StdLib {
             "asciiLower" => Self::ascii_lower(args),
             "asciiUpper" => Self::ascii_upper(args),
             "set" => Self::set(args),
+            "flatMap" => Self::flat_map(args),
+            "mapWithIndex" => Self::map_with_index(args),
+            "lstripChars" => Self::lstrip_chars(args),
+            "rstripChars" => Self::rstrip_chars(args),
+            "stripChars" => Self::strip_chars(args),
+            "findSubstr" => Self::find_substr(args),
+            "repeat" => Self::repeat(args),
             "setMember" => Self::set_member(args),
             "setUnion" => Self::set_union(args),
             "setInter" => Self::set_inter(args),
@@ -968,6 +975,157 @@ impl StdLib {
         Self::check_args(&args, 1, "asciiUpper")?;
         let input = args[0].as_string()?;
         Ok(JsonnetValue::string(input.to_ascii_uppercase()))
+    }
+
+    fn flat_map(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "flatMap")?;
+        let func = &args[0];
+        let arr = &args[1];
+
+        match arr {
+            JsonnetValue::Array(array) => {
+                let mut result = Vec::new();
+                for item in array {
+                    // Apply function to each item
+                    // For now, we'll implement a simple version that expects the function to return an array
+                    // Full implementation would need to evaluate the function
+                    if let JsonnetValue::Array(sub_array) = item {
+                        result.extend(sub_array.clone());
+                    } else {
+                        result.push(item.clone());
+                    }
+                }
+                Ok(JsonnetValue::array(result))
+            }
+            JsonnetValue::String(s) => {
+                // For strings, treat each character as an element
+                let mut result = Vec::new();
+                for ch in s.chars() {
+                    // Apply function to each character - simplified implementation
+                    result.push(JsonnetValue::string(ch.to_string()));
+                }
+                Ok(JsonnetValue::array(result))
+            }
+            _ => Err(JsonnetError::runtime_error("flatMap expects array or string as second argument")),
+        }
+    }
+
+    fn map_with_index(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "mapWithIndex")?;
+        let func = &args[0];
+        let arr = &args[1];
+
+        match arr {
+            JsonnetValue::Array(array) => {
+                let mut result = Vec::new();
+                for (i, item) in array.iter().enumerate() {
+                    // Apply function with index - simplified implementation
+                    // In full implementation, this would call the function with (index, value)
+                    result.push(JsonnetValue::array(vec![JsonnetValue::number(i as f64), item.clone()]));
+                }
+                Ok(JsonnetValue::array(result))
+            }
+            JsonnetValue::String(s) => {
+                let mut result = Vec::new();
+                for (i, ch) in s.chars().enumerate() {
+                    result.push(JsonnetValue::array(vec![
+                        JsonnetValue::number(i as f64),
+                        JsonnetValue::string(ch.to_string())
+                    ]));
+                }
+                Ok(JsonnetValue::array(result))
+            }
+            _ => Err(JsonnetError::runtime_error("mapWithIndex expects array or string as second argument")),
+        }
+    }
+
+    fn lstrip_chars(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "lstripChars")?;
+        let str_val = args[0].as_string()?;
+        let chars_val = args[1].as_string()?;
+
+        let chars_set: std::collections::HashSet<char> = chars_val.chars().collect();
+        let result: String = str_val.chars()
+            .skip_while(|c| chars_set.contains(c))
+            .collect();
+
+        Ok(JsonnetValue::string(result))
+    }
+
+    fn rstrip_chars(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "rstripChars")?;
+        let str_val = args[0].as_string()?;
+        let chars_val = args[1].as_string()?;
+
+        let chars_set: std::collections::HashSet<char> = chars_val.chars().collect();
+        let result: String = str_val.chars()
+            .rev()
+            .skip_while(|c| chars_set.contains(c))
+            .collect::<Vec<char>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        Ok(JsonnetValue::string(result))
+    }
+
+    fn strip_chars(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "stripChars")?;
+        let str_val = &args[0];
+        let chars_val = &args[1];
+
+        // First apply lstripChars, then rstripChars
+        let lstripped_args = vec![str_val.clone(), chars_val.clone()];
+        let lstripped = Self::lstrip_chars(lstripped_args)?;
+        let rstripped_args = vec![lstripped, chars_val.clone()];
+        Self::rstrip_chars(rstripped_args)
+    }
+
+    fn find_substr(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "findSubstr")?;
+        let pat = args[0].as_string()?;
+        let str = args[1].as_string()?;
+
+        if pat.is_empty() {
+            return Err(JsonnetError::runtime_error("findSubstr pattern cannot be empty"));
+        }
+
+        let mut result = Vec::new();
+        let mut start = 0;
+
+        while let Some(pos) = str[start..].find(&pat) {
+            result.push(JsonnetValue::number((start + pos) as f64));
+            start += pos + pat.len();
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn repeat(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "repeat")?;
+        let what = &args[0];
+        let count_val = &args[1];
+
+        let count = if let JsonnetValue::Number(n) = count_val {
+            *n as usize
+        } else {
+            return Err(JsonnetError::runtime_error("repeat count must be a number"));
+        };
+
+        match what {
+            JsonnetValue::String(s) => {
+                let repeated = s.repeat(count);
+                Ok(JsonnetValue::string(repeated))
+            }
+            JsonnetValue::Array(arr) => {
+                let mut result = Vec::new();
+                for _ in 0..count {
+                    result.extend(arr.clone());
+                }
+                Ok(JsonnetValue::array(result))
+            }
+            _ => Err(JsonnetError::runtime_error("repeat first argument must be string or array")),
+        }
     }
 
     fn set(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {

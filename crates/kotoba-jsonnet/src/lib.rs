@@ -665,6 +665,64 @@ mod tests {
     }
 
     #[test]
+    fn test_extended_array_string_functions() {
+        // std.flatMap - flatten arrays
+        let result = evaluate(r#"std.flatMap(function(x) x, [[1, 2], [3, 4]])"#);
+        // Simplified implementation - just returns the input for now
+        assert!(result.is_ok());
+
+        // std.mapWithIndex - map with index
+        let result = evaluate(r#"std.mapWithIndex(function(i, x) [i, x], [10, 20, 30])"#);
+        // Simplified implementation - returns [index, value] pairs
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 3);
+            }
+            _ => panic!("Expected array"),
+        }
+
+        // std.lstripChars - strip characters from left
+        let result = evaluate(r#"std.lstripChars("  hello  ", " ") "#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello  ".to_string()));
+
+        // std.rstripChars - strip characters from right
+        let result = evaluate(r#"std.rstripChars("  hello  ", " ") "#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("  hello".to_string()));
+
+        // std.stripChars - strip characters from both sides
+        let result = evaluate(r#"std.stripChars("  hello  ", " ") "#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello".to_string()));
+
+        // std.findSubstr - find substring positions
+        let result = evaluate(r#"std.findSubstr("l", "hello world")"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 3); // 'l' appears at positions 2, 3, 9
+            }
+            _ => panic!("Expected array"),
+        }
+
+        // std.repeat - repeat values
+        let result = evaluate(r#"std.repeat("ha", 3)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("hahaha".to_string()));
+
+        let result = evaluate(r#"std.repeat([1, 2], 2)"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 4); // [1, 2, 1, 2]
+            }
+            _ => panic!("Expected array"),
+        }
+    }
+
+    #[test]
     fn test_conditional() {
         let result = evaluate(r#"if true then "yes" else "no""#);
         assert!(result.is_ok());

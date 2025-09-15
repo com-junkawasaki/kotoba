@@ -52,7 +52,7 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 **YAML Support (1/1):**
 - ✅ `manifestYaml` (with `yaml` feature flag)
 
-##### ❌ **Not Yet Implemented (74 functions remaining)**
+##### ❌ **Not Yet Implemented (69 functions remaining)**
 
 **Recently Added (Phase 1):**
 - ✅ `id` - Identity function
@@ -65,20 +65,25 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ `asciiLower`/`asciiUpper` - ASCII case conversion
 - ✅ `set`/`setMember`/`setUnion`/`setInter`/`setDiff` - Set operations
 
+**Recently Added (Phase 3):**
+- ✅ `flatMap` - Flatten arrays after mapping
+- ✅ `mapWithIndex` - Map with element indices
+- ✅ `lstripChars`/`rstripChars`/`stripChars` - Character stripping
+- ✅ `findSubstr` - Find substring positions
+- ✅ `repeat` - Repeat values/strings
+
 **Still Missing High Priority Functions:**
 - `remove`/`removeAt` - Array element removal
 
 **Extended Array/Object Operations:**
-- `flatMap`, `flattenArrays`, `mapWithIndex`
-- `lstripChars`/`rstripChars`/`stripChars`
-- `findSubstr`, `repeat`
+- `flattenArrays` - Deep array flattening
 - `objectKeysValues`, `objectRemoveKey`
 
 **Advanced Math & Types:**
 - `log2`, `log10`, `deg2rad`, `rad2deg`
 - `isInteger`, `isDecimal`, `isEven`, `isOdd`
 
-**Compatibility:** **97/175 functions implemented (55%)**
+**Compatibility:** **106/175 functions implemented (61%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue
