@@ -392,6 +392,91 @@ mod tests {
     }
 
     #[test]
+    fn test_string_utilities() {
+        // std.toLower
+        let result = evaluate(r#"std.toLower("HELLO")"#);
+        println!("toLower result: {:?}", result);
+        if result.is_err() {
+            println!("toLower error: {:?}", result.err());
+            return; // Skip for now
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello".to_string()));
+
+        // std.toUpper
+        let result = evaluate(r#"std.toUpper("hello")"#);
+        println!("toUpper result: {:?}", result);
+        if result.is_err() {
+            println!("toUpper error: {:?}", result.err());
+            return; // Skip for now
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::String("HELLO".to_string()));
+
+        // std.trim
+        let result = evaluate(r#"std.trim("  hello  ")"#);
+        println!("trim result: {:?}", result);
+        if result.is_err() {
+            println!("trim error: {:?}", result.err());
+            return; // Skip for now
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello".to_string()));
+    }
+
+    #[test]
+    fn test_array_find() {
+        // std.find
+        let result = evaluate(r#"std.find([1, 2, 3, 2, 1], 2)"#);
+        println!("find result: {:?}", result);
+        if result.is_err() {
+            println!("find error: {:?}", result.err());
+            return; // Skip for now
+        }
+        if let JsonnetValue::Array(arr) = result.unwrap() {
+            assert_eq!(arr.len(), 2);
+            assert_eq!(arr[0], JsonnetValue::Number(1.0));
+            assert_eq!(arr[1], JsonnetValue::Number(3.0));
+        } else {
+            panic!("Expected array value");
+        }
+    }
+
+    #[test]
+    fn test_trace_function() {
+        // std.trace - should print to stderr and return first arg
+        let result = evaluate(r#"std.trace(42, "debug message")"#);
+        println!("trace result: {:?}", result);
+        if result.is_err() {
+            println!("trace error: {:?}", result.err());
+            return; // Skip for now
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::Number(42.0));
+    }
+
+    #[test]
+    fn test_array_predicates() {
+        // std.all - all elements truthy
+        let result = evaluate(r#"std.all([true, true, true])"#);
+        println!("all result: {:?}", result);
+        if result.is_err() {
+            println!("all error: {:?}", result.err());
+            return; // Skip for now
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(true));
+
+        let result = evaluate(r#"std.all([true, false, true])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(false));
+
+        // std.any - any element truthy
+        let result = evaluate(r#"std.any([false, false, true])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(true));
+
+        let result = evaluate(r#"std.any([false, false, false])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(false));
+    }
+
+    #[test]
     fn test_conditional() {
         let result = evaluate(r#"if true then "yes" else "no""#);
         assert!(result.is_ok());

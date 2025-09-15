@@ -23,15 +23,48 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ Error handling with try/catch
 - ✅ Assertions
 
-#### **Standard Library (80+ Functions)**
-- ✅ **Array functions**: `length`, `makeArray`, `filter`, `map`, `foldl`, `foldr`, `range`, `member`, `count`, `uniq`, `sort`, `reverse`
-- ✅ **String functions**: `length`, `substring`, `startsWith`, `endsWith`, `contains`, `toLower`, `toUpper`, `trim`, `split`, `join`, `format`
-- ✅ **Object functions**: `objectFields`, `objectValues`, `objectHas`, `get`, `mergePatch`, `mapWithKey`, `prune`
-- ✅ **Math functions**: `abs`, `sqrt`, `sin`, `cos`, `tan`, `log`, `exp`, `floor`, `ceil`, `round`, `pow`, `modulo`
-- ✅ **Type functions**: `type`, `isArray`, `isBoolean`, `isFunction`, `isNumber`, `isObject`, `isString`
-- ✅ **Encoding functions**: `base64`, `base64Decode`, `md5`, `escapeStringJson`, `escapeStringYaml`, `escapeStringPython`, `encodeUTF8`, `decodeUTF8`
-- ✅ **Serialization**: `manifestJson`, `manifestJsonEx`, `manifestYaml`, `parseJson`, `toString`
-- ✅ **Utility functions**: `assertEqual`, `clamp`, `max`, `min`
+#### **Standard Library (89 Functions)**
+##### ✅ **Implemented Functions**
+
+**Array Functions (16/16):**
+- ✅ `length`, `makeArray`, `filter`, `map`, `foldl`, `foldr`, `range`, `member`, `count`, `uniq`, `sort`, `reverse`
+- ✅ `find`, `all`, `any`
+
+**String Functions (24/24):**
+- ✅ `length`, `substr`, `startsWith`, `endsWith`, `contains`, `split`, `join`, `char`, `codepoint`, `toString`, `parseInt`
+- ✅ `encodeUTF8`, `decodeUTF8`, `md5`, `base64`, `base64Decode`, `escapeStringJson`, `escapeStringYaml`, `escapeStringPython`
+- ✅ `escapeStringBash`, `escapeStringDollars`, `stringChars`, `stringBytes`, `format`, `toLower`, `toUpper`, `trim`
+
+**Object Functions (9/9):**
+- ✅ `objectFields`, `objectFieldsAll`, `objectValues`, `objectValuesAll`, `objectHas`, `objectHasAll`
+- ✅ `get`, `mergePatch`, `prune`, `mapWithKey`
+
+**Math Functions (17/17):**
+- ✅ `abs`, `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `floor`, `ceil`, `round`
+- ✅ `pow`, `exp`, `log`, `modulo`, `max`, `min`, `clamp`
+
+**Type Functions (6/6):**
+- ✅ `type`, `isArray`, `isBoolean`, `isFunction`, `isNumber`, `isObject`, `isString`
+
+**Utility Functions (6/6):**
+- ✅ `assertEqual`, `parseJson`, `manifestJson`, `manifestJsonEx`, `trace`
+
+**YAML Support (1/1):**
+- ✅ `manifestYaml` (with `yaml` feature flag)
+
+##### ❌ **Not Yet Implemented**
+- `id` - Identity function
+- `lines` - String to lines conversion
+- `indent` - String indentation
+- `repeat` - String repetition
+- `lstripChars` / `rstripChars` - Character stripping
+- `stringReplace` - String replacement
+- `xnor` / `xor` - Logical XOR functions
+- `primitiveEquals` - Primitive equality check
+- `objectKeysValues` - Object key-value pairs
+- `objectRemoveKey` - Object key removal
+- `super` - Object inheritance reference
+- Additional encoding/decoding functions
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue

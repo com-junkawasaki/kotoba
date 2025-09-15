@@ -365,6 +365,7 @@ impl fmt::Display for JsonnetValue {
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonnetBuiltin {
     Length,
+    StdLibFunction(String),
     // Add more builtins as needed
 }
 
@@ -372,6 +373,7 @@ impl JsonnetBuiltin {
     pub fn call(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         match self {
             JsonnetBuiltin::Length => crate::stdlib::StdLib::length(args),
+            JsonnetBuiltin::StdLibFunction(func_name) => crate::stdlib::StdLib::call_function(func_name, args),
         }
     }
 }

@@ -30,6 +30,26 @@ impl Evaluator {
         // std.length function
         std_object.insert("length".to_string(), JsonnetValue::Builtin(JsonnetBuiltin::Length));
 
+        // For now, add other std functions as built-ins that will delegate to StdLib
+        // TODO: Create a proper std function wrapper
+        let std_functions = vec![
+            "type", "makeArray", "filter", "map", "foldl", "foldr", "range", "join", "split",
+            "contains", "startsWith", "endsWith", "substr", "char", "codepoint", "toString",
+            "parseInt", "parseJson", "encodeUTF8", "decodeUTF8", "md5", "base64", "base64Decode",
+            "manifestJson", "manifestJsonEx", "manifestYaml", "escapeStringJson", "escapeStringYaml",
+            "escapeStringPython", "escapeStringBash", "escapeStringDollars", "stringChars", "stringBytes",
+            "format", "isArray", "isBoolean", "isFunction", "isNumber", "isObject", "isString",
+            "count", "find", "member", "modulo", "pow", "exp", "log", "sqrt", "sin", "cos", "tan",
+            "asin", "acos", "atan", "floor", "ceil", "round", "abs", "max", "min", "clamp",
+            "assertEqual", "sort", "uniq", "reverse", "mergePatch", "get", "objectFields",
+            "objectFieldsAll", "objectHas", "objectHasAll", "objectValues", "objectValuesAll",
+            "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any"
+        ];
+
+        for func_name in std_functions {
+            std_object.insert(func_name.to_string(), JsonnetValue::Builtin(JsonnetBuiltin::StdLibFunction(func_name.to_string())));
+        }
+
         self.globals.insert("std".to_string(), JsonnetValue::Object(std_object));
     }
 

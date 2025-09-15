@@ -24,6 +24,9 @@ impl StdLib {
             "contains" => Self::contains(args),
             "startsWith" => Self::starts_with(args),
             "endsWith" => Self::ends_with(args),
+            "toLower" => Self::to_lower(args),
+            "toUpper" => Self::to_upper(args),
+            "trim" => Self::trim(args),
             "substr" => Self::substr(args),
             "char" => Self::char_fn(args),
             "codepoint" => Self::codepoint(args),
@@ -74,9 +77,12 @@ impl StdLib {
             "min" => Self::min(args),
             "clamp" => Self::clamp(args),
             "assertEqual" => Self::assert_equal(args),
+            "trace" => Self::trace(args),
             "sort" => Self::sort(args),
             "uniq" => Self::uniq(args),
             "reverse" => Self::reverse(args),
+            "all" => Self::all(args),
+            "any" => Self::any(args),
             "mergePatch" => Self::merge_patch(args),
             "get" => Self::get(args),
             "objectFields" => Self::object_fields(args),
@@ -462,9 +468,19 @@ impl StdLib {
     }
 
     fn find(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        // TODO: Implement find function
         Self::check_args(&args, 2, "find")?;
-        Ok(JsonnetValue::array(vec![]))
+        match (&args[0], &args[1]) {
+            (JsonnetValue::Array(arr), value) => {
+                let mut indices = Vec::new();
+                for (i, item) in arr.iter().enumerate() {
+                    if item == value {
+                        indices.push(JsonnetValue::Number(i as f64));
+                    }
+                }
+                Ok(JsonnetValue::array(indices))
+            }
+            _ => Err(JsonnetError::runtime_error("find expects array and search value")),
+        }
     }
 
     fn member(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
@@ -625,6 +641,14 @@ impl StdLib {
         Ok(JsonnetValue::boolean(true))
     }
 
+    fn trace(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "trace")?;
+        // Print the second argument to stderr for tracing
+        eprintln!("TRACE: {:?}", args[1]);
+        // Return the first argument
+        Ok(args[0].clone())
+    }
+
     // Array manipulation functions
     fn sort(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "sort")?;
@@ -720,6 +744,52 @@ impl StdLib {
         Self::check_args(&args, 2, "mapWithKey")?;
         // TODO: Implement mapWithKey
         Ok(args[1].clone())
+    }
+
+    fn to_lower(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "toLower")?;
+        match &args[0] {
+            JsonnetValue::String(s) => Ok(JsonnetValue::string(s.to_lowercase())),
+            _ => Err(JsonnetError::runtime_error("toLower expects a string argument")),
+        }
+    }
+
+    fn to_upper(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "toUpper")?;
+        match &args[0] {
+            JsonnetValue::String(s) => Ok(JsonnetValue::string(s.to_uppercase())),
+            _ => Err(JsonnetError::runtime_error("toUpper expects a string argument")),
+        }
+    }
+
+    fn trim(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "trim")?;
+        match &args[0] {
+            JsonnetValue::String(s) => Ok(JsonnetValue::string(s.trim().to_string())),
+            _ => Err(JsonnetError::runtime_error("trim expects a string argument")),
+        }
+    }
+
+    fn all(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "all")?;
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                let result = arr.iter().all(|item| item.is_truthy());
+                Ok(JsonnetValue::boolean(result))
+            }
+            _ => Err(JsonnetError::runtime_error("all expects an array argument")),
+        }
+    }
+
+    fn any(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "any")?;
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                let result = arr.iter().any(|item| item.is_truthy());
+                Ok(JsonnetValue::boolean(result))
+            }
+            _ => Err(JsonnetError::runtime_error("any expects an array argument")),
+        }
     }
 
     /// Helper function to check argument count
