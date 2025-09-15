@@ -73,17 +73,29 @@ impl MfaService {
         let secret = Secret::Encoded(hex::encode(secret_bytes));
 
         // Create TOTP instance
-        let totp = TOTP::new(
+        let _totp = TOTP::new(
             Algorithm::SHA1,
             self.config.digits.into(),
             self.config.skew,
             self.config.step,
-            secret.to_bytes()?.to_vec(),
+            secret.to_bytes()
+                .map_err(|e| SecurityError::Mfa(format!("Failed to decode secret: {}", e)))?,
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
-        // Generate URL for QR code
-        let url = totp.url(&self.config.issuer, account_name)
-            .map_err(|e| SecurityError::Mfa(format!("Failed to generate URL: {}", e)))?;
+        // Generate TOTP URI manually
+        let issuer_encoded = self.config.issuer.replace(" ", "%20").replace(":", "%3A");
+        let account_encoded = account_name.replace(" ", "%20").replace(":", "%3A");
+
+        let url = format!(
+            "otpauth://totp/{}:{}?secret={}&issuer={}&algorithm={}&digits={}&period={}",
+            issuer_encoded,
+            account_encoded,
+            hex::encode(&secret_bytes),
+            issuer_encoded,
+            "SHA1",
+            self.config.digits,
+            self.config.step
+        );
 
         // Generate QR code
         let qr_code = QrCode::new(url.as_bytes())
@@ -122,17 +134,18 @@ impl MfaService {
 
     /// Generate QR code from existing secret
     pub fn generate_qr_code(&self, secret: &MfaSecret) -> Result<String> {
-        let secret_bytes = hex::decode(&secret.secret)
+        let _secret_bytes = hex::decode(&secret.secret)
             .map_err(|e| SecurityError::Mfa(format!("Invalid secret hex: {}", e)))?;
 
         let totp_secret = Secret::Encoded(secret.secret.clone());
 
-        let totp = TOTP::new(
+        let _totp = TOTP::new(
             secret.algorithm.clone().into(),
             secret.digits,
             secret.skew,
             secret.step,
-            totp_secret.to_bytes().to_vec(),
+            totp_secret.to_bytes()
+                .map_err(|e| SecurityError::Mfa(format!("Failed to decode secret: {}", e)))?,
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
         // Generate TOTP URI manually
@@ -169,12 +182,13 @@ impl MfaService {
 
     /// Verify MFA code
     pub fn verify_code(&self, secret_hex: &str, code: &str) -> Result<bool> {
-        let secret_bytes = hex::decode(secret_hex)
+        let _secret_bytes = hex::decode(secret_hex)
             .map_err(|e| SecurityError::Mfa(format!("Invalid secret hex: {}", e)))?;
 
         let secret = Secret::Encoded(secret_hex.to_string());
 
-        let secret_bytes = secret.to_bytes().to_vec();
+        let secret_bytes = secret.to_bytes()
+            .map_err(|e| SecurityError::Mfa(format!("Failed to decode secret: {}", e)))?;
         let totp = TOTP::new(
             Algorithm::SHA1,
             self.config.digits.into(),
@@ -226,17 +240,16 @@ impl MfaService {
 
     /// Get current TOTP code for a secret (for testing purposes)
     pub fn get_current_code(&self, secret_hex: &str) -> Result<String> {
-        let secret_bytes = hex::decode(secret_hex)
-            .map_err(|e| SecurityError::Mfa(format!("Invalid secret hex: {}", e)))?;
-
         let secret = Secret::Encoded(secret_hex.to_string());
+        let secret_bytes = secret.to_bytes()
+            .map_err(|e| SecurityError::Mfa(format!("Failed to decode secret: {}", e)))?;
 
         let totp = TOTP::new(
             Algorithm::SHA1,
-            self.config.digits,
+            self.config.digits.into(),
             self.config.skew,
             self.config.step,
-            secret,
+            secret_bytes,
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
         let current_time = std::time::SystemTime::now()

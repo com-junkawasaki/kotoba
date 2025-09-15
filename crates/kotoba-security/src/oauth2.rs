@@ -9,8 +9,7 @@ use oauth2::{
     PkceCodeVerifier, RedirectUrl, Scope, TokenUrl, TokenResponse as OAuth2TokenResponse,
 };
 use openidconnect::core::{
-    CoreAuthenticationFlow, CoreClient, CoreGenderClaim, CoreIdTokenClaims, CoreIdTokenVerifier,
-    CoreProviderMetadata, CoreResponseType,
+    CoreAuthenticationFlow, CoreClient, CoreIdTokenClaims,
 };
 use openidconnect::{
     AdditionalClaims, IdToken, IssuerUrl, Nonce, UserInfoClaims};
@@ -179,11 +178,11 @@ impl OAuth2Service {
             let provider = OAuth2Provider::from_str(name);
 
             // Create OAuth2 client
-            let client = Self::create_oauth2_client(&provider_config, &config.redirect_uri)?;
+            let client = Self::create_oauth2_client(provider_config, &config.redirect_uri)?;
             clients.insert(name.clone(), client);
 
             // Try to create OpenID Connect client
-            if let Ok(oidc_client) = Self::create_oidc_client(&OAuth2Service::new_dummy(), &provider_config, &config.redirect_uri).await {
+            if let Ok(oidc_client) = Self::create_oidc_client(&OAuth2Service::new_dummy(), provider_config, &config.redirect_uri).await {
                 oidc_clients.insert(name.clone(), oidc_client);
             }
         }
@@ -346,7 +345,7 @@ impl OAuth2Service {
         let client = self.oidc_clients.get(provider_name)
             .ok_or_else(|| SecurityError::Configuration(format!("OpenID Connect provider '{}' not configured", provider_name)))?;
 
-        let nonce = state_data.nonce.ok_or_else(|| SecurityError::OAuth2("Missing nonce".to_string()))?;
+        let _nonce = state_data.nonce.ok_or_else(|| SecurityError::OAuth2("Missing nonce".to_string()))?;
 
         let token_response = client
             .exchange_code(AuthorizationCode::new(code.to_string()))
@@ -426,7 +425,7 @@ impl OAuth2Service {
     }
 
     /// Create OpenID Connect client
-    async fn create_oidc_client(&self, provider_config: &OAuth2ProviderConfig, redirect_uri: &str) -> Result<CoreClient> {
+    async fn create_oidc_client(_service: &OAuth2Service, provider_config: &OAuth2ProviderConfig, redirect_uri: &str) -> Result<CoreClient> {
         // For OpenID Connect, we need to discover the provider metadata
         // This is a simplified implementation - in production, you might want to cache this
         let issuer_url = match OAuth2Provider::from_str("google") {
@@ -520,9 +519,9 @@ impl UserInfo {
             id: claims.subject().to_string(),
             email: claims.email().map(|e| e.to_string()),
             email_verified: claims.email_verified(),
-            name: claims.name().map(|n| n.to_string()),
-            given_name: claims.given_name().map(|n| n.to_string()),
-            family_name: claims.family_name().map(|n| n.to_string()),
+            name: claims.name().and_then(|n| n.get(None).map(|s| s.to_string())),
+            given_name: claims.given_name().and_then(|n| n.get(None).map(|s| s.to_string())),
+            family_name: claims.family_name().and_then(|n| n.get(None).map(|s| s.to_string())),
             picture: None, // Not in standard claims
             locale: claims.locale().map(|l| l.to_string()),
         }

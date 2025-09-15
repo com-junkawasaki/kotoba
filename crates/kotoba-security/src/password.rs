@@ -236,7 +236,7 @@ impl PasswordService {
         Ok(PasswordHash {
             algorithm: PasswordAlgorithm::Argon2,
             hash: hash_string,
-            salt: hex::encode(salt.as_bytes()),
+            salt: salt.to_string(),
             params: PasswordParams::Argon2 {
                 version: config.version,
                 m_cost: config.m_cost,
@@ -250,8 +250,8 @@ impl PasswordService {
 
     /// Verify password using Argon2
     fn verify_with_argon2(&self, password: &str, hash: &PasswordHash) -> Result<bool> {
-        let salt = hex::decode(&hash.salt).map_err(|_| SecurityError::Password("Invalid salt format".to_string()))?
-            .map_err(|e| SecurityError::Password(format!("Invalid salt: {}", e)))?;
+        let salt = SaltString::from_b64(&hash.salt)
+            .map_err(|_| SecurityError::Password("Invalid salt format".to_string()))?;
 
         if let PasswordParams::Argon2 { version, m_cost, t_cost, p_cost, output_len } = hash.params {
             let algorithm = Algorithm::Argon2id; // Default to Argon2id for verification
@@ -291,7 +291,7 @@ impl PasswordService {
         Ok(PasswordHash {
             algorithm: PasswordAlgorithm::Pbkdf2,
             hash: hex::encode(hash),
-            salt: hex::encode(salt.as_bytes()),
+            salt: hex::encode(salt),
             params: PasswordParams::Pbkdf2 {
                 iterations: config.iterations,
                 output_len: config.output_len,
@@ -302,8 +302,8 @@ impl PasswordService {
 
     /// Verify password using PBKDF2
     fn verify_with_pbkdf2(&self, password: &str, hash: &PasswordHash) -> Result<bool> {
-        let salt = hex::decode(&hash.salt).map_err(|_| SecurityError::Password("Invalid salt format".to_string()))?
-            .map_err(|e| SecurityError::Password(format!("Invalid salt: {}", e)))?;
+        let salt = hex::decode(&hash.salt)
+            .map_err(|_| SecurityError::Password("Invalid salt format".to_string()))?;
 
         if let PasswordParams::Pbkdf2 { iterations, output_len } = hash.params {
             let mut computed_hash = vec![0u8; output_len];
@@ -333,7 +333,7 @@ impl PasswordService {
         Ok(PasswordHash {
             algorithm: PasswordAlgorithm::Bcrypt,
             hash: hash.to_string(),
-            salt: hex::encode(salt.as_bytes()),
+            salt: hex::encode(salt),
             params: PasswordParams::Bcrypt { cost },
             version: None,
         })

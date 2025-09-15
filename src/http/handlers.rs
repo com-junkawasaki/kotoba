@@ -3,7 +3,7 @@
 //! このモジュールはHTTPリクエストの処理とミドルウェア実行を担当します。
 //! グラフ書換えルールを使ってリクエスト処理を行います。
 
-use crate::types::{TxId, ContentHash, Value, Properties};
+use crate::types::{TxId, ContentHash, Result, KotobaError, Value, Properties};
 use crate::GraphRef;
 use crate::http::ir::*;
 use crate::Graph;

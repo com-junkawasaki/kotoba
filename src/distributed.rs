@@ -510,7 +510,7 @@ impl DistributedEngine {
         tasks: &[DistributedTask],
         graph: &GraphRef,
         catalog: &Catalog,
-        cid_manager: &mut CidManager,
+        _cid_manager: &mut CidManager,
     ) -> Result<NodeExecutionResult> {
         // ローカルノードの場合
         if self.cluster_manager.read().await.local_node_id == *node_id {
@@ -777,7 +777,7 @@ impl DistributedEngine {
                 };
 
                 // 実際の実装ではここでルール適用を実行
-                Ok(())
+        Ok(())
             }
             _ => Err(KotobaError::Execution("Unsupported task type".to_string())),
         }
