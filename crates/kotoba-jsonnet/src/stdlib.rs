@@ -85,6 +85,10 @@ impl StdLib {
             "any" => Self::any(args),
             "mergePatch" => Self::merge_patch(args),
             "get" => Self::get(args),
+            "id" => Self::id(args),
+            "equals" => Self::equals(args),
+            "lines" => Self::lines(args),
+            "strReplace" => Self::str_replace(args),
             "objectFields" => Self::object_fields(args),
             "objectFieldsAll" => Self::object_fields_all(args),
             "objectHas" => Self::object_has(args),
@@ -790,6 +794,118 @@ impl StdLib {
             }
             _ => Err(JsonnetError::runtime_error("any expects an array argument")),
         }
+    }
+
+    fn id(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "id")?;
+        Ok(args[0].clone())
+    }
+
+    fn equals(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "equals")?;
+        let a = &args[0];
+        let b = &args[1];
+
+        // First check primitive equality
+        if a == b {
+            return Ok(JsonnetValue::boolean(true));
+        }
+
+        // Check types
+        let ta = a.type_name();
+        let tb = b.type_name();
+        if ta != tb {
+            return Ok(JsonnetValue::boolean(false));
+        }
+
+        match (a, b) {
+            (JsonnetValue::Array(arr_a), JsonnetValue::Array(arr_b)) => {
+                if arr_a.len() != arr_b.len() {
+                    return Ok(JsonnetValue::boolean(false));
+                }
+                for (i, item_a) in arr_a.iter().enumerate() {
+                    let eq_args = vec![item_a.clone(), arr_b[i].clone()];
+                    if let Ok(JsonnetValue::Boolean(false)) = Self::equals(eq_args) {
+                        return Ok(JsonnetValue::boolean(false));
+                    }
+                }
+                Ok(JsonnetValue::boolean(true))
+            }
+            (JsonnetValue::Object(obj_a), JsonnetValue::Object(obj_b)) => {
+                // Get field names
+                let fields_a: Vec<String> = obj_a.keys().cloned().collect();
+                let fields_b: Vec<String> = obj_b.keys().cloned().collect();
+
+                if fields_a.len() != fields_b.len() {
+                    return Ok(JsonnetValue::boolean(false));
+                }
+
+                // Sort for comparison
+                let mut sorted_a = fields_a.clone();
+                sorted_a.sort();
+                let mut sorted_b = fields_b.clone();
+                sorted_b.sort();
+
+                if sorted_a != sorted_b {
+                    return Ok(JsonnetValue::boolean(false));
+                }
+
+                // Compare all field values
+                for field in sorted_a {
+                    let val_a = &obj_a[&field];
+                    let val_b = &obj_b[&field];
+                    let eq_args = vec![val_a.clone(), val_b.clone()];
+                    if let Ok(JsonnetValue::Boolean(false)) = Self::equals(eq_args) {
+                        return Ok(JsonnetValue::boolean(false));
+                    }
+                }
+                Ok(JsonnetValue::boolean(true))
+            }
+            _ => Ok(JsonnetValue::boolean(false)),
+        }
+    }
+
+    fn lines(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "lines")?;
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                let mut lines = Vec::new();
+                for item in arr {
+                    // Convert to string representation like Jsonnet does
+                    match item {
+                        JsonnetValue::String(s) => lines.push(s.clone()),
+                        JsonnetValue::Number(n) => lines.push(n.to_string()),
+                        JsonnetValue::Boolean(b) => lines.push(b.to_string()),
+                        _ => lines.push(format!("{}", item)),
+                    }
+                }
+                lines.push("".to_string()); // Add trailing newline
+                Ok(JsonnetValue::string(lines.join("\n")))
+            }
+            _ => Err(JsonnetError::runtime_error("lines expects an array argument")),
+        }
+    }
+
+    fn str_replace(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 3, "strReplace")?;
+
+        let str_val = &args[0];
+        let from_val = &args[1];
+        let to_val = &args[2];
+
+        let str = str_val.as_string()?.to_string();
+        let from = from_val.as_string()?.to_string();
+        let to = to_val.as_string()?.to_string();
+
+        if from.is_empty() {
+            return Err(JsonnetError::runtime_error("'from' string must not be zero length"));
+        }
+
+        // Simple implementation using Rust's string replace
+        // For now, we'll use a simple approach. Full implementation would need
+        // the complex recursive logic from Google Jsonnet
+        let result = str.replace(&from, &to);
+        Ok(JsonnetValue::string(result))
     }
 
     /// Helper function to check argument count

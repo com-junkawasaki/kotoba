@@ -43,7 +43,8 @@ impl Evaluator {
             "asin", "acos", "atan", "floor", "ceil", "round", "abs", "max", "min", "clamp",
             "assertEqual", "sort", "uniq", "reverse", "mergePatch", "get", "objectFields",
             "objectFieldsAll", "objectHas", "objectHasAll", "objectValues", "objectValuesAll",
-            "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any"
+            "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any",
+            "id", "equals", "lines", "strReplace"
         ];
 
         for func_name in std_functions {

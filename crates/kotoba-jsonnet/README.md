@@ -52,13 +52,15 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 **YAML Support (1/1):**
 - ✅ `manifestYaml` (with `yaml` feature flag)
 
-##### ❌ **Not Yet Implemented (86 functions remaining)**
+##### ❌ **Not Yet Implemented (82 functions remaining)**
 
-**High Priority Missing Functions:**
-- `id` - Identity function
-- `equals` - Deep equality comparison
-- `lines` - String to lines conversion
-- `strReplace` - String replacement
+**Recently Added (Phase 1):**
+- ✅ `id` - Identity function
+- ✅ `equals` - Deep equality comparison
+- ✅ `lines` - String to lines conversion
+- ✅ `strReplace` - String replacement
+
+**Still Missing High Priority Functions:**
 - `asciiLower`/`asciiUpper` - ASCII case conversion
 - `remove`/`removeAt` - Array element removal
 - `set`/`setDiff`/`setInter`/`setUnion` - Set operations
@@ -74,7 +76,7 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - `log2`, `log10`, `deg2rad`, `rad2deg`
 - `isInteger`, `isDecimal`, `isEven`, `isOdd`
 
-**Compatibility:** **89/175 functions implemented (51%)**
+**Compatibility:** **93/175 functions implemented (53%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue

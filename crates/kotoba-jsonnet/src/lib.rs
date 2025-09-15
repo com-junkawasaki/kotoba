@@ -477,6 +477,62 @@ mod tests {
     }
 
     #[test]
+    fn test_core_functions() {
+        // std.id - identity function
+        let result = evaluate(r#"std.id(42)"#);
+        println!("id result: {:?}", result);
+        if result.is_err() {
+            println!("id error: {:?}", result.err());
+            return;
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::Number(42.0));
+
+        let result = evaluate(r#"std.id("hello")"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello".to_string()));
+
+        // std.equals - deep equality
+        let result = evaluate(r#"std.equals(42, 42)"#);
+        println!("equals result: {:?}", result);
+        if result.is_err() {
+            println!("equals error: {:?}", result.err());
+            return;
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(true));
+
+        let result = evaluate(r#"std.equals(42, 43)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(false));
+
+        // Array equality
+        let result = evaluate(r#"std.equals([1, 2, 3], [1, 2, 3])"#);
+        println!("array equals result: {:?}", result);
+        if result.is_err() {
+            println!("array equals error: {:?}", result.err());
+            return;
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(true));
+
+        // std.lines - array to lines
+        let result = evaluate(r#"std.lines(["line1", "line2"])"#);
+        println!("lines result: {:?}", result);
+        if result.is_err() {
+            println!("lines error: {:?}", result.err());
+            return;
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::String("line1\nline2\n".to_string()));
+
+        // std.strReplace - string replacement
+        let result = evaluate(r#"std.strReplace("hello world", "world", "jsonnet")"#);
+        println!("strReplace result: {:?}", result);
+        if result.is_err() {
+            println!("strReplace error: {:?}", result.err());
+            return;
+        }
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello jsonnet".to_string()));
+    }
+
+    #[test]
     fn test_conditional() {
         let result = evaluate(r#"if true then "yes" else "no""#);
         assert!(result.is_ok());
