@@ -1,14 +1,11 @@
 [package]
 name = "kotoba-core"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba Core Components"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-
-
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["graph", "database", "gql", "rewrite", "types"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kotoba-specific Jsonnet implementation compatible with Jsonnet 0.21.0"
+keywords = ["graph", "database", "gql", "rewrite", "types", "core", "foundation"]
 categories = ["data-structures", "algorithms"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-core"

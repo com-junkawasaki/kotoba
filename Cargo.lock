@@ -2268,11 +2268,11 @@ dependencies = [
  "hex",
  "js-sys",
  "jsonschema",
- "kotoba-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-execution 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.2",
+ "kotoba-execution 0.1.2",
+ "kotoba-graph 0.1.2",
  "kotoba-jsonnet",
- "kotoba-rewrite 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-rewrite 0.1.2",
  "kotoba-storage 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "proptest",
@@ -2280,23 +2280,6 @@ dependencies = [
  "rand 0.8.5",
  "regex",
  "schemars 0.8.22",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "kotoba-core"
-version = "0.1.2"
-dependencies = [
- "anyhow",
- "hex",
- "js-sys",
  "serde",
  "serde_json",
  "sha2",
@@ -2323,17 +2306,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-execution"
-version = "0.1.2"
+name = "kotoba-core"
+version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.2",
- "kotoba-graph 0.1.2",
+ "hex",
+ "js-sys",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.16",
  "tokio",
  "uuid",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -2343,8 +2329,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c60f9332b045ac90ff7872ebff100e673feb79941e637f39e97406a43690a155"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.2",
+ "kotoba-graph 0.1.2",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -2352,20 +2338,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-graph"
-version = "0.1.2"
+name = "kotoba-execution"
+version = "0.1.15"
 dependencies = [
  "anyhow",
- "js-sys",
- "kotoba-core 0.1.2",
- "parking_lot",
+ "kotoba-core 0.1.15",
+ "kotoba-graph 0.1.15",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
  "tokio",
  "uuid",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
@@ -2375,12 +2358,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f0e1aa16933cd78bc8066e021b28fa51fe5630c2cee4a2811eb2dd920b9ae6d"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.2",
  "parking_lot",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
  "uuid",
+]
+
+[[package]]
+name = "kotoba-graph"
+version = "0.1.15"
+dependencies = [
+ "anyhow",
+ "js-sys",
+ "kotoba-core 0.1.15",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "uuid",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -2409,7 +2409,7 @@ name = "kotoba-kotobanet"
 version = "0.1.2"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.2",
+ "kotoba-core 0.1.15",
  "kotoba-jsonnet",
  "regex",
  "serde",
@@ -2423,31 +2423,31 @@ dependencies = [
 [[package]]
 name = "kotoba-rewrite"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5ef1a98f06f8408edb3fc92ff1562e40fbfa10b8a27ea0e786643484ad10ce1"
 dependencies = [
  "anyhow",
  "kotoba-core 0.1.2",
  "kotoba-graph 0.1.2",
- "kotoba-storage 0.1.2",
+ "kotoba-storage 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
- "tokio",
  "uuid",
 ]
 
 [[package]]
 name = "kotoba-rewrite"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ef1a98f06f8408edb3fc92ff1562e40fbfa10b8a27ea0e786643484ad10ce1"
+version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-storage 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.15",
+ "kotoba-graph 0.1.15",
+ "kotoba-storage 0.1.2",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
+ "tokio",
  "uuid",
 ]
 
@@ -2462,8 +2462,8 @@ dependencies = [
  "chrono",
  "hex",
  "jsonwebtoken",
- "kotoba-core 0.1.2",
- "kotoba-graph 0.1.2",
+ "kotoba-core 0.1.15",
+ "kotoba-graph 0.1.15",
  "kotoba-storage 0.1.2",
  "mockito",
  "oauth2",
@@ -2495,7 +2495,7 @@ dependencies = [
  "hex",
  "hyper 0.14.32",
  "js-sys",
- "kotoba-core 0.1.2",
+ "kotoba-core 0.1.15",
  "parking_lot",
  "serde",
  "serde_json",
@@ -2515,8 +2515,8 @@ version = "0.1.2"
 dependencies = [
  "anyhow",
  "hex",
- "kotoba-core 0.1.2",
- "kotoba-graph 0.1.2",
+ "kotoba-core 0.1.15",
+ "kotoba-graph 0.1.15",
  "parking_lot",
  "rocksdb",
  "serde",
@@ -2536,8 +2536,8 @@ checksum = "7c1667ca97c3556f540ed0c3647e14a838c1b8818e2b2eb14afac294b8f4d08e"
 dependencies = [
  "anyhow",
  "hex",
- "kotoba-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.2",
+ "kotoba-graph 0.1.2",
  "parking_lot",
  "rocksdb",
  "serde",

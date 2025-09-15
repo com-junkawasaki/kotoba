@@ -1,14 +1,11 @@
 [package]
 name = "kotoba-graph"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba Graph Components"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-
-
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["graph", "data-structure", "vertex", "edge"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-performance graph data structures for Kotoba graph processing system"
+keywords = ["graph", "data-structure", "vertex", "edge", "database"]
 categories = ["data-structures", "algorithms"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-graph"

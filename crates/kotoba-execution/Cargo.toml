@@ -1,14 +1,11 @@
 [package]
 name = "kotoba-execution"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba Execution Components"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-
-
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["query", "execution", "planner", "gql"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Complete query execution and planning engine for Kotoba graph database"
+keywords = ["query", "execution", "planner", "gql", "graph-database"]
 categories = ["algorithms", "database-implementations"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-execution"

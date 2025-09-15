@@ -6,7 +6,7 @@ use parking_lot::RwLock;
 use kotoba_core::types::*;
 
 /// 頂点データ
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VertexData {
     pub id: VertexId,
     pub labels: Vec<Label>,
@@ -14,7 +14,7 @@ pub struct VertexData {
 }
 
 /// エッジデータ
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EdgeData {
     pub id: EdgeId,
     pub src: VertexId,
