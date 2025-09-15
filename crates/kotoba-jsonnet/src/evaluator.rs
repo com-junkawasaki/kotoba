@@ -44,7 +44,8 @@ impl Evaluator {
             "assertEqual", "sort", "uniq", "reverse", "mergePatch", "get", "objectFields",
             "objectFieldsAll", "objectHas", "objectHasAll", "objectValues", "objectValuesAll",
             "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any",
-            "id", "equals", "lines", "strReplace"
+            "id", "equals", "lines", "strReplace", "sha1", "sha256", "sha3", "sha512",
+            "asciiLower", "asciiUpper", "set", "setMember", "setUnion", "setInter", "setDiff"
         ];
 
         for func_name in std_functions {

@@ -2,6 +2,9 @@
 
 use crate::error::{JsonnetError, Result};
 use crate::value::JsonnetValue;
+use sha1::Sha1;
+use sha2::{Sha256, Sha512, Digest};
+use sha3::Sha3_256;
 use std::collections::HashMap;
 
 /// Standard library function implementations
@@ -89,6 +92,17 @@ impl StdLib {
             "equals" => Self::equals(args),
             "lines" => Self::lines(args),
             "strReplace" => Self::str_replace(args),
+            "sha1" => Self::sha1(args),
+            "sha256" => Self::sha256(args),
+            "sha3" => Self::sha3(args),
+            "sha512" => Self::sha512(args),
+            "asciiLower" => Self::ascii_lower(args),
+            "asciiUpper" => Self::ascii_upper(args),
+            "set" => Self::set(args),
+            "setMember" => Self::set_member(args),
+            "setUnion" => Self::set_union(args),
+            "setInter" => Self::set_inter(args),
+            "setDiff" => Self::set_diff(args),
             "objectFields" => Self::object_fields(args),
             "objectFieldsAll" => Self::object_fields_all(args),
             "objectHas" => Self::object_has(args),
@@ -906,6 +920,223 @@ impl StdLib {
         // the complex recursive logic from Google Jsonnet
         let result = str.replace(&from, &to);
         Ok(JsonnetValue::string(result))
+    }
+
+    fn sha1(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "sha1")?;
+        let input = args[0].as_string()?.as_bytes();
+        let mut hasher = Sha1::new();
+        hasher.update(input);
+        let result = hasher.finalize();
+        Ok(JsonnetValue::string(hex::encode(result)))
+    }
+
+    fn sha256(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "sha256")?;
+        let input = args[0].as_string()?.as_bytes();
+        let mut hasher = Sha256::new();
+        hasher.update(input);
+        let result = hasher.finalize();
+        Ok(JsonnetValue::string(hex::encode(result)))
+    }
+
+    fn sha3(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "sha3")?;
+        let input = args[0].as_string()?.as_bytes();
+        let mut hasher = Sha3_256::new();
+        hasher.update(input);
+        let result = hasher.finalize();
+        Ok(JsonnetValue::string(hex::encode(result)))
+    }
+
+    fn sha512(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "sha512")?;
+        let input = args[0].as_string()?.as_bytes();
+        let mut hasher = Sha512::new();
+        hasher.update(input);
+        let result = hasher.finalize();
+        Ok(JsonnetValue::string(hex::encode(result)))
+    }
+
+    fn ascii_lower(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "asciiLower")?;
+        let input = args[0].as_string()?;
+        Ok(JsonnetValue::string(input.to_ascii_lowercase()))
+    }
+
+    fn ascii_upper(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "asciiUpper")?;
+        let input = args[0].as_string()?;
+        Ok(JsonnetValue::string(input.to_ascii_uppercase()))
+    }
+
+    fn set(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "set")?;
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                // Remove duplicates while preserving order
+                let mut result = Vec::new();
+
+                for item in arr {
+                    // Check if item is already in result
+                    let mut found = false;
+                    for existing in &result {
+                        if existing == item {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        result.push(item.clone());
+                    }
+                }
+
+                Ok(JsonnetValue::array(result))
+            }
+            _ => Err(JsonnetError::runtime_error("set expects an array argument")),
+        }
+    }
+
+    fn set_member(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "setMember")?;
+        let value = &args[0];
+        let arr = match &args[1] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setMember expects array as second argument")),
+        };
+
+        for item in arr {
+            if item == value {
+                return Ok(JsonnetValue::boolean(true));
+            }
+        }
+        Ok(JsonnetValue::boolean(false))
+    }
+
+    fn set_union(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "setUnion")?;
+        let arr_a = match &args[0] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setUnion expects arrays as arguments")),
+        };
+        let arr_b = match &args[1] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setUnion expects arrays as arguments")),
+        };
+
+        let mut result = Vec::new();
+
+        // Add all elements from first array (preserving order)
+        for item in arr_a {
+            let mut found = false;
+            for existing in &result {
+                if existing == item {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                result.push(item.clone());
+            }
+        }
+
+        // Add elements from second array that aren't already in result
+        for item in arr_b {
+            let mut found = false;
+            for existing in &result {
+                if existing == item {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                result.push(item.clone());
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn set_inter(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "setInter")?;
+        let arr_a = match &args[0] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setInter expects arrays as arguments")),
+        };
+        let arr_b = match &args[1] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setInter expects arrays as arguments")),
+        };
+
+        let mut result = Vec::new();
+
+        for item_a in arr_a {
+            // Check if item_a exists in arr_b
+            let mut found_in_b = false;
+            for item_b in arr_b {
+                if item_a == item_b {
+                    found_in_b = true;
+                    break;
+                }
+            }
+
+            if found_in_b {
+                // Check if item_a is already in result
+                let mut already_in_result = false;
+                for existing in &result {
+                    if existing == item_a {
+                        already_in_result = true;
+                        break;
+                    }
+                }
+                if !already_in_result {
+                    result.push(item_a.clone());
+                }
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn set_diff(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "setDiff")?;
+        let arr_a = match &args[0] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setDiff expects arrays as arguments")),
+        };
+        let arr_b = match &args[1] {
+            JsonnetValue::Array(a) => a,
+            _ => return Err(JsonnetError::runtime_error("setDiff expects arrays as arguments")),
+        };
+
+        let mut result = Vec::new();
+
+        for item_a in arr_a {
+            // Check if item_a does NOT exist in arr_b
+            let mut found_in_b = false;
+            for item_b in arr_b {
+                if item_a == item_b {
+                    found_in_b = true;
+                    break;
+                }
+            }
+
+            if !found_in_b {
+                // Check if item_a is already in result
+                let mut already_in_result = false;
+                for existing in &result {
+                    if existing == item_a {
+                        already_in_result = true;
+                        break;
+                    }
+                }
+                if !already_in_result {
+                    result.push(item_a.clone());
+                }
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
     }
 
     /// Helper function to check argument count

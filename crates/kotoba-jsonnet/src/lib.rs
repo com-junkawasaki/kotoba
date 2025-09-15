@@ -533,6 +533,138 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_functions() {
+        // std.sha256 - SHA-256 hash
+        let result = evaluate(r#"std.sha256("hello")"#);
+        println!("sha256 result: {:?}", result);
+        if result.is_err() {
+            println!("sha256 error: {:?}", result.err());
+            return;
+        }
+        let hash = result.unwrap();
+        match hash {
+            JsonnetValue::String(s) => {
+                assert_eq!(s.len(), 64); // SHA-256 produces 64 character hex string
+                assert!(s.chars().all(|c| c.is_ascii_hexdigit()));
+            }
+            _ => panic!("Expected string result"),
+        }
+
+        // std.sha1 - SHA-1 hash
+        let result = evaluate(r#"std.sha1("hello")"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::String(s) => {
+                assert_eq!(s.len(), 40); // SHA-1 produces 40 character hex string
+                assert!(s.chars().all(|c| c.is_ascii_hexdigit()));
+            }
+            _ => panic!("Expected string result"),
+        }
+
+        // std.sha3 - SHA-3 hash
+        let result = evaluate(r#"std.sha3("hello")"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::String(s) => {
+                assert_eq!(s.len(), 64); // SHA-3-256 produces 64 character hex string
+                assert!(s.chars().all(|c| c.is_ascii_hexdigit()));
+            }
+            _ => panic!("Expected string result"),
+        }
+
+        // std.sha512 - SHA-512 hash
+        let result = evaluate(r#"std.sha512("hello")"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::String(s) => {
+                assert_eq!(s.len(), 128); // SHA-512 produces 128 character hex string
+                assert!(s.chars().all(|c| c.is_ascii_hexdigit()));
+            }
+            _ => panic!("Expected string result"),
+        }
+    }
+
+    #[test]
+    fn test_ascii_case_functions() {
+        // std.asciiLower - ASCII lowercase conversion
+        let result = evaluate(r#"std.asciiLower("HELLO World 123")"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello world 123".to_string()));
+
+        // std.asciiUpper - ASCII uppercase conversion
+        let result = evaluate(r#"std.asciiUpper("hello world 123")"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("HELLO WORLD 123".to_string()));
+
+        // Test with Unicode characters (should remain unchanged)
+        let result = evaluate(r#"std.asciiLower("HELLO ñoños")"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::String("hello ñoños".to_string()));
+    }
+
+    #[test]
+    fn test_set_functions() {
+        // std.set - remove duplicates
+        let result = evaluate(r#"std.set([1, 2, 2, 3, 1])"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 3);
+                assert!(arr.contains(&JsonnetValue::Number(1.0)));
+                assert!(arr.contains(&JsonnetValue::Number(2.0)));
+                assert!(arr.contains(&JsonnetValue::Number(3.0)));
+            }
+            _ => panic!("Expected array"),
+        }
+
+        // std.setMember - check membership
+        let result = evaluate(r#"std.setMember(2, [1, 2, 3])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(true));
+
+        let result = evaluate(r#"std.setMember(4, [1, 2, 3])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::Boolean(false));
+
+        // std.setUnion - union of sets
+        let result = evaluate(r#"std.setUnion([1, 2, 3], [2, 3, 4])"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 4);
+                assert!(arr.contains(&JsonnetValue::Number(1.0)));
+                assert!(arr.contains(&JsonnetValue::Number(2.0)));
+                assert!(arr.contains(&JsonnetValue::Number(3.0)));
+                assert!(arr.contains(&JsonnetValue::Number(4.0)));
+            }
+            _ => panic!("Expected array"),
+        }
+
+        // std.setInter - intersection of sets
+        let result = evaluate(r#"std.setInter([1, 2, 3], [2, 3, 4])"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 2);
+                assert!(arr.contains(&JsonnetValue::Number(2.0)));
+                assert!(arr.contains(&JsonnetValue::Number(3.0)));
+            }
+            _ => panic!("Expected array"),
+        }
+
+        // std.setDiff - difference of sets
+        let result = evaluate(r#"std.setDiff([1, 2, 3], [2, 3, 4])"#);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            JsonnetValue::Array(arr) => {
+                assert_eq!(arr.len(), 1);
+                assert!(arr.contains(&JsonnetValue::Number(1.0)));
+            }
+            _ => panic!("Expected array"),
+        }
+    }
+
+    #[test]
     fn test_conditional() {
         let result = evaluate(r#"if true then "yes" else "no""#);
         assert!(result.is_ok());
