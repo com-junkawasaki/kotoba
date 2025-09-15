@@ -864,6 +864,42 @@ mod tests {
         assert!(obj.contains_key("a"));
         assert!(obj.contains_key("b"));
         assert!(!obj.contains_key("_hidden"));
+
+        // Test objectFieldsEx function
+        let result = evaluate(r#"std.objectFieldsEx({a: 1, b: 2, _hidden: 3}, false)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // Should exclude _hidden field
+
+        let result = evaluate(r#"std.objectFieldsEx({a: 1, b: 2, _hidden: 3}, true)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // Should include _hidden field
+
+        // Test objectValuesEx function
+        let result = evaluate(r#"std.objectValuesEx({a: 1, b: 2, _hidden: 3}, false)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // Should exclude _hidden field value
+
+        let result = evaluate(r#"std.objectValuesEx({a: 1, b: 2, _hidden: 3}, true)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // Should include _hidden field value
+
+        // Test basic function calling
+        let result = evaluate(r#"local f = function(x) x * 2; f(5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::number(10.0));
+
+        // Test closure (function capturing environment)
+        let result = evaluate(r#"local y = 10; local f = function(x) x + y; f(5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::number(15.0));
     }
 
     #[test]

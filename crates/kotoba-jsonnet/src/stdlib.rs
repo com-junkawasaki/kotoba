@@ -116,6 +116,8 @@ impl StdLib {
             "objectHasAll" => Self::object_has_all(args),
             "objectValues" => Self::object_values(args),
             "objectValuesAll" => Self::object_values_all(args),
+            "objectFieldsEx" => Self::object_fields_ex(args),
+            "objectValuesEx" => Self::object_values_ex(args),
             "prune" => Self::prune(args),
             "mapWithKey" => Self::map_with_key(args),
             "manifestIni" => Self::manifest_ini(args),
@@ -178,7 +180,9 @@ impl StdLib {
     fn filter(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "filter")?;
         let _func = &args[0];
-        // TODO: Implement filtering
+        let _arr = args[1].as_array()?;
+        // TODO: Implement function calling for higher-order functions
+        // For now, return original array
         Ok(args[1].clone())
     }
 
@@ -186,7 +190,9 @@ impl StdLib {
     fn map(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "map")?;
         let _func = &args[0];
-        // TODO: Implement mapping
+        let _arr = args[1].as_array()?;
+        // TODO: Implement function calling for higher-order functions
+        // For now, return original array
         Ok(args[1].clone())
     }
 
@@ -195,7 +201,8 @@ impl StdLib {
         Self::check_args(&args, 3, "foldl")?;
         let _func = &args[0];
         let _arr = args[1].as_array()?;
-        // TODO: Implement folding
+        // TODO: Implement function calling for higher-order functions
+        // For now, return initial value
         Ok(args[2].clone())
     }
 
@@ -204,7 +211,8 @@ impl StdLib {
         Self::check_args(&args, 3, "foldr")?;
         let _func = &args[0];
         let _arr = args[1].as_array()?;
-        // TODO: Implement folding
+        // TODO: Implement function calling for higher-order functions
+        // For now, return initial value
         Ok(args[2].clone())
     }
 
@@ -747,8 +755,8 @@ impl StdLib {
         Self::check_args(&args, 2, "assertEqual")?;
         if !args[0].equals(&args[1]) {
             return Err(JsonnetError::assertion_failed(format!(
-                "Assertion failed: {} != {}",
-                args[0], args[1]
+                "Assertion failed: {} != {}\n  Left: {:?}\n  Right: {:?}",
+                args[0], args[1], args[0], args[1]
             )));
         }
         Ok(JsonnetValue::boolean(true))
@@ -1008,6 +1016,32 @@ impl StdLib {
         }
 
         Ok(JsonnetValue::object(result))
+    }
+
+    fn object_fields_ex(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "objectFieldsEx")?;
+        let obj = args[0].as_object()?;
+        let include_hidden = args[1].as_boolean()?;
+
+        let fields: Vec<JsonnetValue> = obj.keys()
+            .filter(|&k| include_hidden || !k.starts_with('_'))
+            .map(|k| JsonnetValue::string(k.clone()))
+            .collect();
+
+        Ok(JsonnetValue::array(fields))
+    }
+
+    fn object_values_ex(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "objectValuesEx")?;
+        let obj = args[0].as_object()?;
+        let include_hidden = args[1].as_boolean()?;
+
+        let values: Vec<JsonnetValue> = obj.iter()
+            .filter(|(k, _)| include_hidden || !k.starts_with('_'))
+            .map(|(_, v)| v.clone())
+            .collect();
+
+        Ok(JsonnetValue::array(values))
     }
 
     fn to_lower(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {

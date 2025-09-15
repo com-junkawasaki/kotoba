@@ -81,8 +81,9 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 **Recently Added (Phase 5):**
 - ✅ `remove`/`removeAt` - Array element removal
 - ✅ `flattenArrays` - Deep array flattening
-- ✅ `objectKeysValues`/`objectRemoveKey` - Object manipulation
-- ✅ `isInteger`/`isDecimal`/`isEven`/`isOdd` - Additional type checking
+        - ✅ `objectKeysValues`/`objectRemoveKey` - Object manipulation
+        - ✅ `objectFieldsEx`/`objectValuesEx` - Extended object field/value access
+        - ✅ `isInteger`/`isDecimal`/`isEven`/`isOdd` - Additional type checking
 
 **Recently Added (Phase 6):**
 - ✅ `sort`/`uniq` - Array sorting and uniqueness (complete implementations)
@@ -94,12 +95,21 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ `prune` - Null value pruning from objects/arrays (complete implementation)
 - ✅ `mapWithKey` - Object key-value mapping (improved implementation)
 
-**Still Missing Low Priority Functions:**
-- `filter`/`map`/`foldl`/`foldr` - Higher-order functions (placeholder implementations)
-- Advanced sorting options and custom comparators
-- Full function call support for `makeArray` and higher-order functions
+**Next Priority Implementation:**
+- **Higher-Order Functions**: `filter`, `map`, `foldl`, `foldr` (requires evaluator callback architecture)
+- **Remaining Utility Functions**: 40+ functions (string manipulation, math, etc.)
+- **Advanced Features**: Custom comparators, function composition, etc.
 
-**Compatibility:** **132/175 functions implemented (75%)**
+**Architecture Enhancement Needed:**
+- Function calling mechanism for stdlib (evaluator callback pattern)
+- Performance optimizations for large datasets
+
+### ✅ **Enhanced Function Calling Mechanism**
+- **Closure Support**: Functions now properly capture their environment
+- **Recursive Function Calls**: Functions can call other functions
+- **Environment Management**: Proper scope handling for nested functions
+
+**Compatibility:** **136/175 functions implemented (78%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue

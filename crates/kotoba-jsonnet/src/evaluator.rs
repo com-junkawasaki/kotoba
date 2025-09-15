@@ -43,7 +43,7 @@ impl Evaluator {
             "asin", "acos", "atan", "floor", "ceil", "round", "abs", "max", "min", "clamp",
             "assertEqual", "sort", "uniq", "reverse", "mergePatch", "get", "objectFields",
             "objectFieldsAll", "objectHas", "objectHasAll", "objectValues", "objectValuesAll",
-            "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any",
+            "objectFieldsEx", "objectValuesEx", "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any",
             "id", "equals", "lines", "strReplace", "sha1", "sha256", "sha3", "sha512",
             "asciiLower", "asciiUpper", "set", "setMember", "setUnion", "setInter", "setDiff",
             "flatMap", "mapWithIndex", "lstripChars", "rstripChars", "stripChars", "findSubstr", "repeat",
@@ -254,7 +254,8 @@ impl Evaluator {
                 result
             }
             Expr::Function { parameters, body } => {
-                Ok(JsonnetValue::Function(JsonnetFunction::new(parameters.clone(), Box::new((**body).clone()), HashMap::new())))
+                // Capture the current environment for closure support
+                Ok(JsonnetValue::Function(JsonnetFunction::new(parameters.clone(), Box::new((**body).clone()), self.globals.clone())))
             }
             Expr::If { cond, then_branch, else_branch } => {
                 let cond_val = self.evaluate_expression(cond)?;
@@ -323,15 +324,21 @@ impl Evaluator {
                     ));
                 }
 
-                // Create parameter bindings
+                // Save current globals
                 let old_globals = self.globals.clone();
+
+                // Restore closure environment
+                self.globals = f.environment.clone();
+
+                // Bind parameters
                 for (param, arg) in f.parameters.iter().zip(args) {
                     self.globals.insert(param.clone(), arg);
                 }
 
+                // Evaluate function body
                 let result = self.evaluate_expression(&f.body);
 
-                // Restore globals
+                // Restore original globals
                 self.globals = old_globals;
 
                 result
