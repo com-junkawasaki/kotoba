@@ -723,6 +723,57 @@ mod tests {
     }
 
     #[test]
+    fn test_phase4_advanced_features() {
+        // Test manifest functions
+        let result = evaluate(r#"std.manifestIni({database: {host: "localhost", port: 5432}})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let ini_str = binding.as_string().unwrap();
+        assert!(ini_str.contains("[database]"));
+        assert!(ini_str.contains("host=\"localhost\""));
+        assert!(ini_str.contains("port=5432"));
+
+        // Test manifestPython
+        let result = evaluate(r#"std.manifestPython({name: "test", value: true})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let py_str = binding.as_string().unwrap();
+        assert!(py_str.contains("True")); // Should be converted to True in Python syntax
+
+        // Test manifestCpp
+        let result = evaluate(r#"std.manifestCpp({version: "1.0"})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let cpp_str = binding.as_string().unwrap();
+        assert!(cpp_str.contains("// Generated C++ code"));
+        assert!(cpp_str.contains("const char* jsonData"));
+
+        // Test manifestXmlJsonml
+        let result = evaluate(r#"std.manifestXmlJsonml(["div", {"class": "container"}, "Hello"])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let xml_str = binding.as_string().unwrap();
+        assert!(xml_str.contains("<div class=\"container\">Hello</div>"));
+
+        // Test advanced math functions
+        let result = evaluate(r#"std.log2(8)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().as_number().unwrap(), 3.0);
+
+        let result = evaluate(r#"std.log10(100)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().as_number().unwrap(), 2.0);
+
+        let result = evaluate(r#"std.log1p(0)"#); // log(1) = 0
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().as_number().unwrap(), 0.0);
+
+        let result = evaluate(r#"std.expm1(0)"#); // exp(0) - 1 = 0
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().as_number().unwrap(), 0.0);
+    }
+
+    #[test]
     fn test_conditional() {
         let result = evaluate(r#"if true then "yes" else "no""#);
         assert!(result.is_ok());

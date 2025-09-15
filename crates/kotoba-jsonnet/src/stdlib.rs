@@ -118,6 +118,14 @@ impl StdLib {
             "objectValuesAll" => Self::object_values_all(args),
             "prune" => Self::prune(args),
             "mapWithKey" => Self::map_with_key(args),
+            "manifestIni" => Self::manifest_ini(args),
+            "manifestPython" => Self::manifest_python(args),
+            "manifestCpp" => Self::manifest_cpp(args),
+            "manifestXmlJsonml" => Self::manifest_xml_jsonml(args),
+            "log2" => Self::log2(args),
+            "log10" => Self::log10(args),
+            "log1p" => Self::log1p(args),
+            "expm1" => Self::expm1(args),
             _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
         }
     }
@@ -1295,6 +1303,140 @@ impl StdLib {
         }
 
         Ok(JsonnetValue::array(result))
+    }
+
+    // Phase 4: Advanced Features
+
+    // Manifest functions
+    fn manifest_ini(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "manifestIni")?;
+        // Simplified INI format - convert object to INI-like format
+        match &args[0] {
+            JsonnetValue::Object(obj) => {
+                let mut result = String::new();
+                for (key, value) in obj {
+                    if !key.starts_with('_') {
+                        result.push_str(&format!("[{}]\n", key));
+                        if let JsonnetValue::Object(section) = value {
+                            for (k, v) in section {
+                                if !k.starts_with('_') {
+                                    result.push_str(&format!("{}={}\n", k, v));
+                                }
+                            }
+                        }
+                        result.push('\n');
+                    }
+                }
+                Ok(JsonnetValue::string(result.trim().to_string()))
+            }
+            _ => Err(JsonnetError::runtime_error("manifestIni expects an object")),
+        }
+    }
+
+    fn manifest_python(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "manifestPython")?;
+        // Generate Python dict representation
+        let json_str = serde_json::to_string(&args[0].to_json_value())?;
+        // Simple conversion - replace JSON syntax with Python dict syntax
+        let python_str = json_str
+            .replace("null", "None")
+            .replace("true", "True")
+            .replace("false", "False");
+        Ok(JsonnetValue::string(python_str))
+    }
+
+    fn manifest_cpp(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "manifestCpp")?;
+        // Simplified C++ code generation
+        let json_str = serde_json::to_string(&args[0].to_json_value())?;
+        let cpp_str = format!("// Generated C++ code\nconst char* jsonData = R\"json(\n{}\n)json\";", json_str);
+        Ok(JsonnetValue::string(cpp_str))
+    }
+
+    fn manifest_xml_jsonml(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "manifestXmlJsonml")?;
+        // JsonML format: [tagName, {attributes}, ...children]
+        match &args[0] {
+            JsonnetValue::Array(arr) if !arr.is_empty() => {
+                if let JsonnetValue::String(tag) = &arr[0] {
+                    let mut xml = format!("<{}", tag);
+
+                    // Attributes (second element if it's an object)
+                    let mut child_start = 1;
+                    if arr.len() > 1 {
+                        if let JsonnetValue::Object(attrs) = &arr[1] {
+                            for (key, value) in attrs {
+                                if !key.starts_with('_') {
+                                    let value_str = match value {
+                                        JsonnetValue::String(s) => s.clone(),
+                                        _ => format!("{}", value),
+                                    };
+                                    xml.push_str(&format!(" {}=\"{}\"", key, value_str));
+                                }
+                            }
+                            child_start = 2;
+                        }
+                    }
+
+                    xml.push('>');
+
+                    // Children
+                    for child in &arr[child_start..] {
+                        match child {
+                            JsonnetValue::String(s) => xml.push_str(s),
+                            JsonnetValue::Array(_) => {
+                                // Recursively process child arrays
+                                let child_xml = Self::manifest_xml_jsonml(vec![child.clone()])?;
+                                if let JsonnetValue::String(child_str) = child_xml {
+                                    xml.push_str(&child_str);
+                                }
+                            }
+                            _ => xml.push_str(&format!("{}", child)),
+                        }
+                    }
+
+                    xml.push_str(&format!("</{}>", tag));
+                    Ok(JsonnetValue::string(xml))
+                } else {
+                    Err(JsonnetError::runtime_error("JsonML array must start with string tag name"))
+                }
+            }
+            _ => Err(JsonnetError::runtime_error("manifestXmlJsonml expects a JsonML array")),
+        }
+    }
+
+    // Advanced math functions
+    fn log2(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "log2")?;
+        let x = args[0].as_number()?;
+        if x <= 0.0 {
+            return Err(JsonnetError::runtime_error("log2 of non-positive number"));
+        }
+        Ok(JsonnetValue::number(x.log2()))
+    }
+
+    fn log10(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "log10")?;
+        let x = args[0].as_number()?;
+        if x <= 0.0 {
+            return Err(JsonnetError::runtime_error("log10 of non-positive number"));
+        }
+        Ok(JsonnetValue::number(x.log10()))
+    }
+
+    fn log1p(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "log1p")?;
+        let x = args[0].as_number()?;
+        if x < -1.0 {
+            return Err(JsonnetError::runtime_error("log1p of number less than -1"));
+        }
+        Ok(JsonnetValue::number((x + 1.0).ln()))
+    }
+
+    fn expm1(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "expm1")?;
+        let x = args[0].as_number()?;
+        Ok(JsonnetValue::number(x.exp() - 1.0))
     }
 
     /// Helper function to check argument count

@@ -46,7 +46,9 @@ impl Evaluator {
             "prune", "mapWithKey", "toLower", "toUpper", "trim", "trace", "all", "any",
             "id", "equals", "lines", "strReplace", "sha1", "sha256", "sha3", "sha512",
             "asciiLower", "asciiUpper", "set", "setMember", "setUnion", "setInter", "setDiff",
-            "flatMap", "mapWithIndex", "lstripChars", "rstripChars", "stripChars", "findSubstr", "repeat"
+            "flatMap", "mapWithIndex", "lstripChars", "rstripChars", "stripChars", "findSubstr", "repeat",
+            "manifestIni", "manifestPython", "manifestCpp", "manifestXmlJsonml",
+            "log2", "log10", "log1p", "expm1"
         ];
 
         for func_name in std_functions {

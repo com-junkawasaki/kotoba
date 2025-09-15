@@ -72,6 +72,12 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ `findSubstr` - Find substring positions
 - ✅ `repeat` - Repeat values/strings
 
+**Recently Added (Phase 4):**
+- ✅ `manifestIni`/`manifestPython`/`manifestCpp` - Code generation functions
+- ✅ `manifestXmlJsonml` - XML generation from JsonML format
+- ✅ `log2`/`log10` - Base-2 and base-10 logarithms
+- ✅ `log1p`/`expm1` - Log/exp functions for values near 1
+
 **Still Missing High Priority Functions:**
 - `remove`/`removeAt` - Array element removal
 
@@ -83,7 +89,7 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - `log2`, `log10`, `deg2rad`, `rad2deg`
 - `isInteger`, `isDecimal`, `isEven`, `isOdd`
 
-**Compatibility:** **106/175 functions implemented (61%)**
+**Compatibility:** **110/175 functions implemented (63%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue
