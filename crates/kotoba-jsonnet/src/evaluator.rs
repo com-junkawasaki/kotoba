@@ -56,7 +56,13 @@ impl Evaluator {
             "flatMap", "mapWithIndex", "lstripChars", "rstripChars", "stripChars", "findSubstr", "repeat",
             "manifestIni", "manifestPython", "manifestCpp", "manifestXmlJsonml",
             "log2", "log10", "log1p", "expm1", "remove", "removeAt", "flattenArrays",
-            "objectKeysValues", "objectRemoveKey", "isInteger", "isDecimal", "isEven", "isOdd"
+            "objectKeysValues", "objectRemoveKey", "isInteger", "isDecimal", "isEven", "isOdd",
+            // New utility functions
+            "slice", "zip", "transpose", "flatten", "sum", "product", "chunk", "unique",
+            "difference", "intersection", "symmetricDifference", "isSubset", "isSuperset", "isDisjoint",
+            "cartesian", "cross", "dot", "norm", "normalize", "distance", "angle", "rotate",
+            "scale", "translate", "reflect", "affine", "splitLimit", "join", "replace", "contains",
+            "sortBy", "groupBy", "partition"
         ];
 
         for func_name in std_functions {
@@ -358,9 +364,18 @@ impl Evaluator {
                 result
             }
             JsonnetValue::Builtin(builtin) => {
-                // Use callback for functions that need it (filter, map, foldl, foldr)
+                // Use callback for functions that need it (filter, map, foldl, foldr, and new utility functions)
                 if let JsonnetBuiltin::StdLibFunction(ref func_name) = builtin {
-                    if func_name == "filter" || func_name == "map" || func_name == "foldl" || func_name == "foldr" {
+                    if func_name == "filter" || func_name == "map" || func_name == "foldl" || func_name == "foldr" ||
+                       func_name == "slice" || func_name == "zip" || func_name == "transpose" || func_name == "flatten" ||
+                       func_name == "sum" || func_name == "product" || func_name == "all" || func_name == "any" ||
+                       func_name == "chunk" || func_name == "unique" || func_name == "difference" || func_name == "intersection" ||
+                       func_name == "symmetricDifference" || func_name == "isSubset" || func_name == "isSuperset" || func_name == "isDisjoint" ||
+                       func_name == "cartesian" || func_name == "cross" || func_name == "dot" || func_name == "norm" ||
+                       func_name == "normalize" || func_name == "distance" || func_name == "angle" || func_name == "rotate" ||
+                       func_name == "scale" || func_name == "translate" || func_name == "reflect" || func_name == "affine" ||
+                       func_name == "splitLimit" || func_name == "join" || func_name == "replace" || func_name == "contains" ||
+                       func_name == "sortBy" || func_name == "groupBy" || func_name == "partition" {
                         builtin.call_with_callback(self, args)
                     } else {
                         builtin.call(args)

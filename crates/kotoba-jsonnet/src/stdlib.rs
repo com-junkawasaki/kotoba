@@ -37,9 +37,9 @@ impl<'a> StdLibWithCallback<'a> {
             "foldr" => self.foldr(args),
             // ... other functions that don't need callback
             "range" => StdLib::range(args),
-            "join" => StdLib::join(args),
+            "join" => self.join_variadic(args),
             "split" => StdLib::split(args),
-            "contains" => StdLib::contains(args),
+            "contains" => self.contains_variadic(args),
             "startsWith" => StdLib::starts_with(args),
             "endsWith" => StdLib::ends_with(args),
             "toLower" => StdLib::to_lower(args),
@@ -150,6 +150,40 @@ impl<'a> StdLibWithCallback<'a> {
             "isDecimal" => StdLib::is_decimal(args),
             "isEven" => StdLib::is_even(args),
             "isOdd" => StdLib::is_odd(args),
+            // New functions to implement
+            "slice" => self.slice(args),
+            "zip" => self.zip(args),
+            "transpose" => self.transpose(args),
+            "flatten" => self.flatten(args),
+            "sum" => self.sum(args),
+            "product" => self.product(args),
+            "all" => self.all(args),
+            "any" => self.any(args),
+            "sortBy" => self.sort_by(args),
+            "groupBy" => self.group_by(args),
+            "partition" => self.partition(args),
+            "chunk" => self.chunk(args),
+            "unique" => self.unique(args),
+            "difference" => self.difference(args),
+            "intersection" => self.intersection(args),
+            "symmetricDifference" => self.symmetric_difference(args),
+            "isSubset" => self.is_subset(args),
+            "isSuperset" => self.is_superset(args),
+            "isDisjoint" => self.is_disjoint(args),
+            "cartesian" => self.cartesian(args),
+            "cross" => self.cross(args),
+            "dot" => self.dot(args),
+            "norm" => self.norm(args),
+            "normalize" => self.normalize(args),
+            "distance" => self.distance(args),
+            "angle" => self.angle(args),
+            "rotate" => self.rotate(args),
+            "scale" => self.scale(args),
+            "translate" => self.translate(args),
+            "reflect" => self.reflect(args),
+            "affine" => self.affine(args),
+            "splitLimit" => self.split_limit(args),
+            "replace" => self.replace(args),
             _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
         }
     }
@@ -213,6 +247,729 @@ impl<'a> StdLibWithCallback<'a> {
         }
 
         Ok(accumulator)
+    }
+
+    // New utility functions
+    fn slice(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.len() < 2 {
+            return Err(JsonnetError::invalid_function_call("slice() expects at least 2 arguments".to_string()));
+        }
+        let start = args[1].as_number()? as usize;
+
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                let end = if args.len() > 2 {
+                    args[2].as_number()? as usize
+                } else {
+                    arr.len()
+                };
+                let start = start.min(arr.len());
+                let end = end.min(arr.len());
+                if start > end {
+                    Ok(JsonnetValue::array(vec![]))
+                } else {
+                    Ok(JsonnetValue::array(arr[start..end].to_vec()))
+                }
+            }
+            JsonnetValue::String(s) => {
+                let end = if args.len() > 2 {
+                    args[2].as_number()? as usize
+                } else {
+                    s.chars().count()
+                };
+                let chars: Vec<char> = s.chars().collect();
+                let start = start.min(chars.len());
+                let end = end.min(chars.len());
+                if start > end {
+                    Ok(JsonnetValue::string("".to_string()))
+                } else {
+                    let sliced: String = chars[start..end].iter().collect();
+                    Ok(JsonnetValue::string(sliced))
+                }
+            }
+            _ => Err(JsonnetError::invalid_function_call("slice() expects array or string as first argument".to_string())),
+        }
+    }
+
+    fn zip(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Err(JsonnetError::invalid_function_call("zip() expects at least one argument".to_string()));
+        }
+
+        // Convert all arguments to arrays
+        let arrays: Result<Vec<Vec<JsonnetValue>>> = args.into_iter()
+            .map(|arg| arg.as_array().cloned())
+            .collect();
+
+        let arrays = arrays?;
+        if arrays.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // Find minimum length
+        let min_len = arrays.iter().map(|arr| arr.len()).min().unwrap_or(0);
+
+        // Create zipped result
+        let mut result = Vec::new();
+        for i in 0..min_len {
+            let mut tuple = Vec::new();
+            for arr in &arrays {
+                tuple.push(arr[i].clone());
+            }
+            result.push(JsonnetValue::array(tuple));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn transpose(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "transpose")?;
+        let matrix = args[0].as_array()?;
+
+        if matrix.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // Check if all elements are arrays and get dimensions
+        let mut max_len = 0;
+        for row in matrix {
+            match row {
+                JsonnetValue::Array(arr) => {
+                    max_len = max_len.max(arr.len());
+                }
+                _ => return Err(JsonnetError::invalid_function_call("transpose() expects array of arrays".to_string())),
+            }
+        }
+
+        if max_len == 0 {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // Create transposed matrix
+        let mut result = Vec::new();
+        for col in 0..max_len {
+            let mut new_row = Vec::new();
+            for row in matrix {
+                if let JsonnetValue::Array(arr) = row {
+                    if col < arr.len() {
+                        new_row.push(arr[col].clone());
+                    } else {
+                        new_row.push(JsonnetValue::Null);
+                    }
+                }
+            }
+            result.push(JsonnetValue::array(new_row));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn flatten(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "flatten")?;
+        let depth = if args.len() > 1 {
+            args[1].as_number()? as usize
+        } else {
+            usize::MAX
+        };
+
+        fn flatten_recursive(arr: &Vec<JsonnetValue>, current_depth: usize, max_depth: usize) -> Vec<JsonnetValue> {
+            let mut result = Vec::new();
+            for item in arr {
+                match item {
+                    JsonnetValue::Array(nested) if current_depth < max_depth => {
+                        result.extend(flatten_recursive(nested, current_depth + 1, max_depth));
+                    }
+                    _ => result.push(item.clone()),
+                }
+            }
+            result
+        }
+
+        let arr = args[0].as_array()?;
+        let flattened = flatten_recursive(arr, 0, depth);
+        Ok(JsonnetValue::array(flattened))
+    }
+
+    fn sum(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "sum")?;
+        let arr = args[0].as_array()?;
+
+        let mut total = 0.0;
+        for item in arr {
+            total += item.as_number()?;
+        }
+
+        Ok(JsonnetValue::number(total))
+    }
+
+    fn product(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "product")?;
+        let arr = args[0].as_array()?;
+
+        let mut result = 1.0;
+        for item in arr {
+            result *= item.as_number()?;
+        }
+
+        Ok(JsonnetValue::number(result))
+    }
+
+    fn all(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "all")?;
+        let arr = args[0].as_array()?;
+
+        for item in arr {
+            if !item.is_truthy() {
+                return Ok(JsonnetValue::boolean(false));
+            }
+        }
+
+        Ok(JsonnetValue::boolean(true))
+    }
+
+    fn any(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "any")?;
+        let arr = args[0].as_array()?;
+
+        for item in arr {
+            if item.is_truthy() {
+                return Ok(JsonnetValue::boolean(true));
+            }
+        }
+
+        Ok(JsonnetValue::boolean(false))
+    }
+
+    fn chunk(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "chunk")?;
+        let arr = args[0].as_array()?;
+        let size = args[1].as_number()? as usize;
+
+        if size == 0 {
+            return Err(JsonnetError::invalid_function_call("chunk() size must be positive".to_string()));
+        }
+
+        let mut result = Vec::new();
+        for chunk in arr.chunks(size) {
+            result.push(JsonnetValue::array(chunk.to_vec()));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn unique(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "unique")?;
+        let arr = args[0].as_array()?;
+
+        let mut seen = std::collections::HashSet::new();
+        let mut result = Vec::new();
+
+        for item in arr {
+            // Simple equality check - in real Jsonnet this uses deep equality
+            if !seen.contains(&format!("{:?}", item)) {
+                seen.insert(format!("{:?}", item));
+                result.push(item.clone());
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn difference(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        let first = args[0].as_array()?;
+        let mut result = first.clone();
+
+        for arg in &args[1..] {
+            let other = arg.as_array()?;
+            let other_set: std::collections::HashSet<String> = other.iter()
+                .map(|v| format!("{:?}", v))
+                .collect();
+
+            result.retain(|item| !other_set.contains(&format!("{:?}", item)));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn intersection(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        let first = args[0].as_array()?;
+        let mut result = first.clone();
+
+        for arg in &args[1..] {
+            let other = arg.as_array()?;
+            let other_set: std::collections::HashSet<String> = other.iter()
+                .map(|v| format!("{:?}", v))
+                .collect();
+
+            result.retain(|item| other_set.contains(&format!("{:?}", item)));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn symmetric_difference(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "symmetricDifference")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let a_set: std::collections::HashSet<String> = a.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+        let b_set: std::collections::HashSet<String> = b.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let symmetric_diff: std::collections::HashSet<_> = a_set.symmetric_difference(&b_set).cloned().collect();
+
+        let result: Vec<JsonnetValue> = a.iter()
+            .filter(|item| symmetric_diff.contains(&format!("{:?}", item)))
+            .chain(b.iter().filter(|item| symmetric_diff.contains(&format!("{:?}", item))))
+            .cloned()
+            .collect();
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn is_subset(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "isSubset")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let b_set: std::collections::HashSet<String> = b.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let is_subset = a.iter().all(|item| b_set.contains(&format!("{:?}", item)));
+
+        Ok(JsonnetValue::boolean(is_subset))
+    }
+
+    fn is_superset(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "isSuperset")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let a_set: std::collections::HashSet<String> = a.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let is_superset = b.iter().all(|item| a_set.contains(&format!("{:?}", item)));
+
+        Ok(JsonnetValue::boolean(is_superset))
+    }
+
+    fn is_disjoint(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "isDisjoint")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let a_set: std::collections::HashSet<String> = a.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+        let b_set: std::collections::HashSet<String> = b.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let is_disjoint = a_set.intersection(&b_set).count() == 0;
+
+        Ok(JsonnetValue::boolean(is_disjoint))
+    }
+
+    fn cartesian(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "cartesian")?;
+        let arrays = args[0].as_array()?;
+
+        if arrays.is_empty() {
+            return Ok(JsonnetValue::array(vec![JsonnetValue::array(vec![])]));
+        }
+
+        // Convert to vectors
+        let mut vec_arrays = Vec::new();
+        for arr in arrays {
+            vec_arrays.push(arr.as_array()?.clone());
+        }
+
+        fn cartesian_product(arrays: &[Vec<JsonnetValue>]) -> Vec<Vec<JsonnetValue>> {
+            if arrays.is_empty() {
+                return vec![vec![]];
+            }
+
+            let mut result = Vec::new();
+            let first = &arrays[0];
+            let rest = &arrays[1..];
+
+            for item in first {
+                for mut combo in cartesian_product(rest) {
+                    combo.insert(0, item.clone());
+                    result.push(combo);
+                }
+            }
+
+            result
+        }
+
+        let products = cartesian_product(&vec_arrays);
+        let result: Vec<JsonnetValue> = products.into_iter()
+            .map(|combo| JsonnetValue::array(combo))
+            .collect();
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn cross(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "cross")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let mut result = Vec::new();
+        for item_a in a {
+            for item_b in b {
+                result.push(JsonnetValue::array(vec![item_a.clone(), item_b.clone()]));
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn dot(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "dot")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        if a.len() != b.len() {
+            return Err(JsonnetError::invalid_function_call("dot() arrays must have same length".to_string()));
+        }
+
+        let mut sum = 0.0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            sum += x.as_number()? * y.as_number()?;
+        }
+
+        Ok(JsonnetValue::number(sum))
+    }
+
+    fn norm(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "norm")?;
+        let arr = args[0].as_array()?;
+
+        let mut sum_squares = 0.0;
+        for item in arr {
+            let val = item.as_number()?;
+            sum_squares += val * val;
+        }
+
+        Ok(JsonnetValue::number(sum_squares.sqrt()))
+    }
+
+    fn normalize(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "normalize")?;
+        let arr = args[0].as_array()?;
+
+        // Calculate norm directly to avoid recursion
+        let mut sum_squares = 0.0;
+        for item in arr {
+            let val = item.as_number()?;
+            sum_squares += val * val;
+        }
+        let norm_val = sum_squares.sqrt();
+
+        if norm_val == 0.0 {
+            return Ok(args[0].clone());
+        }
+
+        let mut result = Vec::new();
+        for item in arr {
+            let val = item.as_number()?;
+            result.push(JsonnetValue::number(val / norm_val));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn distance(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "distance")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        if a.len() != b.len() {
+            return Err(JsonnetError::invalid_function_call("distance() arrays must have same length".to_string()));
+        }
+
+        let mut sum_squares = 0.0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            let diff = x.as_number()? - y.as_number()?;
+            sum_squares += diff * diff;
+        }
+
+        Ok(JsonnetValue::number(sum_squares.sqrt()))
+    }
+
+    fn angle(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "angle")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        if a.len() != b.len() {
+            return Err(JsonnetError::invalid_function_call("angle() arrays must have same length".to_string()));
+        }
+
+        // Calculate dot product directly
+        let mut dot_product = 0.0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            dot_product += x.as_number()? * y.as_number()?;
+        }
+
+        // Calculate norms directly
+        let mut norm_a_sq = 0.0;
+        for item in a {
+            let val = item.as_number()?;
+            norm_a_sq += val * val;
+        }
+        let norm_a = norm_a_sq.sqrt();
+
+        let mut norm_b_sq = 0.0;
+        for item in b {
+            let val = item.as_number()?;
+            norm_b_sq += val * val;
+        }
+        let norm_b = norm_b_sq.sqrt();
+
+        if norm_a == 0.0 || norm_b == 0.0 {
+            return Ok(JsonnetValue::number(0.0));
+        }
+
+        let cos_theta = dot_product / (norm_a * norm_b);
+        let cos_theta = cos_theta.max(-1.0).min(1.0); // Clamp to avoid floating point errors
+
+        Ok(JsonnetValue::number(cos_theta.acos()))
+    }
+
+    fn rotate(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "rotate")?;
+        let point = args[0].as_array()?;
+        let angle = args[1].as_number()?;
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("rotate() point must be 2D".to_string()));
+        }
+
+        let center = if args.len() > 2 {
+            args[2].as_array()?.to_vec()
+        } else {
+            vec![JsonnetValue::number(0.0), JsonnetValue::number(0.0)]
+        };
+
+        if center.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("rotate() center must be 2D".to_string()));
+        }
+
+        let x = point[0].as_number()? - center[0].as_number()?;
+        let y = point[1].as_number()? - center[1].as_number()?;
+
+        let cos_a = angle.cos();
+        let sin_a = angle.sin();
+
+        let new_x = x * cos_a - y * sin_a + center[0].as_number()?;
+        let new_y = x * sin_a + y * cos_a + center[1].as_number()?;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    fn scale(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "scale")?;
+        let point = args[0].as_array()?;
+        let factor = args[1].as_number()?;
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("scale() point must be 2D".to_string()));
+        }
+
+        let center = if args.len() > 2 {
+            args[2].as_array()?.to_vec()
+        } else {
+            vec![JsonnetValue::number(0.0), JsonnetValue::number(0.0)]
+        };
+
+        if center.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("scale() center must be 2D".to_string()));
+        }
+
+        let x = point[0].as_number()? - center[0].as_number()?;
+        let y = point[1].as_number()? - center[1].as_number()?;
+
+        let new_x = x * factor + center[0].as_number()?;
+        let new_y = y * factor + center[1].as_number()?;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    fn translate(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "translate")?;
+        let point = args[0].as_array()?;
+        let offset = args[1].as_array()?;
+
+        if point.len() != 2 || offset.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("translate() requires 2D point and offset".to_string()));
+        }
+
+        let new_x = point[0].as_number()? + offset[0].as_number()?;
+        let new_y = point[1].as_number()? + offset[1].as_number()?;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    fn reflect(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "reflect")?;
+        let point = args[0].as_array()?;
+        let axis = args[1].as_number()?; // angle of reflection axis in radians
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("reflect() point must be 2D".to_string()));
+        }
+
+        let x = point[0].as_number()?;
+        let y = point[1].as_number()?;
+
+        let cos_2a = (2.0 * axis).cos();
+        let sin_2a = (2.0 * axis).sin();
+
+        let new_x = x * cos_2a + y * sin_2a;
+        let new_y = x * sin_2a - y * cos_2a;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    fn affine(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "affine")?;
+        let point = args[0].as_array()?;
+        let matrix = args[1].as_array()?;
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("affine() point must be 2D".to_string()));
+        }
+
+        if matrix.len() != 6 {
+            return Err(JsonnetError::invalid_function_call("affine() matrix must be 6 elements [a,b,c,d,e,f]".to_string()));
+        }
+
+        let x = point[0].as_number()?;
+        let y = point[1].as_number()?;
+
+        let a = matrix[0].as_number()?;
+        let b = matrix[1].as_number()?;
+        let c = matrix[2].as_number()?;
+        let d = matrix[3].as_number()?;
+        let e = matrix[4].as_number()?;
+        let f = matrix[5].as_number()?;
+
+        let new_x = a * x + b * y + e;
+        let new_y = c * x + d * y + f;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    fn split_limit(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 3, "splitLimit")?;
+        let s = args[0].as_string()?;
+        let sep = args[1].as_string()?;
+        let limit = args[2].as_number()? as usize;
+
+        if sep.is_empty() {
+            // Split into characters
+            let chars: Vec<String> = s.chars().take(limit).map(|c| c.to_string()).collect();
+            let result: Vec<JsonnetValue> = chars.into_iter().map(JsonnetValue::string).collect();
+            return Ok(JsonnetValue::array(result));
+        }
+
+        let mut parts: Vec<&str> = s.splitn(limit + 1, &sep).collect();
+        if parts.len() > limit {
+            // Join the remaining parts
+            let remaining = parts.split_off(limit);
+            parts.push(&s[(s.len() - remaining.join(&sep).len())..]);
+        }
+
+        let result: Vec<JsonnetValue> = parts.into_iter().map(|s| JsonnetValue::string(s.to_string())).collect();
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn join_variadic(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Err(JsonnetError::invalid_function_call("join() expects at least one argument".to_string()));
+        }
+
+        let sep = args[0].as_string()?;
+        let arrays: Result<Vec<Vec<JsonnetValue>>> = args[1..].iter()
+            .map(|arg| arg.as_array().cloned())
+            .collect();
+
+        let arrays = arrays?;
+        let mut result = Vec::new();
+
+        for (i, arr) in arrays.iter().enumerate() {
+            if i > 0 && !sep.is_empty() {
+                result.push(JsonnetValue::string(sep.clone()));
+            }
+            result.extend(arr.iter().cloned());
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn replace(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 3, "replace")?;
+        let s = args[0].as_string()?;
+        let old = args[1].as_string()?;
+        let new = args[2].as_string()?;
+
+        let result = s.replace(&old, &new);
+        Ok(JsonnetValue::string(result))
+    }
+
+    fn contains_variadic(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "contains")?;
+
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                // Simple linear search with string comparison
+                let target = format!("{:?}", &args[1]);
+                for item in arr {
+                    if format!("{:?}", item) == target {
+                        return Ok(JsonnetValue::boolean(true));
+                    }
+                }
+                Ok(JsonnetValue::boolean(false))
+            }
+            JsonnetValue::String(s) => {
+                let substr = args[1].as_string()?;
+                Ok(JsonnetValue::boolean(s.contains(&substr)))
+            }
+            JsonnetValue::Object(obj) => {
+                let key = args[1].as_string()?;
+                Ok(JsonnetValue::boolean(obj.contains_key(&*key)))
+            }
+            _ => Err(JsonnetError::invalid_function_call("contains() expects array, string, or object".to_string())),
+        }
+    }
+
+    // Placeholder implementations for functions requiring function callbacks
+    fn sort_by(&mut self, _args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Err(JsonnetError::runtime_error("sortBy() requires function calling mechanism - placeholder implementation".to_string()))
+    }
+
+    fn group_by(&mut self, _args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Err(JsonnetError::runtime_error("groupBy() requires function calling mechanism - placeholder implementation".to_string()))
+    }
+
+    fn partition(&mut self, _args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Err(JsonnetError::runtime_error("partition() requires function calling mechanism - placeholder implementation".to_string()))
     }
 }
 
@@ -2058,6 +2815,771 @@ impl JsonnetValue {
                 }
                 JsonnetValue::object(jsonnet_obj)
             }
+        }
+    }
+
+    // ===== NEW FUNCTIONS FOR COMPLETE COMPATIBILITY =====
+
+    /// slice(array|string, start, [end]) - Extract slice from array or string
+    pub fn slice(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "slice")?;
+        let start = args[1].as_number()? as usize;
+
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                let end = if args.len() > 2 {
+                    args[2].as_number()? as usize
+                } else {
+                    arr.len()
+                };
+                let start = start.min(arr.len());
+                let end = end.min(arr.len());
+                if start > end {
+                    Ok(JsonnetValue::array(vec![]))
+                } else {
+                    Ok(JsonnetValue::array(arr[start..end].to_vec()))
+                }
+            }
+            JsonnetValue::String(s) => {
+                let end = if args.len() > 2 {
+                    args[2].as_number()? as usize
+                } else {
+                    s.chars().count()
+                };
+                let chars: Vec<char> = s.chars().collect();
+                let start = start.min(chars.len());
+                let end = end.min(chars.len());
+                if start > end {
+                    Ok(JsonnetValue::string("".to_string()))
+                } else {
+                    let sliced: String = chars[start..end].iter().collect();
+                    Ok(JsonnetValue::string(sliced))
+                }
+            }
+            _ => Err(JsonnetError::invalid_function_call("slice() expects array or string as first argument".to_string())),
+        }
+    }
+
+    /// zip(arrays...) - Zip multiple arrays together
+    pub fn zip(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Err(JsonnetError::invalid_function_call("zip() expects at least one argument".to_string()));
+        }
+
+        // Convert all arguments to arrays
+        let arrays: Result<Vec<Vec<JsonnetValue>>> = args.into_iter()
+            .map(|arg| arg.as_array().cloned())
+            .collect();
+
+        let arrays = arrays?;
+        if arrays.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // Find minimum length
+        let min_len = arrays.iter().map(|arr| arr.len()).min().unwrap_or(0);
+
+        // Create zipped result
+        let mut result = Vec::new();
+        for i in 0..min_len {
+            let mut tuple = Vec::new();
+            for arr in &arrays {
+                tuple.push(arr[i].clone());
+            }
+            result.push(JsonnetValue::array(tuple));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// transpose(matrix) - Transpose a matrix (array of arrays)
+    pub fn transpose(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "transpose")?;
+        let matrix = args[0].as_array()?;
+
+        if matrix.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // Check if all elements are arrays and get dimensions
+        let mut max_len = 0;
+        for row in matrix {
+            match row {
+                JsonnetValue::Array(arr) => {
+                    max_len = max_len.max(arr.len());
+                }
+                _ => return Err(JsonnetError::invalid_function_call("transpose() expects array of arrays".to_string())),
+            }
+        }
+
+        if max_len == 0 {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // Create transposed matrix
+        let mut result = Vec::new();
+        for col in 0..max_len {
+            let mut new_row = Vec::new();
+            for row in matrix {
+                if let JsonnetValue::Array(arr) = row {
+                    if col < arr.len() {
+                        new_row.push(arr[col].clone());
+                    } else {
+                        new_row.push(JsonnetValue::Null);
+                    }
+                }
+            }
+            result.push(JsonnetValue::array(new_row));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// flatten(array, [depth]) - Completely flatten nested arrays
+    pub fn flatten(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "flatten")?;
+        let depth = if args.len() > 1 {
+            args[1].as_number()? as usize
+        } else {
+            usize::MAX
+        };
+
+        fn flatten_recursive(arr: &Vec<JsonnetValue>, current_depth: usize, max_depth: usize) -> Vec<JsonnetValue> {
+            let mut result = Vec::new();
+            for item in arr {
+                match item {
+                    JsonnetValue::Array(nested) if current_depth < max_depth => {
+                        result.extend(flatten_recursive(nested, current_depth + 1, max_depth));
+                    }
+                    _ => result.push(item.clone()),
+                }
+            }
+            result
+        }
+
+        let arr = args[0].as_array()?;
+        let flattened = flatten_recursive(arr, 0, depth);
+        Ok(JsonnetValue::array(flattened))
+    }
+
+    /// sum(array) - Sum all numbers in array
+    pub fn sum(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "sum")?;
+        let arr = args[0].as_array()?;
+
+        let mut total = 0.0;
+        for item in arr {
+            total += item.as_number()?;
+        }
+
+        Ok(JsonnetValue::number(total))
+    }
+
+    /// product(array) - Product of all numbers in array
+    pub fn product(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "product")?;
+        let arr = args[0].as_array()?;
+
+        let mut result = 1.0;
+        for item in arr {
+            result *= item.as_number()?;
+        }
+
+        Ok(JsonnetValue::number(result))
+    }
+
+    /// all(array) - Check if all elements are truthy
+    pub fn all(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "all")?;
+        let arr = args[0].as_array()?;
+
+        for item in arr {
+            if !item.is_truthy() {
+                return Ok(JsonnetValue::boolean(false));
+            }
+        }
+
+        Ok(JsonnetValue::boolean(true))
+    }
+
+    /// any(array) - Check if any element is truthy
+    pub fn any(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "any")?;
+        let arr = args[0].as_array()?;
+
+        for item in arr {
+            if item.is_truthy() {
+                return Ok(JsonnetValue::boolean(true));
+            }
+        }
+
+        Ok(JsonnetValue::boolean(false))
+    }
+
+    /// sortBy(array, keyFunc) - Sort array by key function
+    pub fn sort_by(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "sortBy")?;
+        let arr = args[0].as_array()?.clone();
+        let key_func = &args[1];
+
+        // For now, implement a simple version that assumes the key function returns numbers
+        // Full implementation would require function calling callback
+        Err(JsonnetError::runtime_error("sortBy() requires function calling mechanism - placeholder implementation".to_string()))
+    }
+
+    /// groupBy(array, keyFunc) - Group array elements by key function
+    pub fn group_by(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "groupBy")?;
+        // Placeholder implementation
+        Err(JsonnetError::runtime_error("groupBy() requires function calling mechanism - placeholder implementation".to_string()))
+    }
+
+    /// partition(array, predFunc) - Partition array by predicate function
+    pub fn partition(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "partition")?;
+        // Placeholder implementation
+        Err(JsonnetError::runtime_error("partition() requires function calling mechanism - placeholder implementation".to_string()))
+    }
+
+    /// chunk(array, size) - Split array into chunks of given size
+    pub fn chunk(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "chunk")?;
+        let arr = args[0].as_array()?;
+        let size = args[1].as_number()? as usize;
+
+        if size == 0 {
+            return Err(JsonnetError::invalid_function_call("chunk() size must be positive".to_string()));
+        }
+
+        let mut result = Vec::new();
+        for chunk in arr.chunks(size) {
+            result.push(JsonnetValue::array(chunk.to_vec()));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// unique(array) - Remove duplicates from array (alternative to uniq)
+    pub fn unique(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "unique")?;
+        let arr = args[0].as_array()?;
+
+        let mut seen = std::collections::HashSet::new();
+        let mut result = Vec::new();
+
+        for item in arr {
+            // Simple equality check - in real Jsonnet this uses deep equality
+            if !seen.contains(&format!("{:?}", item)) {
+                seen.insert(format!("{:?}", item));
+                result.push(item.clone());
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// difference(arrays...) - Set difference of arrays
+    pub fn difference(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        let first = args[0].as_array()?;
+        let mut result = first.clone();
+
+        for arg in &args[1..] {
+            let other = arg.as_array()?;
+            let other_set: std::collections::HashSet<String> = other.iter()
+                .map(|v| format!("{:?}", v))
+                .collect();
+
+            result.retain(|item| !other_set.contains(&format!("{:?}", item)));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// intersection(arrays...) - Set intersection of arrays
+    pub fn intersection(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        let first = args[0].as_array()?;
+        let mut result = first.clone();
+
+        for arg in &args[1..] {
+            let other = arg.as_array()?;
+            let other_set: std::collections::HashSet<String> = other.iter()
+                .map(|v| format!("{:?}", v))
+                .collect();
+
+            result.retain(|item| other_set.contains(&format!("{:?}", item)));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// symmetricDifference(a, b) - Symmetric difference of two arrays
+    pub fn symmetric_difference(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "symmetricDifference")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let a_set: std::collections::HashSet<String> = a.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+        let b_set: std::collections::HashSet<String> = b.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let symmetric_diff: std::collections::HashSet<_> = a_set.symmetric_difference(&b_set).cloned().collect();
+
+        let mut result: Vec<JsonnetValue> = a.iter()
+            .filter(|item| symmetric_diff.contains(&format!("{:?}", item)))
+            .chain(b.iter().filter(|item| symmetric_diff.contains(&format!("{:?}", item))))
+            .cloned()
+            .collect();
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// isSubset(a, b) - Check if a is subset of b
+    pub fn is_subset(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "isSubset")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let b_set: std::collections::HashSet<String> = b.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let is_subset = a.iter().all(|item| b_set.contains(&format!("{:?}", item)));
+
+        Ok(JsonnetValue::boolean(is_subset))
+    }
+
+    /// isSuperset(a, b) - Check if a is superset of b
+    pub fn is_superset(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "isSuperset")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let a_set: std::collections::HashSet<String> = a.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let is_superset = b.iter().all(|item| a_set.contains(&format!("{:?}", item)));
+
+        Ok(JsonnetValue::boolean(is_superset))
+    }
+
+    /// isDisjoint(a, b) - Check if a and b are disjoint
+    pub fn is_disjoint(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "isDisjoint")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let a_set: std::collections::HashSet<String> = a.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+        let b_set: std::collections::HashSet<String> = b.iter()
+            .map(|v| format!("{:?}", v))
+            .collect();
+
+        let is_disjoint = a_set.intersection(&b_set).count() == 0;
+
+        Ok(JsonnetValue::boolean(is_disjoint))
+    }
+
+    /// cartesian(arrays) - Cartesian product of arrays
+    pub fn cartesian(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "cartesian")?;
+        let arrays = args[0].as_array()?;
+
+        if arrays.is_empty() {
+            return Ok(JsonnetValue::array(vec![JsonnetValue::array(vec![])]));
+        }
+
+        // Convert to vectors
+        let mut vec_arrays = Vec::new();
+        for arr in arrays {
+            vec_arrays.push(arr.as_array()?.clone());
+        }
+
+        fn cartesian_product(arrays: &[Vec<JsonnetValue>]) -> Vec<Vec<JsonnetValue>> {
+            if arrays.is_empty() {
+                return vec![vec![]];
+            }
+
+            let mut result = Vec::new();
+            let first = &arrays[0];
+            let rest = &arrays[1..];
+
+            for item in first {
+                for mut combo in cartesian_product(rest) {
+                    combo.insert(0, item.clone());
+                    result.push(combo);
+                }
+            }
+
+            result
+        }
+
+        let products = cartesian_product(&vec_arrays);
+        let result: Vec<JsonnetValue> = products.into_iter()
+            .map(|combo| JsonnetValue::array(combo))
+            .collect();
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// cross(a, b) - Cross product of two arrays
+    pub fn cross(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "cross")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        let mut result = Vec::new();
+        for item_a in a {
+            for item_b in b {
+                result.push(JsonnetValue::array(vec![item_a.clone(), item_b.clone()]));
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// dot(a, b) - Dot product of two numeric arrays
+    pub fn dot(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "dot")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        if a.len() != b.len() {
+            return Err(JsonnetError::invalid_function_call("dot() arrays must have same length".to_string()));
+        }
+
+        let mut sum = 0.0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            sum += x.as_number()? * y.as_number()?;
+        }
+
+        Ok(JsonnetValue::number(sum))
+    }
+
+    /// norm(array) - Euclidean norm of numeric array
+    pub fn norm(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "norm")?;
+        let arr = args[0].as_array()?;
+
+        let mut sum_squares = 0.0;
+        for item in arr {
+            let val = item.as_number()?;
+            sum_squares += val * val;
+        }
+
+        Ok(JsonnetValue::number(sum_squares.sqrt()))
+    }
+
+    /// normalize(array) - Normalize numeric array
+    pub fn normalize(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "normalize")?;
+        let arr = args[0].as_array()?;
+
+        // Calculate norm directly to avoid recursion
+        let mut sum_squares = 0.0;
+        for item in arr {
+            let val = item.as_number()?;
+            sum_squares += val * val;
+        }
+        let norm_val = sum_squares.sqrt();
+        if norm_val == 0.0 {
+            return Ok(args[0].clone());
+        }
+
+        let mut result = Vec::new();
+        for item in arr {
+            let val = item.as_number()?;
+            result.push(JsonnetValue::number(val / norm_val));
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// distance(a, b) - Euclidean distance between two points
+    pub fn distance(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "distance")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        if a.len() != b.len() {
+            return Err(JsonnetError::invalid_function_call("distance() arrays must have same length".to_string()));
+        }
+
+        let mut sum_squares = 0.0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            let diff = x.as_number()? - y.as_number()?;
+            sum_squares += diff * diff;
+        }
+
+        Ok(JsonnetValue::number(sum_squares.sqrt()))
+    }
+
+    /// angle(a, b) - Angle between two vectors
+    pub fn angle(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "angle")?;
+        let a = args[0].as_array()?;
+        let b = args[1].as_array()?;
+
+        if a.len() != b.len() {
+            return Err(JsonnetError::invalid_function_call("angle() arrays must have same length".to_string()));
+        }
+
+        // Calculate dot product directly
+        let mut dot_product = 0.0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            dot_product += x.as_number()? * y.as_number()?;
+        }
+
+        // Calculate norms directly
+        let mut norm_a_sq = 0.0;
+        for item in a {
+            let val = item.as_number()?;
+            norm_a_sq += val * val;
+        }
+        let norm_a = norm_a_sq.sqrt();
+
+        let mut norm_b_sq = 0.0;
+        for item in b {
+            let val = item.as_number()?;
+            norm_b_sq += val * val;
+        }
+        let norm_b = norm_b_sq.sqrt();
+
+        if norm_a == 0.0 || norm_b == 0.0 {
+            return Ok(JsonnetValue::number(0.0));
+        }
+
+        let cos_theta = dot_product / (norm_a * norm_b);
+        let cos_theta = cos_theta.max(-1.0).min(1.0); // Clamp to avoid floating point errors
+
+        Ok(JsonnetValue::number(cos_theta.acos()))
+    }
+
+    /// rotate(point, angle, [center]) - Rotate 2D point
+    pub fn rotate(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "rotate")?;
+        let point = args[0].as_array()?;
+        let angle = args[1].as_number()?;
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("rotate() point must be 2D".to_string()));
+        }
+
+        let center = if args.len() > 2 {
+            args[2].as_array()?.to_vec()
+        } else {
+            vec![JsonnetValue::number(0.0), JsonnetValue::number(0.0)]
+        };
+
+        if center.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("rotate() center must be 2D".to_string()));
+        }
+
+        let x = point[0].as_number()? - center[0].as_number()?;
+        let y = point[1].as_number()? - center[1].as_number()?;
+
+        let cos_a = angle.cos();
+        let sin_a = angle.sin();
+
+        let new_x = x * cos_a - y * sin_a + center[0].as_number()?;
+        let new_y = x * sin_a + y * cos_a + center[1].as_number()?;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    /// scale(point, factor, [center]) - Scale 2D point
+    pub fn scale(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "scale")?;
+        let point = args[0].as_array()?;
+        let factor = args[1].as_number()?;
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("scale() point must be 2D".to_string()));
+        }
+
+        let center = if args.len() > 2 {
+            args[2].as_array()?.to_vec()
+        } else {
+            vec![JsonnetValue::number(0.0), JsonnetValue::number(0.0)]
+        };
+
+        if center.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("scale() center must be 2D".to_string()));
+        }
+
+        let x = point[0].as_number()? - center[0].as_number()?;
+        let y = point[1].as_number()? - center[1].as_number()?;
+
+        let new_x = x * factor + center[0].as_number()?;
+        let new_y = y * factor + center[1].as_number()?;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    /// translate(point, offset) - Translate 2D point
+    pub fn translate(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "translate")?;
+        let point = args[0].as_array()?;
+        let offset = args[1].as_array()?;
+
+        if point.len() != 2 || offset.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("translate() requires 2D point and offset".to_string()));
+        }
+
+        let new_x = point[0].as_number()? + offset[0].as_number()?;
+        let new_y = point[1].as_number()? + offset[1].as_number()?;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    /// reflect(point, axis) - Reflect 2D point over axis
+    pub fn reflect(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "reflect")?;
+        let point = args[0].as_array()?;
+        let axis = args[1].as_number()?; // angle of reflection axis in radians
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("reflect() point must be 2D".to_string()));
+        }
+
+        let x = point[0].as_number()?;
+        let y = point[1].as_number()?;
+
+        let cos_2a = (2.0 * axis).cos();
+        let sin_2a = (2.0 * axis).sin();
+
+        let new_x = x * cos_2a + y * sin_2a;
+        let new_y = x * sin_2a - y * cos_2a;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    /// affine(point, matrix) - Apply affine transformation
+    pub fn affine(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "affine")?;
+        let point = args[0].as_array()?;
+        let matrix = args[1].as_array()?;
+
+        if point.len() != 2 {
+            return Err(JsonnetError::invalid_function_call("affine() point must be 2D".to_string()));
+        }
+
+        if matrix.len() != 6 {
+            return Err(JsonnetError::invalid_function_call("affine() matrix must be 6 elements [a,b,c,d,e,f]".to_string()));
+        }
+
+        let x = point[0].as_number()?;
+        let y = point[1].as_number()?;
+
+        let a = matrix[0].as_number()?;
+        let b = matrix[1].as_number()?;
+        let c = matrix[2].as_number()?;
+        let d = matrix[3].as_number()?;
+        let e = matrix[4].as_number()?;
+        let f = matrix[5].as_number()?;
+
+        let new_x = a * x + b * y + e;
+        let new_y = c * x + d * y + f;
+
+        Ok(JsonnetValue::array(vec![JsonnetValue::number(new_x), JsonnetValue::number(new_y)]))
+    }
+
+    /// splitLimit(string, sep, limit) - Split string with limit
+    pub fn split_limit(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 3, "splitLimit")?;
+        let s = args[0].as_string()?;
+        let sep = args[1].as_string()?;
+        let limit = args[2].as_number()? as usize;
+
+        if sep.is_empty() {
+            // Split into characters
+            let chars: Vec<String> = s.chars().take(limit).map(|c| c.to_string()).collect();
+            let result: Vec<JsonnetValue> = chars.into_iter().map(JsonnetValue::string).collect();
+            return Ok(JsonnetValue::array(result));
+        }
+
+        let mut parts: Vec<&str> = s.splitn(limit + 1, &sep).collect();
+        if parts.len() > limit {
+            // Join the remaining parts
+            let remaining = parts.split_off(limit);
+            parts.push(&s[(s.len() - remaining.join(&sep).len())..]);
+        }
+
+        let result: Vec<JsonnetValue> = parts.into_iter().map(|s| JsonnetValue::string(s.to_string())).collect();
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// join(sep, arrays...) - Join arrays with separator (variadic version)
+    pub fn join_variadic(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        if args.is_empty() {
+            return Err(JsonnetError::invalid_function_call("join() expects at least one argument".to_string()));
+        }
+
+        let sep = args[0].as_string()?;
+        let arrays: Result<Vec<Vec<JsonnetValue>>> = args[1..].iter()
+            .map(|arg| arg.as_array().cloned())
+            .collect();
+
+        let arrays = arrays?;
+        let mut result = Vec::new();
+
+        for (i, arr) in arrays.iter().enumerate() {
+            if i > 0 && !sep.is_empty() {
+                result.push(JsonnetValue::string(sep.clone()));
+            }
+            result.extend(arr.iter().cloned());
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    /// replace(string, old, new) - Replace all occurrences
+    pub fn replace(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 3, "replace")?;
+        let s = args[0].as_string()?;
+        let old = args[1].as_string()?;
+        let new = args[2].as_string()?;
+
+        let result = s.replace(&old, &new);
+        Ok(JsonnetValue::string(result))
+    }
+
+    /// contains(container, element) - Check if container contains element
+    pub fn contains_variadic(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "contains")?;
+
+        match &args[0] {
+            JsonnetValue::Array(arr) => {
+                // Simple linear search with string comparison
+                let target = format!("{:?}", &args[1]);
+                for item in arr {
+                    if format!("{:?}", item) == target {
+                        return Ok(JsonnetValue::boolean(true));
+                    }
+                }
+                Ok(JsonnetValue::boolean(false))
+            }
+            JsonnetValue::String(s) => {
+                let substr = args[1].as_string()?;
+                Ok(JsonnetValue::boolean(s.contains(&substr)))
+            }
+            JsonnetValue::Object(obj) => {
+                let key = args[1].as_string()?;
+                Ok(JsonnetValue::boolean(obj.contains_key(&*key)))
+            }
+            _ => Err(JsonnetError::invalid_function_call("contains() expects array, string, or object".to_string())),
         }
     }
 }

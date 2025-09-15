@@ -928,6 +928,44 @@ mod tests {
         let result = evaluate(r#"std.foldr(function(x, acc) x + acc, [1, 2, 3], 0)"#);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(6.0));
+
+        // Test new utility functions
+        // Test slice function
+        let result = evaluate(r#"std.slice([1, 2, 3, 4, 5], 1, 4)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0], JsonnetValue::number(2.0));
+
+        // Test sum function
+        let result = evaluate(r#"std.sum([1, 2, 3, 4, 5])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::number(15.0));
+
+        // Test product function
+        let result = evaluate(r#"std.product([2, 3, 4])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::number(24.0));
+
+        // Test all function
+        let result = evaluate(r#"std.all([true, true, true])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
+
+        // Test any function
+        let result = evaluate(r#"std.any([false, true, false])"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
+
+        // Test chunk function
+        let result = evaluate(r#"std.chunk([1, 2, 3, 4, 5], 2)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let chunks = binding.as_array().unwrap();
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].as_array().unwrap().len(), 2);
+        assert_eq!(chunks[2].as_array().unwrap().len(), 1);
     }
 
     #[test]
