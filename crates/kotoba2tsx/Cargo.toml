@@ -1,13 +1,12 @@
 [package]
 name = "kotoba2tsx"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba to TSX converter - Convert .kotoba configuration files to React TSX components"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["react", "tsx", "converter", "jsonnet", "frontend"]
-categories = ["command-line-utilities", "web-programming"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Complete toolchain for converting Kotoba configuration files to React TypeScript components"
+keywords = ["react", "tsx", "converter", "jsonnet", "frontend", "typescript", "ui"]
+categories = ["command-line-utilities", "web-programming", "development-tools"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba2tsx"
 homepage = "https://github.com/jun784/kotoba"
