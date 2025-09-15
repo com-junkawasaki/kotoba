@@ -2273,7 +2273,7 @@ dependencies = [
  "kotoba-graph 0.1.2",
  "kotoba-jsonnet",
  "kotoba-rewrite 0.1.2",
- "kotoba-storage 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.2",
  "log",
  "proptest",
  "quickcheck",
@@ -2406,7 +2406,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-kotobanet"
-version = "0.1.2"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "kotoba-core 0.1.15",
@@ -2429,7 +2429,7 @@ dependencies = [
  "anyhow",
  "kotoba-core 0.1.2",
  "kotoba-graph 0.1.2",
- "kotoba-storage 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.2",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -2443,7 +2443,7 @@ dependencies = [
  "anyhow",
  "kotoba-core 0.1.15",
  "kotoba-graph 0.1.15",
- "kotoba-storage 0.1.2",
+ "kotoba-storage 0.1.15",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -2453,7 +2453,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-security"
-version = "0.1.2"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2464,7 +2464,7 @@ dependencies = [
  "jsonwebtoken",
  "kotoba-core 0.1.15",
  "kotoba-graph 0.1.15",
- "kotoba-storage 0.1.2",
+ "kotoba-storage 0.1.15",
  "mockito",
  "oauth2",
  "openidconnect",
@@ -2489,7 +2489,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-server"
-version = "0.1.2"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "hex",
@@ -2507,25 +2507,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "kotoba-storage"
-version = "0.1.2"
-dependencies = [
- "anyhow",
- "hex",
- "kotoba-core 0.1.15",
- "kotoba-graph 0.1.15",
- "parking_lot",
- "rocksdb",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -2549,8 +2530,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-storage"
+version = "0.1.15"
+dependencies = [
+ "anyhow",
+ "hex",
+ "kotoba-core 0.1.15",
+ "kotoba-graph 0.1.15",
+ "parking_lot",
+ "rocksdb",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba2tsx"
-version = "0.1.2"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "clap",

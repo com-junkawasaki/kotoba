@@ -1,15 +1,12 @@
 [package]
 name = "kotoba-storage"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba Storage Components"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-
-
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["storage", "persistence", "mvcc", "merkle"]
-categories = ["database-implementations", "data-structures"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Advanced persistent storage layer with MVCC, LSM-Tree, and Merkle DAG"
+keywords = ["storage", "persistence", "mvcc", "merkle", "lsm-tree", "database"]
+categories = ["database-implementations", "data-structures", "cryptography"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-storage"
 homepage = "https://github.com/jun784/kotoba"

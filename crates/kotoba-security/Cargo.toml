@@ -1,13 +1,12 @@
 [package]
 name = "kotoba-security"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba Security Components - JWT, OAuth2, MFA"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["security", "jwt", "oauth2", "authentication", "mfa"]
-categories = ["authentication", "cryptography", "web-programming"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Comprehensive authentication and authorization system with JWT, OAuth2, MFA"
+keywords = ["security", "jwt", "oauth2", "authentication", "mfa", "authorization", "capabilities"]
+categories = ["authentication", "cryptography", "web-programming", "api-bindings"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-security"
 homepage = "https://github.com/jun784/kotoba"

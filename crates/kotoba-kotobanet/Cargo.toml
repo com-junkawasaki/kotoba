@@ -1,12 +1,12 @@
 [package]
 name = "kotoba-kotobanet"
-description = "Kotoba-specific Jsonnet extensions - HTTP Parser, Frontend Framework, Deploy Config, and Configuration"
-version = "0.1.2"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-keywords = ["jsonnet", "templating", "configuration", "frontend", "deploy"]
-categories = ["config", "template-engine", "web-programming"]
+description = "Kotoba-specific Jsonnet extensions providing HTTP parsing, frontend framework integration, deployment configuration"
+keywords = ["jsonnet", "templating", "configuration", "frontend", "deploy", "infrastructure", "iac"]
+categories = ["config", "template-engine", "web-programming", "development-tools"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

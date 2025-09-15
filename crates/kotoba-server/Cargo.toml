@@ -1,15 +1,12 @@
 [package]
 name = "kotoba-server"
-version = "0.1.2"
-edition = "2021"
-description = "Kotoba Server Components"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
-
-
-authors = ["Jun Kawasaki <jun784@example.com>"]
-keywords = ["server", "http", "backend", "framework"]
-categories = ["web-programming", "api-bindings"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Complete HTTP server and frontend integration system for Kotoba graph database"
+keywords = ["server", "http", "graphql", "websocket", "frontend", "api"]
+categories = ["web-programming", "api-bindings", "asynchronous"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-server"
 homepage = "https://github.com/jun784/kotoba"
