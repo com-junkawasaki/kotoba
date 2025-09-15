@@ -191,13 +191,13 @@ impl<'a> StdLibWithCallback<'a> {
     // Higher-order functions that use function callbacks
     fn filter(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         StdLib::check_args(&args, 2, "filter")?;
-        let func = &args[0];
+        let _func = &args[0];
         let arr = args[1].as_array()?;
 
         let mut result = Vec::new();
         for item in arr {
             // Call func(item) and check if result is truthy
-            let call_result = self.callback.call_function(func.clone(), vec![item.clone()])?;
+            let call_result = self.callback.call_function(_func.clone(), vec![item.clone()])?;
             if call_result.is_truthy() {
                 result.push(item.clone());
             }
@@ -208,13 +208,13 @@ impl<'a> StdLibWithCallback<'a> {
 
     fn map(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         StdLib::check_args(&args, 2, "map")?;
-        let func = &args[0];
+        let _func = &args[0];
         let arr = args[1].as_array()?;
 
         let mut result = Vec::new();
         for item in arr {
             // Call func(item) and collect results
-            let call_result = self.callback.call_function(func.clone(), vec![item.clone()])?;
+            let call_result = self.callback.call_function(_func.clone(), vec![item.clone()])?;
             result.push(call_result);
         }
 
@@ -223,13 +223,13 @@ impl<'a> StdLibWithCallback<'a> {
 
     fn foldl(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         StdLib::check_args(&args, 3, "foldl")?;
-        let func = &args[0];
+        let _func = &args[0];
         let arr = args[1].as_array()?;
         let mut accumulator = args[2].clone();
 
         for item in arr {
             // Call func(accumulator, item)
-            accumulator = self.callback.call_function(func.clone(), vec![accumulator, item.clone()])?;
+            accumulator = self.callback.call_function(_func.clone(), vec![accumulator, item.clone()])?;
         }
 
         Ok(accumulator)
@@ -237,13 +237,13 @@ impl<'a> StdLibWithCallback<'a> {
 
     fn foldr(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         StdLib::check_args(&args, 3, "foldr")?;
-        let func = &args[0];
+        let _func = &args[0];
         let arr = args[1].as_array()?;
         let mut accumulator = args[2].clone();
 
         for item in arr.iter().rev() {
             // Call func(item, accumulator)
-            accumulator = self.callback.call_function(func.clone(), vec![item.clone(), accumulator])?;
+            accumulator = self.callback.call_function(_func.clone(), vec![item.clone(), accumulator])?;
         }
 
         Ok(accumulator)
@@ -2215,7 +2215,7 @@ impl StdLib {
 
     fn flat_map(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "flatMap")?;
-        let func = &args[0];
+        let _func = &args[0];
         let arr = &args[1];
 
         match arr {
@@ -2248,7 +2248,7 @@ impl StdLib {
 
     fn map_with_index(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "mapWithIndex")?;
-        let func = &args[0];
+        let _func = &args[0];
         let arr = &args[1];
 
         match arr {
@@ -3019,8 +3019,8 @@ impl JsonnetValue {
     /// sortBy(array, keyFunc) - Sort array by key function
     pub fn sort_by(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         StdLib::check_args(&args, 2, "sortBy")?;
-        let arr = args[0].as_array()?.clone();
-        let key_func = &args[1];
+        let _arr = args[0].as_array()?.clone();
+        let _key_func = &args[1];
 
         // For now, implement a simple version that assumes the key function returns numbers
         // Full implementation would require function calling callback

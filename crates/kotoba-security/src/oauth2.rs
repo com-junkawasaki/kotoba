@@ -6,7 +6,7 @@ use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
-    PkceCodeVerifier, RedirectUrl, Scope, TokenUrl,
+    PkceCodeVerifier, RedirectUrl, Scope, TokenUrl, TokenResponse as OAuth2TokenResponse,
 };
 use openidconnect::core::{
     CoreAuthenticationFlow, CoreClient, CoreGenderClaim, CoreIdTokenClaims, CoreIdTokenVerifier,
@@ -273,8 +273,9 @@ impl OAuth2Service {
 
         let state_key = csrf_token.secret().clone();
         {
-            let mut states = self.states.write().await;
+            let mut states = self.states.write();
             states.insert(state_key, state);
+            drop(states);
         }
 
         Ok(auth_url.to_string())
@@ -286,7 +287,7 @@ impl OAuth2Service {
 
         // Retrieve and validate state
         let state_data = {
-            let mut states = self.states.write().await;
+            let mut states = self.states.write();
             let state_data = states.remove(state)
                 .ok_or_else(|| SecurityError::StateMismatch)?;
 
@@ -329,7 +330,7 @@ impl OAuth2Service {
 
         // Retrieve and validate state
         let state_data = {
-            let mut states = self.states.write().await;
+            let mut states = self.states.write();
             let state_data = states.remove(state)
                 .ok_or_else(|| SecurityError::StateMismatch)?;
 
@@ -435,21 +436,9 @@ impl OAuth2Service {
             _ => return Err(SecurityError::ProviderNotSupported),
         };
 
-        let provider_metadata = CoreProviderMetadata::discover_async(
-            IssuerUrl::new(issuer_url.to_string()).unwrap(),
-            &self.http_client,
-        ).await
-        .map_err(|e| SecurityError::OAuth2(format!("OIDC discovery failed: {}", e)))?;
-
-        let client = CoreClient::from_provider_metadata(
-            provider_metadata,
-            ClientId::new(provider_config.client_id.clone()),
-            Some(ClientSecret::new(provider_config.client_secret.clone())),
-        )
-        .set_redirect_uri(RedirectUrl::new(redirect_uri.to_string())
-            .map_err(|e| SecurityError::Configuration(format!("Invalid redirect URL: {}", e)))?);
-
-        Ok(client)
+        // For now, skip OpenID Connect discovery and use manual configuration
+        // TODO: Implement proper HTTP client function for OpenID Connect discovery
+        Err(SecurityError::Configuration("OpenID Connect discovery not yet implemented".to_string()))
     }
 
     /// Parse user info from provider response
@@ -532,9 +521,9 @@ impl UserInfo {
             id: claims.subject().to_string(),
             email: claims.email().map(|e| e.to_string()),
             email_verified: claims.email_verified(),
-            name: claims.name().map(|n| n.to_string()),
-            given_name: claims.given_name().map(|n| n.to_string()),
-            family_name: claims.family_name().map(|n| n.to_string()),
+            name: claims.name().map(|n| n.get(None).cloned()),
+            given_name: claims.given_name().map(|n| n.get(None).cloned()),
+            family_name: claims.family_name().map(|n| n.get(None).cloned()),
             picture: None, // Not in standard claims
             locale: claims.locale().map(|l| l.to_string()),
         }

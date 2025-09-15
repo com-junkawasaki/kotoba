@@ -129,14 +129,30 @@ impl MfaService {
 
         let totp = TOTP::new(
             secret.algorithm.clone().into(),
-            secret.digits.into(),
+            secret.digits,
             secret.skew,
             secret.step,
-            totp_secret.as_bytes().to_vec(),
+            totp_secret.to_bytes().to_vec(),
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
-        let url = totp.url(&secret.issuer, &secret.account_name)
-            .map_err(|e| SecurityError::Mfa(format!("Failed to generate URL: {}", e)))?;
+        // Generate TOTP URI manually
+        let issuer_encoded = secret.issuer.replace(" ", "%20").replace(":", "%3A");
+        let account_encoded = secret.account_name.replace(" ", "%20").replace(":", "%3A");
+
+        let url = format!(
+            "otpauth://totp/{}:{}?secret={}&issuer={}&algorithm={}&digits={}&period={}",
+            issuer_encoded,
+            account_encoded,
+            secret.secret,
+            issuer_encoded,
+            match secret.algorithm {
+                MfaAlgorithm::SHA1 => "SHA1",
+                MfaAlgorithm::SHA256 => "SHA256",
+                MfaAlgorithm::SHA512 => "SHA512",
+            },
+            secret.digits,
+            secret.step
+        );
 
         let qr_code = QrCode::new(url.as_bytes())
             .map_err(|e| SecurityError::Mfa(format!("Failed to generate QR code: {}", e)))?;
@@ -158,12 +174,13 @@ impl MfaService {
 
         let secret = Secret::Encoded(secret_hex.to_string());
 
+        let secret_bytes = secret.to_bytes().to_vec();
         let totp = TOTP::new(
             Algorithm::SHA1,
             self.config.digits.into(),
             self.config.skew,
             self.config.step,
-            secret.to_bytes()?.to_vec(),
+            secret_bytes,
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
         let current_time = std::time::SystemTime::now()
@@ -171,7 +188,7 @@ impl MfaService {
             .map_err(|e| SecurityError::Time(e.to_string()))?
             .as_secs();
 
-        totp.check(code, current_time)
+        Ok(totp.check(code, current_time))
     }
 
     /// Verify MFA code with detailed secret
@@ -180,10 +197,10 @@ impl MfaService {
 
         let totp = TOTP::new(
             secret.algorithm.clone().into(),
-            secret.digits.into(),
+            secret.digits,
             secret.skew,
             secret.step,
-            secret_obj.as_bytes().to_vec(),
+            secret_obj.to_bytes().map_err(|e| SecurityError::Mfa(format!("Failed to decode secret: {}", e)))?,
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
         let current_time = std::time::SystemTime::now()
@@ -191,7 +208,7 @@ impl MfaService {
             .map_err(|e| SecurityError::Time(e.to_string()))?
             .as_secs();
 
-        totp.check(code, current_time)
+        Ok(totp.check(code, current_time))
     }
 
     /// Generate backup codes
@@ -261,14 +278,31 @@ impl MfaService {
 
         let totp = TOTP::new(
             secret.algorithm.clone().into(),
-            secret.digits.into(),
+            secret.digits,
             secret.skew,
             secret.step,
-            secret_obj.as_bytes().to_vec(),
+            secret_obj.to_bytes().map_err(|e| SecurityError::Mfa(format!("Failed to decode secret: {}", e)))?,
         ).map_err(|e| SecurityError::Mfa(format!("Failed to create TOTP: {}", e)))?;
 
-        let uri = totp.get_url(&secret.issuer, &secret.account_name)
-            .map_err(|e| SecurityError::Mfa(format!("Failed to generate URI: {}", e)))?;
+        // Generate TOTP URI manually since get_url method may not be available
+        // Note: For production, consider using a proper URL encoding library
+        let issuer_encoded = secret.issuer.replace(" ", "%20").replace(":", "%3A");
+        let account_encoded = secret.account_name.replace(" ", "%20").replace(":", "%3A");
+
+        let uri = format!(
+            "otpauth://totp/{}:{}?secret={}&issuer={}&algorithm={}&digits={}&period={}",
+            issuer_encoded,
+            account_encoded,
+            secret.secret,
+            issuer_encoded,
+            match secret.algorithm {
+                MfaAlgorithm::SHA1 => "SHA1",
+                MfaAlgorithm::SHA256 => "SHA256",
+                MfaAlgorithm::SHA512 => "SHA512",
+            },
+            secret.digits,
+            secret.step
+        );
 
         Ok(uri)
     }

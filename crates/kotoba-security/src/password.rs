@@ -3,7 +3,7 @@
 use crate::error::{SecurityError, Result};
 use crate::config::{PasswordConfig, PasswordAlgorithm, Argon2Config, Pbkdf2Config};
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
-use password_hash::{PasswordHash, SaltString};
+use password_hash::SaltString;
 use pbkdf2::pbkdf2_hmac;
 use sha2::Sha256;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ pub struct PasswordHash {
     pub hash: String,
     pub salt: String,
     pub params: PasswordParams,
+    #[serde(default)]
+    pub version: Option<String>,
 }
 
 /// Password parameters for different algorithms
@@ -194,6 +196,7 @@ impl PasswordService {
             hash,
             salt,
             params,
+            version: None,
         })
     }
 
@@ -233,7 +236,7 @@ impl PasswordService {
         Ok(PasswordHash {
             algorithm: PasswordAlgorithm::Argon2,
             hash: hash_string,
-            salt: hex::encode(salt),
+            salt: hex::encode(salt.as_bytes()),
             params: PasswordParams::Argon2 {
                 version: config.version,
                 m_cost: config.m_cost,
@@ -241,12 +244,13 @@ impl PasswordService {
                 p_cost: config.p_cost,
                 output_len: config.output_len,
             },
+            version: Some(config.version.to_string()),
         })
     }
 
     /// Verify password using Argon2
     fn verify_with_argon2(&self, password: &str, hash: &PasswordHash) -> Result<bool> {
-        let salt = hex::decode(&hash.salt)
+        let salt = hex::decode(&hash.salt).map_err(|_| SecurityError::Password("Invalid salt format".to_string()))?
             .map_err(|e| SecurityError::Password(format!("Invalid salt: {}", e)))?;
 
         if let PasswordParams::Argon2 { version, m_cost, t_cost, p_cost, output_len } = hash.params {
@@ -262,10 +266,10 @@ impl PasswordService {
 
             let argon2 = Argon2::new(algorithm, version, params);
 
-            let password_hash = PasswordHash::parse(&hash.hash, password_hash::Encoding::B64)
-                .map_err(|e| SecurityError::Password(format!("Invalid password hash: {}", e)))?;
-
-            let is_valid = argon2.verify_password(password.as_bytes(), &password_hash)
+            // For Argon2, we need to construct the hash string manually
+            let hash_string = format!("$argon2id$v={}${}", hash.version.as_deref().unwrap_or("19"), hash.hash);
+            let is_valid = password_hash::PasswordHash::parse(&hash_string, password_hash::Encoding::B64)
+                .and_then(|parsed_hash| argon2.verify_password(password.as_bytes(), &parsed_hash))
                 .is_ok();
 
             Ok(is_valid)
@@ -287,17 +291,18 @@ impl PasswordService {
         Ok(PasswordHash {
             algorithm: PasswordAlgorithm::Pbkdf2,
             hash: hex::encode(hash),
-            salt: hex::encode(salt),
+            salt: hex::encode(salt.as_bytes()),
             params: PasswordParams::Pbkdf2 {
                 iterations: config.iterations,
                 output_len: config.output_len,
             },
+            version: None,
         })
     }
 
     /// Verify password using PBKDF2
     fn verify_with_pbkdf2(&self, password: &str, hash: &PasswordHash) -> Result<bool> {
-        let salt = hex::decode(&hash.salt)
+        let salt = hex::decode(&hash.salt).map_err(|_| SecurityError::Password("Invalid salt format".to_string()))?
             .map_err(|e| SecurityError::Password(format!("Invalid salt: {}", e)))?;
 
         if let PasswordParams::Pbkdf2 { iterations, output_len } = hash.params {
@@ -328,8 +333,9 @@ impl PasswordService {
         Ok(PasswordHash {
             algorithm: PasswordAlgorithm::Bcrypt,
             hash: hash.to_string(),
-            salt: hex::encode(salt),
+            salt: hex::encode(salt.as_bytes()),
             params: PasswordParams::Bcrypt { cost },
+            version: None,
         })
     }
 

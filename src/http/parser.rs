@@ -7,6 +7,7 @@ use crate::http::ir::*;
 use std::fs;
 use std::path::Path;
 use sha2::{Sha256, Digest};
+use tempfile::NamedTempFile;
 
 /// HTTP設定パーサー
 ///

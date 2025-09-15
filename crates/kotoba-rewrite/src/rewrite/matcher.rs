@@ -75,7 +75,7 @@ impl RuleMatcher {
 
     /// LHSパターンマッチング
     fn match_lhs(&self, graph: &Graph, lhs: &GraphPattern,
-                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> bool {
+                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
 
         // ノードマッチング
         for node in &lhs.nodes {

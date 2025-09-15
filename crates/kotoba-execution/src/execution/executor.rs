@@ -478,7 +478,7 @@ impl QueryExecutor {
             return Err(KotobaError::Execution("degree() function requires exactly 1 argument".to_string()));
         }
 
-        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+        let _vertex_id_str = match self.evaluate_expr(row, &args[0])? {
             Value::String(s) => s,
             _ => return Err(KotobaError::Execution("degree() argument must be a vertex ID string".to_string())),
         };
@@ -494,7 +494,7 @@ impl QueryExecutor {
             return Err(KotobaError::Execution("labels() function requires exactly 1 argument".to_string()));
         }
 
-        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+        let _vertex_id_str = match self.evaluate_expr(row, &args[0])? {
             Value::String(s) => s,
             _ => return Err(KotobaError::Execution("labels() argument must be a vertex ID string".to_string())),
         };
@@ -510,7 +510,7 @@ impl QueryExecutor {
             return Err(KotobaError::Execution("keys() function requires exactly 1 argument".to_string()));
         }
 
-        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+        let _vertex_id_str = match self.evaluate_expr(row, &args[0])? {
             Value::String(s) => s,
             _ => return Err(KotobaError::Execution("keys() argument must be a vertex ID string".to_string())),
         };
@@ -526,12 +526,12 @@ impl QueryExecutor {
             return Err(KotobaError::Execution("hasLabel() function requires exactly 2 arguments".to_string()));
         }
 
-        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+        let _vertex_id_str = match self.evaluate_expr(row, &args[0])? {
             Value::String(s) => s,
             _ => return Err(KotobaError::Execution("hasLabel() first argument must be a vertex ID string".to_string())),
         };
 
-        let label = match self.evaluate_expr(row, &args[1])? {
+        let _label = match self.evaluate_expr(row, &args[1])? {
             Value::String(s) => s,
             _ => return Err(KotobaError::Execution("hasLabel() second argument must be a label string".to_string())),
         };
@@ -547,7 +547,7 @@ impl QueryExecutor {
             return Err(KotobaError::Execution("properties() function requires exactly 1 argument".to_string()));
         }
 
-        let vertex_id_str = match self.evaluate_expr(row, &args[0])? {
+        let _vertex_id_str = match self.evaluate_expr(row, &args[0])? {
             Value::String(s) => s,
             _ => return Err(KotobaError::Execution("properties() argument must be a vertex ID string".to_string())),
         };
@@ -714,7 +714,7 @@ impl QueryExecutor {
     }
 
     /// コレクション関数評価
-    fn evaluate_collection_function(&self, name: &str, args: &[Expr], row: &Row) -> Result<Value> {
+    fn evaluate_collection_function(&self, name: &str, args: &[Expr], _row: &Row) -> Result<Value> {
         match name {
             "size" => {
                 if args.len() != 1 {

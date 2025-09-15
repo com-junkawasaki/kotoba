@@ -3,7 +3,7 @@
 use crate::ast::{self, BinaryOp, Expr, Program, Stmt, UnaryOp};
 use crate::error::{JsonnetError, Result};
 use crate::value::{JsonnetBuiltin, JsonnetFunction, JsonnetValue};
-use crate::stdlib::{FunctionCallback, StdLibWithCallback};
+use crate::stdlib::FunctionCallback;
 use std::collections::HashMap;
 
 /// Jsonnet evaluator
@@ -68,7 +68,7 @@ impl Evaluator {
         for func_name in std_functions {
             // Create a closure that captures the evaluator and calls stdlib with callback
             let func_name_clone = func_name.to_string();
-            let builtin_func = move |args: Vec<JsonnetValue>| -> Result<JsonnetValue> {
+            let _builtin_func = move |args: Vec<JsonnetValue>| -> Result<JsonnetValue> {
                 // This is a placeholder - we'll implement proper callback mechanism
                 // For now, use the old StdLib directly for functions that don't need callbacks
                 crate::stdlib::StdLib::call_function(&func_name_clone, args)

@@ -97,12 +97,20 @@ impl JwtAlgorithm {
 }
 
 /// OAuth2 configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OAuth2Config {
+    #[serde(default)]
     pub providers: HashMap<String, OAuth2ProviderConfig>,
+    #[serde(default)]
     pub redirect_uri: String,
+    #[serde(default)]
     pub scopes: Vec<String>,
+    #[serde(default = "default_state_timeout")]
     pub state_timeout_seconds: u64,
+}
+
+fn default_state_timeout() -> u64 {
+    600 // 10 minutes
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

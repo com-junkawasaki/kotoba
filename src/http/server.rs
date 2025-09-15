@@ -303,8 +303,8 @@ pub async fn run_server<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::{MVCCManager, MerkleDAG};
-    use crate::rewrite::RewriteEngine;
+    use kotoba_storage::prelude::*;
+    use kotoba_rewrite::prelude::*;
 
     #[test]
     fn test_parse_http_request() {
