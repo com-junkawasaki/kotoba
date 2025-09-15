@@ -900,6 +900,34 @@ mod tests {
         let result = evaluate(r#"local y = 10; local f = function(x) x + y; f(5)"#);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), JsonnetValue::number(15.0));
+
+        // Test higher-order functions
+        // Test filter function
+        let result = evaluate(r#"std.filter(function(x) x > 0, [1, -1, 2, -2])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // Should filter to [1, 2]
+
+        // Test map function
+        let result = evaluate(r#"std.map(function(x) x * 2, [1, 2, 3])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0], JsonnetValue::number(2.0));
+        assert_eq!(arr[1], JsonnetValue::number(4.0));
+        assert_eq!(arr[2], JsonnetValue::number(6.0));
+
+        // Test foldl function
+        let result = evaluate(r#"std.foldl(function(acc, x) acc + x, [1, 2, 3], 0)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::number(6.0));
+
+        // Test foldr function
+        let result = evaluate(r#"std.foldr(function(x, acc) x + acc, [1, 2, 3], 0)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::number(6.0));
     }
 
     #[test]

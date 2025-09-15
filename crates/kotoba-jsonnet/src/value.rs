@@ -376,6 +376,16 @@ impl JsonnetBuiltin {
             JsonnetBuiltin::StdLibFunction(func_name) => crate::stdlib::StdLib::call_function(func_name, args),
         }
     }
+
+    pub fn call_with_callback(&self, callback: &mut dyn crate::stdlib::FunctionCallback, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        match self {
+            JsonnetBuiltin::Length => crate::stdlib::StdLib::length(args),
+            JsonnetBuiltin::StdLibFunction(func_name) => {
+                let mut stdlib_with_callback = crate::stdlib::StdLibWithCallback::new(callback);
+                stdlib_with_callback.call_function(func_name, args)
+            }
+        }
+    }
 }
 
 /// Jsonnet function representation

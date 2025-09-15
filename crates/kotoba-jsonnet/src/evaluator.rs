@@ -3,12 +3,19 @@
 use crate::ast::{self, BinaryOp, Expr, Program, Stmt, UnaryOp};
 use crate::error::{JsonnetError, Result};
 use crate::value::{JsonnetBuiltin, JsonnetFunction, JsonnetValue};
+use crate::stdlib::{FunctionCallback, StdLibWithCallback};
 use std::collections::HashMap;
 
 /// Jsonnet evaluator
 pub struct Evaluator {
     /// Global environment
     globals: HashMap<String, JsonnetValue>,
+}
+
+impl FunctionCallback for Evaluator {
+    fn call_function(&mut self, func: JsonnetValue, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        self.call_function(func, args)
+    }
 }
 
 impl Evaluator {
@@ -53,6 +60,13 @@ impl Evaluator {
         ];
 
         for func_name in std_functions {
+            // Create a closure that captures the evaluator and calls stdlib with callback
+            let func_name_clone = func_name.to_string();
+            let builtin_func = move |args: Vec<JsonnetValue>| -> Result<JsonnetValue> {
+                // This is a placeholder - we'll implement proper callback mechanism
+                // For now, use the old StdLib directly for functions that don't need callbacks
+                crate::stdlib::StdLib::call_function(&func_name_clone, args)
+            };
             std_object.insert(func_name.to_string(), JsonnetValue::Builtin(JsonnetBuiltin::StdLibFunction(func_name.to_string())));
         }
 
@@ -344,7 +358,16 @@ impl Evaluator {
                 result
             }
             JsonnetValue::Builtin(builtin) => {
-                builtin.call(args)
+                // Use callback for functions that need it (filter, map, foldl, foldr)
+                if let JsonnetBuiltin::StdLibFunction(ref func_name) = builtin {
+                    if func_name == "filter" || func_name == "map" || func_name == "foldl" || func_name == "foldr" {
+                        builtin.call_with_callback(self, args)
+                    } else {
+                        builtin.call(args)
+                    }
+                } else {
+                    builtin.call(args)
+                }
             }
             _ => Err(JsonnetError::runtime_error("Cannot call non-function value")),
         }

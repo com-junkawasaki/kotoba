@@ -2,6 +2,11 @@
 
 use crate::error::{JsonnetError, Result};
 use crate::value::JsonnetValue;
+
+/// Callback trait for function calling from stdlib
+pub trait FunctionCallback {
+    fn call_function(&mut self, func: JsonnetValue, args: Vec<JsonnetValue>) -> Result<JsonnetValue>;
+}
 use sha1::Sha1;
 use sha2::{Sha256, Sha512, Digest};
 use sha3::Sha3_256;
@@ -9,6 +14,207 @@ use std::collections::HashMap;
 
 /// Standard library function implementations
 pub struct StdLib;
+
+/// Standard library with function callback support
+pub struct StdLibWithCallback<'a> {
+    callback: &'a mut dyn FunctionCallback,
+}
+
+impl<'a> StdLibWithCallback<'a> {
+    pub fn new(callback: &'a mut dyn FunctionCallback) -> Self {
+        StdLibWithCallback { callback }
+    }
+
+    /// Call a standard library function with function callback support
+    pub fn call_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        match name {
+            "length" => StdLib::length(args),
+            "type" => StdLib::type_of(args),
+            "makeArray" => StdLib::make_array(args),
+            "filter" => self.filter(args),
+            "map" => self.map(args),
+            "foldl" => self.foldl(args),
+            "foldr" => self.foldr(args),
+            // ... other functions that don't need callback
+            "range" => StdLib::range(args),
+            "join" => StdLib::join(args),
+            "split" => StdLib::split(args),
+            "contains" => StdLib::contains(args),
+            "startsWith" => StdLib::starts_with(args),
+            "endsWith" => StdLib::ends_with(args),
+            "toLower" => StdLib::to_lower(args),
+            "toUpper" => StdLib::to_upper(args),
+            "trim" => StdLib::trim(args),
+            "substr" => StdLib::substr(args),
+            "char" => StdLib::char_fn(args),
+            "codepoint" => StdLib::codepoint(args),
+            "toString" => StdLib::to_string(args),
+            "parseInt" => StdLib::parse_int(args),
+            "parseJson" => StdLib::parse_json(args),
+            "encodeUTF8" => StdLib::encode_utf8(args),
+            "decodeUTF8" => StdLib::decode_utf8(args),
+            "md5" => StdLib::md5(args),
+            "base64" => StdLib::base64(args),
+            "base64Decode" => StdLib::base64_decode(args),
+            "manifestJson" => StdLib::manifest_json(args),
+            "manifestJsonEx" => StdLib::manifest_json_ex(args),
+            "manifestYaml" => StdLib::manifest_yaml(args),
+            "escapeStringJson" => StdLib::escape_string_json(args),
+            "escapeStringYaml" => StdLib::escape_string_yaml(args),
+            "escapeStringPython" => StdLib::escape_string_python(args),
+            "escapeStringBash" => StdLib::escape_string_bash(args),
+            "escapeStringDollars" => StdLib::escape_string_dollars(args),
+            "stringChars" => StdLib::string_chars(args),
+            "stringBytes" => StdLib::string_bytes(args),
+            "format" => StdLib::format(args),
+            "isArray" => StdLib::is_array(args),
+            "isBoolean" => StdLib::is_boolean(args),
+            "isFunction" => StdLib::is_function(args),
+            "isNumber" => StdLib::is_number(args),
+            "isObject" => StdLib::is_object(args),
+            "isString" => StdLib::is_string(args),
+            "count" => StdLib::count(args),
+            "find" => StdLib::find(args),
+            "member" => StdLib::member(args),
+            "modulo" => StdLib::modulo(args),
+            "pow" => StdLib::pow(args),
+            "exp" => StdLib::exp(args),
+            "log" => StdLib::log(args),
+            "sqrt" => StdLib::sqrt(args),
+            "sin" => StdLib::sin(args),
+            "cos" => StdLib::cos(args),
+            "tan" => StdLib::tan(args),
+            "asin" => StdLib::asin(args),
+            "acos" => StdLib::acos(args),
+            "atan" => StdLib::atan(args),
+            "floor" => StdLib::floor(args),
+            "ceil" => StdLib::ceil(args),
+            "round" => StdLib::round(args),
+            "abs" => StdLib::abs(args),
+            "max" => StdLib::max(args),
+            "min" => StdLib::min(args),
+            "clamp" => StdLib::clamp(args),
+            "assertEqual" => StdLib::assert_equal(args),
+            "trace" => StdLib::trace(args),
+            "sort" => StdLib::sort(args),
+            "uniq" => StdLib::uniq(args),
+            "reverse" => StdLib::reverse(args),
+            "mergePatch" => StdLib::merge_patch(args),
+            "get" => StdLib::get(args),
+            "id" => StdLib::id(args),
+            "equals" => StdLib::equals(args),
+            "lines" => StdLib::lines(args),
+            "strReplace" => StdLib::str_replace(args),
+            "sha1" => StdLib::sha1(args),
+            "sha256" => StdLib::sha256(args),
+            "sha3" => StdLib::sha3(args),
+            "sha512" => StdLib::sha512(args),
+            "asciiLower" => StdLib::ascii_lower(args),
+            "asciiUpper" => StdLib::ascii_upper(args),
+            "set" => StdLib::set(args),
+            "flatMap" => StdLib::flat_map(args),
+            "mapWithIndex" => StdLib::map_with_index(args),
+            "lstripChars" => StdLib::lstrip_chars(args),
+            "rstripChars" => StdLib::rstrip_chars(args),
+            "stripChars" => StdLib::strip_chars(args),
+            "findSubstr" => StdLib::find_substr(args),
+            "repeat" => StdLib::repeat(args),
+            "setMember" => StdLib::set_member(args),
+            "setUnion" => StdLib::set_union(args),
+            "setInter" => StdLib::set_inter(args),
+            "setDiff" => StdLib::set_diff(args),
+            "objectFields" => StdLib::object_fields(args),
+            "objectFieldsAll" => StdLib::object_fields_all(args),
+            "objectHas" => StdLib::object_has(args),
+            "objectHasAll" => StdLib::object_has_all(args),
+            "objectValues" => StdLib::object_values(args),
+            "objectValuesAll" => StdLib::object_values_all(args),
+            "objectFieldsEx" => StdLib::object_fields_ex(args),
+            "objectValuesEx" => StdLib::object_values_ex(args),
+            "prune" => StdLib::prune(args),
+            "mapWithKey" => StdLib::map_with_key(args),
+            "manifestIni" => StdLib::manifest_ini(args),
+            "manifestPython" => StdLib::manifest_python(args),
+            "manifestCpp" => StdLib::manifest_cpp(args),
+            "manifestXmlJsonml" => StdLib::manifest_xml_jsonml(args),
+            "log2" => StdLib::log2(args),
+            "log10" => StdLib::log10(args),
+            "log1p" => StdLib::log1p(args),
+            "expm1" => StdLib::expm1(args),
+            "remove" => StdLib::remove(args),
+            "removeAt" => StdLib::remove_at(args),
+            "flattenArrays" => StdLib::flatten_arrays(args),
+            "objectKeysValues" => StdLib::object_keys_values(args),
+            "objectRemoveKey" => StdLib::object_remove_key(args),
+            "isInteger" => StdLib::is_integer(args),
+            "isDecimal" => StdLib::is_decimal(args),
+            "isEven" => StdLib::is_even(args),
+            "isOdd" => StdLib::is_odd(args),
+            _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
+        }
+    }
+
+    // Higher-order functions that use function callbacks
+    fn filter(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "filter")?;
+        let func = &args[0];
+        let arr = args[1].as_array()?;
+
+        let mut result = Vec::new();
+        for item in arr {
+            // Call func(item) and check if result is truthy
+            let call_result = self.callback.call_function(func.clone(), vec![item.clone()])?;
+            if call_result.is_truthy() {
+                result.push(item.clone());
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn map(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "map")?;
+        let func = &args[0];
+        let arr = args[1].as_array()?;
+
+        let mut result = Vec::new();
+        for item in arr {
+            // Call func(item) and collect results
+            let call_result = self.callback.call_function(func.clone(), vec![item.clone()])?;
+            result.push(call_result);
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn foldl(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 3, "foldl")?;
+        let func = &args[0];
+        let arr = args[1].as_array()?;
+        let mut accumulator = args[2].clone();
+
+        for item in arr {
+            // Call func(accumulator, item)
+            accumulator = self.callback.call_function(func.clone(), vec![accumulator, item.clone()])?;
+        }
+
+        Ok(accumulator)
+    }
+
+    fn foldr(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 3, "foldr")?;
+        let func = &args[0];
+        let arr = args[1].as_array()?;
+        let mut accumulator = args[2].clone();
+
+        for item in arr.iter().rev() {
+            // Call func(item, accumulator)
+            accumulator = self.callback.call_function(func.clone(), vec![item.clone(), accumulator])?;
+        }
+
+        Ok(accumulator)
+    }
+}
 
 impl StdLib {
     /// Call a standard library function

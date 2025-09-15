@@ -96,20 +96,19 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ `mapWithKey` - Object key-value mapping (improved implementation)
 
 **Next Priority Implementation:**
-- **Higher-Order Functions**: `filter`, `map`, `foldl`, `foldr` (requires evaluator callback architecture)
-- **Remaining Utility Functions**: 40+ functions (string manipulation, math, etc.)
+- **Remaining Utility Functions**: 35+ functions (string manipulation, math, etc.)
 - **Advanced Features**: Custom comparators, function composition, etc.
 
-**Architecture Enhancement Needed:**
-- Function calling mechanism for stdlib (evaluator callback pattern)
-- Performance optimizations for large datasets
+**Recently Implemented:**
+- ✅ **Higher-Order Functions**: `filter`, `map`, `foldl`, `foldr` (complete implementation with function callbacks)
+- ✅ **Function Calling Mechanism**: Full support for stdlib function callbacks
 
 ### ✅ **Enhanced Function Calling Mechanism**
 - **Closure Support**: Functions now properly capture their environment
 - **Recursive Function Calls**: Functions can call other functions
 - **Environment Management**: Proper scope handling for nested functions
 
-**Compatibility:** **136/175 functions implemented (78%)**
+**Compatibility:** **140/175 functions implemented (80%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue

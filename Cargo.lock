@@ -2259,7 +2259,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "blake3",
  "clap",
@@ -2385,7 +2385,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-jsonnet"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
