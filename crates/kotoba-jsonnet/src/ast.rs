@@ -47,6 +47,7 @@ pub enum Expr {
         expr: Box<Expr>,
         var: String,
         array: Box<Expr>,
+        cond: Option<Box<Expr>>,
     },
 
     /// Object comprehension

@@ -400,8 +400,19 @@ impl Lexer {
             parts.push(StringPart::Literal(current_literal));
         }
 
+        // If no interpolation parts, return simple string
+        let token = if parts.len() == 1 {
+            if let StringPart::Literal(content) = &parts[0] {
+                Token::String(content.clone())
+            } else {
+                Token::StringInterpolation(parts)
+            }
+        } else {
+            Token::StringInterpolation(parts)
+        };
+
         Ok(TokenWithPos {
-            token: Token::StringInterpolation(parts),
+            token,
             position: start_pos,
         })
     }
@@ -580,8 +591,8 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token, Token::StringInterpolation(vec![StringPart::Literal("hello".to_string())]));
-        assert_eq!(tokens[1].token, Token::StringInterpolation(vec![StringPart::Literal("world".to_string())]));
+        assert_eq!(tokens[0].token, Token::String("hello".to_string()));
+        assert_eq!(tokens[1].token, Token::String("world".to_string()));
     }
 
     #[test]

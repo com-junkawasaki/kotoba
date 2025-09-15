@@ -148,6 +148,40 @@ impl Evaluator {
                 }
                 Ok(JsonnetValue::Array(values))
             }
+            Expr::ArrayComp { expr, var, array, cond } => {
+                let array_val = self.evaluate_expression(array)?;
+                let mut result = Vec::new();
+
+                if let JsonnetValue::Array(elements) = array_val {
+                    for element in elements {
+                        // Bind the variable in a local scope
+                        let old_globals = self.globals.clone();
+                        self.globals.insert(var.clone(), element.clone());
+
+                        // Check condition if present
+                        let condition_met = if let Some(cond_expr) = cond {
+                            let cond_val = self.evaluate_expression(cond_expr)?;
+                            cond_val.is_truthy()
+                        } else {
+                            true
+                        };
+
+                        if condition_met {
+                            let value = self.evaluate_expression(expr)?;
+                            result.push(value);
+                        }
+
+                        // Restore globals
+                        self.globals = old_globals;
+                    }
+                } else {
+                    return Err(JsonnetError::RuntimeError {
+                        message: "Array comprehension requires an array".to_string(),
+                    });
+                }
+
+                Ok(JsonnetValue::Array(result))
+            }
             Expr::Object(fields) => {
                 let mut object = HashMap::new();
                 for field in fields {
