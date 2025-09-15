@@ -126,6 +126,15 @@ impl StdLib {
             "log10" => Self::log10(args),
             "log1p" => Self::log1p(args),
             "expm1" => Self::expm1(args),
+            "remove" => Self::remove(args),
+            "removeAt" => Self::remove_at(args),
+            "flattenArrays" => Self::flatten_arrays(args),
+            "objectKeysValues" => Self::object_keys_values(args),
+            "objectRemoveKey" => Self::object_remove_key(args),
+            "isInteger" => Self::is_integer(args),
+            "isDecimal" => Self::is_decimal(args),
+            "isEven" => Self::is_even(args),
+            "isOdd" => Self::is_odd(args),
             _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
         }
     }
@@ -1437,6 +1446,121 @@ impl StdLib {
         Self::check_args(&args, 1, "expm1")?;
         let x = args[0].as_number()?;
         Ok(JsonnetValue::number(x.exp() - 1.0))
+    }
+
+    // Phase 5: Remaining Core Functions
+
+    // Array manipulation functions
+    fn remove(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "remove")?;
+        let arr = args[0].as_array()?;
+        let value_to_remove = &args[1];
+
+        let filtered: Vec<JsonnetValue> = arr.iter()
+            .filter(|item| !item.equals(value_to_remove))
+            .cloned()
+            .collect();
+
+        Ok(JsonnetValue::array(filtered))
+    }
+
+    fn remove_at(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "removeAt")?;
+        let arr = args[0].as_array()?;
+        let index = args[1].as_number()? as usize;
+
+        if index >= arr.len() {
+            return Err(JsonnetError::runtime_error("Index out of bounds"));
+        }
+
+        let mut result = arr.clone();
+        result.remove(index);
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn flatten_arrays(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "flattenArrays")?;
+        let arr = args[0].as_array()?;
+
+        let mut result = Vec::new();
+        Self::flatten_array_recursive(arr, &mut result);
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn flatten_array_recursive(arr: &[JsonnetValue], result: &mut Vec<JsonnetValue>) {
+        for item in arr {
+            match item {
+                JsonnetValue::Array(sub_arr) => {
+                    Self::flatten_array_recursive(sub_arr, result);
+                }
+                _ => result.push(item.clone()),
+            }
+        }
+    }
+
+    // Object manipulation functions
+    fn object_keys_values(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "objectKeysValues")?;
+        let obj = args[0].as_object()?;
+
+        let mut result = Vec::new();
+        for (key, value) in obj {
+            if !key.starts_with('_') {
+                result.push(JsonnetValue::object(HashMap::from([
+                    ("key".to_string(), JsonnetValue::string(key.clone())),
+                    ("value".to_string(), value.clone()),
+                ])));
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
+    }
+
+    fn object_remove_key(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 2, "objectRemoveKey")?;
+        let obj = args[0].as_object()?;
+        let key_to_remove = args[1].as_string()?;
+
+        let mut result = obj.clone();
+        result.remove(key_to_remove);
+        Ok(JsonnetValue::object(result))
+    }
+
+    // Additional type checking functions
+    fn is_integer(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "isInteger")?;
+        match &args[0] {
+            JsonnetValue::Number(n) => Ok(JsonnetValue::boolean(n.fract() == 0.0)),
+            _ => Ok(JsonnetValue::boolean(false)),
+        }
+    }
+
+    fn is_decimal(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "isDecimal")?;
+        match &args[0] {
+            JsonnetValue::Number(n) => Ok(JsonnetValue::boolean(n.fract() != 0.0)),
+            _ => Ok(JsonnetValue::boolean(false)),
+        }
+    }
+
+    fn is_even(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "isEven")?;
+        match &args[0] {
+            JsonnetValue::Number(n) if n.fract() == 0.0 => {
+                Ok(JsonnetValue::boolean((*n as i64) % 2 == 0))
+            }
+            _ => Ok(JsonnetValue::boolean(false)),
+        }
+    }
+
+    fn is_odd(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Self::check_args(&args, 1, "isOdd")?;
+        match &args[0] {
+            JsonnetValue::Number(n) if n.fract() == 0.0 => {
+                Ok(JsonnetValue::boolean((*n as i64) % 2 != 0))
+            }
+            _ => Ok(JsonnetValue::boolean(false)),
+        }
     }
 
     /// Helper function to check argument count

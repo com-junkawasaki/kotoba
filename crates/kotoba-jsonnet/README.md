@@ -78,18 +78,21 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ `log2`/`log10` - Base-2 and base-10 logarithms
 - ✅ `log1p`/`expm1` - Log/exp functions for values near 1
 
-**Still Missing High Priority Functions:**
-- `remove`/`removeAt` - Array element removal
+**Recently Added (Phase 5):**
+- ✅ `remove`/`removeAt` - Array element removal
+- ✅ `flattenArrays` - Deep array flattening
+- ✅ `objectKeysValues`/`objectRemoveKey` - Object manipulation
+- ✅ `isInteger`/`isDecimal`/`isEven`/`isOdd` - Additional type checking
 
-**Extended Array/Object Operations:**
-- `flattenArrays` - Deep array flattening
-- `objectKeysValues`, `objectRemoveKey`
+**Still Missing Medium Priority Functions:**
+- `sort`/`uniq` - Array sorting and uniqueness (basic implementations exist)
+- `mergePatch` - Object merging (basic implementation exists)
 
-**Advanced Math & Types:**
-- `log2`, `log10`, `deg2rad`, `rad2deg`
-- `isInteger`, `isDecimal`, `isEven`, `isOdd`
+**Advanced Features:**
+- `format` - String formatting function (placeholder implementation exists)
+- `makeArray` - Array creation with function (placeholder implementation exists)
 
-**Compatibility:** **110/175 functions implemented (63%)**
+**Compatibility:** **119/175 functions implemented (68%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue

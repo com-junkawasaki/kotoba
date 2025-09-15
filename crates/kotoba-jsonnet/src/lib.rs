@@ -774,6 +774,77 @@ mod tests {
     }
 
     #[test]
+    fn test_phase5_remaining_core() {
+        // Test array manipulation functions
+        let result = evaluate(r#"std.remove([1, 2, 3, 2, 4], 2)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // [1, 3, 4] - removes all 2s
+
+        let result = evaluate(r#"std.removeAt([10, 20, 30, 40], 1)"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // [10, 30, 40] - removes element at index 1
+
+        let result = evaluate(r#"std.flattenArrays([[1, 2], [3, [4, 5]], 6])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 6); // [1, 2, 3, 4, 5, 6]
+
+        // Test object manipulation functions
+        let result = evaluate(r#"std.objectKeysValues({a: 1, b: 2, _hidden: 3})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 2); // Only non-hidden fields
+
+        let result = evaluate(r#"std.objectRemoveKey({a: 1, b: 2, c: 3}, "b")"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let obj = binding.as_object().unwrap();
+        assert_eq!(obj.len(), 2); // Should not contain "b"
+        assert!(obj.contains_key("a"));
+        assert!(obj.contains_key("c"));
+        assert!(!obj.contains_key("b"));
+
+        // Test additional type checking functions
+        let result = evaluate(r#"std.isInteger(5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
+
+        let result = evaluate(r#"std.isInteger(5.5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(false));
+
+        let result = evaluate(r#"std.isDecimal(5.5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
+
+        let result = evaluate(r#"std.isDecimal(5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(false));
+
+        let result = evaluate(r#"std.isEven(4)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
+
+        let result = evaluate(r#"std.isEven(5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(false));
+
+        let result = evaluate(r#"std.isOdd(5)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(true));
+
+        let result = evaluate(r#"std.isOdd(4)"#);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), JsonnetValue::boolean(false));
+    }
+
+    #[test]
     fn test_conditional() {
         let result = evaluate(r#"if true then "yes" else "no""#);
         assert!(result.is_ok());

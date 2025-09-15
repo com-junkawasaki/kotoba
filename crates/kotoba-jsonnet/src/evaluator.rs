@@ -48,7 +48,8 @@ impl Evaluator {
             "asciiLower", "asciiUpper", "set", "setMember", "setUnion", "setInter", "setDiff",
             "flatMap", "mapWithIndex", "lstripChars", "rstripChars", "stripChars", "findSubstr", "repeat",
             "manifestIni", "manifestPython", "manifestCpp", "manifestXmlJsonml",
-            "log2", "log10", "log1p", "expm1"
+            "log2", "log10", "log1p", "expm1", "remove", "removeAt", "flattenArrays",
+            "objectKeysValues", "objectRemoveKey", "isInteger", "isDecimal", "isEven", "isOdd"
         ];
 
         for func_name in std_functions {
