@@ -384,7 +384,6 @@ impl MemoizationIR {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::frontend::component_ir::ComponentIR;
 
     #[test]
     fn test_virtual_node_creation() {

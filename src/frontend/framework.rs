@@ -612,7 +612,6 @@ impl BuildEngine {
 mod tests {
     use super::*;
     use crate::frontend::component_ir::ComponentType;
-    use crate::frontend::api_ir::*;
 
     #[tokio::test]
     async fn test_web_framework_creation() {

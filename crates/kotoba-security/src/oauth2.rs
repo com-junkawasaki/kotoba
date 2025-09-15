@@ -273,7 +273,7 @@ impl OAuth2Service {
 
         let state_key = csrf_token.secret().clone();
         {
-            let mut states = self.states.write();
+            let mut states = self.states.write().await;
             states.insert(state_key, state);
             drop(states);
         }
@@ -287,7 +287,7 @@ impl OAuth2Service {
 
         // Retrieve and validate state
         let state_data = {
-            let mut states = self.states.write();
+            let mut states = self.states.write().await;
             let state_data = states.remove(state)
                 .ok_or_else(|| SecurityError::StateMismatch)?;
 
@@ -330,7 +330,7 @@ impl OAuth2Service {
 
         // Retrieve and validate state
         let state_data = {
-            let mut states = self.states.write();
+            let mut states = self.states.write().await;
             let state_data = states.remove(state)
                 .ok_or_else(|| SecurityError::StateMismatch)?;
 
@@ -521,9 +521,9 @@ impl UserInfo {
             id: claims.subject().to_string(),
             email: claims.email().map(|e| e.to_string()),
             email_verified: claims.email_verified(),
-            name: claims.name().map(|n| n.get(None).cloned()),
-            given_name: claims.given_name().map(|n| n.get(None).cloned()),
-            family_name: claims.family_name().map(|n| n.get(None).cloned()),
+            name: claims.name().and_then(|n| n.get(None).map(|s| s.to_string())),
+            given_name: claims.given_name().and_then(|n| n.get(None).map(|s| s.to_string())),
+            family_name: claims.family_name().and_then(|n| n.get(None).map(|s| s.to_string())),
             picture: None, // Not in standard claims
             locale: claims.locale().map(|l| l.to_string()),
         }

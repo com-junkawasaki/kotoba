@@ -2,10 +2,11 @@
 //!
 //! kotoba-kotobanet を使用して .kotoba.json と .kotoba ファイルのパースを担当します。
 
-use crate::types::{Value, ContentHash, Result, KotobaError};
+use crate::types::{ContentHash, Result, KotobaError};
 use crate::http::ir::*;
 use std::fs;
 use std::path::Path;
+use std::io::Write;
 use sha2::{Sha256, Digest};
 use tempfile::NamedTempFile;
 

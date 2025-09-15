@@ -93,6 +93,7 @@ sha2.workspace = true
 hex.workspace = true
 regex.workspace = true
 thiserror.workspace = true
+tempfile.workspace = true
 
 # For binary
 clap = { version = "4.0", features = ["derive"], optional = true }

@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn test_capability_attenuation() {
         let broad_cap = Capability::new(ResourceType::Graph, Action::Read, None);
-        let attenuated = broad_cap.attenuate(Some("users:*".to_string()));
+        let attenuated = broad_cap.clone().attenuate(Some("users:*".to_string()));
 
         // Original capability allows all
         assert!(broad_cap.matches(&ResourceType::Graph, &Action::Read, Some("posts:123")));

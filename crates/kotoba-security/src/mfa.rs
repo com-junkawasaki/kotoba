@@ -29,7 +29,7 @@ pub struct MfaCode {
 }
 
 /// MFA algorithm types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MfaAlgorithm {
     SHA1,
     SHA256,
@@ -276,7 +276,7 @@ impl MfaService {
     pub fn create_provisioning_uri(&self, secret: &MfaSecret) -> Result<String> {
         let secret_obj = Secret::Encoded(secret.secret.clone());
 
-        let totp = TOTP::new(
+        let _totp = TOTP::new(
             secret.algorithm.clone().into(),
             secret.digits,
             secret.skew,

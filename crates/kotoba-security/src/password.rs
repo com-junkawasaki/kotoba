@@ -480,6 +480,7 @@ mod tests {
     #[test]
     fn test_hash_string_formatting() {
         let hash = PasswordHash {
+            version: None,
             algorithm: PasswordAlgorithm::Argon2,
             hash: "hash_value".to_string(),
             salt: "salt_value".to_string(),

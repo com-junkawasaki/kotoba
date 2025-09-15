@@ -177,6 +177,7 @@ impl Default for PasswordConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq)]
 pub enum PasswordAlgorithm {
     Argon2,
     Pbkdf2,
