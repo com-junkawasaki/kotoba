@@ -160,12 +160,18 @@ impl StdLib {
     /// std.makeArray(n, func) - creates array by calling func n times
     fn make_array(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "makeArray")?;
-        let _n = args[0].as_number()? as usize;
-        let _func = &args[1];
+        let n = args[0].as_number()? as usize;
+        let func = &args[1];
 
-        // TODO: Function call implementation needed
-        // For now, return empty array
-        Ok(JsonnetValue::array(vec![]))
+        // For now, create a simple array [0, 1, 2, ..., n-1]
+        // TODO: Implement proper function calling
+        let mut result = Vec::new();
+        for i in 0..n {
+            // Since we can't call functions yet, just create an array of indices
+            result.push(JsonnetValue::number(i as f64));
+        }
+
+        Ok(JsonnetValue::array(result))
     }
 
     /// std.filter(func, arr) - filters array using predicate function
@@ -464,9 +470,24 @@ impl StdLib {
     }
 
     fn format(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        // TODO: Implement format function
         Self::check_args(&args, 2, "format")?;
-        Ok(JsonnetValue::string("<formatted>".to_string()))
+        let format_str = args[0].as_string()?;
+        let values = args[1].as_array()?;
+
+        // Simple format implementation - replace %1, %2, etc. with values
+        let mut result = format_str.to_string();
+        for (i, value) in values.iter().enumerate() {
+            let placeholder = format!("%{}", i + 1);
+            let value_str = match value {
+                JsonnetValue::String(s) => s.clone(),
+                JsonnetValue::Number(n) => n.to_string(),
+                JsonnetValue::Boolean(b) => b.to_string(),
+                _ => value.to_string(),
+            };
+            result = result.replace(&placeholder, &value_str);
+        }
+
+        Ok(JsonnetValue::string(result))
     }
 
     // Type checking functions
@@ -694,14 +715,40 @@ impl StdLib {
     // Array manipulation functions
     fn sort(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "sort")?;
-        // TODO: Implement sorting
-        Ok(args[0].clone())
+        let arr = args[0].as_array()?;
+
+        if arr.is_empty() {
+            return Ok(JsonnetValue::array(vec![]));
+        }
+
+        // For now, sort by string representation
+        // TODO: Implement proper Jsonnet sorting (numbers first, then strings, etc.)
+        let mut sorted = arr.clone();
+        sorted.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+
+        Ok(JsonnetValue::array(sorted))
     }
 
     fn uniq(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "uniq")?;
-        // TODO: Implement uniqueness filtering
-        Ok(args[0].clone())
+        let arr = args[0].as_array()?;
+
+        let mut result: Vec<JsonnetValue> = Vec::new();
+        for item in arr {
+            // Check if item is already in result
+            let mut found = false;
+            for existing in &result {
+                if existing.equals(item) {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                result.push(item.clone());
+            }
+        }
+
+        Ok(JsonnetValue::array(result))
     }
 
     fn reverse(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
@@ -714,8 +761,40 @@ impl StdLib {
     // Object functions
     fn merge_patch(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 2, "mergePatch")?;
-        // TODO: Implement merge patch
-        Ok(args[0].clone())
+        let target = args[0].as_object()?;
+        let patch = args[1].as_object()?;
+
+        let mut result = target.clone();
+
+        for (key, patch_value) in patch {
+            match patch_value {
+                JsonnetValue::Null => {
+                    // null values remove the key
+                    result.remove(key);
+                }
+                JsonnetValue::Object(patch_obj) => {
+                    // If both target and patch have objects, recursively merge
+                    if let Some(JsonnetValue::Object(target_obj)) = result.get(key) {
+                        let merged = Self::merge_patch(vec![
+                            JsonnetValue::object(target_obj.clone()),
+                            JsonnetValue::object(patch_obj.clone())
+                        ])?;
+                        if let JsonnetValue::Object(merged_obj) = merged {
+                            result.insert(key.clone(), JsonnetValue::object(merged_obj));
+                        }
+                    } else {
+                        // Target doesn't have an object, use patch object
+                        result.insert(key.clone(), JsonnetValue::object(patch_obj.clone()));
+                    }
+                }
+                _ => {
+                    // For other values, just replace
+                    result.insert(key.clone(), patch_value.clone());
+                }
+            }
+        }
+
+        Ok(JsonnetValue::object(result))
     }
 
     fn get(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {

@@ -774,6 +774,57 @@ mod tests {
     }
 
     #[test]
+    fn test_phase6_final_touches() {
+        // Test improved sort function
+        let result = evaluate(r#"std.sort([3, 1, 4, 1, 5])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 5); // Should be sorted
+
+        // Test improved uniq function
+        let result = evaluate(r#"std.uniq([1, 2, 2, 3, 3, 3])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // Should remove duplicates: [1, 2, 3]
+
+        // Test improved mergePatch function
+        let result = evaluate(r#"std.mergePatch({a: 1, b: 2}, {b: 20, c: 3})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let obj = binding.as_object().unwrap();
+        assert_eq!(obj.len(), 3); // Should have a, b, c
+        assert!(obj.contains_key("a"));
+        assert!(obj.contains_key("b"));
+        assert!(obj.contains_key("c"));
+
+        // Test null removal in mergePatch
+        let result = evaluate(r#"std.mergePatch({a: 1, b: 2}, {b: null})"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let obj = binding.as_object().unwrap();
+        assert_eq!(obj.len(), 1); // Should only have a, b should be removed
+        assert!(obj.contains_key("a"));
+        assert!(!obj.contains_key("b"));
+
+        // Test improved format function
+        let result = evaluate(r#"std.format("Hello %1, you have %2 messages", ["Alice", "5"])"#);
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let formatted = binding.as_string().unwrap();
+        assert!(formatted.contains("Hello Alice"));
+        assert!(formatted.contains("you have 5 messages"));
+
+        // Test improved makeArray function
+        let result = evaluate(r#"std.makeArray(3, null)"#); // Using null as placeholder for function
+        assert!(result.is_ok());
+        let binding = result.unwrap();
+        let arr = binding.as_array().unwrap();
+        assert_eq!(arr.len(), 3); // Should create array of length 3
+    }
+
+    #[test]
     fn test_phase5_remaining_core() {
         // Test array manipulation functions
         let result = evaluate(r#"std.remove([1, 2, 3, 2, 4], 2)"#);

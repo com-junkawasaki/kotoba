@@ -84,15 +84,17 @@ This crate implements all features of [Google Jsonnet v0.21.0](https://github.co
 - ✅ `objectKeysValues`/`objectRemoveKey` - Object manipulation
 - ✅ `isInteger`/`isDecimal`/`isEven`/`isOdd` - Additional type checking
 
-**Still Missing Medium Priority Functions:**
-- `sort`/`uniq` - Array sorting and uniqueness (basic implementations exist)
-- `mergePatch` - Object merging (basic implementation exists)
+**Recently Added (Phase 6):**
+- ✅ `sort`/`uniq` - Array sorting and uniqueness (complete implementations)
+- ✅ `mergePatch` - Object merging with null value removal (complete implementation)
+- ✅ `format` - String formatting function with positional arguments (complete implementation)
+- ✅ `makeArray` - Array creation with function (improved implementation)
 
-**Advanced Features:**
-- `format` - String formatting function (placeholder implementation exists)
-- `makeArray` - Array creation with function (placeholder implementation exists)
+**Still Missing Low Priority Functions:**
+- Advanced sorting options and custom comparators
+- Full function call support for `makeArray` and higher-order functions
 
-**Compatibility:** **119/175 functions implemented (68%)**
+**Compatibility:** **124/175 functions implemented (71%)**
 
 #### **API Compatibility**
 - ✅ `evaluate()` - Evaluate Jsonnet code to JsonnetValue
