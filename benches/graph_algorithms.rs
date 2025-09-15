@@ -1,13 +1,12 @@
 //! グラフアルゴリズムのパフォーマンスベンチマーク
 // Note: This benchmark is disabled due to missing GraphAlgorithms implementation
 
-#[cfg(feature = "disabled")]
-mod disabled_benchmarks {
-    use criterion::{black_box, criterion_group, criterion_main, Criterion};
-    use kotoba_core::prelude::*;
-    use kotoba_graph::prelude::*;
-    use std::collections::HashMap;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use kotoba_core::prelude::*;
+use kotoba_graph::prelude::*;
+use std::collections::HashMap;
 
+#[cfg(feature = "disabled")]
 /// 大規模テストグラフ生成
 fn create_large_graph(num_vertices: usize, num_edges: usize) -> Graph {
     let mut graph = Graph::empty();
@@ -44,6 +43,7 @@ fn create_large_graph(num_vertices: usize, num_edges: usize) -> Graph {
     graph
 }
 
+#[cfg(feature = "disabled")]
 /// Dijkstraアルゴリズムのベンチマーク
 fn bench_dijkstra(c: &mut Criterion) {
     let graph = create_large_graph(1000, 5000);
@@ -60,6 +60,7 @@ fn bench_dijkstra(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "disabled")]
 /// 次数中央性のベンチマーク
 fn bench_degree_centrality(c: &mut Criterion) {
     let graph = create_large_graph(1000, 5000);
@@ -71,6 +72,7 @@ fn bench_degree_centrality(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "disabled")]
 /// 媒介中央性のベンチマーク
 fn bench_betweenness_centrality(c: &mut Criterion) {
     let graph = create_large_graph(100, 200); // 小さめにして実行時間管理
@@ -82,6 +84,7 @@ fn bench_betweenness_centrality(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "disabled")]
 /// PageRankのベンチマーク
 fn bench_pagerank(c: &mut Criterion) {
     let graph = create_large_graph(500, 1000);
@@ -98,6 +101,7 @@ fn bench_pagerank(c: &mut Criterion) {
     });
 }
 
+#[cfg(feature = "disabled")]
 /// Floyd-Warshallアルゴリズムのベンチマーク
 fn bench_floyd_warshall(c: &mut Criterion) {
     let graph = create_large_graph(50, 100); // 小さめにする（O(n^3)なので）
@@ -112,13 +116,13 @@ fn bench_floyd_warshall(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_dijkstra,
-    bench_degree_centrality,
-    bench_betweenness_centrality,
-    bench_pagerank,
-    bench_floyd_warshall,
-);
-    criterion_main!(benches);
-}
+// Disabled due to missing GraphAlgorithms implementation
+// criterion_group!(
+//     benches,
+//     bench_dijkstra,
+//     bench_degree_centrality,
+//     bench_betweenness_centrality,
+//     bench_pagerank,
+//     bench_floyd_warshall,
+// );
+// criterion_main!(benches);
