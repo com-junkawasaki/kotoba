@@ -37,6 +37,7 @@ url = "2.5"
 argon2 = "0.5"
 pbkdf2 = { version = "0.12", features = ["simple"] }
 bcrypt = "0.15"
+password-hash = "0.5"
 
 # MFA/TOTP
 totp-rs = "5.4"

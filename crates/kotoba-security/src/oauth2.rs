@@ -6,13 +6,14 @@ use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
-    PkceCodeVerifier, RedirectUrl, Scope, TokenResponse, TokenUrl,
+    PkceCodeVerifier, RedirectUrl, Scope, TokenUrl,
 };
 use openidconnect::core::{
     CoreAuthenticationFlow, CoreClient, CoreGenderClaim, CoreIdTokenClaims, CoreIdTokenVerifier,
     CoreProviderMetadata, CoreResponseType,
 };
-use openidconnect::{AdditionalClaims, IdToken, IssuerUrl, Nonce, UserInfoClaims};
+use openidconnect::{
+    TokenResponse,AdditionalClaims, IdToken, IssuerUrl, Nonce, UserInfoClaims};
 use reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -158,6 +159,17 @@ pub struct OAuth2Service {
 }
 
 impl OAuth2Service {
+    /// Create dummy service for initialization
+    fn new_dummy() -> Self {
+        Self {
+            config: OAuth2Config::default(),
+            clients: HashMap::new(),
+            oidc_clients: HashMap::new(),
+            states: Arc::new(RwLock::new(HashMap::new())),
+            http_client: HttpClient::new(),
+        }
+    }
+
     /// Create new OAuth2 service
     pub async fn new(config: OAuth2Config) -> Result<Self> {
         let mut clients = HashMap::new();
@@ -171,7 +183,7 @@ impl OAuth2Service {
             clients.insert(name.clone(), client);
 
             // Try to create OpenID Connect client
-            if let Ok(oidc_client) = Self::create_oidc_client(&provider_config, &config.redirect_uri).await {
+            if let Ok(oidc_client) = Self::create_oidc_client(&OAuth2Service::new_dummy(), &provider_config, &config.redirect_uri).await {
                 oidc_clients.insert(name.clone(), oidc_client);
             }
         }
@@ -338,7 +350,6 @@ impl OAuth2Service {
         let token_response = client
             .exchange_code(AuthorizationCode::new(code.to_string()))
             .set_pkce_verifier(state_data.pkce_verifier)
-            .set_nonce(nonce)
             .request_async(async_http_client)
             .await
             .map_err(|e| SecurityError::OAuth2(format!("Token exchange failed: {}", e)))?;
@@ -388,7 +399,7 @@ impl OAuth2Service {
         }
 
         let userinfo_data: serde_json::Value = response.json().await
-            .map_err(|e| SecurityError::Json(e))?;
+            .map_err(|e| SecurityError::OAuth2(format!("JSON parsing failed: {}", e)))?;
 
         Self::parse_user_info(provider, &userinfo_data)
     }
@@ -415,7 +426,7 @@ impl OAuth2Service {
     }
 
     /// Create OpenID Connect client
-    async fn create_oidc_client(provider_config: &OAuth2ProviderConfig, redirect_uri: &str) -> Result<CoreClient> {
+    async fn create_oidc_client(&self, provider_config: &OAuth2ProviderConfig, redirect_uri: &str) -> Result<CoreClient> {
         // For OpenID Connect, we need to discover the provider metadata
         // This is a simplified implementation - in production, you might want to cache this
         let issuer_url = match OAuth2Provider::from_str("google") {
@@ -424,9 +435,9 @@ impl OAuth2Service {
             _ => return Err(SecurityError::ProviderNotSupported),
         };
 
-        let provider_metadata = CoreProviderMetadata::discover(
-            &IssuerUrl::new(issuer_url.to_string()).unwrap(),
-            async_http_client,
+        let provider_metadata = CoreProviderMetadata::discover_async(
+            IssuerUrl::new(issuer_url.to_string()).unwrap(),
+            &self.http_client,
         ).await
         .map_err(|e| SecurityError::OAuth2(format!("OIDC discovery failed: {}", e)))?;
 
@@ -458,7 +469,7 @@ impl OAuth2Service {
         Ok(UserInfo {
             id: obj.get("sub").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             email: obj.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            email_verified: obj.get("email_verified").and_then(|v| v.as_bool()).unwrap_or(false),
+            email_verified: Some(obj.get("email_verified").and_then(|v| v.as_bool()).unwrap_or(false)),
             name: obj.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
             given_name: obj.get("given_name").and_then(|v| v.as_str()).map(|s| s.to_string()),
             family_name: obj.get("family_name").and_then(|v| v.as_str()).map(|s| s.to_string()),
@@ -490,8 +501,8 @@ impl OAuth2Service {
         Ok(UserInfo {
             id: obj.get("sub").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             email: obj.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            email_verified: obj.get("email_verified").and_then(|v| v.as_str())
-                .map(|s| s == "true").unwrap_or(false),
+            email_verified: Some(obj.get("email_verified").and_then(|v| v.as_str())
+                .map(|s| s == "true").unwrap_or(false)),
             name: obj.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
             given_name: obj.get("given_name").and_then(|v| v.as_str()).map(|s| s.to_string()),
             family_name: obj.get("family_name").and_then(|v| v.as_str()).map(|s| s.to_string()),

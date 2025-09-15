@@ -150,7 +150,6 @@ impl JwtService {
         validation.validate_exp = config.validate_exp;
         validation.validate_nbf = config.validate_nbf;
         validation.validate_aud = config.validate_aud;
-        validation.validate_iss = config.validate_iss;
 
         if config.validate_aud {
             validation.aud = Some(HashSet::from_iter(config.audience.iter().cloned()));

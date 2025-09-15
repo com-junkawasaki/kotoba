@@ -124,7 +124,11 @@ impl SecurityService {
     /// Create a new security service with the given configuration
     pub async fn new(config: SecurityConfig) -> Result<Self> {
         let jwt = JwtService::new(config.jwt_config)?;
-        let oauth2 = config.oauth2_config.map(OAuth2Service::new).transpose()?;
+        let oauth2 = if let Some(oauth2_config) = config.oauth2_config {
+            Some(OAuth2Service::new(oauth2_config).await?)
+        } else {
+            None
+        };
         let mfa = MfaService::new();
         let password = PasswordService::new();
         let session = SessionManager::new(config.session_config);
@@ -151,11 +155,12 @@ impl SecurityService {
     }
 
     /// Start OAuth2 authentication flow
-    pub fn start_oauth2_flow(&self, provider: OAuth2Provider) -> Result<String> {
+    pub async fn start_oauth2_flow(&self, provider: OAuth2Provider) -> Result<String> {
         self.oauth2
             .as_ref()
             .ok_or_else(|| SecurityError::Configuration("OAuth2 not configured".to_string()))?
             .get_authorization_url(provider)
+            .await
     }
 
     /// Complete OAuth2 authentication flow
@@ -326,8 +331,8 @@ impl SecurityService {
 }
 
 /// Convenience function to create a security service
-pub fn init_security(config: SecurityConfig) -> Result<SecurityService> {
-    SecurityService::new(config)
+pub async fn init_security(config: SecurityConfig) -> Result<SecurityService> {
+    SecurityService::new(config).await
 }
 
 #[cfg(test)]

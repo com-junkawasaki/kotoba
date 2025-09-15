@@ -3,6 +3,7 @@
 use crate::error::{SecurityError, Result};
 use crate::config::{PasswordConfig, PasswordAlgorithm, Argon2Config, Pbkdf2Config};
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
+use password_hash::{PasswordHash, SaltString};
 use pbkdf2::pbkdf2_hmac;
 use sha2::Sha256;
 use serde::{Deserialize, Serialize};
@@ -90,7 +91,7 @@ impl PasswordService {
             errors.push("Password must contain at least one uppercase letter".to_string());
         }
 
-        if self.config.require_lowercase && !password.chars().any(|c| c.is_lowcase()) {
+        if self.config.require_lowercase && !password.chars().any(|c| c.is_lowercase()) {
             errors.push("Password must contain at least one lowercase letter".to_string());
         }
 
@@ -201,7 +202,9 @@ impl PasswordService {
         let config = self.config.argon2_config.as_ref()
             .ok_or_else(|| SecurityError::Configuration("Argon2 config not provided".to_string()))?;
 
-        let salt = self.generate_salt(32);
+        let salt_bytes = self.generate_salt(32);
+        let salt = SaltString::encode_b64(&salt_bytes)
+            .map_err(|e| SecurityError::Password(format!("Salt encoding failed: {}", e)))?;
 
         let algorithm = match config.variant {
             crate::config::Argon2Variant::Argon2d => Algorithm::Argon2d,
@@ -259,9 +262,10 @@ impl PasswordService {
 
             let argon2 = Argon2::new(algorithm, version, params);
 
-            let hash_bytes = hash.hash.as_bytes();
+            let password_hash = PasswordHash::parse(&hash.hash, password_hash::Encoding::B64)
+                .map_err(|e| SecurityError::Password(format!("Invalid password hash: {}", e)))?;
 
-            let is_valid = argon2.verify_password(password.as_bytes(), &hash_bytes)
+            let is_valid = argon2.verify_password(password.as_bytes(), &password_hash)
                 .is_ok();
 
             Ok(is_valid)
@@ -311,7 +315,9 @@ impl PasswordService {
 
     /// Hash password using bcrypt
     fn hash_with_bcrypt(&self, password: &str) -> Result<PasswordHash> {
-        let salt = self.generate_salt(16); // bcrypt uses 16-byte salt
+        let salt_bytes = self.generate_salt(16); // bcrypt uses 16-byte salt
+        let salt: [u8; 16] = salt_bytes.try_into()
+            .map_err(|_| SecurityError::Password("Invalid salt length".to_string()))?;
 
         // Default cost if not specified
         let cost = 12;
