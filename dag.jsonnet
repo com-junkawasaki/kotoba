@@ -350,6 +350,54 @@
     },
 
     // ==========================================
+    // 分散実行・ネットワーク層
+    // ==========================================
+
+    'distributed_engine': {
+      name: 'distributed_engine',
+      path: 'crates/kotoba-distributed/src/lib.rs',
+      type: 'distributed',
+      description: '分散実行エンジン - CIDベースの分散グラフ処理',
+      dependencies: ['types', 'graph_core', 'execution_engine', 'rewrite_engine', 'storage_mvcc', 'storage_merkle'],
+      provides: ['DistributedEngine', 'CidCache', 'ClusterManager', 'DistributedTask', 'TaskResult'],
+      status: 'completed',
+      build_order: 8,
+    },
+
+    'network_protocol': {
+      name: 'network_protocol',
+      path: 'crates/kotoba-network/src/lib.rs',
+      type: 'network',
+      description: 'ネットワーク通信プロトコル - 分散実行のための通信層',
+      dependencies: ['types', 'distributed_engine'],
+      provides: ['NetworkMessage', 'NetworkManager', 'MessageHandler', 'TcpConnectionManager'],
+      status: 'completed',
+      build_order: 9,
+    },
+
+    'cid_system': {
+      name: 'cid_system',
+      path: 'crates/kotoba-cid/src/lib.rs',
+      type: 'cid',
+      description: 'CID (Content ID) システム - Merkle DAGにおけるコンテンツアドレッシング',
+      dependencies: ['types'],
+      provides: ['CidCalculator', 'CidManager', 'MerkleTreeBuilder', 'JsonCanonicalizer'],
+      status: 'completed',
+      build_order: 3,
+    },
+
+    'cli_interface': {
+      name: 'cli_interface',
+      path: 'crates/kotoba-cli/src/lib.rs',
+      type: 'cli',
+      description: 'CLI - Denoを参考にしたコマンドラインインターフェース',
+      dependencies: ['types', 'distributed_engine', 'network_protocol', 'cid_system'],
+      provides: ['Cli', 'Commands', 'ConfigManager', 'ProgressBar', 'LogFormatter'],
+      status: 'completed',
+      build_order: 10,
+    },
+
+    // ==========================================
     // Jsonnet 0.21.0 実装層 (Google Jsonnet完全対応)
     // ==========================================
 
@@ -1175,6 +1223,37 @@
     // Hosting integration with main library
     { from: 'deploy_hosting_server', to: 'lib' },
     { from: 'deploy_hosting_manager', to: 'lib' },
+
+    // ==========================================
+    // 新規クレートの依存関係
+    // ==========================================
+
+    // Distributed engine dependencies
+    { from: 'types', to: 'distributed_engine' },
+    { from: 'graph_core', to: 'distributed_engine' },
+    { from: 'execution_engine', to: 'distributed_engine' },
+    { from: 'rewrite_engine', to: 'distributed_engine' },
+    { from: 'storage_mvcc', to: 'distributed_engine' },
+    { from: 'storage_merkle', to: 'distributed_engine' },
+
+    // Network protocol dependencies
+    { from: 'types', to: 'network_protocol' },
+    { from: 'distributed_engine', to: 'network_protocol' },
+
+    // CID system dependencies
+    { from: 'types', to: 'cid_system' },
+
+    // CLI interface dependencies
+    { from: 'types', to: 'cli_interface' },
+    { from: 'distributed_engine', to: 'cli_interface' },
+    { from: 'network_protocol', to: 'cli_interface' },
+    { from: 'cid_system', to: 'cli_interface' },
+
+    // Integration with main library
+    { from: 'distributed_engine', to: 'lib' },
+    { from: 'network_protocol', to: 'lib' },
+    { from: 'cid_system', to: 'lib' },
+    { from: 'cli_interface', to: 'lib' },
 
   ],
 

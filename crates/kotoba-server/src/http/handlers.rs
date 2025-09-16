@@ -3,15 +3,17 @@
 //! このモジュールはHTTPリクエストの処理とミドルウェア実行を担当します。
 //! グラフ書換えルールを使ってリクエスト処理を行います。
 
-use crate::types::{TxId, ContentHash, Result, KotobaError, Value, Properties};
-use crate::graph::GraphRef;
+use kotoba_core::types::{TxId, ContentHash, Result, KotobaError, Value, Properties};
 use crate::http::ir::*;
-use crate::graph::{Graph, VertexData, EdgeData};
-use crate::storage::{MVCCManager, MerkleDAG};
-use crate::rewrite::{RewriteEngine, RewriteExterns};
-use crate::ir::rule::{RuleIR, Match};
-use crate::ir::strategy::{StrategyIR, StrategyOp};
-use crate::ir::patch::Patch;
+use kotoba_graph::prelude::*;
+// use kotoba_storage::prelude::*; // Storage crate has issues
+use kotoba_rewrite::prelude::*;
+use kotoba_security::{SecurityService, AuditResult};
+use kotoba_core::ir::rule::{RuleIR, Match};
+use kotoba_core::ir::strategy::{StrategyIR, StrategyOp};
+use kotoba_core::ir::patch::Patch;
+// Re-export security types for backward compatibility
+pub use kotoba_security::{JwtClaims, User, AuthResult, AuthzResult, Principal, Resource};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -21,6 +23,7 @@ pub struct HttpRequestProcessor {
     rewrite_engine: Arc<RewriteEngine>,
     mvcc: Arc<MVCCManager>,
     merkle: Arc<MerkleDAG>,
+    security: Arc<SecurityService>,
 }
 
 impl HttpRequestProcessor {
@@ -28,11 +31,13 @@ impl HttpRequestProcessor {
         rewrite_engine: Arc<RewriteEngine>,
         mvcc: Arc<MVCCManager>,
         merkle: Arc<MerkleDAG>,
+        security: Arc<SecurityService>,
     ) -> Self {
         Self {
             rewrite_engine,
             mvcc,
             merkle,
+            security,
         }
     }
 
@@ -100,7 +105,7 @@ impl RewriteExterns for HttpRewriteExterns {
         true
     }
 
-    fn custom_measure(&self, _name: &str, _args: &[crate::types::Value]) -> f64 {
+    fn custom_measure(&self, _name: &str, _args: &[kotoba_core::types::Value]) -> f64 {
         // TODO: カスタム測定関数を実装
         0.0
     }
@@ -110,11 +115,12 @@ impl RewriteExterns for HttpRewriteExterns {
 #[derive(Clone)]
 pub struct MiddlewareProcessor {
     middlewares: Vec<HttpMiddleware>,
+    security: Arc<SecurityService>,
 }
 
 impl MiddlewareProcessor {
-    pub fn new(middlewares: Vec<HttpMiddleware>) -> Self {
-        Self { middlewares }
+    pub fn new(middlewares: Vec<HttpMiddleware>, security: Arc<SecurityService>) -> Self {
+        Self { middlewares, security }
     }
 
     /// ミドルウェアを順序通りに実行
@@ -132,9 +138,6 @@ impl MiddlewareProcessor {
 
     /// 個別のミドルウェアを実行
     async fn execute_middleware(&self, middleware: &HttpMiddleware, request: &mut HttpRequest) -> Result<()> {
-        // TODO: ミドルウェア関数の実行を実装
-        // 現在は名前ベースで簡単な処理を行う
-
         match middleware.name.as_str() {
             "request_id" => {
                 // X-Request-IDヘッダーを追加
@@ -148,6 +151,18 @@ impl MiddlewareProcessor {
             "cors" => {
                 // CORSヘッダー（実際のレスポンスには影響しない）
             },
+            "jwt_auth" => {
+                self.execute_jwt_auth_middleware(request).await?;
+            },
+            "authorization" => {
+                self.execute_authorization_middleware(request).await?;
+            },
+            "rate_limit" => {
+                self.execute_rate_limit_middleware(request).await?;
+            },
+            "csrf" => {
+                self.execute_csrf_middleware(request).await?;
+            },
             _ => {
                 // カスタムミドルウェア（未実装）
                 println!("Executing custom middleware: {}", middleware.name);
@@ -155,6 +170,130 @@ impl MiddlewareProcessor {
         }
 
         Ok(())
+    }
+
+    /// JWT認証ミドルウェアを実行
+    async fn execute_jwt_auth_middleware(&self, request: &mut HttpRequest) -> Result<()> {
+        // AuthorizationヘッダーからJWTトークンを取得
+        let auth_header = request.headers.get("authorization");
+
+        if let Some(auth_value) = auth_header {
+            if auth_value.starts_with("Bearer ") {
+                let token = &auth_value[7..]; // "Bearer " を除去
+
+                // JWTトークンを検証
+                match self.security.validate_token(token) {
+                    Ok(claims) => {
+                        // 監査ログを記録（簡易実装）
+                        println!("AUDIT: JWT authentication successful for user: {}", claims.sub);
+
+                        // 検証成功：クレームをリクエスト属性に保存
+                        request.attributes.insert(
+                            "user_id".to_string(),
+                            Value::String(claims.sub)
+                        );
+                        request.attributes.insert(
+                            "roles".to_string(),
+                            Value::Array(claims.roles)
+                        );
+
+                        return Ok(());
+                    }
+                    Err(_) => {
+                        // 監査ログを記録（簡易実装）
+                        println!("AUDIT: JWT authentication failed - invalid token");
+
+                        return Err(KotobaError::Security("Invalid JWT token".to_string()));
+                    }
+                }
+            }
+        }
+
+        // Authorizationヘッダーがない場合
+        println!("AUDIT: Missing authentication token");
+        Err(KotobaError::Security("Authentication required".to_string()))
+    }
+
+    /// 認可ミドルウェアを実行
+    async fn execute_authorization_middleware(&self, request: &mut HttpRequest) -> Result<()> {
+        // 簡易実装：認証済みユーザーのみアクセスを許可
+        if request.attributes.contains_key("user_id") {
+            println!("AUDIT: Authorization successful for path: {}", request.path);
+            Ok(())
+        } else {
+            println!("AUDIT: Authorization failed - user not authenticated");
+            Err(KotobaError::Security("Authorization required".to_string()))
+        }
+    }
+
+    /// リクエストからリソースタイプ、アクション、リソースIDを決定
+    fn determine_resource_from_request(&self, request: &HttpRequest) -> (kotoba_security::ResourceType, kotoba_security::Action, Option<String>) {
+        use kotoba_security::{ResourceType, Action};
+
+        // パスベースでリソースを決定
+        match request.path.as_str() {
+            // Graph operations
+            path if path.starts_with("/api/graph/") => {
+                let resource_id = if path.len() > "/api/graph/".len() {
+                    Some(path["/api/graph/".len()..].to_string())
+                } else {
+                    None
+                };
+
+                match request.method {
+                    HttpMethod::GET => (ResourceType::Graph, Action::Read, resource_id),
+                    HttpMethod::POST => (ResourceType::Graph, Action::Create, resource_id),
+                    HttpMethod::PUT => (ResourceType::Graph, Action::Update, resource_id),
+                    HttpMethod::DELETE => (ResourceType::Graph, Action::Delete, resource_id),
+                    _ => (ResourceType::Graph, Action::Read, resource_id),
+                }
+            },
+
+            // Query operations
+            path if path.starts_with("/api/query") => {
+                (ResourceType::Query, Action::Execute, None)
+            },
+
+            // Admin operations
+            path if path.starts_with("/api/admin") => {
+                (ResourceType::Admin, Action::Admin, None)
+            },
+
+            // User operations
+            path if path.starts_with("/api/user") => {
+                (ResourceType::User, Action::Read, None)
+            },
+
+            // Default: filesystem access
+            _ => {
+                (ResourceType::FileSystem, Action::Read, Some(request.path.clone()))
+            }
+        }
+    }
+
+    /// レート制限ミドルウェアを実行
+    async fn execute_rate_limit_middleware(&self, _request: &mut HttpRequest) -> Result<()> {
+        // 簡易実装：常に許可
+        Ok(())
+    }
+
+    /// CSRF保護ミドルウェアを実行
+    async fn execute_csrf_middleware(&self, request: &mut HttpRequest) -> Result<()> {
+        // 簡易実装：POST/PUT/DELETEの場合はCSRFトークンチェック
+        let is_state_changing = matches!(request.method,
+            crate::http::ir::HttpMethod::POST |
+            crate::http::ir::HttpMethod::PUT |
+            crate::http::ir::HttpMethod::DELETE);
+
+        if is_state_changing {
+            if request.headers.get("x-csrf-token").is_some() {
+                Ok(())
+            } else {
+                Err(KotobaError::Security("CSRF token required".to_string()))
+            }
+        } else {
+            Ok(())
+        }
     }
 }
 

@@ -2,8 +2,8 @@
 //!
 //! コード分割、バンドル設定、最適化を表現します。
 
-use crate::types::{Value, Properties, ContentHash, Result, KotobaError};
-use crate::frontend::component_ir::ComponentIR;
+use kotoba_core::types::{Value, Properties, ContentHash, Result, KotobaError};
+use crate::component_ir::ComponentIR;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -2,8 +2,8 @@
 //!
 //! このモジュールはHTTPサーバー関連のデータ構造とIR定義を提供します。
 
-use crate::types::{Value, Properties, ContentHash, Result, KotobaError};
-use crate::ir::catalog::{LabelDef, PropertyDef};
+use kotoba_core::types::{Value, Properties, ContentHash, Result, KotobaError};
+use kotoba_core::ir::catalog::{LabelDef, PropertyDef, ValueType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,6 +19,22 @@ pub enum HttpMethod {
     OPTIONS,
     CONNECT,
     TRACE,
+}
+
+impl HttpMethod {
+    pub fn as_str(&self) -> &str {
+        match self {
+            HttpMethod::GET => "GET",
+            HttpMethod::POST => "POST",
+            HttpMethod::PUT => "PUT",
+            HttpMethod::DELETE => "DELETE",
+            HttpMethod::PATCH => "PATCH",
+            HttpMethod::HEAD => "HEAD",
+            HttpMethod::OPTIONS => "OPTIONS",
+            HttpMethod::CONNECT => "CONNECT",
+            HttpMethod::TRACE => "TRACE",
+        }
+    }
 }
 
 impl std::fmt::Display for HttpMethod {
@@ -121,6 +137,7 @@ pub struct HttpRequest {
     pub query: HashMap<String, String>,
     pub headers: HttpHeaders,
     pub body_ref: Option<ContentHash>, // ボディは外部blobとして扱う
+    pub attributes: HashMap<String, Value>, // リクエスト属性（ミドルウェア間で共有）
     pub timestamp: u64,
 }
 
@@ -139,6 +156,7 @@ impl HttpRequest {
             query: HashMap::new(),
             headers,
             body_ref,
+            attributes: HashMap::new(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -217,12 +235,13 @@ impl HttpMiddleware {
 }
 
 /// サーバー設定IR
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpConfig {
     pub server: ServerConfig,
     pub routes: Vec<HttpRoute>,
     pub middlewares: Vec<HttpMiddleware>,
     pub static_files: Option<StaticConfig>,
+    pub security_config: Option<kotoba_security::SecurityConfig>,
 }
 
 impl HttpConfig {
@@ -232,6 +251,7 @@ impl HttpConfig {
             routes: Vec::new(),
             middlewares: Vec::new(),
             static_files: None,
+            security_config: None,
         }
     }
 }
@@ -290,25 +310,25 @@ impl Default for HttpCatalog {
                     properties: vec![
                     PropertyDef {
                         name: "id".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "method".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "path".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "timestamp".to_string(),
-                        type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                         nullable: false,
                         default: None,
                     },
@@ -320,19 +340,19 @@ impl Default for HttpCatalog {
                     properties: vec![
                     PropertyDef {
                         name: "request_id".to_string(),
-                        type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                         nullable: false,
                         default: None,
                     },
                     PropertyDef {
                         name: "status_code".to_string(),
-                        type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                         nullable: false,
                         default: None,
                     },
                         PropertyDef {
                             name: "timestamp".to_string(),
-                            type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                             nullable: false,
                             default: None,
                         },
@@ -344,13 +364,13 @@ impl Default for HttpCatalog {
                     properties: vec![
                         PropertyDef {
                             name: "method".to_string(),
-                            type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                             nullable: false,
                             default: None,
                         },
                         PropertyDef {
                             name: "pattern".to_string(),
-                            type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                             nullable: false,
                             default: None,
                         },
@@ -362,13 +382,13 @@ impl Default for HttpCatalog {
                     properties: vec![
                         PropertyDef {
                             name: "name".to_string(),
-                            type_: crate::ir::catalog::ValueType::String,
+                            type_: kotoba_core::ir::catalog::ValueType::String,
                             nullable: false,
                             default: None,
                         },
                         PropertyDef {
                             name: "order".to_string(),
-                            type_: crate::ir::catalog::ValueType::Int,
+                            type_: kotoba_core::ir::catalog::ValueType::Int,
                             nullable: false,
                             default: None,
                         },

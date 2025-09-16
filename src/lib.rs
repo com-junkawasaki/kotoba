@@ -31,9 +31,9 @@ pub mod distributed;
 pub mod network_protocol;
 pub mod schema_validator;
 // pub mod topology; // Excluded from publish
-pub mod types;
-pub mod frontend;
-pub mod http;
+// pub mod types; // Moved to kotoba-core
+// pub mod frontend; // Moved to kotoba2tsx
+// pub mod http; // Moved to kotoba-server
 
 // Convenient re-exports for common usage
 pub use kotoba_core::prelude::*;

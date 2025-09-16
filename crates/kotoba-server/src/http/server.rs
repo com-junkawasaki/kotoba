@@ -2,12 +2,12 @@
 //!
 //! このモジュールはHTTPサーバーのメインインターフェースを提供します。
 
-use crate::types::Result;
+use kotoba_core::types::Result;
 use crate::http::ir::*;
 use crate::http::parser::HttpConfigParser;
 use crate::http::engine::{HttpEngine, RawHttpRequest};
-use crate::storage::{MVCCManager, MerkleDAG};
-use crate::rewrite::RewriteEngine;
+// use kotoba_storage::prelude::*; // Storage crate has issues
+use kotoba_rewrite::prelude::*;
 use std::sync::Arc;
 use std::path::Path;
 use tokio::net::{TcpListener, TcpStream};
@@ -28,7 +28,7 @@ impl HttpServer {
         merkle: Arc<MerkleDAG>,
         rewrite_engine: Arc<RewriteEngine>,
     ) -> Result<Self> {
-        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine);
+        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine).await?;
         Ok(Self {
             engine,
             listener: None,
@@ -302,8 +302,8 @@ pub async fn run_server<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::{MVCCManager, MerkleDAG};
-    use crate::rewrite::RewriteEngine;
+    // use kotoba_storage::prelude::*; // Storage crate has issues
+    use kotoba_rewrite::prelude::*;
 
     #[test]
     fn test_parse_http_request() {

@@ -12,6 +12,9 @@ documentation = "https://docs.rs/kotoba2tsx"
 homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
+# Kotoba ecosystem
+kotoba-core = { path = "../kotoba-core" }
+
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"

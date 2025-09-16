@@ -3,13 +3,13 @@
 //! Next.js風App Routerフレームワークの主要コンポーネントを実装します。
 //! kotoba-kotobanet を使用して Jsonnet ベースの設定ファイルをパースします。
 
-use crate::types::{Result, KotobaError, Value, Properties, ContentHash};
-use crate::frontend::component_ir::ExecutionEnvironment;
-use crate::frontend::component_ir::*;
-use crate::frontend::route_ir::*;
-use crate::frontend::render_ir::*;
-use crate::frontend::build_ir::*;
-use crate::frontend::api_ir::*;
+use kotoba_core::types::{Result, KotobaError, Value, Properties, ContentHash};
+use crate::component_ir::ExecutionEnvironment;
+use crate::component_ir::*;
+use crate::route_ir::*;
+use crate::render_ir::*;
+use crate::build_ir::*;
+use crate::api_ir::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;

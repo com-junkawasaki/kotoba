@@ -2,7 +2,7 @@
 //!
 //! ReactコンポーネントをKotobaのIRで表現します。
 
-use crate::types::{Properties, ContentHash, Value};
+use kotoba_core::types::{Properties, ContentHash, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

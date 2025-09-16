@@ -2,8 +2,8 @@
 //!
 //! REST API、GraphQL、WebSocketなどのAPIエンドポイントを表現します。
 
-use crate::types::{Properties, Value, Result, KotobaError};
-use crate::frontend::component_ir::ComponentIR;
+use kotoba_core::types::{Properties, Value, Result, KotobaError};
+use crate::component_ir::ComponentIR;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

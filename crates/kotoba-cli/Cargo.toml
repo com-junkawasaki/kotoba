@@ -1,0 +1,56 @@
+[package]
+name = "kotoba-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command Line Interface for Kotoba graph processing system"
+keywords = ["cli", "command-line", "graph", "processing", "tool"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-cli"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba ecosystem
+kotoba-core = { path = "../kotoba-core" }
+kotoba-graph = { path = "../kotoba-graph" }
+kotoba-execution = { path = "../kotoba-execution" }
+kotoba-rewrite = { path = "../kotoba-rewrite" }
+kotoba-storage = { path = "../kotoba-storage" }
+kotoba-server = { path = "../kotoba-server" }
+kotoba-deploy = { path = "../kotoba-deploy", optional = true }
+
+# CLI framework
+clap = { version = "4.0", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# File system
+tokio-util = { version = "0.7", features = ["io"] }
+
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Terminal UI
+console = "0.15"
+dialoguer = "0.11"
+
+[features]
+default = ["deploy"]
+deploy = ["kotoba-deploy"]
+
+[[bin]]
+name = "kotoba"
+path = "src/main.rs"

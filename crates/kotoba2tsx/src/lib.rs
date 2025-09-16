@@ -13,6 +13,14 @@ pub mod swc_integration;
 pub mod css_processor;
 pub mod styled_components;
 
+// Web Framework modules (from src/frontend/)
+pub mod component_ir;
+pub mod route_ir;
+pub mod render_ir;
+pub mod build_ir;
+pub mod api_ir;
+pub mod framework;
+
 #[cfg(feature = "cli")]
 pub mod cli;
 
@@ -20,6 +28,14 @@ pub use types::*;
 pub use parser::*;
 pub use generator::*;
 pub use error::*;
+
+// Re-export web framework components
+pub use component_ir::*;
+pub use route_ir::*;
+pub use render_ir::*;
+pub use build_ir::*;
+pub use api_ir::*;
+pub use framework::{WebFramework, ComponentRenderer, ComponentRegistry, BuildEngine};
 
 /// Convert a .kotoba file to TSX code
 ///
