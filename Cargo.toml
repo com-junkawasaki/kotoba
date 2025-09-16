@@ -38,12 +38,12 @@ jsonschema = "0.17"
 blake3 = "1.5"
 
 # Kotoba internal crates
-kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }
-kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" }
-kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.15" }
-kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.15" }
-kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.15" }
-kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15", features = ["yaml"] }
+kotoba-core = "0.1.15"
+kotoba-graph = "0.1.15"
+kotoba-storage = "0.1.15"
+kotoba-execution = "0.1.15"
+kotoba-rewrite = "0.1.15"
+kotoba-jsonnet = "0.1.15"
 kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
 kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
 kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
@@ -68,6 +68,7 @@ exclude = ["examples/**/*", "tests/**/*", "src/topology.rs"]
 name = "kotoba"
 path = "src/main.rs"
 
+
 [profile.bench]
 opt-level = 3
 debug = false
@@ -78,11 +79,11 @@ panic = "abort"
 
 [dependencies]
 # Core crates - published versions
-kotoba-core = "0.1.2"
-kotoba-graph = "0.1.2"
-kotoba-storage = "0.1.2"
-kotoba-execution = "0.1.2"
-kotoba-rewrite = "0.1.2"
+kotoba-core = "0.1.15"
+kotoba-graph = "0.1.15"
+kotoba-storage = "0.1.15"
+kotoba-execution = "0.1.15"
+kotoba-rewrite = "0.1.15"
 kotoba-security.workspace = true
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
@@ -111,6 +112,10 @@ log = { version = "0.4", optional = true }
 env_logger = { version = "0.11", optional = true }
 uuid = { version = "1.0", features = ["v4"] }
 
+# Vercel deployment
+vercel_runtime = { version = "1.0", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+
 [features]
 default = ["full"]
 full = ["tokio", "log", "env_logger", "examples", "binary"]
@@ -127,6 +132,7 @@ http = []
 frontend = []
 wasm = []
 deploy = []
+vercel = ["vercel_runtime", "reqwest"]
 
 # Platform-specific features
 [target.'cfg(target_arch = "wasm32")'.dependencies]
