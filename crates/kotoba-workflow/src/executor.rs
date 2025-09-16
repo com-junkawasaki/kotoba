@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 
-use kotoba_core::types::*;
+use kotoba_core::types::{GraphRef_ as GraphRef};
 use kotoba_core::prelude::StrategyOp;
 use crate::ir::*;
 
@@ -272,8 +272,8 @@ impl WorkflowExecutor {
         workflow_ir: WorkflowIR,
         execution_id: WorkflowExecutionId,
     ) -> std::result::Result<(), WorkflowError> {
-        // 初期グラフ状態を作成
-        let initial_graph = DummyGraphRef::new();
+        // 初期グラフ状態を作成（TODO: 実際のグラフ作成ロジックを実装）
+        let initial_graph = GraphRef("initial".to_string());
 
         // 戦略実行
         let result = self.execute_strategy(workflow_ir.strategy, initial_graph, &execution_id).await;
@@ -304,11 +304,14 @@ impl WorkflowExecutor {
     fn execute_strategy<'a>(
         &'a self,
         strategy: WorkflowStrategyOp,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &'a WorkflowExecutionId,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<DummyGraphRef, WorkflowError>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<GraphRef, WorkflowError>> + Send + 'a>> {
         Box::pin(async move {
             match strategy {
+                WorkflowStrategyOp::Seq { strategies } => {
+                    self.execute_seq(strategies, graph, execution_id).await
+                }
                 WorkflowStrategyOp::Parallel { branches, completion_condition } => {
                     self.execute_parallel(branches, completion_condition, graph, execution_id).await
                 }
@@ -335,9 +338,9 @@ impl WorkflowExecutor {
     fn execute_basic_strategy<'a>(
         &'a self,
         strategy: StrategyOp,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &'a WorkflowExecutionId,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<DummyGraphRef, WorkflowError>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<GraphRef, WorkflowError>> + Send + 'a>> {
         Box::pin(async move {
             match strategy {
                 StrategyOp::Seq { strategies } => {
@@ -387,14 +390,28 @@ impl WorkflowExecutor {
         })
     }
 
+    /// 順次実行
+    async fn execute_seq(
+        &self,
+        strategies: Vec<Box<WorkflowStrategyOp>>,
+        graph: GraphRef,
+        execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<GraphRef, WorkflowError> {
+        let mut current_graph = graph;
+        for strategy in strategies {
+            current_graph = self.execute_strategy(*strategy, current_graph, execution_id).await?;
+        }
+        Ok(current_graph)
+    }
+
     /// 並列実行
     async fn execute_parallel(
         &self,
         branches: Vec<Box<WorkflowStrategyOp>>,
         completion_condition: CompletionCondition,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &WorkflowExecutionId,
-    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+    ) -> std::result::Result<GraphRef, WorkflowError> {
         let mut handles = vec![];
 
         for branch in branches {
@@ -419,7 +436,7 @@ impl WorkflowExecutor {
                     results.push(handle.await.map_err(|_| WorkflowError::InvalidStrategy("Task panicked".to_string()))?);
                 }
                 // 最初の成功したグラフを返す
-                results.into_iter().next().unwrap_or(Ok(graph))
+                results.into_iter().next().unwrap_or(Ok(graph.clone()))
             }
             CompletionCondition::Any => {
                 // いずれかのブランチが完了したら進む
@@ -438,9 +455,9 @@ impl WorkflowExecutor {
         &self,
         conditions: Vec<DecisionBranch>,
         default_branch: Option<Box<WorkflowStrategyOp>>,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &WorkflowExecutionId,
-    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+    ) -> std::result::Result<GraphRef, WorkflowError> {
         // 実行コンテキストを取得
         let execution = self.state_manager.get_execution(execution_id).await
             .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
@@ -467,9 +484,9 @@ impl WorkflowExecutor {
         &self,
         condition: WaitCondition,
         timeout: Option<Duration>,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         _execution_id: &WorkflowExecutionId,
-    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+    ) -> std::result::Result<GraphRef, WorkflowError> {
         match condition {
             WaitCondition::Timer { duration } => {
                 tokio::time::sleep(duration).await;
@@ -499,9 +516,9 @@ impl WorkflowExecutor {
         &self,
         main_flow: WorkflowStrategyOp,
         compensation: WorkflowStrategyOp,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &WorkflowExecutionId,
-    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+    ) -> std::result::Result<GraphRef, WorkflowError> {
         // メイン処理を実行
         match self.execute_strategy(main_flow, graph.clone(), execution_id).await {
             Ok(result_graph) => Ok(result_graph),
@@ -524,9 +541,9 @@ impl WorkflowExecutor {
         activity_ref: String,
         input_mapping: HashMap<String, String>,
         retry_policy: Option<crate::ir::RetryPolicy>,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &WorkflowExecutionId,
-    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+    ) -> std::result::Result<GraphRef, WorkflowError> {
         // 実行コンテキストから入力値をマッピング
         let execution = self.state_manager.get_execution(execution_id).await
             .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
@@ -559,9 +576,9 @@ impl WorkflowExecutor {
         &self,
         workflow_ref: String,
         input_mapping: HashMap<String, String>,
-        graph: DummyGraphRef,
+        graph: GraphRef,
         execution_id: &WorkflowExecutionId,
-    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+    ) -> std::result::Result<GraphRef, WorkflowError> {
         // 親ワークフローから入力値をマッピング
         let execution = self.state_manager.get_execution(execution_id).await
             .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
@@ -679,7 +696,7 @@ impl WorkflowStateManager {
             end_time: None,
             inputs,
             outputs: None,
-            current_graph: DummyGraphRef::new(),
+            current_graph: GraphRef("initial".to_string()),
             execution_history: vec![ExecutionEvent {
                 id: uuid::Uuid::new_v4().to_string(),
                 timestamp: chrono::Utc::now(),

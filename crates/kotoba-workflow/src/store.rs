@@ -7,7 +7,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use chrono::{DateTime, Utc};
 
-use crate::ir::{WorkflowExecution, WorkflowExecutionId, ExecutionEvent, ExecutionEventType, ExecutionStatus, DummyGraphRef};
+use kotoba_core::types::GraphRef_ as GraphRef;
+use crate::ir::{WorkflowExecution, WorkflowExecutionId, ExecutionEvent, ExecutionEventType, ExecutionStatus};
 use crate::WorkflowError;
 
 /// ストレージバックエンド種別
@@ -146,7 +147,7 @@ impl EventSourcingManager {
             end_time: None,
             inputs: HashMap::new(),
             outputs: None,
-            current_graph: crate::ir::DummyGraphRef::new(), // TODO: 適切な初期化
+            current_graph: GraphRef("reconstructed".to_string()), // TODO: 適切な初期化
             execution_history: events.clone(),
             retry_count: 0,
             timeout_at: None,

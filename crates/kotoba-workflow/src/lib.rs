@@ -34,7 +34,7 @@ pub mod activity;
 pub mod parser;
 
 // Re-export main types
-pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ActivityIR, DummyGraphRef, ExecutionStatus};
+pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ActivityIR, ExecutionStatus};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager, WorkflowError};
 pub use store::{WorkflowStore, StorageBackend, StorageFactory};
 pub use parser::WorkflowParser;
@@ -207,5 +207,6 @@ pub mod prelude {
     pub use super::{
         WorkflowEngine, WorkflowIR, WorkflowExecution, WorkflowExecutionId,
         ActivityRegistry, Activity, WorkflowStore, ExecutionStatus,
+        WorkflowParser,
     };
 }

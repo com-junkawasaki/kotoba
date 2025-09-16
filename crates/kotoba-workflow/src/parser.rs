@@ -105,7 +105,7 @@ impl WorkflowParser {
 
         params.iter()
             .map(|param| self.parse_workflow_param(param))
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// 単一のワークフローパラメータをパース
@@ -153,7 +153,7 @@ impl WorkflowParser {
                     .map(|s| self.parse_strategy_op(s))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                Ok(WorkflowStrategyOp::Seq { strategies })
+                Ok(WorkflowStrategyOp::Seq { strategies: strategies.into_iter().map(Box::new).collect() })
             }
 
             "parallel" => {
@@ -409,15 +409,16 @@ impl WorkflowParser {
 }
 
 /// JsonnetValueをserde_json::Valueに変換
-fn jsonnet_to_json(value: JsonnetValue) -> Result<Value, WorkflowError> {
+fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
     match value {
-        JsonnetValue::Null => Ok(Value::Null),
-        JsonnetValue::Bool(b) => Ok(Value::Bool(b)),
-        JsonnetValue::String(s) => Ok(Value::String(s)),
+        JsonnetValue::Null => Ok(JsonValue::Null),
+        JsonnetValue::Boolean(b) => Ok(JsonValue::Bool(b)),
+        JsonnetValue::String(s) => Ok(JsonValue::String(s)),
         JsonnetValue::Number(n) => {
             // 整数として扱う
-            if let Ok(i) = n.parse::<i64>() {
-                Ok(Value::Number(serde_json::Number::from(i)))
+            if n.fract() == 0.0 {
+                let i = n as i64;
+                Ok(JsonValue::Number(serde_json::Number::from(i)))
             } else {
                 Err(WorkflowError::InvalidDefinition(format!("Invalid number: {}", n)))
             }
@@ -426,14 +427,14 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<Value, WorkflowError> {
             let values = arr.into_iter()
                 .map(jsonnet_to_json)
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(Value::Array(values))
+            Ok(JsonValue::Array(values))
         }
         JsonnetValue::Object(obj) => {
             let mut map = Map::new();
             for (k, v) in obj {
                 map.insert(k, jsonnet_to_json(v)?);
             }
-            Ok(Value::Object(map))
+            Ok(JsonValue::Object(map))
         }
         _ => Err(WorkflowError::InvalidDefinition("Unsupported Jsonnet value type".to_string())),
     }

@@ -4,7 +4,7 @@
 //! 実現するためのIRを定義します。
 
 use serde::{Deserialize, Serialize};
-use kotoba_core::types::*;
+use kotoba_core::types::{GraphRef_ as GraphRef, Value, TxId};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -209,7 +209,7 @@ pub struct WorkflowExecution {
     pub end_time: Option<chrono::DateTime<chrono::Utc>>,
     pub inputs: HashMap<String, serde_json::Value>,
     pub outputs: Option<HashMap<String, serde_json::Value>>,
-    pub current_graph: DummyGraphRef,
+    pub current_graph: GraphRef,
     pub execution_history: Vec<ExecutionEvent>,
     pub retry_count: u32,
     pub timeout_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -295,16 +295,4 @@ pub enum ActivityStatus {
     TimedOut,
 }
 
-/// ダミーのグラフ参照（実際のKotoba Graph統合まで）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DummyGraphRef {
-    id: String,
-}
-
-impl DummyGraphRef {
-    pub fn new() -> Self {
-        Self {
-            id: uuid::Uuid::new_v4().to_string(),
-        }
-    }
-}
+// GraphRef is imported from kotoba-core::types::GraphRef_

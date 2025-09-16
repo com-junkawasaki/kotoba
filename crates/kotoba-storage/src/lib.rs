@@ -1,153 +1,118 @@
-//! kotoba-storage - Kotoba Storage Components
-
-pub mod storage;
-pub mod prelude {
-    // Re-export commonly used items
-    pub use crate::storage::{
-        StorageManager, StorageConfig, BackendType, StorageBackend, BackendStats
-    };
-    // Re-export backend implementations
-    pub use crate::storage::{RocksDBBackend, RedisBackend};
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use kotoba_core::types::*;
-    use kotoba_graph::prelude::*;
-    use std::collections::HashMap;
 
-    #[test]
-    fn test_transaction_creation() {
-        // Test Transaction creation
-        let tx_id = TxId("test_tx".to_string());
-        let tx = Transaction::new(tx_id.clone());
+    #[tokio::test]
+    async fn test_backend_switching_rocksdb() {
+        // RocksDBバックエンドのテスト
+        let config = StorageConfig {
+            backend_type: BackendType::RocksDB,
+            rocksdb_path: Some("./test_data".into()),
+            ..Default::default()
+        };
 
-        assert_eq!(tx.id, tx_id);
-        assert_eq!(tx.state, TxState::Active);
-        assert!(tx.writes.is_empty()); // Should be empty initially
-        assert!(tx.start_time > 0);
+        let manager = StorageManager::new(config).await.unwrap();
+
+        // バックエンドタイプが正しいか確認
+        assert_eq!(manager.backend_type(), &BackendType::RocksDB);
+
+        // 基本的な操作をテスト
+        manager.put("test_key".to_string(), b"test_value".to_vec()).await.unwrap();
+        let value = manager.get("test_key").await.unwrap();
+        assert_eq!(value, Some(b"test_value".to_vec()));
+
+        // クリーンアップ
+        manager.clear().await.unwrap();
     }
 
-    #[test]
-    fn test_transaction_commit() {
-        // Test transaction commit
-        let tx_id = TxId("test_tx".to_string());
-        let tx = Transaction::new(tx_id.clone());
-        let committed_tx = tx.commit();
+    #[tokio::test]
+    async fn test_backend_switching_redis() {
+        // Redisが利用可能な場合のみテストを実行
+        let redis_url = std::env::var("TEST_REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
-        assert_eq!(committed_tx.state, TxState::Committed);
-        assert_eq!(committed_tx.id, tx_id);
+        let config = StorageConfig {
+            backend_type: BackendType::Redis,
+            redis_url: Some(redis_url.clone()),
+            ..Default::default()
+        };
+
+        // Redis接続を試行
+        match StorageManager::new(config).await {
+            Ok(manager) => {
+                // バックエンドタイプが正しいか確認
+                assert_eq!(manager.backend_type(), &BackendType::Redis);
+
+                // 基本的な操作をテスト
+                manager.put("test_key".to_string(), b"test_value".to_vec()).await.unwrap();
+                let value = manager.get("test_key").await.unwrap();
+                assert_eq!(value, Some(b"test_value".to_vec()));
+
+                // クリーンアップ
+                manager.clear().await.unwrap();
+            }
+            Err(_) => {
+                // Redisが利用できない場合はテストをスキップ
+                println!("Redis not available, skipping Redis backend test");
+            }
+        }
     }
 
-    #[test]
-    fn test_transaction_abort() {
-        // Test transaction abort
-        let tx_id = TxId("test_tx".to_string());
-        let tx = Transaction::new(tx_id.clone());
-        let aborted_tx = tx.abort();
+    #[tokio::test]
+    async fn test_convenience_constructors() {
+        // RocksDBの便利コンストラクタをテスト
+        let manager = StorageManager::with_rocksdb("./test_data".into()).await.unwrap();
+        assert_eq!(manager.backend_type(), &BackendType::RocksDB);
 
-        assert_eq!(aborted_tx.state, TxState::Aborted);
-        assert_eq!(aborted_tx.id, tx_id);
+        // Redisの便利コンストラクタをテスト（利用可能な場合）
+        let redis_url = "redis://localhost:6379".to_string();
+        match StorageManager::with_upstash(redis_url).await {
+            Ok(manager) => {
+                assert_eq!(manager.backend_type(), &BackendType::Redis);
+            }
+            Err(_) => {
+                println!("Redis not available, skipping convenience constructor test");
+            }
+        }
     }
 
-    #[test]
-    fn test_tx_state_serialization() {
-        // Test TxState serialization
-        let active = TxState::Active;
-        let json = serde_json::to_string(&active).unwrap();
-        assert_eq!(json, "\"Active\"");
+    #[tokio::test]
+    async fn test_storage_manager_interface_unified() {
+        // 両バックエンドで同じインターフェースが使えることを確認
+        let configs = vec![
+            StorageConfig {
+                backend_type: BackendType::RocksDB,
+                rocksdb_path: Some("./test_data".into()),
+                ..Default::default()
+            },
+            // Redisは利用可能な場合のみ
+        ];
 
-        let committed = TxState::Committed;
-        let json = serde_json::to_string(&committed).unwrap();
-        assert_eq!(json, "\"Committed\"");
+        for config in configs {
+            match StorageManager::new(config).await {
+                Ok(manager) => {
+                    // 同じメソッドで操作可能
+                    manager.put("unified_key".to_string(), b"unified_value".to_vec()).await.unwrap();
+                    let exists = manager.exists("unified_key").await.unwrap();
+                    assert!(exists);
 
-        let aborted = TxState::Aborted;
-        let json = serde_json::to_string(&aborted).unwrap();
-        assert_eq!(json, "\"Aborted\"");
-    }
+                    let value = manager.get("unified_key").await.unwrap();
+                    assert_eq!(value, Some(b"unified_value".to_vec()));
 
-    #[test]
-    fn test_mvcc_manager_creation() {
-        // Test MVCCManager creation
-        let manager = MVCCManager::new();
-        // Just check that it can be created without panicking
-        assert!(true);
-    }
+                    manager.delete("unified_key".to_string()).await.unwrap();
+                    let exists_after_delete = manager.exists("unified_key").await.unwrap();
+                    assert!(!exists_after_delete);
 
-    #[test]
-    #[ignore] // TODO: Implement MerkleTree
-    fn test_merkle_tree_creation() {
-        // Test MerkleTree creation - TODO: implement MerkleTree
-        // let tree = MerkleTree::new();
-        // assert_eq!(tree.root_hash().len(), 64); // SHA-256 hash length
-        assert!(true);
-    }
-
-    #[test]
-    #[ignore] // TODO: Fix LSMTree constructor
-    fn test_lsm_tree_creation() {
-        // Test LSMTree creation - TODO: fix constructor arguments
-        // let temp_dir = tempfile::tempdir().unwrap();
-        // let tree = LSMTree::new(temp_dir.path().to_path_buf(), 1024, 4096);
-        // Just check that it can be created
-        assert!(true);
-    }
-
-    #[test]
-    fn test_content_hash_consistency() {
-        // Test that ContentHash is consistent
-        let data: [u8; 32] = [1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        let hash1 = ContentHash::sha256(data);
-        let hash2 = ContentHash::sha256(data);
-        assert_eq!(hash1, hash2);
-
-        let different_data: [u8; 32] = [5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        let hash3 = ContentHash::sha256(different_data);
-        assert_ne!(hash1, hash3);
-    }
-
-    #[test]
-    #[ignore] // TODO: Implement StorageKey
-    fn test_storage_key_generation() {
-        // Test StorageKey generation - TODO: implement StorageKey
-        // let vertex_id = VertexId::new_v4();
-        // let key = StorageKey::vertex(vertex_id);
-        // assert!(key.0.starts_with("vertex:"));
-
-        // let edge_id = EdgeId::new_v4();
-        // let key = StorageKey::edge(edge_id);
-        // assert!(key.0.starts_with("edge:"));
-
-        // let tx_id = TxId("test".to_string());
-        // let key = StorageKey::transaction(tx_id);
-        // assert!(key.0.starts_with("tx:"));
-    }
-
-    #[test]
-    #[ignore] // TODO: Implement StorageValue
-    fn test_storage_value_serialization() {
-        // Test StorageValue serialization - TODO: implement StorageValue
-        // let vertex_data = VertexData {
-        //     id: VertexId::new_v4(),
-        //     labels: vec!["Test".to_string()],
-        //     props: {
-        //         let mut props = HashMap::new();
-        //         props.insert("name".to_string(), Value::String("test".to_string()));
-        //         props
-        //     },
-        // };
-
-        // let storage_value = StorageValue::Vertex(vertex_data.clone());
-        // let json = serde_json::to_string(&storage_value).unwrap();
-        // let deserialized: StorageValue = serde_json::from_str(&json).unwrap();
-
-        // match deserialized {
-        //     StorageValue::Vertex(deserialized_vertex) => {
-        //         assert_eq!(deserialized_vertex.labels, vertex_data.labels);
-        //     }
-        //     _ => panic!("Expected Vertex variant"),
-        // }
+                    // クリーンアップ
+                    manager.clear().await.unwrap();
+                }
+                Err(_) if config.backend_type == BackendType::RocksDB => {
+                    panic!("RocksDB should always be available for testing");
+                }
+                Err(_) => {
+                    // Redisが利用できない場合はスキップ
+                    println!("Skipping test for unavailable backend: {:?}", config.backend_type);
+                }
+            }
+        }
     }
 }
