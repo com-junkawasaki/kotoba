@@ -144,6 +144,100 @@ impl WorkflowParser {
             .ok_or_else(|| WorkflowError::InvalidDefinition("Strategy must have 'op' field".to_string()))?;
 
         match op {
+            "once" => {
+                let rule = obj.get("rule")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| WorkflowError::InvalidDefinition("'once' strategy must have 'rule' field".to_string()))?;
+
+                Ok(WorkflowStrategyOp::Basic {
+                    strategy: StrategyOp::Once { rule: rule.to_string() },
+                })
+            }
+
+            "exhaust" => {
+                let rule = obj.get("rule")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| WorkflowError::InvalidDefinition("'exhaust' strategy must have 'rule' field".to_string()))?;
+
+                let order = obj.get("order")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| match s {
+                        "topdown" => Some(Order::TopDown),
+                        "bottomup" => Some(Order::BottomUp),
+                        "fair" => Some(Order::Fair),
+                        _ => None,
+                    })
+                    .unwrap_or(Order::TopDown);
+
+                let measure = obj.get("measure").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+                Ok(WorkflowStrategyOp::Basic {
+                    strategy: StrategyOp::Exhaust {
+                        rule: rule.to_string(),
+                        order,
+                        measure,
+                    },
+                })
+            }
+
+            "while" => {
+                let rule = obj.get("rule")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| WorkflowError::InvalidDefinition("'while' strategy must have 'rule' field".to_string()))?;
+
+                let pred = obj.get("pred")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| WorkflowError::InvalidDefinition("'while' strategy must have 'pred' field".to_string()))?;
+
+                let order = obj.get("order")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| match s {
+                        "topdown" => Some(Order::TopDown),
+                        "bottomup" => Some(Order::BottomUp),
+                        "fair" => Some(Order::Fair),
+                        _ => None,
+                    })
+                    .unwrap_or(Order::TopDown);
+
+                Ok(WorkflowStrategyOp::Basic {
+                    strategy: StrategyOp::While {
+                        rule: rule.to_string(),
+                        pred: pred.to_string(),
+                        order,
+                    },
+                })
+            }
+
+            "choice" => {
+                let strategies = obj.get("strategies")
+                    .and_then(|v| v.as_array())
+                    .ok_or_else(|| WorkflowError::InvalidDefinition("'choice' strategy must have 'strategies' array".to_string()))?;
+
+                let strategies = strategies.iter()
+                    .map(|s| self.parse_basic_strategy(s))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(WorkflowStrategyOp::Basic {
+                    strategy: StrategyOp::Choice {
+                        strategies: strategies.into_iter().map(Box::new).collect(),
+                    },
+                })
+            }
+
+            "priority" => {
+                let strategies = obj.get("strategies")
+                    .and_then(|v| v.as_array())
+                    .ok_or_else(|| WorkflowError::InvalidDefinition("'priority' strategy must have 'strategies' array".to_string()))?;
+
+                let strategies = strategies.iter()
+                    .map(|s| self.parse_prioritized_strategy(s))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(WorkflowStrategyOp::Basic {
+                    strategy: StrategyOp::Priority { strategies },
+                })
+            }
+
             "seq" => {
                 let strategies = obj.get("strategies")
                     .and_then(|v| v.as_array())
@@ -437,6 +531,72 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
             Ok(JsonValue::Object(map))
         }
         _ => Err(WorkflowError::InvalidDefinition("Unsupported Jsonnet value type".to_string())),
+    }
+}
+
+    /// 基本戦略をパース
+    fn parse_basic_strategy(&self, value: &JsonValue) -> Result<StrategyOp, WorkflowError> {
+        let obj = value.as_object()
+            .ok_or_else(|| WorkflowError::InvalidDefinition("Basic strategy must be an object".to_string()))?;
+
+        let op = obj.get("op")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| WorkflowError::InvalidDefinition("Basic strategy must have 'op' field".to_string()))?;
+
+        match op {
+            "once" => {
+                let rule = self.extract_string(obj, "rule")?;
+                Ok(StrategyOp::Once { rule })
+            }
+            "exhaust" => {
+                let rule = self.extract_string(obj, "rule")?;
+                let order = obj.get("order")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| match s {
+                        "topdown" => Some(Order::TopDown),
+                        "bottomup" => Some(Order::BottomUp),
+                        "fair" => Some(Order::Fair),
+                        _ => None,
+                    })
+                    .unwrap_or(Order::TopDown);
+                let measure = obj.get("measure").and_then(|v| v.as_str()).map(|s| s.to_string());
+                Ok(StrategyOp::Exhaust { rule, order, measure })
+            }
+            "while" => {
+                let rule = self.extract_string(obj, "rule")?;
+                let pred = self.extract_string(obj, "pred")?;
+                let order = obj.get("order")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| match s {
+                        "topdown" => Some(Order::TopDown),
+                        "bottomup" => Some(Order::BottomUp),
+                        "fair" => Some(Order::Fair),
+                        _ => None,
+                    })
+                    .unwrap_or(Order::TopDown);
+                Ok(StrategyOp::While { rule, pred, order })
+            }
+            _ => Err(WorkflowError::InvalidDefinition(format!("Unknown basic strategy operation: {}", op))),
+        }
+    }
+
+    /// 優先順位付き戦略をパース
+    fn parse_prioritized_strategy(&self, value: &JsonValue) -> Result<PrioritizedStrategy, WorkflowError> {
+        let obj = value.as_object()
+            .ok_or_else(|| WorkflowError::InvalidDefinition("Prioritized strategy must be an object".to_string()))?;
+
+        let strategy = obj.get("strategy")
+            .ok_or_else(|| WorkflowError::InvalidDefinition("Prioritized strategy must have 'strategy' field".to_string()))?;
+
+        let strategy = self.parse_basic_strategy(strategy)?;
+        let priority = obj.get("priority")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0) as i32;
+
+        Ok(PrioritizedStrategy {
+            strategy: Box::new(strategy),
+            priority,
+        })
     }
 }
 
