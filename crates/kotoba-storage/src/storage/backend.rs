@@ -51,9 +51,16 @@ impl StorageBackendFactory {
     /// Create a storage backend based on configuration
     pub async fn create(config: &super::StorageConfig) -> Result<Box<dyn StorageBackend>> {
         match config.backend_type {
+            #[cfg(feature = "rocksdb")]
             super::BackendType::RocksDB => {
                 let rocksdb_backend = super::lsm::RocksDBBackend::new(config).await?;
                 Ok(Box::new(rocksdb_backend))
+            }
+            #[cfg(not(feature = "rocksdb"))]
+            super::BackendType::RocksDB => {
+                Err(kotoba_core::types::KotobaError::Storage(
+                    "RocksDB backend not available - compile with 'rocksdb' feature".to_string()
+                ))
             }
             super::BackendType::Redis => {
                 let redis_backend = super::redis::RedisBackend::new(config).await?;

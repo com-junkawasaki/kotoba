@@ -20,13 +20,17 @@ parking_lot = "0.12"
 sha2 = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 hex = { workspace = true }
-rocksdb = "0.21"
+rocksdb = { version = "0.21", optional = true }
 tempfile = "3.0"
 async-trait = "0.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
 kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
 kotoba-graph = { path = "../kotoba-graph", version = "0.1.1" }
+
+[features]
+default = []
+rocksdb = ["dep:rocksdb"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

@@ -1,21 +1,30 @@
 //! RocksDB-based storage backend
 
+#[cfg(feature = "rocksdb")]
 use crate::storage::backend::{StorageBackend, BackendStats};
+#[cfg(feature = "rocksdb")]
 use crate::storage::StorageConfig;
+#[cfg(feature = "rocksdb")]
 use async_trait::async_trait;
+#[cfg(feature = "rocksdb")]
 use rocksdb::{DB, Options};
+#[cfg(feature = "rocksdb")]
 use std::path::PathBuf;
+#[cfg(feature = "rocksdb")]
 use std::sync::Arc;
+#[cfg(feature = "rocksdb")]
 use kotoba_core::types::*;
 
 
 /// RocksDB-based storage backend
+#[cfg(feature = "rocksdb")]
 #[derive(Clone)]
 pub struct RocksDBBackend {
     db: Arc<DB>,
     data_dir: PathBuf,
 }
 
+#[cfg(feature = "rocksdb")]
 impl RocksDBBackend {
     /// Create a new RocksDB backend
     pub async fn new(config: &StorageConfig) -> Result<Self> {
@@ -81,6 +90,7 @@ impl RocksDBBackend {
     }
 }
 
+#[cfg(feature = "rocksdb")]
 #[async_trait]
 impl StorageBackend for RocksDBBackend {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
