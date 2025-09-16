@@ -6,7 +6,7 @@ use crate::types::Result;
 use crate::http::ir::*;
 use crate::http::parser::HttpConfigParser;
 use crate::http::engine::{HttpEngine, RawHttpRequest};
-use kotoba_storage::prelude::*;
+// use kotoba_storage::prelude::*; // Storage crate has issues
 use kotoba_rewrite::prelude::*;
 use std::sync::Arc;
 use std::path::Path;
@@ -302,7 +302,7 @@ pub async fn run_server<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kotoba_storage::prelude::*;
+    // use kotoba_storage::prelude::*; // Storage crate has issues
     use kotoba_rewrite::prelude::*;
 
     #[test]

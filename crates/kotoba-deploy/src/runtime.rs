@@ -4,9 +4,9 @@
 //! ISO GQLプロトコルでコントロールされ、WASM Edge対応のグローバル分散実行を実現します。
 
 use kotoba_core::types::{Result, Value, KotobaError};
-use crate::deploy::controller::DeployController;
+use crate::controller::DeployController;
 use std::time::SystemTimeError;
-use crate::deploy::config::{DeployConfig, RuntimeType};
+use crate::config::{DeployConfig, RuntimeType};
 // use wasmtime::*; // WASM runtime - will be implemented later
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
@@ -349,17 +349,17 @@ mod tests {
             Arc::new(crate::execution::QueryExecutor::new()),
             Arc::new(crate::planner::QueryPlanner::new()),
             Arc::new(crate::rewrite::RewriteEngine::new()),
-            Arc::new(crate::deploy::scaling::ScalingEngine::new(
-                crate::deploy::config::ScalingConfig {
+            Arc::new(crate::scaling::ScalingEngine::new(
+                crate::config::ScalingConfig {
                     min_instances: 1,
                     max_instances: 10,
                     cpu_threshold: 70.0,
                     memory_threshold: 80.0,
-                    policy: crate::deploy::config::ScalingPolicy::CpuBased,
+                    policy: crate::config::ScalingPolicy::CpuBased,
                     cooldown_period: 300,
                 }
             )),
-            Arc::new(crate::deploy::network::NetworkManager::new()),
+            Arc::new(crate::network::NetworkManager::new()),
         ));
 
         let runtime = DeployRuntime::new(controller);
@@ -379,17 +379,17 @@ mod tests {
             Arc::new(crate::execution::QueryExecutor::new()),
             Arc::new(crate::planner::QueryPlanner::new()),
             Arc::new(crate::rewrite::RewriteEngine::new()),
-            Arc::new(crate::deploy::scaling::ScalingEngine::new(
-                crate::deploy::config::ScalingConfig {
+            Arc::new(crate::scaling::ScalingEngine::new(
+                crate::config::ScalingConfig {
                     min_instances: 1,
                     max_instances: 10,
                     cpu_threshold: 70.0,
                     memory_threshold: 80.0,
-                    policy: crate::deploy::config::ScalingPolicy::CpuBased,
+                    policy: crate::config::ScalingPolicy::CpuBased,
                     cooldown_period: 300,
                 }
             )),
-            Arc::new(crate::deploy::network::NetworkManager::new()),
+            Arc::new(crate::network::NetworkManager::new()),
         ));
 
         let runtime = Arc::new(DeployRuntime::new(controller));

@@ -10,10 +10,10 @@ use kotoba_rewrite::prelude::*;
 use std::time::SystemTimeError;
 use uuid::Uuid;
 // use parking_lot::RwLockReadGuard; // 既にRwLockを使用しているので不要
-use crate::deploy::config::{DeployConfig};
-use crate::deploy::scaling::ScalingEngine;
-use crate::deploy::network::NetworkManager;
-use crate::deploy::git_integration::GitIntegration;
+use crate::config::{DeployConfig};
+use crate::scaling::ScalingEngine;
+use crate::network::NetworkManager;
+use crate::git_integration::GitIntegration;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, Duration};
@@ -690,8 +690,8 @@ mod tests {
     use crate::execution::QueryExecutor;
     use crate::planner::QueryPlanner;
     use crate::rewrite::RewriteEngine;
-    use crate::deploy::scaling::ScalingConfig;
-    use crate::deploy::network::NetworkManager;
+    use crate::scaling::ScalingConfig;
+    use crate::network::NetworkManager;
 
     #[test]
     fn test_deploy_controller_creation() {
@@ -704,7 +704,7 @@ mod tests {
             max_instances: 10,
             cpu_threshold: 70.0,
             memory_threshold: 80.0,
-            policy: crate::deploy::config::ScalingPolicy::CpuBased,
+            policy: crate::config::ScalingPolicy::CpuBased,
             cooldown_period: 300,
         };
         let scaling_engine = Arc::new(ScalingEngine::new(scaling_config));
@@ -732,7 +732,7 @@ mod tests {
                 max_instances: 10,
                 cpu_threshold: 70.0,
                 memory_threshold: 80.0,
-                policy: crate::deploy::config::ScalingPolicy::CpuBased,
+                policy: crate::config::ScalingPolicy::CpuBased,
                 cooldown_period: 300,
             })),
             Arc::new(NetworkManager::new()),
@@ -763,7 +763,7 @@ mod tests {
                 max_instances: 10,
                 cpu_threshold: 70.0,
                 memory_threshold: 80.0,
-                policy: crate::deploy::config::ScalingPolicy::CpuBased,
+                policy: crate::config::ScalingPolicy::CpuBased,
                 cooldown_period: 300,
             })),
             Arc::new(NetworkManager::new()),

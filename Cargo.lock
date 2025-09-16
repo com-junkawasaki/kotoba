@@ -2238,6 +2238,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-deploy"
+version = "0.1.15"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "chrono",
+ "clap",
+ "hex",
+ "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-execution 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-rewrite 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-execution"
 version = "0.1.15"
 dependencies = [

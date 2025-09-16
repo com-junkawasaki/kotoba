@@ -4,11 +4,11 @@
 //! スケーリング、ネットワーク、モニタリングを統合的に制御します。
 
 use kotoba_core::types::{Result, Value};
-use crate::deploy::controller::DeployController;
-use crate::deploy::runtime::{DeployRuntime, RuntimeManager};
-use crate::deploy::scaling::{ScalingEngine, LoadBalancer, AutoScaler};
-use crate::deploy::network::NetworkManager;
-use crate::deploy::hosting_server::{HostingServer, HostingManager as HostingManagerInner};
+use crate::controller::DeployController;
+use crate::runtime::{DeployRuntime, RuntimeManager};
+use crate::scaling::{ScalingEngine, LoadBalancer, AutoScaler};
+use crate::network::NetworkManager;
+use crate::hosting_server::{HostingServer, HostingManager as HostingManagerInner};
 use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::{SystemTime, Duration};
@@ -123,7 +123,7 @@ impl HostingManager {
     }
 
     /// デプロイメントを開始
-    pub async fn start_deployment(&self, deployment_id: &str, config: &crate::deploy::config::DeployConfig) -> Result<String> {
+    pub async fn start_deployment(&self, deployment_id: &str, config: &crate::config::DeployConfig) -> Result<String> {
         let lifecycle = DeploymentLifecycle {
             deployment_id: deployment_id.to_string(),
             phase: LifecyclePhase::Initializing,
@@ -224,7 +224,7 @@ impl HostingManager {
     }
 
     /// デプロイメントを初期化
-    async fn initialize_deployment(&self, deployment_id: &str, config: &crate::deploy::config::DeployConfig) -> Result<()> {
+    async fn initialize_deployment(&self, deployment_id: &str, config: &crate::config::DeployConfig) -> Result<()> {
         // ネットワーク設定の初期化
         self.network_manager.initialize(&config.network).await?;
 
@@ -234,7 +234,7 @@ impl HostingManager {
     }
 
     /// デプロイメントをビルド
-    async fn build_deployment(&self, deployment_id: &str, config: &crate::deploy::config::DeployConfig) -> Result<()> {
+    async fn build_deployment(&self, deployment_id: &str, config: &crate::config::DeployConfig) -> Result<()> {
         // ビルド設定がある場合
         if let Some(build_config) = &config.application.build {
             println!("🔨 Building deployment {} with command: {}", deployment_id, build_config.build_command);
@@ -260,7 +260,7 @@ impl HostingManager {
     }
 
     /// アプリケーションをデプロイ
-    async fn deploy_application(&self, deployment_id: &str, config: &crate::deploy::config::DeployConfig) -> Result<String> {
+    async fn deploy_application(&self, deployment_id: &str, config: &crate::config::DeployConfig) -> Result<String> {
         // WASMファイルのパス（実際の実装では動的生成）
         let wasm_path = std::path::Path::new("target/release/example.wasm");
 
@@ -445,7 +445,7 @@ impl Clone for HostingManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deploy::scaling::LoadBalancingAlgorithm;
+    use crate::scaling::LoadBalancingAlgorithm;
 
     #[test]
     fn test_deployment_lifecycle_creation() {

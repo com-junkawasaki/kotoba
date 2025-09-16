@@ -1,0 +1,91 @@
+//! # Kotoba Deploy
+//!
+//! Deployment and hosting system for Kotoba applications with global distribution and auto-scaling.
+//!
+//! This crate provides Deno Deploy-like functionality for Kotoba applications,
+//! including global edge deployment, automatic scaling, Git integration, and more.
+
+// Re-export the main module
+pub mod config;
+pub mod controller;
+pub mod cli;
+pub mod runtime;
+pub mod hosting_server;
+pub mod hosting_manager;
+pub mod scaling;
+pub mod network;
+pub mod git_integration;
+pub mod parser;
+
+/// Prelude module for convenient imports
+pub mod prelude {
+    // Re-export commonly used items
+    pub use crate::config::*;
+    pub use crate::controller::*;
+    pub use crate::cli::*;
+    pub use crate::runtime::*;
+    pub use crate::hosting_server::*;
+    pub use crate::hosting_manager::*;
+    pub use crate::scaling::*;
+    pub use crate::network::*;
+    pub use crate::git_integration::*;
+    pub use crate::parser::*;
+}
+
+// Re-exports for backward compatibility
+pub use config::{
+    DeployConfig, DeployMetadata, ApplicationConfig, RuntimeType, BuildConfig,
+    StaticFilesConfig, CacheConfig, CorsConfig, ScalingConfig, ScalingPolicy,
+    NetworkConfig, DomainConfig, SslConfig, CertType, RedirectRule,
+    CdnConfig, CdnProvider, TlsConfig, HstsConfig, RegionConfig,
+    GeographyConfig, DeploymentStatus, DeployScript, ScriptTrigger,
+    DeployConfigBuilder,
+};
+pub use controller::{
+    DeployController, DeploymentManager, DeploymentState, DeploymentRequest,
+    RunningDeployment, ResourceUsage, DeploymentPriority, GqlDeploymentQuery,
+    DeploymentQueryType, GqlDeploymentResponse, GqlDeploymentExtensions,
+};
+pub use cli::{
+    DeployCli, DeployCommands, DeployCliImpl, run_cli,
+};
+pub use runtime::{
+    DeployRuntime, RuntimeManager, RuntimeConfig, WasmInstance, ResourceUsage as RuntimeResourceUsage, run_hosting_server,
+};
+pub use hosting_server::{
+    HostingServer, HostingManager as HostingManagerInner, HostedApp, HostingStats, run_hosting_server_system,
+};
+pub use hosting_manager::{
+    HostingManager, DeploymentLifecycle, LifecyclePhase, DeploymentMetrics, SystemStats,
+};
+pub use scaling::{
+    ScalingEngine, LoadBalancer, AutoScaler, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm,
+};
+pub use network::{
+    NetworkManager, RegionManager, EdgeRouter,
+};
+pub use git_integration::{
+    GitIntegration, WebhookHandler, GitHubConfig, GitHubEvent,
+};
+pub use parser::{
+    DeployConfigParser,
+};
+
+/// デプロイモジュールのバージョン
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// デプロイモジュールの初期化
+pub fn init() -> kotoba_core::types::Result<()> {
+    println!("Initializing Kotoba Deploy v{}", VERSION);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_init() {
+        assert!(init().is_ok());
+    }
+}

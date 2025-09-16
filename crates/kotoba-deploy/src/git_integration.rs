@@ -4,7 +4,7 @@
 //! プッシュやプルリクエストなどのイベントに基づいて自動デプロイを実行します。
 
 use kotoba_core::types::{Result, Value, ContentHash};
-use crate::deploy::config::{DeployConfig, RuntimeType};
+use crate::config::{DeployConfig, RuntimeType};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, Duration};

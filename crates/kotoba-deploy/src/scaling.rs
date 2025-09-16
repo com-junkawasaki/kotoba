@@ -6,7 +6,7 @@
 
 use kotoba_core::types::{Result, Value};
 use kotoba_graph::prelude::*;
-use crate::deploy::config::{ScalingConfig, ScalingPolicy};
+use crate::config::{ScalingConfig, ScalingPolicy};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tokio::time::{interval, Duration};
@@ -649,7 +649,7 @@ impl PredictiveModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deploy::config::{ScalingConfig, ScalingPolicy};
+    use crate::config::{ScalingConfig, ScalingPolicy};
 
     #[test]
     fn test_scaling_engine_creation() {

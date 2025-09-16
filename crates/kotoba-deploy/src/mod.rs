@@ -15,6 +15,21 @@ pub mod network;
 pub mod git_integration;
 pub mod parser;
 
+/// Prelude module for convenient imports
+pub mod prelude {
+    // Re-export commonly used items
+    pub use crate::config::*;
+    pub use crate::controller::*;
+    pub use crate::cli::*;
+    pub use crate::runtime::*;
+    pub use crate::hosting_server::*;
+    pub use crate::hosting_manager::*;
+    pub use crate::scaling::*;
+    pub use crate::network::*;
+    pub use crate::git_integration::*;
+    pub use crate::parser::*;
+}
+
 // 再エクスポート
 pub use config::{
     DeployConfig, DeployMetadata, ApplicationConfig, RuntimeType, BuildConfig,

@@ -5,7 +5,7 @@
 //! kotoba-kotobanet を使用して一般設定も管理します。
 
 use kotoba_core::types::{Result, Value, ContentHash, KotobaError};
-use kotoba_kotobanet::ConfigParser;
+// use kotoba_kotobanet::ConfigParser; // Commented out due to stability issues
 use std::collections::HashMap;
 use std::time::SystemTime;
 

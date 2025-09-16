@@ -1,0 +1,43 @@
+[package]
+name = "kotoba-deploy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deployment and hosting system for Kotoba applications with global distribution and auto-scaling"
+keywords = ["deployment", "hosting", "scaling", "cloud", "distributed"]
+categories = ["web-programming", "network-programming"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy"
+homepage = "https://github.com/jun784/kotoba"
+
+[lib]
+name = "kotoba_deploy"
+path = "src/lib.rs"
+
+[dependencies]
+# Kotoba internal crates
+kotoba-core = "0.1.15"
+kotoba-graph = "0.1.15"
+kotoba-storage = "0.1.15"
+kotoba-execution = "0.1.15"
+kotoba-rewrite = "0.1.15"
+# kotoba-kotobanet.workspace = true  # Optional for now due to stability
+
+# External dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+tokio = { workspace = true, features = ["full"] }
+regex.workspace = true
+tempfile.workspace = true
+chrono.workspace = true
+base64.workspace = true
+sha2.workspace = true
+hex.workspace = true
+clap = { version = "4.0", features = ["derive"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

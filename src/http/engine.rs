@@ -7,7 +7,7 @@ use crate::types::{ContentHash, Result, KotobaError};
 use crate::http::ir::*;
 use crate::http::handlers::*;
 use kotoba_graph::prelude::*;
-use kotoba_storage::prelude::*;
+// use kotoba_storage::prelude::*; // Storage crate has issues
 use kotoba_rewrite::prelude::*;
 use kotoba_security::SecurityService;
 use std::sync::Arc;
@@ -285,7 +285,7 @@ impl RawHttpRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kotoba_storage::prelude::*;
+    // use kotoba_storage::prelude::*; // Storage crate has issues
     use kotoba_rewrite::prelude::*;
 
     #[tokio::test]

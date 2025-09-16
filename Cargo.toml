@@ -47,6 +47,7 @@ kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15" }
 kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
 kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
 kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
+kotoba-deploy = { path = "crates/kotoba-deploy", version = "0.1.15" }
 
 # Root crate configuration
 [package]

@@ -5,8 +5,8 @@
 
 use kotoba_core::types::{Result, Value};
 use kotoba_graph::prelude::*;
-use crate::deploy::config::{NetworkConfig, RegionConfig, GeographyConfig};
-use crate::deploy::scaling::{LoadBalancer, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm};
+use crate::config::{NetworkConfig, RegionConfig, GeographyConfig};
+use crate::scaling::{LoadBalancer, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, Duration};
@@ -429,13 +429,13 @@ impl NetworkManager {
     }
 
     /// CDNを設定
-    async fn configure_cdn(&self, cdn_config: &crate::deploy::config::CdnConfig) -> Result<()> {
+    async fn configure_cdn(&self, cdn_config: &crate::config::CdnConfig) -> Result<()> {
         let cdn = CdnConfig {
             provider: match cdn_config.provider {
-                crate::deploy::config::CdnProvider::Cloudflare => CdnProvider::Cloudflare,
-                crate::deploy::config::CdnProvider::Fastly => CdnProvider::Fastly,
-                crate::deploy::config::CdnProvider::CloudFront => CdnProvider::CloudFront,
-                crate::deploy::config::CdnProvider::Auto => CdnProvider::Auto,
+                crate::config::CdnProvider::Cloudflare => CdnProvider::Cloudflare,
+                crate::config::CdnProvider::Fastly => CdnProvider::Fastly,
+                crate::config::CdnProvider::CloudFront => CdnProvider::CloudFront,
+                crate::config::CdnProvider::Auto => CdnProvider::Auto,
             },
             cache_settings: CacheSettings {
                 default_ttl: 3600,

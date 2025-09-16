@@ -4,13 +4,13 @@
 //! ISO GQLベースのデプロイメント管理を可能にします。
 
 use kotoba_core::types::{Result, Value};
-use crate::deploy::controller::{DeployController, DeploymentManager, GqlDeploymentQuery, DeploymentQueryType, GqlDeploymentExtensions};
+use crate::controller::{DeployController, DeploymentManager, GqlDeploymentQuery, DeploymentQueryType, GqlDeploymentExtensions};
 // use serde_json; // 簡易実装では使用しない
-use crate::deploy::config::{DeployConfig, DeployConfigBuilder, RuntimeType};
-use crate::deploy::parser::DeployConfigParser;
-use crate::deploy::scaling::ScalingEngine;
-use crate::deploy::network::NetworkManager;
-use crate::deploy::git_integration::GitIntegration;
+use crate::config::{DeployConfig, DeployConfigBuilder, RuntimeType};
+use crate::parser::DeployConfigParser;
+use crate::scaling::ScalingEngine;
+use crate::network::NetworkManager;
+use crate::git_integration::GitIntegration;
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -164,12 +164,12 @@ impl DeployCliImpl {
         let query_executor = Arc::new(kotoba_execution::execution::QueryExecutor::new());
         // let query_planner = Arc::new(kotoba_execution::execution::QueryPlanner::new()); // 簡易実装では使用しない
         let rewrite_engine = Arc::new(kotoba_rewrite::rewrite::RewriteEngine::new());
-        let scaling_config = crate::deploy::config::ScalingConfig {
+        let scaling_config = crate::config::ScalingConfig {
             min_instances: 1,
             max_instances: 10,
             cpu_threshold: 70.0,
             memory_threshold: 80.0,
-            policy: crate::deploy::config::ScalingPolicy::CpuBased,
+            policy: crate::config::ScalingPolicy::CpuBased,
             cooldown_period: 300,
         };
         let scaling_engine = Arc::new(ScalingEngine::new(scaling_config));

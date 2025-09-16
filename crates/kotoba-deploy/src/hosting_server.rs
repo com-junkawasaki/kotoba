@@ -4,10 +4,10 @@
 //! WebAssemblyランタイムと統合され、グローバル分散実行を実現します。
 
 use kotoba_core::types::{Result, Value};
-use crate::deploy::controller::DeployController;
-use crate::deploy::runtime::{DeployRuntime, RuntimeManager};
-use crate::deploy::scaling::LoadBalancer;
-use crate::deploy::network::NetworkManager;
+use crate::controller::DeployController;
+use crate::runtime::{DeployRuntime, RuntimeManager};
+use crate::scaling::LoadBalancer;
+use crate::network::NetworkManager;
 // use crate::http::server::HttpServer; // 簡易実装では使用しない
 // use crate::http::ir::{HttpConfig, ServerConfig, RouteConfig, MiddlewareConfig};
 
@@ -400,7 +400,7 @@ pub async fn run_hosting_server_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deploy::scaling::LoadBalancingAlgorithm;
+    use crate::scaling::LoadBalancingAlgorithm;
 
     #[test]
     fn test_hosting_server_creation() {
@@ -409,17 +409,17 @@ mod tests {
             Arc::new(crate::execution::QueryExecutor::new()),
             Arc::new(crate::planner::QueryPlanner::new()),
             Arc::new(crate::rewrite::RewriteEngine::new()),
-            Arc::new(crate::deploy::scaling::ScalingEngine::new(
-                crate::deploy::config::ScalingConfig {
+            Arc::new(crate::scaling::ScalingEngine::new(
+                crate::config::ScalingConfig {
                     min_instances: 1,
                     max_instances: 10,
                     cpu_threshold: 70.0,
                     memory_threshold: 80.0,
-                    policy: crate::deploy::config::ScalingPolicy::CpuBased,
+                    policy: crate::config::ScalingPolicy::CpuBased,
                     cooldown_period: 300,
                 }
             )),
-            Arc::new(crate::deploy::network::NetworkManager::new()),
+            Arc::new(crate::network::NetworkManager::new()),
         ));
 
         let runtime = Arc::new(DeployRuntime::new(controller));

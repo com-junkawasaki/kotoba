@@ -18,6 +18,7 @@ pub use kotoba_graph as graph;
 pub use kotoba_storage as storage;
 pub use kotoba_execution as execution;
 pub use kotoba_rewrite as rewrite;
+// pub use kotoba_deploy; // Temporarily disabled until crate is fixed
 // pub use kotoba_web as web; // まだpublishされていないため一時的にコメントアウト
 
 // Local modules
@@ -33,15 +34,14 @@ pub mod schema_validator;
 pub mod types;
 pub mod frontend;
 pub mod http;
-#[cfg(feature = "deploy")]
-pub mod deploy;
 
 // Convenient re-exports for common usage
 pub use kotoba_core::prelude::*;
 pub use kotoba_graph::prelude::*;
-pub use kotoba_storage::prelude::*;
+// pub use kotoba_storage::prelude::*; // Storage crate has issues with prelude
 pub use kotoba_execution::prelude::*;
 pub use kotoba_rewrite::prelude::*;
+// pub use kotoba_deploy::*; // Temporarily disabled until crate is fixed
 // pub use kotoba_web::prelude::*; // まだpublishされていないため一時的にコメントアウト
 
 // Examples and topology are excluded from publish

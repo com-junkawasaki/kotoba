@@ -3,8 +3,8 @@
 //! kotoba-kotobanet を使用して .kotoba-deploy ファイルをパースします。
 
 use kotoba_core::types::{Result, Value, ContentHash};
-use crate::deploy::config::{DeployConfig, DeployConfigBuilder};
-use kotoba_kotobanet::DeployParser as KotobaNetDeployParser;
+use crate::config::{DeployConfig, DeployConfigBuilder};
+// use kotoba_kotobanet::DeployParser as KotobaNetDeployParser; // Commented out due to stability issues
 use std::path::Path;
 use std::fs;
 
@@ -21,60 +21,63 @@ impl DeployConfigParser {
 
     /// 設定ファイルをパース
     pub fn parse<P: AsRef<Path>>(&self, path: P) -> Result<DeployConfig> {
-        // kotoba-kotobanet の DeployParser を使用
-        let deploy_config = KotobaNetDeployParser::parse_file(path)
-            .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
-                format!("Deploy config parsing failed: {}", e)
-            ))?;
+        // kotoba-kotobanet の DeployParser を使用 (コメントアウト due to stability issues)
+        // let deploy_config = KotobaNetDeployParser::parse_file(path)
+        //     .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
+        //         format!("Deploy config parsing failed: {}", e)
+        //     ))?;
 
         // kotoba-kotobanet::DeployConfig を Kotoba の DeployConfig に変換
-        Self::convert_from_kotobanet_config(deploy_config)
+        // Self::convert_from_kotobanet_config(deploy_config)
+        todo!("Implement deploy config parsing without kotoba-kotobanet")
     }
 
     /// JSON文字列から設定をパース
     pub fn parse_string(&self, content: &str) -> Result<DeployConfig> {
-        // kotoba-kotobanet の DeployParser を使用
-        let deploy_config = KotobaNetDeployParser::parse(content)
-            .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
-                format!("Deploy config parsing failed: {}", e)
-            ))?;
+        // kotoba-kotobanet の DeployParser を使用 (コメントアウト due to stability issues)
+        // let deploy_config = KotobaNetDeployParser::parse(content)
+        //     .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
+        //         format!("Deploy config parsing failed: {}", e)
+        //     ))?;
 
         // kotoba-kotobanet::DeployConfig を Kotoba の DeployConfig に変換
-        Self::convert_from_kotobanet_config(deploy_config)
+        // Self::convert_from_kotobanet_config(deploy_config)
+        todo!("Implement deploy config parsing without kotoba-kotobanet")
     }
 
     /// kotoba-kotobanet::DeployConfig を Kotoba の DeployConfig に変換
-    fn convert_from_kotobanet_config(kotobanet_config: kotoba_kotobanet::DeployConfig) -> Result<DeployConfig> {
-        // 基本的な変換を行う（必要に応じて拡張）
-        let mut builder = DeployConfigBuilder::new(
-            kotobanet_config.name,
-            "main.rs".to_string(), // デフォルトのエントリーポイント
-        ).version(kotobanet_config.version);
-
-        // スケーリング設定
-        builder = builder.scaling(
-            kotobanet_config.scaling.min_instances,
-            kotobanet_config.scaling.max_instances,
-        );
-
-        // リージョン設定
-        for region in kotobanet_config.regions {
-            builder = builder.add_region(region.name);
-        }
-
-        // 環境変数（必要に応じて拡張）
-        // TODO: kotobanet_config から環境変数を抽出
-
-        let mut config = builder.build();
-
-        // 設定の検証
-        config.validate()?;
-
-        // ハッシュの計算
-        config.metadata.config_hash = Some(config.calculate_hash()?);
-
-        Ok(config)
-    }
+    // Commented out due to kotoba-kotobanet stability issues
+    // fn convert_from_kotobanet_config(kotobanet_config: kotoba_kotobanet::DeployConfig) -> Result<DeployConfig> {
+    //     // 基本的な変換を行う（必要に応じて拡張）
+    //     let mut builder = DeployConfigBuilder::new(
+    //         kotobanet_config.name,
+    //         "main.rs".to_string(), // デフォルトのエントリーポイント
+    //     ).version(kotobanet_config.version);
+    //
+    //     // スケーリング設定
+    //     builder = builder.scaling(
+    //         kotobanet_config.scaling.min_instances,
+    //         kotobanet_config.scaling.max_instances,
+    //     );
+    //
+    //     // リージョン設定
+    //     for region in kotobanet_config.regions {
+    //         builder = builder.add_region(region.name);
+    //     }
+    //
+    //     // 環境変数（必要に応じて拡張）
+    //     // TODO: kotobanet_config から環境変数を抽出
+    //
+    //     let mut config = builder.build();
+    //
+    //     // 設定の検証
+    //     config.validate()?;
+    //
+    //     // ハッシュの計算
+    //     config.metadata.config_hash = Some(config.calculate_hash()?);
+    //
+    //     Ok(config)
+    // }
 }
 
 impl Default for DeployConfigParser {
