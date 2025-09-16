@@ -31,11 +31,13 @@ pub mod ir;
 pub mod executor;
 pub mod store;
 pub mod activity;
+pub mod parser;
 
 // Re-export main types
 pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ActivityIR, DummyGraphRef, ExecutionStatus};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager, WorkflowError};
 pub use store::{WorkflowStore, StorageBackend, StorageFactory};
+pub use parser::WorkflowParser;
 pub use activity::prelude::*;
 
 /// Workflow engine builder

@@ -60,6 +60,11 @@ pub enum WorkflowStrategyOp {
     // Basic strategies will be implemented later
     // Basic(String), // Placeholder for basic strategy reference
 
+    /// 順次実行
+    Seq {
+        strategies: Vec<Box<WorkflowStrategyOp>>,
+    },
+
     /// 並列実行
     Parallel {
         branches: Vec<Box<WorkflowStrategyOp>>,

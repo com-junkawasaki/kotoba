@@ -208,6 +208,8 @@ pub enum WorkflowError {
     ActivityFailed(#[from] ActivityError),
     #[error("Invalid strategy: {0}")]
     InvalidStrategy(String),
+    #[error("Invalid workflow definition: {0}")]
+    InvalidDefinition(String),
     #[error("Timeout exceeded")]
     Timeout,
     #[error("Compensation failed: {0}")]

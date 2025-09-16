@@ -3,7 +3,11 @@
 pub mod storage;
 pub mod prelude {
     // Re-export commonly used items
-    pub use crate::storage::*;
+    pub use crate::storage::{
+        StorageManager, StorageConfig, BackendType, StorageBackend, BackendStats
+    };
+    // Re-export backend implementations
+    pub use crate::storage::{RocksDBBackend, RedisBackend};
 }
 
 #[cfg(test)]

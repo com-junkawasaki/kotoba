@@ -28,6 +28,9 @@ parking_lot.workspace = true
 rocksdb = { version = "0.21", optional = true }
 rusqlite = { version = "0.29", features = ["bundled"], optional = true }
 
+# Kotoba dependencies for integration
+kotoba-jsonnet = { workspace = true }
+
 [features]
 default = ["memory"]
 memory = []
