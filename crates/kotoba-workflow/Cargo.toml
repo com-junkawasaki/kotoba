@@ -30,6 +30,7 @@ rusqlite = { version = "0.29", features = ["bundled"], optional = true }
 
 # Kotoba dependencies for integration
 kotoba-jsonnet = { workspace = true }
+kotoba-storage = { workspace = true }
 
 [features]
 default = ["memory"]

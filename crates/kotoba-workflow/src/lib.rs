@@ -43,6 +43,7 @@ pub use activity::prelude::*;
 /// Workflow engine builder
 pub struct WorkflowEngineBuilder {
     storage_backend: Option<StorageBackend>,
+    kotoba_backend: Option<std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>>,
 }
 
 impl WorkflowEngineBuilder {
@@ -78,9 +79,20 @@ impl WorkflowEngineBuilder {
         self
     }
 
+    /// Use Kotoba storage backend for full integration
+    pub fn with_kotoba_storage(mut self, backend: std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>) -> Self {
+        self.kotoba_backend = Some(backend);
+        // When using Kotoba backend, disable internal storage
+        self.storage_backend = None;
+        self
+    }
+
     pub async fn build(self) -> Result<WorkflowEngine, WorkflowError> {
         let storage = if let Some(backend) = self.storage_backend {
             StorageFactory::create(backend).await?
+        } else if let Some(kotoba_backend) = self.kotoba_backend {
+            // Create a bridge to Kotoba storage
+            std::sync::Arc::new(KotobaStorageBridge::new(kotoba_backend))
         } else {
             return Err(WorkflowError::StorageError("No storage backend configured".to_string()));
         };
