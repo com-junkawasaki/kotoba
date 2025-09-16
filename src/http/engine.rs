@@ -10,6 +10,7 @@ use crate::http::handlers::*;
 use crate::MVCCManager;
 use crate::MerkleDAG;
 use crate::RewriteEngine;
+use kotoba_security::SecurityService;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
@@ -27,13 +28,20 @@ pub struct HttpEngine {
 
 impl HttpEngine {
     /// 新しいHTTPエンジンを作成
-    pub fn new(
+    pub async fn new(
         config: HttpConfig,
         mvcc: Arc<MVCCManager>,
         merkle: Arc<MerkleDAG>,
         rewrite_engine: Arc<RewriteEngine>,
-    ) -> Self {
-        let security_service = Arc::new(crate::http::handlers::SecurityService);
+    ) -> Result<Self> {
+        // セキュリティサービスを初期化
+        let security_service = if let Some(ref security_config) = config.security_config {
+            Arc::new(SecurityService::new(security_config.clone()).await?)
+        } else {
+            // デフォルト設定を使用
+            Arc::new(SecurityService::new(kotoba_security::SecurityConfig::default()).await?)
+        };
+
         let security_service_clone = security_service.clone();
 
         let request_processor = HttpRequestProcessor::new(
@@ -54,14 +62,14 @@ impl HttpEngine {
 
         let state = Arc::new(RwLock::new(ServerState::new()));
 
-        Self {
+        Ok(Self {
             config,
             request_processor,
             middleware_processor,
             handler_processor,
             routes,
             state,
-        }
+        })
     }
 
     /// HTTPリクエストを処理
@@ -288,7 +296,7 @@ mod tests {
         let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let config = HttpConfig::new(ServerConfig::default());
-        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine);
+        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine).await.unwrap();
 
         // 完全一致
         assert!(engine.pattern_matches("/ping", "/ping"));
@@ -311,7 +319,7 @@ mod tests {
         let rewrite_engine = Arc::new(RewriteEngine::new());
 
         let config = HttpConfig::new(ServerConfig::default());
-        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine);
+        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine).await.unwrap();
 
         let raw_request = RawHttpRequest::new("GET".to_string(), "/ping".to_string())
             .with_query("key=value&foo=bar".to_string())

@@ -14,6 +14,7 @@ pub mod oauth2;
 pub mod mfa;
 pub mod password;
 pub mod session;
+pub mod audit;
 pub mod error;
 pub mod config;
 pub mod capabilities;
@@ -24,6 +25,7 @@ pub use crate::config::OAuth2Config;
 pub use mfa::{MfaService, MfaSecret, MfaCode};
 pub use password::{PasswordService, PasswordHash};
 pub use session::{SessionManager, SessionData};
+pub use audit::{AuditService, AuditEvent, AuditEventType, AuditSeverity, AuditResult};
 pub use error::{SecurityError, Result};
 pub use config::{SecurityConfig, AuthMethod};
 pub use capabilities::{Capability, CapabilitySet, CapabilityService, ResourceType, Action};
@@ -118,6 +120,7 @@ pub struct SecurityService {
     password: PasswordService,
     session: SessionManager,
     capabilities: CapabilityService,
+    audit: AuditService,
 }
 
 impl SecurityService {
@@ -133,6 +136,7 @@ impl SecurityService {
         let password = PasswordService::new();
         let session = SessionManager::new(config.session_config);
         let capabilities = CapabilityService::with_config(config.capability_config);
+        let audit = AuditService::new(config.audit_config);
 
         Ok(Self {
             jwt,
@@ -141,6 +145,7 @@ impl SecurityService {
             password,
             session,
             capabilities,
+            audit,
         })
     }
 
@@ -327,6 +332,69 @@ impl SecurityService {
             action,
             attributes,
         }
+    }
+
+    /// Log an audit event
+    pub async fn log_audit_event(&self, event: AuditEvent) -> Result<()> {
+        self.audit.log_event(event).await
+    }
+
+    /// Log authentication event
+    pub async fn log_authentication(
+        &self,
+        user_id: Option<&str>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        result: AuditResult,
+        message: &str,
+    ) -> Result<()> {
+        self.audit.log_authentication(user_id, ip_address, user_agent, result, message).await
+    }
+
+    /// Log authorization event
+    pub async fn log_authorization(
+        &self,
+        user_id: &str,
+        resource: &str,
+        action: &str,
+        result: AuditResult,
+        ip_address: Option<&str>,
+    ) -> Result<()> {
+        self.audit.log_authorization(user_id, resource, action, result, ip_address).await
+    }
+
+    /// Log data access event
+    pub async fn log_data_access(
+        &self,
+        user_id: &str,
+        resource: &str,
+        action: &str,
+        result: AuditResult,
+        metadata: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        self.audit.log_data_access(user_id, resource, action, result, metadata).await
+    }
+
+    /// Get audit events
+    pub async fn get_audit_events(
+        &self,
+        start_time: Option<chrono::DateTime<chrono::Utc>>,
+        end_time: Option<chrono::DateTime<chrono::Utc>>,
+        event_type: Option<&AuditEventType>,
+        user_id: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<Vec<AuditEvent>> {
+        self.audit.get_events(start_time, end_time, event_type, user_id, limit).await
+    }
+
+    /// Get audit statistics
+    pub async fn get_audit_statistics(&self) -> Result<crate::audit::AuditStatistics> {
+        self.audit.get_statistics().await
+    }
+
+    /// Clean up old audit events
+    pub async fn cleanup_audit_events(&self) -> Result<usize> {
+        self.audit.cleanup_old_events().await
     }
 }
 

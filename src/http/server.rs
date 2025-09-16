@@ -29,7 +29,7 @@ impl HttpServer {
         merkle: Arc<MerkleDAG>,
         rewrite_engine: Arc<RewriteEngine>,
     ) -> Result<Self> {
-        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine);
+        let engine = HttpEngine::new(config, mvcc, merkle, rewrite_engine).await?;
         Ok(Self {
             engine,
             listener: None,

@@ -40,6 +40,7 @@ blake3 = "1.5"
 # Kotoba internal crates
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15", features = ["yaml"] }
 kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
+kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
 
 # Root crate configuration
 [package]
@@ -76,7 +77,7 @@ kotoba-graph = "0.1.2"
 kotoba-storage = "0.1.2"
 kotoba-execution = "0.1.2"
 kotoba-rewrite = "0.1.2"
-# kotoba-security = "0.1.0" # まだ安定していないためコメントアウト
+kotoba-security.workspace = true
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
 # Kotoba internal crates

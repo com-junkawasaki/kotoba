@@ -137,6 +137,7 @@ pub struct HttpRequest {
     pub query: HashMap<String, String>,
     pub headers: HttpHeaders,
     pub body_ref: Option<ContentHash>, // ボディは外部blobとして扱う
+    pub attributes: HashMap<String, Value>, // リクエスト属性（ミドルウェア間で共有）
     pub timestamp: u64,
 }
 
@@ -155,6 +156,7 @@ impl HttpRequest {
             query: HashMap::new(),
             headers,
             body_ref,
+            attributes: HashMap::new(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -233,12 +235,13 @@ impl HttpMiddleware {
 }
 
 /// サーバー設定IR
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpConfig {
     pub server: ServerConfig,
     pub routes: Vec<HttpRoute>,
     pub middlewares: Vec<HttpMiddleware>,
     pub static_files: Option<StaticConfig>,
+    pub security_config: Option<kotoba_security::SecurityConfig>,
 }
 
 impl HttpConfig {
@@ -248,6 +251,7 @@ impl HttpConfig {
             routes: Vec::new(),
             middlewares: Vec::new(),
             static_files: None,
+            security_config: None,
         }
     }
 }

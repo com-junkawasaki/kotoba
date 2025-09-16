@@ -20,30 +20,30 @@ tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
 # JWT and cryptography
-jsonwebtoken = "9.0"
-ring = "0.17"
-rustls = "0.23"
-rustls-pemfile = "2.0"
+jsonwebtoken = "7.0"
+ring = "0.16"
+rustls = "0.20"
+rustls-pemfile = "0.3"
 hex = { workspace = true }
 sha2 = { workspace = true }
 
 # OAuth2
-oauth2 = "4.4"
-openidconnect = "3.0"
-url = "2.5"
+oauth2 = "4.2"
+openidconnect = "2.0"
+url = "2.4"
 
 # Password hashing
-argon2 = "0.5"
-pbkdf2 = { version = "0.12", features = ["simple"] }
-bcrypt = "0.15"
-password-hash = "0.5"
+argon2 = "0.3"
+pbkdf2 = { version = "0.9", features = ["simple"] }
+bcrypt = "0.13"
+password-hash = "0.3"
 
 # MFA/TOTP
-totp-rs = "5.4"
-qrcode = { version = "0.13", features = ["svg"] }
+totp-rs = "5.0"
+qrcode = { version = "0.12", features = ["svg"] }
 
 # HTTP client for OAuth2
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
 
 # Time utilities
 chrono = { version = "0.4", features = ["serde"] }
@@ -51,6 +51,9 @@ chrono = { version = "0.4", features = ["serde"] }
 # Random generation
 rand = "0.8"
 uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# HMAC for PBKDF2
+hmac = "0.12"
 
 # Kotoba core dependencies
 kotoba-core = { path = "../kotoba-core", version = "0.1.0" }

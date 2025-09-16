@@ -133,7 +133,6 @@ impl TokenPair {
 pub struct JwtService {
     config: JwtConfig,
     encoding_key: EncodingKey,
-    decoding_key: DecodingKey,
     validation: Validation,
 }
 
@@ -142,27 +141,24 @@ impl JwtService {
     pub fn new(config: JwtConfig) -> Result<Self> {
         let algorithm = Self::map_algorithm(&config.algorithm)?;
         let encoding_key = Self::create_encoding_key(&config.algorithm, &config.secret)?;
-        let decoding_key = Self::create_decoding_key(&config.algorithm, &config.secret)?;
         let mut validation = Validation::new(algorithm);
 
         // Configure validation
         validation.leeway = config.leeway_seconds;
         validation.validate_exp = config.validate_exp;
         validation.validate_nbf = config.validate_nbf;
-        validation.validate_aud = config.validate_aud;
 
         if config.validate_aud {
-            validation.aud = Some(HashSet::from_iter(config.audience.iter().cloned()));
+            validation.set_audience(&config.audience);
         }
 
         if config.validate_iss {
-            validation.iss = Some(HashSet::from_iter(vec![config.issuer.clone()]));
+            validation.iss = Some(config.issuer.clone());
         }
 
         Ok(Self {
             config,
             encoding_key,
-            decoding_key,
             validation,
         })
     }
@@ -213,7 +209,8 @@ impl JwtService {
 
     /// Validate and decode token
     pub fn validate_token(&self, token: &str) -> Result<JwtClaims> {
-        let token_data = decode::<JwtClaims>(token, &self.decoding_key, &self.validation)
+        let decoding_key = Self::create_decoding_key(&self.config.algorithm, &self.config.secret)?;
+        let token_data = decode::<JwtClaims>(token, &decoding_key, &self.validation)
             .map_err(|e| {
                 match e.kind() {
                     jsonwebtoken::errors::ErrorKind::ExpiredSignature => SecurityError::TokenExpired,
@@ -301,18 +298,18 @@ impl JwtService {
     }
 
     /// Create decoding key based on algorithm
-    fn create_decoding_key(algorithm: &JwtAlgorithm, secret: &str) -> Result<DecodingKey> {
+    fn create_decoding_key<'a>(algorithm: &JwtAlgorithm, secret: &'a str) -> Result<DecodingKey<'a>> {
         match algorithm {
             JwtAlgorithm::HS256 | JwtAlgorithm::HS384 | JwtAlgorithm::HS512 => {
                 Ok(DecodingKey::from_secret(secret.as_bytes()))
             }
             JwtAlgorithm::RS256 | JwtAlgorithm::RS384 | JwtAlgorithm::RS512 => {
-                Ok(DecodingKey::from_rsa_pem(secret.as_bytes())
-                    .map_err(|e| SecurityError::Configuration(format!("RSA key error: {}", e)))?)
+                DecodingKey::from_rsa_pem(secret.as_bytes())
+                    .map_err(|e| SecurityError::Configuration(format!("RSA key error: {}", e)))
             }
             JwtAlgorithm::ES256 | JwtAlgorithm::ES384 | JwtAlgorithm::ES512 => {
-                Ok(DecodingKey::from_ec_pem(secret.as_bytes())
-                    .map_err(|e| SecurityError::Configuration(format!("EC key error: {}", e)))?)
+                DecodingKey::from_ec_pem(secret.as_bytes())
+                    .map_err(|e| SecurityError::Configuration(format!("EC key error: {}", e)))
             }
         }
     }
