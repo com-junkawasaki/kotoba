@@ -1,8 +1,8 @@
 //! PGView (Property Graph View) - GraphInstanceからプロパティグラフへのprojection
 
 use crate::schema::*;
-use crate::{Graph, VertexData, EdgeData};
-use kotoba_core::types::*;
+use kotoba_graph::{Graph, VertexData, EdgeData};
+use crate::types::*;
 use std::collections::HashMap;
 
 /// PGViewプロジェクター

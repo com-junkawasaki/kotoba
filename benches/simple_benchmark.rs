@@ -232,8 +232,9 @@ fn run_algorithm_tests() {
 
     let mut visited = HashSet::new();
     let mut stack = Vec::new();
-    stack.push(start_vertex.clone());
-    visited.insert(start_vertex.clone());
+    let start_vertex_clone = start_vertex.clone();
+    stack.push(start_vertex_clone.clone());
+    visited.insert(start_vertex_clone);
 
     let mut dfs_count = 0;
     while let Some(current) = stack.pop() {

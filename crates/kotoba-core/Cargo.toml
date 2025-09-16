@@ -21,13 +21,24 @@ sha2 = "0.10"
 hex = "0.4"
 
 # Kotoba ecosystem
-kotoba-security = { path = "../kotoba-security", optional = true }
+kotoba-graph = { path = "../kotoba-graph" }
+# kotoba-security = { path = "../kotoba-security", optional = true } # Temporarily disabled due to circular dependency
+
+# Schema validation
+schemars = "0.8"
+jsonschema = "0.17"
+
+# Regular expressions
+regex = "1.10"
+
+# Additional hash functions
+blake3 = "1.8"
 
 [features]
 default = ["std"]
 std = []
 wasm = ["wasm-bindgen", "web-sys", "js-sys"]
-security = ["dep:kotoba-security"]
+# security = ["dep:kotoba-security"] # Temporarily disabled due to circular dependency
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }

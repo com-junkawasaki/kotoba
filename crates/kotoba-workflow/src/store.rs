@@ -121,14 +121,28 @@ impl WorkflowStore for MemoryWorkflowStore {
     }
 }
 
-/// イベントソーシングマネージャー
+/// イベントソーシングマネージャー - 完全なイベントドリブン永続化
 pub struct EventSourcingManager {
     store: Arc<dyn WorkflowStore>,
+    /// スナップショット間隔（イベント数）
+    snapshot_interval: usize,
+    /// 最大保持バージョン数
+    max_versions: usize,
 }
 
 impl EventSourcingManager {
     pub fn new(store: Arc<dyn WorkflowStore>) -> Self {
-        Self { store }
+        Self {
+            store,
+            snapshot_interval: 100, // デフォルト100イベントごとにスナップショット
+            max_versions: 10, // デフォルト10バージョン保持
+        }
+    }
+
+    pub fn with_snapshot_config(mut self, snapshot_interval: usize, max_versions: usize) -> Self {
+        self.snapshot_interval = snapshot_interval;
+        self.max_versions = max_versions;
+        self
     }
 
     /// ワークフロー実行をイベントから再構築
@@ -186,7 +200,7 @@ impl EventSourcingManager {
         Ok(Some(execution))
     }
 
-    /// ワークフローイベントを記録
+    /// ワークフローイベントを記録（スナップショット最適化付き）
     pub async fn record_event(&self, execution_id: &WorkflowExecutionId, event_type: ExecutionEventType, payload: HashMap<String, serde_json::Value>) -> Result<(), WorkflowError> {
         let event = ExecutionEvent {
             id: uuid::Uuid::new_v4().to_string(),
@@ -195,14 +209,138 @@ impl EventSourcingManager {
             payload,
         };
 
-        self.store.add_event(execution_id, event).await
+        // イベントを保存
+        self.store.add_event(execution_id, event).await?;
+
+        // スナップショットが必要かチェック
+        if self.needs_snapshot(execution_id).await? {
+            self.create_snapshot(execution_id).await?;
+        }
+
+        Ok(())
+    }
+
+    /// スナップショットが必要かチェック
+    pub async fn needs_snapshot(&self, execution_id: &WorkflowExecutionId) -> Result<bool, WorkflowError> {
+        let events = self.store.get_events(execution_id).await?;
+        Ok(events.len() % self.snapshot_interval == 0)
+    }
+
+    /// スナップショットを作成（最新の実行状態を保存）
+    pub async fn create_snapshot(&self, execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
+        if let Some(execution) = self.store.get_execution(execution_id).await? {
+            // スナップショットとして実行状態を保存
+            self.store.save_execution(&execution).await?;
+
+            // 古いイベントをクリーンアップ（オプション）
+            self.cleanup_old_events(execution_id).await?;
+        }
+        Ok(())
+    }
+
+    /// 古いイベントをクリーンアップ
+    pub async fn cleanup_old_events(&self, execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
+        // メモリストアの場合は何もしない
+        // 永続ストアの場合は古いイベントをアーカイブ
+        Ok(())
+    }
+
+    /// ワークフロー実行の完全なイベント履歴を取得
+    pub async fn get_full_event_history(&self, execution_id: &WorkflowExecutionId) -> Result<Vec<ExecutionEvent>, WorkflowError> {
+        self.store.get_events(execution_id).await
+    }
+
+    /// イベントベースのワークフロー状態再構築
+    pub async fn rebuild_execution_from_events(&self, execution_id: &WorkflowExecutionId) -> Result<Option<WorkflowExecution>, WorkflowError> {
+        let events = self.get_full_event_history(execution_id).await?;
+
+        if events.is_empty() {
+            return Ok(None);
+        }
+
+        // 最新のスナップショットを取得（ある場合）
+        let mut execution = if let Some(snapshot) = self.store.get_execution(execution_id).await? {
+            snapshot
+        } else {
+            // スナップショットがない場合は最初から再構築
+            WorkflowExecution {
+                id: execution_id.clone(),
+                workflow_id: String::new(),
+                status: ExecutionStatus::Running,
+                start_time: events[0].timestamp,
+                end_time: None,
+                inputs: HashMap::new(),
+                outputs: None,
+                current_graph: GraphRef("reconstructed".to_string()),
+                execution_history: vec![],
+                retry_count: 0,
+                timeout_at: None,
+            }
+        };
+
+        // スナップショット以降のイベントを適用
+        for event in &events {
+            if event.timestamp > execution.start_time {
+                self.apply_event_to_execution(&mut execution, event);
+            }
+        }
+
+        Ok(Some(execution))
+    }
+
+    /// イベントを実行状態に適用
+    fn apply_event_to_execution(&self, execution: &mut WorkflowExecution, event: &ExecutionEvent) {
+        match &event.event_type {
+            ExecutionEventType::Started => {
+                if let Some(workflow_id) = event.payload.get("workflow_id").and_then(|v| v.as_str()) {
+                    execution.workflow_id = workflow_id.to_string();
+                }
+                if let Some(inputs) = event.payload.get("inputs").and_then(|v| v.as_object()) {
+                    execution.inputs = inputs.clone().into_iter().collect();
+                }
+            }
+            ExecutionEventType::ActivityScheduled => {
+                // Activityスケジュール状態を更新
+                execution.execution_history.push(event.clone());
+            }
+            ExecutionEventType::ActivityStarted => {
+                execution.execution_history.push(event.clone());
+            }
+            ExecutionEventType::ActivityCompleted => {
+                execution.execution_history.push(event.clone());
+            }
+            ExecutionEventType::ActivityFailed => {
+                execution.execution_history.push(event.clone());
+            }
+            ExecutionEventType::WorkflowCompleted => {
+                execution.status = ExecutionStatus::Completed;
+                execution.end_time = Some(event.timestamp);
+                if let Some(outputs) = event.payload.get("outputs") {
+                    execution.outputs = serde_json::from_value(outputs.clone()).ok();
+                }
+            }
+            ExecutionEventType::WorkflowFailed => {
+                execution.status = ExecutionStatus::Failed;
+                execution.end_time = Some(event.timestamp);
+            }
+            ExecutionEventType::WorkflowCancelled => {
+                execution.status = ExecutionStatus::Cancelled;
+                execution.end_time = Some(event.timestamp);
+            }
+            _ => {
+                // その他のイベントも履歴に追加
+                execution.execution_history.push(event.clone());
+            }
+        }
     }
 }
 
-/// スナップショットマネージャー（パフォーマンス最適化）
+/// スナップショットマネージャー（パフォーマンス最適化） - Phase 2
 pub struct SnapshotManager {
     store: Arc<dyn WorkflowStore>,
+    event_sourcing: Arc<EventSourcingManager>,
     snapshot_interval: usize, // イベント数
+    max_snapshots_per_execution: usize, // 実行ごとの最大スナップショット数
 }
 
 impl SnapshotManager {

@@ -278,7 +278,7 @@ impl WorkflowExecutor {
         // 戦略実行
         let result = self.execute_strategy(workflow_ir.strategy, initial_graph, &execution_id).await;
 
-        // 実行結果に基づいて最終状態を更新
+        // 実行結果に基づいて最終状態を更新（MVCC対応）
         let mut execution = self.state_manager.get_execution(&execution_id).await
             .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
 
@@ -288,14 +288,32 @@ impl WorkflowExecutor {
                 execution.end_time = Some(chrono::Utc::now());
                 execution.current_graph = final_graph;
                 // outputs は最終グラフから抽出（TODO）
+
+                // 完了イベントを追加
+                let event = ExecutionEvent {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    timestamp: chrono::Utc::now(),
+                    event_type: ExecutionEventType::WorkflowCompleted,
+                    payload: HashMap::new(),
+                };
+                self.state_manager.add_execution_event(&execution_id, event).await?;
             }
             Err(e) => {
                 execution.status = ExecutionStatus::Failed;
                 execution.end_time = Some(chrono::Utc::now());
-                // TODO: エラーイベント追加
+
+                // 失敗イベントを追加
+                let event = ExecutionEvent {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    timestamp: chrono::Utc::now(),
+                    event_type: ExecutionEventType::WorkflowFailed,
+                    payload: [("error".to_string(), serde_json::json!(e.to_string()))].into_iter().collect(),
+                };
+                self.state_manager.add_execution_event(&execution_id, event).await?;
             }
         }
 
+        // 最終状態を保存
         self.state_manager.update_execution(execution).await?;
         Ok(())
     }
@@ -672,25 +690,37 @@ impl WorkflowExecutor {
     }
 }
 
-/// ワークフロー状態マネージャー
+/// ワークフロー状態マネージャー - MVCCベースの実装
 pub struct WorkflowStateManager {
-    // 実行状態の管理（実際の実装では永続化が必要）
-    executions: RwLock<HashMap<String, WorkflowExecution>>,
+    /// 実行状態の管理（TxIdベースのバージョン管理）
+    executions: RwLock<HashMap<String, Vec<(TxId, WorkflowExecution)>>>,
+    /// 現在のTxIdカウンター
+    current_tx_id: std::sync::atomic::AtomicU64,
 }
 
 impl WorkflowStateManager {
     pub fn new() -> Self {
         Self {
             executions: RwLock::new(HashMap::new()),
+            current_tx_id: std::sync::atomic::AtomicU64::new(1),
         }
     }
 
+    /// 新しいTxIdを生成
+    fn next_tx_id(&self) -> TxId {
+        let tx_id = self.current_tx_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        TxId(tx_id)
+    }
+
+    /// MVCCベースのワークフロー実行作成
     pub async fn create_execution(
         &self,
         workflow_ir: &WorkflowIR,
         inputs: HashMap<String, serde_json::Value>,
     ) -> std::result::Result<WorkflowExecutionId, WorkflowError> {
+        let tx_id = self.next_tx_id();
         let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4().to_string());
+
         let execution = WorkflowExecution {
             id: execution_id.clone(),
             workflow_id: workflow_ir.id.clone(),
@@ -711,22 +741,88 @@ impl WorkflowStateManager {
         };
 
         let mut executions = self.executions.write().await;
-        executions.insert(execution_id.0.clone(), execution);
+        let versions = executions.entry(execution_id.0.clone()).or_insert_with(Vec::new);
+        versions.push((tx_id, execution));
 
         Ok(execution_id)
     }
 
-    pub async fn get_execution(&self, id: &WorkflowExecutionId) -> Option<WorkflowExecution> {
+    /// 指定されたTxId時点での実行状態を取得（MVCC対応）
+    pub async fn get_execution_at(&self, id: &WorkflowExecutionId, tx_id: Option<TxId>) -> Option<WorkflowExecution> {
         let executions = self.executions.read().await;
-        executions.get(&id.0).cloned()
+        let versions = executions.get(&id.0)?;
+
+        match tx_id {
+            Some(tx_id) => {
+                // 指定TxId以前の最新バージョンを取得
+                versions.iter()
+                    .filter(|(v_tx_id, _)| *v_tx_id <= tx_id)
+                    .max_by_key(|(v_tx_id, _)| v_tx_id)
+                    .map(|(_, execution)| execution.clone())
+            }
+            None => {
+                // 最新バージョンを取得
+                versions.last().map(|(_, execution)| execution.clone())
+            }
+        }
     }
 
-    pub async fn update_execution(&self, execution: WorkflowExecution) -> std::result::Result<(), WorkflowError> {
+    /// 最新バージョンの実行状態を取得
+    pub async fn get_execution(&self, id: &WorkflowExecutionId) -> Option<WorkflowExecution> {
+        self.get_execution_at(id, None).await
+    }
+
+    /// MVCCベースの実行状態更新
+    pub async fn update_execution(&self, execution: WorkflowExecution) -> std::result::Result<TxId, WorkflowError> {
+        let tx_id = self.next_tx_id();
+
         let mut executions = self.executions.write().await;
-        executions.insert(execution.id.0.clone(), execution);
+        let versions = executions.entry(execution.id.0.clone()).or_insert_with(Vec::new);
+        versions.push((tx_id, execution));
+
+        Ok(tx_id)
+    }
+
+    /// 実行のバージョン履歴を取得
+    pub async fn get_execution_history(&self, id: &WorkflowExecutionId) -> Vec<(TxId, WorkflowExecution)> {
+        let executions = self.executions.read().await;
+        executions.get(&id.0).cloned().unwrap_or_default()
+    }
+
+    /// スナップショット作成（古いバージョンのクリーンアップ）
+    pub async fn create_snapshot(&self, execution_id: &WorkflowExecutionId, max_versions: usize) -> std::result::Result<(), WorkflowError> {
+        let mut executions = self.executions.write().await;
+        if let Some(versions) = executions.get_mut(&execution_id.0) {
+            if versions.len() > max_versions {
+                // 最新のmax_versions個を保持
+                let keep_count = versions.len().saturating_sub(max_versions);
+                versions.drain(0..keep_count);
+            }
+        }
         Ok(())
+    }
+
+    /// 実行中のワークフロー一覧を取得
+    pub async fn get_running_executions(&self) -> Vec<WorkflowExecution> {
+        let executions = self.executions.read().await;
+        executions.values()
+            .filter_map(|versions| {
+                versions.last().map(|(_, execution)| execution.clone())
+                    .filter(|execution| matches!(execution.status, ExecutionStatus::Running))
+            })
+            .collect()
+    }
+
+    /// 実行イベントを追加
+    pub async fn add_execution_event(&self, execution_id: &WorkflowExecutionId, event: ExecutionEvent) -> std::result::Result<TxId, WorkflowError> {
+        let mut execution = self.get_execution(execution_id).await
+            .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
+
+        execution.execution_history.push(event);
+        self.update_execution(execution).await
     }
 }
 
 // TODO: Implement workflow execution engine
 // For now, this module provides basic activity execution framework
+

@@ -86,21 +86,29 @@ pub enum KotobaError {
     #[error("Network error: {0}")]
     Network(String),
 
-    // Security-related errors
+    // Security-related errors (when security feature is enabled)
+    #[cfg(feature = "security")]
     #[error("Security configuration error: {0}")]
     SecurityConfiguration(String),
+    #[cfg(feature = "security")]
     #[error("Security authentication error: {0}")]
     SecurityAuthentication(String),
+    #[cfg(feature = "security")]
     #[error("Security authorization error: {0}")]
     SecurityAuthorization(String),
+    #[cfg(feature = "security")]
     #[error("Security JWT error: {0}")]
     SecurityJwt(String),
+    #[cfg(feature = "security")]
     #[error("Security OAuth2 error: {0}")]
     SecurityOAuth2(String),
+    #[cfg(feature = "security")]
     #[error("Security MFA error: {0}")]
     SecurityMfa(String),
+    #[cfg(feature = "security")]
     #[error("Security password error: {0}")]
     SecurityPassword(String),
+    #[cfg(feature = "security")]
     #[error("Security session error: {0}")]
     SecuritySession(String),
 }

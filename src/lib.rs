@@ -32,12 +32,12 @@ pub use kotoba_cli as cli;
 // Local modules
 // pub mod cid; // Moved to kotoba-cid crate
 // pub mod cli; // Moved to kotoba-cli crate
-pub mod pgview;
-pub mod schema;
-pub mod schema_test;
+// pub mod pgview; // Moved to kotoba-core
+// pub mod schema; // Moved to kotoba-core
+// pub mod schema_test; // Moved to kotoba-core
 // pub mod distributed; // Moved to kotoba-distributed crate
 // pub mod network_protocol; // Moved to kotoba-network crate
-pub mod schema_validator;
+// pub mod schema_validator; // Moved to kotoba-core
 // pub mod topology; // Excluded from publish
 // pub mod types; // Moved to kotoba-core
 // pub mod frontend; // Moved to kotoba2tsx

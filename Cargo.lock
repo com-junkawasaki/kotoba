@@ -2287,9 +2287,14 @@ name = "kotoba-core"
 version = "0.1.15"
 dependencies = [
  "anyhow",
+ "blake3",
  "hex",
  "js-sys",
+ "jsonschema",
+ "kotoba-graph 0.1.15",
  "kotoba-security",
+ "regex",
+ "schemars",
  "serde",
  "serde_json",
  "sha2 0.10.9",

@@ -86,11 +86,11 @@ panic = "abort"
 
 [dependencies]
 # Core crates - workspace versions
-kotoba-core.workspace = true
-kotoba-graph.workspace = true
-kotoba-storage.workspace = true
-kotoba-execution.workspace = true
-kotoba-rewrite.workspace = true
+kotoba-core = { path = "crates/kotoba-core" }
+kotoba-graph = { path = "crates/kotoba-graph" }
+kotoba-storage = { path = "crates/kotoba-storage" }
+kotoba-execution = { path = "crates/kotoba-execution" }
+kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-security.workspace = true
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
