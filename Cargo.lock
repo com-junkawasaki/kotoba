@@ -2239,6 +2239,7 @@ dependencies = [
  "pbkdf2",
  "qrcode",
  "rand 0.8.5",
+ "regex",
  "reqwest",
  "ring 0.16.20",
  "rustls 0.20.9",

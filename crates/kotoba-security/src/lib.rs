@@ -15,9 +15,14 @@ pub mod mfa;
 pub mod password;
 pub mod session;
 pub mod audit;
+pub mod rbac;
+pub mod abac;
+pub mod policy;
 pub mod error;
 pub mod config;
 pub mod capabilities;
+
+use policy::PolicyService;
 
 pub use jwt::{JwtService, JwtClaims, TokenPair};
 pub use oauth2::{OAuth2Service, OAuth2Provider, OAuth2Tokens};
@@ -121,6 +126,7 @@ pub struct SecurityService {
     session: SessionManager,
     capabilities: CapabilityService,
     audit: AuditService,
+    policy: Option<PolicyService>,
 }
 
 impl SecurityService {
@@ -137,6 +143,7 @@ impl SecurityService {
         let session = SessionManager::new(config.session_config);
         let capabilities = CapabilityService::with_config(config.capability_config);
         let audit = AuditService::new(config.audit_config);
+        let policy = None; // Policy service needs to be set up separately
 
         Ok(Self {
             jwt,
@@ -146,6 +153,7 @@ impl SecurityService {
             session,
             capabilities,
             audit,
+            policy,
         })
     }
 
@@ -395,6 +403,154 @@ impl SecurityService {
     /// Clean up old audit events
     pub async fn cleanup_audit_events(&self) -> Result<usize> {
         self.audit.cleanup_old_events().await
+    }
+
+    /// Set up policy service with RBAC and ABAC
+    pub fn setup_policy_service(&mut self, config: crate::policy::PolicyEngineConfig) -> Result<()> {
+        // Create RBAC service
+        let rbac_service = crate::rbac::RBACService::new();
+
+        // Create ABAC service with simple providers (can be customized later)
+        let user_provider = std::sync::Arc::new(std::sync::Mutex::new(
+            crate::abac::SimpleUserAttributeProvider::new()
+        ));
+
+        let resource_provider = std::sync::Arc::new(std::sync::Mutex::new(
+            crate::abac::SimpleResourceAttributeProvider::new()
+        ));
+
+        let env_provider = std::sync::Arc::new(std::sync::Mutex::new(
+            crate::abac::SimpleEnvironmentAttributeProvider::new()
+        ));
+
+        // For now, use the trait objects directly
+        // In a real implementation, you'd want to use Arc<Mutex<>> for thread safety
+        let abac_service = crate::abac::ABACService::new(
+            Box::new(SimpleUserProviderWrapper(user_provider)),
+            Box::new(SimpleResourceProviderWrapper(resource_provider)),
+            Box::new(SimpleEnvProviderWrapper(env_provider)),
+        );
+
+        let policy_service = crate::policy::PolicyService::with_services(
+            config,
+            Some(rbac_service),
+            Some(abac_service),
+        );
+
+        self.policy = Some(policy_service);
+        Ok(())
+    }
+
+    /// Set policy service directly
+    pub fn set_policy_service(&mut self, policy_service: PolicyService) {
+        self.policy = Some(policy_service);
+    }
+
+    /// Check access permission using unified RBAC/ABAC policy engine
+    pub async fn check_access_policy(
+        &self,
+        principal_id: &str,
+        resource_type: &ResourceType,
+        resource_id: Option<&str>,
+        action: &Action,
+    ) -> Result<bool> {
+        let policy_service = self.policy.as_ref()
+            .ok_or_else(|| SecurityError::Configuration("Policy service not configured".to_string()))?;
+
+        let principal_id_string = principal_id.to_string();
+        let resource_id_string = resource_id.map(|s| s.to_string());
+
+        policy_service.check_permission(&principal_id_string, resource_type, resource_id_string.as_ref(), action).await
+    }
+
+    /// Authorize action with detailed policy decision
+    pub async fn authorize_action(
+        &self,
+        principal_id: &str,
+        resource_type: &ResourceType,
+        resource_id: Option<&str>,
+        action: &Action,
+    ) -> Result<crate::policy::UnifiedPolicyDecision> {
+        let policy_service = self.policy.as_ref()
+            .ok_or_else(|| SecurityError::Configuration("Policy service not configured".to_string()))?;
+
+        let principal_id_string = principal_id.to_string();
+        let resource_id_string = resource_id.map(|s| s.to_string());
+
+        policy_service.authorize(&principal_id_string, resource_type, resource_id_string.as_ref(), action).await
+    }
+
+    /// Add RBAC role
+    pub fn add_role(&mut self, role: crate::rbac::Role) -> Result<()> {
+        let policy_service = self.policy.as_mut()
+            .ok_or_else(|| SecurityError::Configuration("Policy service not configured".to_string()))?;
+
+        policy_service.add_role(role)
+    }
+
+    /// Assign role to principal
+    pub fn assign_role(&mut self, assignment: crate::rbac::RoleAssignment) -> Result<()> {
+        let policy_service = self.policy.as_mut()
+            .ok_or_else(|| SecurityError::Configuration("Policy service not configured".to_string()))?;
+
+        policy_service.assign_role(assignment)
+    }
+
+    /// Add ABAC policy
+    pub fn add_policy(&mut self, policy: crate::abac::Policy) -> Result<()> {
+        let policy_service = self.policy.as_mut()
+            .ok_or_else(|| SecurityError::Configuration("Policy service not configured".to_string()))?;
+
+        policy_service.add_policy(policy)
+    }
+
+    /// Setup common roles and policies
+    pub fn setup_common_policies(&mut self) -> Result<()> {
+        let policy_service = self.policy.as_mut()
+            .ok_or_else(|| SecurityError::Configuration("Policy service not configured".to_string()))?;
+
+        policy_service.setup_common_policies()
+    }
+
+    /// Get policy service for advanced operations
+    pub fn policy_service(&self) -> Option<&PolicyService> {
+        self.policy.as_ref()
+    }
+
+    /// Get mutable policy service
+    pub fn policy_service_mut(&mut self) -> Option<&mut PolicyService> {
+        self.policy.as_mut()
+    }
+}
+
+// Wrapper types for thread-safe attribute providers
+pub struct SimpleUserProviderWrapper(std::sync::Arc<std::sync::Mutex<crate::abac::SimpleUserAttributeProvider>>);
+
+#[async_trait::async_trait(?Send)]
+impl crate::abac::UserAttributeProvider for SimpleUserProviderWrapper {
+    async fn get_attributes(&self, principal_id: &crate::abac::PrincipalId) -> Result<crate::abac::UserAttributes> {
+        let provider = self.0.lock().unwrap();
+        provider.get_attributes(principal_id).await
+    }
+}
+
+pub struct SimpleResourceProviderWrapper(std::sync::Arc<std::sync::Mutex<crate::abac::SimpleResourceAttributeProvider>>);
+
+#[async_trait::async_trait(?Send)]
+impl crate::abac::ResourceAttributeProvider for SimpleResourceProviderWrapper {
+    async fn get_attributes(&self, resource_type: &ResourceType, resource_id: Option<&crate::abac::ResourceId>) -> Result<crate::abac::ResourceAttributes> {
+        let provider = self.0.lock().unwrap();
+        provider.get_attributes(resource_type, resource_id).await
+    }
+}
+
+pub struct SimpleEnvProviderWrapper(std::sync::Arc<std::sync::Mutex<crate::abac::SimpleEnvironmentAttributeProvider>>);
+
+#[async_trait::async_trait(?Send)]
+impl crate::abac::EnvironmentAttributeProvider for SimpleEnvProviderWrapper {
+    async fn get_attributes(&self) -> Result<crate::abac::EnvironmentAttributes> {
+        let provider = self.0.lock().unwrap();
+        provider.get_attributes().await
     }
 }
 

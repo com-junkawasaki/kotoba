@@ -38,7 +38,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Resource types that can be protected by capabilities
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResourceType {
     /// Graph database operations
     Graph,
@@ -60,6 +60,12 @@ pub enum ResourceType {
     User,
     /// Custom resource type
     Custom(String),
+}
+
+impl Default for ResourceType {
+    fn default() -> Self {
+        ResourceType::Custom(String::new())
+    }
 }
 
 /// Actions that can be performed on resources
