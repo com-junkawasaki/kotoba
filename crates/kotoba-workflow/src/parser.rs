@@ -598,7 +598,6 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
             priority,
         })
     }
-}
 
 /// ISO 8601 duration文字列をDurationに変換
 fn parse_duration(s: &str) -> Result<Duration, WorkflowError> {
