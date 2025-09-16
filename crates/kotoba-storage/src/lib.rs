@@ -1,2 +1,10 @@
-// Integration tests are located in the storage module's individual backend tests
-// Manual testing can be done by creating StorageManager instances with different configs
+//! kotoba-storage - Kotoba Storage Components
+
+pub mod storage;
+
+pub mod prelude {
+    // Re-export commonly used storage items
+    pub use crate::storage::mvcc::*;
+    pub use crate::storage::merkle::*;
+    pub use crate::storage::backend::{StorageBackend, StorageBackendFactory, StorageManager, BackendStats};
+}

@@ -4,15 +4,10 @@
 //! グラフ書換えルールを使ってリクエスト処理を行います。
 
 use crate::types::{TxId, ContentHash, Result, KotobaError, Value, Properties};
-use crate::GraphRef;
 use crate::http::ir::*;
-use crate::Graph;
-use crate::VertexData;
-use crate::EdgeData;
-use crate::MVCCManager;
-use crate::MerkleDAG;
-use crate::RewriteEngine;
-use crate::RewriteExterns;
+use kotoba_graph::prelude::*;
+use kotoba_storage::prelude::*;
+use kotoba_rewrite::prelude::*;
 use kotoba_security::{SecurityService, AuditResult};
 use kotoba_core::ir::rule::{RuleIR, Match};
 use kotoba_core::ir::strategy::{StrategyIR, StrategyOp};
