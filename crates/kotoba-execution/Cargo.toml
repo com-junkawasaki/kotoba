@@ -17,8 +17,8 @@ serde_json = "1.0"
 thiserror = "2.0"
 anyhow = "1.0"
 uuid = { workspace = true, features = ["v4"] }
-kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.1" }
+kotoba-core = "0.1.15"
+kotoba-graph = "0.1.15"
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
