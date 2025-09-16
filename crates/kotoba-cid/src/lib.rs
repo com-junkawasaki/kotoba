@@ -1,7 +1,7 @@
 //! CID (Content ID) システムの実装
 //! Merkle DAGにおけるコンテンツアドレッシング
 
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;

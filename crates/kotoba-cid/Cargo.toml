@@ -13,7 +13,7 @@ homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = "0.1.16"
+kotoba-core = "0.1.17"
 
 # Hash algorithms
 sha2 = "0.10"
@@ -29,6 +29,9 @@ anyhow = "1.0"
 
 # Base64 encoding for JCS canonicalization
 base64 = "0.21"
+
+# Hex encoding/decoding
+hex = "0.4"
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
