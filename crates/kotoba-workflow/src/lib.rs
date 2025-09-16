@@ -33,6 +33,10 @@ pub mod store;
 pub mod activity;
 pub mod parser;
 pub mod distributed;
+pub mod saga;
+pub mod monitoring;
+pub mod optimization;
+pub mod integrations;
 
 // Re-export main types
 pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ActivityIR, ExecutionStatus};
@@ -44,6 +48,11 @@ pub use distributed::{
     DistributedCoordinator, DistributedExecutionManager, DistributedWorkflowExecutor,
     LoadBalancer, RoundRobinBalancer, LeastLoadedBalancer, NodeInfo, ClusterHealth
 };
+// Phase 3: Advanced Features
+pub use saga::{SagaManager, SagaExecutionEngine, AdvancedSagaPattern, SagaContext};
+pub use monitoring::{MonitoringManager, MonitoringConfig, WorkflowStats, ActivityStats, SystemHealth};
+pub use optimization::{WorkflowOptimizer, OptimizationStrategy, OptimizationResult, ParallelExecutionPlan};
+pub use integrations::{IntegrationManager, Integration, HttpIntegration, DatabaseIntegration};
 
 /// Workflow engine builder
 pub struct WorkflowEngineBuilder {
@@ -363,5 +372,8 @@ pub mod prelude {
         // Phase 2 distributed types
         DistributedCoordinator, DistributedExecutionManager, DistributedWorkflowExecutor,
         LoadBalancer, RoundRobinBalancer, LeastLoadedBalancer,
+        // Phase 3 advanced features
+        SagaManager, SagaExecutionEngine, MonitoringManager, WorkflowOptimizer,
+        IntegrationManager, HttpIntegration, DatabaseIntegration,
     };
 }
