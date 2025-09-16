@@ -38,9 +38,15 @@ jsonschema = "0.17"
 blake3 = "1.5"
 
 # Kotoba internal crates
+kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }
+kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" }
+kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.15" }
+kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.15" }
+kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.15" }
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15", features = ["yaml"] }
 kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
 kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
+kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
 
 # Root crate configuration
 [package]

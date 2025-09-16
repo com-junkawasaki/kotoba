@@ -77,6 +77,18 @@
       build_order: 3,
     },
 
+    // Workflow 層 (Itonami)
+    'ir_workflow': {
+      name: 'ir_workflow',
+      path: 'crates/kotoba-workflow/src/ir.rs',
+      type: 'workflow',
+      description: 'TemporalベースワークフローIR (WorkflowIR, Activity, Saga)',
+      dependencies: ['types', 'ir_strategy'],
+      provides: ['WorkflowIR', 'ActivityIR', 'WorkflowExecution', 'SagaPattern'],
+      status: 'planned',
+      build_order: 4,
+    },
+
     // グラフ層
     'graph_vertex': {
       name: 'graph_vertex',
@@ -199,6 +211,29 @@
       dependencies: ['types', 'ir_query', 'ir_catalog', 'graph_core', 'storage_mvcc', 'storage_merkle', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser'],
       provides: ['QueryExecutor'],
       status: 'completed',
+      build_order: 7,
+    },
+
+    // Workflow 実行層 (Itonami)
+    'workflow_executor': {
+      name: 'workflow_executor',
+      path: 'crates/kotoba-workflow/src/executor.rs',
+      type: 'workflow',
+      description: 'Temporalベースワークフロー実行器',
+      dependencies: ['types', 'ir_workflow', 'graph_core', 'storage_mvcc', 'storage_merkle', 'execution_engine'],
+      provides: ['WorkflowExecutor', 'ActivityExecutor', 'SagaExecutor'],
+      status: 'planned',
+      build_order: 8,
+    },
+
+    'workflow_store': {
+      name: 'workflow_store',
+      path: 'crates/kotoba-workflow/src/store.rs',
+      type: 'workflow',
+      description: 'ワークフロー状態永続化 (MVCCベース)',
+      dependencies: ['types', 'ir_workflow', 'storage_mvcc', 'storage_merkle'],
+      provides: ['WorkflowStore', 'WorkflowStateManager', 'EventStore'],
+      status: 'planned',
       build_order: 7,
     },
 
@@ -841,6 +876,20 @@
     { from: 'types', to: 'ir_strategy' },
     { from: 'ir_patch', to: 'ir_strategy' },
     { from: 'ir_strategy', to: 'rewrite_engine' },
+
+    // Workflow 層依存
+    { from: 'types', to: 'ir_workflow' },
+    { from: 'ir_strategy', to: 'ir_workflow' },
+    { from: 'types', to: 'workflow_executor' },
+    { from: 'types', to: 'workflow_store' },
+    { from: 'ir_workflow', to: 'workflow_executor' },
+    { from: 'ir_workflow', to: 'workflow_store' },
+    { from: 'graph_core', to: 'workflow_executor' },
+    { from: 'storage_mvcc', to: 'workflow_executor' },
+    { from: 'storage_merkle', to: 'workflow_executor' },
+    { from: 'execution_engine', to: 'workflow_executor' },
+    { from: 'storage_mvcc', to: 'workflow_store' },
+    { from: 'storage_merkle', to: 'workflow_store' },
 
     // グラフ層依存
     { from: 'types', to: 'graph_core' },

@@ -1,7 +1,9 @@
-//! Strategy-IR（極小戦略表現）
+//! Strategy-IR（極小戦略表現 + Temporal拡張）
 
 use serde::{Deserialize, Serialize};
 use crate::types::*;
+use std::time::Duration;
+use std::collections::HashMap;
 
 /// 戦略演算子
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +45,46 @@ pub enum StrategyOp {
     Priority {
         strategies: Vec<PrioritizedStrategy>,
     },
+
+    // ===== Temporal Workflow パターン拡張 =====
+
+    /// 並列実行
+    Parallel {
+        branches: Vec<Box<StrategyOp>>,
+        #[serde(default)]
+        completion_condition: CompletionCondition,
+    },
+
+    /// 条件分岐（Decision）
+    Decision {
+        conditions: Vec<DecisionBranch>,
+        default_branch: Option<Box<StrategyOp>>,
+    },
+
+    /// タイマー/イベント待ち
+    Wait {
+        condition: WaitCondition,
+        timeout: Option<Duration>,
+    },
+
+    /// Sagaパターン（補償トランザクション）
+    Saga {
+        main_flow: Box<StrategyOp>,
+        compensation: Box<StrategyOp>,
+    },
+
+    /// Activity実行
+    Activity {
+        activity_ref: String,
+        input_mapping: HashMap<String, String>,
+        retry_policy: Option<RetryPolicy>,
+    },
+
+    /// 子ワークフロー実行
+    SubWorkflow {
+        workflow_ref: String,
+        input_mapping: HashMap<String, String>,
+    },
 }
 
 /// 優先順位付き戦略
@@ -80,14 +122,96 @@ pub struct StrategyResult {
     pub patches: Vec<crate::ir::patch::Patch>,
 }
 
-/// 外部述語/測度トレイト
-pub trait Externs {
-    /// 次数が指定値以上かチェック
-    fn deg_ge(&self, v: VertexId, k: u32) -> bool;
+/// 並列完了条件
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum CompletionCondition {
+    #[default]
+    /// 全てのブランチが完了するまで待つ
+    All,
+    /// いずれかのブランチが完了したら進む
+    Any,
+    /// 指定数のブランチが完了したら進む
+    AtLeast(u32),
+}
 
-    /// エッジ数が非増加かチェック（停止測度）
-    fn edge_count_nonincreasing(&self, g0: &crate::graph::GraphRef, g1: &crate::graph::GraphRef) -> bool;
+/// 条件分岐ブランチ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecisionBranch {
+    pub condition: String,  // 条件式（extern参照）
+    pub branch: Box<StrategyOp>,
+}
 
-    /// カスタム述語
-    fn custom_pred(&self, name: &str, args: &[Value]) -> bool;
+/// 待機条件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum WaitCondition {
+    /// タイマー待機
+    Timer {
+        duration: Duration,
+    },
+    /// イベント待機
+    Event {
+        event_type: String,
+        filter: Option<HashMap<String, Value>>,
+    },
+    /// シグナル待機
+    Signal {
+        signal_name: String,
+    },
+}
+
+/// リトライポリシー
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetryPolicy {
+    pub initial_interval: Duration,
+    pub backoff_coefficient: f64,
+    pub maximum_interval: Option<Duration>,
+    pub maximum_attempts: u32,
+    pub non_retryable_errors: Vec<String>,
+}
+
+/// 戦略実行結果（拡張）
+#[derive(Debug, Clone)]
+pub struct ExtendedStrategyResult {
+    pub base_result: StrategyResult,
+    pub workflow_events: Vec<WorkflowEvent>,
+    pub parallel_results: Option<Vec<StrategyResult>>,
+}
+
+/// ワークフローイベント
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowEvent {
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub event_type: WorkflowEventType,
+    pub payload: HashMap<String, Value>,
+}
+
+/// ワークフローイベント種別
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WorkflowEventType {
+    ActivityScheduled,
+    ActivityStarted,
+    ActivityCompleted,
+    ActivityFailed,
+    DecisionMade,
+    TimerScheduled,
+    TimerFired,
+    SignalReceived,
+    BranchCompleted,
+    BranchFailed,
+}
+
+/// 外部述語/測度トレイト（拡張）
+pub trait ExtendedExterns: Externs {
+    /// ワークフロー条件評価
+    fn evaluate_condition(&self, condition: &str, context: &HashMap<String, Value>) -> bool;
+
+    /// Activity実行
+    fn execute_activity(&self, activity_ref: &str, inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, String>;
+
+    /// イベント購読
+    fn wait_for_event(&self, event_type: &str, filter: Option<&HashMap<String, Value>>, timeout: Option<Duration>) -> Result<HashMap<String, Value>, String>;
+
+    /// シグナル送信
+    fn send_signal(&self, signal_name: &str, payload: HashMap<String, Value>) -> Result<(), String>;
 }

@@ -1,0 +1,169 @@
+{
+  // ==========================================
+  // Temporal-inspired Order Processing Workflow
+  // ==========================================
+  // This example demonstrates a complete order processing workflow
+  // with Saga pattern, parallel execution, and compensation logic
+
+  workflow: {
+    id: "order_processing_saga",
+    name: "Order Processing with Saga Pattern",
+    description: "Complete order processing workflow with compensation",
+    version: "1.0.0",
+
+    inputs: [
+      { name: "orderId", type: "string", required: true },
+      { name: "customerId", type: "string", required: true },
+      { name: "amount", type: "number", required: true },
+      { name: "items", type: "array", required: true },
+    ],
+
+    outputs: [
+      { name: "processed", type: "boolean" },
+      { name: "confirmationId", type: "string" },
+      { name: "totalAmount", type: "number" },
+    ],
+
+    strategy: {
+      op: "saga",
+      main_flow: {
+        op: "seq",
+        strategies: [
+          // Step 1: Validate order
+          {
+            op: "activity",
+            activity_ref: "validate_order",
+            input_mapping: {
+              order_id: "$.inputs.orderId",
+              customer_id: "$.inputs.customerId",
+              items: "$.inputs.items",
+            },
+            retry_policy: {
+              initial_interval: "PT1S",
+              backoff_coefficient: 2.0,
+              maximum_interval: "PT30S",
+              maximum_attempts: 3,
+              non_retryable_errors: ["INVALID_CUSTOMER", "INVALID_ITEM"],
+            },
+          },
+
+          // Step 2: Parallel processing (Payment + Inventory)
+          {
+            op: "parallel",
+            completion_condition: "all", // Wait for all branches to complete
+            branches: [
+              // Branch 1: Process payment
+              {
+                op: "activity",
+                activity_ref: "process_payment",
+                input_mapping: {
+                  amount: "$.inputs.amount",
+                  order_id: "$.inputs.orderId",
+                },
+                retry_policy: {
+                  initial_interval: "PT2S",
+                  backoff_coefficient: 1.5,
+                  maximum_interval: "PT60S",
+                  maximum_attempts: 5,
+                  non_retryable_errors: ["INSUFFICIENT_FUNDS"],
+                },
+              },
+
+              // Branch 2: Reserve inventory
+              {
+                op: "activity",
+                activity_ref: "reserve_inventory",
+                input_mapping: {
+                  items: "$.inputs.items",
+                  order_id: "$.inputs.orderId",
+                },
+                retry_policy: {
+                  initial_interval: "PT1S",
+                  backoff_coefficient: 2.0,
+                  maximum_interval: "PT45S",
+                  maximum_attempts: 4,
+                  non_retryable_errors: ["OUT_OF_STOCK"],
+                },
+              },
+
+              // Branch 3: Fraud check (with timeout)
+              {
+                op: "seq",
+                strategies: [
+                  {
+                    op: "wait",
+                    condition: { type: "timer", duration: "PT10S" },
+                  },
+                  {
+                    op: "activity",
+                    activity_ref: "fraud_check",
+                    input_mapping: {
+                      customer_id: "$.inputs.customerId",
+                      amount: "$.inputs.amount",
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+
+          // Step 3: Send confirmation
+          {
+            op: "activity",
+            activity_ref: "send_confirmation",
+            input_mapping: {
+              order_id: "$.inputs.orderId",
+              customer_id: "$.inputs.customerId",
+              amount: "$.inputs.amount",
+            },
+          },
+        ],
+      },
+
+      // Compensation logic (executed if main flow fails)
+      compensation: {
+        op: "seq",
+        strategies: [
+          // Cancel payment if it was processed
+          {
+            op: "activity",
+            activity_ref: "cancel_payment",
+            input_mapping: { order_id: "$.inputs.orderId" },
+          },
+
+          // Release inventory reservation
+          {
+            op: "activity",
+            activity_ref: "release_inventory",
+            input_mapping: { order_id: "$.inputs.orderId" },
+          },
+
+          // Send failure notification
+          {
+            op: "activity",
+            activity_ref: "send_failure_notification",
+            input_mapping: {
+              order_id: "$.inputs.orderId",
+              customer_id: "$.inputs.customerId",
+              reason: "ORDER_PROCESSING_FAILED",
+            },
+          },
+        ],
+      },
+    },
+
+    timeout: "PT10M",  // 10 minutes total timeout
+    retry_policy: {
+      initial_interval: "PT30S",
+      backoff_coefficient: 1.2,
+      maximum_interval: "PT5M",
+      maximum_attempts: 2,
+    },
+
+    metadata: {
+      author: "Itonami Workflow Engine",
+      tags: ["ecommerce", "saga", "compensation"],
+      business_domain: "order_management",
+    },
+  },
+}
