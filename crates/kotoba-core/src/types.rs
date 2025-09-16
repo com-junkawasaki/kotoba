@@ -85,6 +85,24 @@ pub enum KotobaError {
     Serialization(String),
     #[error("Network error: {0}")]
     Network(String),
+
+    // Security-related errors
+    #[error("Security configuration error: {0}")]
+    SecurityConfiguration(String),
+    #[error("Security authentication error: {0}")]
+    SecurityAuthentication(String),
+    #[error("Security authorization error: {0}")]
+    SecurityAuthorization(String),
+    #[error("Security JWT error: {0}")]
+    SecurityJwt(String),
+    #[error("Security OAuth2 error: {0}")]
+    SecurityOAuth2(String),
+    #[error("Security MFA error: {0}")]
+    SecurityMfa(String),
+    #[error("Security password error: {0}")]
+    SecurityPassword(String),
+    #[error("Security session error: {0}")]
+    SecuritySession(String),
 }
 
 pub type Result<T> = std::result::Result<T, KotobaError>;
@@ -93,13 +111,14 @@ pub type Result<T> = std::result::Result<T, KotobaError>;
 impl From<kotoba_security::SecurityError> for KotobaError {
     fn from(error: kotoba_security::SecurityError) -> Self {
         match error {
-            kotoba_security::SecurityError::Configuration(msg) => KotobaError::Configuration(msg),
-            kotoba_security::SecurityError::Authentication(msg) => KotobaError::Security(format!("Authentication error: {}", msg)),
-            kotoba_security::SecurityError::Authorization(msg) => KotobaError::Security(format!("Authorization error: {}", msg)),
-            kotoba_security::SecurityError::Jwt(e) => KotobaError::Security(format!("JWT error: {}", e)),
-            kotoba_security::SecurityError::OAuth2(msg) => KotobaError::Security(format!("OAuth2 error: {}", msg)),
-            kotoba_security::SecurityError::Mfa(msg) => KotobaError::Security(format!("MFA error: {}", msg)),
-            kotoba_security::SecurityError::Password(msg) => KotobaError::Security(format!("Password error: {}", msg)),
+            kotoba_security::SecurityError::Configuration(msg) => KotobaError::SecurityConfiguration(msg),
+            kotoba_security::SecurityError::Authentication(msg) => KotobaError::SecurityAuthentication(msg),
+            kotoba_security::SecurityError::Authorization(msg) => KotobaError::SecurityAuthorization(msg),
+            kotoba_security::SecurityError::Jwt(e) => KotobaError::SecurityJwt(format!("{}", e)),
+            kotoba_security::SecurityError::OAuth2(msg) => KotobaError::SecurityOAuth2(msg),
+            kotoba_security::SecurityError::Mfa(msg) => KotobaError::SecurityMfa(msg),
+            kotoba_security::SecurityError::Password(msg) => KotobaError::SecurityPassword(msg),
+            kotoba_security::SecurityError::Session(msg) => KotobaError::SecuritySession(msg),
             _ => KotobaError::Security(format!("Security error: {:?}", error)),
         }
     }

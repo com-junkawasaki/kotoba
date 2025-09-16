@@ -1,117 +1,91 @@
 //! Security error types and handling
 
-use thiserror::Error;
 use totp_rs::SecretParseError;
 
 /// Result type for security operations
 pub type Result<T> = std::result::Result<T, SecurityError>;
 
-/// Comprehensive security error types
-#[derive(Debug, Error)]
+impl std::fmt::Display for SecurityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SecurityError::Configuration(msg) => write!(f, "Configuration error: {}", msg),
+            SecurityError::Authentication(msg) => write!(f, "Authentication failed: {}", msg),
+            SecurityError::Authorization(msg) => write!(f, "Authorization failed: {}", msg),
+            SecurityError::Jwt(e) => write!(f, "JWT error: {}", e),
+            SecurityError::OAuth2(msg) => write!(f, "OAuth2 error: {}", msg),
+            SecurityError::Mfa(msg) => write!(f, "MFA error: {}", msg),
+            SecurityError::Password(msg) => write!(f, "Password hashing error: {}", msg),
+            SecurityError::Session(msg) => write!(f, "Session error: {}", msg),
+            SecurityError::Http(e) => write!(f, "HTTP client error: {}", e),
+            SecurityError::Json(e) => write!(f, "JSON parsing error: {}", e),
+            SecurityError::Url(e) => write!(f, "URL parsing error: {}", e),
+            SecurityError::Io(e) => write!(f, "IO error: {}", e),
+            SecurityError::Utf8(e) => write!(f, "UTF-8 error: {}", e),
+            SecurityError::Time(msg) => write!(f, "Time error: {}", msg),
+            SecurityError::Crypto(msg) => write!(f, "Cryptography error: {}", msg),
+            SecurityError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            SecurityError::TokenExpired => write!(f, "Token expired"),
+            SecurityError::TokenInvalid => write!(f, "Token invalid"),
+            SecurityError::UserNotFound => write!(f, "User not found"),
+            SecurityError::UserExists => write!(f, "User already exists"),
+            SecurityError::RateLimitExceeded => write!(f, "Rate limit exceeded"),
+            SecurityError::MfaRequired => write!(f, "MFA required"),
+            SecurityError::MfaSetupRequired => write!(f, "MFA setup required"),
+            SecurityError::AccountLocked => write!(f, "Account locked"),
+            SecurityError::AccountDisabled => write!(f, "Account disabled"),
+            SecurityError::InvalidCredentials => write!(f, "Invalid credentials"),
+            SecurityError::InsufficientPermissions => write!(f, "Insufficient permissions"),
+            SecurityError::ProviderNotSupported => write!(f, "Provider not supported"),
+            SecurityError::StateMismatch => write!(f, "State mismatch"),
+            SecurityError::CsrfTokenInvalid => write!(f, "CSRF token invalid"),
+            SecurityError::SessionExpired => write!(f, "Session expired"),
+            SecurityError::SessionInvalid => write!(f, "Session invalid"),
+            SecurityError::Database(msg) => write!(f, "Database error: {}", msg),
+            SecurityError::Cache(msg) => write!(f, "Cache error: {}", msg),
+            SecurityError::ExternalService(msg) => write!(f, "External service error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for SecurityError {}
+
+/// Security error types
+#[derive(Debug)]
 pub enum SecurityError {
-    #[error("Configuration error: {0}")]
     Configuration(String),
-
-    #[error("Authentication failed: {0}")]
     Authentication(String),
-
-    #[error("Authorization failed: {0}")]
     Authorization(String),
-
-    #[error("JWT error: {0}")]
-    Jwt(#[from] jsonwebtoken::errors::Error),
-
-    #[error("OAuth2 error: {0}")]
+    Jwt(jsonwebtoken::errors::Error),
     OAuth2(String),
-
-    #[error("MFA error: {0}")]
     Mfa(String),
-
-    #[error("Password hashing error: {0}")]
     Password(String),
-
-    #[error("Session error: {0}")]
     Session(String),
-
-    #[error("HTTP client error: {0}")]
-    Http(#[from] reqwest::Error),
-
-    #[error("JSON parsing error: {0}")]
-    Json(#[from] serde_json::Error),
-
-    #[error("URL parsing error: {0}")]
-    Url(#[from] url::ParseError),
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("UTF-8 error: {0}")]
-    Utf8(#[from] std::string::FromUtf8Error),
-
-    #[error("Time error: {0}")]
+    Http(reqwest::Error),
+    Json(serde_json::Error),
+    Url(url::ParseError),
+    Io(std::io::Error),
+    Utf8(std::string::FromUtf8Error),
     Time(String),
-
-    #[error("Cryptography error: {0}")]
     Crypto(String),
-
-    #[error("Invalid input: {0}")]
     InvalidInput(String),
-
-    #[error("Token expired")]
     TokenExpired,
-
-    #[error("Token invalid")]
     TokenInvalid,
-
-    #[error("User not found")]
     UserNotFound,
-
-    #[error("User already exists")]
     UserExists,
-
-    #[error("Rate limit exceeded")]
     RateLimitExceeded,
-
-    #[error("MFA required")]
     MfaRequired,
-
-    #[error("MFA setup required")]
     MfaSetupRequired,
-
-    #[error("Account locked")]
     AccountLocked,
-
-    #[error("Account disabled")]
     AccountDisabled,
-
-    #[error("Invalid credentials")]
     InvalidCredentials,
-
-    #[error("Insufficient permissions")]
     InsufficientPermissions,
-
-    #[error("Provider not supported")]
     ProviderNotSupported,
-
-    #[error("State mismatch")]
     StateMismatch,
-
-    #[error("CSRF token invalid")]
     CsrfTokenInvalid,
-
-    #[error("Session expired")]
     SessionExpired,
-
-    #[error("Session invalid")]
     SessionInvalid,
-
-    #[error("Database error: {0}")]
     Database(String),
-
-    #[error("Cache error: {0}")]
     Cache(String),
-
-    #[error("External service error: {0}")]
     ExternalService(String),
 }
 

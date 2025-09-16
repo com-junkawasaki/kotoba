@@ -49,6 +49,12 @@ kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
 kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
 kotoba-deploy = { path = "crates/kotoba-deploy", version = "0.1.15" }
 
+# New modular crates
+kotoba-distributed = { path = "crates/kotoba-distributed", version = "0.1.15" }
+kotoba-network = { path = "crates/kotoba-network", version = "0.1.15" }
+kotoba-cid = { path = "crates/kotoba-cid", version = "0.1.15" }
+kotoba-cli = { path = "crates/kotoba-cli", version = "0.1.15" }
+
 # Root crate configuration
 [package]
 name = "kotoba"
@@ -79,18 +85,24 @@ codegen-units = 1
 panic = "abort"
 
 [dependencies]
-# Core crates - published versions
-kotoba-core = "0.1.15"
-kotoba-graph = "0.1.15"
-kotoba-storage = "0.1.15"
-kotoba-execution = "0.1.15"
-kotoba-rewrite = "0.1.15"
-kotoba-security.workspace = true
+# Core crates - workspace versions
+kotoba-core.workspace = true
+kotoba-graph.workspace = true
+kotoba-storage.workspace = true
+kotoba-execution.workspace = true
+kotoba-rewrite.workspace = true
+# kotoba-security.workspace = true
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
 # Kotoba internal crates
 kotoba-jsonnet.workspace = true
 # kotoba-kotobanet.workspace = true  # まだ安定していないためコメントアウト
+
+# New modular crates
+kotoba-distributed.workspace = true
+kotoba-network.workspace = true
+kotoba-cid.workspace = true
+kotoba-cli.workspace = true
 
 # Schema and CID dependencies
 schemars.workspace = true
@@ -147,6 +159,7 @@ proptest = "1.0"
 quickcheck = "1.0"
 rand = "0.8"
 uuid = { version = "1.0", features = ["v4"] }
+rayon = "1.7"
 
 [[bench]]
 name = "graph_operations"
@@ -171,6 +184,16 @@ harness = false
 [[bench]]
 name = "jsonnet_benchmark"
 path = "benches/jsonnet_benchmark.rs"
+harness = false
+
+[[bench]]
+name = "parallel_processing"
+path = "benches/parallel_processing.rs"
+harness = false
+
+[[bench]]
+name = "advanced_algorithms"
+path = "benches/advanced_algorithms.rs"
 harness = false
 
 # Examples are excluded from publish to avoid dependency issues

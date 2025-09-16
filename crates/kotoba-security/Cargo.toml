@@ -58,8 +58,7 @@ hmac = "0.12"
 # Regular expressions for ABAC conditions
 regex = "1.10"
 
-# Kotoba core dependencies
-kotoba-core = { path = "../kotoba-core", version = "0.1.0" }
+# Kotoba dependencies
 kotoba-graph = { path = "../kotoba-graph", version = "0.1.0" }
 kotoba-storage = { path = "../kotoba-storage", version = "0.1.0" }
 
