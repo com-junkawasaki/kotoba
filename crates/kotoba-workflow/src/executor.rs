@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 use tokio::time::timeout;
 
 use kotoba_core::types::*;
+use kotoba_core::prelude::StrategyOp;
 use crate::ir::*;
 
 /// Activity実行インターフェース
@@ -217,6 +218,492 @@ pub enum WorkflowError {
     StorageError(String),
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
+}
+
+/// WorkflowExecutor - Temporalベースワークフロー実行エンジン
+pub struct WorkflowExecutor {
+    activity_registry: Arc<ActivityRegistry>,
+    state_manager: Arc<WorkflowStateManager>,
+}
+
+impl WorkflowExecutor {
+    pub fn new(
+        activity_registry: Arc<ActivityRegistry>,
+        state_manager: Arc<WorkflowStateManager>,
+    ) -> Self {
+        Self {
+            activity_registry,
+            state_manager,
+        }
+    }
+
+    /// ワークフロー実行開始
+    pub async fn start_workflow(
+        &self,
+        workflow_ir: &WorkflowIR,
+        inputs: HashMap<String, serde_json::Value>,
+    ) -> std::result::Result<WorkflowExecutionId, WorkflowError> {
+        // ワークフロー実行インスタンス作成
+        let execution_id = self.state_manager.create_execution(workflow_ir, inputs.clone()).await?;
+
+        // ワークフロー実行を開始（バックグラウンドで実行）
+        let executor = Arc::new(Self::new(
+            Arc::clone(&self.activity_registry),
+            Arc::clone(&self.state_manager),
+        ));
+
+        let workflow_ir = workflow_ir.clone();
+        let execution_id_clone = execution_id.clone();
+
+        tokio::spawn(async move {
+            if let Err(e) = executor.execute_workflow(workflow_ir, execution_id_clone).await {
+                eprintln!("Workflow execution failed: {:?}", e);
+            }
+        });
+
+        Ok(execution_id)
+    }
+
+    /// ワークフロー実行メイン処理
+    async fn execute_workflow(
+        &self,
+        workflow_ir: WorkflowIR,
+        execution_id: WorkflowExecutionId,
+    ) -> std::result::Result<(), WorkflowError> {
+        // 初期グラフ状態を作成
+        let initial_graph = DummyGraphRef::new();
+
+        // 戦略実行
+        let result = self.execute_strategy(workflow_ir.strategy, initial_graph, &execution_id).await;
+
+        // 実行結果に基づいて最終状態を更新
+        let mut execution = self.state_manager.get_execution(&execution_id).await
+            .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
+
+        match result {
+            Ok(final_graph) => {
+                execution.status = ExecutionStatus::Completed;
+                execution.end_time = Some(chrono::Utc::now());
+                execution.current_graph = final_graph;
+                // outputs は最終グラフから抽出（TODO）
+            }
+            Err(e) => {
+                execution.status = ExecutionStatus::Failed;
+                execution.end_time = Some(chrono::Utc::now());
+                // TODO: エラーイベント追加
+            }
+        }
+
+        self.state_manager.update_execution(execution).await?;
+        Ok(())
+    }
+
+    /// 戦略実行（再帰的）
+    fn execute_strategy<'a>(
+        &'a self,
+        strategy: WorkflowStrategyOp,
+        graph: DummyGraphRef,
+        execution_id: &'a WorkflowExecutionId,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<DummyGraphRef, WorkflowError>> + Send + 'a>> {
+        Box::pin(async move {
+            match strategy {
+                WorkflowStrategyOp::Parallel { branches, completion_condition } => {
+                    self.execute_parallel(branches, completion_condition, graph, execution_id).await
+                }
+                WorkflowStrategyOp::Decision { conditions, default_branch } => {
+                    self.execute_decision(conditions, default_branch, graph, execution_id).await
+                }
+                WorkflowStrategyOp::Wait { condition, timeout } => {
+                    self.execute_wait(condition, timeout, graph, execution_id).await
+                }
+                WorkflowStrategyOp::Saga { main_flow, compensation } => {
+                    self.execute_saga(*main_flow, *compensation, graph, execution_id).await
+                }
+                WorkflowStrategyOp::Activity { activity_ref, input_mapping, retry_policy } => {
+                    self.execute_activity(activity_ref, input_mapping, retry_policy, graph, execution_id).await
+                }
+                WorkflowStrategyOp::SubWorkflow { workflow_ref, input_mapping } => {
+                    self.execute_subworkflow(workflow_ref, input_mapping, graph, execution_id).await
+                }
+            }
+        })
+    }
+
+    /// 基本戦略実行
+    fn execute_basic_strategy<'a>(
+        &'a self,
+        strategy: StrategyOp,
+        graph: DummyGraphRef,
+        execution_id: &'a WorkflowExecutionId,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<DummyGraphRef, WorkflowError>> + Send + 'a>> {
+        Box::pin(async move {
+            match strategy {
+                StrategyOp::Seq { strategies } => {
+                    let mut current_graph = graph;
+                    for strategy in strategies {
+                        current_graph = self.execute_basic_strategy(*strategy, current_graph, execution_id).await?;
+                    }
+                    Ok(current_graph)
+                }
+                StrategyOp::Once { rule } => {
+                    // ルール適用（簡易実装）
+                    println!("Executing rule: {}", rule);
+                    Ok(graph) // TODO: 実際のルール適用を実装
+                }
+                StrategyOp::Exhaust { rule, order: _, measure: _ } => {
+                    // ルール適用（簡易実装）
+                    println!("Executing rule exhaustively: {}", rule);
+                    Ok(graph)
+                }
+                StrategyOp::While { rule, pred: _, order: _ } => {
+                    // 条件付きルール適用
+                    println!("Executing rule while predicate: {}", rule);
+                    Ok(graph)
+                }
+                StrategyOp::Choice { strategies } => {
+                    // 選択実行（最初の成功したものを返す）
+                    for strategy in strategies {
+                        match self.execute_basic_strategy(*strategy.clone(), graph.clone(), execution_id).await {
+                            Ok(result_graph) => return Ok(result_graph),
+                            Err(_) => continue,
+                        }
+                    }
+                    Err(WorkflowError::InvalidStrategy("All strategies in choice failed".to_string()))
+                }
+                StrategyOp::Priority { strategies } => {
+                    // 優先度付き実行
+                    println!("Executing with priority");
+                    // TODO: 優先度に基づいて実行順序を決定
+                    // 簡易実装として最初の戦略を実行
+                    if let Some(first_strategy) = strategies.first() {
+                        self.execute_basic_strategy((*first_strategy.strategy).clone(), graph, execution_id).await
+                    } else {
+                        Ok(graph)
+                    }
+                }
+            }
+        })
+    }
+
+    /// 並列実行
+    async fn execute_parallel(
+        &self,
+        branches: Vec<Box<WorkflowStrategyOp>>,
+        completion_condition: CompletionCondition,
+        graph: DummyGraphRef,
+        execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+        let mut handles = vec![];
+
+        for branch in branches {
+            let executor = Arc::new(Self::new(
+                Arc::clone(&self.activity_registry),
+                Arc::clone(&self.state_manager),
+            ));
+            let graph_clone = graph.clone();
+            let execution_id_clone = execution_id.clone();
+
+            let handle = tokio::spawn(async move {
+                executor.execute_strategy(*branch, graph_clone, &execution_id_clone).await
+            });
+            handles.push(handle);
+        }
+
+        match completion_condition {
+            CompletionCondition::All => {
+                // 全てのブランチが完了するまで待つ
+                let mut results = vec![];
+                for handle in handles {
+                    results.push(handle.await.map_err(|_| WorkflowError::InvalidStrategy("Task panicked".to_string()))?);
+                }
+                // 最初の成功したグラフを返す
+                results.into_iter().next().unwrap_or(Ok(graph))
+            }
+            CompletionCondition::Any => {
+                // いずれかのブランチが完了したら進む
+                // TODO: select! マクロを使って実装
+                Err(WorkflowError::InvalidStrategy("Any completion not implemented".to_string()))
+            }
+            CompletionCondition::AtLeast(count) => {
+                // 指定数のブランチが完了したら進む
+                Err(WorkflowError::InvalidStrategy("AtLeast completion not implemented".to_string()))
+            }
+        }
+    }
+
+    /// 条件分岐実行
+    async fn execute_decision(
+        &self,
+        conditions: Vec<DecisionBranch>,
+        default_branch: Option<Box<WorkflowStrategyOp>>,
+        graph: DummyGraphRef,
+        execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+        // 実行コンテキストを取得
+        let execution = self.state_manager.get_execution(execution_id).await
+            .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
+
+        let context = execution.inputs.clone();
+
+        // 条件を順番に評価
+        for branch in conditions {
+            if self.evaluate_condition(&branch.condition, &context) {
+                return self.execute_strategy(*branch.branch, graph, execution_id).await;
+            }
+        }
+
+        // デフォルトブランチを実行
+        if let Some(default_branch) = default_branch {
+            self.execute_strategy(*default_branch, graph, execution_id).await
+        } else {
+            Ok(graph) // 何も実行しない
+        }
+    }
+
+    /// 待機実行
+    async fn execute_wait(
+        &self,
+        condition: WaitCondition,
+        timeout: Option<Duration>,
+        graph: DummyGraphRef,
+        _execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+        match condition {
+            WaitCondition::Timer { duration } => {
+                tokio::time::sleep(duration).await;
+                Ok(graph)
+            }
+            WaitCondition::Event { event_type, filter } => {
+                // イベント待機は別途実装が必要
+                println!("Waiting for event: {}", event_type);
+                if let Some(timeout) = timeout {
+                    tokio::time::sleep(timeout).await;
+                }
+                Ok(graph)
+            }
+            WaitCondition::Signal { signal_name } => {
+                // シグナル待機は別途実装が必要
+                println!("Waiting for signal: {}", signal_name);
+                if let Some(timeout) = timeout {
+                    tokio::time::sleep(timeout).await;
+                }
+                Ok(graph)
+            }
+        }
+    }
+
+    /// Sagaパターン実行
+    async fn execute_saga(
+        &self,
+        main_flow: WorkflowStrategyOp,
+        compensation: WorkflowStrategyOp,
+        graph: DummyGraphRef,
+        execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+        // メイン処理を実行
+        match self.execute_strategy(main_flow, graph.clone(), execution_id).await {
+            Ok(result_graph) => Ok(result_graph),
+            Err(e) => {
+                // 失敗したら補償処理を実行
+                println!("Main flow failed, executing compensation");
+                match self.execute_strategy(compensation, graph, execution_id).await {
+                    Ok(_) => Err(WorkflowError::CompensationFailed("Main flow failed, compensation executed".to_string())),
+                    Err(compensation_error) => Err(WorkflowError::CompensationFailed(
+                        format!("Main flow failed and compensation also failed: {:?}", compensation_error)
+                    )),
+                }
+            }
+        }
+    }
+
+    /// Activity実行
+    async fn execute_activity(
+        &self,
+        activity_ref: String,
+        input_mapping: HashMap<String, String>,
+        retry_policy: Option<crate::ir::RetryPolicy>,
+        graph: DummyGraphRef,
+        execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+        // 実行コンテキストから入力値をマッピング
+        let execution = self.state_manager.get_execution(execution_id).await
+            .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
+
+        let inputs = self.map_inputs(&input_mapping, &execution.inputs)?;
+
+        // Activity実行（リトライ対応）
+        let result = if let Some(retry_policy) = retry_policy {
+            self.execute_with_retry(&activity_ref, inputs, retry_policy).await
+        } else {
+            self.activity_registry.execute(&activity_ref, inputs).await
+                .map(|result| result.outputs.unwrap_or_default())
+        };
+
+        match result {
+            Ok(outputs) => {
+                // 実行結果をグラフに反映（TODO）
+                println!("Activity {} completed successfully", activity_ref);
+                Ok(graph)
+            }
+            Err(e) => {
+                println!("Activity {} failed: {:?}", activity_ref, e);
+                Err(WorkflowError::ActivityFailed(e))
+            }
+        }
+    }
+
+    /// 子ワークフロー実行
+    async fn execute_subworkflow(
+        &self,
+        workflow_ref: String,
+        input_mapping: HashMap<String, String>,
+        graph: DummyGraphRef,
+        execution_id: &WorkflowExecutionId,
+    ) -> std::result::Result<DummyGraphRef, WorkflowError> {
+        // 親ワークフローから入力値をマッピング
+        let execution = self.state_manager.get_execution(execution_id).await
+            .ok_or(WorkflowError::WorkflowNotFound(execution_id.0.clone()))?;
+
+        let inputs = self.map_inputs(&input_mapping, &execution.inputs)?;
+
+        // 子ワークフロー定義を取得（実際の実装ではレジストリから取得）
+        // TODO: 子ワークフロー定義の取得を実装
+        println!("Subworkflow {} execution not yet implemented", workflow_ref);
+        Ok(graph)
+    }
+
+    /// リトライ付きActivity実行
+    async fn execute_with_retry(
+        &self,
+        activity_ref: &str,
+        inputs: HashMap<String, serde_json::Value>,
+        retry_policy: crate::ir::RetryPolicy,
+    ) -> std::result::Result<HashMap<String, serde_json::Value>, ActivityError> {
+        let mut attempts = 0;
+        let mut current_interval = retry_policy.initial_interval;
+
+        loop {
+            attempts += 1;
+
+            match self.activity_registry.execute(activity_ref, inputs.clone()).await {
+                Ok(result) => return Ok(result.outputs.unwrap_or_default()),
+                Err(e) => {
+                    // リトライ不可エラーのチェック
+                    if retry_policy.non_retryable_errors.iter().any(|err| e.to_string().contains(err)) {
+                        return Err(e);
+                    }
+
+                    // 最大試行回数チェック
+                    if attempts >= retry_policy.maximum_attempts {
+                        return Err(e);
+                    }
+
+                    // リトライ待機
+                    tokio::time::sleep(current_interval).await;
+
+                    // インターバル更新
+                    current_interval = std::cmp::min(
+                        current_interval.mul_f64(retry_policy.backoff_coefficient),
+                        retry_policy.maximum_interval.unwrap_or(Duration::from_secs(300)),
+                    );
+                }
+            }
+        }
+    }
+
+    /// 入力値マッピング
+    fn map_inputs(
+        &self,
+        mapping: &HashMap<String, String>,
+        context: &HashMap<String, serde_json::Value>,
+    ) -> std::result::Result<HashMap<String, serde_json::Value>, WorkflowError> {
+        let mut inputs = HashMap::new();
+
+        for (key, expr) in mapping {
+            // 簡易的な式評価（実際の実装ではもっと複雑）
+            if expr.starts_with("$.inputs.") {
+                let field = &expr[9..]; // "$.inputs." を除去
+                if let Some(value) = context.get(field) {
+                    inputs.insert(key.clone(), value.clone());
+                }
+            }
+        }
+
+        Ok(inputs)
+    }
+
+    /// 条件式評価
+    fn evaluate_condition(
+        &self,
+        condition: &str,
+        context: &HashMap<String, serde_json::Value>,
+    ) -> bool {
+        // 簡易的な条件評価（実際の実装では式パーサーを使用）
+        // TODO: より複雑な条件式の評価を実装
+        if condition.contains("==") {
+            // 例: "$.inputs.status == 'active'"
+            // 簡易実装なので常にtrueを返す
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// ワークフロー状態マネージャー
+pub struct WorkflowStateManager {
+    // 実行状態の管理（実際の実装では永続化が必要）
+    executions: RwLock<HashMap<String, WorkflowExecution>>,
+}
+
+impl WorkflowStateManager {
+    pub fn new() -> Self {
+        Self {
+            executions: RwLock::new(HashMap::new()),
+        }
+    }
+
+    pub async fn create_execution(
+        &self,
+        workflow_ir: &WorkflowIR,
+        inputs: HashMap<String, serde_json::Value>,
+    ) -> std::result::Result<WorkflowExecutionId, WorkflowError> {
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4().to_string());
+        let execution = WorkflowExecution {
+            id: execution_id.clone(),
+            workflow_id: workflow_ir.id.clone(),
+            status: ExecutionStatus::Running,
+            start_time: chrono::Utc::now(),
+            end_time: None,
+            inputs,
+            outputs: None,
+            current_graph: DummyGraphRef::new(),
+            execution_history: vec![ExecutionEvent {
+                id: uuid::Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                event_type: ExecutionEventType::Started,
+                payload: HashMap::new(),
+            }],
+            retry_count: 0,
+            timeout_at: workflow_ir.timeout.map(|t| chrono::Utc::now() + chrono::Duration::from_std(t).unwrap()),
+        };
+
+        let mut executions = self.executions.write().await;
+        executions.insert(execution_id.0.clone(), execution);
+
+        Ok(execution_id)
+    }
+
+    pub async fn get_execution(&self, id: &WorkflowExecutionId) -> Option<WorkflowExecution> {
+        let executions = self.executions.read().await;
+        executions.get(&id.0).cloned()
+    }
+
+    pub async fn update_execution(&self, execution: WorkflowExecution) -> std::result::Result<(), WorkflowError> {
+        let mut executions = self.executions.write().await;
+        executions.insert(execution.id.0.clone(), execution);
+        Ok(())
+    }
 }
 
 // TODO: Implement workflow execution engine
