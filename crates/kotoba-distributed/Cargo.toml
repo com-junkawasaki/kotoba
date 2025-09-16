@@ -1,0 +1,36 @@
+[package]
+name = "kotoba-distributed"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Distributed execution engine for Kotoba graph processing system"
+keywords = ["distributed", "graph", "processing", "tokio", "cluster"]
+categories = ["concurrency", "network-programming", "data-structures"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-distributed"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba ecosystem
+kotoba-core = { path = "../kotoba-core" }
+kotoba-graph = { path = "../kotoba-graph" }
+kotoba-execution = { path = "../kotoba-execution" }
+kotoba-rewrite = { path = "../kotoba-rewrite" }
+
+# Async runtime
+tokio = { version = "1.0", features = ["sync", "rt", "macros"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+
+# Logging
+tracing = "0.1"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tokio-test = "0.4"
