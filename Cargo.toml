@@ -45,7 +45,7 @@ kotoba-execution = "0.1.15"
 kotoba-rewrite = "0.1.15"
 kotoba-jsonnet = "0.1.15"
 kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
-kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
+kotoba-security = "0.1.15"
 kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
 
 # Root crate configuration
