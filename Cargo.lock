@@ -2410,6 +2410,7 @@ dependencies = [
  "futures",
  "kotoba-core 0.1.15",
  "kotoba-jsonnet",
+ "kotoba-storage 0.1.15",
  "parking_lot",
  "rocksdb",
  "rusqlite",

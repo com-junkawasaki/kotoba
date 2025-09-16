@@ -471,3 +471,96 @@ impl WorkflowStore for SQLiteWorkflowStore {
         Ok(executions)
     }
 }
+/// Bridge to Kotoba storage backend
+pub struct KotobaStorageBridge {
+    kotoba_backend: std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>,
+}
+
+impl KotobaStorageBridge {
+    pub fn new(backend: std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>) -> Self {
+        Self {
+            kotoba_backend: backend,
+        }
+    }
+
+    fn execution_key(execution_id: &crate::ir::WorkflowExecutionId) -> String {
+        format!("workflow:execution:{}", execution_id.0)
+    }
+
+    fn events_key(execution_id: &crate::ir::WorkflowExecutionId) -> String {
+        format!("workflow:events:{}", execution_id.0)
+    }
+}
+
+#[async_trait::async_trait]
+impl WorkflowStore for KotobaStorageBridge {
+    async fn save_execution(&self, execution: &crate::ir::WorkflowExecution) -> std::result::Result<(), crate::WorkflowError> {
+        let key = Self::execution_key(&execution.id);
+        let value = serde_json::to_vec(execution)
+            .map_err(|e| crate::WorkflowError::SerializationError(e))?;
+        self.kotoba_backend.put(key, value).await
+            .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))
+    }
+
+    async fn get_execution(&self, id: &crate::ir::WorkflowExecutionId) -> std::result::Result<std::option::Option<crate::ir::WorkflowExecution>, crate::WorkflowError> {
+        let key = Self::execution_key(id);
+        match self.kotoba_backend.get(&key).await {
+            Ok(Some(data)) => {
+                let execution: crate::ir::WorkflowExecution = serde_json::from_slice(&data)
+                    .map_err(|e| crate::WorkflowError::SerializationError(e))?;
+                Ok(Some(execution))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e))),
+        }
+    }
+
+    async fn update_execution(&self, execution: &crate::ir::WorkflowExecution) -> std::result::Result<(), crate::WorkflowError> {
+        self.save_execution(execution).await
+    }
+
+    async fn add_event(&self, execution_id: &crate::ir::WorkflowExecutionId, event: crate::ir::ExecutionEvent) -> std::result::Result<(), crate::WorkflowError> {
+        let key = Self::events_key(execution_id);
+        let mut events = match self.kotoba_backend.get(&key).await {
+            Ok(Some(data)) => serde_json::from_slice::<Vec<crate::ir::ExecutionEvent>>(&data)
+                .map_err(|e| crate::WorkflowError::SerializationError(e))?,
+            Ok(None) => Vec::new(),
+            Err(e) => return Err(crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e))),
+        };
+        events.push(event);
+        let value = serde_json::to_vec(&events)
+            .map_err(|e| crate::WorkflowError::SerializationError(e))?;
+        self.kotoba_backend.put(key, value).await
+            .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))
+    }
+
+    async fn get_events(&self, execution_id: &crate::ir::WorkflowExecutionId) -> std::result::Result<Vec<crate::ir::ExecutionEvent>, crate::WorkflowError> {
+        let key = Self::events_key(execution_id);
+        match self.kotoba_backend.get(&key).await {
+            Ok(Some(data)) => {
+                let events: Vec<crate::ir::ExecutionEvent> = serde_json::from_slice(&data)
+                    .map_err(|e| crate::WorkflowError::SerializationError(e))?;
+                Ok(events)
+            }
+            Ok(None) => Ok(Vec::new()),
+            Err(e) => Err(crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e))),
+        }
+    }
+
+    async fn get_running_executions(&self) -> std::result::Result<Vec<crate::ir::WorkflowExecution>, crate::WorkflowError> {
+        let prefix = "workflow:execution:".to_string();
+        let keys = self.kotoba_backend.get_keys_with_prefix(&prefix).await
+            .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))?;
+        let mut executions = Vec::new();
+        for key in keys {
+            if let Ok(Some(data)) = self.kotoba_backend.get(&key).await {
+                if let Ok(execution) = serde_json::from_slice::<crate::ir::WorkflowExecution>(&data) {
+                    if matches!(execution.status, crate::ir::ExecutionStatus::Running) {
+                        executions.push(execution);
+                    }
+                }
+            }
+        }
+        Ok(executions)
+    }
+}
