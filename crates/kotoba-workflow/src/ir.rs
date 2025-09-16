@@ -57,8 +57,9 @@ pub struct WorkflowParam {
 #[serde(tag = "op")]
 pub enum WorkflowStrategyOp {
     /// 既存のStrategyOpを継承
-    // Basic strategies will be implemented later
-    // Basic(String), // Placeholder for basic strategy reference
+    Basic {
+        strategy: StrategyOp,
+    },
 
     /// 順次実行
     Seq {

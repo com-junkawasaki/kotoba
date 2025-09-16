@@ -309,6 +309,9 @@ impl WorkflowExecutor {
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<GraphRef, WorkflowError>> + Send + 'a>> {
         Box::pin(async move {
             match strategy {
+                WorkflowStrategyOp::Basic { strategy } => {
+                    self.execute_basic_strategy(strategy, graph, execution_id).await
+                }
                 WorkflowStrategyOp::Seq { strategies } => {
                     self.execute_seq(strategies, graph, execution_id).await
                 }
