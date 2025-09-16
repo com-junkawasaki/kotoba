@@ -17,6 +17,8 @@ Kotoba is a powerful graph processing system built on graph theory foundations. 
 - **DPO (Double Pushout) Graph Rewriting**: Theoretical foundation for graph transformations
 - **ISO GQL-compliant Queries**: Standardized graph query language
 - **MVCC + Merkle DAG Persistence**: Consistent distributed data management
+- **Redis Integration**: Serverless Redis for caching and real-time features (Upstash, Redis Cloud, etc.)
+- **Hybrid Storage Architecture**: Optimal performance with LSM-Tree + Redis
 - **Multi-format Support**: JSON, YAML output capabilities
 - **Rust Native Architecture**: Memory-safe, high-performance implementation
 - **Modular Crate Design**: kotoba-jsonnet, kotoba-graph, kotoba-core, and more
@@ -177,7 +179,7 @@ Kotoba adopts a modular multi-crate architecture for maximum flexibility:
 ├── kotoba-core/           # Core types and IR definitions
 ├── kotoba-jsonnet/        # Complete Jsonnet implementation (38/38 tests passing)
 ├── kotoba-graph/          # Graph data structures and operations
-├── kotoba-storage/        # High-performance RocksDB storage
+├── kotoba-storage/        # High-performance RocksDB + Redis hybrid storage
 ├── kotoba-execution/      # Query execution and planner
 ├── kotoba-rewrite/        # Graph rewriting engine
 ├── kotoba-server/         # HTTP server and handlers
