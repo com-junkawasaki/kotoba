@@ -2250,7 +2250,7 @@ dependencies = [
  "hex",
  "js-sys",
  "jsonschema",
- "kotoba-graph 0.1.15",
+ "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "schemars",
  "serde",

@@ -131,9 +131,9 @@ impl PGViewProjector {
         for node in &graph_instance.core.nodes {
             let vertex_id = uuid::Uuid::new_v4(); // 実際の実装ではCIDから決定論的に生成
             let labels = node.labels.clone();
-            let props = node.attrs.clone().unwrap_or_default()
+            let props: std::collections::HashMap<String, Value> = node.attrs.clone().unwrap_or_default()
                 .into_iter()
-                .map(|(k, v)| (k, v.clone()))
+                .map(|(k, v)| (k, v))
                 .collect();
 
             let vertex_data = VertexData {
@@ -159,9 +159,9 @@ impl PGViewProjector {
                 .clone();
 
             let label = edge.label.clone().unwrap_or_else(|| "EDGE".to_string());
-            let props = edge.attrs.clone().unwrap_or_default()
+            let props: std::collections::HashMap<String, Value> = edge.attrs.clone().unwrap_or_default()
                 .into_iter()
-                .map(|(k, v)| (k, v.clone()))
+                .map(|(k, v)| (k, v))
                 .collect();
 
             let edge_data = EdgeData {
@@ -193,7 +193,7 @@ impl PGViewProjector {
                     .unwrap_or_else(|| "Node".to_string()),
                 ports: vec![], // Graphではポート情報がない
                 attrs: Some(vertex_data.props.iter()
-                    .map(|(k, v)| (k.clone(), serde_json::to_value(v).unwrap()))
+                    .map(|(k, v)| (k.clone(), kotoba_value_to_json_value(v)))
                     .collect()),
                 component_ref: None,
             };
@@ -209,7 +209,7 @@ impl PGViewProjector {
                 src: format!("#{}", edge_data.src),
                 tgt: format!("#{}", edge_data.dst),
                 attrs: Some(edge_data.props.iter()
-                    .map(|(k, v)| (k.clone(), serde_json::to_value(v).unwrap()))
+                    .map(|(k, v)| (k.clone(), kotoba_value_to_json_value(v)))
                     .collect()),
             };
             edges.push(edge);

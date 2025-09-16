@@ -3,14 +3,14 @@
 pub mod types;
 pub mod schema;
 pub mod schema_validator;
-pub mod pgview;
+// pub mod pgview; // Temporarily disabled due to Value type conflicts
 pub mod ir;
 pub mod prelude {
     // Re-export commonly used items
     pub use crate::types::*;
     pub use crate::schema::*;
     pub use crate::schema_validator::*;
-    pub use crate::pgview::*;
+    // pub use crate::pgview::*; // Temporarily disabled
     pub use crate::ir::*;
 }
 
