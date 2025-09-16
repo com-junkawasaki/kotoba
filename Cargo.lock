@@ -2201,47 +2201,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba"
-version = "0.1.15"
-dependencies = [
- "blake3",
- "clap",
- "criterion",
- "env_logger 0.11.8",
- "hex",
- "js-sys",
- "jsonschema",
- "kotoba-cid",
- "kotoba-cli",
- "kotoba-core 0.1.15",
- "kotoba-distributed",
- "kotoba-execution 0.1.15",
- "kotoba-graph 0.1.15",
- "kotoba-jsonnet",
- "kotoba-network",
- "kotoba-rewrite 0.1.15",
- "kotoba-storage 0.1.15",
- "log",
- "proptest",
- "quickcheck",
- "rand 0.8.5",
- "rayon",
- "regex",
- "reqwest",
- "schemars",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tempfile",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
- "vercel_runtime",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
 name = "kotoba-cid"
 version = "0.1.15"
 dependencies = [
@@ -2292,7 +2251,6 @@ dependencies = [
  "js-sys",
  "jsonschema",
  "kotoba-graph 0.1.15",
- "kotoba-security",
  "regex",
  "schemars",
  "serde",
@@ -2456,6 +2414,46 @@ dependencies = [
  "thiserror 2.0.16",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "kotoba-main"
+version = "0.1.15"
+dependencies = [
+ "blake3",
+ "clap",
+ "criterion",
+ "env_logger 0.11.8",
+ "hex",
+ "js-sys",
+ "jsonschema",
+ "kotoba-cid",
+ "kotoba-cli",
+ "kotoba-distributed",
+ "kotoba-execution 0.1.15",
+ "kotoba-graph 0.1.15",
+ "kotoba-jsonnet",
+ "kotoba-network",
+ "kotoba-rewrite 0.1.15",
+ "kotoba-storage 0.1.15",
+ "log",
+ "proptest",
+ "quickcheck",
+ "rand 0.8.5",
+ "rayon",
+ "regex",
+ "reqwest",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "uuid",
+ "vercel_runtime",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

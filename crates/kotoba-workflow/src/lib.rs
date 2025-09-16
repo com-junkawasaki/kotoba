@@ -32,13 +32,18 @@ pub mod executor;
 pub mod store;
 pub mod activity;
 pub mod parser;
+pub mod distributed;
 
 // Re-export main types
 pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ActivityIR, ExecutionStatus};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager, WorkflowError};
-pub use store::{WorkflowStore, StorageBackend, StorageFactory};
+pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
 pub use parser::WorkflowParser;
 pub use activity::prelude::*;
+pub use distributed::{
+    DistributedCoordinator, DistributedExecutionManager, DistributedWorkflowExecutor,
+    LoadBalancer, RoundRobinBalancer, LeastLoadedBalancer, NodeInfo, ClusterHealth
+};
 
 /// Workflow engine builder
 pub struct WorkflowEngineBuilder {
@@ -100,21 +105,36 @@ impl WorkflowEngineBuilder {
         let activity_registry = std::sync::Arc::new(ActivityRegistry::new());
         let state_manager = std::sync::Arc::new(WorkflowStateManager::new());
 
+        // Phase 2: Initialize event sourcing and snapshot management
+        let event_sourcing = std::sync::Arc::new(EventSourcingManager::new(std::sync::Arc::clone(&storage))
+            .with_snapshot_config(100, 10));
+        let snapshot_manager = std::sync::Arc::new(SnapshotManager::new(
+            std::sync::Arc::clone(&storage),
+            std::sync::Arc::clone(&event_sourcing)
+        ).with_config(50, 5));
+
         Ok(WorkflowEngine {
             storage,
             activity_registry,
             state_manager,
+            event_sourcing,
+            snapshot_manager,
             executor: None,
+            distributed_executor: None,
         })
     }
 }
 
-/// Main workflow engine
+/// Main workflow engine - Phase 2: MVCC + Event Sourcing + Distributed
 pub struct WorkflowEngine {
     storage: std::sync::Arc<dyn WorkflowStore>,
     activity_registry: std::sync::Arc<ActivityRegistry>,
     state_manager: std::sync::Arc<WorkflowStateManager>,
+    event_sourcing: std::sync::Arc<EventSourcingManager>,
+    snapshot_manager: std::sync::Arc<SnapshotManager>,
     executor: Option<std::sync::Arc<WorkflowExecutor>>,
+    /// Phase 2: Distributed execution support
+    distributed_executor: Option<std::sync::Arc<DistributedWorkflowExecutor>>,
 }
 
 impl WorkflowEngine {
@@ -192,14 +212,134 @@ impl WorkflowEngine {
         &self,
         execution_id: &WorkflowExecutionId,
     ) -> Result<(), WorkflowError> {
-        // TODO: Implement cancellation logic
-        // For now, just update status
-        if let Some(mut execution) = self.storage.get_execution(execution_id).await? {
+        // Phase 2: Use MVCC-based state management
+        if let Some(mut execution) = self.state_manager.get_execution(execution_id).await {
             execution.status = ExecutionStatus::Cancelled;
             execution.end_time = Some(chrono::Utc::now());
-            self.storage.update_execution(&execution).await?;
+            self.state_manager.update_execution(execution).await?;
+
+            // Record cancellation event
+            self.event_sourcing.record_event(
+                execution_id,
+                ExecutionEventType::WorkflowCancelled,
+                HashMap::new(),
+            ).await?;
         }
         Ok(())
+    }
+
+    /// Phase 2: Get workflow execution at specific transaction
+    pub async fn get_execution_at_tx(
+        &self,
+        execution_id: &WorkflowExecutionId,
+        tx_id: TxId,
+    ) -> Option<WorkflowExecution> {
+        self.state_manager.get_execution_at(execution_id, Some(tx_id)).await
+    }
+
+    /// Phase 2: Get execution history (all versions)
+    pub async fn get_execution_history(
+        &self,
+        execution_id: &WorkflowExecutionId,
+    ) -> Vec<(TxId, WorkflowExecution)> {
+        self.state_manager.get_execution_history(execution_id).await
+    }
+
+    /// Phase 2: Get full event history
+    pub async fn get_event_history(
+        &self,
+        execution_id: &WorkflowExecutionId,
+    ) -> Result<Vec<ExecutionEvent>, WorkflowError> {
+        self.event_sourcing.get_full_event_history(execution_id).await
+    }
+
+    /// Phase 2: Rebuild execution from events (for recovery)
+    pub async fn rebuild_execution_from_events(
+        &self,
+        execution_id: &WorkflowExecutionId,
+    ) -> Result<Option<WorkflowExecution>, WorkflowError> {
+        self.event_sourcing.rebuild_execution_from_events(execution_id).await
+    }
+
+    /// Phase 2: Create manual snapshot
+    pub async fn create_snapshot(
+        &self,
+        execution_id: &WorkflowExecutionId,
+    ) -> Result<(), WorkflowError> {
+        if let Some(execution) = self.state_manager.get_execution(execution_id).await {
+            self.snapshot_manager.create_snapshot(&execution).await?;
+        }
+        Ok(())
+    }
+
+    /// Phase 2: Restore from snapshot
+    pub async fn restore_from_snapshot(
+        &self,
+        execution_id: &WorkflowExecutionId,
+    ) -> Result<Option<WorkflowExecution>, WorkflowError> {
+        self.snapshot_manager.restore_from_snapshot(execution_id).await
+    }
+
+    /// Phase 2: Get performance statistics
+    pub async fn get_performance_stats(&self) -> HashMap<String, usize> {
+        self.snapshot_manager.get_performance_stats().await
+    }
+
+    /// Phase 2: Access event sourcing manager
+    pub fn event_sourcing(&self) -> &std::sync::Arc<EventSourcingManager> {
+        &self.event_sourcing
+    }
+
+    /// Phase 2: Access snapshot manager
+    pub fn snapshot_manager(&self) -> &std::sync::Arc<SnapshotManager> {
+        &self.snapshot_manager
+    }
+
+    /// Phase 2: Enable distributed execution
+    pub fn enable_distributed_execution(
+        &mut self,
+        local_node_id: String,
+        load_balancer: Arc<dyn LoadBalancer>,
+    ) {
+        let execution_manager = Arc::new(DistributedExecutionManager::new(
+            local_node_id,
+            load_balancer,
+        ));
+        self.distributed_executor = Some(Arc::new(DistributedWorkflowExecutor::new(
+            Arc::clone(&execution_manager)
+        )));
+    }
+
+    /// Phase 2: Submit workflow for distributed execution
+    pub async fn submit_distributed_workflow(
+        &self,
+        execution_id: WorkflowExecutionId,
+    ) -> Result<String, WorkflowError> {
+        if let Some(distributed) = &self.distributed_executor {
+            distributed.execution_manager.submit_execution(execution_id).await
+        } else {
+            Err(WorkflowError::InvalidStrategy("Distributed execution not enabled".to_string()))
+        }
+    }
+
+    /// Phase 2: Get cluster health
+    pub async fn get_cluster_health(&self) -> Result<ClusterHealth, WorkflowError> {
+        if let Some(distributed) = &self.distributed_executor {
+            Ok(distributed.cluster_health_check().await)
+        } else {
+            Err(WorkflowError::InvalidStrategy("Distributed execution not enabled".to_string()))
+        }
+    }
+
+    /// Phase 2: Get distributed execution manager
+    pub fn distributed_execution_manager(&self) -> Option<&std::sync::Arc<DistributedExecutionManager>> {
+        self.distributed_executor.as_ref()
+            .map(|d| &d.execution_manager)
+    }
+
+    /// Phase 2: Check if distributed execution is enabled
+    pub fn is_distributed_enabled(&self) -> bool {
+        self.distributed_executor.is_some()
     }
 }
 
@@ -219,6 +359,9 @@ pub mod prelude {
     pub use super::{
         WorkflowEngine, WorkflowIR, WorkflowExecution, WorkflowExecutionId,
         ActivityRegistry, Activity, WorkflowStore, ExecutionStatus,
-        WorkflowParser,
+        WorkflowParser, EventSourcingManager, SnapshotManager,
+        // Phase 2 distributed types
+        DistributedCoordinator, DistributedExecutionManager, DistributedWorkflowExecutor,
+        LoadBalancer, RoundRobinBalancer, LeastLoadedBalancer,
     };
 }

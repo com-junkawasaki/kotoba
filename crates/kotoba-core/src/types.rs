@@ -19,6 +19,7 @@ pub type PropertyKey = String;
 /// プロパティ値
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(untagged)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Value {
     Null,
     Bool(bool),

@@ -1,8 +1,8 @@
 //! PGView (Property Graph View) - GraphInstanceからプロパティグラフへのprojection
 
 use crate::schema::*;
-use kotoba_graph::{Graph, VertexData, EdgeData};
-use crate::types::*;
+use kotoba_graph::prelude::{Graph, VertexData, EdgeData};
+use crate::types::{self, Value, Result as KotobaResult, KotobaError};
 use std::collections::HashMap;
 
 /// PGViewプロジェクター
@@ -11,7 +11,7 @@ pub struct PGViewProjector;
 
 impl PGViewProjector {
     /// GraphInstanceからPGViewを生成
-    pub fn project_to_pgview(graph_instance: &GraphInstance) -> kotoba_core::types::Result<PGView> {
+    pub fn project_to_pgview(graph_instance: &GraphInstance) -> KotobaResult<PGView> {
         let mut vertices = Vec::new();
         let mut edges = Vec::new();
         let mut node_to_vertex = HashMap::new();
@@ -73,7 +73,7 @@ impl PGViewProjector {
     }
 
     /// PGViewからGraphに変換（逆projection）
-    pub fn project_from_pgview(pgview: &PGView, graph_cid: Cid) -> kotoba_core::types::Result<GraphInstance> {
+    pub fn project_from_pgview(pgview: &PGView, graph_cid: Cid) -> KotobaResult<GraphInstance> {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
 
@@ -121,7 +121,7 @@ impl PGViewProjector {
     }
 
     /// GraphInstanceを既存のGraph構造に変換
-    pub fn to_graph(graph_instance: &GraphInstance) -> kotoba_core::types::Result<Graph> {
+    pub fn to_graph(graph_instance: &GraphInstance) -> KotobaResult<Graph> {
         let mut graph = Graph::empty();
 
         // CID -> VertexIdのマッピング（簡易版）
@@ -133,7 +133,7 @@ impl PGViewProjector {
             let labels = node.labels.clone();
             let props = node.attrs.clone().unwrap_or_default()
                 .into_iter()
-                .map(|(k, v)| (k, value_from_json(v)))
+                .map(|(k, v)| (k, v.clone()))
                 .collect();
 
             let vertex_data = VertexData {
@@ -161,7 +161,7 @@ impl PGViewProjector {
             let label = edge.label.clone().unwrap_or_else(|| "EDGE".to_string());
             let props = edge.attrs.clone().unwrap_or_default()
                 .into_iter()
-                .map(|(k, v)| (k, value_from_json(v)))
+                .map(|(k, v)| (k, v.clone()))
                 .collect();
 
             let edge_data = EdgeData {
@@ -268,20 +268,34 @@ impl PGViewProjector {
     }
 
     /// PGViewをJSONにシリアライズ
-    pub fn serialize_pgview(pgview: &PGView) -> kotoba_core::types::Result<String> {
+    pub fn serialize_pgview(pgview: &PGView) -> KotobaResult<String> {
         serde_json::to_string_pretty(pgview)
             .map_err(|e| KotobaError::Parse(format!("PGView serialization error: {}", e)))
     }
 
     /// JSONからPGViewをデシリアライズ
-    pub fn deserialize_pgview(json: &str) -> kotoba_core::types::Result<PGView> {
+    pub fn deserialize_pgview(json: &str) -> KotobaResult<PGView> {
         serde_json::from_str(json)
             .map_err(|e| KotobaError::Parse(format!("PGView deserialization error: {}", e)))
     }
 }
 
+/// ValueからJSON Valueへの変換ヘルパー
+fn kotoba_value_to_json_value(value: &Value) -> serde_json::Value {
+    match value {
+        Value::Null => serde_json::Value::Null,
+        Value::Bool(b) => serde_json::Value::Bool(*b),
+        Value::Int(i) => serde_json::Value::Number((*i).into()),
+        Value::Integer(i) => serde_json::Value::Number((*i).into()),
+        Value::String(s) => serde_json::Value::String(s.clone()),
+        Value::Array(arr) => serde_json::Value::Array(
+            arr.iter().map(|s| serde_json::Value::String(s.clone())).collect()
+        ),
+    }
+}
+
 /// JSON ValueからValueへの変換ヘルパー
-fn value_from_json(json_value: serde_json::Value) -> Value {
+fn json_value_from_kotoba_value(json_value: serde_json::Value) -> Value {
     match json_value {
         serde_json::Value::Null => Value::Null,
         serde_json::Value::Bool(b) => Value::Bool(b),
@@ -293,7 +307,9 @@ fn value_from_json(json_value: serde_json::Value) -> Value {
             }
         }
         serde_json::Value::String(s) => Value::String(s),
-        serde_json::Value::Array(_) => Value::String("Array".to_string()), // 簡易版
+        serde_json::Value::Array(arr) => Value::Array(
+            arr.into_iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+        ),
         serde_json::Value::Object(_) => Value::String("Object".to_string()), // 簡易版
     }
 }

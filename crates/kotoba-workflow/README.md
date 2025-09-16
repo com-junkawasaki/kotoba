@@ -71,6 +71,70 @@ Itonami provides a powerful workflow execution engine that combines:
 - **Retry Policies**: Exponential backoff and custom retry logic
 - **Built-in Activities**: HTTP, Database, Function calls
 
+## Phase 2 Features
+
+### MVCC-based State Management
+
+Workflow executions now use Multi-Version Concurrency Control (MVCC) for:
+- **Versioned State**: Each state change creates a new version with TxId
+- **Point-in-Time Queries**: Query workflow state at any transaction point
+- **Concurrent Access**: Multiple readers can access different versions simultaneously
+- **Conflict Resolution**: Optimistic concurrency control for state updates
+
+```rust
+// Get workflow state at specific transaction
+let execution_at_tx = engine.get_execution_at_tx(&execution_id, tx_id).await;
+
+// Get complete version history
+let history = engine.get_execution_history(&execution_id).await;
+```
+
+### Event Sourcing
+
+Complete audit trail with event sourcing:
+- **Immutable Events**: All state changes recorded as events
+- **Event Replay**: Rebuild workflow state from event history
+- **Event Types**: Started, ActivityScheduled, Completed, Failed, etc.
+- **Performance Optimization**: Automatic snapshot creation
+
+```rust
+// Get full event history
+let events = engine.get_event_history(&execution_id).await?;
+
+// Rebuild execution from events (for recovery)
+let execution = engine.rebuild_execution_from_events(&execution_id).await?;
+```
+
+### Distributed Execution
+
+Cluster-wide workflow distribution:
+- **Load Balancing**: Round-robin and least-loaded strategies
+- **Node Management**: Automatic node discovery and health monitoring
+- **Failover**: Automatic task reassignment on node failure
+- **Cluster Health**: Real-time monitoring of cluster status
+
+```rust
+// Enable distributed execution
+engine.enable_distributed_execution(
+    "node-1".to_string(),
+    Arc::new(LeastLoadedBalancer::new())
+);
+
+// Submit workflow for distributed execution
+let task_id = engine.submit_distributed_workflow(execution_id).await?;
+
+// Check cluster health
+let health = engine.get_cluster_health().await?;
+```
+
+### Snapshot Optimization
+
+Performance optimization for long-running workflows:
+- **Automatic Snapshots**: Periodic state snapshots to reduce replay time
+- **Configurable Intervals**: Customize snapshot frequency
+- **Fast Recovery**: Restore from snapshots + recent events
+- **Storage Efficiency**: Automatic cleanup of old snapshots
+
 ## Usage
 
 ### Basic Example
@@ -223,11 +287,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - [x] Activity system
 - [x] Basic execution engine
 
-### Phase 2: Persistence & Distribution 🚧
-- [ ] MVCC-based state management
-- [ ] Event sourcing implementation
-- [ ] Distributed execution support
-- [ ] Snapshot optimization
+### Phase 2: Persistence & Distribution ✅
+- [x] MVCC-based state management
+- [x] Event sourcing implementation
+- [x] Distributed execution support
+- [x] Snapshot optimization
 
 ### Phase 3: Advanced Features 📋
 - [ ] Saga pattern full implementation

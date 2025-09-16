@@ -57,7 +57,7 @@ kotoba-cli = { path = "crates/kotoba-cli", version = "0.1.15" }
 
 # Root crate configuration
 [package]
-name = "kotoba"
+name = "kotoba-main"
 version = "0.1.15"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
@@ -86,7 +86,7 @@ panic = "abort"
 
 [dependencies]
 # Core crates - workspace versions
-kotoba-core = { path = "crates/kotoba-core" }
+# kotoba-core = { path = "crates/kotoba-core" } # Temporarily disabled to avoid confusion
 kotoba-graph = { path = "crates/kotoba-graph" }
 kotoba-storage = { path = "crates/kotoba-storage" }
 kotoba-execution = { path = "crates/kotoba-execution" }
@@ -95,14 +95,14 @@ kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
 # Kotoba internal crates
-kotoba-jsonnet.workspace = true
-# kotoba-kotobanet.workspace = true  # まだ安定していないためコメントアウト
+kotoba-jsonnet = { path = "crates/kotoba-jsonnet" }
+# kotoba-kotobanet = { path = "crates/kotoba-kotobanet" }  # まだ安定していないためコメントアウト
 
 # New modular crates
-kotoba-distributed.workspace = true
-kotoba-network.workspace = true
-kotoba-cid.workspace = true
-kotoba-cli.workspace = true
+kotoba-distributed = { path = "crates/kotoba-distributed" }
+kotoba-network = { path = "crates/kotoba-network" }
+kotoba-cid = { path = "crates/kotoba-cid" }
+kotoba-cli = { path = "crates/kotoba-cli" }
 
 # Schema and CID dependencies
 schemars.workspace = true

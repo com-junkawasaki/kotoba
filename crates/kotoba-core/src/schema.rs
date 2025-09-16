@@ -2,12 +2,15 @@
 //! Process Network as GTS(DPO)+OpenGraph with Merkle DAG & PG view
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "schemars")]
 use schemars::JsonSchema;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
+use crate::types::Value;
 
 /// Content ID (CIDv1-like)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Cid(String);
 
 impl Cid {
@@ -44,7 +47,8 @@ impl std::fmt::Display for Cid {
 }
 
 /// ID型（名前付き識別子）
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Id(String);
 
 impl Id {
@@ -64,10 +68,11 @@ impl Id {
 }
 
 /// 属性（プロパティ）型
-pub type Attrs = HashMap<String, serde_json::Value>;
+pub type Attrs = HashMap<String, Value>;
 
 /// ポート定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Port {
     pub name: String,
     pub direction: PortDirection,
@@ -79,7 +84,8 @@ pub struct Port {
     pub attrs: Option<Attrs>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum PortDirection {
     #[serde(rename = "in")]
     In,
@@ -90,7 +96,8 @@ pub enum PortDirection {
 }
 
 /// ノード定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Node {
     pub cid: Cid,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -105,7 +112,8 @@ pub struct Node {
 }
 
 /// エッジ定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Edge {
     pub cid: Cid,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -118,7 +126,8 @@ pub struct Edge {
 }
 
 /// 境界定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Boundary {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub expose: Vec<String>, // #nodeCID.portName
@@ -127,7 +136,8 @@ pub struct Boundary {
 }
 
 /// グラフのコア構造
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct GraphCore {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
@@ -138,7 +148,8 @@ pub struct GraphCore {
 }
 
 /// タイピング情報
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Typing {
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub node_types: HashMap<String, String>,
@@ -147,7 +158,8 @@ pub struct Typing {
 }
 
 /// グラフ型
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct GraphType {
     #[serde(flatten)]
     pub core: GraphCore,
@@ -157,7 +169,8 @@ pub struct GraphType {
 }
 
 /// グラフインスタンス
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct GraphInstance {
     #[serde(flatten)]
     pub core: GraphCore,
@@ -168,7 +181,8 @@ pub struct GraphInstance {
 }
 
 /// グラフ種別
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum GraphKind {
     #[serde(rename = "type")]
     Type,
@@ -177,7 +191,8 @@ pub enum GraphKind {
 }
 
 /// 写像定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Morphisms {
     pub node_map: HashMap<String, String>, // fromCID -> toCID
     #[serde(skip_serializing_if = "HashMap::is_empty")]
@@ -187,7 +202,8 @@ pub struct Morphisms {
 }
 
 /// NAC（Negative Application Condition）
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Nac {
     pub id: Id,
     pub graph: GraphInstance,
@@ -195,7 +211,8 @@ pub struct Nac {
 }
 
 /// 適用条件
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct ApplicationCondition {
     #[serde(default = "default_injective")]
     pub injective: bool,
@@ -208,7 +225,8 @@ pub struct ApplicationCondition {
 fn default_injective() -> bool { true }
 fn default_dangling() -> DanglingMode { DanglingMode::Forbid }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum DanglingMode {
     #[serde(rename = "forbid")]
     Forbid,
@@ -217,7 +235,8 @@ pub enum DanglingMode {
 }
 
 /// 効果定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Effects {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cost: Option<f64>,
@@ -228,7 +247,8 @@ pub struct Effects {
 }
 
 /// DPOルール定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct RuleDPO {
     pub id: Id,
     pub l: GraphInstance, // Left-hand side (pattern)
@@ -245,14 +265,16 @@ pub struct RuleDPO {
 }
 
 /// コンポーネントインターフェース
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct ComponentInterface {
     pub in_ports: Vec<String>,
     pub out_ports: Vec<String>,
 }
 
 /// コンポーネント定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Component {
     pub id: Id,
     pub graph: GraphInstance,
@@ -263,14 +285,16 @@ pub struct Component {
 }
 
 /// 戦略定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Strategy {
     pub id: Id,
     pub body: StrategyBody,
 }
 
 /// 戦略本体
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct StrategyBody {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub seq: Vec<Strategy>,
@@ -289,7 +313,8 @@ pub struct StrategyBody {
 }
 
 /// クエリ定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Query {
     pub id: Id,
     pub pattern: GraphInstance,
@@ -302,7 +327,8 @@ pub struct Query {
 }
 
 /// クエリコスト
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct QueryCost {
     #[serde(default = "default_objective")]
     pub objective: CostObjective,
@@ -311,7 +337,8 @@ pub struct QueryCost {
 
 fn default_objective() -> CostObjective { CostObjective::Min }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum CostObjective {
     #[serde(rename = "min")]
     Min,
@@ -320,7 +347,8 @@ pub enum CostObjective {
 }
 
 /// クエリ制限
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct QueryLimits {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_steps: Option<u32>,
@@ -329,7 +357,8 @@ pub struct QueryLimits {
 }
 
 /// Property Graph View
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct PGView {
     pub vertices: Vec<PGVertex>,
     pub edges: Vec<PGEdge>,
@@ -338,7 +367,8 @@ pub struct PGView {
 }
 
 /// PG頂点
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct PGVertex {
     pub id: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -349,7 +379,8 @@ pub struct PGVertex {
 }
 
 /// PGエッジ
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct PGEdge {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -362,7 +393,8 @@ pub struct PGEdge {
 }
 
 /// PGマッピング
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct PGMapping {
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub node_to_vertex: HashMap<String, String>,
@@ -371,7 +403,8 @@ pub struct PGMapping {
 }
 
 /// メインモデル
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct ProcessNetwork {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<MetaInfo>,
@@ -390,7 +423,8 @@ pub struct ProcessNetwork {
 }
 
 /// メタ情報
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct MetaInfo {
     #[serde(default = "default_model")]
     pub model: String,
@@ -404,7 +438,8 @@ fn default_model() -> String { "GTS-DPO-OpenGraph-Merkle".to_string() }
 fn default_version() -> String { "0.2.0".to_string() }
 
 /// CIDアルゴリズム設定
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct CidAlgorithm {
     pub hash: HashAlgorithm,
     #[serde(default = "default_multicodec")]
@@ -416,7 +451,8 @@ pub struct CidAlgorithm {
 fn default_multicodec() -> String { "dag-json".to_string() }
 fn default_canonical_json() -> CanonicalJsonMode { CanonicalJsonMode::JCS }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum HashAlgorithm {
     #[serde(rename = "sha2-256")]
     Sha2256,
@@ -424,7 +460,8 @@ pub enum HashAlgorithm {
     Blake3256,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum CanonicalJsonMode {
     #[serde(rename = "JCS-RFC8785")]
     JCS,

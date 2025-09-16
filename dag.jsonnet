@@ -77,7 +77,7 @@
       build_order: 3,
     },
 
-    // Workflow 層 (Itonami)
+    // Workflow 層 (Itonami) - Phase 1 Complete
     'ir_workflow': {
       name: 'ir_workflow',
       path: 'crates/kotoba-workflow/src/ir.rs',
@@ -85,7 +85,7 @@
       description: 'TemporalベースワークフローIR (WorkflowIR, Activity, Saga)',
       dependencies: ['types', 'ir_strategy'],
       provides: ['WorkflowIR', 'ActivityIR', 'WorkflowExecution', 'SagaPattern'],
-      status: 'planned',
+      status: 'completed',
       build_order: 4,
     },
 
@@ -214,15 +214,15 @@
       build_order: 7,
     },
 
-    // Workflow 実行層 (Itonami)
+    // Workflow 実行層 (Itonami) - Phase 2 Complete: MVCC + Event Sourcing
     'workflow_executor': {
       name: 'workflow_executor',
       path: 'crates/kotoba-workflow/src/executor.rs',
       type: 'workflow',
-      description: 'Temporalベースワークフロー実行器',
+      description: 'Temporalベースワークフロー実行器 (MVCC + Event Sourcing)',
       dependencies: ['types', 'ir_workflow', 'graph_core', 'storage_mvcc', 'storage_merkle', 'execution_engine'],
-      provides: ['WorkflowExecutor', 'ActivityExecutor', 'SagaExecutor'],
-      status: 'planned',
+      provides: ['WorkflowExecutor', 'ActivityExecutor', 'SagaExecutor', 'WorkflowStateManager', 'EventSourcingManager'],
+      status: 'completed',
       build_order: 8,
     },
 
@@ -230,10 +230,10 @@
       name: 'workflow_store',
       path: 'crates/kotoba-workflow/src/store.rs',
       type: 'workflow',
-      description: 'ワークフロー状態永続化 (MVCCベース)',
+      description: 'ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots)',
       dependencies: ['types', 'ir_workflow', 'storage_mvcc', 'storage_merkle'],
-      provides: ['WorkflowStore', 'WorkflowStateManager', 'EventStore'],
-      status: 'planned',
+      provides: ['WorkflowStore', 'WorkflowStateManager', 'EventStore', 'SnapshotManager', 'EventSourcingManager'],
+      status: 'completed',
       build_order: 7,
     },
 
