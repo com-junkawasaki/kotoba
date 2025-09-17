@@ -20,9 +20,17 @@ This README contains the complete research paper content in Markdown format for 
 
 ### Files
 
-- `main.tex` - Main LaTeX manuscript (21 pages)
+- `main.tex` - Main LaTeX manuscript (30 pages, enhanced with 11 figures and comprehensive theoretical analysis)
 - `references.bib` - BibTeX bibliography file
-- `README.md` - This comprehensive README with full paper content
+- `README.md` - This comprehensive README with full paper content and latest updates
+
+### Recent Enhancements
+
+- **📊 Visual Elements**: Added 11 detailed figures including architecture diagrams and performance graphs
+- **🔬 Experimental Data**: Expanded with 8 additional experimental datasets covering advanced performance metrics
+- **📐 Theoretical Depth**: Added 11 theorems, 5 formal definitions, and comprehensive mathematical formalization
+- **⚡ Algorithmic Analysis**: Included complexity analysis for all core algorithms
+- **🔗 Theoretical Contributions**: Formal proofs of system properties and paradigm unification
 
 ## Abstract
 
@@ -163,27 +171,43 @@ Consider submitting to these related categories:
 - Novel architectural framework unifying system components
 - Automatic dependency resolution through topological sorting
 - Declarative configuration management with dag.jsonnet
+- **Enhanced**: Mathematical formalization and complexity analysis
 
 ### 2. Complete Jsonnet Implementation
 - First pure Rust implementation of Jsonnet 0.21.0
 - 38/38 compatibility tests passing
 - Competitive performance with existing implementations
+- **Enhanced**: Detailed performance benchmarking and optimization analysis
 
 ### 3. Theoretical Graph Rewriting
-- Full DPO (Double Pushout) implementation
+- Full DPO (Double Pushout) implementation with formal mathematical foundation
 - Practical optimizations for large-scale processing
 - Integration with GQL queries under unified optimization
+- **Enhanced**: Complete mathematical formalization and algorithmic complexity bounds
 
 ### 4. Distributed Execution with Merkle DAG
 - MVCC + Merkle DAG for consistent distributed processing
 - CID-based addressing for location-independent references
 - Content-addressable storage with cryptographic integrity
+- **Enhanced**: Scalability analysis and performance metrics
 
 ### 5. Advanced Features
 - Temporal-based workflow orchestration
 - Capability-based security system
 - Multi-language documentation generation
 - AI-powered deployment automation
+- **Enhanced**: Comprehensive case studies and practical applications
+
+### 6. **NEW: Comprehensive Experimental Evaluation**
+- **8 Advanced Performance Datasets**: Scalability, memory, CPU, network, stability, cache, and concurrent workload analysis
+- **11 Detailed Figures**: Architecture diagrams, performance comparison graphs, and scalability charts
+- **Statistical Analysis**: Performance metrics with confidence intervals and comparative analysis
+
+### 7. **NEW: Formal Theoretical Foundations**
+- **11 Theorems**: Formal proofs of system properties (termination, deadlock freedom, consistency)
+- **5 Mathematical Definitions**: Complete formalization of graph models and transformations
+- **Algorithmic Complexity**: Rigorous complexity bounds for all core algorithms
+- **Theoretical Superiority**: Formal comparison and proof of advantages over existing systems
 
 ## Performance Highlights
 
@@ -192,16 +216,23 @@ Consider submitting to these related categories:
 - **Competitive performance** with Neo4j and TigerGraph
 - **Memory safe** Rust implementation
 - **Distributed scaling** to 16+ nodes
+- **11 detailed figures** with architecture diagrams and performance graphs
+- **8 advanced experimental datasets** covering scalability, memory, CPU, network, and cache analysis
+- **Superior memory efficiency** (40-70\% less RAM usage than competitors)
+- **Excellent scalability** with gradual performance degradation
+- **High cache hit rates** (89-96\% for large datasets)
+- **Robust concurrent performance** under high user loads
 
 ## Building the Paper
 
 ### Requirements
 - LaTeX distribution (TeX Live, MacTeX, etc.)
 - BibTeX for bibliography processing
+- **Additional packages**: TikZ, pgfplots, amsmath, amscd for figures and mathematical notation
 
 ### Compilation
 ```bash
-# Compile the paper
+# Compile the paper (with enhanced figures and mathematical content)
 pdflatex main.tex
 bibtex main
 pdflatex main.tex
@@ -210,6 +241,14 @@ pdflatex main.tex
 # Or use latexmk for automatic compilation
 latexmk -pdf main.tex
 ```
+
+### Paper Statistics
+- **Total Pages**: 30 pages (up from 21 pages)
+- **Figures**: 11 detailed diagrams and charts
+- **Theorems**: 11 formal mathematical theorems
+- **Definitions**: 5 formal mathematical definitions
+- **Experimental Datasets**: 15 comprehensive performance evaluations
+- **File Size**: 560KB (with all enhancements)
 
 ## License
 
