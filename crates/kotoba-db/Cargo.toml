@@ -5,5 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 kotoba-db-core = { path = "../kotoba-db-core" }
 kotoba-db-engine-memory = { path = "../kotoba-db-engine-memory" }
+kotoba-db-engine-lsm = { path = "../kotoba-db-engine-lsm", optional = true }
+
+[features]
+default = []
+lsm = ["dep:kotoba-db-engine-lsm"]

@@ -29,8 +29,6 @@ pub enum KotobaError {
     Configuration(String),
     #[error("Serialization error: {0}")]
     Serialization(String),
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
     #[error("Network error: {0}")]
     Network(String),
     #[error("Workflow error: {0}")]

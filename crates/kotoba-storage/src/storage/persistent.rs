@@ -8,11 +8,10 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use parking_lot::RwLock;
-use sha2::Digest;
 use kotoba_core::types::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
-use crate::storage::{lsm::*, merkle::*, mvcc::*};
+use crate::{lsm::*, merkle::*, mvcc::*};
 
 /// 永続ストレージ設定
 #[derive(Debug, Clone)]
@@ -708,6 +707,21 @@ impl DistributedStorageManager {
         None
     }
 
+    /// データをレプリケート
+    pub async fn replicate_data(&self, cid: &Cid, data: &[u8], replication_factor: usize) -> Result<()> {
+        // 担当ノードを取得
+        let responsible_nodes: Vec<_> = (0..replication_factor)
+            .filter_map(|_| self.get_responsible_node(cid))
+            .collect();
+
+        // 各ノードにデータを送信（簡易版）
+        for node_info in responsible_nodes {
+            println!("Replicating {} to node {}", cid.as_str(), node_info.node_id.0);
+            // 実際の実装ではネットワーク通信を行う
+        }
+
+        Ok(())
+    }
 
     /// データの整合性を検証
     pub async fn verify_consistency(&self, cid: &Cid) -> Result<bool> {

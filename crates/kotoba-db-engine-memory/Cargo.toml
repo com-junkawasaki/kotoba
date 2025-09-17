@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+async-trait = "0.1"
 kotoba-db-core = { path = "../kotoba-db-core" }

@@ -6,7 +6,6 @@
 use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque};
 use std::cmp::Reverse;
 use kotoba_core::types::*;
-use kotoba_core::prelude::KotobaError;
 use crate::graph::{Graph, EdgeData, VertexData};
 
 /// 最短経路の結果
@@ -68,7 +67,7 @@ impl GraphAlgorithms {
         graph: &Graph,
         source: VertexId,
         weight_fn: impl Fn(&EdgeData) -> u64,
-    ) -> Result<ShortestPathResult> {
+    ) -> Result<ShortestPathResult, KotobaError> {
         let mut distances: HashMap<VertexId, u64> = HashMap::new();
         let mut predecessors: HashMap<VertexId, VertexId> = HashMap::new();
         let mut pq: BinaryHeap<Reverse<(u64, VertexId)>> = BinaryHeap::new();
@@ -118,7 +117,7 @@ impl GraphAlgorithms {
         graph: &Graph,
         source: VertexId,
         weight_fn: impl Fn(&EdgeData) -> u64,
-    ) -> Result<ShortestPathResult> {
+    ) -> Result<ShortestPathResult, KotobaError> {
         let mut distances: HashMap<VertexId, u64> = HashMap::new();
         let mut predecessors: HashMap<VertexId, VertexId> = HashMap::new();
 

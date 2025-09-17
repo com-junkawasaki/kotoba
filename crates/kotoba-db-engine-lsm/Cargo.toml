@@ -1,0 +1,19 @@
+[package]
+name = "kotoba-db-engine-lsm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["fs", "io-util"] }
+async-trait = "0.1"
+
+# Core dependencies
+kotoba-db-core = { path = "../kotoba-db-core" }
+
+# Optional RocksDB backend
+rocksdb = { version = "0.21", optional = true }
+
+[features]
+default = []
+rocksdb = ["dep:rocksdb"]

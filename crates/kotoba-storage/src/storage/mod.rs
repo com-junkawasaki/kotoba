@@ -1,6 +1,5 @@
 //! MVCC+Merkle永続ストレージ
 
-pub mod backend;
 pub mod mvcc;
 pub mod merkle;
 pub mod lsm;

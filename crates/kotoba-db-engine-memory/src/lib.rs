@@ -15,22 +15,23 @@ impl MemoryStorageEngine {
     }
 }
 
+#[async_trait::async_trait]
 impl StorageEngine for MemoryStorageEngine {
-    fn put(&mut self, key: &[u8], value: &[u8]) -> Result<()> {
+    async fn put(&mut self, key: &[u8], value: &[u8]) -> Result<()> {
         self.store.insert(key.to_vec(), value.to_vec());
         Ok(())
     }
 
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         Ok(self.store.get(key).cloned())
     }
 
-    fn delete(&mut self, key: &[u8]) -> Result<()> {
+    async fn delete(&mut self, key: &[u8]) -> Result<()> {
         self.store.remove(key);
         Ok(())
     }
 
-    fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let mut results = Vec::new();
         for (key, value) in &self.store {
             if key.starts_with(prefix) {

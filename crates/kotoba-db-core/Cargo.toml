@@ -8,6 +8,7 @@ anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 ciborium = "0.2"
 blake3 = "1.5"
+async-trait = "0.1"
 
 kotoba-core = { path = "../kotoba-core" }
 kotoba-cid = { path = "../kotoba-cid" }

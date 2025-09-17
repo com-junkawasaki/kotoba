@@ -1,7 +1,10 @@
 use kotoba_db_engine_memory::MemoryStorageEngine;
+#[cfg(feature = "lsm")]
+use kotoba_db_engine_lsm::LSMStorageEngine;
 use kotoba_db_core::engine::StorageEngine;
 use kotoba_db_core::types::{Block, Cid, NodeBlock, EdgeBlock, Value};
 use std::collections::BTreeMap;
+use std::path::Path;
 use anyhow::Result;
 
 /// The main database handle for KotobaDB.
@@ -13,10 +16,23 @@ pub struct DB {
 impl DB {
     /// Opens a new database instance using an in-memory storage engine.
     /// This is useful for testing, prototyping, or temporary data.
-    pub fn open_memory() -> Self {
-        Self {
+    pub fn open_memory() -> Result<Self> {
+        Ok(Self {
             engine: Box::new(MemoryStorageEngine::new()),
-        }
+        })
+    }
+
+    /// Opens a new database instance using an LSM-Tree based storage engine.
+    /// This provides durable, high-performance persistent storage.
+    ///
+    /// # Arguments
+    /// * `path` - Directory path where database files will be stored
+    #[cfg(feature = "lsm")]
+    pub async fn open_lsm<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let engine = LSMStorageEngine::new(path).await?;
+        Ok(Self {
+            engine: Box::new(engine),
+        })
     }
 
     /// Creates a new node in the database.
@@ -26,13 +42,13 @@ impl DB {
     ///
     /// # Returns
     /// The CID of the created node block
-    pub fn create_node(&mut self, properties: BTreeMap<String, Value>) -> Result<Cid> {
+    pub async fn create_node(&mut self, properties: BTreeMap<String, Value>) -> Result<Cid> {
         let node_block = NodeBlock {
             properties,
             edges: Vec::new(), // Start with no edges
         };
         let block = Block::Node(node_block);
-        self.engine.put_block(&block)
+        self.engine.put_block(&block).await
     }
 
     /// Creates a new edge in the database.
@@ -45,7 +61,7 @@ impl DB {
     ///
     /// # Returns
     /// The CID of the created edge block
-    pub fn create_edge(
+    pub async fn create_edge(
         &mut self,
         label: String,
         from_cid: Cid,
@@ -59,17 +75,17 @@ impl DB {
             properties,
         };
         let block = Block::Edge(edge_block);
-        self.engine.put_block(&block)
+        self.engine.put_block(&block).await
     }
 
     /// Retrieves a block by its CID.
-    pub fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
-        self.engine.get_block(cid)
+    pub async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
+        self.engine.get_block(cid).await
     }
 
     /// Retrieves a node by its CID.
-    pub fn get_node(&self, cid: &Cid) -> Result<Option<NodeBlock>> {
-        match self.get_block(cid)? {
+    pub async fn get_node(&self, cid: &Cid) -> Result<Option<NodeBlock>> {
+        match self.get_block(cid).await? {
             Some(Block::Node(node)) => Ok(Some(node)),
             Some(Block::Edge(_)) => Ok(None),
             None => Ok(None),
@@ -77,8 +93,8 @@ impl DB {
     }
 
     /// Retrieves an edge by its CID.
-    pub fn get_edge(&self, cid: &Cid) -> Result<Option<EdgeBlock>> {
-        match self.get_block(cid)? {
+    pub async fn get_edge(&self, cid: &Cid) -> Result<Option<EdgeBlock>> {
+        match self.get_block(cid).await? {
             Some(Block::Edge(edge)) => Ok(Some(edge)),
             Some(Block::Node(_)) => Ok(None),
             None => Ok(None),
@@ -90,19 +106,19 @@ impl DB {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_basic_operations() {
-        let mut db = DB::open_memory();
+    #[tokio::test]
+    async fn test_basic_operations() {
+        let mut db = DB::open_memory().unwrap();
 
         // Create a node
         let mut properties = BTreeMap::new();
         properties.insert("name".to_string(), Value::String("Alice".to_string()));
         properties.insert("age".to_string(), Value::Int(30));
 
-        let node_cid = db.create_node(properties).unwrap();
+        let node_cid = db.create_node(properties).await.unwrap();
 
         // Retrieve the node
-        let node = db.get_node(&node_cid).unwrap().unwrap();
+        let node = db.get_node(&node_cid).await.unwrap().unwrap();
         assert_eq!(node.properties["name"], Value::String("Alice".to_string()));
         assert_eq!(node.properties["age"], Value::Int(30));
         assert!(node.edges.is_empty());
@@ -116,13 +132,27 @@ mod tests {
             node_cid,
             node_cid, // self-loop for simplicity
             edge_props,
-        ).unwrap();
+        ).await.unwrap();
 
         // Retrieve the edge
-        let edge = db.get_edge(&edge_cid).unwrap().unwrap();
+        let edge = db.get_edge(&edge_cid).await.unwrap().unwrap();
         assert_eq!(edge.label, "FRIENDS_WITH");
         assert_eq!(edge.from, node_cid);
         assert_eq!(edge.to, node_cid);
         assert_eq!(edge.properties["since"], Value::Int(2020));
+    }
+
+    #[cfg(feature = "lsm")]
+    #[tokio::test]
+    async fn test_lsm_engine_creation() {
+        let temp_dir = std::env::temp_dir().join("test_kotoba_db");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        // Test that LSM engine can be created
+        let db = DB::open_lsm(&temp_dir).await;
+        assert!(db.is_ok(), "LSM engine should be created successfully");
+
+        // Clean up
+        std::fs::remove_dir_all(&temp_dir).unwrap();
     }
 }

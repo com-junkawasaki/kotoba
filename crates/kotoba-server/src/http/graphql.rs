@@ -422,7 +422,7 @@ pub struct PropertyConstraintInput {
 }
 
 /// Schema change operations for batch updates
-#[derive(OneOf)]
+#[derive(InputObject)]
 pub enum SchemaChange {
     AddVertexType(VertexTypeInput),
     AddEdgeType(EdgeTypeInput),

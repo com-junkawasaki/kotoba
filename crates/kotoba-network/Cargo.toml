@@ -13,8 +13,8 @@ homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../kotoba-core" }
-kotoba-distributed = { path = "../kotoba-distributed" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-distributed = { path = "../kotoba-distributed", version = "0.1.16" }
 
 # Async runtime and networking
 tokio = { version = "1.0", features = ["net", "sync", "macros", "rt", "io-util"] }
