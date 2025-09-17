@@ -31,14 +31,13 @@ members = [
     "crates/kotoba-db-engine-memory",
     "crates/kotoba-db-engine-lsm",
     "crates/kotoba-db",
-    "crates/kotoba-db-cluster",
 ]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.16"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 
 [workspace.dependencies]
@@ -100,7 +99,7 @@ name = "kotoba-main"
 version = "0.1.16"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 keywords = ["graph", "database", "gql", "rewrite", "distributed"]
 categories = ["database", "data-structures", "algorithms"]

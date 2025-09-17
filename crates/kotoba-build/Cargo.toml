@@ -2,7 +2,7 @@
 name = "kotoba-build"
 version = "0.1.16"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 description = "Kotoba Build Tool - Project build and task management system"
 keywords = ["build", "task", "automation", "project", "management"]

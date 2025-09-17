@@ -159,7 +159,7 @@ name = "{crate_name}"
 version = "{version}"
 edition = "2021"
 description = "Kotoba {crate_name.split('-')[1].title()} Components"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 
 [dependencies]
@@ -248,7 +248,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
 
 [workspace.dependencies]

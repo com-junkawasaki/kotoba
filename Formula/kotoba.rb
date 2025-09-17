@@ -3,7 +3,7 @@ class Kotoba < Formula
   homepage "https://github.com/jun784/kotoba"
   url "https://github.com/jun784/kotoba/archive/refs/tags/v0.1.16.tar.gz"
   sha256 "96123936249eea21ce9760240fb500cdce896009a43f1bd10b43fe3b1e97b61e"
-  license "MIT OR Apache-2.0"
+  license "Apache-2.0"
 
   depends_on "rust" => :build
 

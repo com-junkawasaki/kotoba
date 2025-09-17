@@ -1,29 +1,29 @@
 [package]
 name = "kotoba-workflow"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.16"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/jun784/kotoba"
 description = "Temporal-inspired workflow engine for Kotoba"
 
 [dependencies]
 # Kotoba crates - only core types for now to avoid RocksDB dependency
-kotoba-core = { workspace = true }
-kotoba-errors = { path = "../kotoba-errors" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
 
 # Common dependencies
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-tokio = { workspace = true, features = ["full"] }
-chrono = { workspace = true, features = ["serde"] }
-uuid = { workspace = true, features = ["v4", "serde"] }
-thiserror.workspace = true
-anyhow.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+thiserror = "2.0"
+anyhow = "1.0"
 
 # Additional dependencies for workflow engine
 async-trait = "0.1"
-futures = { workspace = true }
-parking_lot.workspace = true
+futures = "0.3"
+parking_lot = "0.12"
 
 # HTTP client for activities
 reqwest = { version = "0.11", features = ["json"], optional = true }

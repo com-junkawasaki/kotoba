@@ -37,5 +37,5 @@
     "webpack-dev-server": "^4.15.1"
   },
   "author": "jun784",
-  "license": "MIT"
+  "license": "Apache-2.0"
 }

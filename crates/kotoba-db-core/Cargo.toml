@@ -1,7 +1,14 @@
 [package]
 name = "kotoba-db-core"
-version = "0.1.0"
+version = "0.1.16"
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/jun784/kotoba"
+description = "Core database abstractions for Kotoba"
+keywords = ["database", "core", "abstractions", "storage"]
+categories = ["database-implementations", "data-structures"]
+documentation = "https://docs.rs/kotoba-db-core"
+homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
 anyhow = "1.0"
@@ -10,5 +17,5 @@ ciborium = "0.2"
 blake3 = "1.5"
 async-trait = "0.1"
 
-kotoba-core = { path = "../kotoba-core" }
-kotoba-cid = { path = "../kotoba-cid" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }

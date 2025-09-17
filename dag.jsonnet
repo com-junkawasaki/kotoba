@@ -1329,6 +1329,290 @@
       status: 'completed',
       build_order: 8,
     },
+
+    // ==========================================
+    // Future Features (実装予定)
+    // ==========================================
+
+    // 運用機能強化 (Operational Features)
+    'backup_restore': {
+      name: 'backup_restore',
+      path: 'crates/kotoba-backup/',
+      type: 'operational',
+      description: 'Automated backup and restore system for KotobaDB.',
+      dependencies: ['db', 'storage_main'],
+      provides: ['BackupManager', 'RestoreManager', 'PointInTimeRecovery'],
+      status: 'planned',
+      build_order: 9,
+      priority: 'high',
+      estimated_effort: '2-3 weeks',
+    },
+
+    'monitoring_metrics': {
+      name: 'monitoring_metrics',
+      path: 'crates/kotoba-monitoring/',
+      type: 'operational',
+      description: 'Comprehensive monitoring and metrics collection system.',
+      dependencies: ['db', 'db_cluster'],
+      provides: ['MetricsCollector', 'HealthChecker', 'PerformanceMonitor', 'PrometheusExporter'],
+      status: 'planned',
+      build_order: 9,
+      priority: 'high',
+      estimated_effort: '2-3 weeks',
+    },
+
+    'config_management': {
+      name: 'config_management',
+      path: 'crates/kotoba-config/',
+      type: 'operational',
+      description: 'Configuration management and CLI tools for operational tasks.',
+      dependencies: ['db', 'db_cluster'],
+      provides: ['ConfigManager', 'AdminCLI', 'ClusterManager', 'MigrationTools'],
+      status: 'planned',
+      build_order: 9,
+      priority: 'medium',
+      estimated_effort: '1-2 weeks',
+    },
+
+    // パフォーマンス最適化 (Performance Optimization)
+    'benchmarking_suite': {
+      name: 'benchmarking_suite',
+      path: 'crates/kotoba-bench/',
+      type: 'performance',
+      description: 'Comprehensive benchmarking suite for performance testing.',
+      dependencies: ['db', 'db_cluster'],
+      provides: ['BenchmarkRunner', 'PerformanceAnalyzer', 'LoadGenerator', 'MetricsReporter'],
+      status: 'planned',
+      build_order: 10,
+      priority: 'high',
+      estimated_effort: '2-3 weeks',
+    },
+
+    'profiling_tools': {
+      name: 'profiling_tools',
+      path: 'crates/kotoba-profiler/',
+      type: 'performance',
+      description: 'Performance profiling and optimization tools.',
+      dependencies: ['db', 'benchmarking_suite'],
+      provides: ['Profiler', 'MemoryAnalyzer', 'QueryOptimizer', 'PerformanceAdvisor'],
+      status: 'planned',
+      build_order: 10,
+      priority: 'medium',
+      estimated_effort: '2-3 weeks',
+    },
+
+    'memory_optimization': {
+      name: 'memory_optimization',
+      path: 'crates/kotoba-memory/',
+      type: 'performance',
+      description: 'Advanced memory management and optimization features.',
+      dependencies: ['db', 'profiling_tools'],
+      provides: ['MemoryPool', 'CacheManager', 'MemoryProfiler', 'GCOptimizer'],
+      status: 'planned',
+      build_order: 11,
+      priority: 'medium',
+      estimated_effort: '2-3 weeks',
+    },
+
+    // テストと品質保証 (Testing & QA)
+    'integration_tests': {
+      name: 'integration_tests',
+      path: 'tests/integration/',
+      type: 'testing',
+      description: 'Comprehensive integration test suite.',
+      dependencies: ['db', 'db_cluster', 'benchmarking_suite'],
+      provides: ['IntegrationTestSuite', 'EndToEndTests', 'ClusterTests'],
+      status: 'planned',
+      build_order: 12,
+      priority: 'high',
+      estimated_effort: '1-2 weeks',
+    },
+
+    'load_testing': {
+      name: 'load_testing',
+      path: 'tests/load/',
+      type: 'testing',
+      description: 'Load testing and stress testing framework.',
+      dependencies: ['db', 'db_cluster', 'benchmarking_suite'],
+      provides: ['LoadTestRunner', 'StressTester', 'ConcurrencyTester', 'ScalabilityTester'],
+      status: 'planned',
+      build_order: 12,
+      priority: 'high',
+      estimated_effort: '2-3 weeks',
+    },
+
+    'ci_cd_pipeline': {
+      name: 'ci_cd_pipeline',
+      path: '.github/workflows/',
+      type: 'testing',
+      description: 'CI/CD pipeline with automated testing and deployment.',
+      dependencies: ['integration_tests', 'load_testing', 'benchmarking_suite'],
+      provides: ['CIPipeline', 'AutoDeployment', 'QualityGates', 'ReleaseAutomation'],
+      status: 'planned',
+      build_order: 13,
+      priority: 'high',
+      estimated_effort: '1-2 weeks',
+    },
+
+    // ドキュメント拡張 (Documentation Expansion)
+    'api_reference': {
+      name: 'api_reference',
+      path: 'docs/api/',
+      type: 'documentation',
+      description: 'Complete API reference documentation.',
+      dependencies: ['db', 'db_cluster'],
+      provides: ['APIReference', 'CodeExamples', 'TypeDefinitions', 'FunctionIndex'],
+      status: 'planned',
+      build_order: 14,
+      priority: 'medium',
+      estimated_effort: '1-2 weeks',
+    },
+
+    'deployment_guides': {
+      name: 'deployment_guides',
+      path: 'docs/deployment/',
+      type: 'documentation',
+      description: 'Comprehensive deployment and operations guides.',
+      dependencies: ['db_cluster', 'config_management'],
+      provides: ['DeploymentGuide', 'OperationsManual', 'TroubleshootingGuide', 'BestPractices'],
+      status: 'planned',
+      build_order: 14,
+      priority: 'medium',
+      estimated_effort: '1-2 weeks',
+    },
+
+    'tutorials': {
+      name: 'tutorials',
+      path: 'docs/tutorials/',
+      type: 'documentation',
+      description: 'Step-by-step tutorials and learning resources.',
+      dependencies: ['api_reference', 'deployment_guides'],
+      provides: ['TutorialSeries', 'QuickStartGuide', 'AdvancedExamples', 'VideoTutorials'],
+      status: 'planned',
+      build_order: 15,
+      priority: 'medium',
+      estimated_effort: '1-2 weeks',
+    },
+
+    // コミュニティとエコシステム (Community & Ecosystem)
+    'sample_applications': {
+      name: 'sample_applications',
+      path: 'examples/',
+      type: 'community',
+      description: 'Sample applications and use case demonstrations.',
+      dependencies: ['db', 'db_cluster', 'tutorials'],
+      provides: ['WebAppDemo', 'AnalyticsApp', 'IoTApplication', 'SocialNetworkDemo'],
+      status: 'planned',
+      build_order: 16,
+      priority: 'medium',
+      estimated_effort: '2-3 weeks',
+    },
+
+    'contribution_guidelines': {
+      name: 'contribution_guidelines',
+      path: 'CONTRIBUTING.md',
+      type: 'community',
+      description: 'Comprehensive contribution guidelines and development workflow.',
+      dependencies: ['ci_cd_pipeline', 'integration_tests'],
+      provides: ['ContributingGuide', 'DevelopmentWorkflow', 'CodeReviewProcess', 'ReleaseProcess'],
+      status: 'planned',
+      build_order: 16,
+      priority: 'low',
+      estimated_effort: '1 week',
+    },
+
+    'open_source_release': {
+      name: 'open_source_release',
+      path: 'RELEASE.md',
+      type: 'community',
+      description: 'Open source release preparation and community management.',
+      dependencies: ['sample_applications', 'contribution_guidelines', 'deployment_guides'],
+      provides: ['GitHubRelease', 'CommunityManagement', 'MarketingMaterials', 'RoadmapPlanning'],
+      status: 'planned',
+      build_order: 17,
+      priority: 'high',
+      estimated_effort: '2-3 weeks',
+    },
+
+    // 先進機能 (Advanced Features)
+    'multi_model_support': {
+      name: 'multi_model_support',
+      path: 'crates/kotoba-multi-model/',
+      type: 'advanced',
+      description: 'Multi-model database support (documents, time-series, key-value).',
+      dependencies: ['db', 'db_cluster'],
+      provides: ['DocumentStore', 'TimeSeriesDB', 'KeyValueStore', 'UnifiedAPI'],
+      status: 'planned',
+      build_order: 18,
+      priority: 'medium',
+      estimated_effort: '4-6 weeks',
+    },
+
+    'machine_learning_integration': {
+      name: 'machine_learning_integration',
+      path: 'crates/kotoba-ml/',
+      type: 'advanced',
+      description: 'Machine learning and AI integration capabilities.',
+      dependencies: ['db', 'multi_model_support'],
+      provides: ['MLPipeline', 'FeatureStore', 'ModelRegistry', 'PredictionAPI'],
+      status: 'planned',
+      build_order: 19,
+      priority: 'low',
+      estimated_effort: '6-8 weeks',
+    },
+
+    'streaming_processing': {
+      name: 'streaming_processing',
+      path: 'crates/kotoba-streaming/',
+      type: 'advanced',
+      description: 'Real-time streaming data processing and analytics.',
+      dependencies: ['db_cluster', 'multi_model_support'],
+      provides: ['StreamProcessor', 'RealTimeAnalytics', 'EventProcessing', 'CDC'],
+      status: 'planned',
+      build_order: 20,
+      priority: 'low',
+      estimated_effort: '4-6 weeks',
+    },
+
+    'advanced_query_language': {
+      name: 'advanced_query_language',
+      path: 'crates/kotoba-query/',
+      type: 'advanced',
+      description: 'Advanced query language with graph traversals and analytics.',
+      dependencies: ['db', 'multi_model_support'],
+      provides: ['GraphQL', 'Cypher', 'GQL', 'AnalyticsQueries'],
+      status: 'planned',
+      build_order: 20,
+      priority: 'medium',
+      estimated_effort: '4-6 weeks',
+    },
+
+    // クラウド統合 (Cloud Integration)
+    'cloud_integrations': {
+      name: 'cloud_integrations',
+      path: 'crates/kotoba-cloud/',
+      type: 'cloud',
+      description: 'Cloud platform integrations (AWS, GCP, Azure).',
+      dependencies: ['db_cluster', 'backup_restore'],
+      provides: ['AWSIntegration', 'GCPIntegration', 'AzureIntegration', 'CloudFormation'],
+      status: 'planned',
+      build_order: 21,
+      priority: 'low',
+      estimated_effort: '3-4 weeks',
+    },
+
+    'serverless_deployment': {
+      name: 'serverless_deployment',
+      path: 'crates/kotoba-serverless/',
+      type: 'cloud',
+      description: 'Serverless deployment and scaling capabilities.',
+      dependencies: ['cloud_integrations', 'monitoring_metrics'],
+      provides: ['LambdaDeployment', 'CloudRun', 'KubernetesOperator', 'AutoScaling'],
+      status: 'planned',
+      build_order: 22,
+      priority: 'low',
+      estimated_effort: '4-5 weeks',
+    },
   },
 
   // ==========================================
@@ -1900,6 +2184,85 @@
     { from: 'cid', to: 'storage_main' },
     { from: 'db', to: 'storage_main' },
 
+    // ==========================================
+    // Future Features Dependencies
+    // ==========================================
+
+    // Operational Features
+    { from: 'db', to: 'backup_restore' },
+    { from: 'storage_main', to: 'backup_restore' },
+
+    { from: 'db', to: 'monitoring_metrics' },
+    { from: 'db_cluster', to: 'monitoring_metrics' },
+
+    { from: 'db', to: 'config_management' },
+    { from: 'db_cluster', to: 'config_management' },
+
+    // Performance Optimization
+    { from: 'db', to: 'benchmarking_suite' },
+    { from: 'db_cluster', to: 'benchmarking_suite' },
+
+    { from: 'db', to: 'profiling_tools' },
+    { from: 'benchmarking_suite', to: 'profiling_tools' },
+
+    { from: 'db', to: 'memory_optimization' },
+    { from: 'profiling_tools', to: 'memory_optimization' },
+
+    // Testing & QA
+    { from: 'db', to: 'integration_tests' },
+    { from: 'db_cluster', to: 'integration_tests' },
+    { from: 'benchmarking_suite', to: 'integration_tests' },
+
+    { from: 'db', to: 'load_testing' },
+    { from: 'db_cluster', to: 'load_testing' },
+    { from: 'benchmarking_suite', to: 'load_testing' },
+
+    { from: 'integration_tests', to: 'ci_cd_pipeline' },
+    { from: 'load_testing', to: 'ci_cd_pipeline' },
+    { from: 'benchmarking_suite', to: 'ci_cd_pipeline' },
+
+    // Documentation Expansion
+    { from: 'db', to: 'api_reference' },
+    { from: 'db_cluster', to: 'api_reference' },
+
+    { from: 'db_cluster', to: 'deployment_guides' },
+    { from: 'config_management', to: 'deployment_guides' },
+
+    { from: 'api_reference', to: 'tutorials' },
+    { from: 'deployment_guides', to: 'tutorials' },
+
+    // Community & Ecosystem
+    { from: 'db', to: 'sample_applications' },
+    { from: 'db_cluster', to: 'sample_applications' },
+    { from: 'tutorials', to: 'sample_applications' },
+
+    { from: 'ci_cd_pipeline', to: 'contribution_guidelines' },
+    { from: 'integration_tests', to: 'contribution_guidelines' },
+
+    { from: 'sample_applications', to: 'open_source_release' },
+    { from: 'contribution_guidelines', to: 'open_source_release' },
+    { from: 'deployment_guides', to: 'open_source_release' },
+
+    // Advanced Features
+    { from: 'db', to: 'multi_model_support' },
+    { from: 'db_cluster', to: 'multi_model_support' },
+
+    { from: 'db', to: 'machine_learning_integration' },
+    { from: 'multi_model_support', to: 'machine_learning_integration' },
+
+    { from: 'db_cluster', to: 'streaming_processing' },
+    { from: 'multi_model_support', to: 'streaming_processing' },
+
+    { from: 'db', to: 'advanced_query_language' },
+    { from: 'multi_model_support', to: 'advanced_query_language' },
+
+    // Cloud Integration
+    { from: 'db_cluster', to: 'cloud_integrations' },
+    { from: 'backup_restore', to: 'cloud_integrations' },
+
+    { from: 'cloud_integrations', to: 'serverless_deployment' },
+    { from: 'monitoring_metrics', to: 'serverless_deployment' },
+
     // LSP server dependencies
     { from: 'kotobanet_core', to: 'kotoba_lsp' },
   ],
@@ -1932,6 +2295,30 @@
     'db_engine_memory',
     'db_engine_lsm',
     'db_cluster',
+
+    // Future Features (planned)
+    'backup_restore',
+    'monitoring_metrics',
+    'config_management',
+    'benchmarking_suite',
+    'profiling_tools',
+    'memory_optimization',
+    'integration_tests',
+    'load_testing',
+    'ci_cd_pipeline',
+    'api_reference',
+    'deployment_guides',
+    'tutorials',
+    'sample_applications',
+    'contribution_guidelines',
+    'open_source_release',
+    'multi_model_support',
+    'machine_learning_integration',
+    'streaming_processing',
+    'advanced_query_language',
+    'cloud_integrations',
+    'serverless_deployment',
+
     'package_manager',
     'storage_mvcc',
     'security_jwt',
@@ -1996,6 +2383,30 @@
     'docs_generator',
     'docs_search',
     'storage_main',
+
+    // Future Features (reverse topological order)
+    'serverless_deployment',
+    'cloud_integrations',
+    'advanced_query_language',
+    'streaming_processing',
+    'machine_learning_integration',
+    'multi_model_support',
+    'open_source_release',
+    'contribution_guidelines',
+    'sample_applications',
+    'tutorials',
+    'deployment_guides',
+    'api_reference',
+    'ci_cd_pipeline',
+    'load_testing',
+    'integration_tests',
+    'memory_optimization',
+    'profiling_tools',
+    'benchmarking_suite',
+    'config_management',
+    'monitoring_metrics',
+    'backup_restore',
+
     'db_cluster',
     'db_engine_lsm',
     'db_engine_memory',
