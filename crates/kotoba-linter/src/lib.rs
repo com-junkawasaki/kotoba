@@ -213,7 +213,6 @@ impl LintResult {
 }
 
 /// メインのリンター構造体
-#[derive(Debug)]
 pub struct Linter {
     config: LinterConfig,
     rules: Vec<Box<dyn rules::LintRule>>,

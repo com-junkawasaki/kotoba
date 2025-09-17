@@ -7,9 +7,5 @@ pub mod merkle;
 pub mod mvcc;
 pub mod redis;
 
-pub use backend::{StorageBackend, BackendStats, StorageManager, StorageConfig, BackendType};
-pub use lsm::LsmStorage;
-pub use memory::MemoryStorage;
-pub use merkle::MerkleDAG;
-pub use mvcc::MVCCManager;
-pub use redis::RedisStorage;
+// Re-export everything from the backend, which is the main public interface.
+pub use backend::*;

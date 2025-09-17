@@ -5,7 +5,6 @@ use std::io::{self, Write};
 use colored::*;
 
 /// レポートライター
-#[derive(Debug)]
 pub struct Reporter {
     format: OutputFormat,
     writer: Box<dyn Write>,

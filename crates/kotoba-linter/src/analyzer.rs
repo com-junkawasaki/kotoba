@@ -1,6 +1,7 @@
 //! ASTベースの解析モジュール
 
 use super::{Diagnostic, DiagnosticLevel};
+use serde::Serialize;
 use std::path::PathBuf;
 use regex::Regex;
 

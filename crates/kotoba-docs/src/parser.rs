@@ -407,10 +407,12 @@ impl LanguageParser for PythonParser {
             .map_err(|e| DocsError::Parse(format!("Regex error: {}", e)))?;
 
         // 関数定義を抽出
-        let fn_regex = Regex::new(r"(?:(?:\"\"\"[\s\S]*?\"\"\"\s*)?\s*)?def\s+(\w+)\s*\(([^)]*)\)")?;
+        let fn_regex = Regex::new(r"(?:(?:\"\"\"[\s\S]*?\"\"\"\s*)?\s*)?def\s+(\w+)\s*\(([^)]*)\)")
+            .map_err(|e| DocsError::Parse(format!("Regex error: {}", e)))?;
 
         // クラス定義を抽出
-        let class_regex = Regex::new(r"(?:(?:\"\"\"[\s\S]*?\"\"\"\s*)?\s*)?class\s+(\w+)")?;
+        let class_regex = Regex::new(r"(?:(?:\"\"\"[\s\S]*?\"\"\"\s*)?\s*)?class\s+(\w+)")
+            .map_err(|e| DocsError::Parse(format!("Regex error: {}", e)))?;
 
         // 関数をパース
         for cap in fn_regex.captures_iter(&content) {

@@ -84,12 +84,6 @@ Email: \texttt{jun784@example.com}
 Kotoba is a comprehensive graph processing system that unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model. Built entirely in Rust with 95\% test coverage, Kotoba provides a complete implementation of Google Jsonnet 0.21.0, ISO GQL-compliant queries, DPO (Double Pushout) graph rewriting, and MVCC+Merkle DAG persistence.
 
 The core innovation lies in the Process Network Graph Model, where all system components are centrally managed through a declarative configuration file (dag.jsonnet), enabling automatic topological sorting for build order and reverse topological sorting for problem resolution. This approach eliminates the traditional separation between data, computation, and deployment concerns by representing everything as interconnected graph transformations.
-
-Kotoba introduces a declarative programming paradigm centered around .kotoba files (Jsonnet format), where users define graph structures, rewriting rules, and execution strategies without writing imperative code. The system achieves theoretical completeness with DPO graph rewriting, practical performance through columnar storage and LSM trees, and distributed scalability via CID-based addressing.
-
-Extensive evaluation shows 38/38 Jsonnet compatibility tests passing, LDBC-SNB benchmark performance competitive with established graph databases, and 95\% test coverage across all components. The system demonstrates practical viability through case studies including HTTP servers implemented as graph transformations, temporal workflow orchestration, and advanced deployment automation with AI-powered scaling.
-
-Kotoba represents a convergence of graph theory, programming languages, and distributed systems, offering a unified framework for complex system development through declarative graph processing.
 \end{abstract}
 
 \section{Introduction}

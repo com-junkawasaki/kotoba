@@ -1,10 +1,11 @@
 //! Redis-based storage backend for Upstash compatibility
 
-use crate::storage::backend::{StorageBackend, BackendStats};
-use crate::storage::StorageConfig;
-use async_trait::async_trait;
-use kotoba_core::types::{Result, KotobaError};
-use redis::{aio::ConnectionManager, AsyncCommands, Client};
+use redis::aio::MultiplexedConnection;
+use redis::AsyncCommands;
+use crate::storage::{StorageBackend, StorageConfig};
+use kotoba_core::types::Result;
+use kotoba_errors::KotobaError;
+use redis::{aio::ConnectionManager, Client};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
