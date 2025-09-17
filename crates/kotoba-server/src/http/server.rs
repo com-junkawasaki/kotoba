@@ -6,8 +6,10 @@ use kotoba_core::types::Result;
 use crate::http::ir::*;
 use crate::http::parser::HttpConfigParser;
 use crate::http::engine::{HttpEngine, RawHttpRequest};
+use crate::http::graphql::*;
 // use kotoba_storage::prelude::*; // Storage crate has issues
 use kotoba_rewrite::prelude::*;
+use kotoba_schema::manager::SchemaManager;
 use std::sync::Arc;
 use std::path::Path;
 use tokio::net::{TcpListener, TcpStream};
@@ -18,6 +20,7 @@ use std::collections::HashMap;
 pub struct HttpServer {
     engine: HttpEngine,
     listener: Option<TcpListener>,
+    graphql_schema: Option<KotobaSchema>,
 }
 
 impl HttpServer {
@@ -32,7 +35,20 @@ impl HttpServer {
         Ok(Self {
             engine,
             listener: None,
+            graphql_schema: None,
         })
+    }
+
+    /// GraphQL スキーマを有効化
+    pub fn enable_graphql(&mut self, schema_manager: Arc<SchemaManager>) {
+        self.graphql_schema = Some(create_schema(schema_manager));
+    }
+
+    /// 設定に基づいてGraphQLを有効化
+    pub fn enable_graphql_if_configured(&mut self, schema_manager: Arc<SchemaManager>) {
+        if self.engine.config.server.graphql_enabled.unwrap_or(false) {
+            self.enable_graphql(schema_manager);
+        }
     }
 
     /// 設定ファイルからHTTPサーバーを作成
@@ -43,7 +59,9 @@ impl HttpServer {
         rewrite_engine: Arc<RewriteEngine>,
     ) -> Result<Self> {
         let config = HttpConfigParser::parse(config_path)?;
-        Self::new(config, mvcc, merkle, rewrite_engine).await
+        let mut server = Self::new(config, mvcc, merkle, rewrite_engine).await?;
+        // TODO: GraphQL を設定ファイルから有効化できるようにする
+        Ok(server)
     }
 
     /// サーバーを開始
@@ -99,8 +117,12 @@ impl HttpServer {
         // HTTPリクエストをパース
         let raw_request = Self::parse_http_request(&request_str)?;
 
-        // リクエストを処理
-        let response = engine.handle_request(raw_request).await?;
+        // GraphQL リクエストをチェック
+        let response = if raw_request.path == "/graphql" && self.graphql_schema.is_some() {
+            self.handle_graphql_request(raw_request).await?
+        } else {
+            engine.handle_request(raw_request).await?
+        };
 
         // HTTPレスポンスを送信
         let response_bytes = Self::format_http_response(&response)?;
@@ -108,6 +130,44 @@ impl HttpServer {
         socket.flush().await?;
 
         Ok(())
+    }
+
+    /// GraphQL リクエストを処理
+    async fn handle_graphql_request(&self, raw_request: RawHttpRequest) -> Result<HttpResponse> {
+        if let Some(schema) = &self.graphql_schema {
+            // リクエストボディから GraphQL クエリを取得
+            let request_body = String::from_utf8(raw_request.body)
+                .map_err(|e| crate::types::KotobaError::InvalidArgument(
+                    format!("Invalid UTF-8 in request body: {}", e)
+                ))?;
+
+            // GraphQL リクエストを実行
+            let response_json = graphql_handler(schema, request_body).await
+                .map_err(|e| crate::types::KotobaError::InvalidArgument(
+                    format!("GraphQL execution failed: {}", e)
+                ))?;
+
+            // HTTP レスポンスを作成
+            let mut headers = HashMap::new();
+            headers.insert("content-type".to_string(), "application/json".to_string());
+            headers.insert("access-control-allow-origin".to_string(), "*".to_string());
+            headers.insert("access-control-allow-methods".to_string(), "GET, POST, OPTIONS".to_string());
+            headers.insert("access-control-allow-headers".to_string(), "Content-Type".to_string());
+
+            Ok(HttpResponse::new(
+                raw_request.id,
+                HttpStatus::ok(),
+                HttpHeaders { headers },
+                Some(ContentHash::sha256(response_json.as_bytes())),
+            ))
+        } else {
+            Ok(HttpResponse::new(
+                raw_request.id,
+                HttpStatus::internal_server_error(),
+                HttpHeaders::new(),
+                None,
+            ))
+        }
     }
 
     /// HTTPリクエスト文字列をパース

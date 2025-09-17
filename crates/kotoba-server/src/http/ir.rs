@@ -264,6 +264,7 @@ pub struct ServerConfig {
     pub max_connections: Option<usize>,
     pub timeout_ms: Option<u64>,
     pub tls: Option<TlsConfig>,
+    pub graphql_enabled: Option<bool>,
 }
 
 impl Default for ServerConfig {
@@ -274,6 +275,7 @@ impl Default for ServerConfig {
             max_connections: Some(1000),
             timeout_ms: Some(30000),
             tls: None,
+            graphql_enabled: Some(false),
         }
     }
 }

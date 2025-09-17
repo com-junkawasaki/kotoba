@@ -71,6 +71,17 @@ impl HttpRequestProcessor {
                     Some(ContentHash::sha256([1; 32])), // 固定のコンテンツハッシュ
                 ))
             },
+            "/graphql" => {
+                // GraphQL endpoint will be handled separately
+                let mut headers = HttpHeaders::new();
+                headers.set("content-type".to_string(), "application/json".to_string());
+                Ok(HttpResponse::new(
+                    request.id,
+                    HttpStatus::ok(),
+                    headers,
+                    Some(ContentHash::sha256([2; 32])),
+                ))
+            },
             _ => {
                 // 404 Not Found
                 Ok(HttpResponse::new(

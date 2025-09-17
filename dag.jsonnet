@@ -248,6 +248,51 @@
       build_order: 7,
     },
 
+    'workflow_designer': {
+      name: 'workflow_designer',
+      path: 'packages/kotoba-workflow-designer/src/index.tsx',
+      type: 'ecosystem',
+      description: 'Visual workflow designer UI with React/TypeScript',
+      dependencies: ['types'],
+      provides: ['WorkflowDesigner', 'ActivityPalette', 'PropertyPanel', 'WorkflowCanvas'],
+      status: 'completed',
+      build_order: 9,
+    },
+
+    'activity_libraries': {
+      name: 'activity_libraries',
+      path: 'crates/kotoba-workflow-activities/src/lib.rs',
+      type: 'ecosystem',
+      description: 'Pre-built activity libraries (HTTP, Database, Cloud, etc.)',
+      dependencies: ['types', 'ir_workflow', 'workflow_executor'],
+      provides: ['ActivityLibrary', 'HttpActivities', 'DatabaseActivities', 'CloudActivities'],
+      status: 'completed',
+      build_order: 10,
+    },
+
+    'kubernetes_operator': {
+      name: 'kubernetes_operator',
+      path: 'crates/kotoba-workflow-operator/src/lib.rs',
+      type: 'ecosystem',
+      description: 'Kubernetes operator for workflow management',
+      dependencies: ['types', 'ir_workflow', 'workflow_executor', 'workflow_store'],
+      provides: ['WorkflowOperator', 'WorkflowController', 'WorkflowReconciler'],
+      status: 'completed',
+      build_order: 11,
+    },
+
+    'cloud_integrations': {
+      name: 'cloud_integrations',
+      path: 'crates/kotoba-cloud-integrations/src/lib.rs',
+      type: 'ecosystem',
+      description: 'Cloud-native integrations (AWS, GCP, Azure)',
+      dependencies: ['types'],
+      provides: ['CloudIntegrationManager', 'AWSService', 'GCPService', 'AzureService'],
+      status: 'completed',
+      build_order: 12,
+    },
+
+
     // 書換え層
     'rewrite_matcher': {
       name: 'rewrite_matcher',
@@ -617,13 +662,39 @@
 
     'http_server': {
       name: 'http_server',
-      path: 'src/http/server.rs',
+      path: 'crates/kotoba-server/src/http/server.rs',
       type: 'http',
       description: 'メインHTTPサーバー',
-      dependencies: ['types', 'http_ir', 'http_parser', 'http_engine', 'http_handlers'],
+      dependencies: ['types', 'http_ir', 'http_parser', 'http_engine', 'http_handlers', 'graphql_schema', 'graphql_handler'],
       provides: ['HttpServer', 'ServerBuilder'],
-      status: 'pending',
+      status: 'completed',
       build_order: 10,
+    },
+
+    // ==========================================
+    // GraphQL 層
+    // ==========================================
+
+    'graphql_schema': {
+      name: 'graphql_schema',
+      path: 'crates/kotoba-server/src/http/graphql.rs',
+      type: 'graphql',
+      description: 'GraphQLスキーマ定義とスキーマ管理操作',
+      dependencies: ['types', 'schema_validator'],
+      provides: ['GraphQLSchema', 'SchemaMutations', 'SchemaQueries'],
+      status: 'completed',
+      build_order: 9,
+    },
+
+    'graphql_handler': {
+      name: 'graphql_handler',
+      path: 'crates/kotoba-server/src/http/graphql.rs',
+      type: 'graphql',
+      description: 'GraphQLリクエスト処理と実行エンジン',
+      dependencies: ['types', 'graphql_schema'],
+      provides: ['GraphQLHandler', 'RequestExecutor'],
+      status: 'completed',
+      build_order: 9,
     },
 
     // フロントエンドフレームワーク層
@@ -953,6 +1024,17 @@
     { from: 'storage_mvcc', to: 'workflow_store' },
     { from: 'storage_merkle', to: 'workflow_store' },
 
+    // Phase 4: Ecosystem 依存
+    { from: 'types', to: 'workflow_designer' },
+    { from: 'types', to: 'activity_libraries' },
+    { from: 'ir_workflow', to: 'activity_libraries' },
+    { from: 'workflow_executor', to: 'activity_libraries' },
+    { from: 'types', to: 'kubernetes_operator' },
+    { from: 'ir_workflow', to: 'kubernetes_operator' },
+    { from: 'workflow_executor', to: 'kubernetes_operator' },
+    { from: 'workflow_store', to: 'kubernetes_operator' },
+    { from: 'types', to: 'cloud_integrations' },
+
     // グラフ層依存
     { from: 'types', to: 'graph_core' },
     { from: 'graph_vertex', to: 'graph_core' },
@@ -1117,6 +1199,14 @@
     { from: 'http_parser', to: 'http_server' },
     { from: 'http_engine', to: 'http_server' },
     { from: 'http_handlers', to: 'http_server' },
+
+    // GraphQL dependencies
+    { from: 'types', to: 'graphql_schema' },
+    { from: 'schema_validator', to: 'graphql_schema' },
+    { from: 'types', to: 'graphql_handler' },
+    { from: 'graphql_schema', to: 'graphql_handler' },
+    { from: 'graphql_schema', to: 'http_server' },
+    { from: 'graphql_handler', to: 'http_server' },
     { from: 'http_ir', to: 'lib' },
     { from: 'http_parser', to: 'lib' },
     { from: 'http_handlers', to: 'lib' },
@@ -1319,6 +1409,10 @@
     'planner_optimizer',
     'rewrite_engine',
     'execution_engine',
+    'workflow_designer',
+    'activity_libraries',
+    'kubernetes_operator',
+    'cloud_integrations',
     'distributed_engine',
     'network_protocol',
     'http_ir',
@@ -1337,6 +1431,8 @@
     'deploy_git_integration',
     'frontend_framework',
     'deploy_controller',
+    'graphql_schema',
+    'graphql_handler',
     'http_server',
     'deploy_cli',
     'deploy_runtime',
@@ -1372,6 +1468,8 @@
     'deploy_runtime',
     'deploy_cli',
     'http_server',
+    'graphql_handler',
+    'graphql_schema',
     'deploy_controller',
     'frontend_framework',
     'deploy_git_integration',
@@ -1391,6 +1489,10 @@
     'execution_engine',
     'network_protocol',
     'distributed_engine',
+    'cloud_integrations',
+    'kubernetes_operator',
+    'activity_libraries',
+    'workflow_designer',
     'rewrite_engine',
     'planner_optimizer',
     'rewrite_applier',

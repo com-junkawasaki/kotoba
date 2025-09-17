@@ -57,15 +57,40 @@ impl HttpConfigParser {
     }
 
     /// kotoba-kotobanet::ServerConfig を変換
-    fn convert_server_config(_kotobanet_config: &serde_json::Value) -> Result<ServerConfig> {
-        // TODO: 実際のサーバー設定を抽出するロジックを実装
-        // 現時点ではデフォルト設定を使用
+    fn convert_server_config(kotobanet_config: &serde_json::Value) -> Result<ServerConfig> {
+        let host = kotobanet_config
+            .get("host")
+            .and_then(|v| v.as_str())
+            .unwrap_or("127.0.0.1")
+            .to_string();
+
+        let port = kotobanet_config
+            .get("port")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(8080) as u16;
+
+        let max_connections = kotobanet_config
+            .get("max_connections")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize);
+
+        let timeout_ms = kotobanet_config
+            .get("timeout_ms")
+            .and_then(|v| v.as_u64());
+
+        let tls = None; // TODO: TLS設定の抽出を実装
+
+        let graphql_enabled = kotobanet_config
+            .get("graphql_enabled")
+            .and_then(|v| v.as_bool());
+
         Ok(ServerConfig {
-            host: "127.0.0.1".to_string(),
-            port: 8080,
-            max_connections: None,
-            timeout_ms: None,
-            tls: None,
+            host,
+            port,
+            max_connections,
+            timeout_ms,
+            tls,
+            graphql_enabled,
         })
     }
 
@@ -97,6 +122,11 @@ mod tests {
     fn test_parse_kotoba_json() {
         let config_str = r#"
         {
+            "server": {
+                "host": "0.0.0.0",
+                "port": 3000,
+                "graphql_enabled": true
+            },
             "routes": [
                 {
                     "method": "GET",
@@ -114,6 +144,9 @@ mod tests {
 
         let config = HttpConfigParser::parse_kotoba_json(temp_file.path()).unwrap();
 
+        assert_eq!(config.server.host, "0.0.0.0");
+        assert_eq!(config.server.port, 3000);
+        assert_eq!(config.server.graphql_enabled, Some(true));
         assert_eq!(config.routes.len(), 1);
         assert_eq!(config.routes[0].method, HttpMethod::GET);
         assert_eq!(config.routes[0].pattern, "/ping");
@@ -123,6 +156,11 @@ mod tests {
     fn test_parse_kotoba_file() {
         let config_str = r#"
         {
+          server: {
+            host: "127.0.0.1",
+            port: 4000,
+            graphql_enabled: false
+          },
           routes: [
             {
               method: "GET",
@@ -140,6 +178,9 @@ mod tests {
 
         let config = HttpConfigParser::parse_kotoba_file(temp_file.path()).unwrap();
 
+        assert_eq!(config.server.host, "127.0.0.1");
+        assert_eq!(config.server.port, 4000);
+        assert_eq!(config.server.graphql_enabled, Some(false));
         assert_eq!(config.routes.len(), 1);
         assert_eq!(config.routes[0].method, HttpMethod::GET);
         assert_eq!(config.routes[0].pattern, "/health");

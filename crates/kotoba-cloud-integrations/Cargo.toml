@@ -1,0 +1,52 @@
+[package]
+name = "kotoba-cloud-integrations"
+version = "0.1.0"
+edition = "2021"
+description = "Cloud-native integrations for Kotoba Workflow Engine"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/kotoba/kotoba"
+homepage = "https://github.com/kotoba/kotoba"
+
+[dependencies]
+kotoba-workflow = { path = "../kotoba-workflow", version = "0.1.0" }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-trait = "0.1"
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.5"
+base64 = "0.21"
+url = "2.3"
+
+# AWS SDK
+aws-config = { version = "1.0", features = ["behavior-version-latest"], optional = true }
+aws-sdk-s3 = { version = "1.0", optional = true }
+aws-sdk-lambda = { version = "1.0", optional = true }
+aws-sdk-sqs = { version = "1.0", optional = true }
+aws-sdk-sns = { version = "1.0", optional = true }
+aws-sdk-dynamodb = { version = "1.0", optional = true }
+aws-sdk-ec2 = { version = "1.0", optional = true }
+aws-sdk-ecs = { version = "1.0", optional = true }
+aws-sdk-eks = { version = "1.0", optional = true }
+aws-sdk-iam = { version = "1.0", optional = true }
+aws-sdk-cloudwatch = { version = "1.0", optional = true }
+
+# GCP SDK
+google-cloud-storage = { version = "0.14", optional = true }
+google-cloud-pubsub = { version = "0.21", optional = true }
+google-cloud-bigquery = { version = "0.6", optional = true }
+google-cloud-logging = { version = "0.1.0", package = "google_cloud_logging", optional = true }
+
+# Azure SDK
+azure_storage = { version = "0.17", optional = true }
+azure_storage_blobs = { version = "0.17", optional = true }
+azure_core = { version = "0.17", optional = true }
+azure_identity = { version = "0.17", optional = true }
+
+[features]
+default = []
+aws = ["aws-config", "aws-sdk-s3", "aws-sdk-lambda", "aws-sdk-sqs", "aws-sdk-sns", "aws-sdk-dynamodb", "aws-sdk-ec2", "aws-sdk-ecs", "aws-sdk-eks", "aws-sdk-iam", "aws-sdk-cloudwatch"]
+gcp = ["google-cloud-storage", "google-cloud-pubsub", "google-cloud-bigquery", "google-cloud-logging"]
+azure = ["azure_storage", "azure_storage_blobs", "azure_core", "azure_identity"]

@@ -12,6 +12,7 @@ pub mod parser;
 pub mod handlers;
 pub mod engine;
 pub mod server;
+pub mod graphql;
 
 // HTTP関連の型を再エクスポート
 pub use ir::*;
@@ -19,3 +20,4 @@ pub use parser::*;
 pub use handlers::*;
 pub use engine::*;
 pub use server::*;
+pub use graphql::*;
