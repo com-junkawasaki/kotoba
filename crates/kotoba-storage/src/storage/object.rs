@@ -12,7 +12,13 @@ use kotoba_core::types::*;
 #[cfg(feature = "object_storage")]
 use kotoba_errors::KotobaError;
 #[cfg(feature = "object_storage")]
-use kotoba_cloud_integrations::CloudProvider;
+// Cloud provider enum for object storage
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloudProvider {
+    AWS,
+    GCP,
+    Azure,
+}
 
 // Cloud service SDK imports
 #[cfg(all(feature = "object_storage", feature = "aws"))]
@@ -98,8 +104,15 @@ impl StorageBackend for ObjectStorageBackend {
             CloudProvider::AWS => {
                 #[cfg(feature = "aws")]
                 {
-                    // For now, use a placeholder - need to implement proper service access
-                    Err(KotobaError::Storage("AWS S3 put integration in progress".to_string()))
+                    self.aws_client
+                        .put_object()
+                        .bucket(&self.bucket)
+                        .key(&key)
+                        .body(value.into())
+                        .send()
+                        .await
+                        .map_err(|e| KotobaError::Storage(format!("AWS S3 put failed: {}", e)))?;
+                    Ok(())
                 }
                 #[cfg(not(feature = "aws"))]
                 {
@@ -107,24 +120,10 @@ impl StorageBackend for ObjectStorageBackend {
                 }
             }
             CloudProvider::GCP => {
-                #[cfg(feature = "gcp")]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage put integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "gcp"))]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("GCP Cloud Storage not yet implemented".to_string()))
             }
             CloudProvider::Azure => {
-                #[cfg(feature = "azure")]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage put integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "azure"))]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("Azure Blob Storage not yet implemented".to_string()))
             }
         }
     }
@@ -134,7 +133,27 @@ impl StorageBackend for ObjectStorageBackend {
             CloudProvider::AWS => {
                 #[cfg(feature = "aws")]
                 {
-                    Err(KotobaError::Storage("AWS S3 get integration in progress".to_string()))
+                    match self.aws_client
+                        .get_object()
+                        .bucket(&self.bucket)
+                        .key(key)
+                        .send()
+                        .await
+                    {
+                        Ok(response) => {
+                            let data = response.body
+                                .collect()
+                                .await
+                                .map_err(|e| KotobaError::Storage(format!("AWS S3 read failed: {}", e)))?;
+                            Ok(Some(data.into_bytes().to_vec()))
+                        }
+                        Err(aws_sdk_s3::error::SdkError::ServiceError(e)) if e.err().is_no_such_key() => {
+                            Ok(None)
+                        }
+                        Err(e) => {
+                            Err(KotobaError::Storage(format!("AWS S3 get failed: {}", e)))
+                        }
+                    }
                 }
                 #[cfg(not(feature = "aws"))]
                 {
@@ -142,24 +161,10 @@ impl StorageBackend for ObjectStorageBackend {
                 }
             }
             CloudProvider::GCP => {
-                #[cfg(feature = "gcp")]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage get integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "gcp"))]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("GCP Cloud Storage not yet implemented".to_string()))
             }
             CloudProvider::Azure => {
-                #[cfg(feature = "azure")]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage get integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "azure"))]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("Azure Blob Storage not yet implemented".to_string()))
             }
         }
     }
@@ -169,7 +174,14 @@ impl StorageBackend for ObjectStorageBackend {
             CloudProvider::AWS => {
                 #[cfg(feature = "aws")]
                 {
-                    Err(KotobaError::Storage("AWS S3 delete integration in progress".to_string()))
+                    self.aws_client
+                        .delete_object()
+                        .bucket(&self.bucket)
+                        .key(&key)
+                        .send()
+                        .await
+                        .map_err(|e| KotobaError::Storage(format!("AWS S3 delete failed: {}", e)))?;
+                    Ok(())
                 }
                 #[cfg(not(feature = "aws"))]
                 {
@@ -177,24 +189,10 @@ impl StorageBackend for ObjectStorageBackend {
                 }
             }
             CloudProvider::GCP => {
-                #[cfg(feature = "gcp")]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage delete integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "gcp"))]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("GCP Cloud Storage not yet implemented".to_string()))
             }
             CloudProvider::Azure => {
-                #[cfg(feature = "azure")]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage delete integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "azure"))]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("Azure Blob Storage not yet implemented".to_string()))
             }
         }
     }
@@ -204,7 +202,21 @@ impl StorageBackend for ObjectStorageBackend {
             CloudProvider::AWS => {
                 #[cfg(feature = "aws")]
                 {
-                    Err(KotobaError::Storage("AWS S3 list integration in progress".to_string()))
+                    let response = self.aws_client
+                        .list_objects_v2()
+                        .bucket(&self.bucket)
+                        .prefix(prefix)
+                        .send()
+                        .await
+                        .map_err(|e| KotobaError::Storage(format!("AWS S3 list failed: {}", e)))?;
+
+                    let keys = response.contents
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter_map(|obj| obj.key)
+                        .collect();
+
+                    Ok(keys)
                 }
                 #[cfg(not(feature = "aws"))]
                 {
@@ -212,24 +224,10 @@ impl StorageBackend for ObjectStorageBackend {
                 }
             }
             CloudProvider::GCP => {
-                #[cfg(feature = "gcp")]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage list integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "gcp"))]
-                {
-                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("GCP Cloud Storage not yet implemented".to_string()))
             }
             CloudProvider::Azure => {
-                #[cfg(feature = "azure")]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage list integration in progress".to_string()))
-                }
-                #[cfg(not(feature = "azure"))]
-                {
-                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
-                }
+                Err(KotobaError::Storage("Azure Blob Storage not yet implemented".to_string()))
             }
         }
     }

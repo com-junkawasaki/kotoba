@@ -4934,7 +4934,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-core"
-version = "0.1.18"
+version = "0.1.19"
 dependencies = [
  "anyhow",
  "blake3",
@@ -5229,7 +5229,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-errors"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
  "thiserror 1.0.69",
