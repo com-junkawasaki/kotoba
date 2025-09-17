@@ -6,18 +6,14 @@
 use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque};
 use std::cmp::Reverse;
 use kotoba_core::types::*;
-use crate::graph::{Graph, VertexId};
-use std::hash::Hash;
+use crate::graph::{Graph, VertexId, EdgeData, VertexData};
+use kotoba_errors::KotobaError;
 
-/// 最短経路アルゴリズムの結果
-#[derive(Debug, Clone)]
+/// 最短経路の結果
+#[derive(Debug, Clone, Default)]
 pub struct ShortestPathResult {
-    /// 始点から各頂点までの距離
-    pub distances: HashMap<VertexId, f64>,
-    /// 各頂点の前の頂点（経路復元用）
-    pub predecessors: HashMap<VertexId, VertexId>,
-    /// 始点
-    pub source: VertexId,
+    pub distances: HashMap<VertexId, u64>,
+    pub previous: HashMap<VertexId, VertexId>,
 }
 
 /// 中央性指標の結果
@@ -71,19 +67,19 @@ impl GraphAlgorithms {
     pub fn shortest_path_dijkstra(
         graph: &Graph,
         source: VertexId,
-        weight_fn: impl Fn(&EdgeData) -> f64,
-    ) -> Result<ShortestPathResult> {
-        let mut distances: HashMap<VertexId, f64> = HashMap::new();
+        weight_fn: impl Fn(&EdgeData) -> u64,
+    ) -> Result<ShortestPathResult, KotobaError> {
+        let mut distances: HashMap<VertexId, u64> = HashMap::new();
         let mut predecessors: HashMap<VertexId, VertexId> = HashMap::new();
-        let mut pq: BinaryHeap<Reverse<(f64, VertexId)>> = BinaryHeap::new();
+        let mut pq: BinaryHeap<Reverse<(u64, VertexId)>> = BinaryHeap::new();
         let mut visited: HashSet<VertexId> = HashSet::new();
 
         // 初期化
         for &vertex_id in graph.vertices.keys() {
-            distances.insert(vertex_id, f64::INFINITY);
+            distances.insert(vertex_id, u64::MAX);
         }
-        distances.insert(source, 0.0);
-        pq.push(Reverse((0.0, source)));
+        distances.insert(source, 0);
+        pq.push(Reverse((0, source)));
 
         while let Some(Reverse((dist, u))) = pq.pop() {
             if visited.contains(&u) {
@@ -98,11 +94,11 @@ impl GraphAlgorithms {
                     let edge_weight = graph.edges.values()
                         .find(|e| e.src == u && e.dst == v)
                         .map(&weight_fn)
-                        .unwrap_or(1.0); // デフォルト重み
+                        .unwrap_or(1); // デフォルト重み
 
                     let new_dist = dist + edge_weight;
 
-                    if new_dist < *distances.get(&v).unwrap_or(&f64::INFINITY) {
+                    if new_dist < *distances.get(&v).unwrap_or(&u64::MAX) {
                         distances.insert(v, new_dist);
                         predecessors.insert(v, u);
                         pq.push(Reverse((new_dist, v)));
@@ -113,8 +109,7 @@ impl GraphAlgorithms {
 
         Ok(ShortestPathResult {
             distances,
-            predecessors,
-            source,
+            previous: predecessors,
         })
     }
 
@@ -122,16 +117,16 @@ impl GraphAlgorithms {
     pub fn shortest_path_bellman_ford(
         graph: &Graph,
         source: VertexId,
-        weight_fn: impl Fn(&EdgeData) -> f64,
-    ) -> Result<ShortestPathResult> {
-        let mut distances: HashMap<VertexId, f64> = HashMap::new();
+        weight_fn: impl Fn(&EdgeData) -> u64,
+    ) -> Result<ShortestPathResult, KotobaError> {
+        let mut distances: HashMap<VertexId, u64> = HashMap::new();
         let mut predecessors: HashMap<VertexId, VertexId> = HashMap::new();
 
         // 初期化
         for &vertex_id in graph.vertices.keys() {
-            distances.insert(vertex_id, f64::INFINITY);
+            distances.insert(vertex_id, u64::MAX);
         }
-        distances.insert(source, 0.0);
+        distances.insert(source, 0);
 
         let vertex_count = graph.vertices.len();
 
@@ -166,29 +161,28 @@ impl GraphAlgorithms {
 
         Ok(ShortestPathResult {
             distances,
-            predecessors,
-            source,
+            previous: predecessors,
         })
     }
 
     /// Floyd-Warshallアルゴリズム（全頂点間最短経路）
     pub fn all_pairs_shortest_paths(
         graph: &Graph,
-        weight_fn: impl Fn(&EdgeData) -> f64,
-    ) -> Result<HashMap<(VertexId, VertexId), f64>> {
+        weight_fn: impl Fn(&EdgeData) -> u64,
+    ) -> Result<HashMap<(VertexId, VertexId), u64>> {
         let vertices: Vec<VertexId> = graph.vertices.keys().cloned().collect();
         let n = vertices.len();
 
         // 距離行列の初期化
-        let mut dist: HashMap<(VertexId, VertexId), f64> = HashMap::new();
+        let mut dist: HashMap<(VertexId, VertexId), u64> = HashMap::new();
 
         // 自己ループは0、無接続は無限大
         for &u in &vertices {
             for &v in &vertices {
                 if u == v {
-                    dist.insert((u, v), 0.0);
+                    dist.insert((u, v), 0);
                 } else {
-                    dist.insert((u, v), f64::INFINITY);
+                    dist.insert((u, v), u64::MAX);
                 }
             }
         }
@@ -203,9 +197,9 @@ impl GraphAlgorithms {
         for &k in &vertices {
             for &i in &vertices {
                 for &j in &vertices {
-                    let ik_dist = *dist.get(&(i, k)).unwrap_or(&f64::INFINITY);
-                    let kj_dist = *dist.get(&(k, j)).unwrap_or(&f64::INFINITY);
-                    let ij_dist = *dist.get(&(i, j)).unwrap_or(&f64::INFINITY);
+                    let ik_dist = *dist.get(&(i, k)).unwrap_or(&u64::MAX);
+                    let kj_dist = *dist.get(&(k, j)).unwrap_or(&u64::MAX);
+                    let ij_dist = *dist.get(&(i, j)).unwrap_or(&u64::MAX);
 
                     if ik_dist + kj_dist < ij_dist {
                         dist.insert((i, j), ik_dist + kj_dist);
@@ -222,23 +216,23 @@ impl GraphAlgorithms {
         graph: &Graph,
         source: VertexId,
         target: VertexId,
-        weight_fn: impl Fn(&EdgeData) -> f64,
-        heuristic_fn: impl Fn(VertexId, VertexId) -> f64,
-    ) -> Result<Option<Vec<VertexId>>> {
-        let mut g_score: HashMap<VertexId, f64> = HashMap::new();
-        let mut f_score: HashMap<VertexId, f64> = HashMap::new();
+        weight_fn: impl Fn(&EdgeData) -> u64,
+        heuristic_fn: impl Fn(VertexId, VertexId) -> u64,
+    ) -> Result<Option<Vec<VertexId>>, KotobaError> {
+        let mut g_score: HashMap<VertexId, u64> = HashMap::new();
+        let mut f_score: HashMap<VertexId, u64> = HashMap::new();
         let mut came_from: HashMap<VertexId, VertexId> = HashMap::new();
-        let mut open_set: BinaryHeap<Reverse<(f64, VertexId)>> = BinaryHeap::new();
+        let mut open_set: BinaryHeap<Reverse<(u64, VertexId)>> = BinaryHeap::new();
         let mut open_set_hash: HashSet<VertexId> = HashSet::new();
         let mut closed_set: HashSet<VertexId> = HashSet::new();
 
         // 初期化
         for &vertex_id in graph.vertices.keys() {
-            g_score.insert(vertex_id, f64::INFINITY);
-            f_score.insert(vertex_id, f64::INFINITY);
+            g_score.insert(vertex_id, u64::MAX);
+            f_score.insert(vertex_id, u64::MAX);
         }
 
-        g_score.insert(source, 0.0);
+        g_score.insert(source, 0);
         f_score.insert(source, heuristic_fn(source, target));
         open_set.push(Reverse((f_score[&source], source)));
         open_set_hash.insert(source);
@@ -267,11 +261,11 @@ impl GraphAlgorithms {
                     let edge_weight = graph.edges.values()
                         .find(|e| e.src == current && e.dst == neighbor)
                         .map(&weight_fn)
-                        .unwrap_or(1.0);
+                        .unwrap_or(1);
 
                     let tentative_g_score = g_score[&current] + edge_weight;
 
-                    if tentative_g_score < *g_score.get(&neighbor).unwrap_or(&f64::INFINITY) {
+                    if tentative_g_score < *g_score.get(&neighbor).unwrap_or(&u64::MAX) {
                         came_from.insert(neighbor, current);
                         g_score.insert(neighbor, tentative_g_score);
                         f_score.insert(neighbor, tentative_g_score + heuristic_fn(neighbor, target));
@@ -416,15 +410,15 @@ impl GraphAlgorithms {
 
         for &source in &vertices {
             // 各頂点からの最短経路を計算
-            let result = Self::shortest_path_dijkstra(graph, source, |_| 1.0).unwrap_or_default();
+            let result = Self::shortest_path_dijkstra(graph, source, |_| 1).unwrap_or_default();
 
             let mut total_distance = 0.0;
             let mut reachable_count = 0;
 
             for &target in &vertices {
                 if let Some(&dist) = result.distances.get(&target) {
-                    if dist < f64::INFINITY {
-                        total_distance += dist;
+                    if dist < u64::MAX {
+                        total_distance += dist as f64;
                         reachable_count += 1;
                     }
                 }
@@ -711,16 +705,16 @@ mod tests {
         let graph = create_test_graph();
         let source = VertexId::new("v1").unwrap();
 
-        let result = GraphAlgorithms::shortest_path_dijkstra(&graph, source, |_| 1.0).unwrap();
+        let result = GraphAlgorithms::shortest_path_dijkstra(&graph, source, |_| 1).unwrap();
 
         // v1からv1への距離は0
-        assert_eq!(result.distances[&source], 0.0);
+        assert_eq!(result.distances[&source], 0);
 
         // 他の頂点への距離をチェック
         let v2 = VertexId::new("v2").unwrap();
         let v3 = VertexId::new("v3").unwrap();
 
-        assert!(result.distances[&v2] > 0.0);
+        assert!(result.distances[&v2] > 0);
         assert!(result.distances[&v3] > result.distances[&v2]);
     }
 
