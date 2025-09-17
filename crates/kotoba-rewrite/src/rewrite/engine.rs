@@ -4,6 +4,7 @@ use kotoba_core::{types::*, ir::*};
 use kotoba_graph::prelude::*;
 use crate::rewrite::*;
 use kotoba_core::types::Result;
+use kotoba_errors::KotobaError;
 
 /// 書換えエンジン
 #[derive(Debug)]

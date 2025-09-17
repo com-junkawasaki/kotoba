@@ -104,6 +104,7 @@ impl HttpParser {
     pub fn parse(content: &str) -> Result<HttpConfig> {
         // First evaluate the Jsonnet code
         let evaluated = crate::evaluate_kotoba(content)?;
+        eprintln!("DEBUG: Jsonnet evaluation successful, result type: {:?}", std::mem::discriminant(&evaluated));
 
         // Convert to HTTP config
         Self::jsonnet_value_to_http_config(&evaluated)

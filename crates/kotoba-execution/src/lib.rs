@@ -1,7 +1,6 @@
 //! kotoba-execution - Kotoba Execution Components
 
 pub mod execution;
-pub mod planner;
 
 use crate::execution::physical_plan::PhysicalPlan;
 use crate::execution::metrics::ExecutionMetrics;
