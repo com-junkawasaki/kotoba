@@ -4,6 +4,7 @@
 //! 依存関係の解決、パッケージのインストール/アンインストール、
 //! レジストリ管理などの機能を備えています。
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -77,7 +78,7 @@ pub struct ProjectConfig {
 
 impl PackageManager {
     /// 新しいPackage Managerを作成
-    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new() -> Result<Self> {
         let config = config::Config::load()?;
         let registry = registry::Registry::new(&config)?;
         let cache = cache::Cache::new(&config)?;
@@ -90,11 +91,20 @@ impl PackageManager {
     }
 
     /// パッケージをインストール
-    pub async fn install(&self, packages: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Installing packages: {:?}", packages);
+    pub async fn install(&self) -> Result<()> {
+        // kotoba.toml を読み込む
+        let config_path = PathBuf::from("kotoba.toml");
+        if !config_path.exists() {
+            println!("kotoba.toml not found. Nothing to install.");
+            return Ok(());
+        }
+        let toml_content = tokio::fs::read_to_string(&config_path).await?;
+        let project_config: ProjectConfig = toml::from_str(&toml_content)?;
+
+        println!("Installing packages from kotoba.toml");
 
         // 依存関係を解決
-        let resolved = self.resolver().resolve(&packages).await?;
+        let resolved = self.resolver().resolve(&project_config.dependencies).await?;
 
         // パッケージをダウンロードしてインストール
         self.installer().install(resolved).await?;
@@ -104,20 +114,20 @@ impl PackageManager {
     }
 
     /// パッケージをアンインストール
-    pub async fn uninstall(&self, packages: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn uninstall(&self, packages: Vec<String>) -> Result<()> {
         println!("Uninstalling packages: {:?}", packages);
         // TODO: 実装
         Ok(())
     }
 
     /// 利用可能なパッケージを検索
-    pub async fn search(&self, query: &str) -> Result<Vec<Package>, Box<dyn std::error::Error>> {
+    pub async fn search(&self, query: &str) -> Result<Vec<Package>> {
         println!("Searching for packages: {}", query);
-        self.registry.search(query).await
+        self.registry.search(query).await.map_err(Into::into)
     }
 
     /// プロジェクトを初期化
-    pub async fn init(&self, name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn init(&self, name: Option<String>) -> Result<()> {
         let project_name = name.unwrap_or_else(|| "my-kotoba-project".to_string());
 
         let config = ProjectConfig {
@@ -165,7 +175,7 @@ pub fn greet(name: String) -> String {{
     }
 
     /// キャッシュをクリア
-    pub async fn clear_cache(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn clear_cache(&self) -> Result<()> {
         self.cache.clear().await?;
         println!("✅ Cache cleared!");
         Ok(())
@@ -183,17 +193,17 @@ pub fn greet(name: String) -> String {{
 }
 
 /// 便利関数
-pub async fn init_project(name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn init_project(name: Option<String>) -> Result<()> {
     let pm = PackageManager::new().await?;
     pm.init(name).await
 }
 
-pub async fn install_packages(packages: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn install_packages() -> Result<()> {
     let pm = PackageManager::new().await?;
-    pm.install(packages).await
+    pm.install().await
 }
 
-pub async fn search_packages(query: &str) -> Result<Vec<Package>, Box<dyn std::error::Error>> {
+pub async fn search_packages(query: &str) -> Result<Vec<Package>> {
     let pm = PackageManager::new().await?;
     pm.search(query).await
 }

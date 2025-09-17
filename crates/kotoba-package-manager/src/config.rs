@@ -1,5 +1,6 @@
 //! 設定管理モジュール
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -34,7 +35,7 @@ impl Default for Config {
 
 impl Config {
     /// 設定ファイルを読み込む
-    pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load() -> Result<Self> {
         let config_path = Self::config_path();
 
         if config_path.exists() {
@@ -49,7 +50,7 @@ impl Config {
     }
 
     /// 設定を保存
-    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save(&self) -> Result<()> {
         let config_path = Self::config_path();
         std::fs::create_dir_all(config_path.parent().unwrap())?;
 
@@ -65,7 +66,7 @@ impl Config {
     }
 
     /// プロジェクト設定を読み込む
-    pub fn load_project() -> Result<super::ProjectConfig, Box<dyn std::error::Error>> {
+    pub fn load_project() -> Result<super::ProjectConfig> {
         let config_path = PathBuf::from("kotoba.toml");
 
         if config_path.exists() {
@@ -73,7 +74,7 @@ impl Config {
             let config: super::ProjectConfig = toml::from_str(&content)?;
             Ok(config)
         } else {
-            Err("kotoba.toml not found. Run 'kotoba init' to create a project.".into())
+            Err(anyhow::anyhow!("kotoba.toml not found. Run 'kotoba init' to create a project."))
         }
     }
 }

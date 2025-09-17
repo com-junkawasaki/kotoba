@@ -89,24 +89,24 @@ impl OutputFormatter {
         println!("  {} - Show execution history", ".history".green());
         println!("  {}   - Show defined variables", ".vars".green());
         println!("  {}   - Clear session", ".clear".green());
-        println!("  {}   - Load and execute file", ".load <file>".green()");
-        println!("  {}   - Save history to file", ".save <file>".green()");
-        println!("  {} - Evaluate code", ".eval <code>".green()");
+        println!("  {}   - Load and execute file", r#".load <file>.green()"#);
+        println!("  {}   - Save history to file", r#".save <file>.green()"#);
+        println!("  {} - Evaluate code", r#".eval <code>.green()"#);
         println!("  {}   - Exit REPL", ".exit".green());
 
         println!();
         println!("{}", "Kotoba Language:".bold());
         println!("  {}          - Variable declaration", "let x = 42".yellow());
         println!("  {}            - Expression evaluation", "x + 5".yellow());
-        println!("  {} - Graph definition", "graph mygraph {{ ... }}".yellow());
-        println!("  {}  - Query definition", "query myquery {{ ... }}".yellow());
+        println!("  {} - Graph definition", r#"graph mygraph { ... }"#.yellow());
+        println!("  {}  - Query definition", r#"query myquery { ... }"#.yellow());
 
         println!();
         println!("{}", "Examples:".bold());
-        println!("  {}", "let name = \"Alice\"".dimmed());
+        println!("  {}", r#"let name = "Alice""#.dimmed());
         println!("  {}", "let age = 25".dimmed());
-        println!("  {}", "name + \" is \" + age".dimmed());
-        println!("  {}", "graph users {{ node user {{ name: name, age: age }} }}".dimmed());
+        println!("  {}", r#"name + " is " + age"#.dimmed());
+        println!("  {}", r#"graph users { node user { name: name, age: age } }"#.dimmed());
     }
 
     /// 履歴を表示

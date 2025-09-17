@@ -85,7 +85,7 @@ impl ExecutionResult {
 }
 
 /// REPL設定
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReplConfig {
     pub prompt: String,
     pub multiline_prompt: String,
@@ -175,7 +175,7 @@ impl ReplSession {
         }
     }
 
-    fn handle_variable_declaration(&mut self, code: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn handle_variable_declaration(&mut self, code: &str) -> Result<(), Box<dyn std::error::Error>> {
         let var_pattern = regex::Regex::new(r"let\s+(\w+)\s*=\s*(.+)")?;
 
         if let Some(cap) = var_pattern.captures(code) {
@@ -189,7 +189,7 @@ impl ReplSession {
         Ok(())
     }
 
-    fn evaluate_expression(&self, code: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn evaluate_expression(&self, code: &str) -> Result<String, Box<dyn std::error::Error>> {
         // 簡易的な式評価
         if code.contains("+") {
             let parts: Vec<&str> = code.split('+').collect();
@@ -203,7 +203,7 @@ impl ReplSession {
         Ok(format!("Evaluated: {}", code))
     }
 
-    fn get_help_text(&self) -> String {
+    pub fn get_help_text(&self) -> String {
         r#"
 Kotoba REPL Commands:
   .help, .h           Show this help
@@ -219,6 +219,54 @@ Examples:
   name + " is " + age
 "#.to_string()
     }
+
+    pub fn get_history_text(&self) -> String {
+        let mut text = "Execution History:\n".to_string();
+
+        for (i, result) in self.history.iter().enumerate() {
+            let status = if result.is_success() { "✓" } else { "✗" };
+            text.push_str(&format!("{}. {} {}\n", i + 1, status, result.code));
+        }
+
+        text
+    }
+
+    pub fn get_variables_text(&self) -> String {
+        let mut text = "Defined Variables:\n".to_string();
+
+        for (name, value) in &self.variables {
+            text.push_str(&format!("  {} = {}\n", name, value));
+        }
+
+        if self.variables.is_empty() {
+            text.push_str("  (no variables defined)\n");
+        }
+
+        text
+    }
+
+    pub fn clear_session(&mut self) {
+        self.history.clear();
+        self.variables.clear();
+    }
+
+    pub async fn load_file(&self, filename: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let content = tokio::fs::read_to_string(filename).await?;
+        Ok(content)
+    }
+
+    pub async fn save_history(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let mut content = String::new();
+
+        for result in &self.history {
+            content.push_str(&format!("// {}\n", result.timestamp));
+            content.push_str(&format!("{}\n\n", result.code));
+        }
+
+        tokio::fs::write(filename, content).await?;
+        Ok(())
+    }
+
 }
 
 /// REPLマネージャー

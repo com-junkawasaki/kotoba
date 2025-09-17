@@ -5,6 +5,7 @@ use crate::{
     DependencyInfo, Package, PackageSource,
 };
 use anyhow::Result;
+use futures::future::{BoxFuture, FutureExt};
 use kotoba_cid::CidCalculator;
 use semver::{Version, VersionReq};
 use std::collections::{HashMap, HashSet};
@@ -40,59 +41,77 @@ impl Resolver {
         Ok(resolved_packages.into_values().collect())
     }
 
-    async fn resolve_recursive(
-        &self,
-        package_name: &str,
-        version_req: &str,
-        resolved_packages: &mut HashMap<String, Package>,
-        visited: &mut HashSet<(String, String)>,
-    ) -> Result<()> {
-        if !visited.insert((package_name.to_string(), version_req.to_string())) {
-            return Ok(());
-        }
+    fn resolve_recursive<'a>(
+        &'a self,
+        package_name: &'a str,
+        version_req: &'a str,
+        resolved_packages: &'a mut HashMap<String, Package>,
+        visited: &'a mut HashSet<(String, String)>,
+    ) -> BoxFuture<'a, Result<()>> {
+        async move {
+            if !visited.insert((package_name.to_string(), version_req.to_string())) {
+                return Ok(());
+            }
 
-        let npm_package = fetch_npm_package(package_name).await?;
-        let version_req_semver = VersionReq::parse(version_req)?;
+            let npm_package = fetch_npm_package(package_name).await?;
+            
+            // Sanitize version string to handle cases like ">=1.2.3 || <2.0.0"
+            let sanitized_version_req = version_req.split("||").last().unwrap_or(version_req).trim();
 
-        let best_version_info = npm_package
-            .versions
-            .values()
-            .filter_map(|v| Version::parse(&v.version).ok().map(|semver| (semver, v)))
-            .filter(|(semver, _)| version_req_semver.matches(semver))
-            .max_by(|(v1, _), (v2, _)| v1.cmp(v2))
-            .map(|(_, v_info)| v_info.clone());
+            // Try to parse as a specific version first
+            let specific_version = Version::parse(sanitized_version_req).ok();
 
-        if let Some(version_info) = best_version_info {
-            let cid_input = format!("{}{}", version_info.name, version_info.version);
-            let cid = self.cid_calculator.compute_cid(&cid_input)?;
+            let version_req_semver = VersionReq::parse(sanitized_version_req)?;
 
-            let package = Package {
-                name: version_info.name.clone(),
-                version: version_info.version.clone(),
-                source: PackageSource::Registry("npm".to_string()),
-                cid: Some(cid.to_string()),
-                description: None,
-                authors: vec![],
-                dependencies: self
-                    .convert_dependencies(version_info.dependencies.as_ref())?,
-                dev_dependencies: self
-                    .convert_dependencies(version_info.dev_dependencies.as_ref())?,
-                repository: None,
-                license: None,
-                keywords: vec![],
+            let mut candidates: Vec<_> = npm_package
+                .versions
+                .values()
+                .filter_map(|v| Version::parse(&v.version).ok().map(|semver| (semver, v)))
+                .filter(|(semver, _)| version_req_semver.matches(semver))
+                .collect();
+
+            // Prefer the exact version match if it exists
+            let best_version_info = if let Some(sv) = specific_version {
+                candidates.iter().find(|(v, _)| v == &sv).map(|(_, vi)| (*vi).clone())
+            } else {
+                // Otherwise, get the latest satisfying version
+                candidates.sort_by(|(v1, _), (v2, _)| v2.cmp(v1)); // Sort descending
+                candidates.first().map(|(_, v_info)| (*v_info).clone())
             };
 
-            resolved_packages.insert(package.name.clone(), package.clone());
+            if let Some(version_info) = best_version_info {
+                let cid_input = format!("{}{}", version_info.name, version_info.version);
+                let cid = self.cid_calculator.compute_cid(&cid_input)?;
 
-            if let Some(deps) = version_info.dependencies {
-                for (name, version) in deps {
-                    self.resolve_recursive(&name, &version, resolved_packages, visited)
-                        .await?;
+                let package = Package {
+                    name: version_info.name.clone(),
+                    version: version_info.version.clone(),
+                    source: PackageSource::Registry("npm".to_string()),
+                    cid: Some(cid.to_string()),
+                    description: None,
+                    authors: vec![],
+                    dependencies: self
+                        .convert_dependencies(version_info.dependencies.as_ref())?,
+                    dev_dependencies: self
+                        .convert_dependencies(version_info.dev_dependencies.as_ref())?,
+                    repository: None,
+                    license: None,
+                    keywords: vec![],
+                };
+
+                resolved_packages.insert(package.name.clone(), package.clone());
+
+                if let Some(deps) = version_info.dependencies {
+                    for (name, version) in deps {
+                        self.resolve_recursive(&name, &version, resolved_packages, visited)
+                            .await?;
+                    }
                 }
             }
-        }
 
-        Ok(())
+            Ok(())
+        }
+        .boxed()
     }
 
     fn convert_dependencies(

@@ -1,6 +1,7 @@
 //! キャッシュ管理モジュール
 
 use super::Config;
+use anyhow::Result;
 use std::path::PathBuf;
 use tokio::fs;
 
@@ -12,7 +13,7 @@ pub struct Cache {
 
 impl Cache {
     /// 新しいキャッシュマネージャーを作成
-    pub fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(config: &Config) -> Result<Self> {
         let cache_dir = config.cache_dir.clone();
         std::fs::create_dir_all(&cache_dir)?;
 
@@ -21,7 +22,7 @@ impl Cache {
 
     /// パッケージをキャッシュに保存
     pub async fn store(&self, package_name: &str, version: &semver::Version, data: &[u8])
-        -> Result<PathBuf, Box<dyn std::error::Error>>
+        -> Result<PathBuf>
     {
         let package_dir = self.cache_dir.join(package_name).join(version.to_string());
         fs::create_dir_all(&package_dir).await?;
@@ -34,7 +35,7 @@ impl Cache {
 
     /// キャッシュからパッケージを取得
     pub async fn get(&self, package_name: &str, version: &semver::Version)
-        -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>>
+        -> Result<Option<Vec<u8>>>
     {
         let tarball_path = self.cache_dir
             .join(package_name)
@@ -60,7 +61,7 @@ impl Cache {
     }
 
     /// キャッシュをクリア
-    pub async fn clear(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn clear(&self) -> Result<()> {
         if self.cache_dir.exists() {
             fs::remove_dir_all(&self.cache_dir).await?;
             fs::create_dir_all(&self.cache_dir).await?;
@@ -69,7 +70,7 @@ impl Cache {
     }
 
     /// キャッシュのサイズを取得
-    pub async fn size(&self) -> Result<u64, Box<dyn std::error::Error>> {
+    pub async fn size(&self) -> Result<u64> {
         if !self.cache_dir.exists() {
             return Ok(0);
         }
@@ -89,7 +90,7 @@ impl Cache {
     }
 
     /// ディレクトリのサイズを計算
-    async fn dir_size(path: &PathBuf) -> Result<u64, Box<dyn std::error::Error>> {
+    async fn dir_size(path: &PathBuf) -> Result<u64> {
         let mut size = 0u64;
         let mut entries = fs::read_dir(path).await?;
 
@@ -105,7 +106,7 @@ impl Cache {
     }
 
     /// 再帰的にディレクトリのサイズを計算（非再帰関数）
-    async fn calculate_dir_size(path: &PathBuf) -> Result<u64, Box<dyn std::error::Error>> {
+    async fn calculate_dir_size(path: &PathBuf) -> Result<u64> {
         let mut size = 0u64;
         let mut stack = vec![path.clone()];
 
@@ -125,7 +126,7 @@ impl Cache {
     }
 
     /// 古いキャッシュをクリーンアップ
-    pub async fn cleanup(&self, max_age_days: u32) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn cleanup(&self, max_age_days: u32) -> Result<()> {
         if !self.cache_dir.exists() {
             return Ok(());
         }
@@ -150,7 +151,7 @@ impl Cache {
     }
 
     /// キャッシュの内容をリストアップ
-    pub async fn list(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn list(&self) -> Result<Vec<String>> {
         if !self.cache_dir.exists() {
             return Ok(vec![]);
         }

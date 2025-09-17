@@ -1,6 +1,7 @@
 //! レジストリ管理モジュール
 
 use super::{Package, Config};
+use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
@@ -38,7 +39,7 @@ pub struct PackageMetadata {
 
 impl Registry {
     /// 新しいレジストリを作成
-    pub fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(config: &Config) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_millis(config.timeout))
             .build()?;
@@ -50,7 +51,7 @@ impl Registry {
     }
 
     /// パッケージを検索
-    pub async fn search(&self, query: &str) -> Result<Vec<Package>, Box<dyn std::error::Error>> {
+    pub async fn search(&self, query: &str) -> Result<Vec<Package>> {
         let url = format!("{}/search?q={}", self.config.registry_url, urlencoding::encode(query));
 
         let response = self.client.get(&url).send().await?;
@@ -61,7 +62,7 @@ impl Registry {
 
     /// パッケージのメタデータを取得
     pub async fn get_package(&self, name: &str, version: Option<&str>)
-        -> Result<PackageMetadata, Box<dyn std::error::Error>>
+        -> Result<PackageMetadata>
     {
         let version_str = version.map(|v| format!("/{}", v)).unwrap_or_default();
         let url = format!("{}/packages/{}{}", self.config.registry_url, name, version_str);
@@ -74,7 +75,7 @@ impl Registry {
 
     /// パッケージをダウンロード
     pub async fn download_package(&self, metadata: &PackageMetadata)
-        -> Result<Vec<u8>, Box<dyn std::error::Error>>
+        -> Result<Vec<u8>>
     {
         let response = self.client.get(&metadata.download_url).send().await?;
         let bytes = response.bytes().await?;
@@ -85,7 +86,7 @@ impl Registry {
         let checksum = hex::encode(hasher.finalize());
 
         if checksum != metadata.checksum {
-            return Err(format!("Checksum mismatch for package {}", metadata.name).into());
+            return Err(anyhow::anyhow!("Checksum mismatch for package {}", metadata.name));
         }
 
         Ok(bytes.to_vec())
@@ -93,7 +94,7 @@ impl Registry {
 
     /// パッケージを公開
     pub async fn publish_package(&self, package: &Package, tarball: Vec<u8>)
-        -> Result<(), Box<dyn std::error::Error>>
+        -> Result<()>
     {
         let url = format!("{}/packages", self.config.registry_url);
 
@@ -106,7 +107,7 @@ impl Registry {
 
         if !response.status().is_success() {
             let error_msg = response.text().await?;
-            return Err(format!("Failed to publish package: {}", error_msg).into());
+            return Err(anyhow::anyhow!("Failed to publish package: {}", error_msg));
         }
 
         println!("✅ Published {}@{}", package.name, package.version);
