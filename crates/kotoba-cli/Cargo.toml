@@ -9,7 +9,7 @@ keywords = ["cli", "command-line", "graph", "processing", "tool"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-cli"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem

@@ -3,9 +3,9 @@
 **Graph Processing System with Jsonnet Integration** - A comprehensive graph processing platform featuring complete Jsonnet implementation, ISO GQL-compliant queries, and distributed execution.
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
-[![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://github.com/jun784/kotoba)
+[![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://github.com/com-junkawasaki/kotoba)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/github/workflow/status/jun784/kotoba/CI)](https://github.com/jun784/kotoba/actions)
+[![Build Status](https://img.shields.io/github/workflow/status/jun784/kotoba/CI)](https://github.com/com-junkawasaki/kotoba/actions)
 
 ## 📖 Overview
 
@@ -51,7 +51,7 @@ curl -L https://nixos.org/nix/install | sh
 experimental-features = nix-command flakes
 
 # Clone and enter the project
-git clone https://github.com/jun784/kotoba.git
+git clone https://github.com/com-junkawasaki/kotoba.git
 cd kotoba
 
 # Run setup script
@@ -75,7 +75,7 @@ The Nix environment provides:
 
 ```bash
 # Clone the repository
-git clone https://github.com/jun784/kotoba.git
+git clone https://github.com/com-junkawasaki/kotoba.git
 cd kotoba
 
 # Install dependencies and build
@@ -1456,8 +1456,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## 📞 Support
 
 - **Documentation**: [https://kotoba.jun784.dev](https://kotoba.jun784.dev)
-- **Issues**: [GitHub Issues](https://github.com/jun784/kotoba/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jun784/kotoba/discussions)
+- **Issues**: [GitHub Issues](https://github.com/com-junkawasaki/kotoba/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/com-junkawasaki/kotoba/discussions)
 
 ---
 

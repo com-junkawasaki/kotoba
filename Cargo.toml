@@ -38,7 +38,7 @@ resolver = "2"
 version = "0.1.16"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 
 [workspace.dependencies]
 # Common dependencies can be defined here
@@ -100,13 +100,13 @@ version = "0.1.16"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 keywords = ["graph", "database", "gql", "rewrite", "distributed"]
 categories = ["database", "data-structures", "algorithms"]
 authors = ["Jun Kawasaki <jun784@example.com>"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 exclude = ["examples/**/*", "tests/**/*", "src/topology.rs"]
 
 [[bin]]

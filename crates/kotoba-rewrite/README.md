@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/kotoba-rewrite.svg)](https://crates.io/crates/kotoba-rewrite)
 [![Documentation](https://docs.rs/kotoba-rewrite/badge.svg)](https://docs.rs/kotoba-rewrite)
-[![License](https://img.shields.io/crates/l/kotoba-rewrite.svg)](https://github.com/jun784/kotoba)
+[![License](https://img.shields.io/crates/l/kotoba-rewrite.svg)](https://github.com/com-junkawasaki/kotoba)
 
 **Advanced graph rewriting engine for the Kotoba graph processing system.** Implements formal graph transformation techniques including Double Pushout (DPO) rewriting and rule-based transformations.
 
@@ -224,8 +224,8 @@ cargo test -p kotoba-rewrite
 
 ## 🤝 Contributing
 
-See the [main Kotoba repository](https://github.com/jun784/kotoba) for contribution guidelines.
+See the [main Kotoba repository](https://github.com/com-junkawasaki/kotoba) for contribution guidelines.
 
 ## 📄 License
 
-Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/jun784/kotoba/blob/main/LICENSE) for details.
+Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/com-junkawasaki/kotoba/blob/main/LICENSE) for details.

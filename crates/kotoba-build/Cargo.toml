@@ -3,12 +3,12 @@ name = "kotoba-build"
 version = "0.1.16"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Kotoba Build Tool - Project build and task management system"
 keywords = ["build", "task", "automation", "project", "management"]
 categories = ["development-tools", "command-line-utilities"]
 documentation = "https://docs.rs/kotoba-build"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [[bin]]
 name = "kotoba-build"

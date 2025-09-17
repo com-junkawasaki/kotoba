@@ -57,7 +57,7 @@ eval "$(direnv hook zsh)"  # or bash
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/jun784/kotoba.git
+git clone https://github.com/com-junkawasaki/kotoba.git
 cd kotoba
 
 # セットアップスクリプト実行 (推奨)

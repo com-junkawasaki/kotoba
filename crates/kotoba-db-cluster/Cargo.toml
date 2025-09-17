@@ -9,7 +9,7 @@ keywords = ["database", "distributed", "clustering", "consensus", "raft"]
 categories = ["database-implementations", "network-programming"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-db-cluster"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 serde = { workspace = true, features = ['derive'] }

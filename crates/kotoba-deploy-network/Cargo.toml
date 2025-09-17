@@ -9,7 +9,7 @@ keywords = ["network", "deployment", "edge", "cdn", "dns"]
 categories = ["network-programming", "web-programming"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-deploy-network"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba dependencies

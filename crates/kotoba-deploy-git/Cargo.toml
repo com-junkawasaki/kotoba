@@ -9,7 +9,7 @@ keywords = ["git", "github", "deployment", "webhook", "ci-cd"]
 categories = ["development-tools", "api-bindings"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-deploy-git"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba dependencies

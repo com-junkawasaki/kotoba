@@ -313,7 +313,7 @@ This research paper is licensed under CC-BY 4.0, following arXiv's open access p
 
 Jun Kawasaki
 - Email: jun784@example.com
-- Project: https://github.com/jun784/kotoba
+- Project: https://github.com/com-junkawasaki/kotoba
 
 ## Acknowledgments
 

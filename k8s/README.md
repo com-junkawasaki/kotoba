@@ -312,7 +312,7 @@ spec:
 
 問題が発生した場合：
 
-1. [Kotoba GitHub Issues](https://github.com/jun784/kotoba/issues) を確認
+1. [Kotoba GitHub Issues](https://github.com/com-junkawasaki/kotoba/issues) を確認
 2. GKE の[トラブルシューティングガイド](https://cloud.google.com/kubernetes-engine/docs/troubleshooting) を参照
 3. 以下の情報を含めてIssueを作成：
    - `kubectl get pods -n kotoba-system`

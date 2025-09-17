@@ -8,7 +8,7 @@ description = "Kotoba Documentation Generator - Generate beautiful documentation
 keywords = ["documentation", "generator", "docs", "html", "markdown"]
 categories = ["development-tools", "command-line-utilities"]
 documentation = "https://docs.rs/kotoba-docs"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Async runtime

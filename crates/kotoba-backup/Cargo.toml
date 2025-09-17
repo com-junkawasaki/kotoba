@@ -9,7 +9,7 @@ keywords = ["database", "backup", "restore", "recovery", "disaster-recovery"]
 categories = ["database-implementations", "filesystem"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-backup"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 serde = { workspace = true, features = ['derive'] }

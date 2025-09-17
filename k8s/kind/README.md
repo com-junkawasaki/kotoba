@@ -406,7 +406,7 @@ jobs:
 
 - [Kind Documentation](https://kind.sigs.k8s.io/)
 - [Helm Documentation](https://helm.sh/docs/)
-- [Kotoba GitHub](https://github.com/jun784/kotoba)
+- [Kotoba GitHub](https://github.com/com-junkawasaki/kotoba)
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
 
 ---

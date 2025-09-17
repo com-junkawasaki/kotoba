@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/kotoba-kotobas.svg)](https://crates.io/crates/kotoba-kotobas)
 [![Documentation](https://docs.rs/kotoba-kotobas/badge.svg)](https://docs.rs/kotoba-kotobas)
-[![License](https://img.shields.io/crates/l/kotoba-kotobas.svg)](https://github.com/jun784/kotoba)
+[![License](https://img.shields.io/crates/l/kotoba-kotobas.svg)](https://github.com/com-junkawasaki/kotoba)
 
 **KotobaScript - Declarative programming language for frontend applications, extending Jsonnet with React component definitions.**
 
@@ -486,8 +486,8 @@ cargo test -p kotoba-kotobas
 
 ## 🤝 Contributing
 
-See the [main Kotoba repository](https://github.com/jun784/kotoba) for contribution guidelines.
+See the [main Kotoba repository](https://github.com/com-junkawasaki/kotoba) for contribution guidelines.
 
 ## 📄 License
 
-Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/jun784/kotoba/blob/main/LICENSE) for details.
+Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/com-junkawasaki/kotoba/blob/main/LICENSE) for details.

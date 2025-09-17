@@ -9,7 +9,7 @@ keywords = ["network", "protocol", "distributed", "tokio", "async"]
 categories = ["network-programming", "asynchronous", "concurrency"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-network"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem

@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/kotoba-graph.svg)](https://crates.io/crates/kotoba-graph)
 [![Documentation](https://docs.rs/kotoba-graph/badge.svg)](https://docs.rs/kotoba-graph)
-[![License](https://img.shields.io/crates/l/kotoba-graph.svg)](https://github.com/jun784/kotoba)
+[![License](https://img.shields.io/crates/l/kotoba-graph.svg)](https://github.com/com-junkawasaki/kotoba)
 
 **High-performance graph data structures for the Kotoba graph processing system.** Provides efficient implementations of vertices, edges, and graph operations optimized for graph rewriting and query processing.
 
@@ -196,8 +196,8 @@ cargo test -p kotoba-graph
 
 ## 🤝 Contributing
 
-See the [main Kotoba repository](https://github.com/jun784/kotoba) for contribution guidelines.
+See the [main Kotoba repository](https://github.com/com-junkawasaki/kotoba) for contribution guidelines.
 
 ## 📄 License
 
-Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/jun784/kotoba/blob/main/LICENSE) for details.
+Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/com-junkawasaki/kotoba/blob/main/LICENSE) for details.

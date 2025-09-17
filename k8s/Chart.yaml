@@ -10,9 +10,9 @@ keywords:
   - distributed
   - gke
   - kubernetes
-home: https://github.com/jun784/kotoba
+home: https://github.com/com-junkawasaki/kotoba
 sources:
-  - https://github.com/jun784/kotoba
+  - https://github.com/com-junkawasaki/kotoba
 maintainers:
   - name: Jun Kawasaki
     email: jun784@example.com

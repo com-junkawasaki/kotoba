@@ -8,7 +8,7 @@ description = "WASM bindings for the KotobaScript compiler"
 keywords = ["wasm", "webassembly", "compiler", "kotoba", "javascript"]
 categories = ["wasm", "compilers"]
 documentation = "https://docs.rs/kotobas-wasm"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

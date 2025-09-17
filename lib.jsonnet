@@ -12,7 +12,7 @@
     description: 'GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム',
     authors: ['jun784'],
     license: 'MIT',
-    repository: 'https://github.com/jun784/kotoba',
+    repository: 'https://github.com/com-junkawasaki/kotoba',
     keywords: ['graph', 'database', 'query', 'rewrite', 'gql', 'gp2'],
   },
 
@@ -277,8 +277,8 @@
     homebrew: {
       name: 'kotoba',
       desc: 'GP2系グラフ書換え言語',
-      homepage: 'https://github.com/jun784/kotoba',
-      url: 'https://github.com/jun784/kotoba/releases/download/v0.1.0/kotoba-0.1.0.tar.gz',
+      homepage: 'https://github.com/com-junkawasaki/kotoba',
+      url: 'https://github.com/com-junkawasaki/kotoba/releases/download/v0.1.0/kotoba-0.1.0.tar.gz',
       sha256: 'PLACEHOLDER_SHA256',
       install: [
         'system "cargo", "install", "--root", prefix, "--path", "."',

@@ -9,7 +9,7 @@ keywords = ["handler", "web", "http", "wasm", "server", "cli", "integration"]
 categories = ["web-programming", "api-bindings", "wasm"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-handler"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem

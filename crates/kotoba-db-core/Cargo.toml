@@ -3,12 +3,12 @@ name = "kotoba-db-core"
 version = "0.1.16"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Core database abstractions for Kotoba"
 keywords = ["database", "core", "abstractions", "storage"]
 categories = ["database-implementations", "data-structures"]
 documentation = "https://docs.rs/kotoba-db-core"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 anyhow = "1.0"

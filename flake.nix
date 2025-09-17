@@ -164,7 +164,7 @@
 
           meta = with pkgs.lib; {
             description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution";
-            homepage = "https://github.com/jun784/kotoba";
+            homepage = "https://github.com/com-junkawasaki/kotoba";
             license = licenses.mit;
             maintainers = [ maintainers.jun784 ];
             platforms = platforms.all;

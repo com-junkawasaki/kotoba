@@ -299,7 +299,7 @@ impl DiagnosticExporter {
                     "driver": {
                         "name": "kotoba-linter",
                         "version": env!("CARGO_PKG_VERSION"),
-                        "informationUri": "https://github.com/jun784/kotoba"
+                        "informationUri": "https://github.com/com-junkawasaki/kotoba"
                     }
                 },
                 "results": []

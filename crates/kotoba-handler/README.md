@@ -95,7 +95,7 @@ let result = executor.execute_batch(requests).await?;
 ### Cargo.toml
 ```toml
 [dependencies]
-kotoba-handler = { git = "https://github.com/jun784/kotoba", features = ["full"] }
+kotoba-handler = { git = "https://github.com/com-junkawasaki/kotoba", features = ["full"] }
 ```
 
 ### 機能フラグ

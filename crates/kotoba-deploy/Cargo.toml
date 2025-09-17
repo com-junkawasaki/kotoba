@@ -9,7 +9,7 @@ keywords = ["deployment", "hosting", "scaling", "cloud", "distributed"]
 categories = ["web-programming", "network-programming"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-deploy"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [lib]
 name = "kotoba_deploy"

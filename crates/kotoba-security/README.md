@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/kotoba-security.svg)](https://crates.io/crates/kotoba-security)
 [![Documentation](https://docs.rs/kotoba-security/badge.svg)](https://docs.rs/kotoba-security)
-[![License](https://img.shields.io/crates/l/kotoba-security.svg)](https://github.com/jun784/kotoba)
+[![License](https://img.shields.io/crates/l/kotoba-security.svg)](https://github.com/com-junkawasaki/kotoba)
 
 **Comprehensive authentication and authorization system for the Kotoba graph database.** Implements enterprise-grade security with JWT, OAuth2, MFA, and capability-based access control.
 
@@ -287,8 +287,8 @@ cargo test -p kotoba-security
 
 ## 🤝 Contributing
 
-See the [main Kotoba repository](https://github.com/jun784/kotoba) for contribution guidelines.
+See the [main Kotoba repository](https://github.com/com-junkawasaki/kotoba) for contribution guidelines.
 
 ## 📄 License
 
-Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/jun784/kotoba/blob/main/LICENSE) for details.
+Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/com-junkawasaki/kotoba/blob/main/LICENSE) for details.

@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/kotoba-core.svg)](https://crates.io/crates/kotoba-core)
 [![Documentation](https://docs.rs/kotoba-core/badge.svg)](https://docs.rs/kotoba-core)
-[![License](https://img.shields.io/crates/l/kotoba-core.svg)](https://github.com/jun784/kotoba)
+[![License](https://img.shields.io/crates/l/kotoba-core.svg)](https://github.com/com-junkawasaki/kotoba)
 
 **Core components for the Kotoba graph processing system.** Provides fundamental types, IR definitions, and common utilities used across the entire Kotoba ecosystem.
 
@@ -148,8 +148,8 @@ cargo test -p kotoba-core
 
 ## 🤝 Contributing
 
-See the [main Kotoba repository](https://github.com/jun784/kotoba) for contribution guidelines.
+See the [main Kotoba repository](https://github.com/com-junkawasaki/kotoba) for contribution guidelines.
 
 ## 📄 License
 
-Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/jun784/kotoba/blob/main/LICENSE) for details.
+Licensed under MIT OR Apache-2.0. See [LICENSE](https://github.com/com-junkawasaki/kotoba/blob/main/LICENSE) for details.

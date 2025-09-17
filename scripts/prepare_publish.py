@@ -71,7 +71,7 @@ def update_cargo_toml(crate_path: Path, crate_name: str):
         updates.append('documentation = "https://docs.rs/' + crate_name + '"')
 
     if not has_homepage:
-        updates.append('homepage = "https://github.com/jun784/kotoba"')
+        updates.append('homepage = "https://github.com/com-junkawasaki/kotoba"')
 
     # 更新内容を適用
     if updates:

@@ -8,7 +8,7 @@ description = "Graph Schema Definition and Validation for Kotoba"
 keywords = ["graph", "schema", "validation", "gql", "database"]
 categories = ["data-structures", "algorithms"]
 documentation = "https://docs.rs/kotoba-schema"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Core dependencies

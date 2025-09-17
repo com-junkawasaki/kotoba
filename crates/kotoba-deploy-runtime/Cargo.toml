@@ -9,7 +9,7 @@ keywords = ["runtime", "process", "container", "docker", "orchestration"]
 categories = ["concurrency", "algorithms", "development-tools"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-deploy-runtime"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba dependencies

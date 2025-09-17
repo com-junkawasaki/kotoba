@@ -8,7 +8,7 @@ description = "Declarative, graph-based HTTP routing engine for the Kotoba ecosy
 keywords = ["routing", "http", "graph", "web", "middleware"]
 categories = ["web-programming", "data-structures"]
 documentation = "https://docs.rs/kotoba-routing"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Simplified dependencies - removed problematic workflow/jsonnet deps

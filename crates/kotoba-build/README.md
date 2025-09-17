@@ -15,7 +15,7 @@ Kotoba Build Toolは、Denoのビルドシステムに似た使い勝手で、Ko
 
 ```bash
 # リポジトリからクローン
-git clone https://github.com/jun784/kotoba.git
+git clone https://github.com/com-junkawasaki/kotoba.git
 cd kotoba
 
 # ビルドツールをビルド

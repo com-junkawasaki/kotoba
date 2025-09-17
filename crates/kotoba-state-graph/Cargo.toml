@@ -8,7 +8,7 @@ description = "UI state management library for Kotoba using graph rewrite rules.
 keywords = ["state", "ui", "graph", "rewrite", "frontend"]
 categories = ["gui", "data-structures"]
 documentation = "https://docs.rs/kotoba-state-graph"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Dependencies will be added from the main kotoba crate

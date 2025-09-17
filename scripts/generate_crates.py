@@ -160,7 +160,7 @@ version = "{version}"
 edition = "2021"
 description = "Kotoba {crate_name.split('-')[1].title()} Components"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 """
@@ -249,7 +249,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 
 [workspace.dependencies]
 # Common dependencies can be defined here

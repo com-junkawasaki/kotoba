@@ -8,7 +8,7 @@ description = "Comprehensive authentication and authorization system with JWT, O
 keywords = ["security", "jwt", "oauth2", "authentication", "authorization"]
 categories = ["authentication", "cryptography", "web-programming", "api-bindings"]
 documentation = "https://docs.rs/kotoba-security"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

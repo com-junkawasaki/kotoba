@@ -9,7 +9,7 @@ keywords = ["server", "http", "graphql", "websocket", "frontend", "api"]
 categories = ["web-programming", "api-bindings", "asynchronous"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-server"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 serde = { version = "1.0", features = ['derive'] }

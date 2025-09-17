@@ -3,7 +3,7 @@ name = "kotoba-workflow"
 version = "0.1.16"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/jun784/kotoba"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Temporal-inspired workflow engine for Kotoba"
 
 [dependencies]

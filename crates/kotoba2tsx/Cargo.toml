@@ -8,7 +8,7 @@ description = "Complete toolchain for converting Kotoba configuration files to R
 keywords = ["react", "tsx", "converter", "jsonnet", "frontend", "typescript", "ui"]
 categories = ["command-line-utilities", "web-programming", "development-tools"]
 documentation = "https://docs.rs/kotoba2tsx"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem

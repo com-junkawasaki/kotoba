@@ -9,7 +9,7 @@ keywords = ["scaling", "autoscaling", "metrics", "load-balancing", "deployment"]
 categories = ["concurrency", "algorithms", "development-tools"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-deploy-scaling"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba dependencies

@@ -9,7 +9,7 @@ keywords = ["graph", "database", "gql", "rewrite", "types"]
 categories = ["data-structures", "algorithms"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba-core"
-homepage = "https://github.com/jun784/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 kotoba-errors = { version = "0.1.1", path = "../kotoba-errors" }
