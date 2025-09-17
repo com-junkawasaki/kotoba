@@ -37,64 +37,37 @@ impl GraphValidator {
         // Extract vertices and edges from graph data
         if let Some(vertices) = graph_data.get("vertices").and_then(|v| v.as_array()) {
             for (i, vertex) in vertices.iter().enumerate() {
-                match self.validate_vertex(vertex) {
-                Ok((warns, vertex_errors)) => {
-                    warnings.extend(warns);
-                    for mut error in vertex_errors {
-                        if error.element_id.is_none() {
-                            error.element_id = vertex.get("id")
-                                .and_then(|id| id.as_str())
-                                .map(|s| format!("vertex[{}]:{}", i, s));
-                        }
-                        errors.push(error);
-                    }
-                },
-                Err(e) => {
-                    errors.push(ValidationError {
-                        error_type: ValidationErrorType::ConstraintViolation,
-                        message: format!("Vertex validation failed: {}", e),
-                        element_id: vertex.get("id")
-                            .and_then(|id| id.as_str())
-                            .map(|s| format!("vertex[{}]:{}", i, s)),
-                        property: None,
-                    });
+                let (warns, vertex_errors) = self.validate_vertex(vertex);
+            warnings.extend(warns);
+            for mut error in vertex_errors {
+                if error.element_id.is_none() {
+                    error.element_id = vertex.get("id")
+                        .and_then(|id| id.as_str())
+                        .map(|s| format!("vertex[{}]:{}", i, s));
                 }
+                errors.push(error);
             }
             }
         }
 
         if let Some(edges) = graph_data.get("edges").and_then(|v| v.as_array()) {
             for (i, edge) in edges.iter().enumerate() {
-                match self.validate_edge(edge) {
-                Ok((warns, edge_errors)) => {
-                    warnings.extend(warns);
-                    for mut error in edge_errors {
-                        if error.element_id.is_none() {
-                            error.element_id = edge.get("id")
-                                .and_then(|id| id.as_str())
-                                .map(|s| format!("edge[{}]:{}", i, s));
-                        }
-                        errors.push(error);
-                    }
-                },
-                Err(e) => {
-                    errors.push(ValidationError {
-                        error_type: ValidationErrorType::ConstraintViolation,
-                        message: format!("Edge validation failed: {}", e),
-                        element_id: edge.get("id")
-                            .and_then(|id| id.as_str())
-                            .map(|s| format!("edge[{}]:{}", i, s)),
-                        property: None,
-                    });
+                let (warns, edge_errors) = self.validate_edge(edge);
+            warnings.extend(warns);
+            for mut error in edge_errors {
+                if error.element_id.is_none() {
+                    error.element_id = edge.get("id")
+                        .and_then(|id| id.as_str())
+                        .map(|s| format!("edge[{}]:{}", i, s));
                 }
+                errors.push(error);
             }
             }
         }
 
         // Validate global constraints
-        if let Err(constraint_errors) = self.validate_global_constraints(graph_data) {
-            errors.extend(constraint_errors.into_iter());
-        }
+        let constraint_errors = self.validate_global_constraints(graph_data);
+        errors.extend(constraint_errors);
 
         ValidationResult {
             is_valid: errors.is_empty(),
@@ -111,8 +84,13 @@ impl GraphValidator {
         // Get vertex type from labels (assuming first label is the type)
         let vertex_type = match self.extract_vertex_type(vertex) {
             Ok(vt) => vt,
-            Err(error) => {
-                errors.push(error);
+            Err(e) => {
+                errors.push(ValidationError {
+                    error_type: ValidationErrorType::TypeMismatch,
+                    message: format!("Failed to extract vertex type: {}", e),
+                    element_id: None,
+                    property: Some("labels".to_string()),
+                });
                 return Ok((warnings, errors));
             }
         };
@@ -148,21 +126,9 @@ impl GraphValidator {
             // Validate each property
             for (prop_name, prop_value) in properties {
                 if let Some(prop_schema) = vertex_schema.properties.get(prop_name) {
-                    match self.validate_property(prop_schema, prop_value) {
-                        Ok((warns, prop_errors)) => {
-                            warnings.extend(warns);
-                            errors.extend(prop_errors);
-                        },
-                        Err(e) => {
-                            // This shouldn't happen with our current implementation
-                            errors.push(ValidationError {
-                                error_type: ValidationErrorType::ConstraintViolation,
-                                message: format!("Property validation failed: {}", e),
-                                element_id: None,
-                                property: Some(prop_name.clone()),
-                            });
-                        }
-                    }
+                    let (warns, prop_errors) = self.validate_property(prop_schema, prop_value);
+                    warnings.extend(warns);
+                    errors.extend(prop_errors);
                 } else {
                     warnings.push(format!("Unknown property '{}' in vertex type '{}'", prop_name, vertex_type));
                 }
@@ -187,8 +153,13 @@ impl GraphValidator {
         // Get edge type from label
         let edge_type = match self.extract_edge_type(edge) {
             Ok(et) => et,
-            Err(error) => {
-                errors.push(error);
+            Err(e) => {
+                errors.push(ValidationError {
+                    error_type: ValidationErrorType::TypeMismatch,
+                    message: format!("Failed to extract edge type: {}", e),
+                    element_id: None,
+                    property: Some("label".to_string()),
+                });
                 return Ok((warnings, errors));
             }
         };
@@ -228,21 +199,9 @@ impl GraphValidator {
             // Validate each property
             for (prop_name, prop_value) in properties {
                 if let Some(prop_schema) = edge_schema.properties.get(prop_name) {
-                    match self.validate_property(prop_schema, prop_value) {
-                        Ok((warns, prop_errors)) => {
-                            warnings.extend(warns);
-                            errors.extend(prop_errors);
-                        },
-                        Err(e) => {
-                            // This shouldn't happen with our current implementation
-                            errors.push(ValidationError {
-                                error_type: ValidationErrorType::ConstraintViolation,
-                                message: format!("Property validation failed: {}", e),
-                                element_id: None,
-                                property: Some(prop_name.clone()),
-                            });
-                        }
-                    }
+                    let (warns, prop_errors) = self.validate_property(prop_schema, prop_value);
+                    warnings.extend(warns);
+                    errors.extend(prop_errors);
                 } else {
                     warnings.push(format!("Unknown property '{}' in edge type '{}'", prop_name, edge_type));
                 }
@@ -265,22 +224,20 @@ impl GraphValidator {
         let mut warnings = Vec::new();
 
         // Type validation
-        if let Err(type_errors) = self.validate_property_type(&prop_schema.property_type, value) {
-            errors.extend(type_errors);
-        }
+        let type_errors = self.validate_property_type(&prop_schema.property_type, value);
+        errors.extend(type_errors);
 
         // Constraint validation
         for constraint in &prop_schema.constraints {
-            if let Err(constraint_errors) = self.validate_constraint(constraint, value) {
-                errors.extend(constraint_errors);
-            }
+            let constraint_errors = self.validate_constraint(constraint, value, &mut warnings);
+            errors.extend(constraint_errors);
         }
 
         Ok((warnings, errors))
     }
 
     /// Validate property type
-    fn validate_property_type(&self, expected_type: &PropertyType, value: &serde_json::Value) -> Result<(), Vec<ValidationError>> {
+    fn validate_property_type(&self, expected_type: &PropertyType, value: &serde_json::Value) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         let type_matches = match (expected_type, value) {
@@ -296,9 +253,8 @@ impl GraphValidator {
             (PropertyType::Array(element_type), serde_json::Value::Array(arr)) => {
                 // Validate each element in the array
                 for element in arr {
-                    if let Err(element_errors) = self.validate_property_type(element_type, element) {
-                        errors.extend(element_errors);
-                    }
+                    let element_errors = self.validate_property_type(element_type, element);
+                    errors.extend(element_errors);
                 }
                 errors.is_empty()
             },
@@ -315,15 +271,11 @@ impl GraphValidator {
             });
         }
 
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
+        errors
     }
 
     /// Validate a constraint
-    fn validate_constraint(&self, constraint: &PropertyConstraint, value: &serde_json::Value) -> Result<(), Vec<ValidationError>> {
+    fn validate_constraint(&self, constraint: &PropertyConstraint, value: &serde_json::Value, warnings: &mut Vec<String>) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         match constraint {
@@ -401,28 +353,22 @@ impl GraphValidator {
             }
         }
 
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
+        errors
     }
 
     /// Validate global schema constraints
-    fn validate_global_constraints(&self, graph_data: &serde_json::Value) -> Result<(), Vec<ValidationError>> {
+    fn validate_global_constraints(&self, graph_data: &serde_json::Value) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         for constraint in &self.schema.constraints {
             match constraint {
                 SchemaConstraint::UniqueProperty { vertex_type, property } => {
-                    if let Err(unique_errors) = self.validate_unique_property(graph_data, vertex_type, property) {
-                        errors.extend(unique_errors.into_iter());
-                    }
+                    let unique_errors = self.validate_unique_property(graph_data, vertex_type, property);
+                    errors.extend(unique_errors);
                 },
                 SchemaConstraint::Cardinality { edge_type, min, max } => {
-                    if let Err(cardinality_errors) = self.validate_cardinality(graph_data, edge_type, *min, *max) {
-                        errors.extend(cardinality_errors.into_iter());
-                    }
+                    let cardinality_errors = self.validate_cardinality(graph_data, edge_type, *min, *max);
+                    errors.extend(cardinality_errors);
                 },
                 _ => {
                     // Other constraint types not implemented yet
@@ -430,15 +376,11 @@ impl GraphValidator {
             }
         }
 
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
+        errors
     }
 
     /// Validate unique property constraint
-    fn validate_unique_property(&self, graph_data: &serde_json::Value, vertex_type: &str, property: &str) -> Result<(), Vec<ValidationError>> {
+    fn validate_unique_property(&self, graph_data: &serde_json::Value, vertex_type: &str, property: &str) -> Vec<ValidationError> {
         let mut errors = Vec::new();
         let mut seen_values = std::collections::HashSet::new();
 
@@ -467,15 +409,11 @@ impl GraphValidator {
             }
         }
 
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
+        errors
     }
 
     /// Validate cardinality constraint
-    fn validate_cardinality(&self, graph_data: &serde_json::Value, edge_type: &str, min: usize, max: Option<usize>) -> Result<(), Vec<ValidationError>> {
+    fn validate_cardinality(&self, graph_data: &serde_json::Value, edge_type: &str, min: usize, max: Option<usize>) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         if let Some(edges) = graph_data.get("edges").and_then(|v| v.as_array()) {
@@ -502,7 +440,7 @@ impl GraphValidator {
                     errors.push(ValidationError {
                         error_type: ValidationErrorType::ConstraintViolation,
                         message: format!("Edge '{}' has {} instances, minimum required is {}", edge_key, count, min),
-                        element_id: Some(edge_key),
+                        element_id: Some(edge_key.clone()),
                         property: None,
                     });
                 }
@@ -520,15 +458,11 @@ impl GraphValidator {
             }
         }
 
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
+        errors
     }
 
     /// Extract vertex type from vertex data
-    fn extract_vertex_type(&self, vertex: &serde_json::Value) -> Result<String, ValidationError> {
+    fn extract_vertex_type(&self, vertex: &serde_json::Value) -> Result<String> {
         match vertex.get("labels").and_then(|l| l.as_array()).and_then(|arr| arr.first()) {
             Some(label) if label.is_string() => Ok(label.as_str().unwrap().to_string()),
             _ => Ok("Unknown".to_string()), // Return default instead of error
@@ -536,7 +470,7 @@ impl GraphValidator {
     }
 
     /// Extract edge type from edge data
-    fn extract_edge_type(&self, edge: &serde_json::Value) -> Result<String, ValidationError> {
+    fn extract_edge_type(&self, edge: &serde_json::Value) -> Result<String> {
         match edge.get("label").and_then(|l| l.as_str()) {
             Some(label) => Ok(label.to_string()),
             None => Ok("Unknown".to_string()), // Return default instead of error
