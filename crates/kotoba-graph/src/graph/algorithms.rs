@@ -3,10 +3,10 @@
 //! このモジュールは、グラフ理論のアルゴリズムを実装します。
 //! 最短経路、中央性指標、パターンマッチングなどを提供します。
 
-use crate::types::*;
-use crate::graph::*;
 use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque};
 use std::cmp::Reverse;
+use kotoba_core::types::*;
+use crate::graph::{Graph, VertexId};
 use std::hash::Hash;
 
 /// 最短経路アルゴリズムの結果
@@ -661,7 +661,7 @@ impl GraphAlgorithms {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::*;
+    use kotoba_core::types::*;
 
     /// テスト用グラフ作成ヘルパー
     fn create_test_graph() -> Graph {
