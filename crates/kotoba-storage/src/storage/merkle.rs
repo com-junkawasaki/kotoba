@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use kotoba_core::types::*;
 use kotoba_graph::prelude::*;
+use kotoba_errors::KotobaError;
 
 /// Merkleノード
 #[derive(Debug, Clone, Serialize, Deserialize)]

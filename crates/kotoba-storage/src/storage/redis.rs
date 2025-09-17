@@ -32,7 +32,7 @@ impl RedisBackend {
 
         // Test connection
         let mut conn = connection_manager.clone();
-        let _: String = redis::cmd("PING")
+        redis::cmd("PING")
             .query_async(&mut conn)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to connect to Redis: {}", e)))?;
@@ -43,61 +43,43 @@ impl RedisBackend {
             url,
         })
     }
-
-    /// Get a connection from the pool
-    async fn get_connection(&self) -> Result<redis::aio::ConnectionManager> {
-        Ok(self.connection_manager.lock().await.clone())
-    }
 }
 
 #[async_trait]
 impl StorageBackend for RedisBackend {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
         let mut conn = self.connection_manager.lock().await;
-        conn.set::<_, _, ()>(key, value)
+        conn.set(key, value)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to put data in Redis: {}", e)))?;
         Ok(())
     }
 
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let mut conn = self.get_connection().await?;
-        let result: Option<Vec<u8>> = conn
-            .get(key)
+        let mut conn = self.connection_manager.lock().await;
+        conn.get(key)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to get data from Redis: {}", e)))?;
-        Ok(result)
+            .map_err(|e| KotobaError::Storage(format!("Failed to get data from Redis: {}", e)))
     }
 
     async fn delete(&self, key: String) -> Result<()> {
-        let mut conn = self.get_connection().await?;
-        conn.del::<_, ()>(key)
+        let mut conn = self.connection_manager.lock().await;
+        conn.del(key)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to delete data from Redis: {}", e)))?;
         Ok(())
     }
 
-    async fn exists(&self, key: &str) -> Result<bool> {
-        let mut conn = self.get_connection().await?;
-        let result: bool = conn
-            .exists(key)
-            .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to check key existence in Redis: {}", e)))?;
-        Ok(result)
-    }
-
     async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.connection_manager.lock().await;
         let pattern = format!("{}*", prefix);
-        let keys: Vec<String> = conn
-            .keys(pattern)
+        conn.keys(pattern)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))?;
-        Ok(keys)
+            .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))
     }
 
     async fn clear(&self) -> Result<()> {
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.connection_manager.lock().await;
         redis::cmd("FLUSHDB")
             .query_async(&mut conn)
             .await
@@ -106,40 +88,32 @@ impl StorageBackend for RedisBackend {
     }
 
     async fn stats(&self) -> Result<BackendStats> {
-        let mut conn = self.connection_manager.lock().await.clone();
+        let mut conn = self.connection_manager.lock().await;
         let info: String = redis::cmd("INFO")
             .query_async(&mut conn)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to get Redis info: {}", e)))?;
 
         // Parse some basic stats from INFO command
-        let total_keys = self.parse_redis_info(&info, "db0:keys");
-        let memory_usage = self.parse_redis_info(&info, "used_memory");
+        let total_keys = parse_redis_info(&info, "db0:keys");
+        let memory_usage = parse_redis_info(&info, "used_memory");
 
         Ok(BackendStats {
             backend_type: "Redis".to_string(),
             total_keys,
             memory_usage,
-            disk_usage: None, // Redis is in-memory
-            connection_count: Some(1), // Connection manager handles this
+            disk_usage: None,
+            connection_count: None,
         })
     }
 }
 
-impl RedisBackend {
-    /// Parse Redis INFO command output for specific metrics
-    fn parse_redis_info(&self, info: &str, key: &str) -> Option<u64> {
-        for line in info.lines() {
-            if line.starts_with(key) {
-                if let Some(value_str) = line.split(':').nth(1) {
-                    if let Ok(value) = value_str.trim().parse::<u64>() {
-                        return Some(value);
-                    }
-                }
-            }
-        }
-        None
-    }
+/// Parse Redis INFO command output for specific metrics
+fn parse_redis_info(info: &str, key: &str) -> Option<u64> {
+    info.lines()
+        .find(|line| line.starts_with(key))
+        .and_then(|line| line.split(':').nth(1))
+        .and_then(|value_str| value_str.trim().parse::<u64>().ok())
 }
 
 #[cfg(test)]

@@ -70,6 +70,7 @@ digest = "0.10.7"
 
 # Kotoba internal crates
 kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }
+kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.0" }
 kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" }
 kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.15" }
 kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }

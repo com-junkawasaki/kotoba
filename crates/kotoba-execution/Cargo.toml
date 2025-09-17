@@ -17,6 +17,7 @@ serde_json = "1.0"
 thiserror = "2.0"
 anyhow = "1.0"
 uuid = { workspace = true, features = ["v4"] }
+async-trait = "0.1"
 kotoba-core = { workspace = true }
 kotoba-errors = { path = "../kotoba-errors" }
 kotoba-graph = { workspace = true }

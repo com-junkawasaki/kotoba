@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use parking_lot::RwLock;
 use kotoba_core::types::*;
 use kotoba_graph::prelude::*;
+use kotoba_errors::KotobaError;
 
 /// トランザクション状態
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

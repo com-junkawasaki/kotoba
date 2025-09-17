@@ -7,12 +7,7 @@
 pub mod storage;
 
 pub mod prelude {
-    pub use crate::storage::{
-        StorageBackend,
-        StorageManager,
-        MerkleDAG,
-        MVCCManager,
-        StorageConfig,
-        BackendType,
-    };
+    pub use crate::storage::backend::{StorageBackend, BackendStats, StorageManager, StorageConfig, BackendType};
+    pub use crate::storage::merkle::MerkleDAG;
+    pub use crate::storage::mvcc::MVCCManager;
 }

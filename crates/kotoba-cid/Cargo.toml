@@ -14,6 +14,7 @@ homepage = "https://github.com/jun784/kotoba"
 [dependencies]
 # Kotoba ecosystem
 kotoba-core = { path = "../kotoba-core", version = "0.1.17" }
+kotoba-errors = { path = "../kotoba-errors", version = "0.1.0" }
 
 # Hash algorithms
 sha2 = "0.10"

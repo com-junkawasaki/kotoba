@@ -4,6 +4,8 @@
 
 Kotoba is a comprehensive graph processing system that unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model. Built entirely in Rust with 95\% test coverage, Kotoba provides a complete implementation of Google Jsonnet 0.21.0, ISO GQL-compliant queries, DPO (Double Pushout) graph rewriting, and MVCC+Merkle DAG persistence.
 
+Kotobainspired by the ancient Japanese concept of "Kotodama" (言霊), embodying the belief that words possess inherent spiritual power and can directly manifest computational processes. Drawing from GP2-based graph rewriting, Kotoba unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model that adapts computation to situational context ("事と場" - objects and field symmetry).
+
 The core innovation lies in the Process Network Graph Model, where all system components are centrally managed through a declarative configuration file (dag.jsonnet), enabling automatic topological sorting for build order and reverse topological sorting for problem resolution. This approach eliminates the traditional separation between data, computation, and deployment concerns by representing everything as interconnected graph transformations.
 
 Kotoba introduces a declarative programming paradigm centered around .kotoba files (Jsonnet format), where users define graph structures, rewriting rules, and execution strategies without writing imperative code. The system achieves theoretical completeness with DPO graph rewriting, practical performance through columnar storage and LSM trees, and distributed scalability via CID-based addressing.
@@ -24,7 +26,9 @@ This README contains the complete research paper content in Markdown format for 
 
 ## Abstract
 
-Kotoba is a comprehensive graph processing system that unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model. Built entirely in Rust with 95\% test coverage, Kotoba provides a complete implementation of Google Jsonnet 0.21.0, ISO GQL-compliant queries, DPO (Double Pushout) graph rewriting, and MVCC+Merkle DAG persistence.
+Kotoba is a comprehensive graph processing system inspired by the ancient Japanese concept of "Kotodama" (言霊), embodying the belief that words possess inherent spiritual power and can directly manifest computational processes. Drawing from GP2-based graph rewriting, Kotoba unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model that adapts computation to situational context ("事と場" - circumstance and place).
+
+The system captures Japanese language's computational power and expressiveness by integrating database and programming paradigms, where declarative specifications in .kotoba files directly manifest as executable processes. Built entirely in Rust with 95\% test coverage, Kotoba provides a complete implementation of Google Jsonnet 0.21.0, ISO GQL-compliant queries, DPO (Double Pushout) graph rewriting, and MVCC+Merkle DAG persistence.
 
 The core innovation lies in the Process Network Graph Model, where all system components are centrally managed through a declarative configuration file (dag.jsonnet), enabling automatic topological sorting for build order and reverse topological sorting for problem resolution. This approach eliminates the traditional separation between data, computation, and deployment concerns by representing everything as interconnected graph transformations.
 
@@ -32,9 +36,17 @@ Kotoba introduces a declarative programming paradigm centered around .kotoba fil
 
 Extensive evaluation shows 38/38 Jsonnet compatibility tests passing, LDBC-SNB benchmark performance competitive with established graph databases, and 95\% test coverage across all components. The system demonstrates practical viability through case studies including HTTP servers implemented as graph transformations, temporal workflow orchestration, and advanced deployment automation with AI-powered scaling.
 
-Kotoba represents a convergence of graph theory, programming languages, and distributed systems, offering a unified framework for complex system development through declarative graph processing.
+Kotoba represents a convergence of traditional Japanese wisdom and modern computer science, offering a unified framework for complex system development through declarative graph processing rooted in the philosophical tradition of Kotodama.
 
 ## 1. Introduction
+
+### Philosophical Foundation: The Power of Words in Computation
+
+Kotoba draws inspiration from the ancient Japanese concept of "Kotodama" (言霊), which embodies the belief that words possess inherent spiritual power and can directly influence reality. In traditional Japanese thought, spoken words are not mere symbols but living entities that can manifest physical and spiritual effects. This philosophical foundation underlies Kotoba's approach to computing, where declarative specifications directly manifest as computational processes.
+
+Building on GP2-based graph rewriting, Kotoba creates a graph processing system that adapts computation to situational context ("事と場" - circumstance and place). The system captures Japanese language's computational power and expressiveness by integrating database and programming paradigms, providing a computational foundation where words truly become executable reality.
+
+### Technical Challenges and Solutions
 
 Modern software systems face increasing complexity from distributed architectures, heterogeneous data models, and evolving deployment requirements. Traditional approaches separate concerns across different tools and frameworks, creating integration challenges and maintenance overhead. Kotoba addresses these challenges through a unified graph processing paradigm that treats all system components---from data structures to deployment configurations---as interconnected transformations within a single Process Network Graph Model.
 
@@ -910,9 +922,11 @@ Kotoba's impact extends across multiple domains:
 
 ### Future Outlook
 
-Kotoba establishes a foundation for future research in unified system design. The Process Network Graph Model provides a framework for integrating diverse system components through declarative graph specifications. As the system matures, it will enable more sophisticated applications in distributed computing, AI integration, and cloud-native architectures.
+Kotoba establishes a foundation for future research in unified system design, deeply rooted in the philosophical tradition of Kotodama. The Process Network Graph Model provides a framework for integrating diverse system components through declarative graph specifications, where words truly manifest computational reality.
 
-The combination of theoretical rigor, practical implementation, and extensibility positions Kotoba as a significant contribution to the evolution of graph processing and declarative programming systems.
+As the system matures, it will enable more sophisticated applications in distributed computing, AI integration, and cloud-native architectures, all while maintaining the principle that computational processes emerge directly from linguistic expressions. The convergence of traditional Japanese wisdom with modern computer science opens new avenues for exploring how human cognition and computational processes can be more intimately connected.
+
+The combination of theoretical rigor, practical implementation, and philosophical depth positions Kotoba as a significant contribution to the evolution of graph processing and declarative programming systems, potentially influencing how we think about the relationship between language, computation, and reality itself.
 
 ## Performance Highlights
 

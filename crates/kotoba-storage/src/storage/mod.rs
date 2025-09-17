@@ -9,3 +9,7 @@ pub mod redis;
 
 // Re-export everything from the backend, which is the main public interface.
 pub use backend::*;
+
+// Re-export specific types from submodules
+pub use merkle::MerkleDAG;
+pub use mvcc::MVCCManager;

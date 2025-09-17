@@ -3,7 +3,8 @@
 //! Core types and configuration structures for the Kotoba deployment system.
 //! This crate provides the fundamental building blocks for deployment management.
 
-use kotoba_core::types::{Result, Value, ContentHash, KotobaError};
+use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_errors::KotobaError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
