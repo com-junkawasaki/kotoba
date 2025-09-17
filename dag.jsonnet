@@ -1978,6 +1978,7 @@
     'state_graph_lib',
     'docs_generator',
     'docs_search',
+    'storage_main',
     'db_engine_lsm',
     'db_engine_memory',
     'planner_logical',
