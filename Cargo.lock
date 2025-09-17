@@ -2207,7 +2207,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.7",
  "blake3",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -2224,10 +2224,10 @@ dependencies = [
  "clap",
  "console",
  "dialoguer",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "kotoba-deploy",
  "kotoba-execution 0.1.15",
- "kotoba-graph 0.1.15",
+ "kotoba-graph 0.1.16",
  "kotoba-rewrite 0.1.15",
  "kotoba-server",
  "kotoba-storage 0.1.15",
@@ -2243,14 +2243,13 @@ dependencies = [
 
 [[package]]
 name = "kotoba-core"
-version = "0.1.15"
+version = "0.1.17"
 dependencies = [
  "anyhow",
  "blake3",
  "hex",
  "js-sys",
  "jsonschema",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "schemars",
  "serde",
@@ -2265,12 +2264,15 @@ dependencies = [
 
 [[package]]
 name = "kotoba-core"
-version = "0.1.15"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2f24630beb625ab50075cc3c9dd0173ca99669a6d2f699c2f8722281147bc5"
+checksum = "ef83352dfcab8f3730b7a3d0f8a90a9cb27f9c16af833ae17896696809590995"
 dependencies = [
  "anyhow",
+ "blake3",
  "hex",
+ "jsonschema",
+ "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -2287,9 +2289,9 @@ dependencies = [
  "chrono",
  "clap",
  "hex",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-execution 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "kotoba-rewrite 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
@@ -2307,9 +2309,9 @@ name = "kotoba-distributed"
 version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "kotoba-execution 0.1.15",
- "kotoba-graph 0.1.15",
+ "kotoba-graph 0.1.16",
  "kotoba-rewrite 0.1.15",
  "serde",
  "thiserror 2.0.16",
@@ -2323,8 +2325,8 @@ name = "kotoba-execution"
 version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -2339,8 +2341,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ba7d79b519b10fd30d2af66ac5e5b437db97d167bff37eaeeca508266670651"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -2350,10 +2352,25 @@ dependencies = [
 [[package]]
 name = "kotoba-graph"
 version = "0.1.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b738e988ccb913ceefacd96827ef2ae9d2826a7a401ce03f727f0314d5a115"
+dependencies = [
+ "anyhow",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "uuid",
+]
+
+[[package]]
+name = "kotoba-graph"
+version = "0.1.16"
 dependencies = [
  "anyhow",
  "js-sys",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot",
  "serde",
  "serde_json",
@@ -2365,23 +2382,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-graph"
-version = "0.1.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b738e988ccb913ceefacd96827ef2ae9d2826a7a401ce03f727f0314d5a115"
-dependencies = [
- "anyhow",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "parking_lot",
- "serde",
- "serde_json",
- "thiserror 2.0.16",
- "uuid",
-]
-
-[[package]]
 name = "kotoba-jsonnet"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -2405,7 +2407,7 @@ name = "kotoba-kotobanet"
 version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "kotoba-jsonnet",
  "regex",
  "serde",
@@ -2431,7 +2433,7 @@ dependencies = [
  "kotoba-cli",
  "kotoba-distributed",
  "kotoba-execution 0.1.15",
- "kotoba-graph 0.1.15",
+ "kotoba-graph 0.1.16",
  "kotoba-jsonnet",
  "kotoba-network",
  "kotoba-rewrite 0.1.15",
@@ -2461,7 +2463,7 @@ name = "kotoba-network"
 version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "kotoba-distributed",
  "serde",
  "thiserror 2.0.16",
@@ -2475,8 +2477,8 @@ name = "kotoba-rewrite"
 version = "0.1.15"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "kotoba-storage 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
@@ -2492,8 +2494,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ce2c79e57406e3c96b3bc47cbf1946a0c28ca50ec437471a1590c7dda605e51"
 dependencies = [
  "anyhow",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "kotoba-storage 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
@@ -2513,7 +2515,7 @@ dependencies = [
  "hex",
  "hmac 0.12.1",
  "jsonwebtoken",
- "kotoba-graph 0.1.15",
+ "kotoba-graph 0.1.16",
  "kotoba-storage 0.1.15",
  "mockito",
  "oauth2",
@@ -2546,7 +2548,7 @@ dependencies = [
  "hex",
  "hyper 0.14.32",
  "js-sys",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "parking_lot",
  "serde",
  "serde_json",
@@ -2567,8 +2569,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "hex",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "parking_lot",
  "redis",
  "rocksdb",
@@ -2590,8 +2592,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "hex",
- "kotoba-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph 0.1.15",
  "parking_lot",
  "redis",
  "serde",
@@ -2611,7 +2613,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "futures",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "kotoba-jsonnet",
  "kotoba-storage 0.1.15",
  "parking_lot",
@@ -2636,7 +2638,7 @@ dependencies = [
  "indexmap",
  "js-sys",
  "jsonnet-rs",
- "kotoba-core 0.1.15",
+ "kotoba-core 0.1.17",
  "lightningcss",
  "parking_lot",
  "phf 0.11.3",
