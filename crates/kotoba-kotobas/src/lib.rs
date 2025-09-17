@@ -7,18 +7,37 @@
 //! - Frontend Framework: React component definitions
 //! - Deploy Configuration: Deployment settings
 //! - Config Management: General configuration handling
+//! - AI Agent Framework: Jsonnet-only AI agent implementation (Manimani)
+//!   - AI Agent Parser: .manimani file parsing
+//!   - AI Runtime: Async Jsonnet evaluation with AI API integration
+//!   - AI Models: OpenAI, Anthropic, Google AI integration
+//!   - AI Tools: External command execution and function calling
+//!   - AI Memory: Conversation context and state management
+//!   - AI Chains: Multi-step workflow orchestration
 
 pub mod error;
 pub mod http_parser;
 pub mod frontend;
 pub mod deploy;
 pub mod config;
+pub mod ai_parser;
+pub mod ai_runtime;
+pub mod ai_models;
+pub mod ai_tools;
+pub mod ai_memory;
+pub mod ai_chains;
 
 pub use error::*;
 pub use http_parser::*;
 pub use frontend::*;
 pub use deploy::*;
 pub use config::*;
+pub use ai_parser::*;
+pub use ai_runtime::*;
+pub use ai_models::*;
+pub use ai_tools::*;
+pub use ai_memory::*;
+pub use ai_chains::*;
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

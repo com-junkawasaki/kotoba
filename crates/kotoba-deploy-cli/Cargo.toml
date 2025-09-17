@@ -1,0 +1,36 @@
+[package]
+name = "kotoba-deploy-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CLI interface for Kotoba deployment system"
+keywords = ["cli", "deployment", "command-line", "tool"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy-cli"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba dependencies
+kotoba-core = { workspace = true }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+
+# CLI framework
+clap = { version = "4.0", features = ["derive"] }
+
+# Common dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
+# File system and utilities
+uuid.workspace = true
+chrono.workspace = true
+tempfile.workspace = true
+
+[[bin]]
+name = "kotoba-deploy"
+path = "src/main.rs"

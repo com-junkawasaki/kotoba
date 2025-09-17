@@ -1,0 +1,30 @@
+[package]
+name = "kotoba-deploy-network"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Network management for Kotoba deployment system"
+keywords = ["network", "deployment", "edge", "cdn", "dns"]
+categories = ["network-programming", "web-programming"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy-network"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba dependencies
+kotoba-core = { workspace = true }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+
+# Common dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full"] }
+uuid.workspace = true
+chrono.workspace = true
+regex.workspace = true
+
+# Network specific
+trust-dns-resolver = "0.23"

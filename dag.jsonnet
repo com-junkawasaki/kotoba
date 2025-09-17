@@ -971,6 +971,87 @@
       status: 'pending',
       build_order: 19,
     },
+
+    // ==========================================
+    // AI Agent 層 (Manimani) - Jsonnet-only AI Agent Framework
+    // ==========================================
+
+    'ai_agent_parser': {
+      name: 'ai_agent_parser',
+      path: 'crates/kotoba-kotobas/src/ai_parser.rs',
+      type: 'ai_agent',
+      description: 'Jsonnet-based AI agent定義パーサー - .manimaniファイルの解析',
+      dependencies: ['kotobanet_core', 'jsonnet_core'],
+      provides: ['AiAgentParser', 'AgentConfig', 'ToolConfig', 'ChainConfig'],
+      status: 'pending',
+      build_order: 20,
+    },
+
+    'ai_runtime': {
+      name: 'ai_runtime',
+      path: 'crates/kotoba-kotobas/src/ai_runtime.rs',
+      type: 'ai_agent',
+      description: 'AI Agent実行ランタイム - Jsonnet evaluator拡張によるAI処理',
+      dependencies: ['ai_agent_parser', 'jsonnet_core', 'http_ir'],
+      provides: ['AiRuntime', 'AgentExecutor', 'AsyncEvaluator', 'StreamingProcessor'],
+      status: 'pending',
+      build_order: 21,
+    },
+
+    'ai_models': {
+      name: 'ai_models',
+      path: 'crates/kotoba-kotobas/src/ai_models.rs',
+      type: 'ai_agent',
+      description: 'AIモデル統合 - OpenAI, Anthropic, Google AIなどのAPI統合',
+      dependencies: ['ai_runtime', 'jsonnet_core'],
+      provides: ['OpenAiModel', 'AnthropicModel', 'GoogleAiModel', 'ModelManager', 'ApiClient'],
+      status: 'pending',
+      build_order: 22,
+    },
+
+    'ai_tools': {
+      name: 'ai_tools',
+      path: 'crates/kotoba-kotobas/src/ai_tools.rs',
+      type: 'ai_agent',
+      description: 'AIツールシステム - 外部コマンド実行、関数呼び出し、データ処理',
+      dependencies: ['ai_runtime', 'jsonnet_core'],
+      provides: ['ToolExecutor', 'CommandTool', 'FunctionTool', 'DataTool', 'ToolRegistry'],
+      status: 'pending',
+      build_order: 23,
+    },
+
+    'ai_memory': {
+      name: 'ai_memory',
+      path: 'crates/kotoba-kotobas/src/ai_memory.rs',
+      type: 'ai_agent',
+      description: 'AIメモリ管理 - 会話履歴、コンテキスト、状態管理',
+      dependencies: ['ai_runtime', 'storage_mvcc', 'storage_merkle'],
+      provides: ['MemoryManager', 'ConversationMemory', 'VectorMemory', 'StateManager'],
+      status: 'pending',
+      build_order: 24,
+    },
+
+    'ai_chains': {
+      name: 'ai_chains',
+      path: 'crates/kotoba-kotobas/src/ai_chains.rs',
+      type: 'ai_agent',
+      description: 'AIチェーンシステム - 複数ステップのワークフロー実行',
+      dependencies: ['ai_agent_parser', 'ai_runtime', 'ai_models', 'ai_tools', 'ai_memory'],
+      provides: ['ChainExecutor', 'SequentialChain', 'ParallelChain', 'ConditionalChain', 'LoopChain'],
+      status: 'pending',
+      build_order: 25,
+    },
+
+    'ai_examples': {
+      name: 'ai_examples',
+      path: 'examples/ai_agents/',
+      type: 'ai_example',
+      description: 'AI Agentの使用例 - Jsonnet-only AI agentアプリケーション',
+      dependencies: ['ai_chains', 'ai_models', 'ai_tools', 'ai_memory'],
+      provides: ['ai_agent_examples', 'chatbot_example', 'code_assistant_example', 'data_analyzer_example'],
+      status: 'pending',
+      build_order: 26,
+    },
   },
 
   // ==========================================
@@ -1329,6 +1410,53 @@
     { from: 'deploy_hosting_manager', to: 'lib' },
 
     // ==========================================
+    // AI Agent 層依存関係
+    // ==========================================
+
+    // AI agent parser dependencies
+    { from: 'jsonnet_core', to: 'ai_agent_parser' },
+    { from: 'kotobanet_core', to: 'ai_agent_parser' },
+
+    // AI runtime dependencies
+    { from: 'ai_agent_parser', to: 'ai_runtime' },
+    { from: 'jsonnet_core', to: 'ai_runtime' },
+    { from: 'http_ir', to: 'ai_runtime' },
+
+    // AI models dependencies
+    { from: 'ai_runtime', to: 'ai_models' },
+    { from: 'jsonnet_core', to: 'ai_models' },
+
+    // AI tools dependencies
+    { from: 'ai_runtime', to: 'ai_tools' },
+    { from: 'jsonnet_core', to: 'ai_tools' },
+
+    // AI memory dependencies
+    { from: 'ai_runtime', to: 'ai_memory' },
+    { from: 'storage_mvcc', to: 'ai_memory' },
+    { from: 'storage_merkle', to: 'ai_memory' },
+
+    // AI chains dependencies
+    { from: 'ai_agent_parser', to: 'ai_chains' },
+    { from: 'ai_runtime', to: 'ai_chains' },
+    { from: 'ai_models', to: 'ai_chains' },
+    { from: 'ai_tools', to: 'ai_chains' },
+    { from: 'ai_memory', to: 'ai_chains' },
+
+    // AI examples dependencies
+    { from: 'ai_chains', to: 'ai_examples' },
+    { from: 'ai_models', to: 'ai_examples' },
+    { from: 'ai_tools', to: 'ai_examples' },
+    { from: 'ai_memory', to: 'ai_examples' },
+
+    // Integration with main library
+    { from: 'ai_agent_parser', to: 'lib' },
+    { from: 'ai_runtime', to: 'lib' },
+    { from: 'ai_models', to: 'lib' },
+    { from: 'ai_tools', to: 'lib' },
+    { from: 'ai_memory', to: 'lib' },
+    { from: 'ai_chains', to: 'lib' },
+
+    // ==========================================
     // 新規クレートの依存関係
     // ==========================================
 
@@ -1447,6 +1575,13 @@
     'deploy_hosting_server',
     'deploy_hosting_manager',
     'deploy_hosting_example',
+    'ai_agent_parser',
+    'ai_runtime',
+    'ai_models',
+    'ai_tools',
+    'ai_memory',
+    'ai_chains',
+    'ai_examples',
   ],
 
   // ==========================================
@@ -1454,6 +1589,13 @@
   // ==========================================
 
   reverse_topological_order: [
+    'ai_examples',
+    'ai_chains',
+    'ai_memory',
+    'ai_tools',
+    'ai_models',
+    'ai_runtime',
+    'ai_agent_parser',
     'deploy_hosting_example',
     'deploy_hosting_manager',
     'deploy_hosting_server',
