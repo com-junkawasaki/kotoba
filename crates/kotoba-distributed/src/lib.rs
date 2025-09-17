@@ -8,6 +8,7 @@ use kotoba_graph::prelude::*;
 use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::RewriteEngine;
 use kotoba_cid::*;
+use kotoba_errors::KotobaError;
 use serde_json;
 use std::collections::HashMap;
 use std::sync::Arc;

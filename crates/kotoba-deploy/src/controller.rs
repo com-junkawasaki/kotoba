@@ -3,7 +3,8 @@
 //! このモジュールはISO GQLプロトコルを使用してデプロイメントを管理し、
 //! ライブグラフモデルとの統合を実現します。
 
-use kotoba_core::types::{Result, Value, ContentHash, KotobaError, VertexId};
+use kotoba_core::types::{Result, Value, ContentHash, VertexId};
+use kotoba_errors::KotobaError;
 use kotoba_graph::prelude::*;
 use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::*;

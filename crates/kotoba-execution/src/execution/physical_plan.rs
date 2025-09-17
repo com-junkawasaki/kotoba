@@ -1,7 +1,21 @@
 //! 物理プラン定義
 
 use kotoba_core::types::*;
+use kotoba_core::ir::*;
 use kotoba_errors::KotobaError;
+
+/// カラム情報
+#[derive(Debug, Clone, PartialEq)]
+pub struct Column {
+    pub name: String,
+    pub data_type: String,
+}
+
+impl Column {
+    pub fn new(name: String, data_type: String) -> Self {
+        Self { name, data_type }
+    }
+}
 
 /// 物理プラン
 #[derive(Debug, Clone)]

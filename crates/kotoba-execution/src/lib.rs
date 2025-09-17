@@ -4,7 +4,7 @@ pub mod execution;
 
 use crate::execution::physical_plan::PhysicalPlan;
 use crate::execution::metrics::ExecutionMetrics;
-use kotoba_core::types::Result;
+use kotoba_core::types::{Result, Value};
 use kotoba_errors::KotobaError;
 
 #[async_trait::async_trait]

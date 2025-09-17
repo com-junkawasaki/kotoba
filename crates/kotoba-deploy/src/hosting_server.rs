@@ -3,7 +3,8 @@
 //! このモジュールはデプロイされたアプリケーションをホストするHTTPサーバーを提供します。
 //! WebAssemblyランタイムと統合され、グローバル分散実行を実現します。
 
-use kotoba_core::types::{Result, Value, KotobaError};
+use kotoba_core::types::{Result, Value};
+use kotoba_errors::KotobaError;
 use crate::controller::DeployController;
 use crate::runtime::{DeployRuntime, RuntimeManager};
 use crate::scaling::LoadBalancer;

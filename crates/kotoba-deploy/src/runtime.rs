@@ -3,7 +3,8 @@
 //! このモジュールはデプロイされたアプリケーションをWebAssemblyランタイムで実行します。
 //! ISO GQLプロトコルでコントロールされ、WASM Edge対応のグローバル分散実行を実現します。
 
-use kotoba_core::types::{Result, Value, KotobaError};
+use kotoba_core::types::{Result, Value};
+use kotoba_errors::KotobaError;
 use crate::controller::DeployController;
 use std::time::SystemTimeError;
 use crate::config::{DeployConfig, RuntimeType};

@@ -4,11 +4,12 @@ use kotoba_core::types::{Result, Value};
 use kotoba_errors::KotobaError;
 use kotoba_core::{types::*, ir::*};
 use kotoba_graph::prelude::*;
-use crate::planner::*;
+use crate::planner::{PhysicalPlanner, PhysicalPlan, PhysicalOp};
+use crate::planner::logical::LogicalPlanner;
+use crate::planner::optimizer::QueryOptimizer;
 use std::collections::{HashMap, HashSet};
 use uuid;
 
-use crate::execution::physical_plan::*;
 use crate::execution::metrics::ExecutionMetrics;
 
 /// クエリ実行器

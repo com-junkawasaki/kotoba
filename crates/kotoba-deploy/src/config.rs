@@ -4,7 +4,8 @@
 //! Deno Deployと同等の機能をサポートしつつ、KotobaのLive Graph Modelに適応しています。
 //! kotoba-kotobas を使用して一般設定も管理します。
 
-use kotoba_core::types::{Result, Value, ContentHash, KotobaError};
+use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_errors::KotobaError;
 // use kotoba_kotobanet::ConfigParser; // Commented out due to stability issues
 use std::collections::HashMap;
 use std::time::SystemTime;

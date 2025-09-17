@@ -1,5 +1,7 @@
 # Kotoba: A Unified Graph Processing System with Process Network Architecture and Declarative Programming
 
+[![DOI](https://zenodo.org/badge/1056291508.svg)](https://doi.org/10.5281/zenodo.17143048)
+
 ## Overview
 
 Kotoba is a comprehensive graph processing system that unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model. Built entirely in Rust with 95\% test coverage, Kotoba provides a complete implementation of Google Jsonnet 0.21.0, ISO GQL-compliant queries, DPO (Double Pushout) graph rewriting, and MVCC+Merkle DAG persistence.

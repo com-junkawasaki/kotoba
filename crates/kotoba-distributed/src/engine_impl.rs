@@ -2,6 +2,7 @@
 
 use super::*;
 use kotoba_execution::prelude::GqlParser;
+use kotoba_errors::KotobaError;
 use std::collections::HashMap;
 use uuid::Uuid;
 

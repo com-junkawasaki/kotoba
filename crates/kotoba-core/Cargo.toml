@@ -12,7 +12,7 @@ documentation = "https://docs.rs/kotoba-core"
 homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
-kotoba-errors = "0.1.0"
+kotoba-errors = { path = "../kotoba-errors" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
