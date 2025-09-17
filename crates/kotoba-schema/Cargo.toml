@@ -21,7 +21,7 @@ regex.workspace = true
 
 # Kotoba ecosystem
 kotoba-core.workspace = true
-kotoba-errors.workspace = true
+# kotoba-errors removed - use through kotoba-core
 kotoba-graph = { path = "../kotoba-graph", optional = true }
 
 # Schema validation

@@ -1,6 +1,7 @@
 //! ClusterManager と LoadBalancer の実装
 
 use super::*;
+use kotoba_errors::KotobaError;
 use std::collections::HashMap;
 
 impl ClusterManager {

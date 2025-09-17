@@ -1,5 +1,8 @@
 //! kotoba-server - Kotoba Server Components
 
+pub mod http;
+pub mod frontend;
+
 pub mod prelude {
     // Re-export commonly used items
 }

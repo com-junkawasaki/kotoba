@@ -6,7 +6,7 @@
 use crate::schema::*;
 use crate::validator::*;
 use kotoba_core::types::*;
-use kotoba_errors::KotobaError;
+use kotoba_core::prelude::KotobaError;
 use std::collections::HashMap;
 use std::sync::Arc;
 

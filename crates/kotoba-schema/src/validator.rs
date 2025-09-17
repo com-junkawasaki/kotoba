@@ -5,7 +5,7 @@
 
 use crate::schema::*;
 use kotoba_core::types::*;
-use kotoba_errors::KotobaError;
+use kotoba_core::prelude::KotobaError;
 use regex::Regex;
 use std::collections::HashMap;
 

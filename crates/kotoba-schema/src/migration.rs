@@ -6,7 +6,7 @@
 use crate::schema::*;
 use crate::manager::*;
 use kotoba_core::types::*;
-use kotoba_errors::KotobaError;
+use kotoba_core::prelude::KotobaError;
 use std::collections::HashMap;
 
 /// Migration engine for schema evolution

@@ -12,6 +12,8 @@ pub mod prelude {
     pub use crate::schema_validator::*;
     // pub use crate::pgview::*; // Temporarily disabled
     pub use crate::ir::*;
+    // Re-export KotobaError to avoid version conflicts
+    pub use kotoba_errors::KotobaError;
 }
 
 #[cfg(test)]
