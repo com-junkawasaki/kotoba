@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-storage"
-version.workspace = true
+version = "0.1.16"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -25,10 +25,10 @@ tempfile = "3.0"
 async-trait = "0.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
-kotoba-core = { workspace = true }
-kotoba-errors = { path = "../kotoba-errors" }
-kotoba-graph = { workspace = true }
-kotoba-cid = { path = "../kotoba-cid" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
+kotoba-graph = { path = "../kotoba-graph" }
+kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }
 
 [features]
 default = []
