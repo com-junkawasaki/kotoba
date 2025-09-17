@@ -31,6 +31,8 @@ members = [
     "crates/kotoba-db-engine-memory",
     "crates/kotoba-db-engine-lsm",
     "crates/kotoba-db",
+    "crates/kotoba-db-cluster",
+    "crates/kotoba-backup",
 ]
 resolver = "2"
 
