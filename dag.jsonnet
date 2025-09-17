@@ -1156,6 +1156,98 @@
       status: 'completed',
       build_order: 7,
     },
+
+    // ==========================================
+    // Kotoba Documentation Generator (kdoc)
+    // ==========================================
+
+    'docs_parser': {
+      name: 'docs_parser',
+      path: 'crates/kotoba-docs/src/parser.rs',
+      type: 'documentation',
+      description: 'Multi-language source code parser for documentation generation (Rust, JS, TS, Python, Go)',
+      dependencies: ['types'],
+      provides: ['DocParser', 'LanguageParser', 'RustParser', 'JavaScriptParser', 'TypeScriptParser', 'PythonParser', 'GoParser'],
+      status: 'completed',
+      build_order: 3,
+    },
+
+    'docs_config': {
+      name: 'docs_config',
+      path: 'crates/kotoba-docs/src/config.rs',
+      type: 'documentation',
+      description: 'Documentation configuration management and TOML/JSON/YAML parsing',
+      dependencies: ['types'],
+      provides: ['DocsConfig', 'ConfigManager', 'auto_detect_config', 'create_default_config_file'],
+      status: 'completed',
+      build_order: 3,
+    },
+
+    'docs_generator': {
+      name: 'docs_generator',
+      path: 'crates/kotoba-docs/src/generator.rs',
+      type: 'documentation',
+      description: 'Documentation generation engine with HTML/Markdown/JSON output support',
+      dependencies: ['types', 'docs_parser', 'docs_config'],
+      provides: ['DocGenerator', 'OutputFormat', 'GenerateResult', 'DocItem'],
+      status: 'completed',
+      build_order: 4,
+    },
+
+    'docs_template': {
+      name: 'docs_template',
+      path: 'crates/kotoba-docs/src/template.rs',
+      type: 'documentation',
+      description: 'Template engine for documentation with Tera integration and custom filters',
+      dependencies: ['types', 'docs_generator'],
+      provides: ['TemplateEngine', 'TemplateContext', 'TemplateFilter', 'DocTemplate'],
+      status: 'completed',
+      build_order: 5,
+    },
+
+    'docs_search': {
+      name: 'docs_search',
+      path: 'crates/kotoba-docs/src/search.rs',
+      type: 'documentation',
+      description: 'Full-text search engine with fuzzy matching and indexing',
+      dependencies: ['types', 'docs_parser'],
+      provides: ['SearchEngine', 'SearchResult', 'SearchOptions', 'SearchEntry'],
+      status: 'completed',
+      build_order: 4,
+    },
+
+    'docs_server': {
+      name: 'docs_server',
+      path: 'crates/kotoba-docs/src/server.rs',
+      type: 'documentation',
+      description: 'Web server for documentation with REST API and static file serving',
+      dependencies: ['types', 'docs_generator', 'docs_search', 'http_ir'],
+      provides: ['DocServer', 'ServerState', 'SearchParams', 'SearchResponse'],
+      status: 'completed',
+      build_order: 8,
+    },
+
+    'docs_core': {
+      name: 'docs_core',
+      path: 'crates/kotoba-docs/src/lib.rs',
+      type: 'documentation',
+      description: 'Kotoba Documentation Generator core library - main API and error handling',
+      dependencies: ['types', 'docs_parser', 'docs_config', 'docs_generator', 'docs_template', 'docs_search', 'docs_server'],
+      provides: ['DocsError', 'Result<T>', 'DocType', 'DocsConfig', 'DocItem'],
+      status: 'completed',
+      build_order: 6,
+    },
+
+    'docs_cli': {
+      name: 'docs_cli',
+      path: 'crates/kotoba-cli/src/main.rs',
+      type: 'documentation_cli',
+      description: 'CLI commands for documentation generation (generate, serve, search, init)',
+      dependencies: ['types', 'docs_core', 'cli_interface'],
+      provides: ['docs generate', 'docs serve', 'docs search', 'docs init'],
+      status: 'completed',
+      build_order: 11,
+    },
   },
 
   // ==========================================
@@ -1659,6 +1751,51 @@
     { from: 'rewrite_engine', to: 'state_graph_lib' },
     { from: 'execution_engine', to: 'state_graph_lib' },
     { from: 'state_graph_lib', to: 'lib' },
+
+    // ==========================================
+    // Kotoba Documentation Generator Dependencies
+    // ==========================================
+
+    // Documentation parser dependencies
+    { from: 'types', to: 'docs_parser' },
+    { from: 'docs_parser', to: 'docs_generator' },
+    { from: 'docs_parser', to: 'docs_search' },
+    { from: 'docs_parser', to: 'docs_core' },
+
+    // Documentation config dependencies
+    { from: 'types', to: 'docs_config' },
+    { from: 'docs_config', to: 'docs_generator' },
+    { from: 'docs_config', to: 'docs_core' },
+
+    // Documentation generator dependencies
+    { from: 'types', to: 'docs_generator' },
+    { from: 'docs_generator', to: 'docs_template' },
+    { from: 'docs_generator', to: 'docs_server' },
+    { from: 'docs_generator', to: 'docs_core' },
+
+    // Documentation template dependencies
+    { from: 'types', to: 'docs_template' },
+    { from: 'docs_template', to: 'docs_core' },
+
+    // Documentation search dependencies
+    { from: 'types', to: 'docs_search' },
+    { from: 'docs_search', to: 'docs_server' },
+    { from: 'docs_search', to: 'docs_core' },
+
+    // Documentation server dependencies
+    { from: 'types', to: 'docs_server' },
+    { from: 'http_ir', to: 'docs_server' },
+    { from: 'docs_server', to: 'docs_core' },
+
+    // Documentation core dependencies
+    { from: 'types', to: 'docs_core' },
+    { from: 'docs_core', to: 'docs_cli' },
+    { from: 'docs_core', to: 'lib' },
+
+    // Documentation CLI dependencies
+    { from: 'types', to: 'docs_cli' },
+    { from: 'cli_interface', to: 'docs_cli' },
+    { from: 'docs_cli', to: 'lib' },
   ],
 
   // ==========================================

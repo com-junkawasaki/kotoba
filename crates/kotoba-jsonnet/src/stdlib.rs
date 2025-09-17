@@ -1037,8 +1037,8 @@ impl StdLib {
             "chain.execute" => Ok(JsonnetValue::string("chain.execute stub")),
 
             // Existing functions...
-            "std.extVar" => self.std_ext_var(args),
-            "std.manifestJson" => self.std_manifest_json(args),
+            "std.extVar" => self.std_ext_var(args.to_vec()),
+            "std.manifestJson" => self.std_manifest_json(args.to_vec()),
             // ... existing code ...
 
             _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", func_name))),

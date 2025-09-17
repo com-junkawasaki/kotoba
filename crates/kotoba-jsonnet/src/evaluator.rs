@@ -1,6 +1,6 @@
 //! Jsonnet expression evaluator
 
-use crate::error::{JsonnetError, Result};
+use crate::error::Result;
 use crate::value::JsonnetValue;
 
 /// Simple Jsonnet evaluator (placeholder implementation)
