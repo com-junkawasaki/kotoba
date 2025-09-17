@@ -7,29 +7,28 @@ repository.workspace = true
 description = "Graph Schema Definition and Validation for Kotoba"
 keywords = ["graph", "schema", "validation", "gql", "database"]
 categories = ["data-structures", "algorithms"]
-readme = "README.md"
 documentation = "https://docs.rs/kotoba-schema"
 homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
 # Core dependencies
-serde.workspace = true
-serde_json.workspace = true
-thiserror.workspace = true
-anyhow.workspace = true
-regex.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+regex = "1.0"
 
 # Kotoba ecosystem
-kotoba-core.workspace = true
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 # kotoba-errors removed - use through kotoba-core
 kotoba-graph = { path = "../kotoba-graph", optional = true }
 
 # Schema validation
-schemars.workspace = true
-jsonschema.workspace = true
+schemars = { version = "0.8", features = ["derive"] }
+jsonschema = "0.17"
 
 # Optional async support
-tokio = { workspace = true, optional = true }
+tokio = { version = "1.0", optional = true }
 
 [features]
 default = ["std"]
@@ -38,5 +37,5 @@ graph = ["dep:kotoba-graph"]
 async = ["tokio"]
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["full"] }
-tempfile.workspace = true
+tokio = { version = "1.0", features = ["full"] }
+tempfile = "3.0"

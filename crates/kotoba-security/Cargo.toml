@@ -7,7 +7,6 @@ repository.workspace = true
 description = "Comprehensive authentication and authorization system with JWT, OAuth2, MFA"
 keywords = ["security", "jwt", "oauth2", "authentication", "authorization"]
 categories = ["authentication", "cryptography", "web-programming", "api-bindings"]
-readme = "README.md"
 documentation = "https://docs.rs/kotoba-security"
 homepage = "https://github.com/jun784/kotoba"
 
@@ -60,8 +59,8 @@ digest = "0.10.7"
 regex = "1.10"
 
 # Kotoba dependencies
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.0" }
-kotoba-storage = { path = "../kotoba-storage", version = "0.1.0" }
+kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
+kotoba-storage = { path = "../kotoba-storage", version = "0.1.16" }
 
 [dev-dependencies]
 tokio-test = "0.4"

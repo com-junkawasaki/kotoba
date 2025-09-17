@@ -17,6 +17,108 @@ use tokio::io::AsyncWriteExt;
 use anyhow::Result;
 use kotoba_db_core::engine::StorageEngine;
 
+/// A space-efficient probabilistic data structure for testing set membership
+struct BloomFilter {
+    /// The bit array
+    bits: Vec<u8>,
+    /// Number of hash functions
+    num_hashes: usize,
+    /// Size of the bit array in bits
+    size: usize,
+}
+
+impl BloomFilter {
+    /// Create a new Bloom filter with the given parameters
+    fn new(size: usize, num_hashes: usize) -> Self {
+        let byte_size = (size + 7) / 8; // Round up to bytes
+        Self {
+            bits: vec![0; byte_size],
+            num_hashes,
+            size,
+        }
+    }
+
+    /// Create a Bloom filter sized for the given number of expected items
+    fn with_capacity(expected_items: usize, false_positive_rate: f64) -> Self {
+        let n = expected_items as f64;
+        let p = false_positive_rate;
+
+        // Calculate optimal size: m = -n * ln(p) / (ln(2))^2
+        let ln2_squared = (2.0_f64.ln()).powi(2);
+        let size = ((-n * p.ln()) / ln2_squared).ceil() as usize;
+
+        // Calculate optimal number of hash functions: k = m/n * ln(2)
+        let num_hashes = ((size as f64 / n) * 2.0_f64.ln()).round() as usize;
+
+        Self::new(size.max(1024), num_hashes.max(1)) // Minimum size of 1024 bits
+    }
+
+    /// Add an item to the Bloom filter
+    fn add(&mut self, item: &[u8]) {
+        for i in 0..self.num_hashes {
+            let hash = self.hash(item, i);
+            let bit_index = hash % self.size;
+            let byte_index = bit_index / 8;
+            let bit_offset = bit_index % 8;
+            self.bits[byte_index] |= 1 << bit_offset;
+        }
+    }
+
+    /// Check if an item might be in the set (false positives possible, no false negatives)
+    fn might_contain(&self, item: &[u8]) -> bool {
+        for i in 0..self.num_hashes {
+            let hash = self.hash(item, i);
+            let bit_index = hash % self.size;
+            let byte_index = bit_index / 8;
+            let bit_offset = bit_index % 8;
+            if (self.bits[byte_index] & (1 << bit_offset)) == 0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Double hash function for generating multiple hashes
+    fn hash(&self, item: &[u8], seed: usize) -> usize {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        item.hash(&mut hasher);
+        seed.hash(&mut hasher);
+        hasher.finish() as usize
+    }
+
+    /// Serialize the Bloom filter to bytes
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        // Write size and num_hashes
+        bytes.extend_from_slice(&(self.size as u32).to_le_bytes());
+        bytes.extend_from_slice(&(self.num_hashes as u32).to_le_bytes());
+        // Write bits
+        bytes.extend_from_slice(&self.bits);
+        bytes
+    }
+
+    /// Deserialize a Bloom filter from bytes
+    fn from_bytes(data: &[u8]) -> Result<Self> {
+        if data.len() < 8 {
+            return Err(anyhow::anyhow!("Invalid Bloom filter data"));
+        }
+
+        let size = u32::from_le_bytes(data[0..4].try_into()?) as usize;
+        let num_hashes = u32::from_le_bytes(data[4..8].try_into()?) as usize;
+        let bits = data[8..].to_vec();
+
+        let expected_byte_size = (size + 7) / 8;
+        if bits.len() != expected_byte_size {
+            return Err(anyhow::anyhow!("Invalid Bloom filter bits length"));
+        }
+
+        Ok(Self { bits, num_hashes, size })
+    }
+}
+
 /// Configuration for compaction behavior
 #[derive(Clone)]
 pub struct CompactionConfig {
@@ -244,10 +346,31 @@ impl LSMStorageEngine {
             .as_millis();
         let sstable_path = self.db_path.join(format!("sstable_{}.dat", timestamp));
 
-        // Write memtable contents to SSTable file
+        // Create Bloom filter for all keys in memtable
+        let mut bloom_filter = BloomFilter::with_capacity(memtable.len(), 0.01); // 1% false positive rate
+        for key in memtable.keys() {
+            bloom_filter.add(key);
+        }
+
+        // Write SSTable file with Bloom filter header
         let mut file = tokio::fs::File::create(&sstable_path).await?;
+
+        // Write Bloom filter
+        let bloom_bytes = bloom_filter.to_bytes();
+        let bloom_size = (bloom_bytes.len() as u32).to_le_bytes();
+        tokio::io::AsyncWriteExt::write_all(&mut file, &bloom_size).await?;
+        tokio::io::AsyncWriteExt::write_all(&mut file, &bloom_bytes).await?;
+
+        // Calculate and write data size
+        let mut data_size = 0u32;
         for (key, value) in &*memtable {
-            // Simple binary format: [key_len(4bytes)][key][value_len(4bytes)][value]
+            data_size += 4 + key.len() as u32 + 4 + value.len() as u32;
+        }
+        tokio::io::AsyncWriteExt::write_all(&mut file, &data_size.to_le_bytes()).await?;
+
+        // Write memtable contents
+        for (key, value) in &*memtable {
+            // Binary format: [key_len(4bytes)][key][value_len(4bytes)][value]
             let key_len = (key.len() as u32).to_le_bytes();
             let value_len = (value.len() as u32).to_le_bytes();
 
@@ -271,6 +394,8 @@ impl LSMStorageEngine {
         let mut wal = self.wal.write().await;
         wal.reset().await?;
         drop(sstables); // Release lock before compaction
+        drop(memtable); // Release memtable lock
+        drop(wal); // Release WAL lock
 
         // Trigger compaction if needed
         if needs_compaction {
@@ -291,7 +416,8 @@ impl LSMStorageEngine {
 
         // Select SSTables to compact (oldest ones)
         let num_to_compact = std::cmp::min(self.compaction_config.min_compaction_files, sstables.len());
-        let sstables_to_compact: Vec<_> = sstables.drain(sstables.len() - num_to_compact..).collect();
+        let start_idx = sstables.len() - num_to_compact;
+        let sstables_to_compact: Vec<_> = sstables.drain(start_idx..).collect();
 
         // Release the lock temporarily
         drop(sstables);
@@ -309,41 +435,72 @@ impl LSMStorageEngine {
             let data = tokio::fs::read(&sstable.path).await?;
             let mut pos = 0;
 
-            while pos < data.len() {
-                // Read key_len (4 bytes, little endian)
-                let key_len = u32::from_le_bytes(data[pos..pos+4].try_into()?);
-                pos += 4;
+            // Skip Bloom filter header (for old format compatibility)
+            if data.len() >= 4 {
+                let bloom_size = u32::from_le_bytes(data[pos..pos+4].try_into()?) as usize;
+                pos += 4 + bloom_size;
+                if data.len() > pos + 4 {
+                    let data_size = u32::from_le_bytes(data[pos..pos+4].try_into()?) as usize;
+                    pos += 4;
+                    let data_start = pos;
 
-                // Read key
-                let key = data[pos..pos + key_len as usize].to_vec();
-                pos += key_len as usize;
+                    while pos < data_start + data_size {
+                        // Read key_len (4 bytes, little endian)
+                        let key_len = u32::from_le_bytes(data[pos..pos+4].try_into()?);
+                        pos += 4;
 
-                // Read value_len (4 bytes, little endian)
-                let value_len = u32::from_le_bytes(data[pos..pos+4].try_into()?);
-                pos += 4;
+                        // Read key
+                        let key = data[pos..pos + key_len as usize].to_vec();
+                        pos += key_len as usize;
 
-                // Read value
-                let value = data[pos..pos + value_len as usize].to_vec();
-                pos += value_len as usize;
+                        // Read value_len (4 bytes, little endian)
+                        let value_len = u32::from_le_bytes(data[pos..pos+4].try_into()?);
+                        pos += 4;
 
-                // Only keep non-tombstone entries and overwrite older values
-                if !value.is_empty() {
-                    merged_data.insert(key, value);
-                } else {
-                    merged_data.remove(&key);
+                        // Read value
+                        let value = data[pos..pos + value_len as usize].to_vec();
+                        pos += value_len as usize;
+
+                        // Only keep non-tombstone entries and overwrite older values
+                        if !value.is_empty() {
+                            merged_data.insert(key, value);
+                        } else {
+                            merged_data.remove(&key);
+                        }
+                    }
                 }
             }
         }
 
-        // Create new compacted SSTable
+        // Create new compacted SSTable with Bloom filter
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_millis();
         let compacted_path = self.db_path.join(format!("sstable_compacted_{}.dat", timestamp));
 
+        // Create Bloom filter for merged data
+        let mut bloom_filter = BloomFilter::with_capacity(merged_data.len(), 0.01);
+        for key in merged_data.keys() {
+            bloom_filter.add(key);
+        }
+
         let mut file = tokio::fs::File::create(&compacted_path).await?;
+
+        // Write Bloom filter
+        let bloom_bytes = bloom_filter.to_bytes();
+        let bloom_size = (bloom_bytes.len() as u32).to_le_bytes();
+        tokio::io::AsyncWriteExt::write_all(&mut file, &bloom_size).await?;
+        tokio::io::AsyncWriteExt::write_all(&mut file, &bloom_bytes).await?;
+
+        // Calculate and write data size
+        let mut data_size = 0u32;
         for (key, value) in &merged_data {
-            // Simple binary format: [key_len(4bytes)][key][value_len(4bytes)][value]
+            data_size += 4 + key.len() as u32 + 4 + value.len() as u32;
+        }
+        tokio::io::AsyncWriteExt::write_all(&mut file, &data_size.to_le_bytes()).await?;
+
+        // Write merged data
+        for (key, value) in &merged_data {
             let key_len = (key.len() as u32).to_le_bytes();
             let value_len = (value.len() as u32).to_le_bytes();
 
@@ -359,7 +516,7 @@ impl LSMStorageEngine {
 
         // Update SSTable list: remove old ones and add new compacted one
         let mut sstables = self.sstables.write().await;
-        // Remove the old SSTables from the list (they should already be removed)
+        // Remove the old SSTables from the list
         sstables.retain(|sstable| {
             !old_sstables.iter().any(|old| old.path == sstable.path)
         });
@@ -382,6 +539,7 @@ struct SSTableHandle {
     path: PathBuf,
     min_key: Vec<u8>,
     max_key: Vec<u8>,
+    bloom_filter: BloomFilter,
 }
 
 impl SSTableHandle {
@@ -389,11 +547,31 @@ impl SSTableHandle {
         let path = path.as_ref().to_path_buf();
         let data = tokio::fs::read(&path).await?;
 
-        let mut min_key = Vec::new();
-        let mut max_key = Vec::new();
+        if data.len() < 4 {
+            return Err(anyhow::anyhow!("SSTable file too small"));
+        }
+
         let mut pos = 0;
 
-        while pos < data.len() {
+        // Read Bloom filter size
+        let bloom_size = u32::from_le_bytes(data[pos..pos+4].try_into()?) as usize;
+        pos += 4;
+
+        // Read Bloom filter
+        let bloom_data = &data[pos..pos + bloom_size];
+        let bloom_filter = BloomFilter::from_bytes(bloom_data)?;
+        pos += bloom_size;
+
+        // Read data size (for validation)
+        let data_size = u32::from_le_bytes(data[pos..pos+4].try_into()?) as usize;
+        pos += 4;
+
+        // Extract min/max keys from data
+        let mut min_key = Vec::new();
+        let mut max_key = Vec::new();
+        let data_start = pos;
+
+        while pos < data_start + data_size {
             // Read key_len (4 bytes, little endian)
             let key_len = u32::from_le_bytes(data[pos..pos+4].try_into()?);
             pos += 4;
@@ -418,7 +596,7 @@ impl SSTableHandle {
             }
         }
 
-        Ok(SSTableHandle { path, min_key, max_key })
+        Ok(SSTableHandle { path, min_key, max_key, bloom_filter })
     }
 
     async fn search(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -427,10 +605,23 @@ impl SSTableHandle {
             return Ok(None);
         }
 
+        // Check Bloom filter first (fast negative check)
+        if !self.bloom_filter.might_contain(key) {
+            return Ok(None);
+        }
+
         let data = tokio::fs::read(&self.path).await?;
         let mut pos = 0;
 
-        while pos < data.len() {
+        // Skip Bloom filter and data size headers
+        let bloom_size = u32::from_le_bytes(data[pos..pos+4].try_into()?) as usize;
+        pos += 4 + bloom_size;
+        let data_size = u32::from_le_bytes(data[pos..pos+4].try_into()?) as usize;
+        pos += 4;
+
+        let data_start = pos;
+
+        while pos < data_start + data_size {
             // Read key_len (4 bytes, little endian)
             let key_len = u32::from_le_bytes(data[pos..pos+4].try_into()?);
             pos += 4;
