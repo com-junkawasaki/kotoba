@@ -1142,7 +1142,7 @@
       description: 'npm/deno like package manager with merkledag + cid',
       dependencies: ['types', 'cid_system'],
       provides: ['PackageManager', 'PackageResolver', 'PackageInstaller'],
-      status: 'in_progress',
+      status: 'completed',
       build_order: 4,
     },
   },
