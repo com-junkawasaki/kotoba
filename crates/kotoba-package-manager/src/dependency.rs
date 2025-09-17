@@ -130,16 +130,21 @@ impl DependencyResolver {
         // バージョン競合の解決ロジック
         // セマンティックバージョニングに基づいて最適なバージョンを選択
 
-        let mut resolved = HashMap::new();
+        let mut resolved: HashMap<String, Package> = HashMap::new();
 
         for package in packages {
             let existing = resolved.get(&package.name);
 
             match existing {
                 Some(existing_pkg) => {
-                    // より新しいバージョンまたは互換性のあるバージョンを選択
-                    if package.version > existing_pkg.version {
-                        resolved.insert(package.name.clone(), package);
+                    // バージョンの比較（簡易版）
+                    // TODO: より洗練されたバージョン比較を実装
+                    if package.version != existing_pkg.version {
+                        // 同じパッケージの異なるバージョンがある場合
+                        // より新しい方を選択（単純な文字列比較）
+                        if package.version > existing_pkg.version {
+                            resolved.insert(package.name.clone(), package);
+                        }
                     }
                 }
                 None => {

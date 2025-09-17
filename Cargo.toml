@@ -44,7 +44,6 @@ parking_lot = "0.12"
 regex = "1.10"
 rocksdb = "0.21"
 tempfile = "3.0"
-urlencoding = "2.1"
 dirs = "5.0"
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5"
@@ -53,6 +52,7 @@ wasmtime = "0.35"
 rand = "0.8"
 futures = "0.3"
 base64 = "0.21"
+reqwest = { version = "0.11", features = ["json", "multipart"] }
 schemars = { version = "0.8", features = ["uuid1"] }
 jsonschema = "0.17"
 blake3 = "1.5"

@@ -28,11 +28,11 @@ pub struct PackageManager {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Package {
     pub name: String,
-    pub version: semver::Version,
+    pub version: String, // semver::VersionをStringとして扱う
     pub description: Option<String>,
     pub authors: Vec<String>,
-    pub dependencies: HashMap<String, semver::VersionReq>,
-    pub dev_dependencies: HashMap<String, semver::VersionReq>,
+    pub dependencies: HashMap<String, String>, // semver::VersionReqをStringとして扱う
+    pub dev_dependencies: HashMap<String, String>,
     pub repository: Option<String>,
     pub license: Option<String>,
     pub keywords: Vec<String>,
@@ -42,10 +42,10 @@ pub struct Package {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
     pub name: String,
-    pub version: semver::Version,
+    pub version: String, // semver::VersionをStringとして扱う
     pub description: Option<String>,
-    pub dependencies: HashMap<String, semver::VersionReq>,
-    pub dev_dependencies: HashMap<String, semver::VersionReq>,
+    pub dependencies: HashMap<String, String>, // semver::VersionReqをStringとして扱う
+    pub dev_dependencies: HashMap<String, String>,
     pub scripts: HashMap<String, String>,
 }
 
@@ -96,7 +96,7 @@ impl PackageManager {
 
         let config = ProjectConfig {
             name: project_name.clone(),
-            version: semver::Version::parse("0.1.0")?,
+            version: "0.1.0".to_string(),
             description: Some("A Kotoba project".to_string()),
             dependencies: HashMap::new(),
             dev_dependencies: HashMap::new(),

@@ -6,6 +6,14 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use kotoba_deploy_cli::{
+    CliManager, OutputFormat, DeploymentInfo, FormatOutput, validate_config
+};
+use kotoba_deploy_core::{DeployConfig, RuntimeType, ScalingConfig};
+use kotoba_deploy_runtime::RuntimeManager;
+use kotoba_deploy_scaling::ScalingEngine;
+use kotoba_deploy_network::NetworkManager;
+use kotoba_core::types::KotobaError;
 
 /// Kotoba Deploy CLI
 #[derive(Parser)]
@@ -213,45 +221,8 @@ impl DeployCli {
         Ok(())
     }
 
-    /// Initialize CLI configuration
-    async fn initialize_config(&mut self, config_path: Option<&std::path::Path>) -> Result<()> {
-        // CLI設定を読み込む
-        self.manager.load_config(config_path)?;
-
-        // デプロイメントコンポーネントを初期化
-        self.initialize_components().await?;
-
-        Ok(())
-    }
-
-    /// Initialize deployment components
-    async fn initialize_components(&mut self) -> Result<()> {
-        // ランタイムマネージャーを初期化
-        let runtime = RuntimeManager::new();
-        self.manager.set_runtime(runtime);
-
-        // スケーリングエンジンを初期化
-        let scaling_config = ScalingConfig {
-            min_instances: 1,
-            max_instances: 10,
-            cpu_threshold: 0.8,
-            memory_threshold: 0.8,
-            auto_scaling_enabled: true,
-        };
-        let scaling = ScalingEngine::new(scaling_config);
-        self.manager.set_scaling(scaling);
-
-        // ネットワークマネージャーを初期化
-        let network = NetworkManager::new();
-        self.manager.set_network(network);
-
-        // TODO: コントローラーの初期化（他のコンポーネントが必要）
-
-        Ok(())
-    }
-
-    /// Run the CLI
-    pub async fn run(cli: Cli) -> Result<()> {
+    /// Run the CLI with parsed arguments
+    pub async fn run_with_cli(cli: Cli) -> Result<()> {
         let mut deploy_cli = Self::new();
 
         // 設定を初期化
@@ -434,7 +405,7 @@ impl DeployCli {
         entry_point: Option<String>,
         runtime: Option<String>,
         domain: Option<String>,
-        port: u16,
+        _port: u16,
         env: Vec<String>,
         build_cmd: Option<String>,
         start_cmd: Option<String>,
@@ -449,13 +420,12 @@ impl DeployCli {
         }
 
         // コマンドライン引数から設定を作成
-        let mut config_builder = DeployConfig::builder(
-            name.unwrap_or_else(|| "default-deployment".to_string())
-        );
+        let mut config = DeployConfig::default();
+        config.metadata.name = name.unwrap_or_else(|| "default-deployment".to_string());
 
         // アプリケーション設定
         if let Some(entry_point) = entry_point {
-            config_builder = config_builder.entry_point(entry_point);
+            config.application.entry_point = entry_point;
         }
 
         if let Some(runtime_str) = runtime {
@@ -467,36 +437,37 @@ impl DeployCli {
                 "go" => RuntimeType::Go,
                 _ => return Err(anyhow::anyhow!("Unsupported runtime: {}", runtime_str)),
             };
-            config_builder = config_builder.runtime(runtime_type);
+            config.application.runtime = runtime_type;
         }
 
         // 環境変数を設定
         for env_var in env {
             if let Some((key, value)) = env_var.split_once('=') {
-                config_builder = config_builder.environment(key.to_string(), value.to_string());
+                config.application.environment.insert(key.to_string(), value.to_string());
             }
         }
 
         // ビルド/スタートコマンド
         if let Some(build_cmd) = build_cmd {
-            config_builder = config_builder.build_command(build_cmd);
+            config.application.build_command = Some(build_cmd);
         }
 
         if let Some(start_cmd) = start_cmd {
-            config_builder = config_builder.start_command(start_cmd);
+            config.application.start_command = Some(start_cmd);
         }
 
         // スケーリング設定
-        config_builder = config_builder
-            .min_instances(min_instances)
-            .max_instances(max_instances);
+        config.scaling.min_instances = min_instances;
+        config.scaling.max_instances = max_instances;
+        config.scaling.cpu_threshold = cpu_threshold;
+        config.scaling.memory_threshold = memory_threshold;
 
         // ネットワーク設定
         if let Some(domain) = domain {
-            config_builder = config_builder.domains(vec![domain]);
+            config.network.domains = vec![domain];
         }
 
-        Ok(config_builder.build())
+        Ok(config)
     }
 
     /// デプロイメントを実行
@@ -533,7 +504,7 @@ impl DeployCli {
         Ok(())
     }
 
-    async fn handle_list(&self, detailed: bool) -> Result<()> {
+    async fn handle_list(&self, _detailed: bool) -> Result<()> {
         let pb = self.manager.create_spinner("📋 Fetching deployments...");
 
         // ランタイムマネージャーから実行中のプロセスを取得
@@ -616,9 +587,9 @@ impl DeployCli {
 
         // ランタイムマネージャーでプロセスを停止
         let result = if let Some(runtime) = self.manager.runtime() {
-            runtime.stop_process(name).await
+            runtime.stop_process(name).await.map_err(|e| e)
         } else {
-            Err(anyhow::anyhow!("Runtime manager not initialized"))
+            Err(KotobaError::Execution("Runtime manager not initialized".to_string()).into())
         };
 
         match result {
@@ -640,9 +611,9 @@ impl DeployCli {
 
         // スケーリングエンジンでインスタンス数を設定
         let result = if let Some(scaling) = self.manager.scaling() {
-            scaling.set_instances(instances).await
+            scaling.set_instances(instances).await.map_err(|e| e)
         } else {
-            Err(anyhow::anyhow!("Scaling engine not initialized"))
+            Err(KotobaError::Execution("Scaling engine not initialized".to_string()).into())
         };
 
         match result {
@@ -695,7 +666,7 @@ impl DeployCli {
         Ok(())
     }
 
-    async fn handle_config(&self, show: bool, set: Option<String>, get: Option<String>) -> Result<()> {
+    async fn handle_config(&mut self, show: bool, set: Option<String>, get: Option<String>) -> Result<()> {
         if show {
             println!("⚙️  Current CLI configuration:");
             let config = self.manager.config();
@@ -771,65 +742,5 @@ impl DeployCli {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let mut deploy_cli = DeployCli::new();
-
-    // 設定を初期化
-    deploy_cli.initialize_config(cli.config.as_deref()).await?;
-
-    // 出力形式を設定
-    deploy_cli.output_format = match cli.format.as_str() {
-        "json" => OutputFormat::Json,
-        "yaml" => OutputFormat::Yaml,
-        _ => OutputFormat::Human,
-    };
-
-    match cli.command {
-        Commands::Deploy {
-            config,
-            name,
-            entry_point,
-            runtime,
-            domain,
-            port,
-            env,
-            build_cmd,
-            start_cmd,
-            min_instances,
-            max_instances,
-            cpu_threshold,
-            memory_threshold,
-            dry_run,
-            wait,
-        } => {
-            deploy_cli.handle_deploy(
-                config, name, entry_point, runtime, domain, port,
-                env, build_cmd, start_cmd, min_instances, max_instances,
-                cpu_threshold, memory_threshold, dry_run, wait
-            ).await
-        }
-
-        Commands::List { detailed } => {
-            deploy_cli.handle_list(detailed).await
-        }
-
-        Commands::Status { name } => {
-            deploy_cli.handle_status(&name).await
-        }
-
-        Commands::Stop { name, force } => {
-            deploy_cli.handle_stop(&name, force).await
-        }
-
-        Commands::Scale { name, instances } => {
-            deploy_cli.handle_scale(&name, instances).await
-        }
-
-        Commands::Logs { name, follow, lines } => {
-            deploy_cli.handle_logs(&name, follow, lines).await
-        }
-
-        Commands::Config { show, set, get } => {
-            deploy_cli.handle_config(show, set, get).await
-        }
-    }
+    DeployCli::run_with_cli(cli).await
 }

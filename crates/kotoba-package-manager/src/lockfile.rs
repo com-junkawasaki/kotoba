@@ -4,11 +4,12 @@ use super::Package;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use sha2::Digest;
 
 /// ロックファイルの内容
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Lockfile {
-    pub version: semver::Version,
+    pub version: String, // semver::VersionをStringとして扱う
     pub packages: HashMap<String, LockedPackage>,
     pub metadata: LockMetadata,
 }
@@ -16,9 +17,9 @@ pub struct Lockfile {
 /// ロックされたパッケージ情報
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LockedPackage {
-    pub version: semver::Version,
+    pub version: String, // semver::VersionをStringとして扱う
     pub checksum: String,
-    pub dependencies: HashMap<String, semver::Version>,
+    pub dependencies: HashMap<String, String>, // semver::VersionをStringとして扱う
 }
 
 /// ロックファイルのメタデータ
@@ -58,7 +59,7 @@ impl LockfileManager {
 
     pub async fn update(&self, packages: &[Package]) -> Result<(), Box<dyn std::error::Error>> {
         let mut lockfile = self.load().await?.unwrap_or_else(|| Lockfile {
-            version: semver::Version::parse("1.0.0").unwrap(),
+            version: "1.0.0".to_string(),
             packages: HashMap::new(),
             metadata: LockMetadata {
                 created_at: chrono::Utc::now(),

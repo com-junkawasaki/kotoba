@@ -44,5 +44,5 @@ indicatif = "0.17"
 toml = "0.8"
 
 [[bin]]
-name = "kotoba-deploy"
+name = "kotoba-deploy-cli"
 path = "src/main.rs"

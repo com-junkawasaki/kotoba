@@ -95,9 +95,29 @@ impl Cache {
 
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_dir() {
-                size += Self::dir_size(&entry.path()).await?;
+                size += Self::calculate_dir_size(&entry.path()).await?;
             } else {
                 size += entry.metadata().await?.len();
+            }
+        }
+
+        Ok(size)
+    }
+
+    /// 再帰的にディレクトリのサイズを計算（非再帰関数）
+    async fn calculate_dir_size(path: &PathBuf) -> Result<u64, Box<dyn std::error::Error>> {
+        let mut size = 0u64;
+        let mut stack = vec![path.clone()];
+
+        while let Some(current_path) = stack.pop() {
+            let mut entries = fs::read_dir(&current_path).await?;
+
+            while let Some(entry) = entries.next_entry().await? {
+                if entry.file_type().await?.is_dir() {
+                    stack.push(entry.path());
+                } else {
+                    size += entry.metadata().await?.len();
+                }
             }
         }
 

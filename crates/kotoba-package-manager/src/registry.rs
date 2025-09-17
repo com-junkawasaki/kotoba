@@ -3,6 +3,7 @@
 use super::{Package, Config};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 
 /// パッケージレジストリ
 #[derive(Debug)]
@@ -22,11 +23,11 @@ pub struct SearchResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PackageMetadata {
     pub name: String,
-    pub version: semver::Version,
+    pub version: String, // semver::VersionをStringとして扱う
     pub description: Option<String>,
     pub authors: Vec<String>,
-    pub dependencies: std::collections::HashMap<String, semver::VersionReq>,
-    pub dev_dependencies: std::collections::HashMap<String, semver::VersionReq>,
+    pub dependencies: std::collections::HashMap<String, String>, // semver::VersionReqをStringとして扱う
+    pub dev_dependencies: std::collections::HashMap<String, String>,
     pub repository: Option<String>,
     pub license: Option<String>,
     pub keywords: Vec<String>,
@@ -58,7 +59,7 @@ impl Registry {
     }
 
     /// パッケージのメタデータを取得
-    pub async fn get_package(&self, name: &str, version: Option<&semver::Version>)
+    pub async fn get_package(&self, name: &str, version: Option<&str>)
         -> Result<PackageMetadata, Box<dyn std::error::Error>>
     {
         let version_str = version.map(|v| format!("/{}", v)).unwrap_or_default();
