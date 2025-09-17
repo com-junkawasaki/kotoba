@@ -51,7 +51,7 @@ impl ConfigManager {
 
         match path.extension().and_then(|s| s.to_str()) {
             Some("toml") => {
-                let config: DocsConfig = toml::from_str(&content)
+                let config: DocsConfig = toml::from_str::<toml::Value>(&content)
                     .map_err(|e| DocsError::Config(format!("TOML parse error: {}", e)))?;
                 Ok(config)
             }
@@ -71,7 +71,8 @@ impl ConfigManager {
 
     /// 設定をファイルに保存
     pub async fn save_config(&self, config: &DocsConfig, path: Option<&Path>) -> Result<()> {
-        let config_path = path.unwrap_or(&self.project_root.join("kotoba-docs.toml"));
+        let config_path_buf = path.unwrap_or(&self.project_root.join("kotoba-docs.toml")).to_path_buf();
+        let config_path = config_path_buf.as_path();
 
         // ディレクトリが存在することを確認
         if let Some(parent) = config_path.parent() {
@@ -184,7 +185,7 @@ impl ConfigManager {
         let content = fs::read_to_string(path)
             .map_err(|e| DocsError::Config(format!("Failed to read Cargo.toml: {}", e)))?;
 
-        let value: toml::from_str(&content)
+        let value: toml::from_str::<toml::Value>(&content)
             .map_err(|e| DocsError::Config(format!("Failed to parse Cargo.toml: {}", e)))?;
 
         Ok(value)
@@ -195,7 +196,7 @@ impl ConfigManager {
         let content = fs::read_to_string(path)
             .map_err(|e| DocsError::Config(format!("Failed to read pyproject.toml: {}", e)))?;
 
-        let value: toml::from_str(&content)
+        let value: toml::from_str::<toml::Value>(&content)
             .map_err(|e| DocsError::Config(format!("Failed to parse pyproject.toml: {}", e)))?;
 
         Ok(value)

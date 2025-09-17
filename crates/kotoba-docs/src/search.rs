@@ -18,7 +18,7 @@ pub struct SearchEngine {
 }
 
 /// 検索エントリ
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchEntry {
     /// ドキュメントID
     pub doc_id: String,
@@ -34,7 +34,7 @@ pub struct SearchEntry {
 }
 
 /// 検索フィールド
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SearchField {
     /// タイトル/名前
     Title,
@@ -330,15 +330,15 @@ impl SearchEngine {
         };
 
         let terms = self.tokenize(&normalized_term);
-        for term in terms {
-            if !self.stopwords.contains(&term) {
+        for term_item in terms {
+            if !self.stopwords.contains(&term_item) {
                 let entry = SearchEntry {
                     doc_id: doc_id.to_string(),
-                    field,
+                    field: field.clone(),
                     text: normalized_term.clone(),
                     positions: vec![0],
                 };
-                self.index.entry(term).or_insert_with(Vec::new).push(entry);
+                self.index.entry(term_item).or_insert_with(Vec::new).push(entry);
             }
         }
     }

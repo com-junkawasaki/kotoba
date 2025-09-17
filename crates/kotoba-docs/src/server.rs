@@ -95,7 +95,7 @@ impl DocServer {
     }
 
     /// インデックスページハンドラー
-    async fn index_handler(State(state): State<ServerState>) -> Result<Html<String>, StatusCode> {
+    async fn index_handler(State(state): State<ServerState>) -> std::result::Result<Html<String>, StatusCode> {
         let items = state.items.read().await;
         let html = Self::generate_index_html(&state.config, &items).await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -106,7 +106,7 @@ impl DocServer {
     async fn search_handler(
         State(state): State<ServerState>,
         Query(params): Query<SearchParams>,
-    ) -> Result<Html<String>, StatusCode> {
+    ) -> std::result::Result<Html<String>, StatusCode> {
         let query = params.q.unwrap_or_default();
         let items = state.items.read().await;
 
@@ -138,7 +138,7 @@ impl DocServer {
     async fn api_item_handler(
         State(state): State<ServerState>,
         Path(id): Path<String>,
-    ) -> Result<Json<DocItem>, StatusCode> {
+    ) -> std::result::Result<Json<DocItem>, StatusCode> {
         let item_map = state.item_map.read().await;
 
         if let Some(item) = item_map.get(&id) {

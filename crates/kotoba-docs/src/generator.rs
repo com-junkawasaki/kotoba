@@ -25,7 +25,7 @@ impl DocGenerator {
         // テンプレートディレクトリを設定
         if let Some(template_dir) = &config.template_dir {
             let template_pattern = format!("{}/**/*.html", template_dir.display());
-            if let Err(e) = tera.add_template_files(&[template_pattern]) {
+            if let Err(e) = tera.add_template_files(vec![(template_pattern, None)]) {
                 println!("Warning: Failed to load templates from {}: {}", template_dir.display(), e);
             }
         } else {
@@ -634,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <ul class="nav-list">
                 {% for module_name, module_items in modules %}
                 <li>
-                    <a href="#{{ module_name | lower }}">{{ module_name }}</a>
+                    <a href="#{{ module_name }}">{{ module_name }}</a>
                     <ul>
                         {% for item in module_items %}
                         <li><a href="{{ item.slug }}.html">{{ item.name }}</a></li>

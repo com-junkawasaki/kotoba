@@ -92,6 +92,27 @@ pub enum DocType {
     AssociatedConstant,
 }
 
+impl std::fmt::Display for DocType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            DocType::Module => "Module",
+            DocType::Function => "Function",
+            DocType::Struct => "Struct",
+            DocType::Enum => "Enum",
+            DocType::Trait => "Trait",
+            DocType::Constant => "Constant",
+            DocType::Macro => "Macro",
+            DocType::TypeAlias => "TypeAlias",
+            DocType::Method => "Method",
+            DocType::Field => "Field",
+            DocType::Variant => "Variant",
+            DocType::AssociatedType => "AssociatedType",
+            DocType::AssociatedConstant => "AssociatedConstant",
+        };
+        write!(f, "{}", name)
+    }
+}
+
 /// ドキュメント項目
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocItem {
