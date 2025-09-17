@@ -25,14 +25,14 @@ pub struct DefaultDatabaseHandler;
 
 impl DatabaseHandler for DefaultDatabaseHandler {
     fn query(&self, _query: &str, _params: Option<&JsonnetValue>) -> Result<JsonnetValue, JsonnetError> {
-        Err(JsonnetError::RuntimeError("Database operations not implemented".to_string()))
+        Err(JsonnetError::runtime_error("Database operations not implemented"))
     }
 
     fn rewrite(&self, _rule: &str, _params: Option<&JsonnetValue>) -> Result<JsonnetValue, JsonnetError> {
-        Err(JsonnetError::RuntimeError("Rewrite operations not implemented".to_string()))
+        Err(JsonnetError::runtime_error("Rewrite operations not implemented"))
     }
 
     fn patch(&self, _patch: &JsonnetValue) -> Result<JsonnetValue, JsonnetError> {
-        Err(JsonnetError::RuntimeError("Patch operations not implemented".to_string()))
+        Err(JsonnetError::runtime_error("Patch operations not implemented"))
     }
 }

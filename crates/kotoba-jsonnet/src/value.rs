@@ -7,7 +7,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 /// Jsonnet value types
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 #[derive(Default)]
 pub enum JsonnetValue {
     /// Null value
@@ -411,6 +411,51 @@ impl JsonnetFunction {
             parameters,
             body,
             environment,
+        }
+    }
+}
+
+impl Serialize for JsonnetValue {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            JsonnetValue::Null => serializer.serialize_none(),
+            JsonnetValue::Boolean(b) => serializer.serialize_bool(*b),
+            JsonnetValue::Number(n) => serializer.serialize_f64(*n),
+            JsonnetValue::String(s) => serializer.serialize_str(s),
+            JsonnetValue::Array(arr) => {
+                let mut seq = serializer.serialize_seq(Some(arr.len()))?;
+                for item in arr {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
+            JsonnetValue::Object(obj) => {
+                let mut map = serializer.serialize_map(Some(obj.len()))?;
+                for (key, value) in obj {
+                    map.serialize_entry(key, value)?;
+                }
+                map.end()
+            }
+            JsonnetValue::Function(_) => {
+                // Functions serialize as a placeholder object
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry("type", "function")?;
+                map.end()
+            }
+            JsonnetValue::Builtin(builtin) => {
+                // Builtins serialize as a placeholder object
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "builtin")?;
+                let name = match builtin {
+                    JsonnetBuiltin::Length => "length",
+                    JsonnetBuiltin::StdLibFunction(func_name) => func_name,
+                };
+                map.serialize_entry("name", name)?;
+                map.end()
+            }
         }
     }
 }

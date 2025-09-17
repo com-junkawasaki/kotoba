@@ -55,6 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Repl => {
             run_command::execute_repl().await
         }
+        Commands::Docs { command } => {
+            run_command::execute_docs(command).await
+        }
         // Commands::Build { task, config, watch, verbose, list, clean } => {
         //     run_command::execute_build(task, config, watch, verbose, list, clean).await
         // }
@@ -350,6 +353,157 @@ mod run_command {
         repl_manager.start().await?;
 
         Ok(())
+    }
+
+    pub async fn execute_docs(command: crate::DocsCommands) -> Result<(), Box<dyn std::error::Error>> {
+        use kotoba_docs::*;
+        use crate::DocsCommands;
+
+        match command {
+            DocsCommands::Generate { config, output, source, verbose, watch, clean } => {
+                // 設定ファイルを読み込みまたは作成
+                let config_path = config.or_else(|| Some(std::path::PathBuf::from("kotoba-docs.toml")));
+                let mut docs_config = if let Some(path) = &config_path {
+                    if path.exists() {
+                        config::ConfigManager::new(std::env::current_dir()?).load_config().await?
+                    } else {
+                        DocsConfig::default()
+                    }
+                } else {
+                    DocsConfig::default()
+                };
+
+                // オプションで設定を上書き
+                if let Some(output_dir) = output {
+                    docs_config.output_dir = output_dir;
+                }
+                if let Some(source_dir) = source {
+                    docs_config.input_dir = source_dir;
+                }
+
+                if verbose {
+                    println!("📁 Input directory: {}", docs_config.input_dir.display());
+                    println!("📁 Output directory: {}", docs_config.output_dir.display());
+                }
+
+                // パーサーを作成してドキュメントを解析
+                let mut parser = parser::DocParser::new();
+                parser = parser.with_include_extensions(vec![
+                    "rs".to_string(),
+                    "js".to_string(),
+                    "ts".to_string(),
+                    "py".to_string(),
+                    "go".to_string(),
+                    "md".to_string(),
+                ]);
+
+                println!("🔍 Parsing source files...");
+                let items = parser.parse_directory(&docs_config.input_dir)?;
+
+                if verbose {
+                    println!("📄 Found {} documentation items", items.len());
+                }
+
+                // クロスリファレンスを解決
+                let mut items = items;
+                parser.resolve_cross_references(&mut items)?;
+
+                // ジェネレータを作成してドキュメントを生成
+                let generator = generator::DocGenerator::new(docs_config.clone(), items);
+                let result = generator.generate().await?;
+
+                println!("✅ Documentation generated successfully!");
+                println!("📊 Generated {} documents", result.documents_generated);
+                println!("📁 Output: {}", result.output_dir.display());
+
+                Ok(())
+            }
+
+            DocsCommands::Serve { host, port, dir, open } => {
+                let docs_dir = dir.unwrap_or_else(|| std::path::PathBuf::from("docs/html"));
+
+                if !docs_dir.exists() {
+                    println!("❌ Documentation directory not found: {}", docs_dir.display());
+                    println!("💡 Run 'kotoba docs generate' first to generate documentation");
+                    return Ok(());
+                }
+
+                println!("🚀 Starting documentation server...");
+                server::serve_static(docs_dir, &host, port).await?;
+
+                Ok(())
+            }
+
+            DocsCommands::Search { query, config, limit } => {
+                let config_path = config.unwrap_or_else(|| std::path::PathBuf::from("kotoba-docs.toml"));
+                let docs_config = if config_path.exists() {
+                    config::ConfigManager::new(std::env::current_dir()?).load_config().await?
+                } else {
+                    println!("❌ Config file not found: {}", config_path.display());
+                    return Ok(());
+                };
+
+                // パーサーを作成してドキュメントを解析
+                let parser = parser::DocParser::new();
+                let items = parser.parse_directory(&docs_config.input_dir)?;
+
+                // 検索エンジンを作成
+                let mut search_engine = search::SearchEngine::new();
+                search_engine.add_documents(items);
+
+                // 検索を実行
+                let options = search::SearchOptions {
+                    limit,
+                    ..Default::default()
+                };
+
+                let results = search_engine.search(&query, &options)?;
+
+                if results.is_empty() {
+                    println!("❌ No results found for: {}", query);
+                } else {
+                    println!("🔍 Search results for: {}", query);
+                    println!("📊 Found {} results", results.len());
+                    println!();
+
+                    for (i, result) in results.iter().enumerate() {
+                        println!("{}. {}", i + 1, result.item.name);
+                        println!("   Type: {:?}", result.item.doc_type);
+                        if let Some(excerpt) = result.excerpts.first() {
+                            println!("   Excerpt: {}", excerpt);
+                        }
+                        println!("   Score: {:.2}", result.score);
+                        println!();
+                    }
+                }
+
+                Ok(())
+            }
+
+            DocsCommands::Init { name, output, source } => {
+                let project_name = name.unwrap_or_else(|| {
+                    std::env::current_dir()
+                        .ok()
+                        .and_then(|p| p.file_name().and_then(|n| n.to_str()))
+                        .unwrap_or("My Project")
+                        .to_string()
+                });
+
+                let mut config = DocsConfig::default();
+                config.name = project_name;
+                config.output_dir = output;
+                config.input_dir = source;
+
+                let manager = config::ConfigManager::new(std::env::current_dir()?);
+                manager.save_config(&config, None).await?;
+
+                println!("✅ Initialized Kotoba Docs configuration");
+                println!("📄 Created kotoba-docs.toml");
+                println!("💡 Run 'kotoba docs generate' to generate documentation");
+
+                Ok(())
+            }
+        }
     }
 
     // pub async fn execute_build(

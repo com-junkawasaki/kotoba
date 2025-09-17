@@ -11,6 +11,13 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::timeout;
 
+// Import the new routing schema
+use kotoba_routing::schema::{WorkflowStep, WorkflowStepType};
+// These will be needed once we integrate the DB handler
+// use kotoba_jsonnet::runtime::DbHandler;
+// use kotoba_core::execution::QueryExecutor;
+// use kotoba_core::rewrite::RewriteEngine;
+
 use kotoba_core::types::{GraphRef_ as GraphRef};
 use kotoba_core::prelude::StrategyOp;
 use crate::ir::*;
@@ -220,24 +227,152 @@ pub enum WorkflowError {
     StorageError(String),
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
+    #[error("Invalid step type for this executor: {0:?}")]
+    InvalidStepType(WorkflowStepType),
+    #[error("Context variable not found: {0}")]
+    ContextVariableNotFound(String),
 }
+
+/// A context object for a single workflow execution.
+#[derive(Debug, Clone, Default)]
+pub struct ExecutionContext {
+    /// Holds the initial request data and results from each step.
+    pub data: HashMap<String, serde_json::Value>,
+}
+
+impl ExecutionContext {
+    /// Creates a new context, usually from an initial request object.
+    pub fn new(initial_data: serde_json::Value) -> Self {
+        let mut data = HashMap::new();
+        data.insert("request".to_string(), initial_data);
+        Self { data }
+    }
+
+    /// Resolves a variable path (e.g., "context.step1.result") from the context.
+    pub fn resolve(&self, path: &str) -> Option<&serde_json::Value> {
+        let mut parts = path.split('.');
+        if parts.next()? != "context" {
+            return None;
+        }
+        let step_id = parts.next()?;
+        let mut current = self.data.get(step_id)?;
+        for part in parts {
+            current = current.get(part)?;
+        }
+        Some(current)
+    }
+}
+
 
 /// WorkflowExecutor - Temporalベースワークフロー実行エンジン
 pub struct WorkflowExecutor {
     activity_registry: Arc<ActivityRegistry>,
     state_manager: Arc<WorkflowStateManager>,
+    // This will hold the db_handler
+    // db_handler: Arc<DbHandler>,
 }
 
 impl WorkflowExecutor {
     pub fn new(
         activity_registry: Arc<ActivityRegistry>,
         state_manager: Arc<WorkflowStateManager>,
+        // db_handler: Arc<DbHandler>,
     ) -> Self {
         Self {
             activity_registry,
             state_manager,
+            // db_handler,
         }
     }
+
+    /// Executes a declarative workflow, like one from an HTTP route.
+    pub async fn execute_declarative_workflow(
+        &self,
+        steps: &[WorkflowStep],
+        initial_context: ExecutionContext,
+    ) -> Result<serde_json::Value, WorkflowError> {
+        let mut context = initial_context;
+
+        for step in steps {
+            let result = self.execute_step(step, &context).await?;
+            context.data.insert(step.id.clone(), result);
+
+            // If the step was a 'return' step, terminate the workflow.
+            if step.step_type == WorkflowStepType::Return {
+                // The body of the return step is the final result.
+                return Ok(context.data.get(&step.id).cloned().unwrap_or_default());
+            }
+        }
+
+        Err(WorkflowError::InvalidDefinition("Workflow did not end with a 'return' step.".to_string()))
+    }
+
+    /// Executes a single step from a declarative workflow.
+    async fn execute_step(
+        &self,
+        step: &WorkflowStep,
+        context: &ExecutionContext,
+    ) -> Result<serde_json::Value, WorkflowError> {
+        match step.step_type {
+            WorkflowStepType::DbQuery => {
+                // Mock implementation
+                println!("Executing DB Query: {}", step.query);
+                Ok(serde_json::json!({ "result": "mock_db_query_result" }))
+                // Real implementation:
+                // let params = self.materialize_params(&step.params, context)?;
+                // let result = self.db_handler.query(&step.query, params).await?;
+                // Ok(serde_json::to_value(result)?)
+            }
+            WorkflowStepType::DbRewrite => {
+                // Mock implementation
+                println!("Executing DB Rewrite Rule: {}", step.rule);
+                Ok(serde_json::json!({ "result": "mock_db_rewrite_result" }))
+                // Real implementation:
+                // let params = self.materialize_params(&step.params, context)?;
+                // let result = self.db_handler.rewrite(&step.rule, params).await?;
+                // Ok(serde_json::to_value(result)?)
+            }
+            WorkflowStepType::Return => {
+                // The body of the return step becomes its result.
+                let body = self.materialize_params(&step.body, context)?;
+                Ok(body)
+            }
+            // Other step types would be handled here...
+            _ => Err(WorkflowError::InvalidStepType(step.step_type.clone())),
+        }
+    }
+
+    /// Resolves parameters that might be context references.
+    fn materialize_params(
+        &self,
+        params: &serde_json::Value,
+        context: &ExecutionContext,
+    ) -> Result<serde_json::Value, WorkflowError> {
+        match params {
+            serde_json::Value::String(s) if s.starts_with("context.") => {
+                context.resolve(s)
+                    .cloned()
+                    .ok_or_else(|| WorkflowError::ContextVariableNotFound(s.clone()))
+            }
+            serde_json::Value::Object(map) => {
+                let mut new_map = serde_json::Map::new();
+                for (k, v) in map {
+                    new_map.insert(k.clone(), self.materialize_params(v, context)?);
+                }
+                Ok(serde_json::Value::Object(new_map))
+            }
+            serde_json::Value::Array(arr) => {
+                let mut new_arr = Vec::new();
+                for v in arr {
+                    new_arr.push(self.materialize_params(v, context)?);
+                }
+                Ok(serde_json::Value::Array(new_arr))
+            }
+            // If it's not a context reference or a container, return as is.
+            _ => Ok(params.clone()),
+        }
+    }
+
 
     /// ワークフロー実行開始
     pub async fn start_workflow(
@@ -252,6 +387,7 @@ impl WorkflowExecutor {
         let executor = Arc::new(Self::new(
             Arc::clone(&self.activity_registry),
             Arc::clone(&self.state_manager),
+            // Arc::clone(&self.db_handler),
         ));
 
         let workflow_ir = workflow_ir.clone();
@@ -439,6 +575,7 @@ impl WorkflowExecutor {
             let executor = Arc::new(Self::new(
                 Arc::clone(&self.activity_registry),
                 Arc::clone(&self.state_manager),
+                // Arc::clone(&self.db_handler),
             ));
             let graph_clone = graph.clone();
             let execution_id_clone = execution_id.clone();

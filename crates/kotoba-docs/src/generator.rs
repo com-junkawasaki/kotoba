@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tera::{Context, Tera};
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{Options, Parser};
 use indicatif::{ProgressBar, ProgressStyle};
 use chrono::Utc;
 
@@ -814,7 +814,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let parser = Parser::new_ext(markdown, options);
         let mut html_output = String::new();
-        html::push_html(&mut html_output, parser);
+
+        // Convert events to HTML
+        for event in parser {
+            match event {
+                pulldown_cmark::Event::Text(text) => {
+                    html_output.push_str(&html_escape::encode_text(&text));
+                }
+                pulldown_cmark::Event::Code(code) => {
+                    html_output.push_str(&format!("<code>{}</code>", html_escape::encode_text(&code)));
+                }
+                pulldown_cmark::Event::Html(html) => {
+                    html_output.push_str(&html);
+                }
+                pulldown_cmark::Event::SoftBreak => {
+                    html_output.push('\n');
+                }
+                pulldown_cmark::Event::HardBreak => {
+                    html_output.push_str("<br>");
+                }
+                pulldown_cmark::Event::Start(tag) => {
+                    match tag {
+                        pulldown_cmark::Tag::Paragraph => html_output.push_str("<p>"),
+                        pulldown_cmark::Tag::Heading { level, .. } => html_output.push_str(&format!("<h{}>", level)),
+                        pulldown_cmark::Tag::BlockQuote => html_output.push_str("<blockquote>"),
+                        pulldown_cmark::Tag::CodeBlock(_) => html_output.push_str("<pre><code>"),
+                        pulldown_cmark::Tag::List(_) => html_output.push_str("<ul>"),
+                        pulldown_cmark::Tag::Item => html_output.push_str("<li>"),
+                        pulldown_cmark::Tag::Emphasis => html_output.push_str("<em>"),
+                        pulldown_cmark::Tag::Strong => html_output.push_str("<strong>"),
+                        _ => {}
+                    }
+                }
+                pulldown_cmark::Event::End(tag) => {
+                    match tag {
+                        pulldown_cmark::Tag::Paragraph => html_output.push_str("</p>"),
+                        pulldown_cmark::Tag::Heading { level, .. } => html_output.push_str(&format!("</h{}>", level)),
+                        pulldown_cmark::Tag::BlockQuote => html_output.push_str("</blockquote>"),
+                        pulldown_cmark::Tag::CodeBlock(_) => html_output.push_str("</code></pre>"),
+                        pulldown_cmark::Tag::List(_) => html_output.push_str("</ul>"),
+                        pulldown_cmark::Tag::Item => html_output.push_str("</li>"),
+                        pulldown_cmark::Tag::Emphasis => html_output.push_str("</em>"),
+                        pulldown_cmark::Tag::Strong => html_output.push_str("</strong>"),
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+
         html_output
     }
 

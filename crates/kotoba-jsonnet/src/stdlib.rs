@@ -1045,6 +1045,175 @@ impl StdLib {
         }
     }
 
+    // ==========================================
+    // Missing AI Agent Functions Implementation
+    // ==========================================
+
+    /// ai.httpGet(url, headers?) - HTTP GET request
+    pub fn ai_http_get(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "ai.httpGet")?;
+        let url = args[0].as_string()?;
+        let headers = if args.len() > 1 {
+            args[1].as_object()?
+        } else {
+            &std::collections::HashMap::new()
+        };
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "url": url,
+            "method": "GET",
+            "headers": headers,
+            "status": "pending",
+            "response": "HTTP GET will be handled by AI runtime"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// ai.httpPost(url, body, headers?) - HTTP POST request
+    pub fn ai_http_post(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "ai.httpPost")?;
+        let url = args[0].as_string()?;
+        let body = &args[1];
+        let headers = if args.len() > 2 {
+            args[2].as_object()?
+        } else {
+            &std::collections::HashMap::new()
+        };
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "url": url,
+            "method": "POST",
+            "body": body,
+            "headers": headers,
+            "status": "pending",
+            "response": "HTTP POST will be handled by AI runtime"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// ai.callModel(model, prompt, options?) - Call AI model
+    pub fn ai_call_model(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "ai.callModel")?;
+        let model = args[0].as_string()?;
+        let prompt = args[1].as_string()?;
+        let options = if args.len() > 2 {
+            args[2].as_object()?
+        } else {
+            &std::collections::HashMap::new()
+        };
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "model": model,
+            "prompt": prompt,
+            "options": options,
+            "status": "pending",
+            "response": "AI model call will be handled by AI runtime"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// tool.execute(name, args) - Execute external tool
+    pub fn tool_execute(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "tool.execute")?;
+        let name = args[0].as_string()?;
+        let tool_args = &args[1];
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "tool": name,
+            "args": tool_args,
+            "status": "pending",
+            "output": "Tool execution will be handled by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// memory.get(key) - Get value from memory
+    pub fn memory_get(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "memory.get")?;
+        let key = args[0].as_string()?;
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "key": key,
+            "operation": "get",
+            "status": "pending",
+            "value": "Memory access will be handled by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// memory.set(key, value) - Set value in memory
+    pub fn memory_set(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "memory.set")?;
+        let key = args[0].as_string()?;
+        let value = &args[1];
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "key": key,
+            "value": value,
+            "operation": "set",
+            "status": "success"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// agent.create(config) - Create AI agent
+    pub fn agent_create(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "agent.create")?;
+        let config = args[0].as_object()?;
+
+        // Stub implementation - return mock response
+        let result = json!({
+            "config": config,
+            "operation": "create",
+            "status": "pending",
+            "agent_id": "mock-agent-id"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// std.extVar(name) - Get external variable
+    pub fn std_ext_var(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "std.extVar")?;
+        let name = args[0].as_string()?;
+
+        // Stub implementation - return mock external variable
+        let result = json!({
+            "variable": name,
+            "value": "External variable will be resolved by runtime",
+            "status": "pending"
+        });
+        Ok(JsonnetValue::from_json_value(result))
+    }
+
+    /// std.manifestJson(value, indent?) - JSON manifest with optional indentation
+    pub fn std_manifest_json(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "std.manifestJson")?;
+        let value = &args[0];
+        let indent = if args.len() > 1 {
+            args[1].as_number()? as usize
+        } else {
+            0
+        };
+
+        // Convert JsonnetValue to JSON string
+        match serde_json::to_string_pretty(&value) {
+            Ok(json_str) => {
+                if indent > 0 {
+                    Ok(JsonnetValue::string(json_str))
+                } else {
+                    Ok(JsonnetValue::string(serde_json::to_string(&value).unwrap_or_default()))
+                }
+            }
+            Err(_) => Err(JsonnetError::runtime_error("Failed to serialize to JSON")),
+        }
+    }
+
     /// std.length(x) - returns length of array, string, or object
     pub fn length(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         Self::check_args(&args, 1, "length")?;
@@ -3565,7 +3734,7 @@ impl JsonnetValue {
             "status": "pending",
             "body": "HTTP request will be executed by runtime"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// ai.httpPost(url, body, headers={}) - Make HTTP POST request
@@ -3587,7 +3756,7 @@ impl JsonnetValue {
             "headers": headers,
             "status": "pending"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// ai.callModel(model, messages, options={}) - Call AI model
@@ -3609,7 +3778,7 @@ impl JsonnetValue {
             "status": "pending",
             "response": "AI model response will be generated by runtime"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// tool.execute(command, args=[], env={}) - Execute external command
@@ -3635,7 +3804,7 @@ impl JsonnetValue {
             "status": "pending",
             "output": "Command will be executed by runtime"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// memory.get(key) - Get value from memory
@@ -3650,7 +3819,7 @@ impl JsonnetValue {
             "status": "pending",
             "value": null
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// memory.set(key, value) - Set value in memory
@@ -3666,7 +3835,7 @@ impl JsonnetValue {
             "operation": "set",
             "status": "pending"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// agent.create(type, config) - Create an AI agent
@@ -3682,7 +3851,7 @@ impl JsonnetValue {
             "id": "agent_id_placeholder",
             "status": "created"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// agent.execute(agent, input) - Execute agent with input
@@ -3698,7 +3867,7 @@ impl JsonnetValue {
             "status": "pending",
             "output": "Agent execution will be handled by runtime"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// chain.create(steps) - Create a processing chain
@@ -3712,7 +3881,7 @@ impl JsonnetValue {
             "id": "chain_id_placeholder",
             "status": "created"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
 
     /// chain.execute(chain, input) - Execute a processing chain
@@ -3728,6 +3897,7 @@ impl JsonnetValue {
             "status": "pending",
             "output": "Chain execution will be handled by runtime"
         });
-        Ok(JsonnetValue::from_json_value(&result))
+        Ok(JsonnetValue::from_json_value(result))
     }
+
 }

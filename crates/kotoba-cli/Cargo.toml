@@ -26,6 +26,7 @@ kotoba-linter = { path = "../kotoba-linter" }
 kotoba-tester = { path = "../kotoba-tester" }
 # kotoba-build = { path = "../kotoba-build" }  # Temporarily disabled due to dependency conflicts
 kotoba-repl = { path = "../kotoba-repl" }
+kotoba-docs = { path = "../kotoba-docs" }
 
 # CLI framework
 clap = { version = "4.0", features = ["derive"] }

@@ -33,10 +33,10 @@ openidconnect = "2.0"
 url = "2.4"
 
 # Password hashing
-argon2 = "0.3"
-pbkdf2 = { version = "0.9", features = ["simple"] }
-bcrypt = "0.13"
-password-hash = "0.3"
+argon2 = "0.5"
+pbkdf2 = { version = "0.12", features = ["simple"] }
+bcrypt = "0.15"
+password-hash = "0.5"
 
 # MFA/TOTP
 totp-rs = "5.0"

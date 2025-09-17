@@ -173,6 +173,92 @@ pub enum Commands {
     /// REPLを起動
     Repl,
 
+    /// ドキュメントジェネレータ
+    Docs {
+        #[command(subcommand)]
+        command: DocsCommands,
+    },
+}
+
+/// ドキュメントコマンド
+#[derive(Debug, Subcommand)]
+pub enum DocsCommands {
+    /// ドキュメントを生成
+    Generate {
+        /// 設定ファイルのパス
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+
+        /// 出力ディレクトリ
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// ソースディレクトリ
+        #[arg(long)]
+        source: Option<PathBuf>,
+
+        /// 詳細出力
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// ウォッチモード
+        #[arg(long)]
+        watch: bool,
+
+        /// クリーン生成（既存の出力を削除）
+        #[arg(long)]
+        clean: bool,
+    },
+
+    /// ドキュメントサーバーを起動
+    Serve {
+        /// ホスト
+        #[arg(long, default_value = "localhost")]
+        host: String,
+
+        /// ポート
+        #[arg(short, long, default_value = "3000")]
+        port: u16,
+
+        /// ドキュメントディレクトリ
+        #[arg(long)]
+        dir: Option<PathBuf>,
+
+        /// ブラウザを自動で開く
+        #[arg(long)]
+        open: bool,
+    },
+
+    /// ドキュメントを検索
+    Search {
+        /// 検索クエリ
+        query: String,
+
+        /// 設定ファイルのパス
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+
+        /// 結果の最大数
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
+
+    /// ドキュメント設定を初期化
+    Init {
+        /// プロジェクト名
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// 出力ディレクトリ
+        #[arg(short, long, default_value = "docs")]
+        output: PathBuf,
+
+        /// ソースディレクトリ
+        #[arg(long, default_value = "src")]
+        source: PathBuf,
+    },
+}
+
     // /// ビルドツール (一時的に無効化)
     // Build {
     //     /// 実行するタスク
