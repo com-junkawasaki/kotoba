@@ -4,7 +4,7 @@ use crate::ast::Expr;
 use crate::error::{JsonnetError, Result};
 use std::collections::HashMap;
 use std::fmt;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser::{SerializeSeq, SerializeMap}};
 
 /// Jsonnet value types
 #[derive(Debug, Clone, PartialEq)]
