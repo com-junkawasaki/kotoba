@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-core"
-version = "0.1.18"
+version = "0.1.19"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -12,7 +12,7 @@ documentation = "https://docs.rs/kotoba-core"
 homepage = "https://github.com/jun784/kotoba"
 
 [dependencies]
-kotoba-errors = { path = "../kotoba-errors" }
+kotoba-errors = { version = "0.1.1", path = "../kotoba-errors" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
