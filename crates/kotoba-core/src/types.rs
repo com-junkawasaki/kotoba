@@ -86,6 +86,12 @@ pub enum KotobaError {
     Serialization(String),
     #[error("Network error: {0}")]
     Network(String),
+    #[error("Jsonnet error: {0}")]
+    Jsonnet(#[from] kotoba_jsonnet::JsonnetError),
+    #[error("Workflow error: {0}")]
+    Workflow(String),
+    #[error("System time error: {0}")]
+    SystemTime(#[from] std::time::SystemTimeError),
 
     // Security-related errors (when security feature is enabled)
     #[cfg(feature = "security")]
@@ -112,6 +118,12 @@ pub enum KotobaError {
     #[cfg(feature = "security")]
     #[error("Security session error: {0}")]
     SecuritySession(String),
+}
+
+impl From<kotoba_workflow::WorkflowError> for KotobaError {
+    fn from(err: kotoba_workflow::WorkflowError) -> Self {
+        KotobaError::Workflow(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, KotobaError>;
