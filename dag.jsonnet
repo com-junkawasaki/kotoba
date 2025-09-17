@@ -1314,8 +1314,20 @@
       description: 'User-facing API for KotobaDB, a graph-native, version-controlled database.',
       dependencies: ['db_core', 'db_engine_memory', 'db_engine_lsm'],
       provides: ['KotobaDB', 'DBSnapshot'],
-      status: 'in_progress',
+      status: 'completed',
       build_order: 6,
+    },
+
+    // 分散システム層
+    'db_cluster': {
+      name: 'db_cluster',
+      path: 'crates/kotoba-db-cluster/',
+      type: 'db_cluster',
+      description: 'Distributed clustering and consensus for KotobaDB with Raft algorithm.',
+      dependencies: ['db_core', 'db'],
+      provides: ['KotobaCluster', 'RaftConsensus', 'PartitionManager', 'ReplicationManager'],
+      status: 'completed',
+      build_order: 8,
     },
   },
 
@@ -1877,6 +1889,10 @@
     { from: 'db_engine_memory', to: 'db' },
     { from: 'db_engine_lsm', to: 'db' },
 
+    // Distributed cluster dependencies
+    { from: 'db_core', to: 'db_cluster' },
+    { from: 'db', to: 'db_cluster' },
+
     // Storage integration
     { from: 'types', to: 'storage_main' },
     { from: 'errors', to: 'storage_main' },
@@ -1915,6 +1931,7 @@
     'db_core',
     'db_engine_memory',
     'db_engine_lsm',
+    'db_cluster',
     'package_manager',
     'storage_mvcc',
     'security_jwt',
@@ -1979,6 +1996,7 @@
     'docs_generator',
     'docs_search',
     'storage_main',
+    'db_cluster',
     'db_engine_lsm',
     'db_engine_memory',
     'planner_logical',

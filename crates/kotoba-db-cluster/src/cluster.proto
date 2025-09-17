@@ -156,5 +156,8 @@ service ClusterService {
   // Cluster management
   rpc JoinCluster(NodeId) returns (ClusterConfig);
   rpc LeaveCluster(NodeId) returns (ClusterConfig);
-  rpc GetClusterConfig(google.protobuf.Empty) returns (ClusterConfig);
+  rpc GetClusterConfig(Empty) returns (ClusterConfig);
 }
+
+// Empty message for requests without parameters
+message Empty {}
