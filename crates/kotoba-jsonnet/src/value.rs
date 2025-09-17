@@ -7,7 +7,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 /// Jsonnet value types
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[derive(Default)]
 pub enum JsonnetValue {
     /// Null value
@@ -363,7 +363,7 @@ impl fmt::Display for JsonnetValue {
 
 
 /// Jsonnet builtin function types
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum JsonnetBuiltin {
     Length,
     StdLibFunction(String),

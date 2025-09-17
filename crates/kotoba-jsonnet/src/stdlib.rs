@@ -2733,6 +2733,24 @@ impl StdLib {
         }
         Ok(())
     }
+
+    /// Helper function to check argument count range
+    fn check_args_range(args: &[JsonnetValue], min: usize, max: usize, func_name: &str) -> Result<()> {
+        if args.len() < min || args.len() > max {
+            return Err(JsonnetError::invalid_function_call(format!(
+                "{}() expects {} to {} arguments, got {}",
+                func_name, min, max, args.len()
+            )));
+        }
+        Ok(())
+    }
+
+    /// Call a standard library function (static method)
+    pub fn call_function(name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        // Simple implementation - just return an error for now
+        // This should dispatch to the appropriate std function
+        Err(JsonnetError::runtime_error(format!("StdLib function '{}' not implemented", name)))
+    }
 }
 
 impl JsonnetValue {
