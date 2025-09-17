@@ -31,11 +31,21 @@ async fn main() -> Result<()> {
     println!("📄 Found {} pages.", frontend_config.pages.len());
     println!("🔗 Found {} API routes.", frontend_config.api_routes.len());
 
-    // 2. TODO: Generate TSX/JS/CSS assets using kotoba2tsx
-    println!("⏳ Generating frontend assets... (Not yet implemented)");
+    // 2. Generate TSX/JS/CSS assets using kotoba2tsx
+    println!("⏳ Generating frontend assets...");
+    let tsx_code = kotoba2tsx::convert_frontend_config(&frontend_config)?;
+    println!("✅ Generated TSX code ({} chars)", tsx_code.len());
+
+    // Save the generated code to a temporary file for now
+    let output_path = format!("generated_app_{}.tsx", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs());
+    std::fs::write(&output_path, &tsx_code)?;
+    println!("💾 Saved generated code to: {}", output_path);
 
     // 3. TODO: Start the HTTP server from kotoba-server
-    println!("⏳ Starting server... (Not yet implemented)");
+    println!("⏳ Starting server... (Disabled due to kotoba-server dependency issues)");
 
     println!("🎉 Kotoba application is running!");
 

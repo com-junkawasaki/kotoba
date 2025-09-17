@@ -9,9 +9,6 @@ pub mod types;
 pub mod parser;
 pub mod generator;
 pub mod error;
-pub mod swc_integration;
-pub mod css_processor;
-pub mod styled_components;
 
 // Web Framework modules (from src/frontend/)
 pub mod component_ir;
@@ -19,7 +16,6 @@ pub mod route_ir;
 pub mod render_ir;
 pub mod build_ir;
 pub mod api_ir;
-pub mod framework;
 
 #[cfg(feature = "cli")]
 pub mod cli;
@@ -35,7 +31,6 @@ pub use route_ir::*;
 pub use render_ir::*;
 pub use build_ir::*;
 pub use api_ir::*;
-pub use framework::{WebFramework, ComponentRenderer, ComponentRegistry, BuildEngine};
 
 /// Convert a .kotoba file to TSX code
 ///
@@ -65,6 +60,18 @@ pub fn convert_content(content: &str) -> crate::error::Result<String> {
     let config = parser.parse_content(content)?;
     let generator = TsxGenerator::new();
     generator.generate_tsx(&config)
+}
+
+/// Convert kotoba-kotobanet FrontendConfig to TSX code string
+///
+/// # Arguments
+/// * `frontend_config` - The parsed FrontendConfig from kotoba-kotobanet
+///
+/// # Returns
+/// Result<String, Kotoba2TSError> containing the generated TSX code
+pub fn convert_frontend_config(frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> crate::error::Result<String> {
+    let generator = TsxGenerator::new();
+    generator.generate_tsx_from_frontend_config(frontend_config)
 }
 
 #[cfg(test)]

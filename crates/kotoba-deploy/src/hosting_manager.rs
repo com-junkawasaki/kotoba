@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::{SystemTime, Duration};
 use tokio::time::interval;
+use uuid::Uuid;
 
 /// 統合ホスティングマネージャー
 pub struct HostingManager {
@@ -173,9 +174,9 @@ impl HostingManager {
 
         // アプリケーションを停止
         let apps = self.hosting_manager_inner.hosting_server.get_hosted_apps();
-        for (app_id, app) in apps {
+        for (app_id, app) in apps.iter() {
             if app.deployment_id == deployment_id {
-                self.hosting_manager_inner.unhost_deployment(&app_id)?;
+                self.hosting_manager_inner.unhost_deployment(app_id)?;
                 self.runtime_manager.stop(&app.instance_id).await?;
             }
         }
@@ -237,7 +238,7 @@ impl HostingManager {
     async fn build_deployment(&self, deployment_id: &str, config: &crate::config::DeployConfig) -> Result<()> {
         // ビルド設定がある場合
         if let Some(build_config) = &config.application.build {
-            println!("🔨 Building deployment {} with command: {}", deployment_id, build_config.build_command);
+            println!("🔨 Building deployment {} with command: {:?}", deployment_id, build_config.build_command);
 
             // 実際のビルド実行（簡易実装）
             // 実際にはコマンド実行が必要
@@ -269,8 +270,8 @@ impl HostingManager {
 
         // ホスティングサーバーでホスト
         let domain = config.network.domains.first()
-            .map(|d| &d.domain)
-            .unwrap_or(&"localhost".to_string());
+            .map(|d| d.domain.as_str())
+            .unwrap_or("localhost");
 
         let app_id = self.hosting_manager_inner.host_deployment(deployment_id, &instance_id, domain).await?;
 

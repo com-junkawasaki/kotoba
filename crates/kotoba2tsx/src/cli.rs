@@ -139,8 +139,6 @@ impl Cli {
             include_prop_types,
             include_default_props: true,
             format_output,
-            swc_options: Default::default(),
-            css_options: Default::default(),
         };
 
         let generator = TsxGenerator::with_options(options);
@@ -194,8 +192,6 @@ impl Cli {
             include_prop_types,
             include_default_props: true,
             format_output,
-            swc_options: Default::default(),
-            css_options: Default::default(),
         };
 
         let generator = TsxGenerator::with_options(options);

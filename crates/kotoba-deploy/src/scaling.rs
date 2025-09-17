@@ -27,6 +27,7 @@ pub struct ScalingEngine {
 }
 
 /// メトリクス収集器
+#[derive(Clone)]
 pub struct MetricsCollector {
     /// CPU使用率メトリクス
     cpu_metrics: Arc<RwLock<Vec<MetricPoint>>>,
@@ -179,9 +180,10 @@ pub enum PredictionAlgorithm {
 impl ScalingEngine {
     /// 新しいスケーリングエンジンを作成
     pub fn new(config: ScalingConfig) -> Self {
+        let min_instances = config.min_instances;
         Self {
             config,
-            current_instances: Arc::new(RwLock::new(config.min_instances)),
+            current_instances: Arc::new(RwLock::new(min_instances)),
             metrics_collector: MetricsCollector::new(),
             scaling_history: Arc::new(RwLock::new(Vec::new())),
             last_scaling_time: Arc::new(RwLock::new(SystemTime::now())),
@@ -190,7 +192,7 @@ impl ScalingEngine {
 
     /// スケーリングエンジンを開始
     pub async fn start(&self) -> Result<()> {
-        let metrics_collector = self.metrics_collector.clone();
+        let metrics_collector1 = self.metrics_collector.clone();
         let scaling_history = self.scaling_history.clone();
         let current_instances = self.current_instances.clone();
         let last_scaling_time = self.last_scaling_time.clone();
@@ -201,13 +203,14 @@ impl ScalingEngine {
             let mut interval = interval(Duration::from_secs(30)); // 30秒ごとに収集
             loop {
                 interval.tick().await;
-                if let Err(e) = metrics_collector.collect_metrics().await {
+                if let Err(e) = metrics_collector1.collect_metrics().await {
                     eprintln!("Failed to collect metrics: {}", e);
                 }
             }
         });
 
         // スケーリング判定タスク
+        let metrics_collector2 = self.metrics_collector.clone();
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(60)); // 1分ごとに判定
             loop {
@@ -222,7 +225,7 @@ impl ScalingEngine {
                 // スケーリング判定
                 if let Ok(Some(action)) = Self::determine_scaling_action(
                     &config,
-                    &metrics_collector,
+                    &metrics_collector2,
                     *current_instances.read().unwrap(),
                 ).await {
                     match action {
@@ -385,7 +388,7 @@ impl MetricsCollector {
         let timestamp = SystemTime::now();
 
         // CPU使用率を収集（実際にはインスタンスから取得）
-        let cpu_usage = 45.0 + (0.5 - 0.5) * 20.0;
+        let cpu_usage: f64 = 45.0 + (0.5 - 0.5) * 20.0;
         self.cpu_metrics.write().unwrap().push(MetricPoint {
             timestamp,
             value: cpu_usage.max(0.0).min(100.0),
@@ -393,7 +396,7 @@ impl MetricsCollector {
         });
 
         // メモリ使用率を収集
-        let memory_usage = 60.0 + (0.3 - 0.5) * 30.0;
+        let memory_usage: f64 = 60.0 + (0.3 - 0.5) * 30.0;
         self.memory_metrics.write().unwrap().push(MetricPoint {
             timestamp,
             value: memory_usage.max(0.0).min(100.0),
@@ -401,7 +404,7 @@ impl MetricsCollector {
         });
 
         // リクエスト数を収集
-        let request_count = 50.0 + (0.2 - 0.5) * 25.0;
+        let request_count: f64 = 50.0 + (0.2 - 0.5) * 25.0;
         self.request_metrics.write().unwrap().push(MetricPoint {
             timestamp,
             value: request_count.max(0.0),
@@ -440,6 +443,29 @@ impl MetricsCollector {
         Ok(sum / metrics_data.len() as f64)
     }
 
+    /// スケールアップ
+    pub fn scale_up(&self) {
+        let mut current = self.current_instances.write().unwrap();
+        if *current < self.config.max_instances {
+            *current += 1;
+            println!("⬆️  Scaled up to {} instances", *current);
+        }
+    }
+
+    /// スケールダウン
+    pub fn scale_down(&self) {
+        let mut current = self.current_instances.write().unwrap();
+        if *current > self.config.min_instances {
+            *current -= 1;
+            println!("⬇️  Scaled down to {} instances", *current);
+        }
+    }
+
+    /// 現在のインスタンス数を取得
+    pub fn get_current_instances(&self) -> u32 {
+        *self.current_instances.read().unwrap()
+    }
+
     /// 古いメトリクスをクリーンアップ
     fn cleanup_old_metrics(&self) {
         let cutoff_time = SystemTime::now() - Duration::from_secs(300); // 5分前
@@ -449,6 +475,7 @@ impl MetricsCollector {
         self.request_metrics.write().unwrap().retain(|m| m.timestamp > cutoff_time);
         self.response_time_metrics.write().unwrap().retain(|m| m.timestamp > cutoff_time);
     }
+
 }
 
 impl LoadBalancer {

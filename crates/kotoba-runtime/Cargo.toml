@@ -6,9 +6,10 @@ edition = "2021"
 [dependencies]
 kotoba-kotobanet = { path = "../kotoba-kotobanet" }
 kotoba-cli = { path = "../kotoba-cli" }
-kotoba-server = { path = "../kotoba-server" }
+# kotoba-server = { path = "../kotoba-server" } # TODO: Add back when deploy issues are fixed
 kotoba2tsx = { path = "../kotoba2tsx" }
 
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 clap = { version = "4.0", features = ["derive"] }
+serde_json = "1.0"

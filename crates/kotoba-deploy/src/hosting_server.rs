@@ -223,8 +223,8 @@ impl HostingServer {
     }
 
     /// ホストされたアプリケーションを取得
-    pub fn get_hosted_apps(&self) -> HashMap<String, HostedApp> {
-        self.hosted_apps.read().unwrap().clone()
+    pub fn get_hosted_apps(&self) -> std::sync::RwLockReadGuard<HashMap<String, HostedApp>> {
+        self.hosted_apps.read().unwrap()
     }
 
     /// アプリケーションを削除

@@ -9,6 +9,7 @@ members = [
     "crates/kotoba-rewrite",
     "crates/kotoba-server",
     "crates/kotoba-security",
+    # "crates/kotoba-deploy", # Temporarily disabled due to compilation issues
     "crates/kotoba-runtime",
     ".",  # Root crate
 ]
@@ -45,6 +46,7 @@ schemars = { version = "0.8", features = ["uuid1"] }
 jsonschema = "0.17"
 blake3 = "1.5"
 
+
 # Fix digest version conflict
 digest = "0.10.7"
 
@@ -60,6 +62,8 @@ kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
 kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
 kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
 kotoba-deploy = { path = "crates/kotoba-deploy", version = "0.1.15" }
+kotoba2tsx = { path = "crates/kotoba2tsx", version = "0.1.15" }
+kotoba-runtime = { path = "crates/kotoba-runtime", version = "0.1.0" }
 
 # New modular crates
 kotoba-distributed = { path = "crates/kotoba-distributed", version = "0.1.15" }

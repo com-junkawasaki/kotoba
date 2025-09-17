@@ -2,18 +2,12 @@
 
 use crate::error::Result;
 use crate::types::*;
-use crate::swc_integration::SwcCodeGenerator;
-use crate::styled_components::{StyledComponentsGenerator, EmotionGenerator, ThemeProviderGenerator};
 use std::collections::HashMap;
 use tokio::fs as async_fs;
 
 /// TSX code generator
 pub struct TsxGenerator {
     options: TsxGenerationOptions,
-    swc_generator: SwcCodeGenerator,
-    styled_generator: StyledComponentsGenerator,
-    emotion_generator: EmotionGenerator,
-    theme_generator: ThemeProviderGenerator,
 }
 
 impl TsxGenerator {
@@ -21,21 +15,13 @@ impl TsxGenerator {
     pub fn new() -> Self {
         Self {
             options: TsxGenerationOptions::default(),
-            swc_generator: SwcCodeGenerator::new(),
-            styled_generator: StyledComponentsGenerator::new(),
-            emotion_generator: EmotionGenerator::new(),
-            theme_generator: ThemeProviderGenerator::new(),
         }
     }
 
     /// Create a new TsxGenerator with custom options
     pub fn with_options(options: TsxGenerationOptions) -> Self {
         Self {
-            options: options.clone(),
-            swc_generator: SwcCodeGenerator::new(),
-            styled_generator: StyledComponentsGenerator::new(),
-            emotion_generator: EmotionGenerator::new(),
-            theme_generator: ThemeProviderGenerator::new(),
+            options,
         }
     }
 
@@ -45,16 +31,10 @@ impl TsxGenerator {
         let mut component_codes = Vec::new();
         let mut interfaces = Vec::new();
         let mut default_props = Vec::new();
-        let mut css_styles = Vec::new();
 
         // Collect all imports
         if self.options.include_imports {
             imports.extend(self.generate_imports(config));
-        }
-
-        // Add CSS-in-JS imports if needed
-        if self.options.css_options.css_in_js != CssInJsLibrary::None {
-            imports.extend(self.generate_css_in_js_imports());
         }
 
         // Generate component code and collect interfaces/default props
@@ -82,13 +62,6 @@ impl TsxGenerator {
             }
             if let Some(default_prop) = generated.default_props {
                 default_props.push(default_prop);
-            }
-
-            // Generate CSS-in-JS styles if enabled
-            if self.options.css_options.enable_processing {
-                if let Some(css_code) = self.generate_component_styles(name, component) {
-                    css_styles.push(css_code);
-                }
             }
         }
 
@@ -127,9 +100,82 @@ impl TsxGenerator {
             result.push('\n');
         }
 
-        // Add CSS-in-JS styles
-        for css in css_styles {
-            result.push_str(&css);
+
+        // Add component codes
+        for code in component_codes {
+            result.push_str(&code);
+            result.push('\n');
+        }
+
+        // Return the generated code
+            Ok(result)
+    }
+
+    /// Generate TSX file from KotobaConfig
+    pub async fn generate_file(&self, config: &KotobaConfig, output_path: &str) -> Result<()> {
+        let content = self.generate_tsx(config)?;
+        async_fs::write(output_path, content).await?;
+        Ok(())
+    }
+
+    /// Generate TSX code from kotoba-kotobanet FrontendConfig
+    pub fn generate_tsx_from_frontend_config(&self, frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<String> {
+        let mut imports = Vec::new();
+        let mut component_codes = Vec::new();
+        let mut interfaces = Vec::new();
+        let mut default_props = Vec::new();
+
+        // Collect all imports
+        if self.options.include_imports {
+            imports.extend(self.generate_imports_from_frontend_config(frontend_config));
+        }
+
+        // Generate component code and collect interfaces/default props
+        for (_name, component) in &frontend_config.components {
+            let generated = self.generate_component_from_frontend_def(component, frontend_config)?;
+
+            // Add component code
+            component_codes.push(generated.code);
+
+            // Collect interfaces and default props
+            if let Some(interface) = generated.props_interface {
+                interfaces.push(interface);
+            }
+            if let Some(default_prop) = generated.default_props {
+                default_props.push(default_prop);
+            }
+        }
+
+        // Generate API route handlers
+        for api_route in &frontend_config.api_routes {
+            let handler_code = self.generate_api_handler(api_route)?;
+            component_codes.push(handler_code);
+        }
+
+        // Generate main app component from pages
+        let app_component = self.generate_main_app_from_frontend_config(frontend_config)?;
+        component_codes.push(app_component);
+
+        // Combine everything
+        let mut result = String::new();
+
+        // Add imports
+        for import in imports {
+            result.push_str(&self.format_import(&import));
+            result.push('\n');
+        }
+
+        result.push('\n');
+
+        // Add interfaces
+        for interface in interfaces {
+            result.push_str(&interface);
+            result.push('\n');
+        }
+
+        // Add default props
+        for default_prop in default_props {
+            result.push_str(&default_prop);
             result.push('\n');
         }
 
@@ -139,19 +185,8 @@ impl TsxGenerator {
             result.push('\n');
         }
 
-        // Apply SWC formatting if enabled
-        if self.options.swc_options.format_code {
-            self.swc_generator.format_code(&result)
-        } else {
-            Ok(result)
-        }
-    }
-
-    /// Generate TSX file from KotobaConfig
-    pub async fn generate_file(&self, config: &KotobaConfig, output_path: &str) -> Result<()> {
-        let content = self.generate_tsx(config)?;
-        async_fs::write(output_path, content).await?;
-        Ok(())
+        // Return the generated code
+        Ok(result)
     }
 
     /// Generate import statements
@@ -184,83 +219,36 @@ impl TsxGenerator {
         imports
     }
 
-    /// Generate CSS-in-JS import statements
-    fn generate_css_in_js_imports(&self) -> Vec<ImportStatement> {
+    /// Generate import statements from FrontendConfig
+    fn generate_imports_from_frontend_config(&self, config: &kotoba_kotobanet::frontend::FrontendConfig) -> Vec<ImportStatement> {
         let mut imports = Vec::new();
 
-        match self.options.css_options.css_in_js {
-            CssInJsLibrary::StyledComponents => {
-                imports.push(ImportStatement {
-                    module: "styled-components".to_string(),
-                    items: vec!["styled".to_string(), "css".to_string(), "keyframes".to_string(), "createGlobalStyle".to_string()],
-                    default_import: None,
-                });
+        // React imports - use modern React import
+        let mut react_items = vec!["FC".to_string()];
+        if !config.api_routes.is_empty() {
+            react_items.push("useState".to_string());
+            react_items.push("useEffect".to_string());
+        }
 
-                if self.options.css_options.enable_theme {
+                imports.push(ImportStatement {
+            module: "react".to_string(),
+            items: react_items,
+            default_import: Some("React".to_string()),
+        });
+
+        // Add React Router if we have multiple pages
+        if config.pages.len() > 1 {
                     imports.push(ImportStatement {
-                        module: "styled-components".to_string(),
-                        items: vec!["ThemeProvider".to_string()],
+                module: "react-router-dom".to_string(),
+                items: vec!["BrowserRouter".to_string(), "Routes".to_string(), "Route".to_string()],
                         default_import: None,
                     });
-                }
-            }
-            CssInJsLibrary::Emotion => {
-                imports.push(ImportStatement {
-                    module: "@emotion/react".to_string(),
-                    items: vec!["css".to_string(), "styled".to_string()],
-                    default_import: None,
-                });
-
-                imports.push(ImportStatement {
-                    module: "@emotion/css".to_string(),
-                    items: vec!["cx".to_string()],
-                    default_import: None,
-                });
-
-                if self.options.css_options.enable_theme {
-                    imports.push(ImportStatement {
-                        module: "@emotion/react".to_string(),
-                        items: vec!["ThemeProvider".to_string()],
-                        default_import: None,
-                    });
-                }
-            }
-            CssInJsLibrary::None => {}
         }
 
         imports
     }
 
-    /// Generate CSS-in-JS styles for a component
-    fn generate_component_styles(&self, name: &str, component: &KotobaComponent) -> Option<String> {
-        // Extract inline styles from component props
-        let mut css_rules = Vec::new();
 
-        for (key, value) in &component.props {
-            if key.starts_with("style_") || key == "css" {
-                if let serde_json::Value::String(css_value) = value {
-                    css_rules.push(css_value.clone());
-                }
-            }
-        }
-
-        if css_rules.is_empty() {
-            return None;
-        }
-
-        let combined_css = css_rules.join("\n");
-        let tag_name = component.component_type.as_deref().unwrap_or("div");
-
-        match self.options.css_options.css_in_js {
-            CssInJsLibrary::StyledComponents => {
-                self.styled_generator.generate_styled_component(name, &combined_css, tag_name).ok()
-            }
-            CssInJsLibrary::Emotion => {
-                self.emotion_generator.generate_emotion_styled(name, tag_name, &combined_css).ok()
-            }
-            CssInJsLibrary::None => None,
-        }
-    }
 
     /// Generate a single component
     fn generate_component(&self, component: &KotobaComponent, config: &KotobaConfig) -> Result<GeneratedComponent> {
@@ -296,6 +284,39 @@ impl TsxGenerator {
         })
     }
 
+    /// Generate a single component from Frontend ComponentDef
+    fn generate_component_from_frontend_def(&self, component: &kotoba_kotobanet::frontend::ComponentDef, frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<GeneratedComponent> {
+        let mut code = String::new();
+
+        // Convert ComponentDef props to HashMap for interface generation
+        let props_map = self.convert_component_props_to_hashmap(&component.props);
+
+        // Generate component props interface if needed
+        let props_interface = if self.options.include_prop_types {
+            self.generate_props_interface_only(&component.name, &props_map)
+        } else {
+            None
+        };
+
+        // Generate default props if needed
+        let default_props = if self.options.include_default_props {
+            self.generate_default_props_only(&component.name, &props_map)
+        } else {
+            None
+        };
+
+        // Generate component function
+        code.push_str(&self.generate_functional_component_from_frontend_def(component, frontend_config)?);
+
+        Ok(GeneratedComponent {
+            name: component.name.clone(),
+            code,
+            imports: Vec::new(),
+            props_interface,
+            default_props,
+        })
+    }
+
     /// Generate functional component
     fn generate_functional_component(&self, component: &KotobaComponent, config: &KotobaConfig) -> Result<String> {
         let mut code = String::new();
@@ -321,6 +342,75 @@ impl TsxGenerator {
         code.push_str("};\n\n");
 
         Ok(code)
+    }
+
+    /// Generate functional component from Frontend ComponentDef
+    fn generate_functional_component_from_frontend_def(&self, component: &kotoba_kotobanet::frontend::ComponentDef, _frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<String> {
+        let mut code = String::new();
+
+        // Component declaration
+        if self.options.include_types {
+            code.push_str(&format!("const {}: FC<{}Props> = (props) => {{\n",
+                component.name,
+                component.name));
+        } else {
+            code.push_str(&format!("const {} = (props) => {{\n", component.name));
+        }
+
+        // Add state hooks if component has state
+        if let Some(state) = &component.state {
+            for (state_name, state_def) in state {
+                let initial_value = self.format_prop_value(&state_def.initial_value);
+                code.push_str(&format!("  const [{}, set{}] = useState({});\n",
+                    self.to_camel_case(state_name),
+                    self.capitalize_first(state_name),
+                    initial_value));
+            }
+            code.push('\n');
+        }
+
+        // Component body
+        code.push_str("  return (\n");
+
+        // Generate JSX from render template
+        let jsx = self.generate_jsx_from_render_template(&component.render, 4)?;
+        code.push_str(&jsx);
+        code.push('\n');
+
+        code.push_str("  );\n");
+        code.push_str("};\n\n");
+
+        Ok(code)
+    }
+
+    /// Convert ComponentDef props to HashMap for interface generation
+    fn convert_component_props_to_hashmap(&self, props: &std::collections::HashMap<String, kotoba_kotobanet::frontend::PropDef>) -> std::collections::HashMap<String, serde_json::Value> {
+        let mut result = std::collections::HashMap::new();
+        for (key, prop_def) in props {
+            // Convert PropType to string for interface generation
+            let type_value = match prop_def.type_ {
+                kotoba_kotobanet::frontend::PropType::String => serde_json::Value::String("string".to_string()),
+                kotoba_kotobanet::frontend::PropType::Number => serde_json::Value::String("number".to_string()),
+                kotoba_kotobanet::frontend::PropType::Boolean => serde_json::Value::String("boolean".to_string()),
+                kotoba_kotobanet::frontend::PropType::Array => serde_json::Value::String("array".to_string()),
+                kotoba_kotobanet::frontend::PropType::Object => serde_json::Value::String("object".to_string()),
+                kotoba_kotobanet::frontend::PropType::Function => serde_json::Value::String("function".to_string()),
+                kotoba_kotobanet::frontend::PropType::Component => serde_json::Value::String("component".to_string()),
+                kotoba_kotobanet::frontend::PropType::Custom(ref s) => serde_json::Value::String(s.clone()),
+            };
+            result.insert(key.clone(), type_value);
+        }
+        result
+    }
+
+    /// Generate JSX from render template string
+    fn generate_jsx_from_render_template(&self, render_template: &str, indent: usize) -> Result<String> {
+        let indent_str = " ".repeat(indent);
+
+        // For now, treat the render template as raw JSX
+        // TODO: Implement proper template parsing and variable substitution
+        let jsx = format!("{}  {}", indent_str, render_template);
+        Ok(jsx)
     }
 
     /// Generate class component
@@ -603,58 +693,67 @@ impl Default for TsxGenerator {
 
 /// Enhanced TSX generator with SWC, CSS processing, and styled-components support
 impl TsxGenerator {
-    /// Create a generator configured for styled-components
-    pub fn with_styled_components() -> Self {
-        let mut options = TsxGenerationOptions::default();
-        options.css_options.css_in_js = CssInJsLibrary::StyledComponents;
-        options.css_options.enable_processing = true;
-        Self::with_options(options)
+
+
+    /// Generate API handler function
+    fn generate_api_handler(&self, api_route: &kotoba_kotobanet::frontend::ApiRouteDef) -> Result<String> {
+        let mut code = String::new();
+
+        code.push_str(&format!("const {} = async (params) => {{\n", api_route.handler));
+        code.push_str("  // API handler implementation\n");
+        code.push_str(&format!("  const response = await fetch('{}', {{\n", api_route.path));
+        code.push_str(&format!("    method: '{}',\n", api_route.method));
+        code.push_str("    headers: {\n");
+        code.push_str("      'Content-Type': 'application/json',\n");
+        code.push_str("    },\n");
+        if api_route.method != "GET" {
+            code.push_str("    body: JSON.stringify(params),\n");
+        }
+        code.push_str("  });\n");
+        code.push_str("  return response.json();\n");
+        code.push_str("};\n\n");
+
+        Ok(code)
     }
 
-    /// Create a generator configured for Emotion
-    pub fn with_emotion() -> Self {
-        let mut options = TsxGenerationOptions::default();
-        options.css_options.css_in_js = CssInJsLibrary::Emotion;
-        options.css_options.enable_processing = true;
-        Self::with_options(options)
-    }
+    /// Generate main app component from FrontendConfig pages
+    fn generate_main_app_from_frontend_config(&self, frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<String> {
+        let mut code = String::new();
 
-    /// Create a generator with SWC minification enabled
-    pub fn with_minification() -> Self {
-        let mut options = TsxGenerationOptions::default();
-        options.swc_options.minify = true;
-        options.css_options.minify = true;
-        Self::with_options(options)
-    }
+        code.push_str("const App: FC = () => {\n");
 
-    /// Generate theme provider wrapper
-    pub fn generate_theme_provider(&self, theme_data: HashMap<String, serde_json::Value>) -> Result<String> {
-        let library = match self.options.css_options.css_in_js {
-            CssInJsLibrary::StyledComponents => "styled-components",
-            CssInJsLibrary::Emotion => "emotion",
-            CssInJsLibrary::None => return Ok(String::new()),
-        };
+        // If we have multiple pages, use React Router
+        if frontend_config.pages.len() > 1 {
+            code.push_str("  return (\n");
+            code.push_str("    <BrowserRouter>\n");
+            code.push_str("      <Routes>\n");
 
-        let mut theme_structure = HashMap::new();
-        for (key, value) in &theme_data {
-            let type_str = match value {
-                serde_json::Value::String(_) => "string",
-                serde_json::Value::Number(_) => "number",
-                serde_json::Value::Bool(_) => "boolean",
-                serde_json::Value::Object(_) => "object",
-                _ => "any",
-            };
-            theme_structure.insert(key.clone(), type_str.to_string());
+            for page in &frontend_config.pages {
+                code.push_str(&format!("        <Route path=\"{}\" element={{<{} />}} />\n",
+                    page.path, page.component));
+            }
+
+            code.push_str("      </Routes>\n");
+            code.push_str("    </BrowserRouter>\n");
+            code.push_str("  );\n");
+        } else if let Some(page) = frontend_config.pages.first() {
+            // Single page app
+            code.push_str("  return (\n");
+            code.push_str(&format!("    <{} />\n", page.component));
+            code.push_str("  );\n");
+        } else {
+            // No pages defined, create a simple app
+            code.push_str("  return (\n");
+            code.push_str("    <div>\n");
+            code.push_str("      <h1>Hello from Kotoba!</h1>\n");
+            code.push_str("    </div>\n");
+            code.push_str("  );\n");
         }
 
-        let mut result = String::new();
-        result.push_str(&self.theme_generator.generate_theme_types(theme_structure));
-        result.push('\n');
-        result.push_str(&self.theme_generator.generate_theme_object(theme_data));
-        result.push('\n');
-        result.push_str(&self.theme_generator.generate_theme_provider(library));
+        code.push_str("};\n\n");
+        code.push_str("export default App;\n");
 
-        Ok(result)
+        Ok(code)
     }
 }
 
