@@ -4,9 +4,10 @@
 //! 実現するためのIRを定義します。
 
 use serde::{Deserialize, Serialize};
-use kotoba_core::types::{GraphRef_ as GraphRef, Value, TxId};
 use std::collections::HashMap;
 use std::time::Duration;
+use kotoba_core::prelude::*;
+use kotoba_core::types::{GraphRef_ as GraphRef, Value, TxId};
 
 /// ワークフロー実行ID
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

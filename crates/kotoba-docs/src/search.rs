@@ -1,6 +1,7 @@
 //! 検索機能モジュール
 
 use super::{DocItem, DocType, Result, DocsError};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use regex::Regex;

@@ -25,7 +25,7 @@ impl DocGenerator {
         // テンプレートディレクトリを設定
         if let Some(template_dir) = &config.template_dir {
             let template_pattern = format!("{}/**/*.html", template_dir.display());
-            if let Err(e) = tera.add_template_files(vec![(template_pattern, None)]) {
+            if let Err(e) = tera.add_template_files(vec![(template_pattern, None::<&str>)]) {
                 println!("Warning: Failed to load templates from {}: {}", template_dir.display(), e);
             }
         } else {
@@ -133,7 +133,7 @@ impl DocGenerator {
         // モジュールページを生成
         let modules = self.group_items_by_type();
         for (doc_type, items) in modules {
-            self.generate_html_module_page(doc_type, &items, &html_dir).await?;
+            self.generate_html_module_page(&doc_type, &items, &html_dir).await?;
             count += 1;
         }
 
@@ -634,10 +634,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <ul class="nav-list">
                 {% for module_name, module_items in modules %}
                 <li>
-                    <a href="#{{ module_name }}">{{ module_name }}</a>
+                    <a href="#\{\{ module_name \}\}">\{\{ module_name \}\}</a>
                     <ul>
                         {% for item in module_items %}
-                        <li><a href="{{ item.slug }}.html">{{ item.name }}</a></li>
+                        <li><a href="\{\{ item.slug \}\}.html">\{\{ item.name \}\}</a></li>
                         {% endfor %}
                     </ul>
                 </li>
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pulldown_cmark::Event::Start(tag) => {
                     match tag {
                         pulldown_cmark::Tag::Paragraph => html_output.push_str("<p>"),
-                        pulldown_cmark::Tag::Heading { level, .. } => html_output.push_str(&format!("<h{}>", level)),
+                        pulldown_cmark::Tag::Heading(level, _, _) => html_output.push_str(&format!("<h{}>", level)),
                         pulldown_cmark::Tag::BlockQuote => html_output.push_str("<blockquote>"),
                         pulldown_cmark::Tag::CodeBlock(_) => html_output.push_str("<pre><code>"),
                         pulldown_cmark::Tag::List(_) => html_output.push_str("<ul>"),
@@ -849,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pulldown_cmark::Event::End(tag) => {
                     match tag {
                         pulldown_cmark::Tag::Paragraph => html_output.push_str("</p>"),
-                        pulldown_cmark::Tag::Heading { level, .. } => html_output.push_str(&format!("</h{}>", level)),
+                        pulldown_cmark::Tag::Heading(level, _, _) => html_output.push_str(&format!("</h{}>", level)),
                         pulldown_cmark::Tag::BlockQuote => html_output.push_str("</blockquote>"),
                         pulldown_cmark::Tag::CodeBlock(_) => html_output.push_str("</code></pre>"),
                         pulldown_cmark::Tag::List(_) => html_output.push_str("</ul>"),

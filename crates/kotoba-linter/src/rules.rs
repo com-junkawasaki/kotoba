@@ -131,7 +131,7 @@ impl LintRule for NoShadowingRule {
                             line_num + 1,
                             var_name.start() + 1,
                             name.len(),
-                        ).with_help("異なる変数名を使用するか、スコープを変更してください"));
+                        ).with_help("異なる変数名を使用するか、スコープを変更してください".to_string()));
                     } else {
                         var_scope.insert(name.to_string(), line_num + 1);
                     }
@@ -265,7 +265,7 @@ impl LintRule for TrailingWhitespaceRule {
                     line_num + 1,
                     line.len(),
                     1,
-                ).with_suggestion("行末の空白を削除してください"));
+                ).with_suggestion("行末の空白を削除してください".to_string()));
             }
         }
 
@@ -334,7 +334,7 @@ impl LintRule for MissingSemicolonsRule {
                     line_num + 1,
                     line.len(),
                     1,
-                ).with_suggestion("文末にセミコロンを追加してください"));
+                ).with_suggestion("文末にセミコロンを追加してください".to_string()));
             }
         }
 
@@ -387,7 +387,7 @@ impl LintRule for NamingConventionRule {
                             line_num + 1,
                             var_name.start() + 1,
                             name.len(),
-                        ).with_help("変数名は camelCase を使用してください"));
+                        ).with_help("変数名は camelCase を使用してください".to_string()));
                     }
                 }
             }
@@ -447,7 +447,7 @@ impl LintRule for ComplexityRule {
                         start + 1,
                         1,
                         10,
-                    ).with_help("大きな関数は小さな関数に分割することを検討してください"));
+                    ).with_help("大きな関数は小さな関数に分割することを検討してください".to_string()));
                     func_start = None;
                 }
             }

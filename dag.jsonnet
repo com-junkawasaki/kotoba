@@ -1875,6 +1875,15 @@
     'http_server',
     'deploy_cli',
     'deploy_runtime',
+    // Documentation Generator (kdoc)
+    'docs_parser',
+    'docs_config',
+    'docs_generator',
+    'docs_template',
+    'docs_search',
+    'docs_server',
+    'docs_core',
+    'docs_cli',
     // Deploy拡張機能
     'deploy_cli_core',
     'deploy_controller_core',
@@ -1924,6 +1933,14 @@
     'deploy_network_core',
     'deploy_controller_core',
     'deploy_cli_core',
+    'docs_cli',
+    'docs_core',
+    'docs_server',
+    'docs_search',
+    'docs_template',
+    'docs_generator',
+    'docs_config',
+    'docs_parser',
     'deploy_example_microservices',
     'deploy_example_simple',
     'example_tauri_react_app',
@@ -2058,11 +2075,11 @@
 
   metadata: {
     project_name: 'Kotoba',
-    description: 'GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム + 高度なデプロイ拡張機能',
+    description: 'GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム + 高度なデプロイ拡張機能 + ドキュメントジェネレータ',
     version: '0.1.0',
     architecture: 'Process Network Graph Model',
     created_at: '2025-01-12',
-    last_updated: std.extVar('last_updated'),
+    last_updated: '2025-09-17',
     author: 'jun784',
 
     deploy_extensions: {
@@ -2140,6 +2157,91 @@
         ],
         status: 'pending'
       }
+    },
+
+    documentation_generator: {
+      name: 'Kotoba Documentation Generator (kdoc)',
+      description: '高度なドキュメント生成システム - Denoを参考にした使い勝手で、美しいHTMLドキュメントを自動生成',
+      version: '0.1.0',
+      last_updated: '2025-09-17',
+      status: 'completed',
+
+      components: [
+        {
+          name: 'docs_parser',
+          description: '多言語ソースコードパーサー (Rust, JS, TS, Python, Go)',
+          features: ['comment_extraction', 'docstring_parsing', 'cross_references', 'language_detection']
+        },
+        {
+          name: 'docs_config',
+          description: '設定管理とTOML/JSON/YAMLパーサー',
+          features: ['auto_detection', 'project_inference', 'validation', 'flexible_config']
+        },
+        {
+          name: 'docs_generator',
+          description: 'ドキュメント生成エンジン',
+          features: ['html_output', 'markdown_output', 'json_output', 'template_system']
+        },
+        {
+          name: 'docs_template',
+          description: 'Teraベースのテンプレートシステム',
+          features: ['custom_filters', 'responsive_design', 'theme_support', 'extensible']
+        },
+        {
+          name: 'docs_search',
+          description: '全文検索エンジン',
+          features: ['fuzzy_search', 'indexing', 'ranking', 'real_time_search']
+        },
+        {
+          name: 'docs_server',
+          description: 'WebサーバーとREST API',
+          features: ['hot_reload', 'api_endpoints', 'static_files', 'cors_support']
+        },
+        {
+          name: 'docs_core',
+          description: 'コアAPIとエラーハンドリング',
+          features: ['unified_api', 'error_types', 'type_system', 'extensibility']
+        },
+        {
+          name: 'docs_cli',
+          description: 'CLIコマンド統合',
+          features: ['generate_command', 'serve_command', 'search_command', 'init_command']
+        }
+      ],
+
+      features: [
+        'Multi-language support (5+ languages)',
+        'HTML/Markdown/JSON output formats',
+        'Full-text search with fuzzy matching',
+        'Responsive web interface',
+        'Template customization',
+        'REST API for integrations',
+        'Auto-configuration detection',
+        'Cross-reference generation',
+        'Search indexing and ranking',
+        'Hot reload development server'
+      ],
+
+      cli_commands: [
+        'kotoba docs generate  # ドキュメント生成',
+        'kotoba docs serve     # 開発サーバー起動',
+        'kotoba docs search    # ドキュメント検索',
+        'kotoba docs init      # 設定初期化'
+      ],
+
+      output_formats: [
+        'HTML (responsive, searchable)',
+        'Markdown (GitHub compatible)',
+        'JSON (programmatic access)',
+        'PDF (future extension)'
+      ],
+
+      integration_points: [
+        'kotoba-cli (CLI integration)',
+        'http_ir (web server integration)',
+        'types (core types)',
+        'cli_interface (command system)'
+      ]
     },
     jsonnet_compatibility: {
       version: '0.21.0',

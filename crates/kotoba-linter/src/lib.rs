@@ -31,7 +31,7 @@ pub mod analyzer;
 pub mod reporter;
 
 /// 診断結果のレベル
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DiagnosticLevel {
     /// エラー（プログラムの実行を妨げる）
     Error,
@@ -165,7 +165,7 @@ pub enum OutputFormat {
 }
 
 /// リンター実行結果
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LintResult {
     /// ファイルパス
     pub file_path: PathBuf,

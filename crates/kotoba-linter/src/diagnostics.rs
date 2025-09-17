@@ -310,7 +310,7 @@ impl DiagnosticExporter {
 
         for result in results {
             for diagnostic in &result.diagnostics {
-                let sarif_result = serde_json::json!({
+                let mut sarif_result = serde_json::json!({
                     "ruleId": diagnostic.code,
                     "level": match diagnostic.level {
                         DiagnosticLevel::Error => "error",

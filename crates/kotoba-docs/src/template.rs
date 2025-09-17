@@ -83,7 +83,7 @@ impl TemplateEngine {
         if let Some(dir) = &template_dir {
             if dir.exists() {
                 let pattern = format!("{}/**/*.html", dir.display());
-                if let Err(e) = tera.add_template_files(vec![(pattern, None)]) {
+                if let Err(e) = tera.add_template_files(vec![(pattern, None::<&str>)]) {
                     println!("Warning: Failed to load custom templates: {}", e);
                 }
             }

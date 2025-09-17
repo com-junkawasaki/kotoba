@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use kotoba_jsonnet::{Evaluator, JsonnetValue};
 use kotoba_core::types::Value;
+use kotoba_core::prelude::*;
 
 use crate::ir::*;
 use crate::WorkflowError;

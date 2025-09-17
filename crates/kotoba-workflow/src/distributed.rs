@@ -34,14 +34,12 @@ pub struct DistributedTask {
 }
 
 /// タスク実行状態
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TaskStatus {
     Pending,
-    Assigned,
     Running,
     Completed,
     Failed,
-    Cancelled,
 }
 
 /// 分散コーディネーター
@@ -168,7 +166,7 @@ impl DistributedCoordinator {
 
             if let Some(node_id) = self.load_balancer.select_node(&nodes).await {
                 task.node_id = Some(node_id.clone());
-                task.status = TaskStatus::Assigned;
+                task.status = TaskStatus::Running;
                 task.assigned_at = Some(chrono::Utc::now());
 
                 // ノードのアクティブワークフロー数を更新
@@ -284,7 +282,7 @@ impl DistributedCoordinator {
                 if let Some(new_node_id) = self.load_balancer.select_node(&nodes).await {
                     if let Some(task) = tasks.get_mut(task_id) {
                         task.node_id = Some(new_node_id.clone());
-                        task.status = TaskStatus::Assigned;
+                        task.status = TaskStatus::Running;
                         task.assigned_at = Some(chrono::Utc::now());
 
                         // 新しいノードのカウンターを増やす

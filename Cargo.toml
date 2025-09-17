@@ -21,25 +21,6 @@ members = [
     "crates/kotoba-deploy-runtime",
     "crates/kotoba-handler",  # New unified handler
     ".", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter", "crates/kotoba-linter", "crates/kotoba-tester", "crates/kotoba-repl",  # Root crate
-    "crates/kotoba-jsonnet",
-    "crates/kotoba-kotobas",
-    "crates/kotoba-security",
-    "crates/kotoba-distributed",
-    "crates/kotoba-network",
-    "crates/kotoba-cid",
-    "crates/kotoba-cli",
-    "crates/kotoba-lsp",
-    "crates/kotoba-package-manager",
-    "crates/kotoba-deploy-cli",
-    "crates/kotoba-deploy-controller",
-    "crates/kotoba-deploy-network",
-    "crates/kotoba-deploy-scaling",
-    "crates/kotoba-storage",
-    "crates/kotoba-workflow",
-    "crates/kotoba-workflow-activities",
-    "crates/kotoba-workflow-operator",
-    "crates/kotoba-cloud-integrations",
-    "crates/kotoba-state-graph", "crates/kotoba-docs",
 ]
 resolver = "2"
 
@@ -80,11 +61,6 @@ blake3 = "1.5"
 
 # Fix digest version conflict
 digest = "0.10.7"
-
-# Common dependencies
-tracing = "0.1"
-async-trait = "0.1"
-tokio-stream = "0.1"
 
 # Kotoba internal crates
 kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }

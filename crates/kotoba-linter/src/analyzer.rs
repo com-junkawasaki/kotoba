@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use regex::Regex;
 
 /// ASTノードの種類
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum AstNodeType {
     /// グラフ定義
     Graph,
@@ -32,7 +32,7 @@ pub enum AstNodeType {
 }
 
 /// ASTノード
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AstNode {
     pub node_type: AstNodeType,
     pub name: Option<String>,

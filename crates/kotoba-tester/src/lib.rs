@@ -322,7 +322,7 @@ impl TestRunner {
         let mut test_cases = Vec::new();
 
         // シンプルなテスト関数検出
-        let test_pattern = regex::Regex::new(r"(test_\w+|describe|it)\s*\(\s*[\"']([^\"']+)[\"']")?; 
+        let test_pattern = regex::Regex::new(r"(test_\w+|describe|it)\s*\(\s*["']([^"']+)["']")?; 
 
         for (line_num, line) in content.lines().enumerate() {
             for cap in test_pattern.captures_iter(line) {

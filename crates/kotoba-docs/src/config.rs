@@ -51,7 +51,7 @@ impl ConfigManager {
 
         match path.extension().and_then(|s| s.to_str()) {
             Some("toml") => {
-                let config: DocsConfig = toml::from_str::<toml::Value>(&content)
+                let config: DocsConfig = toml::from_str(&content)
                     .map_err(|e| DocsError::Config(format!("TOML parse error: {}", e)))?;
                 Ok(config)
             }
@@ -196,7 +196,7 @@ impl ConfigManager {
         let content = fs::read_to_string(path)
             .map_err(|e| DocsError::Config(format!("Failed to read pyproject.toml: {}", e)))?;
 
-        let value: toml::from_str::<toml::Value>(&content)
+        let value: toml::Value = toml::from_str(&content)
             .map_err(|e| DocsError::Config(format!("Failed to parse pyproject.toml: {}", e)))?;
 
         Ok(value)
