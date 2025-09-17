@@ -171,7 +171,7 @@ impl GraphAlgorithms {
         weight_fn: impl Fn(&EdgeData) -> u64,
     ) -> Result<HashMap<(VertexId, VertexId), u64>> {
         let vertices: Vec<VertexId> = graph.vertices.keys().cloned().collect();
-        let n = vertices.len();
+        let _n = vertices.len();
 
         // 距離行列の初期化
         let mut dist: HashMap<(VertexId, VertexId), u64> = HashMap::new();
@@ -530,7 +530,7 @@ impl GraphAlgorithms {
         );
 
         PatternMatchResult {
-            mappings,
+            mappings: mappings.clone(),
             count: mappings.len(),
         }
     }

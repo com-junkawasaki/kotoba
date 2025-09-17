@@ -24,7 +24,7 @@ chrono = { workspace = true }
 colored = "2.0"
 
 # Kotoba ecosystem
-kotoba-core = { path = "../kotoba-core", version = "0.1.17" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 # kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
 
 [dev-dependencies]

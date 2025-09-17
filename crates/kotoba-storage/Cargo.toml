@@ -27,7 +27,7 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
 kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
-kotoba-graph = { path = "../kotoba-graph" }
+kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
 kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }
 
 [features]
