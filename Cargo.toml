@@ -34,6 +34,7 @@ members = [
     "crates/kotoba-db-cluster",
     "crates/kotoba-backup",
     "crates/kotoba-monitoring",
+    "crates/kotoba-config",
 ]
 resolver = "2"
 
