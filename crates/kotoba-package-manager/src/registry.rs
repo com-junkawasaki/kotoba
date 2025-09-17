@@ -4,6 +4,7 @@ use super::{Package, Config};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
+use std::collections::HashMap;
 
 /// パッケージレジストリ
 #[derive(Debug)]
@@ -111,4 +112,34 @@ impl Registry {
         println!("✅ Published {}@{}", package.name, package.version);
         Ok(())
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NpmPackage {
+    pub name: String,
+    pub versions: HashMap<String, NpmVersionInfo>,
+    #[serde(rename = "dist-tags")]
+    pub dist_tags: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NpmVersionInfo {
+    pub name: String,
+    pub version: String,
+    pub dependencies: Option<HashMap<String, String>>,
+    #[serde(rename = "devDependencies")]
+    pub dev_dependencies: Option<HashMap<String, String>>,
+    pub dist: NpmDist,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NpmDist {
+    pub shasum: String,
+    pub tarball: String,
+}
+
+pub async fn fetch_npm_package(package_name: &str) -> Result<NpmPackage, reqwest::Error> {
+    let url = format!("https://registry.npmjs.org/{}", package_name);
+    let package: NpmPackage = reqwest::get(&url).await?.json().await?;
+    Ok(package)
 }

@@ -335,7 +335,17 @@ mod run_command {
     }
 
     pub async fn execute_repl() -> Result<(), Box<dyn std::error::Error>> {
-        println!("Starting REPL... (not implemented yet)");
+        use kotoba_repl::{ReplManager, ReplConfig};
+
+        // REPL設定を作成
+        let config = ReplConfig::default();
+
+        // REPLマネージャーを作成
+        let repl_manager = ReplManager::new(config);
+
+        // REPLを開始
+        repl_manager.start().await?;
+
         Ok(())
     }
 

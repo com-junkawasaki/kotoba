@@ -7,14 +7,15 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use url::Url;
 
 pub mod config;
 pub mod dependency;
 pub mod registry;
-pub mod resolver;
 pub mod installer;
 pub mod lockfile;
 pub mod cache;
+mod resolver;
 
 /// Package Managerのメイン構造体
 #[derive(Debug)]
@@ -24,18 +25,43 @@ pub struct PackageManager {
     cache: cache::Cache,
 }
 
+/// パッケージの取得元
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum PackageSource {
+    Registry(String), // Kotoba or Npm registry
+    Git(GitSource),
+    Url(Url),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct GitSource {
+    pub url: Url,
+    pub revision: String, // branch, tag, or commit hash
+}
+
 /// パッケージ情報
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Package {
     pub name: String,
     pub version: String, // semver::VersionをStringとして扱う
+    pub source: PackageSource,
+    pub cid: Option<String>, // Content ID
     pub description: Option<String>,
     pub authors: Vec<String>,
-    pub dependencies: HashMap<String, String>, // semver::VersionReqをStringとして扱う
-    pub dev_dependencies: HashMap<String, String>,
+    pub dependencies: HashMap<String, DependencyInfo>,
+    pub dev_dependencies: HashMap<String, DependencyInfo>,
     pub repository: Option<String>,
     pub license: Option<String>,
     pub keywords: Vec<String>,
+}
+
+/// 依存関係情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyInfo {
+    pub version: String, // semver::VersionReqをStringとして扱う
+    #[serde(flatten)]
+    pub source: Option<PackageSource>,
 }
 
 /// プロジェクト設定
@@ -44,8 +70,8 @@ pub struct ProjectConfig {
     pub name: String,
     pub version: String, // semver::VersionをStringとして扱う
     pub description: Option<String>,
-    pub dependencies: HashMap<String, String>, // semver::VersionReqをStringとして扱う
-    pub dev_dependencies: HashMap<String, String>,
+    pub dependencies: HashMap<String, DependencyInfo>,
+    pub dev_dependencies: HashMap<String, DependencyInfo>,
     pub scripts: HashMap<String, String>,
 }
 
@@ -146,15 +172,13 @@ pub fn greet(name: String) -> String {{
     }
 
     /// 依存関係を解決
-    fn resolver(&self) -> &resolver::Resolver {
-        // TODO: Resolver実装
-        unimplemented!()
+    fn resolver(&self) -> resolver::Resolver {
+        resolver::Resolver::new()
     }
 
     /// パッケージインストーラー
-    fn installer(&self) -> &installer::Installer {
-        // TODO: Installer実装
-        unimplemented!()
+    fn installer(&self) -> installer::Installer {
+        installer::Installer::new()
     }
 }
 
@@ -178,7 +202,6 @@ pub async fn search_packages(query: &str) -> Result<Vec<Package>, Box<dyn std::e
 pub use config::*;
 pub use dependency::*;
 pub use registry::*;
-pub use resolver::*;
 pub use installer::*;
 pub use lockfile::*;
 pub use cache::*;

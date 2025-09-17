@@ -1123,6 +1123,17 @@
       status: 'pending',
       build_order: 26,
     },
+
+    'package_manager': {
+      name: 'package_manager',
+      path: 'crates/kotoba-package-manager/src/lib.rs',
+      type: 'package_manager',
+      description: 'npm/deno like package manager with merkledag + cid',
+      dependencies: ['types', 'cid_system'],
+      provides: ['PackageManager', 'PackageResolver', 'PackageInstaller'],
+      status: 'in_progress',
+      build_order: 4,
+    },
   },
 
   // ==========================================
@@ -1606,6 +1617,13 @@
     { from: 'kotobanet_core', to: 'kotoba_lsp' },
     { from: 'jsonnet_core', to: 'kotoba_lsp' },
 
+    // Package manager dependencies
+    { from: 'types', to: 'package_manager' },
+    { from: 'cid_system', to: 'package_manager' },
+
+    // Integration with main library
+    { from: 'distributed_engine', to: 'lib' },
+    { from: 'network_protocol', to: 'lib' },
   ],
 
   // ==========================================
@@ -1708,6 +1726,7 @@
     'ai_memory',
     'ai_chains',
     'ai_examples',
+    'package_manager',
   ],
 
   // ==========================================
@@ -1802,6 +1821,7 @@
     'jsonnet_error',
     'cid_system',
     'types',
+    'package_manager',
   ],
 
   // ==========================================
