@@ -1,6 +1,34 @@
 //! kotoba-execution - Kotoba Execution Components
 
-pub mod execution;
+use crate::execution::physical_plan::PhysicalPlan;
+use crate::execution::metrics::ExecutionMetrics;
+use kotoba_core::types::Result;
+use kotoba_errors::KotobaError;
+
+#[async_trait::async_trait]
+pub trait QueryExecutor: Send + Sync {
+    async fn execute(&self, plan: PhysicalPlan) -> Result<Vec<Value>>;
+}
+
+pub struct DefaultQueryExecutor {
+    // ... fields
+}
+
+impl DefaultQueryExecutor {
+    pub fn new() -> Self {
+        Self { /* ... */ }
+    }
+}
+
+#[async_trait::async_trait]
+impl QueryExecutor for DefaultQueryExecutor {
+    async fn execute(&self, plan: PhysicalPlan) -> Result<Vec<Value>> {
+        let mut metrics = ExecutionMetrics::new();
+        // ... implementation ...
+        Ok(vec![])
+    }
+}
+
 pub mod planner;
 pub mod prelude {
     // Re-export commonly used items

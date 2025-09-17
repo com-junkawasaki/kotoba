@@ -4,34 +4,16 @@
 //! (RocksDB, Redis, etc.) allowing the application to switch between them
 //! based on configuration.
 
-use async_trait::async_trait;
-use kotoba_core::types::Result;
+use std::collections::HashMap;
 
-/// Abstract storage backend trait that all storage implementations must satisfy
-#[async_trait]
+use kotoba_core::types::{Result, Value};
+use kotoba_errors::KotobaError;
+
 pub trait StorageBackend: Send + Sync {
-    /// Store a key-value pair
-    async fn put(&self, key: String, value: Vec<u8>) -> Result<()>;
-
-    /// Retrieve a value by key
-    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>>;
-
-    /// Delete a key-value pair
-    async fn delete(&self, key: String) -> Result<()>;
-
-    /// Check if a key exists
-    async fn exists(&self, key: &str) -> Result<bool> {
-        Ok(self.get(key).await?.is_some())
-    }
-
-    /// Get all keys with a prefix (for scanning operations)
-    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>>;
-
-    /// Clear all data (for testing purposes)
-    async fn clear(&self) -> Result<()>;
-
-    /// Get backend statistics
-    async fn stats(&self) -> Result<BackendStats>;
+    fn get(&self, key: &str) -> Result<Option<Value>>;
+    fn set(&mut self, key: &str, value: Value) -> Result<()>;
+    fn delete(&mut self, key: &str) -> Result<()>;
+    fn list(&self) -> Result<Vec<String>>;
 }
 
 /// Statistics about the storage backend

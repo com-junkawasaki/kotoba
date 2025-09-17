@@ -1,6 +1,7 @@
 //! 論理プランナー（GQL → 論理プラン）
 
-use kotoba_core::{types::*, ir::*};
+use kotoba_core::{ir::*, types::*};
+use kotoba_errors::KotobaError;
 use kotoba_core::types::Result;
 
 /// 論理プランナー

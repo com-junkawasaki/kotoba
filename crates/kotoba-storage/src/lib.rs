@@ -1,10 +1,18 @@
-//! kotoba-storage - Kotoba Storage Components
+//! `kotoba-storage`
+//!
+//! This crate provides the storage layer for Kotoba, offering a unified
+//! interface over various database backends like RocksDB (LSM Tree) and Redis.
+//! It includes support for MVCC and Merkle DAG persistence.
 
 pub mod storage;
 
 pub mod prelude {
-    // Re-export commonly used storage items
-    pub use crate::storage::mvcc::*;
-    pub use crate::storage::merkle::*;
-    pub use crate::storage::backend::{StorageBackend, StorageBackendFactory, StorageManager, BackendStats};
+    pub use crate::storage::{
+        StorageBackend,
+        StorageManager,
+        MerkleDAG,
+        MVCCManager,
+        StorageConfig,
+        BackendType,
+    };
 }

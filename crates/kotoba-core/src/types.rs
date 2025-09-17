@@ -57,96 +57,25 @@ impl ContentHash {
     }
 }
 
-/// エラー型
-#[derive(Debug, thiserror::Error)]
-pub enum KotobaError {
-    #[error("Parse error: {0}")]
-    Parse(String),
-    #[error("Execution error: {0}")]
-    Execution(String),
-    #[error("Storage error: {0}")]
-    Storage(String),
-    #[error("Validation error: {0}")]
-    Validation(String),
-    #[error("Rewrite error: {0}")]
-    Rewrite(String),
-    #[error("Security error: {0}")]
-    Security(String),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("IO error: {0}")]
-    IoError(String),
-    #[error("Invalid argument: {0}")]
-    InvalidArgument(String),
-    #[error("Not found: {0}")]
-    NotFound(String),
-    #[error("Configuration error: {0}")]
-    Configuration(String),
-    #[error("Serialization error: {0}")]
-    Serialization(String),
-    #[error("Network error: {0}")]
-    Network(String),
-    #[error("Jsonnet error: {0}")]
-    Jsonnet(#[from] kotoba_jsonnet::JsonnetError),
-    #[error("Workflow error: {0}")]
-    Workflow(String),
-    #[error("System time error: {0}")]
-    SystemTime(#[from] std::time::SystemTimeError),
+// kotoba-workflow From implementation removed
 
-    // Security-related errors (when security feature is enabled)
-    #[cfg(feature = "security")]
-    #[error("Security configuration error: {0}")]
-    SecurityConfiguration(String),
-    #[cfg(feature = "security")]
-    #[error("Security authentication error: {0}")]
-    SecurityAuthentication(String),
-    #[cfg(feature = "security")]
-    #[error("Security authorization error: {0}")]
-    SecurityAuthorization(String),
-    #[cfg(feature = "security")]
-    #[error("Security JWT error: {0}")]
-    SecurityJwt(String),
-    #[cfg(feature = "security")]
-    #[error("Security OAuth2 error: {0}")]
-    SecurityOAuth2(String),
-    #[cfg(feature = "security")]
-    #[error("Security MFA error: {0}")]
-    SecurityMfa(String),
-    #[cfg(feature = "security")]
-    #[error("Security password error: {0}")]
-    SecurityPassword(String),
-    #[cfg(feature = "security")]
-    #[error("Security session error: {0}")]
-    SecuritySession(String),
-}
-
-impl From<kotoba_workflow::WorkflowError> for KotobaError {
-    fn from(err: kotoba_workflow::WorkflowError) -> Self {
-        KotobaError::Workflow(err.to_string())
-    }
-}
-
-pub type Result<T> = std::result::Result<T, KotobaError>;
+pub type Result<T> = std::result::Result<T, kotoba_errors::KotobaError>;
 
 #[cfg(feature = "security")]
-impl From<kotoba_security::SecurityError> for KotobaError {
+impl From<kotoba_security::SecurityError> for kotoba_errors::KotobaError {
     fn from(error: kotoba_security::SecurityError) -> Self {
         match error {
-            kotoba_security::SecurityError::Configuration(msg) => KotobaError::SecurityConfiguration(msg),
-            kotoba_security::SecurityError::Authentication(msg) => KotobaError::SecurityAuthentication(msg),
-            kotoba_security::SecurityError::Authorization(msg) => KotobaError::SecurityAuthorization(msg),
-            kotoba_security::SecurityError::Jwt(e) => KotobaError::SecurityJwt(format!("{}", e)),
-            kotoba_security::SecurityError::OAuth2(msg) => KotobaError::SecurityOAuth2(msg),
-            kotoba_security::SecurityError::Mfa(msg) => KotobaError::SecurityMfa(msg),
-            kotoba_security::SecurityError::Password(msg) => KotobaError::SecurityPassword(msg),
-            kotoba_security::SecurityError::Session(msg) => KotobaError::SecuritySession(msg),
-            _ => KotobaError::Security(format!("Security error: {:?}", error)),
+            kotoba_security::SecurityError::Configuration(msg) => kotoba_errors::KotobaError::SecurityConfiguration(msg),
+            kotoba_security::SecurityError::Authentication(msg) => kotoba_errors::KotobaError::SecurityAuthentication(msg),
+            kotoba_security::SecurityError::Authorization(msg) => kotoba_errors::KotobaError::SecurityAuthorization(msg),
+            kotoba_security::SecurityError::Jwt(e) => kotoba_errors::KotobaError::SecurityJwt(format!("{}", e)),
+            kotoba_security::SecurityError::OAuth2(msg) => kotoba_errors::KotobaError::SecurityOAuth2(msg),
+            kotoba_security::SecurityError::Mfa(msg) => kotoba_errors::KotobaError::SecurityMfa(msg),
+            kotoba_security::SecurityError::Password(msg) => kotoba_errors::KotobaError::SecurityPassword(msg),
+            kotoba_security::SecurityError::Session(msg) => kotoba_errors::KotobaError::SecuritySession(msg),
+            _ => kotoba_errors::KotobaError::Security(format!("Security error: {:?}", error)),
         }
     }
 }
 
-impl From<std::time::SystemTimeError> for KotobaError {
-    fn from(error: std::time::SystemTimeError) -> Self {
-        KotobaError::InvalidArgument(format!("System time error: {}", error))
-    }
-}
+// Duplicate From<SystemTimeError> implementation removed (already handled by #[from])

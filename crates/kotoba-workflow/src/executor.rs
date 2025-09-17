@@ -13,6 +13,9 @@ use tokio::time::timeout;
 
 // Import the new routing schema
 use kotoba_routing::schema::{WorkflowStep, WorkflowStepType};
+// Import the shared error type
+use kotoba_errors::WorkflowError;
+
 // These will be needed once we integrate the DB handler
 // use kotoba_jsonnet::runtime::DbHandler;
 // use kotoba_core::execution::QueryExecutor;
@@ -206,32 +209,7 @@ impl ActivityRegistry {
     }
 }
 
-/// ワークフロー実行エラー
-#[derive(Debug, thiserror::Error)]
-pub enum WorkflowError {
-    #[error("Workflow not found: {0}")]
-    WorkflowNotFound(String),
-    #[error("Activity execution failed: {0}")]
-    ActivityFailed(#[from] ActivityError),
-    #[error("Invalid strategy: {0}")]
-    InvalidStrategy(String),
-    #[error("Invalid workflow definition: {0}")]
-    InvalidDefinition(String),
-    #[error("Timeout exceeded")]
-    Timeout,
-    #[error("Compensation failed: {0}")]
-    CompensationFailed(String),
-    #[error("Graph operation failed: {0}")]
-    GraphError(String),
-    #[error("Storage error: {0}")]
-    StorageError(String),
-    #[error("Serialization error: {0}")]
-    SerializationError(#[from] serde_json::Error),
-    #[error("Invalid step type for this executor: {0:?}")]
-    InvalidStepType(WorkflowStepType),
-    #[error("Context variable not found: {0}")]
-    ContextVariableNotFound(String),
-}
+// The WorkflowError enum has been moved to `kotoba-errors`.
 
 /// A context object for a single workflow execution.
 #[derive(Debug, Clone, Default)]

@@ -1,11 +1,15 @@
 //! クエリ実行器
 
+use kotoba_core::types::{Result, Value};
+use kotoba_errors::KotobaError;
 use kotoba_core::{types::*, ir::*};
 use kotoba_graph::prelude::*;
 use crate::planner::*;
 use std::collections::{HashMap, HashSet};
-use kotoba_core::types::Result;
 use uuid;
+
+use crate::execution::physical_plan::*;
+use crate::execution::metrics::ExecutionMetrics;
 
 /// クエリ実行器
 #[derive(Debug)]

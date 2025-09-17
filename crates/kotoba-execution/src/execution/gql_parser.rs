@@ -2,6 +2,7 @@
 
 use kotoba_core::{types::*, ir::*};
 use kotoba_core::types::Result;
+use kotoba_errors::KotobaError;
 use std::collections::HashMap;
 
 /// GQLパーサー

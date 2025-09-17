@@ -20,6 +20,12 @@ pub enum KotobaNetError {
     #[error("Configuration error: {0}")]
     Config(String),
 
+    #[error("Parse error: {0}")]
+    Parse(String),
+
+    #[error("Execution error: {0}")]
+    Execution(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 

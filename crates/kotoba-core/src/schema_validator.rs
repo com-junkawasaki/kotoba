@@ -2,8 +2,9 @@
 //! プロジェクトの公式JSON Schemaによるデータ検証
 
 use crate::schema::*;
-use crate::types::{KotobaError, Result};
-use serde_json;
+use crate::types::Result;
+use kotoba_errors::KotobaError;
+use serde_json::Value;
 use jsonschema::{Draft, JSONSchema};
 use std::fs;
 use std::path::Path;

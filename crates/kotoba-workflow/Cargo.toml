@@ -9,6 +9,7 @@ description = "Temporal-inspired workflow engine for Kotoba"
 [dependencies]
 # Kotoba crates - only core types for now to avoid RocksDB dependency
 kotoba-core = { workspace = true }
+kotoba-errors = { path = "../kotoba-errors" }
 
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }
