@@ -102,6 +102,9 @@ impl ConfigManager {
                 command: "cargo".to_string(),
                 args: vec!["run".to_string()],
                 description: Some("Start development server".to_string()),
+                depends_on: vec![],
+                cwd: None,
+                env: None,
             }
         );
 
@@ -111,6 +114,9 @@ impl ConfigManager {
                 command: "cargo".to_string(),
                 args: vec!["build".to_string(), "--release".to_string()],
                 description: Some("Build project in release mode".to_string()),
+                depends_on: vec![],
+                cwd: None,
+                env: None,
             }
         );
 
@@ -120,6 +126,9 @@ impl ConfigManager {
                 command: "cargo".to_string(),
                 args: vec!["test".to_string()],
                 description: Some("Run tests".to_string()),
+                depends_on: vec![],
+                cwd: None,
+                env: None,
             }
         );
 
@@ -129,6 +138,9 @@ impl ConfigManager {
                 command: "cargo".to_string(),
                 args: vec!["clean".to_string()],
                 description: Some("Clean build artifacts".to_string()),
+                depends_on: vec![],
+                cwd: None,
+                env: None,
             }
         );
 
