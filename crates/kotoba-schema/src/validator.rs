@@ -37,7 +37,10 @@ impl GraphValidator {
         // Extract vertices and edges from graph data
         if let Some(vertices) = graph_data.get("vertices").and_then(|v| v.as_array()) {
             for (i, vertex) in vertices.iter().enumerate() {
-                let (warns, vertex_errors) = self.validate_vertex(vertex);
+                let Ok((warns, vertex_errors)) = self.validate_vertex(vertex) else {
+                // Skip this vertex if validation setup failed
+                continue;
+            };
             warnings.extend(warns);
             for mut error in vertex_errors {
                 if error.element_id.is_none() {
@@ -52,7 +55,10 @@ impl GraphValidator {
 
         if let Some(edges) = graph_data.get("edges").and_then(|v| v.as_array()) {
             for (i, edge) in edges.iter().enumerate() {
-                let (warns, edge_errors) = self.validate_edge(edge);
+                let Ok((warns, edge_errors)) = self.validate_edge(edge) else {
+                    // Skip this edge if validation setup failed
+                    continue;
+                };
             warnings.extend(warns);
             for mut error in edge_errors {
                 if error.element_id.is_none() {
@@ -126,7 +132,10 @@ impl GraphValidator {
             // Validate each property
             for (prop_name, prop_value) in properties {
                 if let Some(prop_schema) = vertex_schema.properties.get(prop_name) {
-                    let (warns, prop_errors) = self.validate_property(prop_schema, prop_value);
+                    let Ok((warns, prop_errors)) = self.validate_property(prop_schema, prop_value) else {
+                        // Skip this property if validation setup failed
+                        continue;
+                    };
                     warnings.extend(warns);
                     errors.extend(prop_errors);
                 } else {
@@ -199,7 +208,10 @@ impl GraphValidator {
             // Validate each property
             for (prop_name, prop_value) in properties {
                 if let Some(prop_schema) = edge_schema.properties.get(prop_name) {
-                    let (warns, prop_errors) = self.validate_property(prop_schema, prop_value);
+                    let Ok((warns, prop_errors)) = self.validate_property(prop_schema, prop_value) else {
+                        // Skip this property if validation setup failed
+                        continue;
+                    };
                     warnings.extend(warns);
                     errors.extend(prop_errors);
                 } else {
@@ -450,7 +462,7 @@ impl GraphValidator {
                         errors.push(ValidationError {
                             error_type: ValidationErrorType::ConstraintViolation,
                             message: format!("Edge '{}' has {} instances, maximum allowed is {}", edge_key, count, max_val),
-                            element_id: Some(edge_key),
+                            element_id: Some(edge_key.clone()),
                             property: None,
                         });
                     }

@@ -269,41 +269,39 @@ pub struct CacheStatistics {
 
 /// In-memory schema storage implementation for testing and simple use cases
 pub struct InMemorySchemaStorage {
-    schemas: HashMap<String, GraphSchema>,
+    schemas: std::sync::RwLock<HashMap<String, GraphSchema>>,
 }
 
 impl InMemorySchemaStorage {
     /// Create a new in-memory schema storage
     pub fn new() -> Self {
         Self {
-            schemas: HashMap::new(),
+            schemas: std::sync::RwLock::new(HashMap::new()),
         }
     }
 }
 
 impl SchemaStorage for InMemorySchemaStorage {
     fn store_schema(&self, schema_id: &str, schema: &GraphSchema) -> Result<()> {
-        // Note: This is not thread-safe for production use
-        // In a real implementation, you'd use Arc<RwLock<HashMap<...>>>
-        let schemas = unsafe {
-            // This is unsafe and should only be used for testing
-            &mut *(&self.schemas as *const HashMap<String, GraphSchema> as *mut HashMap<String, GraphSchema>)
-        };
+        let mut schemas = self.schemas.write().unwrap();
         schemas.insert(schema_id.to_string(), schema.clone());
         Ok(())
     }
 
     fn load_schema(&self, schema_id: &str) -> Result<Option<GraphSchema>> {
-        Ok(self.schemas.get(schema_id).cloned())
+        let schemas = self.schemas.read().unwrap();
+        Ok(schemas.get(schema_id).cloned())
     }
 
     fn delete_schema(&self, schema_id: &str) -> Result<()> {
-        self.schemas.remove(schema_id);
+        let mut schemas = self.schemas.write().unwrap();
+        schemas.remove(schema_id);
         Ok(())
     }
 
     fn list_schemas(&self) -> Result<Vec<String>> {
-        Ok(self.schemas.keys().cloned().collect())
+        let schemas = self.schemas.read().unwrap();
+        Ok(schemas.keys().cloned().collect())
     }
 }
 
