@@ -23,8 +23,8 @@ chrono = { workspace = true, features = ["serde"] }
 futures = "0.3"
 tempfile = "3.0"
 bytes = "1.0"
-flate2 = "1.0"  # For compression
-tar = "0.4"     # For archiving
+flate2 = { version = "1.0", optional = true }  # For compression
+tar = { version = "0.4", optional = true }     # For archiving
 walkdir = "2.0" # For directory traversal
 parking_lot = "0.12"
 
