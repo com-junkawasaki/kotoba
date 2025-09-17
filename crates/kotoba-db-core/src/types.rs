@@ -1,6 +1,9 @@
 //! Defines the core data structures for KotobaDB.
 use serde::{Serialize, Deserialize};
 use std::collections::BTreeMap;
+use anyhow::Result;
+use blake3;
+use ciborium;
 
 /// A Content ID (CID), which is the BLAKE3 hash of a serialized Block.
 pub type Cid = [u8; 32];
@@ -26,6 +29,30 @@ pub enum Value {
 pub enum Block {
     Node(NodeBlock),
     Edge(EdgeBlock),
+}
+
+impl Block {
+    /// Computes the CID (Content ID) for this block.
+    /// The CID is the BLAKE3 hash of the CBOR-serialized block.
+    pub fn cid(&self) -> Result<Cid> {
+        let mut hasher = blake3::Hasher::new();
+        ciborium::into_writer(self, &mut hasher)?;
+        let hash = hasher.finalize();
+        Ok(hash.into())
+    }
+
+    /// Serializes this block to CBOR bytes.
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        let mut bytes = Vec::new();
+        ciborium::into_writer(self, &mut bytes)?;
+        Ok(bytes)
+    }
+
+    /// Deserializes a block from CBOR bytes.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let block: Block = ciborium::from_reader(bytes)?;
+        Ok(block)
+    }
 }
 
 /// Represents a node (or vertex) in the graph.
