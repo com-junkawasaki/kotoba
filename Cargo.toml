@@ -33,6 +33,7 @@ members = [
     "crates/kotoba-db",
     "crates/kotoba-db-cluster",
     "crates/kotoba-backup",
+    "crates/kotoba-monitoring",
 ]
 resolver = "2"
 

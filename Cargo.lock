@@ -5546,6 +5546,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-monitoring"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures",
+ "kotoba-db",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
 name = "kotoba-network"
 version = "0.1.16"
 dependencies = [

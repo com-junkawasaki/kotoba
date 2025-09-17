@@ -2,38 +2,12 @@
 //!
 //! Comprehensive monitoring and metrics collection system for KotobaDB.
 //! Provides health checks, performance monitoring, and Prometheus integration.
-//!
-//! ## Features
-//!
-//! - **Metrics Collection**: Automatic collection of database and system metrics
-//! - **Health Checks**: Comprehensive health monitoring and alerting
-//! - **Performance Monitoring**: Real-time performance tracking and analysis
-//! - **Prometheus Integration**: Native Prometheus metrics export
-//! - **Custom Metrics**: Extensible metrics collection framework
-//! - **Alerting**: Configurable alerting rules and notifications
-//!
-//! ## Metrics Categories
-//!
-//! - **Database Metrics**: Query latency, throughput, connection counts
-//! - **Storage Metrics**: Disk usage, I/O operations, cache hit rates
-//! - **Cluster Metrics**: Node health, replication lag, partition status
-//! - **System Metrics**: CPU, memory, network usage
-//! - **Application Metrics**: Custom application-specific metrics
 
 pub mod metrics_collector;
 pub mod health_checker;
-pub mod performance_monitor;
-pub mod prometheus_exporter;
-pub mod alerting;
-pub mod system_metrics;
-
-#[cfg(feature = "cluster")]
-pub mod cluster_metrics;
 
 pub use metrics_collector::*;
 pub use health_checker::*;
-pub use performance_monitor::*;
-pub use prometheus_exporter::*;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -222,8 +196,14 @@ pub enum HealthStatus {
     Unknown,
 }
 
+impl Default for HealthStatus {
+    fn default() -> Self {
+        HealthStatus::Unknown
+    }
+}
+
 /// Overall system health
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SystemHealth {
     /// Overall status
     pub overall_status: HealthStatus,

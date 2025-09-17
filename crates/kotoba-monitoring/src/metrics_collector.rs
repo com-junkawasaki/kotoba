@@ -8,7 +8,6 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
 use tokio::time::{self, Duration, Instant};
 use chrono::{DateTime, Utc};
-use metrics::{counter, gauge, histogram};
 
 /// Metrics collector for automatic metric collection
 pub struct MetricsCollector {
@@ -22,7 +21,7 @@ pub struct MetricsCollector {
     collection_tasks: Arc<RwLock<HashMap<String, tokio::task::JoinHandle<()>>>>,
     /// Metrics event channel
     metrics_tx: mpsc::Sender<MetricsEvent>,
-    metrics_rx: mpsc::Receiver<MetricsEvent>,
+    metrics_rx: Arc<tokio::sync::Mutex<mpsc::Receiver<MetricsEvent>>>,
 }
 
 impl MetricsCollector {
@@ -36,7 +35,7 @@ impl MetricsCollector {
             config,
             collection_tasks: Arc::new(RwLock::new(HashMap::new())),
             metrics_tx,
-            metrics_rx,
+            metrics_rx: Arc::new(tokio::sync::Mutex::new(metrics_rx)),
         }
     }
 
@@ -49,9 +48,7 @@ impl MetricsCollector {
         // Start database metrics collection
         self.start_database_metrics_collection().await?;
 
-        // Start system metrics collection
-        #[cfg(feature = "system")]
-        self.start_system_metrics_collection().await?;
+        // System metrics collection (disabled in simplified version)
 
         // Start metrics processing
         self.start_metrics_processing().await?;
@@ -143,63 +140,17 @@ impl MetricsCollector {
         Ok(())
     }
 
-    #[cfg(feature = "system")]
     async fn start_system_metrics_collection(&mut self) -> Result<(), MonitoringError> {
-        let tx = self.metrics_tx.clone();
-        let interval = self.config.collection_interval;
-
-        let handle = tokio::spawn(async move {
-            let mut ticker = time::interval(interval);
-            let system = sysinfo::System::new_all();
-
-            loop {
-                ticker.tick().await;
-
-                // Refresh system information
-                system.refresh_all();
-
-                // Collect CPU metrics
-                let cpu_usage = system.global_cpu_info().cpu_usage() as f64;
-                let _ = tx.send(MetricsEvent::SystemMetric {
-                    name: "cpu_usage_percent".to_string(),
-                    value: cpu_usage,
-                    labels: HashMap::new(),
-                }).await;
-
-                // Collect memory metrics
-                let total_memory = system.total_memory() as f64;
-                let used_memory = system.used_memory() as f64;
-                let memory_usage_percent = (used_memory / total_memory) * 100.0;
-
-                let _ = tx.send(MetricsEvent::SystemMetric {
-                    name: "memory_usage_bytes".to_string(),
-                    value: used_memory,
-                    labels: HashMap::new(),
-                }).await;
-
-                let _ = tx.send(MetricsEvent::SystemMetric {
-                    name: "memory_usage_percent".to_string(),
-                    value: memory_usage_percent,
-                    labels: HashMap::new(),
-                }).await;
-            }
-        });
-
-        self.collection_tasks.write().await.insert("system_metrics".to_string(), handle);
-        Ok(())
-    }
-
-    #[cfg(not(feature = "system"))]
-    async fn start_system_metrics_collection(&mut self) -> Result<(), MonitoringError> {
-        // System metrics not available
+        // System metrics collection disabled in simplified version
         Ok(())
     }
 
     async fn start_metrics_processing(&mut self) -> Result<(), MonitoringError> {
         let metrics_store = Arc::clone(&self.metrics_store);
-        let mut rx = self.metrics_rx;
+        let rx = Arc::clone(&self.metrics_rx);
 
         let handle = tokio::spawn(async move {
+            let mut rx = rx.lock().await;
             while let Some(event) = rx.recv().await {
                 match event {
                     MetricsEvent::NewMetric(point) => {
@@ -555,5 +506,18 @@ mod tests {
         store.add_metric(point.clone()).unwrap();
         let metrics = store.get_metrics("test", Utc::now() - chrono::Duration::hours(1), Utc::now());
         assert_eq!(metrics.len(), 1);
+    }
+}
+
+impl Clone for MetricsCollector {
+    fn clone(&self) -> Self {
+        Self {
+            db: Arc::clone(&self.db),
+            metrics_store: Arc::clone(&self.metrics_store),
+            config: self.config.clone(),
+            collection_tasks: Arc::new(RwLock::new(HashMap::new())),
+            metrics_tx: self.metrics_tx.clone(),
+            metrics_rx: Arc::clone(&self.metrics_rx),
+        }
     }
 }

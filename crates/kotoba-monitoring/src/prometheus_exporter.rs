@@ -77,7 +77,7 @@ impl PrometheusExporter {
     }
 
     /// Get the metrics in Prometheus format
-    pub async fn get_metrics(&self) -> Result<String, MonitoringError> {
+    pub async fn export_metrics(&self) -> Result<String, MonitoringError> {
         // Get metrics from our collector
         let custom_metrics = self.collector.export_prometheus().await?;
 
@@ -96,7 +96,7 @@ impl PrometheusExporter {
 
     /// Register a custom metric with Prometheus
     pub fn register_counter(&self, name: &str, help: &str, labels: &[&str]) -> Result<(), MonitoringError> {
-        use metrics::{counter, describe_counter};
+        use ::metrics::{counter, describe_counter};
 
         describe_counter!(name, help);
         // The actual counter registration happens when metrics are recorded
@@ -105,7 +105,7 @@ impl PrometheusExporter {
 
     /// Register a gauge metric with Prometheus
     pub fn register_gauge(&self, name: &str, help: &str, labels: &[&str]) -> Result<(), MonitoringError> {
-        use metrics::{gauge, describe_gauge};
+        use ::metrics::{gauge, describe_gauge};
 
         describe_gauge!(name, help);
         // The actual gauge registration happens when metrics are recorded
@@ -114,7 +114,7 @@ impl PrometheusExporter {
 
     /// Register a histogram metric with Prometheus
     pub fn register_histogram(&self, name: &str, help: &str, labels: &[&str]) -> Result<(), MonitoringError> {
-        use metrics::{histogram, describe_histogram};
+        use ::metrics::{histogram, describe_histogram};
 
         describe_histogram!(name, help);
         // The actual histogram registration happens when metrics are recorded
@@ -122,11 +122,18 @@ impl PrometheusExporter {
     }
 }
 
+/// Format metrics as Prometheus text format
+fn format_prometheus_metrics(metrics: &str) -> String {
+    // For now, just return the metrics as-is
+    // In a real implementation, this would parse and format properly
+    metrics.to_string()
+}
+
 /// Axum handler for the /metrics endpoint
 async fn metrics_handler(
     State((collector, global_labels)): State<(Arc<MetricsCollector>, HashMap<String, String>)>,
 ) -> impl IntoResponse {
-    match collector.get_metrics().await {
+    match collector.export_prometheus().await {
         Ok(mut metrics) => {
             // Add global labels if present
             if !global_labels.is_empty() {
@@ -140,10 +147,13 @@ async fn metrics_handler(
                 metrics = format!("# Global labels: {{{}}}\n{}", labels_str, metrics);
             }
 
+            // Convert to Prometheus format
+            let prometheus_metrics = format_prometheus_metrics(&metrics);
+
             (
                 axum::http::StatusCode::OK,
                 [("content-type", "text/plain; version=0.0.4; charset=utf-8")],
-                metrics
+                prometheus_metrics
             )
         }
         Err(e) => {
@@ -161,7 +171,7 @@ async fn metrics_handler(
 
 /// Record a counter metric
 pub fn record_counter(name: &str, value: u64, labels: &[(&str, &str)]) {
-    use metrics::counter;
+    use ::metrics::counter;
 
     let mut labels_vec = Vec::new();
     for (key, value) in labels {
@@ -173,7 +183,7 @@ pub fn record_counter(name: &str, value: u64, labels: &[(&str, &str)]) {
 
 /// Record a gauge metric
 pub fn record_gauge(name: &str, value: f64, labels: &[(&str, &str)]) {
-    use metrics::gauge;
+    use ::metrics::gauge;
 
     let mut labels_vec = Vec::new();
     for (key, value) in labels {
@@ -185,7 +195,7 @@ pub fn record_gauge(name: &str, value: f64, labels: &[(&str, &str)]) {
 
 /// Record a histogram metric
 pub fn record_histogram(name: &str, value: f64, labels: &[(&str, &str)]) {
-    use metrics::histogram;
+    use ::metrics::histogram;
 
     let mut labels_vec = Vec::new();
     for (key, value) in labels {
