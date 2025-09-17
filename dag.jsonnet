@@ -179,6 +179,17 @@
       build_order: 4,
     },
 
+    'storage_main': {
+      name: 'storage_main',
+      path: 'crates/kotoba-storage/',
+      type: 'storage_api',
+      description: 'Main storage crate providing unified backend interface including KotobaDB',
+      dependencies: ['types', 'errors', 'graph', 'cid', 'db'],
+      provides: ['StorageBackend', 'StorageBackendFactory', 'KotobaDBBackend'],
+      status: 'in_progress',
+      build_order: 7,
+    },
+
     // プランナー層
     'planner_logical': {
       name: 'planner_logical',
@@ -1866,6 +1877,13 @@
     { from: 'db_engine_memory', to: 'db' },
     { from: 'db_engine_lsm', to: 'db' },
 
+    // Storage integration
+    { from: 'types', to: 'storage_main' },
+    { from: 'errors', to: 'storage_main' },
+    { from: 'graph', to: 'storage_main' },
+    { from: 'cid', to: 'storage_main' },
+    { from: 'db', to: 'storage_main' },
+
     // LSP server dependencies
     { from: 'kotobanet_core', to: 'kotoba_lsp' },
   ],
@@ -1893,6 +1911,7 @@
     'jsonnet_ast',
     'jsonnet_lexer',
     'graph_core',
+    'storage_main',
     'db_core',
     'db_engine_memory',
     'db_engine_lsm',

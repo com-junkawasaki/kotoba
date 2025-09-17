@@ -3,12 +3,147 @@ use async_trait::async_trait;
 use kotoba_core::types::Result;
 use kotoba_errors::KotobaError;
 
+/// KotobaDB backend implementation
+#[cfg(feature = "kotoba_db")]
+mod kotoba_db_backend {
+    use super::*;
+    use kotoba_db::DB;
+
+    pub struct KotobaDBBackend {
+        db: DB,
+    }
+
+    impl KotobaDBBackend {
+        pub async fn new(path: &std::path::Path) -> Result<Self> {
+            let db = DB::open_lsm(path).await
+                .map_err(|e| KotobaError::Storage(format!("Failed to open KotobaDB: {}", e)))?;
+            Ok(Self { db })
+        }
+    }
+
+    #[async_trait]
+    impl StorageBackend for KotobaDBBackend {
+        async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
+            // For basic key-value operations, we store as simple nodes
+            // In a real implementation, this might use a dedicated key-value table
+            // For now, we'll use the key as a property and store the value
+            use kotoba_db::{Value, Operation};
+            use std::collections::BTreeMap;
+
+            let mut properties = BTreeMap::new();
+            properties.insert("key".to_string(), Value::String(key.clone()));
+            properties.insert("value".to_string(), Value::Bytes(value));
+
+            // Check if key already exists, update if it does
+            let existing_nodes = self.db.find_nodes(&[("key".to_string(), Value::String(key.clone()))]).await
+                .map_err(|e| KotobaError::Storage(format!("Failed to query KotobaDB: {}", e)))?;
+
+            if let Some((cid, _)) = existing_nodes.first() {
+                // Update existing node
+                let mut update_props = BTreeMap::new();
+                update_props.insert("value".to_string(), Value::Bytes(value));
+                let txn_id = self.db.begin_transaction().await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to begin transaction: {}", e)))?;
+                self.db.add_operation(txn_id, Operation::UpdateNode { cid: *cid, properties: update_props }).await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to add operation: {}", e)))?;
+                self.db.commit_transaction(txn_id).await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to commit transaction: {}", e)))?;
+            } else {
+                // Create new node
+                self.db.create_node(properties).await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to create node: {}", e)))?;
+            }
+
+            Ok(())
+        }
+
+        async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+            let nodes = self.db.find_nodes(&[("key".to_string(), Value::String(key.to_string()))]).await
+                .map_err(|e| KotobaError::Storage(format!("Failed to query KotobaDB: {}", e)))?;
+
+            if let Some((_, node)) = nodes.first() {
+                if let Some(Value::Bytes(value)) = node.properties.get("value") {
+                    Ok(Some(value.clone()))
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Ok(None)
+            }
+        }
+
+        async fn delete(&self, key: &str) -> Result<()> {
+            let nodes = self.db.find_nodes(&[("key".to_string(), Value::String(key.to_string()))]).await
+                .map_err(|e| KotobaError::Storage(format!("Failed to query KotobaDB: {}", e)))?;
+
+            if let Some((cid, _)) = nodes.first() {
+                let txn_id = self.db.begin_transaction().await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to begin transaction: {}", e)))?;
+                self.db.add_operation(txn_id, Operation::DeleteNode { cid: *cid }).await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to add operation: {}", e)))?;
+                self.db.commit_transaction(txn_id).await
+                    .map_err(|e| KotobaError::Storage(format!("Failed to commit transaction: {}", e)))?;
+            }
+
+            Ok(())
+        }
+
+        async fn exists(&self, key: &str) -> Result<bool> {
+            let nodes = self.db.find_nodes(&[("key".to_string(), Value::String(key.to_string()))]).await
+                .map_err(|e| KotobaError::Storage(format!("Failed to query KotobaDB: {}", e)))?;
+            Ok(!nodes.is_empty())
+        }
+
+        async fn list_keys(&self, prefix: Option<&str>) -> Result<Vec<String>> {
+            // For simplicity, return all keys (in a real implementation, this would be optimized)
+            // This is not efficient for large datasets
+            let all_keys = self.db.engine.scan(b"").await
+                .map_err(|e| KotobaError::Storage(format!("Failed to scan KotobaDB: {}", e)))?;
+
+            let mut keys = Vec::new();
+            for (key_bytes, _) in all_keys {
+                if let Ok(cid) = <[u8; 32]>::try_from(&key_bytes[..]) {
+                    if let Some(block) = self.db.get_block(&cid).await
+                        .map_err(|e| KotobaError::Storage(format!("Failed to get block: {}", e)))? {
+                        if let kotoba_db_core::types::Block::Node(node) = block {
+                            if let Some(Value::String(key_str)) = node.properties.get("key") {
+                                if let Some(prefix_str) = prefix {
+                                    if key_str.starts_with(prefix_str) {
+                                        keys.push(key_str.clone());
+                                    }
+                                } else {
+                                    keys.push(key_str.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(keys)
+        }
+
+        async fn get_stats(&self) -> Result<BackendStats> {
+            // Basic stats - in a real implementation, this would provide more detailed metrics
+            Ok(BackendStats {
+                total_keys: 0, // TODO: implement proper counting
+                total_size: 0,
+                read_operations: 0,
+                write_operations: 0,
+                cache_hit_rate: 0.0,
+                avg_response_time_ms: 0.0,
+            })
+        }
+    }
+}
+
 /// Storage backend types
 #[derive(Debug, Clone, PartialEq)]
 pub enum BackendType {
     RocksDB,
     Redis,
     ObjectStorage,
+    KotobaDB, // New graph-native database backend
 }
 
 /// Object storage provider types
@@ -63,6 +198,8 @@ pub struct StorageConfig {
     pub object_storage_client_id: Option<String>,
     pub object_storage_client_secret: Option<String>,
     pub object_storage_tenant_id: Option<String>,
+    /// KotobaDB path for graph-native storage
+    pub kotoba_db_path: Option<std::path::PathBuf>,
     /// Hybrid storage configuration
     pub hybrid_config: Option<HybridStorageConfig>,
 }
@@ -82,6 +219,7 @@ impl Default for StorageConfig {
             object_storage_client_id: None,
             object_storage_client_secret: None,
             object_storage_tenant_id: None,
+            kotoba_db_path: Some(std::path::PathBuf::from("./kotoba_db")),
             hybrid_config: None,
         }
     }
@@ -158,6 +296,21 @@ impl StorageBackendFactory {
                 Err(KotobaError::Storage(
                     "Object storage backend not available - compile with 'object_storage' feature".to_string()
                 ))
+            }
+            BackendType::KotobaDB => {
+                #[cfg(feature = "kotoba_db")]
+                {
+                    let path = config.kotoba_db_path.as_ref()
+                        .ok_or_else(|| KotobaError::Storage("KotobaDB path not configured".to_string()))?;
+                    let kotoba_db_backend = kotoba_db_backend::KotobaDBBackend::new(path).await?;
+                    Ok(Box::new(kotoba_db_backend))
+                }
+                #[cfg(not(feature = "kotoba_db"))]
+                {
+                    Err(KotobaError::Storage(
+                        "KotobaDB backend not available - compile with 'kotoba_db' feature".to_string()
+                    ))
+                }
             }
         }
     }
