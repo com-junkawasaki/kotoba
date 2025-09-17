@@ -5384,7 +5384,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-lsp"
-version = "0.1.0"
+version = "0.1.16"
 dependencies = [
  "dashmap 5.5.3",
  "kotoba-jsonnet",
