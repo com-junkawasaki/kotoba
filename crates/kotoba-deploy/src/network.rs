@@ -15,11 +15,11 @@ use tokio::time::interval;
 /// ネットワークマネージャー
 pub struct NetworkManager {
     /// リージョンマネージャー
-    region_manager: RegionManager,
+    region_manager: Arc<RwLock<RegionManager>>,
     /// エッジルーター
-    edge_router: EdgeRouter,
+    edge_router: Arc<RwLock<EdgeRouter>>,
     /// DNSマネージャー
-    dns_manager: DnsManager,
+    dns_manager: Arc<RwLock<DnsManager>>,
     /// ネットワークトポロジー
     topology: Arc<RwLock<NetworkTopology>>,
 }
@@ -283,18 +283,18 @@ impl NetworkManager {
     /// 新しいネットワークマネージャーを作成
     pub fn new() -> Self {
         Self {
-            region_manager: RegionManager::new(),
-            edge_router: EdgeRouter::new(),
-            dns_manager: DnsManager::new(),
+            region_manager: Arc::new(RwLock::new(RegionManager::new())),
+            edge_router: Arc::new(RwLock::new(EdgeRouter::new())),
+            dns_manager: Arc::new(RwLock::new(DnsManager::new())),
             topology: Arc::new(RwLock::new(NetworkTopology::new())),
         }
     }
 
     /// ネットワークマネージャーを初期化
-    pub async fn initialize(&mut self, config: &NetworkConfig) -> Result<()> {
+    pub async fn initialize(&self, config: &NetworkConfig) -> Result<()> {
         // リージョンを初期化
         for region in &config.regions {
-            self.region_manager.add_region(region.clone()).await?;
+            self.region_manager.write().unwrap().add_region(region.clone()).await?;
         }
 
         // エッジロケーションを初期化
@@ -317,10 +317,10 @@ impl NetworkManager {
         let client_location = self.estimate_client_location(client_ip).await?;
 
         // 最適なエッジロケーションを選択
-        let edge_location = self.edge_router.select_edge_location(&client_location, domain).await?;
+        let edge_location = self.edge_router.read().unwrap().select_edge_location(&client_location, domain).await?;
 
         // エッジロケーションから最適なリージョンを選択
-        let target_region = self.region_manager.select_optimal_region(&edge_location).await?;
+        let target_region = self.region_manager.read().unwrap().select_optimal_region(&edge_location).await?;
 
         Ok(target_region)
     }
@@ -330,19 +330,19 @@ impl NetworkManager {
         let mut status = NetworkHealthStatus::Healthy;
 
         // リージョンの健全性をチェック
-        let region_health = self.region_manager.check_health().await?;
+        let region_health = self.region_manager.read().unwrap().check_health().await?;
         if region_health != RegionHealthStatus::Healthy {
             status = NetworkHealthStatus::Degraded;
         }
 
         // エッジロケーションの健全性をチェック
-        let edge_health = self.edge_router.check_health().await?;
+        let edge_health = self.edge_router.read().unwrap().check_health().await?;
         if edge_health != EdgeHealthStatus::Healthy {
             status = NetworkHealthStatus::Degraded;
         }
 
         // DNSの健全性をチェック
-        let dns_health = self.dns_manager.check_health().await?;
+        let dns_health = self.dns_manager.read().unwrap().check_health().await?;
         if dns_health != DnsHealthStatus::Healthy {
             status = NetworkHealthStatus::Degraded;
         }
@@ -414,7 +414,7 @@ impl NetworkManager {
         ];
 
         for location in locations {
-            self.edge_router.add_edge_location(location).await?;
+            self.edge_router.write().unwrap().add_edge_location(location).await?;
         }
 
         Ok(())
@@ -423,13 +423,13 @@ impl NetworkManager {
     /// DNSを設定
     async fn configure_dns(&self, config: &NetworkConfig) -> Result<()> {
         for domain_config in &config.domains {
-            self.dns_manager.add_domain(&domain_config.domain).await?;
+            self.dns_manager.write().unwrap().add_domain(&domain_config.domain).await?;
         }
         Ok(())
     }
 
     /// CDNを設定
-    async fn configure_cdn(&mut self, cdn_config: &crate::config::CdnConfig) -> Result<()> {
+    async fn configure_cdn(&self, cdn_config: &crate::config::CdnConfig) -> Result<()> {
         let cdn = CdnConfig {
             provider: match cdn_config.provider {
                 crate::config::CdnProvider::Cloudflare => CdnProvider::Cloudflare,
@@ -448,14 +448,14 @@ impl NetworkManager {
             },
         };
 
-        self.dns_manager.set_cdn_config(cdn).await?;
+        self.dns_manager.write().unwrap().set_cdn_config(cdn).await?;
         Ok(())
     }
 
     /// ドメインをネットワークに追加
     pub async fn add_domain_to_network(&self, domain: &str, port: u16) -> Result<()> {
         // DNSレコードを追加
-        self.dns_manager.add_domain(domain).await?;
+        self.dns_manager.write().unwrap().add_domain(domain).await?;
 
         // 必要に応じてルーティングテーブルを更新
         // 実際の実装ではここでエッジロケーションへのルーティングを設定

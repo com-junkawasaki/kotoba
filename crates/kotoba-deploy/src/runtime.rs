@@ -290,6 +290,11 @@ impl RuntimeManager {
         Self { runtime }
     }
 
+    /// ランタイムへのアクセスを取得
+    pub fn runtime(&self) -> &Arc<DeployRuntime> {
+        &self.runtime
+    }
+
     /// デプロイメントを実行
     pub async fn deploy(&self, config: &DeployConfig, wasm_path: &Path) -> Result<String> {
         let runtime_config = RuntimeConfig::default();

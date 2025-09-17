@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotoba Runtime Demo</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        // Header Component
+        const Header = ({ title }) => {
+            return React.createElement('header', null,
+                React.createElement('h1', null, title)
+            );
+        };
+
+        // Button Component
+        const Button = ({ text, onClick }) => {
+            return React.createElement('button', { onClick }, text);
+        };
+
+        // App Component
+        const App = () => {
+            const [clickCount, setClickCount] = useState(0);
+
+            const handleClick = () => {
+                setClickCount(clickCount + 1);
+                alert(`Hello from Kotoba! Click count: ${clickCount + 1}`);
+            };
+
+            return React.createElement('div', null,
+                React.createElement(Header, { title: 'Kotoba App' }),
+                React.createElement(Button, {
+                    text: 'Click me',
+                    onClick: handleClick
+                }),
+                React.createElement('p', null, `Clicks: ${clickCount}`)
+            );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>
