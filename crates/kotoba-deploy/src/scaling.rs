@@ -223,10 +223,11 @@ impl ScalingEngine {
                 }
 
                 // スケーリング判定
+                let current_instance_count = *current_instances.read().unwrap();
                 if let Ok(Some(action)) = Self::determine_scaling_action(
                     &config,
                     &metrics_collector2,
-                    *current_instances.read().unwrap(),
+                    current_instance_count,
                 ).await {
                     match action {
                         ScalingAction::ScaleUp(reason) => {
@@ -360,6 +361,24 @@ impl ScalingEngine {
     pub fn get_scaling_history(&self) -> Vec<ScalingEvent> {
         self.scaling_history.read().unwrap().clone()
     }
+
+    /// スケールアップ
+    pub fn scale_up(&self) {
+        let mut current = self.current_instances.write().unwrap();
+        if *current < self.config.max_instances {
+            *current += 1;
+            println!("⬆️  Scaled up to {} instances", *current);
+        }
+    }
+
+    /// スケールダウン
+    pub fn scale_down(&self) {
+        let mut current = self.current_instances.write().unwrap();
+        if *current > self.config.min_instances {
+            *current -= 1;
+            println!("⬇️  Scaled down to {} instances", *current);
+        }
+    }
 }
 
 /// スケーリングアクション
@@ -443,28 +462,6 @@ impl MetricsCollector {
         Ok(sum / metrics_data.len() as f64)
     }
 
-    /// スケールアップ
-    pub fn scale_up(&self) {
-        let mut current = self.current_instances.write().unwrap();
-        if *current < self.config.max_instances {
-            *current += 1;
-            println!("⬆️  Scaled up to {} instances", *current);
-        }
-    }
-
-    /// スケールダウン
-    pub fn scale_down(&self) {
-        let mut current = self.current_instances.write().unwrap();
-        if *current > self.config.min_instances {
-            *current -= 1;
-            println!("⬇️  Scaled down to {} instances", *current);
-        }
-    }
-
-    /// 現在のインスタンス数を取得
-    pub fn get_current_instances(&self) -> u32 {
-        *self.current_instances.read().unwrap()
-    }
 
     /// 古いメトリクスをクリーンアップ
     fn cleanup_old_metrics(&self) {

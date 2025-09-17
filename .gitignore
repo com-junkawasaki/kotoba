@@ -1,4 +1,6 @@
 /target
+/target-runtime
+/target-test
 
 # Nix
 result
@@ -21,3 +23,4 @@ Thumbs.db
 
 # Logs
 *.log
+

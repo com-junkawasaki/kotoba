@@ -2098,15 +2098,18 @@ name = "kotoba-distributed"
 version = "0.1.15"
 dependencies = [
  "anyhow",
+ "kotoba-cid",
  "kotoba-core",
  "kotoba-execution",
  "kotoba-graph",
  "kotoba-rewrite",
  "serde",
+ "serde_json",
  "thiserror 2.0.16",
  "tokio",
  "tokio-test",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

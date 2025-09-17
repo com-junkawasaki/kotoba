@@ -3,6 +3,7 @@
 use super::*;
 use kotoba_execution::prelude::GqlParser;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// 分散計画
 #[derive(Debug)]
@@ -82,14 +83,7 @@ impl DistributedEngine {
                     r#type: v.labels.first().cloned().unwrap_or_else(|| "unknown".to_string()),
                     ports: vec![], // 簡易版
                     attrs: Some(v.props.iter().map(|(k, v)| {
-                        let json_value = match v {
-                            kotoba_core::types::Value::Null => serde_json::Value::Null,
-                            kotoba_core::types::Value::Bool(b) => serde_json::Value::Bool(*b),
-                            kotoba_core::types::Value::Int(i) => serde_json::Value::Number((*i).into()),
-                            kotoba_core::types::Value::Integer(i) => serde_json::Value::Number((*i).into()),
-                            kotoba_core::types::Value::String(s) => serde_json::Value::String(s.clone()),
-                        };
-                        (k.clone(), json_value)
+                        (k.clone(), v.clone())
                     }).collect()),
                     component_ref: None,
                 }).collect(),
@@ -100,14 +94,7 @@ impl DistributedEngine {
                     src: e.src.to_string(),
                     tgt: e.dst.to_string(),
                     attrs: Some(e.props.iter().map(|(k, v)| {
-                        let json_value = match v {
-                            kotoba_core::types::Value::Null => serde_json::Value::Null,
-                            kotoba_core::types::Value::Bool(b) => serde_json::Value::Bool(*b),
-                            kotoba_core::types::Value::Int(i) => serde_json::Value::Number((*i).into()),
-                            kotoba_core::types::Value::Integer(i) => serde_json::Value::Number((*i).into()),
-                            kotoba_core::types::Value::String(s) => serde_json::Value::String(s.clone()),
-                        };
-                        (k.clone(), json_value)
+                        (k.clone(), v.clone())
                     }).collect()),
                 }).collect(),
                 boundary: None,
@@ -518,8 +505,16 @@ impl DistributedEngine {
                         cid: Cid::new(&format!("result_{}", uuid::Uuid::new_v4())),
                         typing: None,
                     },
-                    m_l: Default::default(),
-                    m_r: Default::default(),
+                    m_l: Morphisms {
+                        node_map: HashMap::new(),
+                        edge_map: HashMap::new(),
+                        port_map: HashMap::new(),
+                    },
+                    m_r: Morphisms {
+                        node_map: HashMap::new(),
+                        edge_map: HashMap::new(),
+                        port_map: HashMap::new(),
+                    },
                     nacs: vec![],
                     app_cond: None,
                     effects: None,

@@ -45,7 +45,6 @@ impl DeployConfigParser {
         todo!("Implement deploy config parsing without kotoba-kotobanet")
     }
 
-    /// kotoba-kotobanet::DeployConfig を Kotoba の DeployConfig に変換
     // Commented out due to kotoba-kotobanet stability issues
     // fn convert_from_kotobanet_config(kotobanet_config: kotoba_kotobanet::DeployConfig) -> Result<DeployConfig> {
     //     // 基本的な変換を行う（必要に応じて拡張）

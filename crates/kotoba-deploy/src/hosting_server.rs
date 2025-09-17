@@ -3,7 +3,7 @@
 //! このモジュールはデプロイされたアプリケーションをホストするHTTPサーバーを提供します。
 //! WebAssemblyランタイムと統合され、グローバル分散実行を実現します。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::{Result, Value, KotobaError};
 use crate::controller::DeployController;
 use crate::runtime::{DeployRuntime, RuntimeManager};
 use crate::scaling::LoadBalancer;
@@ -124,7 +124,8 @@ impl HostingServer {
         port: u16,
     ) -> Result<String> {
         let app_id = format!("app-{}-{}", deployment_id, SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)?
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(|e| KotobaError::Execution(format!("Failed to get system time: {}", e)))?
             .as_secs());
 
         let hosted_app = HostedApp {
@@ -360,6 +361,11 @@ impl HostingManager {
             total_requests,
             active_connections: 0, // 実際の実装でカウント
         }
+    }
+
+    /// ホストされたアプリケーションを取得
+    pub fn get_hosted_apps(&self) -> std::sync::RwLockReadGuard<HashMap<String, HostedApp>> {
+        self.hosting_server.get_hosted_apps()
     }
 }
 

@@ -2,15 +2,6 @@
 
 use super::*;
 
-impl Default for crate::schema::Morphisms {
-    fn default() -> Self {
-        Self {
-            node_map: HashMap::new(),
-            edge_map: HashMap::new(),
-            port_map: HashMap::new(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

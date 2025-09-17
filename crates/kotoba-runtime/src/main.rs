@@ -28,6 +28,9 @@ async fn main() -> Result<()> {
 
     println!("✅ Configuration parsed successfully!");
     println!("📦 Found {} components.", frontend_config.components.len());
+    for (name, component) in &frontend_config.components {
+        println!("DEBUG: Component '{}' has render: '{}'", name, component.render);
+    }
     println!("📄 Found {} pages.", frontend_config.pages.len());
     println!("🔗 Found {} API routes.", frontend_config.api_routes.len());
 

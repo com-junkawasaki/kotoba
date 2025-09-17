@@ -268,7 +268,7 @@ impl DeployController {
             .as_secs();
 
         let vertex_data = VertexData {
-            id: deployment_id.to_string(),
+            id: deployment_id,
             labels: vec!["Deployment".to_string()],
             props: HashMap::from([
                 ("name".to_string(), Value::String(config.metadata.name.clone())),

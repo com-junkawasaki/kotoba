@@ -4,6 +4,7 @@
 //! プッシュやプルリクエストなどのイベントに基づいて自動デプロイを実行します。
 
 use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_core::prelude::KotobaError;
 use crate::config::{DeployConfig, RuntimeType};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -49,6 +50,7 @@ pub struct WebhookHandler {
 }
 
 /// 自動デプロイマネージャー
+#[derive(Clone)]
 pub struct AutoDeployManager {
     /// デプロイスクリプト
     pub deploy_scripts: HashMap<String, DeployScript>,
@@ -274,7 +276,7 @@ impl GitIntegration {
     }
 
     /// GitHub統合を初期化
-    pub async fn initialize(&self) -> Result<()> {
+    pub async fn initialize(&mut self) -> Result<()> {
         // Webhookを設定
         self.setup_webhooks().await?;
 
@@ -313,7 +315,7 @@ impl GitIntegration {
     }
 
     /// 自動デプロイを設定
-    async fn setup_auto_deploy(&self) -> Result<()> {
+    async fn setup_auto_deploy(&mut self) -> Result<()> {
         // デフォルトのデプロイスクリプトを設定
         let deploy_script = DeployScript {
             name: "default-deploy".to_string(),
@@ -477,7 +479,8 @@ echo "Deployment completed successfully"
             .unwrap_or(&payload.ref_field);
 
         let record = DeploymentRecord {
-            id: format!("deploy-{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)?.as_secs()),
+            id: format!("deploy-{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                .map_err(|e| KotobaError::Execution(format!("Failed to get system time: {}", e)))?.as_secs()),
             commit_sha: payload.commits.last()
                 .map(|c| c.id.clone())
                 .unwrap_or_else(|| "unknown".to_string()),

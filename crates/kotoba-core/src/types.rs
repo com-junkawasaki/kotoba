@@ -132,3 +132,9 @@ impl From<kotoba_security::SecurityError> for KotobaError {
         }
     }
 }
+
+impl From<std::time::SystemTimeError> for KotobaError {
+    fn from(error: std::time::SystemTimeError) -> Self {
+        KotobaError::InvalidArgument(format!("System time error: {}", error))
+    }
+}

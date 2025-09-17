@@ -191,7 +191,7 @@ pub enum GraphKind {
 }
 
 /// 写像定義
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Morphisms {
     pub node_map: HashMap<String, String>, // fromCID -> toCID

@@ -4,10 +4,10 @@
 //! CIDベースのキャッシュとタスク分散により、高いパフォーマンスを実現します。
 
 use kotoba_core::prelude::*;
-use kotoba_core::types::{GraphInstance, GraphCore, GraphKind, RuleDPO, Id, Cid, CidManager, GqlParser, PlanIR};
 use kotoba_graph::prelude::*;
 use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::RewriteEngine;
+use kotoba_cid::*;
 use serde_json;
 use std::collections::HashMap;
 use std::sync::Arc;

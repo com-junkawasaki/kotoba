@@ -291,7 +291,7 @@ impl NetworkManager {
     }
 
     /// ネットワークマネージャーを初期化
-    pub async fn initialize(&self, config: &NetworkConfig) -> Result<()> {
+    pub async fn initialize(&mut self, config: &NetworkConfig) -> Result<()> {
         // リージョンを初期化
         for region in &config.regions {
             self.region_manager.add_region(region.clone()).await?;
@@ -429,7 +429,7 @@ impl NetworkManager {
     }
 
     /// CDNを設定
-    async fn configure_cdn(&self, cdn_config: &crate::config::CdnConfig) -> Result<()> {
+    async fn configure_cdn(&mut self, cdn_config: &crate::config::CdnConfig) -> Result<()> {
         let cdn = CdnConfig {
             provider: match cdn_config.provider {
                 crate::config::CdnProvider::Cloudflare => CdnProvider::Cloudflare,
@@ -449,6 +449,18 @@ impl NetworkManager {
         };
 
         self.dns_manager.set_cdn_config(cdn).await?;
+        Ok(())
+    }
+
+    /// ドメインをネットワークに追加
+    pub async fn add_domain_to_network(&self, domain: &str, port: u16) -> Result<()> {
+        // DNSレコードを追加
+        self.dns_manager.add_domain(domain).await?;
+
+        // 必要に応じてルーティングテーブルを更新
+        // 実際の実装ではここでエッジロケーションへのルーティングを設定
+
+        println!("🌐 Added domain {} to network on port {}", domain, port);
         Ok(())
     }
 }

@@ -373,7 +373,9 @@ impl TsxGenerator {
         code.push_str("  return (\n");
 
         // Generate JSX from render template
+        eprintln!("DEBUG: component.render = {:?}", component.render);
         let jsx = self.generate_jsx_from_render_template(&component.render, 4)?;
+        eprintln!("DEBUG: generated jsx = {:?}", jsx);
         code.push_str(&jsx);
         code.push('\n');
 
@@ -407,9 +409,32 @@ impl TsxGenerator {
     fn generate_jsx_from_render_template(&self, render_template: &str, indent: usize) -> Result<String> {
         let indent_str = " ".repeat(indent);
 
-        // For now, treat the render template as raw JSX
-        // TODO: Implement proper template parsing and variable substitution
-        let jsx = format!("{}  {}", indent_str, render_template);
+        // Parse the JSX template and convert to proper JSX
+        // For now, convert simple HTML-like tags to JSX
+        let jsx = self.parse_jsx_template(render_template, indent)?;
+        Ok(jsx)
+    }
+
+    /// Parse JSX template and convert to React JSX
+    fn parse_jsx_template(&self, template: &str, indent: usize) -> Result<String> {
+        let indent_str = " ".repeat(indent);
+
+        // Remove surrounding quotes if present
+        let clean_template = template.trim_matches('"');
+
+        // Basic JSX template parser for .kotobanet render field
+        // Convert simple HTML/JSX template to React JSX
+        let jsx = self.convert_template_to_jsx(&clean_template, indent)?;
+        Ok(jsx)
+    }
+
+    /// Convert template string to JSX
+    fn convert_template_to_jsx(&self, template: &str, indent: usize) -> Result<String> {
+        let indent_str = " ".repeat(indent);
+
+        // For now, just return the template as-is with proper indentation
+        // In a full implementation, this would parse the JSX and resolve component references
+        let jsx = format!("{}{}", indent_str, template);
         Ok(jsx)
     }
 

@@ -279,6 +279,7 @@ impl Default for RuntimeConfig {
 }
 
 /// ランタイムマネージャー（統合インターフェース）
+#[derive(Clone)]
 pub struct RuntimeManager {
     runtime: Arc<DeployRuntime>,
 }

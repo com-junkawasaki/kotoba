@@ -173,7 +173,7 @@ impl HostingManager {
         self.update_phase(deployment_id, LifecyclePhase::Stopping).await?;
 
         // アプリケーションを停止
-        let apps = self.hosting_manager_inner.hosting_server.get_hosted_apps();
+        let apps = self.hosting_manager_inner.get_hosted_apps();
         for (app_id, app) in apps.iter() {
             if app.deployment_id == deployment_id {
                 self.hosting_manager_inner.unhost_deployment(app_id)?;
@@ -387,16 +387,21 @@ impl HostingManager {
 
     /// 自動スケーリングを実行
     async fn perform_auto_scaling(&self) -> Result<()> {
-        let states = self.deployment_states.read().unwrap();
+        // Collect deployment data first to avoid holding the lock across await points
+        let deployment_data: Vec<(String, LifecyclePhase, f64)> = {
+            let states = self.deployment_states.read().unwrap();
+            states.iter()
+                .filter(|(_, lifecycle)| lifecycle.phase == LifecyclePhase::Running)
+                .map(|(id, lifecycle)| (id.clone(), lifecycle.phase.clone(), lifecycle.metrics.cpu_usage))
+                .collect()
+        };
 
-        for (deployment_id, lifecycle) in states.iter() {
-            if lifecycle.phase == LifecyclePhase::Running {
-                // CPU使用率に基づくスケーリング判定
-                if lifecycle.metrics.cpu_usage > 80.0 {
-                    self.scale_deployment(deployment_id, self.scaling_engine.get_current_instances() + 1).await?;
-                } else if lifecycle.metrics.cpu_usage < 30.0 && self.scaling_engine.get_current_instances() > 1 {
-                    self.scale_deployment(deployment_id, self.scaling_engine.get_current_instances() - 1).await?;
-                }
+        for (deployment_id, _, cpu_usage) in deployment_data {
+            // CPU使用率に基づくスケーリング判定
+            if cpu_usage > 80.0 {
+                self.scale_deployment(&deployment_id, self.scaling_engine.get_current_instances() + 1).await?;
+            } else if cpu_usage < 30.0 && self.scaling_engine.get_current_instances() > 1 {
+                self.scale_deployment(&deployment_id, self.scaling_engine.get_current_instances() - 1).await?;
             }
         }
 
