@@ -407,17 +407,17 @@ impl LanguageParser for PythonParser {
             .map_err(|e| DocsError::Parse(format!("Regex error: {}", e)))?;
 
         // 関数定義を抽出
-        let fn_regex = Regex::new(r"(?:(?:\"\"\"[\s\S]*?\"\"\"\s*)?\s*)?def\s+(\w+)\s*\(([^)]*)\)")
-            .map_err(|e| DocsError::Parse(format!("Regex error: {}", e)))?;
+        let fn_regex = Regex::new(r"def\s+(\w+)\s*\(")
+            .map_err(|e| DocsError::Regex(e))?;
 
         // クラス定義を抽出
-        let class_regex = Regex::new(r"(?:(?:\"\"\"[\s\S]*?\"\"\"\s*)?\s*)?class\s+(\w+)")
-            .map_err(|e| DocsError::Parse(format!("Regex error: {}", e)))?;
+        let class_regex = Regex::new(r"class\s+(\w+)")
+            .map_err(|e| DocsError::Regex(e))?;
 
         // 関数をパース
         for cap in fn_regex.captures_iter(&content) {
             let name = cap.get(1).unwrap().as_str().to_string();
-            let params = cap.get(2).unwrap().as_str().to_string();
+            let params = "".to_string(); // パラメータは後で実装
             let docs = extract_python_docstring_before(&content, cap.get(0).unwrap().start());
 
             let item = DocItem::new(name.clone(), DocType::Function, docs)

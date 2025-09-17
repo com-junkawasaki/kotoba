@@ -185,7 +185,7 @@ impl ConfigManager {
         let content = fs::read_to_string(path)
             .map_err(|e| DocsError::Config(format!("Failed to read Cargo.toml: {}", e)))?;
 
-        let value: toml::from_str::<toml::Value>(&content)
+        let value: toml::Value = toml::from_str(&content)
             .map_err(|e| DocsError::Config(format!("Failed to parse Cargo.toml: {}", e)))?;
 
         Ok(value)
