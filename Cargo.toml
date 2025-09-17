@@ -17,6 +17,8 @@ members = [
     "crates/kotoba-deploy-network",
     "crates/kotoba-deploy-hosting",
     "crates/kotoba-deploy-scaling",
+    "crates/kotoba-deploy-controller",
+    "crates/kotoba-deploy-runtime",
     ".", "crates/kotoba-lsp",  # Root crate
 ]
 resolver = "2"
@@ -60,7 +62,7 @@ digest = "0.10.7"
 
 # Kotoba internal crates
 kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }
-# kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" } # Temporarily disabled to break circular dependency
+kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" }
 kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.15" }
 kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }
 kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.15" }

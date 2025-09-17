@@ -1,0 +1,35 @@
+[package]
+name = "kotoba-deploy-controller"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deployment controller for Kotoba deployment system"
+keywords = ["deployment", "controller", "orchestration", "kubernetes", "docker"]
+categories = ["concurrency", "algorithms", "development-tools"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy-controller"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba dependencies
+kotoba-core = { workspace = true }
+kotoba-graph = { workspace = true }
+kotoba-execution = { workspace = true }
+kotoba-rewrite = { workspace = true }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.15" }
+kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.15" }
+kotoba-deploy-git = { path = "../kotoba-deploy-git", version = "0.1.15" }
+
+# Common dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
+
+# Utilities
+tempfile.workspace = true

@@ -1,0 +1,33 @@
+[package]
+name = "kotoba-deploy-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Runtime management for Kotoba deployment system"
+keywords = ["runtime", "process", "container", "docker", "orchestration"]
+categories = ["concurrency", "algorithms", "development-tools"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy-runtime"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba dependencies
+kotoba-core = { workspace = true }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.15" }
+
+# Common dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full", "process"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
+
+# Runtime dependencies
+sysinfo = "0.30"
+
+# Utilities
+tempfile.workspace = true

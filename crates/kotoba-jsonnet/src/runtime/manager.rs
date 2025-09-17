@@ -3,11 +3,18 @@
 use crate::error::Result;
 use crate::value::JsonnetValue;
 use super::external::*;
+use crate::evaluator::ExternalHandler;
 use std::collections::HashMap;
 
 /// Manager for external function handlers
 pub struct RuntimeManager {
     handlers: HashMap<String, Box<dyn ExternalHandler>>,
+}
+
+impl ExternalHandler for RuntimeManager {
+    fn call_external_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        self.call_external_function(name, args)
+    }
 }
 
 impl RuntimeManager {

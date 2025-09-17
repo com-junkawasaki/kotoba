@@ -74,65 +74,34 @@ impl HttpHandler {
 }
 
 /// AI model handler for ai.callModel function
-pub struct AiModelHandler {
-    http_handler: HttpHandler,
-}
+pub struct AiModelHandler;
 
 impl AiModelHandler {
     pub fn new() -> Self {
-        AiModelHandler {
-            http_handler: HttpHandler::new(),
-        }
+        AiModelHandler
     }
 }
 
-#[async_trait::async_trait]
-impl ExternalHandler for AiModelHandler {
-    fn namespace(&self) -> &str {
-        "ai"
-    }
-
-    async fn call(&mut self, function: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        match function {
-            "callModel" => self.call_model(args).await,
-            _ => Err(JsonnetError::runtime_error(format!("Unknown AI function: {}", function))),
+impl super::super::evaluator::ExternalHandler for AiModelHandler {
+    fn call_external_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        match name {
+            "ai.callModel" => self.call_model(args),
+            _ => Err(JsonnetError::runtime_error(format!("Unknown AI function: {}", name))),
         }
     }
 }
 
 impl AiModelHandler {
-    async fn call_model(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+    fn call_model(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         if args.len() < 2 {
             return Err(JsonnetError::runtime_error("callModel requires at least two arguments (model, messages)"));
         }
 
         let model = args[0].as_string()?;
         let messages = args[1].as_array()?;
-        let options = if args.len() > 2 {
-            args[2].as_object()?.clone()
-        } else {
-            HashMap::new()
-        };
 
-        // For now, simulate different AI models
-        // In real implementation, this would call actual AI APIs
-        match model.as_str() {
-            "gpt-3.5-turbo" | "gpt-4" => self.call_openai_like_model(&model, messages, &options).await,
-            "claude-2" | "claude-3" => self.call_anthropic_like_model(&model, messages, &options).await,
-            _ => {
-                let result = serde_json::json!({
-                    "model": model,
-                    "response": format!("Mock response from {}", model),
-                    "usage": { "tokens": 42 }
-                });
-                Ok(JsonnetValue::from_json_value(&result))
-            }
-        }
-    }
-
-    async fn call_openai_like_model(&mut self, model: &str, messages: &Vec<JsonnetValue>, options: &HashMap<String, JsonnetValue>) -> Result<JsonnetValue> {
-        // Mock OpenAI API call
-        let response_text = "This is a mock response from an OpenAI-like model.".to_string();
+        // Mock AI model response
+        let response_text = format!("This is a mock response from {} model. Received {} messages.", model, messages.len());
 
         let result = serde_json::json!({
             "model": model,
@@ -141,23 +110,8 @@ impl AiModelHandler {
                 "prompt_tokens": 10,
                 "completion_tokens": 20,
                 "total_tokens": 30
-            }
-        });
-
-        Ok(JsonnetValue::from_json_value(&result))
-    }
-
-    async fn call_anthropic_like_model(&mut self, model: &str, messages: &Vec<JsonnetValue>, options: &HashMap<String, JsonnetValue>) -> Result<JsonnetValue> {
-        // Mock Anthropic API call
-        let response_text = "This is a mock response from an Anthropic-like model.".to_string();
-
-        let result = serde_json::json!({
-            "model": model,
-            "response": response_text,
-            "usage": {
-                "input_tokens": 15,
-                "output_tokens": 25
-            }
+            },
+            "note": "This is a mock response. Real AI calls require async runtime."
         });
 
         Ok(JsonnetValue::from_json_value(&result))
@@ -173,22 +127,17 @@ impl ToolHandler {
     }
 }
 
-#[async_trait::async_trait]
-impl ExternalHandler for ToolHandler {
-    fn namespace(&self) -> &str {
-        "tool"
-    }
-
-    async fn call(&mut self, function: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        match function {
-            "execute" => self.execute(args).await,
-            _ => Err(JsonnetError::runtime_error(format!("Unknown tool function: {}", function))),
+impl super::super::evaluator::ExternalHandler for ToolHandler {
+    fn call_external_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        match name {
+            "tool.execute" => self.execute(args),
+            _ => Err(JsonnetError::runtime_error(format!("Unknown tool function: {}", name))),
         }
     }
 }
 
 impl ToolHandler {
-    async fn execute(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+    fn execute(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         if args.is_empty() {
             return Err(JsonnetError::runtime_error("execute requires at least one argument (command)"));
         }
@@ -200,37 +149,18 @@ impl ToolHandler {
             Vec::new()
         };
 
-        // Execute command
-        match Command::new(&command).args(&cmd_args).output() {
-            Ok(output) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                let success = output.status.success();
+        // Mock command execution (for security and simplicity)
+        let result = serde_json::json!({
+            "command": command,
+            "args": cmd_args,
+            "stdout": format!("Mock execution of: {} {:?}", command, cmd_args),
+            "stderr": "",
+            "success": true,
+            "exit_code": 0,
+            "note": "This is a mock response. Real command execution requires security review."
+        });
 
-                let result = serde_json::json!({
-                    "command": command,
-                    "args": cmd_args,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                    "success": success,
-                    "exit_code": output.status.code()
-                });
-
-                Ok(JsonnetValue::from_json_value(&result))
-            }
-            Err(e) => {
-                let result = serde_json::json!({
-                    "command": command,
-                    "args": cmd_args,
-                    "stdout": "",
-                    "stderr": e.to_string(),
-                    "success": false,
-                    "exit_code": null
-                });
-
-                Ok(JsonnetValue::from_json_value(&result))
-            }
-        }
+        Ok(JsonnetValue::from_json_value(&result))
     }
 }
 
@@ -247,23 +177,18 @@ impl MemoryHandler {
     }
 }
 
-#[async_trait::async_trait]
-impl ExternalHandler for MemoryHandler {
-    fn namespace(&self) -> &str {
-        "memory"
-    }
-
-    async fn call(&mut self, function: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        match function {
-            "get" => self.get(args).await,
-            "set" => self.set(args).await,
-            _ => Err(JsonnetError::runtime_error(format!("Unknown memory function: {}", function))),
+impl super::super::evaluator::ExternalHandler for MemoryHandler {
+    fn call_external_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        match name {
+            "memory.get" => self.get(args),
+            "memory.set" => self.set(args),
+            _ => Err(JsonnetError::runtime_error(format!("Unknown memory function: {}", name))),
         }
     }
 }
 
 impl MemoryHandler {
-    async fn get(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+    fn get(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         if args.is_empty() {
             return Err(JsonnetError::runtime_error("get requires one argument (key)"));
         }
@@ -280,7 +205,7 @@ impl MemoryHandler {
         Ok(JsonnetValue::from_json_value(&result))
     }
 
-    async fn set(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+    fn set(&mut self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
         if args.len() < 2 {
             return Err(JsonnetError::runtime_error("set requires two arguments (key, value)"));
         }
