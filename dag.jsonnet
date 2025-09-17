@@ -997,15 +997,15 @@
       build_order: 18,
     },
 
-    // スケーリング拡張（準備中）
+    // スケーリング拡張（完了）
     'deploy_scaling_core': {
       name: 'deploy_scaling_core',
       path: 'crates/kotoba-deploy-scaling/src/lib.rs',
       type: 'deploy_scaling',
-      description: 'AI予測スケーリングエンジン - トラフィック予測、コスト最適化',
+      description: 'AI予測スケーリングエンジン - トラフィック予測、コスト最適化、異常検知',
       dependencies: ['types', 'deploy_config', 'graph_core'],
-      provides: ['ScalingEngine', 'LoadBalancer', 'AutoScaler', 'PredictiveScaler'],
-      status: 'pending',
+      provides: ['PredictiveScaler', 'CostOptimizer', 'AdvancedMetricsAnalyzer', 'IntegratedScalingManager'],
+      status: 'completed',
       build_order: 19,
     },
 
@@ -1862,12 +1862,89 @@
 
   metadata: {
     project_name: 'Kotoba',
-    description: 'GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム',
+    description: 'GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム + 高度なデプロイ拡張機能',
     version: '0.1.0',
     architecture: 'Process Network Graph Model',
     created_at: '2025-01-12',
     last_updated: std.extVar('last_updated'),
     author: 'jun784',
+
+    deploy_extensions: {
+      description: '高度なデプロイメント拡張機能群',
+      version: '0.1.0',
+      last_updated: '2025-09-17',
+
+      cli_extension: {
+        name: 'CLI拡張',
+        description: '完全なデプロイメント管理CLI - 設定ファイル処理、進捗バー、詳細オプション',
+        components: [
+          'deploy_cli_core',
+          'deploy_cli_binary'
+        ],
+        features: [
+          'デプロイメント設定管理',
+          '進捗バー表示',
+          'JSON/YAML/人間可読形式出力',
+          '設定ファイル自動生成',
+          'デプロイメント履歴管理',
+          'ステータス監視'
+        ],
+        status: 'completed'
+      },
+
+      controller_extension: {
+        name: 'コントローラー拡張',
+        description: '高度なデプロイコントローラー - ロールバック、ブルーグリーン、カナリアデプロイ',
+        components: [
+          'deploy_controller_core'
+        ],
+        features: [
+          'ロールバック機能',
+          'ブルーグリーンデプロイ',
+          'カナリアデプロイ',
+          'デプロイメント履歴管理',
+          'ヘルスチェック統合',
+          '自動ロールバック'
+        ],
+        status: 'completed'
+      },
+
+      network_extension: {
+        name: 'ネットワーク拡張',
+        description: '高度なネットワークマネージャー - CDN統合、セキュリティ、エッジ最適化',
+        components: [
+          'deploy_network_core'
+        ],
+        features: [
+          'CDN統合 (Cloudflare, AWS CloudFront)',
+          'レートリミッティング',
+          'WAF (Web Application Firewall)',
+          'DDoS対策',
+          'SSL/TLS証明書自動管理',
+          '地理情報ベース最適化',
+          'エッジ最適化',
+          'キャッシュ管理'
+        ],
+        status: 'completed'
+      },
+
+      scaling_extension: {
+        name: 'スケーリング拡張',
+        description: 'AI予測スケーリングエンジン - トラフィック予測、コスト最適化',
+        components: [
+          'deploy_scaling_core'
+        ],
+        features: [
+          'AIトラフィック予測',
+          '自動スケーリング',
+          'コスト最適化',
+          'パフォーマンス監視',
+          'インテリジェントスケーリング',
+          '負荷分散最適化'
+        ],
+        status: 'pending'
+      }
+    },
     jsonnet_compatibility: {
       version: '0.21.0',
       implementation: 'pure_rust',

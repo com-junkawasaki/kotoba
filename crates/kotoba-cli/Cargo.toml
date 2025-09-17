@@ -22,6 +22,8 @@ kotoba-server = { path = "../kotoba-server" }
 kotoba-deploy = { path = "../kotoba-deploy", optional = true }
 kotoba-package-manager = { path = "../kotoba-package-manager" }
 kotoba-formatter = { path = "../kotoba-formatter" }
+kotoba-linter = { path = "../kotoba-linter" }
+kotoba-tester = { path = "../kotoba-tester" }
 
 # CLI framework
 clap = { version = "4.0", features = ["derive"] }

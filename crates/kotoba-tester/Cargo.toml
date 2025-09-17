@@ -1,0 +1,35 @@
+[package]
+name = "kotoba-tester"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kotoba Test Runner - Testing framework for .kotoba files"
+keywords = ["testing", "test-runner", "kotoba", "assertions", "bdd"]
+categories = ["development-tools", "testing"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+regex = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+parking_lot = "0.12"
+dirs = { workspace = true }
+toml = "0.8"
+chrono = { workspace = true }
+uuid = { workspace = true }
+colored = "2.0"
+console = "0.15"
+dialoguer = "0.11"
+indicatif = "0.17"
+
+# Kotoba ecosystem
+kotoba-core = { path = "../kotoba-core", version = "0.1.17" }
+# kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
+
+[dev-dependencies]
+tokio-test = "0.4"

@@ -49,6 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Lint { files, config, fix } => {
             run_command::execute_lint(files, config, fix).await
         }
+        Commands::Test { files, filter, verbose, coverage, format } => {
+            run_command::execute_test(files, filter, verbose, coverage, format).await
+        }
         Commands::Repl => {
             run_command::execute_repl().await
         }
@@ -222,11 +225,112 @@ mod run_command {
     }
 
     pub async fn execute_lint(
-        _files: Vec<std::path::PathBuf>,
-        _config: Option<std::path::PathBuf>,
-        _fix: bool,
+        files: Vec<std::path::PathBuf>,
+        config: Option<std::path::PathBuf>,
+        fix: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Linting files... (not implemented yet)");
+        use kotoba_linter::{lint_files, lint_directory, Reporter, DiagnosticSummary, OutputFormat};
+
+        if fix {
+            println!("🔧 Auto-fix is not implemented yet. Use --fix flag when available.");
+            return Ok(());
+        }
+
+        // リンターモジュールの初期化
+        let mut linter = if let Some(config_path) = config {
+            // カスタム設定ファイルを使用
+            println!("Using config file: {}", config_path.display());
+            kotoba_linter::Linter::from_config_file().await?
+        } else {
+            kotoba_linter::Linter::default()
+        };
+
+        let results = if files.is_empty() {
+            // ディレクトリ全体をチェック
+            let current_dir = std::path::PathBuf::from(".");
+            println!("Linting directory: {}", current_dir.display());
+            lint_directory(current_dir).await?
+        } else {
+            // 指定されたファイルをチェック
+            println!("Linting {} files...", files.len());
+            lint_files(files).await?
+        };
+
+        // 結果のレポート
+        let mut reporter = Reporter::new(OutputFormat::Pretty);
+        reporter.report_results(&results)?;
+
+        // サマリーの表示
+        let summary = DiagnosticSummary::from_results(&results);
+        summary.print();
+
+        // エラーがあれば終了コード1で終了
+        if summary.errors > 0 {
+            std::process::exit(1);
+        }
+
+        Ok(())
+    }
+
+    pub async fn execute_test(
+        files: Vec<std::path::PathBuf>,
+        filter: Option<String>,
+        verbose: bool,
+        coverage: bool,
+        format: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use kotoba_tester::{TestRunner, TestConfig, Reporter, CoverageReporter, CoverageFormat};
+
+        // 設定を作成
+        let mut config = TestConfig::default();
+        config.filter = filter;
+        config.verbose = verbose;
+        config.coverage = coverage;
+
+        // テストランナーを作成
+        let mut runner = TestRunner::new(config);
+
+        // テストを実行
+        let patterns: Vec<String> = if files.is_empty() {
+            vec![".".to_string()]
+        } else {
+            files.iter().map(|p| p.to_string_lossy().to_string()).collect()
+        };
+
+        let results = runner.run(patterns).await?;
+
+        // レポート形式を決定
+        let report_format = match format.as_str() {
+            "json" => kotoba_tester::ReportFormat::Json,
+            "junit" => kotoba_tester::ReportFormat::Junit,
+            "tap" => kotoba_tester::ReportFormat::Tap,
+            _ => kotoba_tester::ReportFormat::Pretty,
+        };
+
+        // 結果をレポート
+        let mut reporter = Reporter::new(report_format);
+        reporter.report_suites(&results)?;
+
+        // カバレッジレポート
+        if coverage {
+            use kotoba_tester::{CoverageCollector, CoverageReporter};
+
+            let mut collector = CoverageCollector::new();
+            collector.collect_from_suites(&results)?;
+            let coverage_report = collector.generate_report();
+
+            let coverage_reporter = CoverageReporter::new(CoverageFormat::Console);
+            coverage_reporter.report(&coverage_report)?;
+        }
+
+        // サマリーを表示
+        runner.print_summary();
+
+        // 失敗したテストがあれば終了コード1で終了
+        if runner.get_stats().failed > 0 {
+            std::process::exit(1);
+        }
+
         Ok(())
     }
 

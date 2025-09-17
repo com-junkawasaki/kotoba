@@ -9,7 +9,7 @@
 
 ## 📖 Overview
 
-Kotoba is a powerful graph processing system built on graph theory foundations. It combines a complete Jsonnet implementation with GP2-based graph rewriting, providing ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution capabilities.
+Kotoba is a powerful graph processing system built on graph theory foundations with advanced deployment capabilities. It combines a complete Jsonnet implementation with GP2-based graph rewriting, providing ISO GQL-compliant queries, MVCC+Merkle persistence, distributed execution, and comprehensive deployment management through its modular extension system.
 
 ### 🎯 Key Features
 
@@ -23,6 +23,14 @@ Kotoba is a powerful graph processing system built on graph theory foundations. 
 - **Rust Native Architecture**: Memory-safe, high-performance implementation
 - **Modular Crate Design**: kotoba-jsonnet, kotoba-graph, kotoba-core, and more
 - **GraphQL API**: Schema management and graph operations via GraphQL
+
+#### 🚀 **Advanced Deployment Extensions**
+
+- **CLI Extension**: Complete deployment management CLI with progress bars, configuration files, and detailed options
+- **Controller Extension**: Advanced deployment strategies including rollback, blue-green, and canary deployments
+- **Network Extension**: CDN integration (Cloudflare, AWS CloudFront), security features, and edge optimization
+- **Security Features**: Rate limiting, WAF, DDoS protection, SSL/TLS certificate management
+- **Scalability**: Intelligent scaling with performance monitoring and cost optimization
 
 ## 🚀 Quick Start
 
@@ -186,6 +194,15 @@ Kotoba adopts a modular multi-crate architecture for maximum flexibility:
 ├── kotoba-server/         # HTTP server and handlers
 ├── kotoba-kotobas/         # KotobaScript - Declarative programming language
 ├── kotoba2tsx/            # TypeScript/React code generation
+
+# 🚀 Advanced Deployment Extensions
+├── kotoba-deploy-core/    # Core deployment types and configurations
+├── kotoba-deploy-cli/     # Advanced deployment CLI with progress bars
+├── kotoba-deploy-controller/ # Advanced deployment strategies (rollback, blue-green, canary)
+├── kotoba-deploy-network/ # CDN integration, security, and edge optimization
+├── kotoba-deploy-scaling/ # AI-powered scaling and performance monitoring
+├── kotoba-deploy-git/     # Git integration and webhook handling
+├── kotoba-deploy-hosting/ # Application hosting and runtime management
 └── kotoba/                # Main integration crate
 ```
 
@@ -209,6 +226,37 @@ Each crate can be used independently, allowing you to pick only the features you
 - ✅ **Workspace Testing** - `cargo test --workspace` passes
 - ✅ **Clean Codebase** - Clippy warnings minimized
 - ✅ **Documentation** - Comprehensive API docs
+
+#### 🚀 **Deployment Extension Highlights**
+
+- **CLI Extension (`kotoba-deploy-cli`)**:
+  - ✅ **Complete Deployment CLI** - Progress bars, configuration files, detailed options
+  - ✅ **Multi-format Output** - JSON, YAML, human-readable formats
+  - ✅ **Deployment Management** - List, status, stop, scale, logs commands
+  - ✅ **Configuration Handling** - Auto-generation and validation
+  - ✅ **Interactive Progress** - Real-time deployment progress tracking
+
+- **Controller Extension (`kotoba-deploy-controller`)**:
+  - ✅ **Advanced Deployment Strategies** - Rollback, blue-green, canary deployments
+  - ✅ **Deployment History** - Comprehensive deployment tracking and rollback
+  - ✅ **Health Checks** - Integrated health monitoring and auto-rollback
+  - ✅ **Traffic Management** - Gradual traffic shifting and canary releases
+  - ✅ **Multi-strategy Support** - Flexible deployment strategy selection
+
+- **Network Extension (`kotoba-deploy-network`)**:
+  - ✅ **CDN Integration** - Cloudflare, AWS CloudFront, Fastly, Akamai support
+  - ✅ **Security Features** - Rate limiting, WAF, DDoS protection
+  - ✅ **SSL/TLS Management** - Automatic certificate renewal and custom certs
+  - ✅ **Edge Optimization** - Image optimization, compression, caching
+  - ✅ **Geographic Routing** - Nearest edge location selection
+  - ✅ **Performance Monitoring** - Real-time metrics and analytics
+
+- **Scaling Extension (`kotoba-deploy-scaling`) - Planned**:
+  - 🔄 **AI-Powered Scaling** - Machine learning based traffic prediction
+  - 🔄 **Cost Optimization** - Intelligent resource allocation
+  - 🔄 **Performance Monitoring** - Advanced metrics collection
+  - 🔄 **Auto-scaling** - Dynamic scaling based on multiple factors
+  - 🔄 **Load Balancing** - Intelligent load distribution
 
 #### 使用例
 
@@ -1147,9 +1195,17 @@ brew install kotoba
 
 ## 🔧 CLI Tools
 
-### Kotoba CLI
+### Kotoba CLI Extensions
 
-Kotoba CLIはDeno CLIを参考にした使いやすいコマンドラインインターフェースを提供します。グラフ処理、クエリ実行、ファイル操作などをサポートしています。
+Kotobaは2つの主要なCLIを提供します：
+
+#### 1. **Core Kotoba CLI** - Graph Processing & Development
+Deno CLIを参考にした使いやすいコマンドラインインターフェースを提供します。グラフ処理、クエリ実行、ファイル操作などをサポートしています。
+
+#### 2. **Advanced Deploy CLI** - Deployment Management
+完全なデプロイメント管理機能を提供する高度なCLI。プログレスバー、設定ファイル処理、詳細オプションを備えています。
+
+### 🏗️ **Core Kotoba CLI**
 
 #### インストール
 
@@ -1196,56 +1252,155 @@ kotoba doc --output ./docs --format html
 kotoba version
 ```
 
-#### 主なコマンド
+### 🚀 **Advanced Deploy CLI**
 
-| コマンド | 説明 |
-|---------|------|
-| `run <file.kotoba>` | .kotobaファイルを実行 |
-| `server --config <file.kotoba>` | HTTPサーバーを起動 |
-| `query "MATCH..." --graph <file>` | GQLクエリを直接実行 |
-| `check <file.kotoba>` | .kotobaファイルを検証 |
-| `fmt <file.kotoba>` | .kotobaファイルをフォーマット |
-| `info` | プロジェクト情報を表示 |
-| `repl` | インタラクティブGQL REPL |
-| `init <project>` | 新規.kotobaプロジェクトを初期化 |
-| `version` | バージョン情報を表示 |
-
-#### グローバルオプション
-
-| オプション | 説明 |
-|-----------|------|
-| `-c, --config <CONFIG>` | 設定ファイルパス |
-| `-l, --log-level <LEVEL>` | ログレベル (info, debug, warn, error) |
-| `-C, --cwd <DIR>` | 作業ディレクトリ |
-| `-h, --help` | ヘルプ表示 |
-| `-V, --version` | バージョン表示 |
-
-#### 使用例
+#### インストール
 
 ```bash
-# .kotobaファイルを実行
-kotoba run app.kotoba
+# Deploy CLIをビルド
+cargo build --release -p kotoba-deploy-cli
+cp target/release/kotoba-deploy-cli ~/.local/bin/kotoba-deploy
 
-# ウォッチモードで開発（ファイル変更時に自動再実行）
+# またはCargo経由でインストール
+cargo install --path crates/kotoba-deploy-cli
+```
+
+#### 高度なデプロイメント機能
+
+```bash
+# ヘルプ表示
+kotoba-deploy --help
+
+# デプロイメント実行
+kotoba-deploy deploy --name my-app --entry-point app.js --runtime nodejs --port 3000
+
+# 設定ファイルを使用したデプロイ
+kotoba-deploy deploy --config deploy.json
+
+# デプロイメント一覧表示
+kotoba-deploy list --detailed
+
+# デプロイメントステータス確認
+kotoba-deploy status my-deployment-id
+
+# デプロイメント停止
+kotoba-deploy stop my-deployment-id --force
+
+# スケール調整
+kotoba-deploy scale my-deployment-id 5
+
+# ログ表示
+kotoba-deploy logs my-deployment-id --follow --lines 100
+
+# 設定管理
+kotoba-deploy config --show
+kotoba-deploy config --set log_level=debug
+```
+
+#### Deploy CLIの主なコマンド
+
+| コマンド | 説明 | 例 |
+|---------|------|-----|
+| `deploy` | アプリケーションをデプロイ | `deploy --name app --runtime nodejs` |
+| `list` | デプロイメント一覧表示 | `list --detailed` |
+| `status` | デプロイメントステータス確認 | `status deployment-123` |
+| `stop` | デプロイメント停止 | `stop deployment-123 --force` |
+| `scale` | インスタンス数を調整 | `scale deployment-123 3` |
+| `logs` | デプロイメントログ表示 | `logs deployment-123 --follow` |
+| `config` | 設定管理 | `config --show` |
+
+#### Deploy CLIの高度なオプション
+
+```bash
+# 詳細なデプロイス設定
+kotoba-deploy deploy \
+  --name production-app \
+  --entry-point dist/server.js \
+  --runtime nodejs \
+  --port 8080 \
+  --env NODE_ENV=production \
+  --env DATABASE_URL=postgres://... \
+  --build-cmd "npm run build" \
+  --start-cmd "npm start" \
+  --min-instances 2 \
+  --max-instances 10 \
+  --cpu-threshold 0.8 \
+  --memory-threshold 0.8 \
+  --domain api.example.com \
+  --dry-run
+
+# CDN統合
+kotoba-deploy deploy \
+  --cdn-provider cloudflare \
+  --cdn-zone-id ZONE_ID \
+  --cdn-api-key API_KEY
+
+# ブルーグリーンデプロイ
+kotoba-deploy deploy \
+  --strategy blue-green \
+  --traffic-split 10 \
+  --health-check-endpoint /health
+```
+
+#### 設定ファイル例
+
+**deploy.json**
+```json
+{
+  "metadata": {
+    "name": "my-production-app",
+    "version": "1.2.0"
+  },
+  "application": {
+    "entry_point": "dist/app.js",
+    "runtime": "nodejs",
+    "environment": {
+      "NODE_ENV": "production",
+      "PORT": "8080"
+    },
+    "build_command": "npm run build",
+    "start_command": "npm start"
+  },
+  "scaling": {
+    "min_instances": 2,
+    "max_instances": 10,
+    "cpu_threshold": 0.8,
+    "memory_threshold": 0.8,
+    "auto_scaling_enabled": true
+  },
+  "network": {
+    "domains": ["api.example.com"],
+    "ssl_enabled": true,
+    "cdn_enabled": true
+  },
+  "deployment": {
+    "strategy": "canary",
+    "traffic_percentage": 20,
+    "rollback_on_failure": true
+  }
+}
+```
+
+### 📊 **統合ワークフロー**
+
+```bash
+# 1. アプリケーション開発
 kotoba run app.kotoba --watch
 
-# サーバーモードで起動
-kotoba server --config server.kotoba --port 3000
+# 2. デプロイメント準備
+kotoba check deploy.kotoba
 
-# ファイルを検証
-kotoba check app.kotoba
+# 3. デプロイメント実行
+kotoba-deploy deploy --config deploy.json --dry-run
+kotoba-deploy deploy --config deploy.json --wait
 
-# ファイルをフォーマット
-kotoba fmt app.kotoba
+# 4. デプロイメント管理
+kotoba-deploy list
+kotoba-deploy status production-app
+kotoba-deploy scale production-app 5
 
-# インタラクティブREPLでクエリを実行
-kotoba repl
-
-# 新規プロジェクトを作成
-kotoba init my-project --template web
-
-# プロジェクト情報を表示
-kotoba info --detailed
+# 5. ログ監視
+kotoba-deploy logs production-app --follow
 ```
 
 ## 📚 API Documentation
@@ -1306,4 +1461,70 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
-**Kotoba** - Exploring the world of graphs through words
+## 🚀 **What's New - Advanced Deployment Extensions**
+
+### v0.1.0 - Deployment Extensions Release
+
+#### ✅ **Completed Extensions**
+
+**🔧 CLI Extension (`kotoba-deploy-cli`)**
+- Complete deployment CLI with progress bars and configuration management
+- Multi-format output (JSON, YAML, human-readable)
+- Advanced deployment options with environment variables, scaling, and networking
+- Deployment lifecycle management (list, status, stop, scale, logs)
+- Interactive progress tracking with real-time updates
+
+**🎛️ Controller Extension (`kotoba-deploy-controller`)**
+- Advanced deployment strategies: Rollback, Blue-Green, Canary
+- Comprehensive deployment history and rollback capabilities
+- Integrated health checks with auto-rollback on failure
+- Traffic management with gradual shifting and canary releases
+- Multi-strategy deployment orchestration
+
+**🌐 Network Extension (`kotoba-deploy-network`)**
+- CDN Integration: Cloudflare, AWS CloudFront, Fastly, Akamai
+- Security Features: Rate limiting, WAF, DDoS protection
+- SSL/TLS Management: Auto-renewal and custom certificate support
+- Edge Optimization: Image optimization, compression, caching
+- Geographic Routing: Intelligent edge location selection
+- Performance Monitoring: Real-time metrics and analytics
+
+#### 🔄 **Upcoming Extensions**
+
+**📈 Scaling Extension (`kotoba-deploy-scaling`)**
+- AI-powered traffic prediction using machine learning
+- Cost optimization with intelligent resource allocation
+- Advanced performance monitoring and metrics collection
+- Dynamic auto-scaling based on multiple factors
+- Intelligent load balancing and distribution
+
+---
+
+## 📊 **Architecture Overview**
+
+### Process Network Graph Model
+
+Kotoba implements a **Process Network Graph Model** where all components are centrally managed through `dag.jsonnet`. This ensures topological consistency and proper dependency resolution.
+
+#### Key Benefits:
+- **Topological Sort**: Build order verification
+- **Reverse Topological Sort**: Problem resolution order
+- **Dependency Analysis**: Automatic impact assessment
+- **Consistency Validation**: DAG structure verification
+
+#### Usage Examples:
+
+```bash
+# Check build dependencies
+jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.get_dependencies('execution_engine')"
+
+# Validate DAG structure
+jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.validate_dag()"
+
+# Get deployment extension status
+jsonnet eval -e "local dag = import 'dag.jsonnet'; dag.get_nodes_by_type('deploy_cli')"
+```
+
+---
+
+**Kotoba** - Exploring the world of graphs through words, now with advanced deployment capabilities

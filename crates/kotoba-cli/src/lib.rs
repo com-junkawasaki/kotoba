@@ -173,6 +173,28 @@ pub enum Commands {
     /// REPLを起動
     Repl,
 
+    /// テストを実行
+    Test {
+        /// テストファイルまたはディレクトリ
+        files: Vec<PathBuf>,
+
+        /// フィルター
+        #[arg(short, long)]
+        filter: Option<String>,
+
+        /// 詳細出力
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// カバレッジ収集
+        #[arg(long)]
+        coverage: bool,
+
+        /// レポート形式 (pretty, json, junit, tap)
+        #[arg(long, default_value = "pretty")]
+        format: String,
+    },
+
     /// タスクを実行
     Task {
         /// タスク名
