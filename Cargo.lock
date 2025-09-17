@@ -4955,6 +4955,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-db"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kotoba-db-core",
+ "kotoba-db-engine-memory",
+]
+
+[[package]]
+name = "kotoba-db-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "ciborium",
+ "kotoba-cid",
+ "kotoba-core",
+ "serde",
+]
+
+[[package]]
+name = "kotoba-db-engine-memory"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kotoba-db-core",
+]
+
+[[package]]
 name = "kotoba-deploy"
 version = "0.1.16"
 dependencies = [

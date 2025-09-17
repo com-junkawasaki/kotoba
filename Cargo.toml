@@ -27,6 +27,9 @@ members = [
     "crates/kotoba-state-graph",
     "crates/kotoba-routing",
     "crates/kotoba-errors",
+    "crates/kotoba-db-core",
+    "crates/kotoba-db-engine-memory",
+    "crates/kotoba-db",
 ]
 resolver = "2"
 

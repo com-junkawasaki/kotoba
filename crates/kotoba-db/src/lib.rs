@@ -85,3 +85,44 @@ impl DB {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_operations() {
+        let mut db = DB::open_memory();
+
+        // Create a node
+        let mut properties = BTreeMap::new();
+        properties.insert("name".to_string(), Value::String("Alice".to_string()));
+        properties.insert("age".to_string(), Value::Int(30));
+
+        let node_cid = db.create_node(properties).unwrap();
+
+        // Retrieve the node
+        let node = db.get_node(&node_cid).unwrap().unwrap();
+        assert_eq!(node.properties["name"], Value::String("Alice".to_string()));
+        assert_eq!(node.properties["age"], Value::Int(30));
+        assert!(node.edges.is_empty());
+
+        // Create an edge
+        let mut edge_props = BTreeMap::new();
+        edge_props.insert("since".to_string(), Value::Int(2020));
+
+        let edge_cid = db.create_edge(
+            "FRIENDS_WITH".to_string(),
+            node_cid,
+            node_cid, // self-loop for simplicity
+            edge_props,
+        ).unwrap();
+
+        // Retrieve the edge
+        let edge = db.get_edge(&edge_cid).unwrap().unwrap();
+        assert_eq!(edge.label, "FRIENDS_WITH");
+        assert_eq!(edge.from, node_cid);
+        assert_eq!(edge.to, node_cid);
+        assert_eq!(edge.properties["since"], Value::Int(2020));
+    }
+}

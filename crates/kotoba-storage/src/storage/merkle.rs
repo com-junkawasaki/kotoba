@@ -125,7 +125,7 @@ impl MerkleDAG {
         }
 
         // 葉ノードを集める（子を持たないノード）
-        let mut leaves: Vec<_> = self.nodes.values()
+        let mut leaves: Vec<&MerkleNode> = self.nodes.values()
             .filter(|node| node.children.is_empty())
             .collect();
 
