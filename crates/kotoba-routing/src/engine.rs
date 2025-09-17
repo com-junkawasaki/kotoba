@@ -7,11 +7,10 @@
 
 use crate::schema::{RouteFile, HandlerWorkflow, WorkflowStep, WorkflowStepType};
 use anyhow::{Context, Result};
-// TODO: This import will fail until dependencies are properly configured.
-// use kotoba_workflow::WorkflowExecutor;
 
-/// A placeholder for the real WorkflowExecutor
-pub type WorkflowExecutor = ();
+/// Simplified workflow executor for routing
+#[derive(Debug, Clone)]
+pub struct WorkflowExecutor;
 
 /// A placeholder for an HTTP Request struct
 #[derive(Debug, Clone)]
@@ -37,8 +36,10 @@ pub struct HttpRoutingEngine {
 
 impl HttpRoutingEngine {
     /// Creates a new `HttpRoutingEngine`.
-    pub fn new(workflow_executor: WorkflowExecutor) -> Self {
-        Self { workflow_executor }
+    pub fn new() -> Self {
+        Self {
+            workflow_executor: WorkflowExecutor,
+        }
     }
 
     /// Parses a `.kotoba` route file content into a `RouteFile` struct.
