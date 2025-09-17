@@ -53,6 +53,31 @@ pub struct ObjectStorageConfig {
     pub use_ssl: bool,
 }
 
+/// Hybrid storage configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HybridStorageConfig {
+    /// Hot tier backend type
+    pub hot_backend: Option<String>, // "rocksdb", "redis", etc.
+
+    /// Cold tier backend type
+    pub cold_backend: Option<String>, // "s3", "gcs", "azure", etc.
+
+    /// Cache backend type (optional)
+    pub cache_backend: Option<String>,
+
+    /// Cache size limit in bytes
+    pub cache_size_limit: Option<u64>,
+
+    /// Data migration policy (hot -> cold threshold in days)
+    pub cold_migration_threshold_days: Option<u64>,
+
+    /// Enable automatic tiering
+    pub enable_auto_tiering: bool,
+
+    /// Routing policy
+    pub routing_policy: String, // "age_based", "access_frequency", "size_based", "manual"
+}
+
 /// Schema definition for a graph
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GraphSchema {
@@ -79,6 +104,9 @@ pub struct GraphSchema {
 
     /// Object storage configuration
     pub object_storage_config: Option<ObjectStorageConfig>,
+
+    /// Hybrid storage configuration
+    pub hybrid_storage_config: Option<HybridStorageConfig>,
 
     /// Metadata
     pub metadata: HashMap<String, Value>,
@@ -202,6 +230,7 @@ impl GraphSchema {
             edge_types: HashMap::new(),
             constraints: Vec::new(),
             object_storage_config: None,
+            hybrid_storage_config: None,
             metadata: HashMap::new(),
         }
     }
@@ -344,6 +373,26 @@ impl GraphSchema {
     /// Check if object storage is configured
     pub fn has_object_storage_config(&self) -> bool {
         self.object_storage_config.is_some()
+    }
+
+    /// Set hybrid storage configuration
+    pub fn set_hybrid_storage_config(&mut self, config: HybridStorageConfig) {
+        self.hybrid_storage_config = Some(config);
+    }
+
+    /// Get hybrid storage configuration
+    pub fn get_hybrid_storage_config(&self) -> Option<&HybridStorageConfig> {
+        self.hybrid_storage_config.as_ref()
+    }
+
+    /// Remove hybrid storage configuration
+    pub fn remove_hybrid_storage_config(&mut self) {
+        self.hybrid_storage_config = None;
+    }
+
+    /// Check if hybrid storage is configured
+    pub fn has_hybrid_storage_config(&self) -> bool {
+        self.hybrid_storage_config.is_some()
     }
 
     /// Get schema statistics

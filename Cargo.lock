@@ -4922,8 +4922,6 @@ dependencies = [
  "google-cloud-pubsub",
  "google-cloud-storage",
  "google_cloud_logging",
- "kotoba-core",
- "kotoba-errors",
  "kotoba-workflow",
  "regex",
  "serde",

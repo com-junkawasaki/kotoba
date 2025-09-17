@@ -11,32 +11,71 @@ use async_trait::async_trait;
 use kotoba_core::types::*;
 #[cfg(feature = "object_storage")]
 use kotoba_errors::KotobaError;
+#[cfg(feature = "object_storage")]
+use kotoba_cloud_integrations::CloudProvider;
+
+// Cloud service SDK imports
+#[cfg(all(feature = "object_storage", feature = "aws"))]
+use aws_config;
+#[cfg(all(feature = "object_storage", feature = "aws"))]
+use aws_sdk_s3;
 
 /// Object storage backend
 #[cfg(feature = "object_storage")]
-#[derive(Clone)]
 pub struct ObjectStorageBackend {
-    provider: ObjectStorageProvider,
     bucket: String,
-    region: Option<String>,
+    provider: CloudProvider,
+    // Cloud service clients
+    #[cfg(feature = "aws")]
+    aws_client: aws_sdk_s3::Client,
 }
 
 #[cfg(feature = "object_storage")]
 impl ObjectStorageBackend {
     /// Create a new object storage backend
     pub async fn new(config: &StorageConfig) -> Result<Self> {
-        let provider = config.object_storage_provider.as_ref()
-            .ok_or_else(|| KotobaError::Storage("Object storage provider not configured".to_string()))?;
+        let provider = Self::convert_provider(config.object_storage_provider.as_ref()
+            .ok_or_else(|| KotobaError::Storage("Object storage provider not configured".to_string()))?)?;
 
         let bucket = config.object_storage_bucket.as_ref()
             .ok_or_else(|| KotobaError::Storage("Object storage bucket not configured".to_string()))?
             .clone();
 
-        Ok(Self {
-            provider: provider.clone(),
-            bucket,
-            region: config.object_storage_region.clone(),
-        })
+        // Initialize cloud service clients
+        match provider {
+            CloudProvider::AWS => {
+                #[cfg(feature = "aws")]
+                {
+                    let sdk_config = aws_config::load_from_env().await;
+                    let client = aws_sdk_s3::Client::new(&sdk_config);
+                    Ok(Self {
+                        bucket,
+                        provider,
+                        aws_client: client,
+                    })
+                }
+                #[cfg(not(feature = "aws"))]
+                {
+                    Err(KotobaError::Storage("AWS support not enabled".to_string()))
+                }
+            }
+            CloudProvider::GCP => {
+                Err(KotobaError::Storage("GCP Cloud Storage not yet implemented".to_string()))
+            }
+            CloudProvider::Azure => {
+                Err(KotobaError::Storage("Azure Blob Storage not yet implemented".to_string()))
+            }
+        }
+    }
+
+    /// Convert ObjectStorageProvider to CloudProvider
+    fn convert_provider(provider: &ObjectStorageProvider) -> Result<CloudProvider> {
+        match provider {
+            ObjectStorageProvider::AWS => Ok(CloudProvider::AWS),
+            ObjectStorageProvider::GCP => Ok(CloudProvider::GCP),
+            ObjectStorageProvider::Azure => Ok(CloudProvider::Azure),
+            ObjectStorageProvider::Local => Err(KotobaError::Storage("Local object storage not yet supported".to_string())),
+        }
     }
 
     /// Get the backend statistics
@@ -55,71 +94,142 @@ impl ObjectStorageBackend {
 #[async_trait]
 impl StorageBackend for ObjectStorageBackend {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
-        // TODO: Implement actual object storage operations
-        // For now, return not implemented
         match self.provider {
-            ObjectStorageProvider::AWS => {
-                Err(KotobaError::Storage("AWS S3 put not yet implemented".to_string()))
+            CloudProvider::AWS => {
+                #[cfg(feature = "aws")]
+                {
+                    // For now, use a placeholder - need to implement proper service access
+                    Err(KotobaError::Storage("AWS S3 put integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "aws"))]
+                {
+                    Err(KotobaError::Storage("AWS S3 support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::GCP => {
-                Err(KotobaError::Storage("GCP storage put not yet implemented".to_string()))
+            CloudProvider::GCP => {
+                #[cfg(feature = "gcp")]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage put integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "gcp"))]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::Azure => {
-                Err(KotobaError::Storage("Azure storage put not yet implemented".to_string()))
-            }
-            ObjectStorageProvider::Local => {
-                Err(KotobaError::Storage("Local object storage put not yet implemented".to_string()))
+            CloudProvider::Azure => {
+                #[cfg(feature = "azure")]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage put integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "azure"))]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
+                }
             }
         }
     }
 
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
         match self.provider {
-            ObjectStorageProvider::AWS => {
-                Err(KotobaError::Storage("AWS S3 get not yet implemented".to_string()))
+            CloudProvider::AWS => {
+                #[cfg(feature = "aws")]
+                {
+                    Err(KotobaError::Storage("AWS S3 get integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "aws"))]
+                {
+                    Err(KotobaError::Storage("AWS S3 support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::GCP => {
-                Err(KotobaError::Storage("GCP storage get not yet implemented".to_string()))
+            CloudProvider::GCP => {
+                #[cfg(feature = "gcp")]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage get integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "gcp"))]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::Azure => {
-                Err(KotobaError::Storage("Azure storage get not yet implemented".to_string()))
-            }
-            ObjectStorageProvider::Local => {
-                Err(KotobaError::Storage("Local object storage get not yet implemented".to_string()))
+            CloudProvider::Azure => {
+                #[cfg(feature = "azure")]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage get integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "azure"))]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
+                }
             }
         }
     }
 
     async fn delete(&self, key: String) -> Result<()> {
         match self.provider {
-            ObjectStorageProvider::AWS => {
-                Err(KotobaError::Storage("AWS S3 delete not yet implemented".to_string()))
+            CloudProvider::AWS => {
+                #[cfg(feature = "aws")]
+                {
+                    Err(KotobaError::Storage("AWS S3 delete integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "aws"))]
+                {
+                    Err(KotobaError::Storage("AWS S3 support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::GCP => {
-                Err(KotobaError::Storage("GCP storage delete not yet implemented".to_string()))
+            CloudProvider::GCP => {
+                #[cfg(feature = "gcp")]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage delete integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "gcp"))]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::Azure => {
-                Err(KotobaError::Storage("Azure storage delete not yet implemented".to_string()))
-            }
-            ObjectStorageProvider::Local => {
-                Err(KotobaError::Storage("Local object storage delete not yet implemented".to_string()))
+            CloudProvider::Azure => {
+                #[cfg(feature = "azure")]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage delete integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "azure"))]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
+                }
             }
         }
     }
 
     async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
         match self.provider {
-            ObjectStorageProvider::AWS => {
-                Err(KotobaError::Storage("AWS S3 list not yet implemented".to_string()))
+            CloudProvider::AWS => {
+                #[cfg(feature = "aws")]
+                {
+                    Err(KotobaError::Storage("AWS S3 list integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "aws"))]
+                {
+                    Err(KotobaError::Storage("AWS S3 support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::GCP => {
-                Err(KotobaError::Storage("GCP storage list not yet implemented".to_string()))
+            CloudProvider::GCP => {
+                #[cfg(feature = "gcp")]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage list integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "gcp"))]
+                {
+                    Err(KotobaError::Storage("GCP Cloud Storage support not enabled".to_string()))
+                }
             }
-            ObjectStorageProvider::Azure => {
-                Err(KotobaError::Storage("Azure storage list not yet implemented".to_string()))
-            }
-            ObjectStorageProvider::Local => {
-                Err(KotobaError::Storage("Local object storage list not yet implemented".to_string()))
+            CloudProvider::Azure => {
+                #[cfg(feature = "azure")]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage list integration in progress".to_string()))
+                }
+                #[cfg(not(feature = "azure"))]
+                {
+                    Err(KotobaError::Storage("Azure Blob Storage support not enabled".to_string()))
+                }
             }
         }
     }
