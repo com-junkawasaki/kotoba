@@ -15,6 +15,10 @@ homepage = "https://github.com/jun784/kotoba"
 # Kotoba dependencies
 kotoba-core = { workspace = true }
 kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+kotoba-deploy-controller = { path = "../kotoba-deploy-controller", version = "0.1.15" }
+kotoba-deploy-runtime = { path = "../kotoba-deploy-runtime", version = "0.1.15" }
+kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.15" }
+kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.15" }
 
 # CLI framework
 clap = { version = "4.0", features = ["derive"] }
@@ -22,6 +26,7 @@ clap = { version = "4.0", features = ["derive"] }
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+serde_yaml.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["full"] }
@@ -30,6 +35,13 @@ tokio = { workspace = true, features = ["full"] }
 uuid.workspace = true
 chrono.workspace = true
 tempfile.workspace = true
+dirs.workspace = true
+
+# Progress display
+indicatif = "0.17"
+
+# Configuration file formats
+toml = "0.8"
 
 [[bin]]
 name = "kotoba-deploy"
