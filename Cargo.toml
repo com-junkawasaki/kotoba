@@ -19,7 +19,7 @@ members = [
     "crates/kotoba-deploy-scaling",
     "crates/kotoba-deploy-controller",
     "crates/kotoba-deploy-runtime",
-    ".", "crates/kotoba-lsp", "crates/kotoba-package-manager",  # Root crate
+    ".", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter",  # Root crate
 ]
 resolver = "2"
 

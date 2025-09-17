@@ -84,13 +84,13 @@ pub async fn compile_file(
         return Err(format!("Input file not found: {}", input_path.display()).into());
     }
 
-    let output = output_path.unwrap_or_else(|| {
+    let output_path_buf = output_path.unwrap_or_else(|| {
         let mut output = input_path.to_path_buf();
         output.set_extension("compiled");
-        output.as_path()
+        output
     });
 
-    println!("Output: {}", output.display());
+    println!("Output: {}", output_path_buf.display());
     println!("Optimization level: {}", optimize_level);
 
     // 実際のコンパイルロジックはここに実装
@@ -353,8 +353,8 @@ pub async fn show_info(verbose: bool) -> Result<(), Box<dyn std::error::Error>> 
     if verbose {
         println!("Build information:");
         println!("  Version: {}", env!("CARGO_PKG_VERSION"));
-        println!("  Build date: {}", env!("VERGEN_BUILD_DATE"));
-        println!("  Git commit: {}", env!("VERGEN_GIT_SHA"));
+        println!("  Build date: {}", "2024-01-01"); // TODO: Add build info
+        println!("  Git commit: {}", "dev"); // TODO: Add git info
         println!();
 
         println!("Directories:");

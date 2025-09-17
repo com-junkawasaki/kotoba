@@ -25,11 +25,27 @@ kotoba-deploy-git = { path = "../kotoba-deploy-git", version = "0.1.15" }
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+serde_yaml.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["full"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"] }
+
+# HTTP client for health checks
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# Cron scheduling
+cron = "0.12"
+
+# Concurrent collections
+dashmap = "5.5"
+
+# URL encoding
+percent-encoding = "2.3"
+
+# Async utilities
+futures.workspace = true
 
 # Utilities
 tempfile.workspace = true

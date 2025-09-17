@@ -180,8 +180,7 @@ pub fn setup_file_logging(log_file: &std::path::Path) -> Result<(), Box<dyn std:
         .with_writer(move || file.try_clone().unwrap())
         .with_target(false)
         .with_thread_ids(true)
-        .with_thread_names(true)
-        .json();
+        .with_thread_names(true);
 
     tracing::subscriber::set_global_default(
         tracing_subscriber::registry()

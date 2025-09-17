@@ -168,12 +168,57 @@ mod run_command {
     }
 
     pub async fn execute_fmt(
-        _files: Vec<std::path::PathBuf>,
-        _check: bool,
-        _write: bool,
+        files: Vec<std::path::PathBuf>,
+        check: bool,
+        write: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Formatting files... (not implemented yet)");
-        Ok(())
+        use kotoba_formatter::{format_files as fmt_files, format_directory, Writer, WriterConfig};
+
+        if files.is_empty() {
+            // ディレクトリ内の全ファイルをフォーマット
+            let current_dir = std::path::PathBuf::from(".");
+            let results = format_directory(current_dir, check).await?;
+            handle_format_results(results, check, write).await
+        } else {
+            let results = fmt_files(files, check).await?;
+            handle_format_results(results, check, write).await
+        }
+    }
+
+    async fn handle_format_results(
+        results: Vec<kotoba_formatter::FormatResult>,
+        check: bool,
+        write: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use kotoba_formatter::{Writer, WriterConfig};
+
+        if check {
+            // チェックモード
+            match Writer::check_results(&results) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            }
+        } else if write {
+            // 書き込みモード
+            let writer_config = WriterConfig {
+                overwrite: true,
+                create_backup: false,
+                output_dir: None,
+            };
+            let writer = Writer::new(writer_config);
+            writer.write_results(&results).await?;
+            Ok(())
+        } else {
+            // 結果を表示
+            for result in &results {
+                Writer::print_result(result);
+            }
+            Writer::print_stats(&results);
+            Ok(())
+        }
     }
 
     pub async fn execute_lint(

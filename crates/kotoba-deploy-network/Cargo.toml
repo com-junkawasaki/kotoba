@@ -19,6 +19,7 @@ kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+serde_yaml.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["full"] }
@@ -28,3 +29,32 @@ regex.workspace = true
 
 # Network specific
 trust-dns-resolver = "0.23"
+
+# HTTP client for CDN APIs
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# Rate limiting
+governor = "0.6"
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Geolocation
+maxminddb = "0.24"
+
+# TLS/SSL certificate management
+rustls = "0.21"
+rustls-pemfile = "1.0"
+webpki = "0.22"
+
+# URL parsing and manipulation
+url = "2.5"
+
+# Base64 encoding for auth
+base64.workspace = true
+
+# Async utilities
+futures.workspace = true
+
+# JSON Web Tokens for auth
+jsonwebtoken = "9.3"
