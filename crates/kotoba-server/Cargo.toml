@@ -28,7 +28,7 @@ kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
 kotoba-schema = { path = "../kotoba-schema", version = "0.1.15" }
 
 # GraphQL support
-async-graphql = { version = "7.0", features = ["dynamic-schema", "apollo_tracing"] }
+async-graphql = { version = "6.0", features = ["dynamic-schema", "apollo_tracing"] }
 graphql-parser = "0.4"
 
 [features]

@@ -805,6 +805,7 @@ impl QueryExecutor {
             Value::Int(n) => n.to_string(),
             Value::Integer(n) => n.to_string(),
             Value::String(s) => s.clone(),
+            Value::Array(arr) => format!("{:?}", arr), // Handle Array variant
         }
     }
 

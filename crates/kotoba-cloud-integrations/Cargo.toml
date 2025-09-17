@@ -21,17 +21,17 @@ base64 = "0.21"
 url = "2.3"
 
 # AWS SDK
-aws-config = { version = "1.0", features = ["behavior-version-latest"], optional = true }
-aws-sdk-s3 = { version = "1.0", optional = true }
-aws-sdk-lambda = { version = "1.0", optional = true }
-aws-sdk-sqs = { version = "1.0", optional = true }
-aws-sdk-sns = { version = "1.0", optional = true }
-aws-sdk-dynamodb = { version = "1.0", optional = true }
-aws-sdk-ec2 = { version = "1.0", optional = true }
-aws-sdk-ecs = { version = "1.0", optional = true }
-aws-sdk-eks = { version = "1.0", optional = true }
-aws-sdk-iam = { version = "1.0", optional = true }
-aws-sdk-cloudwatch = { version = "1.0", optional = true }
+aws-config = { version = "0.57", optional = true }
+aws-sdk-s3 = { version = "0.28", optional = true }
+aws-sdk-lambda = { version = "0.28", optional = true }
+aws-sdk-sqs = { version = "0.28", optional = true }
+aws-sdk-sns = { version = "0.28", optional = true }
+aws-sdk-dynamodb = { version = "0.28", optional = true }
+aws-sdk-ec2 = { version = "0.28", optional = true }
+aws-sdk-ecs = { version = "0.28", optional = true }
+aws-sdk-eks = { version = "0.28", optional = true }
+aws-sdk-iam = { version = "0.28", optional = true }
+aws-sdk-cloudwatch = { version = "0.28", optional = true }
 
 # GCP SDK
 google-cloud-storage = { version = "0.14", optional = true }

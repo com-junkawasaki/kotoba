@@ -17,11 +17,11 @@ path = "src/lib.rs"
 
 [dependencies]
 # Kotoba internal crates
-kotoba-core = "0.1.15"
-kotoba-graph = "0.1.15"
-kotoba-storage = "0.1.15"
-kotoba-execution = "0.1.15"
-kotoba-rewrite = "0.1.15"
+kotoba-core = { path = "../kotoba-core", version = "0.1.15" }
+kotoba-graph = { path = "../kotoba-graph", version = "0.1.15" }
+kotoba-storage = { path = "../kotoba-storage", version = "0.1.15" }
+kotoba-execution = { path = "../kotoba-execution", version = "0.1.15" }
+kotoba-rewrite = { path = "../kotoba-rewrite", version = "0.1.15" }
 # kotoba-kotobanet.workspace = true  # Optional for now due to stability
 
 # External dependencies

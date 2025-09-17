@@ -1,8 +1,15 @@
 [workspace]
 members = [
-    "crates/*",
+    # "crates/*",  # Temporarily disabled due to dependency conflicts
+    "crates/kotoba-core",
+    "crates/kotoba-graph",
+    "crates/kotoba-storage",
+    "crates/kotoba-schema",
+    "crates/kotoba-execution",
+    "crates/kotoba-rewrite",
+    "crates/kotoba-server",
+    "crates/kotoba-security",
     ".",  # Root crate
-    "crates/kotoba2tsx",  # Kotoba to TSX converter
 ]
 resolver = "2"
 

@@ -25,8 +25,8 @@ tempfile = "3.0"
 async-trait = "0.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
-kotoba-core = "0.1.15"
-kotoba-graph = "0.1.15"
+kotoba-core = { path = "../kotoba-core", version = "0.1.15" }
+kotoba-graph = { path = "../kotoba-graph", version = "0.1.15" }
 
 [features]
 default = []
