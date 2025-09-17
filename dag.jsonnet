@@ -24,7 +24,7 @@
     // IR層
     'ir_catalog': {
       name: 'ir_catalog',
-      path: 'src/ir/catalog.rs',
+      path: 'crates/kotoba-core/src/ir/catalog.rs',
       type: 'ir',
       description: 'スキーマ/索引/不変量定義',
       dependencies: ['types'],
@@ -46,7 +46,7 @@
 
     'ir_rule': {
       name: 'ir_rule',
-      path: 'src/ir/rule.rs',
+      path: 'crates/kotoba-core/src/ir/rule.rs',
       type: 'ir',
       description: 'DPO型付き属性グラフ書換えルール',
       dependencies: ['types'],
@@ -57,7 +57,7 @@
 
     'ir_query': {
       name: 'ir_query',
-      path: 'src/ir/query.rs',
+      path: 'crates/kotoba-core/src/ir/query.rs',
       type: 'ir',
       description: 'GQL論理プラン代数',
       dependencies: ['types'],
@@ -68,7 +68,7 @@
 
     'ir_patch': {
       name: 'ir_patch',
-      path: 'src/ir/patch.rs',
+      path: 'crates/kotoba-core/src/ir/patch.rs',
       type: 'ir',
       description: '差分表現 (addV/E, delV/E, setProp, relink)',
       dependencies: ['types'],
@@ -79,7 +79,7 @@
 
     'ir_strategy': {
       name: 'ir_strategy',
-      path: 'src/ir/strategy.rs',
+      path: 'crates/kotoba-core/src/ir/strategy.rs',
       type: 'ir',
       description: '戦略表現 (once|exhaust|while|seq|choice|priority)',
       dependencies: ['types', 'ir_patch'],
@@ -164,6 +164,17 @@
       description: 'RocksDB-based high-performance storage (95% test coverage)',
       dependencies: ['types'],
       provides: ['LSMTree', 'RocksDB'],
+      status: 'completed',
+      build_order: 4,
+    },
+
+    'storage_object': {
+      name: 'storage_object',
+      path: 'crates/kotoba-storage/src/storage/object.rs',
+      type: 'storage',
+      description: 'Object storage backend (AWS S3, GCP Cloud Storage, Azure Blob Storage)',
+      dependencies: ['types'],
+      provides: ['ObjectStorageBackend', 'ObjectStorageProvider'],
       status: 'completed',
       build_order: 4,
     },
@@ -781,7 +792,7 @@
       path: 'src/lib.rs',
       type: 'library',
       description: 'メインライブラリインターフェース',
-      dependencies: ['types', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy', 'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier', 'rewrite_engine', 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'],
+      dependencies: ['types', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy', 'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object', 'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier', 'rewrite_engine', 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'],
       provides: ['kotoba'],
       status: 'completed',
       build_order: 11,
@@ -838,7 +849,7 @@
 
     'deploy_config': {
       name: 'deploy_config',
-      path: 'src/deploy/config.rs',
+      path: 'crates/kotoba-deploy/src/config.rs',
       type: 'deploy',
       description: 'デプロイ設定のIR定義 (Jsonnetベースの.kotoba-deployファイル)',
       dependencies: ['types'],
@@ -849,7 +860,7 @@
 
     'deploy_parser': {
       name: 'deploy_parser',
-      path: 'src/deploy/parser.rs',
+      path: 'crates/kotoba-deploy/src/parser.rs',
       type: 'deploy',
       description: '.kotoba-deployファイルのパーサー',
       dependencies: ['types', 'deploy_config'],
@@ -860,7 +871,7 @@
 
     'deploy_scaling': {
       name: 'deploy_scaling',
-      path: 'src/deploy/scaling.rs',
+      path: 'crates/kotoba-deploy/src/scaling.rs',
       type: 'deploy',
       description: '自動スケーリングエンジン',
       dependencies: ['types', 'deploy_config', 'graph_core'],
@@ -871,7 +882,7 @@
 
     'deploy_network': {
       name: 'deploy_network',
-      path: 'src/deploy/network.rs',
+      path: 'crates/kotoba-deploy/src/network.rs',
       type: 'deploy',
       description: 'グローバル分散ネットワーク管理',
       dependencies: ['types', 'deploy_config', 'deploy_scaling'],
@@ -882,7 +893,7 @@
 
     'deploy_git_integration': {
       name: 'deploy_git_integration',
-      path: 'src/deploy/git_integration.rs',
+      path: 'crates/kotoba-deploy/src/git_integration.rs',
       type: 'deploy',
       description: 'GitHub連携と自動デプロイ',
       dependencies: ['types', 'deploy_config', 'deploy_network'],
@@ -893,7 +904,7 @@
 
     'deploy_controller': {
       name: 'deploy_controller',
-      path: 'src/deploy/controller.rs',
+      path: 'crates/kotoba-deploy/src/controller.rs',
       type: 'deploy',
       description: 'ISO GQLを使用したデプロイコントロール',
       dependencies: ['types', 'deploy_config', 'deploy_scaling', 'deploy_network', 'deploy_git_integration', 'graph_core', 'rewrite_engine'],
@@ -904,7 +915,7 @@
 
     'deploy_cli': {
       name: 'deploy_cli',
-      path: 'src/deploy/cli.rs',
+      path: 'crates/kotoba-deploy-cli/src/lib.rs',
       type: 'deploy',
       description: 'kotoba deploy CLIコマンド',
       dependencies: ['types', 'deploy_controller', 'http_server'],
@@ -915,7 +926,7 @@
 
     'deploy_runtime': {
       name: 'deploy_runtime',
-      path: 'src/deploy/runtime.rs',
+      path: 'crates/kotoba-deploy/src/runtime.rs',
       type: 'deploy',
       description: 'デプロイ実行ランタイム (WebAssembly + WASM Edge対応)',
       dependencies: ['types', 'deploy_controller', 'wasm'],
@@ -1266,6 +1277,7 @@
     { from: 'types', to: 'storage_mvcc' },
     { from: 'types', to: 'storage_merkle' },
     { from: 'types', to: 'storage_lsm' },
+    { from: 'types', to: 'storage_object' },
     { from: 'types', to: 'planner_logical' },
     { from: 'types', to: 'planner_physical' },
     { from: 'types', to: 'execution_parser' },
@@ -1334,6 +1346,7 @@
     { from: 'storage_merkle', to: 'rewrite_engine' },
     { from: 'storage_merkle', to: 'lib' },
     { from: 'storage_lsm', to: 'lib' },
+    { from: 'storage_object', to: 'lib' },
     { from: 'security_core', to: 'lib' },
 
     // プランナー層依存
@@ -1831,6 +1844,7 @@
     'storage_mvcc',
     'storage_merkle',
     'storage_lsm',
+    'storage_object',
     'security_jwt',
     'security_mfa',
     'security_password',
@@ -1986,6 +2000,7 @@
     'planner_physical',
     'planner_logical',
     'storage_lsm',
+    'storage_object',
     'storage_merkle',
     'storage_mvcc',
     'graph_core',

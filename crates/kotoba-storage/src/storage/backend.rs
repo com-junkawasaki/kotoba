@@ -8,6 +8,16 @@ use kotoba_errors::KotobaError;
 pub enum BackendType {
     RocksDB,
     Redis,
+    ObjectStorage,
+}
+
+/// Object storage provider types
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectStorageProvider {
+    AWS,
+    GCP,
+    Azure,
+    Local, // MinIO, LocalStack, etc.
 }
 
 /// Configuration for storage backends
@@ -16,6 +26,15 @@ pub struct StorageConfig {
     pub backend_type: BackendType,
     pub rocksdb_path: Option<std::path::PathBuf>,
     pub redis_url: Option<String>,
+    pub object_storage_provider: Option<ObjectStorageProvider>,
+    pub object_storage_bucket: Option<String>,
+    pub object_storage_region: Option<String>,
+    pub object_storage_access_key_id: Option<String>,
+    pub object_storage_secret_access_key: Option<String>,
+    pub object_storage_service_account_key: Option<String>,
+    pub object_storage_client_id: Option<String>,
+    pub object_storage_client_secret: Option<String>,
+    pub object_storage_tenant_id: Option<String>,
 }
 
 impl Default for StorageConfig {
@@ -24,6 +43,15 @@ impl Default for StorageConfig {
             backend_type: BackendType::RocksDB,
             rocksdb_path: Some(std::path::PathBuf::from("./data")),
             redis_url: Some("redis://localhost:6379".to_string()),
+            object_storage_provider: None,
+            object_storage_bucket: None,
+            object_storage_region: None,
+            object_storage_access_key_id: None,
+            object_storage_secret_access_key: None,
+            object_storage_service_account_key: None,
+            object_storage_client_id: None,
+            object_storage_client_secret: None,
+            object_storage_tenant_id: None,
         }
     }
 }
@@ -66,6 +94,7 @@ pub struct BackendStats {
     pub connection_count: Option<u32>,
 }
 
+
 /// Factory for creating storage backends
 pub struct StorageBackendFactory;
 
@@ -87,6 +116,17 @@ impl StorageBackendFactory {
             BackendType::Redis => {
                 let redis_backend = super::redis::RedisBackend::new(config).await?;
                 Ok(Box::new(redis_backend))
+            }
+            #[cfg(feature = "object_storage")]
+            BackendType::ObjectStorage => {
+                let object_storage_backend = super::object::ObjectStorageBackend::new(config).await?;
+                Ok(Box::new(object_storage_backend))
+            }
+            #[cfg(not(feature = "object_storage"))]
+            BackendType::ObjectStorage => {
+                Err(KotobaError::Storage(
+                    "Object storage backend not available - compile with 'object_storage' feature".to_string()
+                ))
             }
         }
     }
@@ -171,6 +211,41 @@ impl StorageManager {
         let config = StorageConfig {
             backend_type: BackendType::RocksDB,
             rocksdb_path: Some(data_dir),
+            ..Default::default()
+        };
+        Self::new(config).await
+    }
+
+    /// Create a storage manager configured for AWS S3
+    pub async fn with_s3(bucket: String, region: Option<String>) -> Result<Self> {
+        let config = StorageConfig {
+            backend_type: BackendType::ObjectStorage,
+            object_storage_provider: Some(ObjectStorageProvider::AWS),
+            object_storage_bucket: Some(bucket),
+            object_storage_region: region,
+            ..Default::default()
+        };
+        Self::new(config).await
+    }
+
+    /// Create a storage manager configured for Google Cloud Storage
+    pub async fn with_gcs(bucket: String) -> Result<Self> {
+        let config = StorageConfig {
+            backend_type: BackendType::ObjectStorage,
+            object_storage_provider: Some(ObjectStorageProvider::GCP),
+            object_storage_bucket: Some(bucket),
+            ..Default::default()
+        };
+        Self::new(config).await
+    }
+
+    /// Create a storage manager configured for Azure Blob Storage
+    pub async fn with_azure(container: String, account_name: String) -> Result<Self> {
+        let config = StorageConfig {
+            backend_type: BackendType::ObjectStorage,
+            object_storage_provider: Some(ObjectStorageProvider::Azure),
+            object_storage_bucket: Some(container),
+            object_storage_access_key_id: Some(account_name),
             ..Default::default()
         };
         Self::new(config).await

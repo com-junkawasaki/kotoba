@@ -33,6 +33,7 @@ kotoba-cid = { path = "../kotoba-cid" }
 [features]
 default = []
 rocksdb = ["dep:rocksdb"]
+object_storage = []
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

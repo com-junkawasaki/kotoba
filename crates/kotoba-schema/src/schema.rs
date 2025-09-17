@@ -7,6 +7,52 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use kotoba_core::types::*;
 
+/// Object storage provider types
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ObjectStorageProvider {
+    AWS,
+    GCP,
+    Azure,
+    Local,
+}
+
+/// Object storage configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ObjectStorageConfig {
+    /// Storage provider
+    pub provider: ObjectStorageProvider,
+
+    /// Bucket/container name
+    pub bucket: String,
+
+    /// Region (for AWS/GCP)
+    pub region: Option<String>,
+
+    /// Access key ID (for AWS/Azure)
+    pub access_key_id: Option<String>,
+
+    /// Secret access key (for AWS/Azure)
+    pub secret_access_key: Option<String>,
+
+    /// Service account key (for GCP)
+    pub service_account_key: Option<String>,
+
+    /// Client ID (for Azure)
+    pub client_id: Option<String>,
+
+    /// Client secret (for Azure)
+    pub client_secret: Option<String>,
+
+    /// Tenant ID (for Azure)
+    pub tenant_id: Option<String>,
+
+    /// Custom endpoint (for local/minio)
+    pub endpoint: Option<String>,
+
+    /// Enable SSL/TLS
+    pub use_ssl: bool,
+}
+
 /// Schema definition for a graph
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GraphSchema {
@@ -30,6 +76,9 @@ pub struct GraphSchema {
 
     /// Global constraints
     pub constraints: Vec<SchemaConstraint>,
+
+    /// Object storage configuration
+    pub object_storage_config: Option<ObjectStorageConfig>,
 
     /// Metadata
     pub metadata: HashMap<String, Value>,
@@ -152,6 +201,7 @@ impl GraphSchema {
             vertex_types: HashMap::new(),
             edge_types: HashMap::new(),
             constraints: Vec::new(),
+            object_storage_config: None,
             metadata: HashMap::new(),
         }
     }
@@ -274,6 +324,26 @@ impl GraphSchema {
     /// Check if the schema has a specific edge type
     pub fn has_edge_type(&self, name: &str) -> bool {
         self.edge_types.contains_key(name)
+    }
+
+    /// Set object storage configuration
+    pub fn set_object_storage_config(&mut self, config: ObjectStorageConfig) {
+        self.object_storage_config = Some(config);
+    }
+
+    /// Get object storage configuration
+    pub fn get_object_storage_config(&self) -> Option<&ObjectStorageConfig> {
+        self.object_storage_config.as_ref()
+    }
+
+    /// Remove object storage configuration
+    pub fn remove_object_storage_config(&mut self) {
+        self.object_storage_config = None;
+    }
+
+    /// Check if object storage is configured
+    pub fn has_object_storage_config(&self) -> bool {
+        self.object_storage_config.is_some()
     }
 
     /// Get schema statistics

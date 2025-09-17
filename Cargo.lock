@@ -4922,6 +4922,8 @@ dependencies = [
  "google-cloud-pubsub",
  "google-cloud-storage",
  "google_cloud_logging",
+ "kotoba-core",
+ "kotoba-errors",
  "kotoba-workflow",
  "regex",
  "serde",
@@ -5506,6 +5508,7 @@ name = "kotoba-rewrite"
 version = "0.1.16"
 dependencies = [
  "anyhow",
+ "kotoba-cid",
  "kotoba-core",
  "kotoba-errors",
  "kotoba-graph",
@@ -5547,7 +5550,6 @@ dependencies = [
  "anyhow",
  "jsonschema",
  "kotoba-core",
- "kotoba-errors",
  "kotoba-graph",
  "regex",
  "schemars",
@@ -5637,6 +5639,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "hex",
+ "kotoba-cid",
  "kotoba-core",
  "kotoba-errors",
  "kotoba-graph",

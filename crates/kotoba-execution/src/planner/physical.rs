@@ -1,8 +1,8 @@
 //! 物理プランナー（論理プラン → 物理プラン）
 
-use kotoba_core::{types::*, ir::*};
-use kotoba_core::types::Result;
-use kotoba_errors::KotobaError;
+use kotoba_core::ir::*;
+use kotoba_core::types::*;
+use crate::planner::{PhysicalPlan, PhysicalOp};
 
 /// 物理演算子
 #[derive(Debug, Clone)]
@@ -90,12 +90,6 @@ pub struct PhysicalPlan {
 /// 物理プランナー
 #[derive(Debug)]
 pub struct PhysicalPlanner;
-
-impl Default for PhysicalPlanner {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl PhysicalPlanner {
     pub fn new() -> Self {

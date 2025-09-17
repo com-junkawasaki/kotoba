@@ -1,8 +1,11 @@
-//! kotoba-graph - Kotoba Graph Components
+//! `kotoba-graph`
+//!
+//! This crate provides the core graph data structures for Kotoba, including
+//! vertices, edges, and the graph itself, along with graph algorithms.
 
 pub mod graph;
+
 pub mod prelude {
-    // Re-export commonly used items
     pub use crate::graph::*;
 }
 

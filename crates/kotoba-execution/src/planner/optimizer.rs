@@ -1,6 +1,8 @@
 //! クエリ最適化器
 
-use kotoba_core::{types::*, ir::*};
+use kotoba_core::ir::*;
+use kotoba_core::types::*;
+use std::collections::HashMap;
 
 /// 最適化ルール
 #[derive(Debug)]
@@ -21,16 +23,42 @@ pub enum OptimizationRule {
     IndexSelection,
 }
 
-/// クエリ最適化器
+/// コスト推定情報
+#[derive(Debug, Clone)]
+pub struct CostEstimate {
+    /// 推定行数
+    pub cardinality: f64,
+    /// 推定コスト（処理時間）
+    pub cost: f64,
+    /// 選択性（0.0-1.0）
+    pub selectivity: f64,
+}
+
+/// 結合順序計画
+#[derive(Debug)]
+struct JoinPlan {
+    relations: Vec<LogicalOp>,
+    cost: f64,
+    cardinality: f64,
+}
+
+/// クエリ最適化器 (述語押下げ, 結合順序DP, インデックス選択)
 #[derive(Debug)]
 pub struct QueryOptimizer {
     rules: Vec<OptimizationRule>,
+    /// コスト推定用の統計情報
+    statistics: CostStatistics,
 }
 
-impl Default for QueryOptimizer {
-    fn default() -> Self {
-        Self::new()
-    }
+/// コスト統計情報
+#[derive(Debug)]
+pub struct CostStatistics {
+    /// デフォルトの選択性
+    default_selectivity: f64,
+    /// インデックス使用時のコスト削減率
+    index_selectivity: f64,
+    /// 結合コスト係数
+    join_cost_factor: f64,
 }
 
 impl QueryOptimizer {
@@ -43,6 +71,11 @@ impl QueryOptimizer {
                 OptimizationRule::ConstantFolding,
                 OptimizationRule::IndexSelection,
             ],
+            statistics: CostStatistics {
+                default_selectivity: 0.1,  // デフォルト10%の選択性
+                index_selectivity: 0.01,   // インデックス使用時は1%の選択性
+                join_cost_factor: 0.5,     // 結合コスト係数
+            },
         }
     }
 
@@ -250,22 +283,31 @@ impl QueryOptimizer {
     fn optimize_join_order_op(&self, op: &LogicalOp, catalog: &Catalog) -> LogicalOp {
         match op {
             LogicalOp::Join { left, right, on } => {
-                // DPベースの結合順序最適化（簡易版）
-                let left_cost = self.estimate_cost(left, catalog);
-                let right_cost = self.estimate_cost(right, catalog);
+                // 複数のリレーションを収集
+                let mut relations = Vec::new();
+                self.collect_relations(left, &mut relations);
+                self.collect_relations(right, &mut relations);
 
-                if left_cost > right_cost {
-                    // コストが小さい方を左側に
-                    LogicalOp::Join {
-                        left: Box::new(self.optimize_join_order_op(right, catalog)),
-                        right: Box::new(self.optimize_join_order_op(left, catalog)),
-                        on: on.clone(),
-                    }
+                if relations.len() > 2 {
+                    // 3つ以上のリレーションの場合、動的計画法を使用
+                    self.optimize_join_order_dp(&relations, on, catalog)
                 } else {
-                    LogicalOp::Join {
-                        left: Box::new(self.optimize_join_order_op(left, catalog)),
-                        right: Box::new(self.optimize_join_order_op(right, catalog)),
-                        on: on.clone(),
+                    // 2つのリレーションの場合、コストベースで順序を決定
+                    let left_cost = self.estimate_cost_detailed(left, catalog);
+                    let right_cost = self.estimate_cost_detailed(right, catalog);
+
+                    if left_cost.cost > right_cost.cost {
+                        LogicalOp::Join {
+                            left: Box::new(self.optimize_join_order_op(right, catalog)),
+                            right: Box::new(self.optimize_join_order_op(left, catalog)),
+                            on: on.clone(),
+                        }
+                    } else {
+                        LogicalOp::Join {
+                            left: Box::new(self.optimize_join_order_op(left, catalog)),
+                            right: Box::new(self.optimize_join_order_op(right, catalog)),
+                            on: on.clone(),
+                        }
                     }
                 }
             }
@@ -273,21 +315,164 @@ impl QueryOptimizer {
         }
     }
 
-    /// 演算子のコストを推定
-    fn estimate_cost(&self, op: &LogicalOp, catalog: &Catalog) -> f64 {
+    /// リレーションを収集
+    fn collect_relations(&self, op: &LogicalOp, relations: &mut Vec<LogicalOp>) {
         match op {
-            LogicalOp::NodeScan { label, .. } => {
-                catalog.get_label(label)
-                    .map(|_| 100.0)
-                    .unwrap_or(1000.0)
-            }
             LogicalOp::Join { left, right, .. } => {
-                let left_cost = self.estimate_cost(left, catalog);
-                let right_cost = self.estimate_cost(right, catalog);
-                left_cost * right_cost
+                self.collect_relations(left, relations);
+                self.collect_relations(right, relations);
             }
-            _ => 10.0,
+            _ => relations.push(op.clone()),
         }
+    }
+
+    /// 動的計画法による結合順序最適化
+    fn optimize_join_order_dp(&self, relations: &[LogicalOp], join_keys: &[String], catalog: &Catalog) -> LogicalOp {
+        let n = relations.len();
+        let mut dp = vec![vec![None; n]; n];
+        let mut costs = vec![vec![f64::INFINITY; n]; n];
+        let mut cardinalities = vec![vec![0.0; n]; n];
+
+        // 初期化: 単一のリレーション
+        for i in 0..n {
+            let cost_est = self.estimate_cost_detailed(&relations[i], catalog);
+            costs[i][i] = cost_est.cost;
+            cardinalities[i][i] = cost_est.cardinality;
+            dp[i][i] = Some(relations[i].clone());
+        }
+
+        // 動的計画法: サブセットのサイズを増やしていく
+        for len in 2..=n {
+            for i in 0..=n-len {
+                let j = i + len - 1;
+                costs[i][j] = f64::INFINITY;
+
+                // すべての可能な分割点を試す
+                for k in i..j {
+                    let left_cost = costs[i][k];
+                    let right_cost = costs[k+1][j];
+                    let left_card = cardinalities[i][k];
+                    let right_card = cardinalities[k+1][j];
+
+                    // 結合コストを計算
+                    let join_cost = self.calculate_join_cost(left_card, right_card, join_keys);
+                    let total_cost = left_cost + right_cost + join_cost;
+
+                    if total_cost < costs[i][j] {
+                        costs[i][j] = total_cost;
+                        cardinalities[i][j] = self.estimate_join_cardinality(left_card, right_card, join_keys);
+
+                        // 最適な結合順序を構築
+                        if let (Some(left_plan), Some(right_plan)) = (&dp[i][k], &dp[k+1][j]) {
+                            dp[i][j] = Some(LogicalOp::Join {
+                                left: Box::new(left_plan.clone()),
+                                right: Box::new(right_plan.clone()),
+                                on: join_keys.to_vec(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        dp[0][n-1].clone().unwrap_or_else(|| relations[0].clone())
+    }
+
+    /// 詳細なコスト推定
+    fn estimate_cost_detailed(&self, op: &LogicalOp, catalog: &Catalog) -> CostEstimate {
+        match op {
+            LogicalOp::NodeScan { label, props, .. } => {
+                let base_cardinality = catalog.get_label(label)
+                    .map(|_| 1000.0)  // デフォルトの基数
+                    .unwrap_or(100.0);
+
+                let selectivity = if props.is_some() {
+                    self.statistics.index_selectivity
+                } else {
+                    1.0
+                };
+
+                CostEstimate {
+                    cardinality: base_cardinality * selectivity,
+                    cost: base_cardinality * selectivity * 10.0, // スキャンコスト
+                    selectivity,
+                }
+            }
+            LogicalOp::IndexScan { .. } => {
+                CostEstimate {
+                    cardinality: 10.0,  // インデックススキャンは少ない行を返す
+                    cost: 5.0,          // インデックス使用時は低コスト
+                    selectivity: self.statistics.index_selectivity,
+                }
+            }
+            LogicalOp::Filter { input, pred } => {
+                let input_cost = self.estimate_cost_detailed(input, catalog);
+                let filter_selectivity = self.estimate_filter_selectivity(pred);
+
+                CostEstimate {
+                    cardinality: input_cost.cardinality * filter_selectivity,
+                    cost: input_cost.cost + (input_cost.cardinality * filter_selectivity * 2.0), // フィルタコスト
+                    selectivity: input_cost.selectivity * filter_selectivity,
+                }
+            }
+            LogicalOp::Join { left, right, on } => {
+                let left_cost = self.estimate_cost_detailed(left, catalog);
+                let right_cost = self.estimate_cost_detailed(right, catalog);
+                let join_card = self.estimate_join_cardinality(left_cost.cardinality, right_cost.cardinality, on);
+                let join_cost = self.calculate_join_cost(left_cost.cardinality, right_cost.cardinality, on);
+
+                CostEstimate {
+                    cardinality: join_card,
+                    cost: left_cost.cost + right_cost.cost + join_cost,
+                    selectivity: (left_cost.selectivity + right_cost.selectivity) / 2.0,
+                }
+            }
+            _ => CostEstimate {
+                cardinality: 100.0,
+                cost: 10.0,
+                selectivity: self.statistics.default_selectivity,
+            },
+        }
+    }
+
+    /// フィルタの選択性を推定
+    fn estimate_filter_selectivity(&self, pred: &Predicate) -> f64 {
+        match pred {
+            Predicate::Eq { .. } => self.statistics.index_selectivity,  // 等価条件は高い選択性
+            Predicate::Gt { .. } | Predicate::Lt { .. } | Predicate::Ge { .. } | Predicate::Le { .. } => 0.3, // 範囲条件は中程度
+            Predicate::And { and } => {
+                // AND条件の選択性は積
+                and.iter().map(|p| self.estimate_filter_selectivity(p)).product()
+            }
+            Predicate::Or { or } => {
+                // OR条件の選択性は和（簡易版）
+                let sum: f64 = or.iter().map(|p| self.estimate_filter_selectivity(p)).sum();
+                sum.min(1.0)
+            }
+            _ => self.statistics.default_selectivity,
+        }
+    }
+
+    /// 結合の基数を推定
+    fn estimate_join_cardinality(&self, left_card: f64, right_card: f64, join_keys: &[String]) -> f64 {
+        if join_keys.is_empty() {
+            // クロス結合
+            left_card * right_card
+        } else {
+            // 外部キーの場合、選択性が高い
+            (left_card * right_card * self.statistics.default_selectivity).max(left_card.max(right_card))
+        }
+    }
+
+    /// 結合コストを計算
+    fn calculate_join_cost(&self, left_card: f64, right_card: f64, _join_keys: &[String]) -> f64 {
+        // Nested Loop Joinのコストを想定
+        left_card * right_card * self.statistics.join_cost_factor
+    }
+
+    /// 演算子のコストを推定（後方互換性用）
+    fn estimate_cost(&self, op: &LogicalOp, catalog: &Catalog) -> f64 {
+        self.estimate_cost_detailed(op, catalog).cost
     }
 
     /// 不要な射影除去

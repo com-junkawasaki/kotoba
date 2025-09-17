@@ -1,18 +1,12 @@
 //! 論理プランナー（GQL → 論理プラン）
 
-use kotoba_core::{ir::*, types::*};
-use kotoba_errors::KotobaError;
-use kotoba_core::types::Result;
+use kotoba_core::ir::*;
+use kotoba_core::types::*;
+use std::collections::HashMap;
 
 /// 論理プランナー
 #[derive(Debug)]
 pub struct LogicalPlanner;
-
-impl Default for LogicalPlanner {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl LogicalPlanner {
     pub fn new() -> Self {
@@ -60,12 +54,6 @@ impl LogicalPlanner {
 /// コスト推定器
 #[derive(Debug)]
 pub struct CostEstimator;
-
-impl Default for CostEstimator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl CostEstimator {
     pub fn new() -> Self {

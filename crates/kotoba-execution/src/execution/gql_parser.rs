@@ -1,639 +1,730 @@
-//! GQLパーサー（完全実装）
+//! GQLパーサー（Cypher-like構文対応）
 
-use kotoba_core::{types::*, ir::*};
-use kotoba_core::types::Result;
-use kotoba_errors::KotobaError;
+use crate::ir::*;
+use crate::types::*;
+use crate::graph::*;
 use std::collections::HashMap;
 
 /// GQLパーサー
 #[derive(Debug)]
-pub struct GqlParser {
-    /// 現在のトークン位置
-    position: usize,
-    /// パース対象のトークン列
-    tokens: Vec<GqlToken>,
+pub struct GqlParser;
+
+#[derive(Debug, Clone)]
+struct ParsedMatch {
+    patterns: Vec<GraphPattern>,
+    where_clause: Option<Predicate>,
 }
 
-/// GQLトークン
-#[derive(Debug, Clone, PartialEq)]
-enum GqlToken {
-    // キーワード
-    Match,
-    Where,
-    Return,
-    Order,
-    By,
-    Limit,
-    Asc,
-    Desc,
-    Distinct,
-    Count,
-    Sum,
-    Avg,
-    Min,
-    Max,
-    As,
-
-    // 記号
-    LParen,      // (
-    RParen,      // )
-    LBracket,    // [
-    RBracket,    // ]
-    LBrace,      // {
-    RBrace,      // }
-    Colon,       // :
-    Comma,       // ,
-    Dot,         // .
-    Arrow,       // ->
-    Dash,        // -
-    Eq,          // =
-    Ne,          // <>
-    Lt,          // <
-    Le,          // <=
-    Gt,          // >
-    Ge,          // >=
-    Plus,        // +
-    Minus,       // -
-    Star,        // *
-    Slash,       // /
-
-    // リテラル
-    Identifier(String),
-    String(String),
-    Number(f64),
-
-    // 特殊
-    Eof,
+#[derive(Debug, Clone)]
+enum GraphPattern {
+    Node(NodePattern),
+    Path(PathPattern),
 }
 
-impl Default for GqlParser {
-    fn default() -> Self {
-        Self::new()
-    }
+#[derive(Debug, Clone)]
+struct NodePattern {
+    variable: String,
+    labels: Vec<String>,
+    properties: Option<Properties>,
+}
+
+#[derive(Debug, Clone)]
+struct PathPattern {
+    start_node: NodePattern,
+    edges: Vec<EdgeHop>,
+    end_node: NodePattern,
+}
+
+#[derive(Debug, Clone)]
+struct EdgeHop {
+    variable: Option<String>,
+    labels: Vec<String>,
+    direction: Direction,
+    properties: Option<Properties>,
+    min_hops: Option<usize>,
+    max_hops: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
+struct ReturnClause {
+    items: Vec<ReturnItem>,
+    distinct: bool,
+}
+
+#[derive(Debug, Clone)]
+struct ReturnItem {
+    expr: Expr,
+    alias: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct AlgorithmCall {
+    algorithm: AlgorithmType,
+    parameters: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
+enum AlgorithmType {
+    ShortestPath { algorithm: ShortestPathAlgorithm },
+    Centrality { algorithm: CentralityAlgorithm },
+    PatternMatching,
+}
+
+#[derive(Debug, Clone)]
+enum ShortestPathAlgorithm {
+    Dijkstra,
+    BellmanFord,
+    AStar,
+    FloydWarshall,
+}
+
+#[derive(Debug, Clone)]
+struct OrderByClause {
+    items: Vec<OrderByItem>,
+}
+
+#[derive(Debug, Clone)]
+struct OrderByItem {
+    expr: Expr,
+    ascending: bool,
 }
 
 impl GqlParser {
     pub fn new() -> Self {
-        Self {
-            position: 0,
-            tokens: Vec::new(),
+        Self
+    }
+
+    /// GQL文字列をパース
+    pub fn parse(&self, gql: &str) -> Result<PlanIR> {
+        let gql_lower = gql.trim().to_lowercase();
+
+        if gql_lower.starts_with("match") {
+            self.parse_match_query(gql)
+        } else if gql_lower.starts_with("create") {
+            self.parse_create_query(gql)
+        } else {
+            Err(KotobaError::Parse(format!("Unsupported GQL operation: {}", gql)))
         }
     }
 
-    /// GQL文字列をパースして論理プランに変換
-    pub fn parse(&mut self, gql: &str) -> Result<PlanIR> {
-        self.tokenize(gql)?;
-        self.position = 0;
+    /// MATCHクエリのパース
+    fn parse_match_query(&self, gql: &str) -> Result<PlanIR> {
+        // 例: MATCH (n:Person {age: 30})-[r:FOLLOWS]->(m:Person) WHERE n.name = "Alice" RETURN n, m ORDER BY n.age SKIP 10 LIMIT 20
 
-        self.parse_query()
-    }
+        let mut logical_plan = None;
+        let mut return_clause = None;
+        let mut order_by = None;
+        let mut skip = None;
+        let mut limit = None;
 
-    /// トークン化
-    fn tokenize(&mut self, input: &str) -> Result<()> {
-        self.tokens.clear();
-        let chars: Vec<char> = input.chars().collect();
+        let parts: Vec<&str> = gql.split_whitespace().collect();
         let mut i = 0;
 
-        while i < chars.len() {
-            match chars[i] {
-                // 空白をスキップ
-                ' ' | '\t' | '\n' | '\r' => {
-                    i += 1;
-                    continue;
-                }
-
-                // 記号
-                '(' => self.tokens.push(GqlToken::LParen),
-                ')' => self.tokens.push(GqlToken::RParen),
-                '[' => self.tokens.push(GqlToken::LBracket),
-                ']' => self.tokens.push(GqlToken::RBracket),
-                '{' => self.tokens.push(GqlToken::LBrace),
-                '}' => self.tokens.push(GqlToken::RBrace),
-                ':' => self.tokens.push(GqlToken::Colon),
-                ',' => self.tokens.push(GqlToken::Comma),
-                '.' => self.tokens.push(GqlToken::Dot),
-                '+' => self.tokens.push(GqlToken::Plus),
-                '-' => {
-                    if i + 1 < chars.len() && chars[i + 1] == '>' {
-                        self.tokens.push(GqlToken::Arrow);
-                        i += 1;
-                    } else {
-                        self.tokens.push(GqlToken::Minus);
-                    }
-                }
-                '*' => self.tokens.push(GqlToken::Star),
-                '/' => self.tokens.push(GqlToken::Slash),
-
-                // 比較演算子
-                '=' => self.tokens.push(GqlToken::Eq),
-                '<' => {
-                    if i + 1 < chars.len() && chars[i + 1] == '=' {
-                        self.tokens.push(GqlToken::Le);
-                        i += 1;
-                    } else if i + 1 < chars.len() && chars[i + 1] == '>' {
-                        self.tokens.push(GqlToken::Ne);
-                        i += 1;
-                    } else {
-                        self.tokens.push(GqlToken::Lt);
-                    }
-                }
-                '>' => {
-                    if i + 1 < chars.len() && chars[i + 1] == '=' {
-                        self.tokens.push(GqlToken::Ge);
-                        i += 1;
-                    } else {
-                        self.tokens.push(GqlToken::Gt);
-                    }
-                }
-
-                // 文字列リテラル
-                '"' | '\'' => {
-                    let quote = chars[i];
-                    i += 1;
-                    let start = i;
-                    while i < chars.len() && chars[i] != quote {
-                        if chars[i] == '\\' {
-                            i += 2; // エスケープシーケンスをスキップ
-                        } else {
-                            i += 1;
-                        }
-                    }
-                    if i >= chars.len() {
-                        return Err(KotobaError::Parse("Unterminated string literal".to_string()));
-                    }
-                    let value = chars[start..i].iter().collect();
-                    self.tokens.push(GqlToken::String(value));
-                }
-
-                // 数字
-                '0'..='9' => {
-                    let start = i;
-                    while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
-                        i += 1;
-                    }
-                    let num_str: String = chars[start..i].iter().collect();
-                    match num_str.parse::<f64>() {
-                        Ok(n) => self.tokens.push(GqlToken::Number(n)),
-                        Err(_) => return Err(KotobaError::Parse(format!("Invalid number: {}", num_str))),
-                    }
-                    i -= 1; // ループのインクリメントを調整
-                }
-
-                // 識別子とキーワード
-                'a'..='z' | 'A'..='Z' | '_' => {
-                    let start = i;
-                    while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
-                        i += 1;
-                    }
-                    let ident: String = chars[start..i].iter().collect();
-                    i -= 1; // ループのインクリメントを調整
-
-                    let token = match ident.to_uppercase().as_str() {
-                        "MATCH" => GqlToken::Match,
-                        "WHERE" => GqlToken::Where,
-                        "RETURN" => GqlToken::Return,
-                        "ORDER" => GqlToken::Order,
-                        "BY" => GqlToken::By,
-                        "LIMIT" => GqlToken::Limit,
-                        "ASC" => GqlToken::Asc,
-                        "DESC" => GqlToken::Desc,
-                        "DISTINCT" => GqlToken::Distinct,
-                        "COUNT" => GqlToken::Count,
-                        "SUM" => GqlToken::Sum,
-                        "AVG" => GqlToken::Avg,
-                        "MIN" => GqlToken::Min,
-                        "MAX" => GqlToken::Max,
-                        "AS" => GqlToken::As,
-                        _ => GqlToken::Identifier(ident),
-                    };
-                    self.tokens.push(token);
-                }
-
-                _ => return Err(KotobaError::Parse(format!("Unexpected character: {}", chars[i]))),
-            }
+        // MATCH句のパース
+        if parts.get(i).map(|s| s.to_lowercase()) == Some("match") {
             i += 1;
+            let match_part = self.extract_clause(gql, "match", &["where", "return", "order", "skip", "limit"])?;
+            let parsed_match = self.parse_match_clause(&match_part)?;
+
+            // 基本的なノードスキャンを作成
+            if let Some(node_pattern) = parsed_match.patterns.first() {
+                match node_pattern {
+                    GraphPattern::Node(node) => {
+                        logical_plan = Some(LogicalOp::NodeScan {
+                            label: node.labels.first().cloned().unwrap_or_else(|| "Node".to_string()),
+                            as_: node.variable.clone(),
+                            props: node.properties.clone(),
+                        });
+                    }
+                    GraphPattern::Path(path) => {
+                        // パスを展開
+                        logical_plan = Some(self.build_path_plan(path)?);
+                    }
+                }
+            }
+
+            // WHERE句の適用
+            if let Some(where_pred) = parsed_match.where_clause {
+                if let Some(plan) = logical_plan {
+                    logical_plan = Some(LogicalOp::Filter {
+                        pred: where_pred,
+                        input: Box::new(plan),
+                    });
+                }
+            }
         }
 
-        self.tokens.push(GqlToken::Eof);
-        Ok(())
-    }
-
-    /// クエリのパース
-    fn parse_query(&mut self) -> Result<PlanIR> {
-        // MATCH句をパース
-        self.consume_token(GqlToken::Match)?;
-        let mut plan = self.parse_match_clause()?;
-
-        // WHERE句
-        if self.check_token(&GqlToken::Where) {
-            self.advance();
-            let predicate = self.parse_where_clause()?;
-            plan = LogicalOp::Filter {
-                pred: predicate,
-                input: Box::new(plan),
-            };
+        // RETURN句のパース
+        if let Some(return_start) = gql.to_lowercase().find("return") {
+            let return_part = self.extract_clause_from_pos(gql, return_start + 6, &["order", "skip", "limit"])?;
+            return_clause = Some(self.parse_return_clause(&return_part)?);
         }
 
-        // RETURN句
-        self.consume_token(GqlToken::Return)?;
-        let (cols, aggregations) = self.parse_return_clause()?;
+        // ORDER BY句のパース
+        if let Some(order_start) = gql.to_lowercase().find("order by") {
+            let order_part = self.extract_clause_from_pos(gql, order_start + 8, &["skip", "limit"])?;
+            order_by = Some(self.parse_order_by_clause(&order_part)?);
+        }
 
-        // 集計がある場合はGroup演算子を追加
-        if !aggregations.is_empty() {
-            // グループキーを決定（集計関数がない列）
-            let group_keys: Vec<String> = cols.iter()
-                .filter(|col| !aggregations.iter().any(|agg| agg.as_ == **col))
-                .cloned()
+        // SKIP句のパース
+        if let Some(skip_start) = gql.to_lowercase().find("skip") {
+            let skip_part = self.extract_clause_from_pos(gql, skip_start + 4, &["limit"])?;
+            skip = skip_part.trim().parse::<usize>().ok();
+        }
+
+        // LIMIT句のパース
+        if let Some(limit_start) = gql.to_lowercase().find("limit") {
+            let limit_part = &gql[limit_start + 5..];
+            limit = limit_part.trim().parse::<usize>().ok();
+        }
+
+        // 論理プランの構築
+        let mut plan = logical_plan.unwrap_or(LogicalOp::NodeScan {
+            label: "Node".to_string(),
+            as_: "n".to_string(),
+            props: None,
+        });
+
+        // RETURN句の適用（射影）
+        if let Some(ret) = return_clause {
+            let cols: Vec<String> = ret.items.iter()
+                .map(|item| item.alias.clone().unwrap_or_else(|| format!("{}", item.expr)))
                 .collect();
 
-            plan = LogicalOp::Group {
-                keys: group_keys,
-                aggregations,
+            plan = LogicalOp::Project {
+                cols,
                 input: Box::new(plan),
             };
         }
 
-        // ORDER BY句
-        let mut sort_keys = Vec::new();
-        if self.check_token(&GqlToken::Order) {
-            self.advance();
-            self.consume_token(GqlToken::By)?;
-            sort_keys = self.parse_order_by_clause()?;
+        // ORDER BY句の適用
+        if let Some(order) = order_by {
+            let sort_keys: Vec<SortKey> = order.items.iter()
+                .map(|item| SortKey {
+                    expr: item.expr.clone(),
+                    asc: item.ascending,
+                })
+                .collect();
+
             plan = LogicalOp::Sort {
                 keys: sort_keys,
                 input: Box::new(plan),
             };
         }
 
-        // LIMIT句
-        let mut limit = None;
-        if self.check_token(&GqlToken::Limit) {
-            self.advance();
-            limit = Some(self.parse_limit_clause()?);
+        // LIMIT句の適用
+        if let Some(lim) = limit {
             plan = LogicalOp::Limit {
-                count: limit.unwrap(),
+                count: lim,
                 input: Box::new(plan),
             };
         }
 
-        // 射影を追加（DISTINCTの場合はDistinct演算子も）
-        if self.check_token(&GqlToken::Distinct) {
-            self.advance();
-            plan = LogicalOp::Distinct {
-                input: Box::new(plan),
-            };
-        }
+        Ok(PlanIR {
+            plan,
+            limit: limit.or(Some(100)), // デフォルト制限
+        })
+    }
 
-        plan = LogicalOp::Project {
-            cols,
-            input: Box::new(plan),
+    /// CREATEクエリのパース
+    fn parse_create_query(&self, _gql: &str) -> Result<PlanIR> {
+        // CREATEは通常更新操作なので、クエリとしては空を返す
+        let plan = LogicalOp::NodeScan {
+            label: "Node".to_string(),
+            as_: "n".to_string(),
+            props: None,
         };
 
         Ok(PlanIR {
             plan,
-            limit,
+            limit: Some(0),
         })
     }
 
     /// MATCH句のパース
-    fn parse_match_clause(&mut self) -> Result<LogicalOp> {
-        let pattern = self.parse_pattern()?;
+    fn parse_match_clause(&self, match_clause: &str) -> Result<ParsedMatch> {
+        let mut patterns = Vec::new();
+        let mut where_clause = None;
 
-        // 追加のパターンを処理（カンマ区切り）
-        let mut patterns = vec![pattern];
-        while self.check_token(&GqlToken::Comma) {
-            self.advance();
-            patterns.push(self.parse_pattern()?);
-        }
-
-        // 複数のパターンを結合
-        if patterns.len() == 1 {
-            Ok(patterns.into_iter().next().unwrap())
+        // WHERE句の分離
+        let (pattern_part, where_part) = if let Some(where_pos) = match_clause.to_lowercase().find(" where ") {
+            let pattern_str = match_clause[..where_pos].trim();
+            let where_str = &match_clause[where_pos + 7..].trim();
+            where_clause = Some(self.parse_where_clause(where_str)?);
+            (pattern_str, Some(where_str.to_string()))
         } else {
-            // 簡易的に最初の2つを結合
-            Ok(LogicalOp::Join {
-                left: Box::new(patterns[0].clone()),
-                right: Box::new(patterns[1].clone()),
-                on: Vec::new(), // 空の結合キー
-            })
-        }
-    }
-
-    /// パターンパース
-    fn parse_pattern(&mut self) -> Result<LogicalOp> {
-        self.consume_token(GqlToken::LParen)?;
-        let node_pattern = self.parse_node_pattern()?;
-        self.consume_token(GqlToken::RParen)?;
-
-        // エッジパターンがある場合
-        if self.check_token(&GqlToken::Dash) {
-            self.advance();
-
-            // エッジラベルがある場合
-            let edge_label = if self.check_token(&GqlToken::LBracket) {
-                self.advance();
-                let label = self.parse_edge_pattern()?;
-                self.consume_token(GqlToken::RBracket)?;
-                Some(label)
-            } else {
-                None
-            };
-
-            // 方向
-            let direction = if self.check_token(&GqlToken::Arrow) {
-                self.advance();
-                Direction::Out
-            } else if self.check_token(&GqlToken::Dash) {
-                self.advance();
-                if self.check_token(&GqlToken::Gt) {
-                    self.advance();
-                    Direction::In
-                } else {
-                    Direction::Both
-                }
-            } else {
-                return Err(KotobaError::Parse("Expected edge direction".to_string()));
-            };
-
-            // 終点ノード
-            self.consume_token(GqlToken::LParen)?;
-            let target_alias = self.parse_node_alias()?;
-            self.consume_token(GqlToken::RParen)?;
-
-            // エッジパターンを作成
-            let edge_pattern = EdgePattern {
-                label: edge_label.unwrap_or_else(|| "EDGE".to_string()),
-                dir: direction,
-                props: None,
-            };
-
-            Ok(LogicalOp::Expand {
-                edge: edge_pattern,
-                to_as: target_alias,
-                from: Box::new(node_pattern),
-            })
-        } else {
-            Ok(node_pattern)
-        }
-    }
-
-    /// ノードパターンパース
-    fn parse_node_pattern(&mut self) -> Result<LogicalOp> {
-        let alias = self.parse_node_alias()?;
-
-        // ラベル
-        let label = if self.check_token(&GqlToken::Colon) {
-            self.advance();
-            self.parse_identifier()?
-        } else {
-            "Node".to_string()
+            (match_clause.trim(), None)
         };
 
-        // プロパティ
-        let props = if self.check_token(&GqlToken::LBrace) {
-            Some(self.parse_properties()?)
+        // パターンのパース
+        if pattern_part.contains("->") || pattern_part.contains("<-") {
+            patterns.push(GraphPattern::Path(self.parse_path_pattern(pattern_part)?));
+        } else {
+            patterns.push(GraphPattern::Node(self.parse_node_pattern_simple(pattern_part)?));
+        }
+
+        Ok(ParsedMatch {
+            patterns,
+            where_clause,
+        })
+    }
+
+    /// ノードパターンパース（簡易版）
+    fn parse_node_pattern_simple(&self, pattern: &str) -> Result<NodePattern> {
+        // 例: (n:Person {age: 30})
+
+        let pattern = pattern.trim();
+        if !pattern.starts_with("(") || !pattern.ends_with(")") {
+            return Err(KotobaError::Parse("Invalid node pattern".to_string()));
+        }
+
+        let inner = &pattern[1..pattern.len()-1];
+        let parts: Vec<&str> = inner.split(':').collect();
+
+        let variable = if parts.len() >= 2 {
+            parts[0].trim().to_string()
+        } else {
+            "n".to_string()
+        };
+
+        let labels_part = if parts.len() >= 2 { parts[1] } else { inner };
+        let (labels, properties) = self.parse_labels_and_properties(labels_part)?;
+
+        Ok(NodePattern {
+            variable,
+            labels,
+            properties,
+        })
+    }
+
+    /// パスパターンパース
+    fn parse_path_pattern(&self, pattern: &str) -> Result<PathPattern> {
+        // 例: (n:Person)-[:FOLLOWS]->(m:Person)
+
+        let parts: Vec<&str> = pattern.split("->").collect();
+        if parts.len() < 2 {
+            return Err(KotobaError::Parse("Invalid path pattern".to_string()));
+        }
+
+        let start_node = self.parse_node_pattern_simple(parts[0].trim())?;
+        let end_node = self.parse_node_pattern_simple(parts[parts.len()-1].trim())?;
+
+        // エッジの抽出とパース
+        let mut edges = Vec::new();
+        for i in 0..parts.len()-1 {
+            let part = parts[i];
+            if let Some(edge_start) = part.rfind("-[:") {
+                let edge_part = &part[edge_start..];
+                if let Some(edge_end) = edge_part.find("]-") {
+                    let edge_str = &edge_part[2..edge_end];
+                    let (labels, properties) = self.parse_labels_and_properties(edge_str)?;
+
+                    edges.push(EdgeHop {
+                        variable: None,
+                        labels,
+                        direction: Direction::Out,
+                        properties,
+                        min_hops: None,
+                        max_hops: None,
+                    });
+                }
+            }
+        }
+
+        Ok(PathPattern {
+            start_node,
+            edges,
+            end_node,
+        })
+    }
+
+    /// ラベルとプロパティのパース
+    fn parse_labels_and_properties(&self, input: &str) -> Result<(Vec<String>, Option<Properties>)> {
+        let input = input.trim();
+
+        // プロパティ部分の抽出
+        let (labels_str, props_str) = if let Some(props_start) = input.find('{') {
+            if let Some(props_end) = input[props_start..].find('}') {
+                let labels_part = input[..props_start].trim();
+                let props_part = &input[props_start..props_start + props_end + 1];
+                (labels_part, Some(props_part))
+            } else {
+                (input, None)
+            }
+        } else {
+            (input, None)
+        };
+
+        // ラベルのパース
+        let labels: Vec<String> = labels_str
+            .split('|')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        // プロパティのパース
+        let properties = if let Some(props) = props_str {
+            Some(self.parse_properties(props)?)
         } else {
             None
         };
 
-        Ok(LogicalOp::NodeScan {
-            label,
-            as_: alias,
-            props,
-        })
+        Ok((labels, properties))
     }
 
-    /// ノードエイリアスパース
-    fn parse_node_alias(&mut self) -> Result<String> {
-        if let Some(token) = self.peek_token().cloned() {
-            match token {
-                GqlToken::Identifier(alias) => {
-                    self.advance();
-                    Ok(alias)
-                }
-                _ => Ok(format!("node_{}", self.position)),
-            }
-        } else {
-            Ok(format!("node_{}", self.position))
-        }
-    }
-
-    /// エッジパターンパース
-    fn parse_edge_pattern(&mut self) -> Result<String> {
-        if self.check_token(&GqlToken::Colon) {
-            self.advance();
-            self.parse_identifier()
-        } else {
-            Ok("EDGE".to_string())
-        }
-    }
-
-    /// プロパティパース
-    fn parse_properties(&mut self) -> Result<Properties> {
-        self.consume_token(GqlToken::LBrace)?;
+    /// プロパティのパース
+    fn parse_properties(&self, props_str: &str) -> Result<Properties> {
+        // 簡易版: {key1: "value1", key2: 123}
         let mut props = HashMap::new();
 
-        while !self.check_token(&GqlToken::RBrace) && !self.check_token(&GqlToken::Eof) {
-            let key = self.parse_identifier()?;
-            self.consume_token(GqlToken::Colon)?;
-            let value = self.parse_value()?;
-            props.insert(key, value);
+        let inner = &props_str[1..props_str.len()-1]; // {}を除去
+        for pair in inner.split(',') {
+            let pair = pair.trim();
+            if let Some(colon_pos) = pair.find(':') {
+                let key = pair[..colon_pos].trim().to_string();
+                let value_str = pair[colon_pos + 1..].trim();
 
-            if !self.check_token(&GqlToken::RBrace) {
-                self.consume_token(GqlToken::Comma)?;
+                let value = if value_str.starts_with('"') && value_str.ends_with('"') {
+                    Value::String(value_str[1..value_str.len()-1].to_string())
+                } else if let Ok(num) = value_str.parse::<i64>() {
+                    Value::Int(num)
+        } else {
+                    Value::String(value_str.to_string())
+                };
+
+                props.insert(key, value);
             }
         }
 
-        self.consume_token(GqlToken::RBrace)?;
         Ok(props)
     }
 
     /// WHERE句のパース
-    fn parse_where_clause(&mut self) -> Result<Predicate> {
-        self.parse_expression()
+    fn parse_where_clause(&self, where_str: &str) -> Result<Predicate> {
+        // 簡易版: n.age > 30 AND n.name = "Alice"
+        self.parse_predicate(where_str)
     }
 
-    /// RETURN句のパース
-    fn parse_return_clause(&mut self) -> Result<(Vec<String>, Vec<Aggregation>)> {
-        let mut cols = Vec::new();
-        let mut aggregations = Vec::new();
+    /// 述語のパース
+    fn parse_predicate(&self, pred_str: &str) -> Result<Predicate> {
+        let pred_str = pred_str.trim();
 
-        loop {
-            if let Some(agg) = self.try_parse_aggregation()? {
-                aggregations.push(agg);
-            } else {
-                let expr = self.parse_expression()?;
-                cols.push(format!("{:?}", expr));
+        // AND/ORの処理
+        if let Some(and_pos) = self.find_logical_op(pred_str, "and") {
+            let left = self.parse_predicate(&pred_str[..and_pos])?;
+            let right = self.parse_predicate(&pred_str[and_pos + 3..])?;
+            return Ok(Predicate::And { and: vec![left, right] });
+        }
+
+        if let Some(or_pos) = self.find_logical_op(pred_str, "or") {
+            let left = self.parse_predicate(&pred_str[..or_pos])?;
+            let right = self.parse_predicate(&pred_str[or_pos + 2..])?;
+            return Ok(Predicate::Or { or: vec![left, right] });
+        }
+
+        // 比較演算子
+        self.parse_comparison(pred_str)
+    }
+
+    /// 比較演算のパース
+    fn parse_comparison(&self, comp_str: &str) -> Result<Predicate> {
+        let operators = ["!=", ">=", "<=", ">", "<", "="];
+
+        for op in &operators {
+            if let Some(pos) = comp_str.find(op) {
+                let left_expr = self.parse_expr(comp_str[..pos].trim())?;
+                let right_expr = self.parse_expr(comp_str[pos + op.len()..].trim())?;
+
+                return match *op {
+                    "=" => Ok(Predicate::Eq { eq: [left_expr, right_expr] }),
+                    "!=" => Ok(Predicate::Ne { ne: [left_expr, right_expr] }),
+                    ">" => Ok(Predicate::Gt { gt: [left_expr, right_expr] }),
+                    "<" => Ok(Predicate::Lt { lt: [left_expr, right_expr] }),
+                    ">=" => Ok(Predicate::Ge { ge: [left_expr, right_expr] }),
+                    "<=" => Ok(Predicate::Le { le: [left_expr, right_expr] }),
+                    _ => Err(KotobaError::Parse(format!("Unknown operator: {}", op))),
+                };
             }
-
-            if !self.check_token(&GqlToken::Comma) {
-                break;
-            }
-            self.advance();
         }
 
-        Ok((cols, aggregations))
-    }
-
-    /// 集計関数を試行パース
-    fn try_parse_aggregation(&mut self) -> Result<Option<Aggregation>> {
-        let start_pos = self.position;
-
-        if let Some(func_token) = self.peek_token().cloned() {
-            let fn_name = match func_token {
-                GqlToken::Count => "count",
-                GqlToken::Sum => "sum",
-                GqlToken::Avg => "avg",
-                GqlToken::Min => "min",
-                GqlToken::Max => "max",
-                _ => return Ok(None),
-            };
-
-            self.advance();
-            self.consume_token(GqlToken::LParen)?;
-            let arg = self.parse_expression()?;
-            self.consume_token(GqlToken::RParen)?;
-
-            let as_name = if self.check_token(&GqlToken::As) {
-                self.advance();
-                self.parse_identifier()?
-            } else {
-                format!("{}_{:?}", fn_name, arg)
-            };
-
-            Ok(Some(Aggregation {
-                fn_: fn_name.to_string(),
-                args: vec![format!("{:?}", arg)],
-                as_: as_name,
-            }))
-        } else {
-            // バックトラック
-            self.position = start_pos;
-            Ok(None)
-        }
-    }
-
-    /// ORDER BY句のパース
-    fn parse_order_by_clause(&mut self) -> Result<Vec<SortKey>> {
-        let mut keys = Vec::new();
-
-        loop {
-            let expr = self.parse_term()?; // Exprを返す
-            let asc = if self.check_token(&GqlToken::Asc) {
-                self.advance();
-                true
-            } else if self.check_token(&GqlToken::Desc) {
-                self.advance();
-                false
-            } else {
-                true // デフォルトは昇順
-            };
-
-            keys.push(SortKey { expr, asc });
-
-            if !self.check_token(&GqlToken::Comma) {
-                break;
-            }
-            self.advance();
-        }
-
-        Ok(keys)
-    }
-
-    /// LIMIT句のパース
-    fn parse_limit_clause(&mut self) -> Result<usize> {
-        if let Some(GqlToken::Number(n)) = self.peek_token() {
-            let count = *n as usize;
-            self.advance();
-            Ok(count)
-        } else {
-            Err(KotobaError::Parse("Expected number after LIMIT".to_string()))
-        }
+        Err(KotobaError::Parse(format!("No comparison operator found in: {}", comp_str)))
     }
 
     /// 式のパース
-    fn parse_expression(&mut self) -> Result<Predicate> {
-        // 簡易的な実装 - 等価比較のみサポート
-        let left = self.parse_term()?;
+    fn parse_expr(&self, expr_str: &str) -> Result<Expr> {
+        let expr_str = expr_str.trim();
 
-        if self.check_token(&GqlToken::Eq) {
-            self.advance();
-            let right = self.parse_term()?;
-            Ok(Predicate::Eq { eq: [left, right] })
+        // 関数呼び出し
+        if let Some(paren_pos) = expr_str.find('(') {
+            if expr_str.ends_with(')') {
+                let func_name = expr_str[..paren_pos].trim();
+                let args_str = &expr_str[paren_pos + 1..expr_str.len() - 1];
+
+                // アルゴリズム関数かチェック
+                if let Some(algorithm) = self.parse_algorithm_function(func_name) {
+                    let args = self.parse_function_args(args_str)?;
+                    return Ok(Expr::Fn {
+                        fn_: format!("algorithm_{}", self.algorithm_to_string(&algorithm)),
+                        args,
+                    });
+                } else {
+                    // 通常の関数
+                    let args = self.parse_function_args(args_str)?;
+                    return Ok(Expr::Fn {
+                        fn_: func_name.to_string(),
+                        args,
+                    });
+                }
+            }
+        }
+
+        // 文字列リテラル
+        if expr_str.starts_with('"') && expr_str.ends_with('"') {
+            let value = expr_str[1..expr_str.len()-1].to_string();
+            return Ok(Expr::Const(Value::String(value)));
+        }
+
+        // 数値リテラル
+        if let Ok(num) = expr_str.parse::<i64>() {
+            return Ok(Expr::Const(Value::Int(num)));
+        }
+
+        // 変数参照またはプロパティアクセス
+        if expr_str.contains('.') {
+            // 例: n.name -> 関数呼び出しとして扱う
+            let parts: Vec<&str> = expr_str.split('.').collect();
+            if parts.len() == 2 {
+                return Ok(Expr::Fn {
+                    fn_: "property".to_string(),
+                    args: vec![
+                        Expr::Var(parts[0].to_string()),
+                        Expr::Const(Value::String(parts[1].to_string())),
+                    ],
+                });
+            }
+        }
+
+        // 変数
+        Ok(Expr::Var(expr_str.to_string()))
+    }
+
+    /// アルゴリズム関数をパース
+    fn parse_algorithm_function(&self, func_name: &str) -> Option<AlgorithmType> {
+        match func_name.to_lowercase().as_str() {
+            "dijkstra" | "shortest_path" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::Dijkstra,
+            }),
+            "bellman_ford" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::BellmanFord,
+            }),
+            "astar" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::AStar,
+            }),
+            "floyd_warshall" => Some(AlgorithmType::ShortestPath {
+                algorithm: ShortestPathAlgorithm::FloydWarshall,
+            }),
+            "degree_centrality" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::Degree,
+            }),
+            "betweenness_centrality" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::Betweenness,
+            }),
+            "closeness_centrality" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::Closeness,
+            }),
+            "pagerank" => Some(AlgorithmType::Centrality {
+                algorithm: CentralityAlgorithm::PageRank,
+            }),
+            "pattern_match" | "subgraph_isomorphism" => Some(AlgorithmType::PatternMatching),
+            _ => None,
+        }
+    }
+
+    /// アルゴリズムを文字列に変換
+    fn algorithm_to_string(&self, algorithm: &AlgorithmType) -> String {
+        match algorithm {
+            AlgorithmType::ShortestPath { algorithm: sp } => match sp {
+                ShortestPathAlgorithm::Dijkstra => "dijkstra",
+                ShortestPathAlgorithm::BellmanFord => "bellman_ford",
+                ShortestPathAlgorithm::AStar => "astar",
+                ShortestPathAlgorithm::FloydWarshall => "floyd_warshall",
+            }.to_string(),
+            AlgorithmType::Centrality { algorithm: c } => match c {
+                CentralityAlgorithm::Degree => "degree_centrality",
+                CentralityAlgorithm::Betweenness => "betweenness_centrality",
+                CentralityAlgorithm::Closeness => "closeness_centrality",
+                CentralityAlgorithm::Eigenvector => "eigenvector_centrality",
+                CentralityAlgorithm::PageRank => "pagerank",
+            }.to_string(),
+            AlgorithmType::PatternMatching => "pattern_matching".to_string(),
+        }
+    }
+
+    /// 関数引数をパース
+    fn parse_function_args(&self, args_str: &str) -> Result<Vec<Expr>> {
+        let mut args = Vec::new();
+
+        if args_str.trim().is_empty() {
+            return Ok(args);
+        }
+
+        for arg in args_str.split(',') {
+            let arg = arg.trim();
+            if !arg.is_empty() {
+                args.push(self.parse_expr(arg)?);
+            }
+        }
+
+        Ok(args)
+    }
+
+    /// RETURN句のパース
+    fn parse_return_clause(&self, return_str: &str) -> Result<ReturnClause> {
+        let return_str = return_str.trim();
+        let mut items = Vec::new();
+        let distinct = return_str.to_lowercase().starts_with("distinct");
+
+        let items_str = if distinct {
+            &return_str[8..] // "distinct" をスキップ
         } else {
-            // 単一の式の場合は常にtrueとみなす
-            Ok(Predicate::Eq { eq: [left, Expr::Const(Value::Bool(true))] })
+            return_str
+        };
+
+        for item in items_str.split(',') {
+            let item = item.trim();
+            let (expr_str, alias) = if let Some(as_pos) = item.to_lowercase().find(" as ") {
+                let expr_part = item[..as_pos].trim();
+                let alias_part = item[as_pos + 4..].trim();
+                (expr_part, Some(alias_part.to_string()))
+            } else {
+                (item, None)
+            };
+
+            let expr = self.parse_expr(expr_str)?;
+            items.push(ReturnItem { expr, alias });
         }
+
+        Ok(ReturnClause { items, distinct })
     }
 
-    /// 項のパース
-    fn parse_term(&mut self) -> Result<Expr> {
-        match self.peek_token().cloned() {
-            Some(GqlToken::Identifier(id)) => {
-                self.advance();
-                Ok(Expr::Var(id))
+    /// ORDER BY句のパース
+    fn parse_order_by_clause(&self, order_str: &str) -> Result<OrderByClause> {
+        let mut items = Vec::new();
+
+        for item in order_str.split(',') {
+            let item = item.trim();
+            let (expr_str, ascending) = if item.to_lowercase().ends_with(" desc") {
+                (&item[..item.len() - 5], false)
+            } else if item.to_lowercase().ends_with(" asc") {
+                (&item[..item.len() - 4], true)
+            } else {
+                (item, true) // デフォルトは昇順
+            };
+
+            let expr = self.parse_expr(expr_str.trim())?;
+            items.push(OrderByItem { expr, ascending });
+        }
+
+        Ok(OrderByClause { items })
+    }
+
+    /// パスプラン構築
+    fn build_path_plan(&self, path: &PathPattern) -> Result<LogicalOp> {
+        // 開始ノードのスキャン
+        let mut plan = LogicalOp::NodeScan {
+            label: path.start_node.labels.first().cloned().unwrap_or_else(|| "Node".to_string()),
+            as_: path.start_node.variable.clone(),
+            props: path.start_node.properties.clone(),
+        };
+
+        // エッジ展開
+        for (i, edge) in path.edges.iter().enumerate() {
+            let target_var = if i == path.edges.len() - 1 {
+                path.end_node.variable.clone()
+            } else {
+                format!("intermediate_{}", i)
+            };
+
+            let edge_pattern = EdgePattern {
+                label: edge.labels.first().cloned().unwrap_or_else(|| "EDGE".to_string()),
+                dir: edge.direction.clone(),
+                props: edge.properties.clone(),
+            };
+
+            plan = LogicalOp::Expand {
+                edge: edge_pattern,
+                to_as: target_var,
+                from: Box::new(plan),
+            };
+        }
+
+        Ok(plan)
+    }
+
+    /// 論理演算子の位置検索
+    fn find_logical_op(&self, text: &str, op: &str) -> Option<usize> {
+        let op_lower = op.to_lowercase();
+        let text_lower = text.to_lowercase();
+
+        let mut paren_depth = 0;
+        for (i, ch) in text.char_indices() {
+            match ch {
+                '(' => paren_depth += 1,
+                ')' => paren_depth -= 1,
+                _ => {}
             }
-            Some(GqlToken::String(s)) => {
-                self.advance();
-                Ok(Expr::Const(Value::String(s)))
+
+            if paren_depth == 0 {
+                if text_lower[i..].starts_with(&op_lower) {
+                    // 単語境界のチェック
+                    let before = i.checked_sub(1).map(|pos| text.chars().nth(pos)).flatten();
+                    let after = text.chars().nth(i + op.len());
+
+                    let before_ok = before.map(|c| !c.is_alphanumeric()).unwrap_or(true);
+                    let after_ok = after.map(|c| !c.is_alphanumeric()).unwrap_or(true);
+
+                    if before_ok && after_ok {
+                        return Some(i);
+                    }
+                }
             }
-            Some(GqlToken::Number(n)) => {
-                self.advance();
-                Ok(Expr::Const(Value::Int(n as i64)))
+        }
+
+        None
+    }
+
+    /// 節の抽出ユーティリティ
+    fn extract_clause(&self, gql: &str, start_keyword: &str, end_keywords: &[&str]) -> Result<String> {
+        let gql_lower = gql.to_lowercase();
+        let start_pos = gql_lower.find(start_keyword).unwrap_or(0) + start_keyword.len();
+
+        let mut end_pos = gql.len();
+        for keyword in end_keywords {
+            if let Some(pos) = gql_lower[start_pos..].find(keyword) {
+                end_pos = end_pos.min(start_pos + pos);
             }
-            _ => Err(KotobaError::Parse("Expected term".to_string())),
         }
+
+        Ok(gql[start_pos..end_pos].trim().to_string())
     }
 
-    /// 値のパース
-    fn parse_value(&mut self) -> Result<Value> {
-        match self.peek_token().cloned() {
-            Some(GqlToken::String(s)) => {
-                self.advance();
-                Ok(Value::String(s))
+    /// 指定位置からの節抽出
+    fn extract_clause_from_pos(&self, gql: &str, start_pos: usize, end_keywords: &[&str]) -> Result<String> {
+        let gql_lower = gql.to_lowercase();
+
+        let mut end_pos = gql.len();
+        for keyword in end_keywords {
+            if let Some(pos) = gql_lower[start_pos..].find(keyword) {
+                end_pos = end_pos.min(start_pos + pos);
             }
-            Some(GqlToken::Number(n)) => {
-                self.advance();
-                Ok(Value::Int(n as i64))
-            }
-            _ => Err(KotobaError::Parse("Expected value".to_string())),
         }
+
+        Ok(gql[start_pos..end_pos].trim().to_string())
     }
 
-    /// 識別子パース
-    fn parse_identifier(&mut self) -> Result<String> {
-        if let Some(GqlToken::Identifier(id)) = self.peek_token().cloned() {
-            self.advance();
-            Ok(id)
-        } else {
-            Err(KotobaError::Parse("Expected identifier".to_string()))
-        }
-    }
-
-    /// トークンチェック
-    fn check_token(&self, token: &GqlToken) -> bool {
-        matches!(self.peek_token(), Some(t) if std::mem::discriminant(t) == std::mem::discriminant(token))
-    }
-
-    /// トークン消費
-    fn consume_token(&mut self, expected: GqlToken) -> Result<()> {
-        if self.check_token(&expected) {
-            self.advance();
-            Ok(())
-        } else {
-            Err(KotobaError::Parse(format!("Expected {:?}, found {:?}", expected, self.peek_token())))
-        }
-    }
-
-    /// 次のトークンを覗く
-    fn peek_token(&self) -> Option<&GqlToken> {
-        self.tokens.get(self.position)
-    }
-
-    /// 位置を進める
-    fn advance(&mut self) {
-        if self.position < self.tokens.len() {
-            self.position += 1;
-        }
+    /// GQLから論理プランへの変換（互換性維持）
+    pub fn gql_to_plan(&self, gql: &str) -> Result<LogicalOp> {
+        let plan_ir = self.parse(gql)?;
+        Ok(plan_ir.plan)
     }
 }
