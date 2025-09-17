@@ -21,6 +21,7 @@ parking_lot = "0.12"
 dirs = { workspace = true }
 toml = "0.8"
 chrono = { workspace = true }
+colored = "2.0"
 
 # Kotoba ecosystem
 kotoba-core = { path = "../kotoba-core", version = "0.1.17" }

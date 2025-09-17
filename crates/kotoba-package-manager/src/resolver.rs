@@ -80,14 +80,12 @@ impl Resolver {
             };
 
             if let Some(version_info) = best_version_info {
-                let cid_input = format!("{}{}", version_info.name, version_info.version);
-                let cid = self.cid_calculator.compute_cid(&cid_input)?;
-
                 let package = Package {
                     name: version_info.name.clone(),
                     version: version_info.version.clone(),
                     source: PackageSource::Registry("npm".to_string()),
-                    cid: Some(cid.to_string()),
+                    cid: None, // Will be calculated after download
+                    tarball_url: Some(version_info.dist.tarball),
                     description: None,
                     authors: vec![],
                     dependencies: self

@@ -7,6 +7,7 @@ use serde_json::json;
 /// Callback trait for function calling from stdlib
 pub trait FunctionCallback {
     fn call_function(&mut self, func: JsonnetValue, args: Vec<JsonnetValue>) -> Result<JsonnetValue>;
+    fn call_external_function(&mut self, func: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue>;
 }
 use sha1::Sha1;
 use sha2::{Sha256, Sha512, Digest};
@@ -206,13 +207,19 @@ impl<'a> StdLibWithCallback<'a> {
 
             // Agent functions
             "agent.create" => StdLib::agent_create(args),
-            "agent.execute" => StdLib::agent_execute(args),
+            "agent.execute" => self.callback.call_external_function(name, args),
 
             // Chain functions
-            "chain.create" => StdLib::chain_create(args),
-            "chain.execute" => StdLib::chain_execute(args),
+            "chain.create" => self.callback.call_external_function(name, args),
+            "chain.execute" => self.callback.call_external_function(name, args),
+            "db.query" => self.callback.call_external_function(name, args),
+            "db.rewrite" => self.callback.call_external_function(name, args),
+            "db.patch" => self.callback.call_external_function(name, args),
 
-            _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
+            _ => Err(JsonnetError::runtime_error(format!(
+                "Unknown function: {}",
+                name
+            ))),
         }
     }
 

@@ -1,6 +1,7 @@
 //! レジストリ管理モジュール
 
-use super::{Package, Config};
+use crate::config::Config;
+use crate::dependency::Package;
 use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

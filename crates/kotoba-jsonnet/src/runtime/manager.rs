@@ -2,13 +2,20 @@
 
 use crate::error::Result;
 use crate::value::JsonnetValue;
-use super::external::*;
+use super::db::{DbHandler, QueryExecutor, RewriteEngine};
+use super::external::{AiModelHandler, HttpHandler, MemoryHandler, ToolHandler};
 use crate::evaluator::ExternalHandler;
 use std::collections::HashMap;
+use std::sync::Arc;
 
-/// Manager for external function handlers
+/// Manages and dispatches calls to various external function handlers.
+///
+/// This struct acts as a single `ExternalHandler` that delegates calls
+/// to the appropriate registered handler based on the function name prefix
+/// (e.g., "ai.", "tool.", "db.").
+#[derive(Debug, Clone)]
 pub struct RuntimeManager {
-    handlers: HashMap<String, Box<dyn ExternalHandler>>,
+    handlers: HashMap<String, Arc<dyn ExternalHandler>>,
 }
 
 impl ExternalHandler for RuntimeManager {
@@ -18,24 +25,31 @@ impl ExternalHandler for RuntimeManager {
 }
 
 impl RuntimeManager {
-    /// Create a new runtime manager with default handlers
-    pub fn new() -> Self {
-        let mut manager = RuntimeManager {
-            handlers: HashMap::new(),
-        };
-
-        // Register default handlers
-        manager.register_handler(Box::new(HttpHandler::new()));
-        manager.register_handler(Box::new(AiModelHandler::new()));
-        manager.register_handler(Box::new(ToolHandler::new()));
-        manager.register_handler(Box::new(MemoryHandler::new()));
-
-        manager
+    /// Creates a new `RuntimeManager` with a default set of handlers.
+    ///
+    /// # Arguments
+    ///
+    /// * `query_executor` - An `Arc`-wrapped instance of the `QueryExecutor`.
+    /// * `rewrite_engine` - An `Arc`-wrapped instance of the `RewriteEngine`.
+    pub fn new(
+        query_executor: Arc<QueryExecutor>,
+        rewrite_engine: Arc<RewriteEngine>,
+    ) -> Self {
+        let mut handlers: HashMap<String, Arc<dyn ExternalHandler>> = HashMap::new();
+        handlers.insert("ai".to_string(), Arc::new(AiModelHandler {}));
+        handlers.insert("http".to_string(), Arc::new(HttpHandler {}));
+        handlers.insert("tool".to_string(), Arc::new(ToolHandler {}));
+        handlers.insert("memory".to_string(), Arc::new(MemoryHandler {}));
+        handlers.insert(
+            "db".to_string(),
+            Arc::new(DbHandler::new(query_executor, rewrite_engine)),
+        );
+        Self { handlers }
     }
 
-    /// Register an external handler
-    pub fn register_handler(&mut self, handler: Box<dyn ExternalHandler>) {
-        self.handlers.insert(handler.namespace().to_string(), handler);
+    /// Registers a new external handler for a given namespace.
+    pub fn register(&mut self, namespace: &str, handler: Arc<dyn ExternalHandler>) {
+        self.handlers.insert(namespace.to_string(), handler);
     }
 
     /// Check if a function name belongs to an external handler
@@ -74,12 +88,12 @@ impl RuntimeManager {
     }
 
     /// Get handler for a namespace (mutable access for advanced usage)
-    pub fn get_handler_mut(&mut self, namespace: &str) -> Option<&mut Box<dyn ExternalHandler>> {
+    pub fn get_handler_mut(&mut self, namespace: &str) -> Option<&mut Arc<dyn ExternalHandler>> {
         self.handlers.get_mut(namespace)
     }
 
     /// Replace a handler for a namespace
-    pub fn replace_handler(&mut self, handler: Box<dyn ExternalHandler>) -> Option<Box<dyn ExternalHandler>> {
+    pub fn replace_handler(&mut self, handler: Arc<dyn ExternalHandler>) -> Option<Arc<dyn ExternalHandler>> {
         self.handlers.insert(handler.namespace().to_string(), handler)
     }
 }

@@ -1,92 +1,62 @@
 //! ロックファイル管理モジュール
 
-use super::Package;
+use crate::{Package, PackageSource};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
-use sha2::Digest;
+use std::path::Path;
+use tokio::fs;
 
-/// ロックファイルの内容
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Lockfile {
-    pub version: String, // semver::VersionをStringとして扱う
     pub packages: HashMap<String, LockedPackage>,
-    pub metadata: LockMetadata,
 }
 
-/// ロックされたパッケージ情報
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LockedPackage {
-    pub version: String, // semver::VersionをStringとして扱う
-    pub checksum: String,
-    pub dependencies: HashMap<String, String>, // semver::VersionをStringとして扱う
+    pub version: String,
+    pub source: PackageSource,
+    pub cid: String,
 }
 
-/// ロックファイルのメタデータ
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LockMetadata {
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub generator: String,
-}
-
-#[derive(Debug)]
-pub struct LockfileManager {
-    lockfile_path: PathBuf,
-}
-
-impl LockfileManager {
-    pub fn new(project_root: PathBuf) -> Self {
+impl Lockfile {
+    pub fn new() -> Self {
         Self {
-            lockfile_path: project_root.join("kotoba.lock"),
+            packages: HashMap::new(),
         }
     }
 
-    pub async fn load(&self) -> Result<Option<Lockfile>, Box<dyn std::error::Error>> {
-        if !self.lockfile_path.exists() {
+    pub async fn read_from_disk(path: &Path) -> Result<Option<Self>> {
+        if !path.exists() {
             return Ok(None);
         }
-
-        let content = tokio::fs::read_to_string(&self.lockfile_path).await?;
-        let lockfile: Lockfile = toml::from_str(&content)?;
+        let content = fs::read_to_string(path).await?;
+        let lockfile = serde_json::from_str(&content)?;
         Ok(Some(lockfile))
     }
 
-    pub async fn save(&self, lockfile: &Lockfile) -> Result<(), Box<dyn std::error::Error>> {
-        let content = toml::to_string(lockfile)?;
-        tokio::fs::write(&self.lockfile_path, content).await?;
+    pub async fn write_to_disk(&self, path: &Path) -> Result<()> {
+        let content = serde_json::to_string_pretty(self)?;
+        fs::write(path, content).await?;
         Ok(())
     }
 
-    pub async fn update(&self, packages: &[Package]) -> Result<(), Box<dyn std::error::Error>> {
-        let mut lockfile = self.load().await?.unwrap_or_else(|| Lockfile {
-            version: "1.0.0".to_string(),
-            packages: HashMap::new(),
-            metadata: LockMetadata {
-                created_at: chrono::Utc::now(),
-                generator: "kotoba-package-manager".to_string(),
-            },
-        });
-
-        // パッケージ情報を更新
-        for package in packages {
-            let locked_package = LockedPackage {
-                version: package.version.clone(),
-                checksum: self.calculate_checksum(package).await?,
-                dependencies: HashMap::new(), // TODO: 依存関係を計算
-            };
-
-            lockfile.packages.insert(package.name.clone(), locked_package);
+    pub fn from_packages(packages: &[Package]) -> Self {
+        let mut locked_packages = HashMap::new();
+        for pkg in packages {
+            if let Some(cid) = &pkg.cid {
+                locked_packages.insert(
+                    pkg.name.clone(),
+                    LockedPackage {
+                        version: pkg.version.clone(),
+                        source: pkg.source.clone(),
+                        cid: cid.clone(),
+                    },
+                );
+            }
         }
-
-        self.save(&lockfile).await?;
-        Ok(())
-    }
-
-    async fn calculate_checksum(&self, package: &Package) -> Result<String, Box<dyn std::error::Error>> {
-        // パッケージのチェックサムを計算
-        let data = serde_json::to_string(package)?;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(data.as_bytes());
-        Ok(hex::encode(hasher.finalize()))
+        Self {
+            packages: locked_packages,
+        }
     }
 }

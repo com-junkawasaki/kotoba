@@ -5,10 +5,9 @@
 //! レジストリ管理などの機能を備えています。
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use kotoba_cid::CidCalculator;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use url::Url;
 
 pub mod config;
 pub mod dependency;
@@ -18,62 +17,17 @@ pub mod lockfile;
 pub mod cache;
 mod resolver;
 
+pub use dependency::{DependencyInfo, Package, PackageSource, ProjectConfig};
+use lockfile::Lockfile;
+use resolver::Resolver;
+
 /// Package Managerのメイン構造体
 #[derive(Debug)]
 pub struct PackageManager {
     config: config::Config,
     registry: registry::Registry,
     cache: cache::Cache,
-}
-
-/// パッケージの取得元
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum PackageSource {
-    Registry(String), // Kotoba or Npm registry
-    Git(GitSource),
-    Url(Url),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct GitSource {
-    pub url: Url,
-    pub revision: String, // branch, tag, or commit hash
-}
-
-/// パッケージ情報
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Package {
-    pub name: String,
-    pub version: String, // semver::VersionをStringとして扱う
-    pub source: PackageSource,
-    pub cid: Option<String>, // Content ID
-    pub description: Option<String>,
-    pub authors: Vec<String>,
-    pub dependencies: HashMap<String, DependencyInfo>,
-    pub dev_dependencies: HashMap<String, DependencyInfo>,
-    pub repository: Option<String>,
-    pub license: Option<String>,
-    pub keywords: Vec<String>,
-}
-
-/// 依存関係情報
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DependencyInfo {
-    pub version: String, // semver::VersionReqをStringとして扱う
-    #[serde(flatten)]
-    pub source: Option<PackageSource>,
-}
-
-/// プロジェクト設定
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectConfig {
-    pub name: String,
-    pub version: String, // semver::VersionをStringとして扱う
-    pub description: Option<String>,
-    pub dependencies: HashMap<String, DependencyInfo>,
-    pub dev_dependencies: HashMap<String, DependencyInfo>,
-    pub scripts: HashMap<String, String>,
+    installer: installer::Installer,
 }
 
 impl PackageManager {
@@ -82,17 +36,22 @@ impl PackageManager {
         let config = config::Config::load()?;
         let registry = registry::Registry::new(&config)?;
         let cache = cache::Cache::new(&config)?;
+        let installer = installer::Installer::new(cache.clone());
 
         Ok(Self {
             config,
             registry,
             cache,
+            installer,
         })
     }
 
     /// パッケージをインストール
     pub async fn install(&self) -> Result<()> {
-        // kotoba.toml を読み込む
+        let calculator = CidCalculator::default();
+        let lockfile_path = PathBuf::from("kotoba.lock");
+
+        // 1. Load project config
         let config_path = PathBuf::from("kotoba.toml");
         if !config_path.exists() {
             println!("kotoba.toml not found. Nothing to install.");
@@ -101,14 +60,80 @@ impl PackageManager {
         let toml_content = tokio::fs::read_to_string(&config_path).await?;
         let project_config: ProjectConfig = toml::from_str(&toml_content)?;
 
-        println!("Installing packages from kotoba.toml");
+        // 2. Load lockfile and verify cache integrity
+        let mut packages_to_install = project_config.dependencies.clone();
+        let mut locked_packages: HashMap<String, crate::lockfile::LockedPackage> = HashMap::new();
 
-        // 依存関係を解決
-        let resolved = self.resolver().resolve(&project_config.dependencies).await?;
+        if let Some(lockfile) = Lockfile::read_from_disk(&lockfile_path).await? {
+            println!("Verifying lockfile...");
+            locked_packages = lockfile.packages;
 
-        // パッケージをダウンロードしてインストール
-        self.installer().install(resolved).await?;
+            for (name, _dep_info) in &project_config.dependencies {
+                if let Some(locked) = locked_packages.get(name) {
+                    let package_dir = PathBuf::from("node_modules").join(name);
+                    if self.cache.get_by_cid(&locked.cid).await?.is_some() && package_dir.exists() {
+                        // This package is cached and installed, no need to re-resolve
+                        packages_to_install.remove(name);
+                    }
+                }
+            }
+        }
+        
+        if packages_to_install.is_empty() {
+            println!("All dependencies are up to date.");
+            // A more robust implementation would still verify node_modules content here.
+            return Ok(());
+        }
 
+        // 3. Resolve and download missing/invalidated packages
+        println!("Resolving and installing {} packages...", packages_to_install.len());
+        let mut resolved_packages = self.resolver().resolve(&packages_to_install).await?;
+        
+        for package in &mut resolved_packages {
+            if let Some(url) = &package.tarball_url {
+                let tarball_bytes = reqwest::get(url).await?.bytes().await?.to_vec();
+                let cid = calculator.compute_cid(&tarball_bytes)?;
+                package.cid = Some(cid.to_string());
+                self.cache.store_by_cid(&cid.to_string(), &tarball_bytes).await?;
+            }
+        }
+
+        // 4. Install resolved packages
+        self.installer.install(resolved_packages.clone()).await?;
+
+        // 5. Update lockfile with all packages
+        let mut final_packages_map: HashMap<String, Package> = HashMap::new();
+
+        // Add packages from the old lockfile that are still relevant
+        for (name, _dep_info) in &project_config.dependencies {
+             if let Some(locked) = locked_packages.get(name) {
+                if packages_to_install.get(name).is_none() { // If it wasn't re-installed
+                    final_packages_map.insert(name.clone(), Package {
+                         name: name.clone(),
+                         version: locked.version.clone(),
+                         source: locked.source.clone(),
+                         cid: Some(locked.cid.clone()),
+                         tarball_url: None, 
+                         description: None,
+                         authors: vec![],
+                         dependencies: HashMap::new(), // This information is lost
+                         dev_dependencies: HashMap::new(),
+                         repository: None,
+                         license: None,
+                         keywords: vec![],
+                    });
+                }
+            }
+        }
+        
+        // Add newly resolved packages
+        for pkg in resolved_packages {
+            final_packages_map.insert(pkg.name.clone(), pkg);
+        }
+
+        let lockfile = Lockfile::from_packages(&final_packages_map.values().cloned().collect::<Vec<_>>());
+        lockfile.write_to_disk(&lockfile_path).await?;
+        
         println!("Installation completed!");
         Ok(())
     }
@@ -187,8 +212,8 @@ pub fn greet(name: String) -> String {{
     }
 
     /// パッケージインストーラー
-    fn installer(&self) -> installer::Installer {
-        installer::Installer::new()
+    fn installer(&self) -> &installer::Installer {
+        &self.installer
     }
 }
 
@@ -207,11 +232,3 @@ pub async fn search_packages(query: &str) -> Result<Vec<Package>> {
     let pm = PackageManager::new().await?;
     pm.search(query).await
 }
-
-// 各モジュールの宣言（実装は別ファイル）
-pub use config::*;
-pub use dependency::*;
-pub use registry::*;
-pub use installer::*;
-pub use lockfile::*;
-pub use cache::*;

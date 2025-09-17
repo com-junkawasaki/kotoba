@@ -1,18 +1,21 @@
 //! パッケージインストールモジュール
 
-use crate::Package;
+use crate::{cache::Cache, lockfile::Lockfile, Package};
 use anyhow::Result;
 use flate2::read::GzDecoder;
-use std::fs::{self, File};
+use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use tar::Archive;
 
-pub struct Installer;
+#[derive(Debug)]
+pub struct Installer {
+    cache: Cache,
+}
 
 impl Installer {
-    pub fn new() -> Self {
-        Self
+    pub fn new(cache: Cache) -> Self {
+        Self { cache }
     }
 
     pub async fn install(&self, packages: Vec<Package>) -> Result<()> {
@@ -21,47 +24,37 @@ impl Installer {
             fs::create_dir(node_modules)?;
         }
 
-        for package in packages {
-            if let Some(version_info) = self.get_npm_version_info(&package).await? {
-                let tarball_bytes = reqwest::get(&version_info.dist.tarball)
-                    .await?
-                    .bytes()
-                    .await?;
+        for package in &packages {
+            if let Some(cid) = &package.cid {
+                if let Some(tarball_bytes) = self.cache.get_by_cid(cid).await? {
+                    let tar = GzDecoder::new(Cursor::new(tarball_bytes));
+                    let mut archive = Archive::new(tar);
 
-                let tar = GzDecoder::new(Cursor::new(tarball_bytes));
-                let mut archive = Archive::new(tar);
-
-                let package_dir = node_modules.join(&package.name);
-                if !package_dir.exists() {
-                    fs::create_dir_all(&package_dir)?;
-                }
-                
-                // unpack to `node_modules/{package_name}`
-                // The tarball from npm has a `package/` directory at the root,
-                // so we need to strip that prefix.
-                for entry in archive.entries()? {
-                    let mut entry = entry?;
-                    let path = entry.path()?;
-                    let stripped_path = path.strip_prefix("package/").unwrap_or(&path);
-                    let final_path = package_dir.join(stripped_path);
-                    if let Some(parent) = final_path.parent() {
-                        if !parent.exists() {
-                            fs::create_dir_all(parent)?;
-                        }
+                    let package_dir = node_modules.join(&package.name);
+                    if !package_dir.exists() {
+                        fs::create_dir_all(&package_dir)?;
                     }
-                    entry.unpack(&final_path)?;
+
+                    for entry in archive.entries()? {
+                        let mut entry = entry?;
+                        let path = entry.path()?;
+                        let stripped_path = path.strip_prefix("package/").unwrap_or(&path);
+                        let final_path = package_dir.join(stripped_path);
+                        if let Some(parent) = final_path.parent() {
+                            if !parent.exists() {
+                                fs::create_dir_all(parent)?;
+                            }
+                        }
+                        entry.unpack(&final_path)?;
+                    }
                 }
             }
         }
 
-        Ok(())
-    }
+        let lockfile = Lockfile::from_packages(&packages);
+        let lockfile_path = Path::new("kotoba.lock");
+        lockfile.write_to_disk(&lockfile_path).await?;
 
-    async fn get_npm_version_info(
-        &self,
-        package: &Package,
-    ) -> Result<Option<crate::registry::NpmVersionInfo>> {
-        let npm_package = crate::registry::fetch_npm_package(&package.name).await?;
-        Ok(npm_package.versions.get(&package.version).cloned())
+        Ok(())
     }
 }

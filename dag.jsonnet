@@ -1058,15 +1058,26 @@
       build_order: 20,
     },
 
+    'db_handler': {
+      name: 'db_handler',
+      path: 'crates/kotoba-jsonnet/src/runtime/db.rs',
+      type: 'runtime_extension',
+      description: 'Jsonnet evaluator handler for database operations (GQL Query, Rewrite Rules)',
+      dependencies: ['jsonnet_core', 'execution_engine', 'rewrite_engine'],
+      provides: ['DbHandler', 'std.ext.db.query', 'std.ext.db.rewrite', 'std.ext.db.patch'],
+      status: 'in_progress',
+      build_order: 21,
+    },
+
     'ai_runtime': {
       name: 'ai_runtime',
       path: 'crates/kotoba-kotobas/src/ai_runtime.rs',
       type: 'ai_agent',
       description: 'AI Agent実行ランタイム - Jsonnet evaluator拡張によるAI処理',
-      dependencies: ['ai_agent_parser', 'jsonnet_core', 'http_ir'],
+      dependencies: ['ai_agent_parser', 'jsonnet_core', 'http_ir', 'db_handler'],
       provides: ['AiRuntime', 'AgentExecutor', 'AsyncEvaluator', 'StreamingProcessor'],
       status: 'pending',
-      build_order: 21,
+      build_order: 22,
     },
 
     'ai_models': {
@@ -1077,7 +1088,7 @@
       dependencies: ['ai_runtime', 'jsonnet_core'],
       provides: ['OpenAiModel', 'AnthropicModel', 'GoogleAiModel', 'ModelManager', 'ApiClient'],
       status: 'pending',
-      build_order: 22,
+      build_order: 23,
     },
 
     'ai_tools': {
@@ -1088,7 +1099,7 @@
       dependencies: ['ai_runtime', 'jsonnet_core'],
       provides: ['ToolExecutor', 'CommandTool', 'FunctionTool', 'DataTool', 'ToolRegistry'],
       status: 'pending',
-      build_order: 23,
+      build_order: 24,
     },
 
     'ai_memory': {
@@ -1096,10 +1107,10 @@
       path: 'crates/kotoba-kotobas/src/ai_memory.rs',
       type: 'ai_agent',
       description: 'AIメモリ管理 - 会話履歴、コンテキスト、状態管理',
-      dependencies: ['ai_runtime', 'storage_mvcc', 'storage_merkle'],
+      dependencies: ['ai_runtime', 'storage_mvcc', 'storage_merkle', 'db_handler'],
       provides: ['MemoryManager', 'ConversationMemory', 'VectorMemory', 'StateManager'],
       status: 'pending',
-      build_order: 24,
+      build_order: 25,
     },
 
     'ai_chains': {
@@ -1110,7 +1121,7 @@
       dependencies: ['ai_agent_parser', 'ai_runtime', 'ai_models', 'ai_tools', 'ai_memory'],
       provides: ['ChainExecutor', 'SequentialChain', 'ParallelChain', 'ConditionalChain', 'LoopChain'],
       status: 'pending',
-      build_order: 25,
+      build_order: 26,
     },
 
     'ai_examples': {
@@ -1121,7 +1132,7 @@
       dependencies: ['ai_chains', 'ai_models', 'ai_tools', 'ai_memory'],
       provides: ['ai_agent_examples', 'chatbot_example', 'code_assistant_example', 'data_analyzer_example'],
       status: 'pending',
-      build_order: 26,
+      build_order: 27,
     },
 
     'package_manager': {
@@ -1499,10 +1510,16 @@
     { from: 'jsonnet_core', to: 'ai_agent_parser' },
     { from: 'kotobanet_core', to: 'ai_agent_parser' },
 
+    // DB handler dependencies
+    { from: 'jsonnet_core', to: 'db_handler' },
+    { from: 'execution_engine', to: 'db_handler' },
+    { from: 'rewrite_engine', to: 'db_handler' },
+
     // AI runtime dependencies
     { from: 'ai_agent_parser', to: 'ai_runtime' },
     { from: 'jsonnet_core', to: 'ai_runtime' },
     { from: 'http_ir', to: 'ai_runtime' },
+    { from: 'db_handler', to: 'ai_runtime' },
 
     // AI models dependencies
     { from: 'ai_runtime', to: 'ai_models' },
@@ -1516,6 +1533,7 @@
     { from: 'ai_runtime', to: 'ai_memory' },
     { from: 'storage_mvcc', to: 'ai_memory' },
     { from: 'storage_merkle', to: 'ai_memory' },
+    { from: 'db_handler', to: 'ai_memory' },
 
     // AI chains dependencies
     { from: 'ai_agent_parser', to: 'ai_chains' },
@@ -1720,6 +1738,7 @@
     'deploy_example_microservices',
     'deploy_hosting_example',
     'ai_agent_parser',
+    'db_handler',
     'ai_runtime',
     'ai_models',
     'ai_tools',
@@ -1740,6 +1759,7 @@
     'ai_tools',
     'ai_models',
     'ai_runtime',
+    'db_handler',
     'ai_agent_parser',
     'deploy_hosting_example',
     'deploy_hosting_manager',

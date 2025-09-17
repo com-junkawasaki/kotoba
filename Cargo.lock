@@ -2797,6 +2797,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "colored 2.2.0",
  "dirs",
  "futures",
  "kotoba-core",

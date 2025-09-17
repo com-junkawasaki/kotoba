@@ -1,12 +1,12 @@
 //! キャッシュ管理モジュール
 
-use super::Config;
+use crate::config::Config;
 use anyhow::Result;
 use std::path::PathBuf;
 use tokio::fs;
 
 /// キャッシュマネージャー
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cache {
     cache_dir: PathBuf,
 }
@@ -18,6 +18,24 @@ impl Cache {
         std::fs::create_dir_all(&cache_dir)?;
 
         Ok(Self { cache_dir })
+    }
+
+    /// CIDをキーとしてパッケージをキャッシュに保存
+    pub async fn store_by_cid(&self, cid: &str, data: &[u8]) -> Result<()> {
+        let cid_path = self.cache_dir.join(cid);
+        fs::write(&cid_path, data).await?;
+        Ok(())
+    }
+
+    /// CIDをキーとしてキャッシュからパッケージを取得
+    pub async fn get_by_cid(&self, cid: &str) -> Result<Option<Vec<u8>>> {
+        let cid_path = self.cache_dir.join(cid);
+        if cid_path.exists() {
+            let data = fs::read(&cid_path).await?;
+            Ok(Some(data))
+        } else {
+            Ok(None)
+        }
     }
 
     /// パッケージをキャッシュに保存
