@@ -5240,6 +5240,7 @@ name = "kotoba-execution"
 version = "0.1.15"
 dependencies = [
  "anyhow",
+ "async-trait",
  "kotoba-core",
  "kotoba-errors",
  "kotoba-graph",
@@ -5344,11 +5345,14 @@ name = "kotoba-kotobas"
 version = "0.1.15"
 dependencies = [
  "anyhow",
+ "base64 0.21.7",
+ "chrono",
  "kotoba-core",
  "kotoba-jsonnet",
  "regex",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror 2.0.16",
  "tokio",
@@ -5503,6 +5507,7 @@ version = "0.1.15"
 dependencies = [
  "anyhow",
  "kotoba-core",
+ "kotoba-errors",
  "kotoba-graph",
  "kotoba-storage",
  "serde",
@@ -5517,8 +5522,6 @@ name = "kotoba-routing"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "kotoba-jsonnet",
- "kotoba-workflow",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -5544,6 +5547,7 @@ dependencies = [
  "anyhow",
  "jsonschema",
  "kotoba-core",
+ "kotoba-errors",
  "kotoba-graph",
  "regex",
  "schemars",

@@ -54,6 +54,66 @@ pub fn evaluate_kotoba_to_json(code: &str) -> Result<String> {
     Ok(kotoba_jsonnet::evaluate_to_json(code)?)
 }
 
+/// Merkle DAG ID generator for content-based addressing
+pub mod merkle_dag {
+    use sha2::{Sha256, Digest};
+    use base64::{Engine as _, engine::general_purpose};
+
+    /// Generate a content-based ID using SHA-256 hash
+    /// This implements CID (Content ID) for Merkle DAG addressing
+    pub fn generate_cid(content: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        let hash = hasher.finalize();
+
+        // Convert to base64url encoding (URL-safe base64)
+        let cid = general_purpose::URL_SAFE_NO_PAD.encode(&hash);
+
+        // Prefix with 'k' to indicate Kotoba content
+        format!("k{}", cid)
+    }
+
+    /// Generate Merkle DAG node with content hash
+    pub fn create_merkle_node(content: &str, node_type: &str) -> serde_json::Value {
+        let cid = generate_cid(content);
+        let timestamp = chrono::Utc::now().timestamp_millis();
+
+        serde_json::json!({
+            "cid": cid,
+            "type": node_type,
+            "content": content,
+            "timestamp": timestamp,
+            "content_hash": generate_cid(content)
+        })
+    }
+
+    /// Generate Merkle DAG edge between nodes
+    pub fn create_merkle_edge(from_cid: &str, to_cid: &str, edge_type: &str) -> serde_json::Value {
+        let content = format!("{}->{}:{}", from_cid, to_cid, edge_type);
+        let cid = generate_cid(&content);
+        let timestamp = chrono::Utc::now().timestamp_millis();
+
+        serde_json::json!({
+            "cid": cid,
+            "from": from_cid,
+            "to": to_cid,
+            "type": edge_type,
+            "timestamp": timestamp,
+            "edge_hash": generate_cid(&content)
+        })
+    }
+
+    /// Validate content hash matches CID
+    pub fn validate_cid(content: &str, cid: &str) -> bool {
+        if !cid.starts_with('k') {
+            return false;
+        }
+
+        let expected_cid = generate_cid(content);
+        expected_cid == cid
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -463,6 +523,63 @@ mod tests {
         let json_result = evaluate_kotoba_to_json(r#"std.join(" ", ["hello", "world"])"#);
         assert!(json_result.is_ok());
         assert_eq!(json_result.unwrap(), r#""hello world""#);
+    }
+
+    #[test]
+    fn test_merkle_dag_cid_generation() {
+        use crate::merkle_dag::*;
+
+        let content = "test content";
+        let cid = generate_cid(content);
+
+        // CID should start with 'k' (Kotoba prefix)
+        assert!(cid.starts_with('k'));
+
+        // CID should be deterministic (same content produces same CID)
+        let cid2 = generate_cid(content);
+        assert_eq!(cid, cid2);
+
+        // Different content should produce different CID
+        let different_content = "different content";
+        let different_cid = generate_cid(different_content);
+        assert_ne!(cid, different_cid);
+
+        // CID validation should work
+        assert!(validate_cid(content, &cid));
+        assert!(!validate_cid(content, &different_cid));
+        assert!(!validate_cid(different_content, &cid));
+    }
+
+    #[test]
+    fn test_merkle_dag_node_creation() {
+        use crate::merkle_dag::*;
+
+        let content = "test node content";
+        let node_type = "test_node";
+        let node = create_merkle_node(content, node_type);
+
+        assert_eq!(node["type"], node_type);
+        assert_eq!(node["content"], content);
+        assert!(node["cid"].as_str().unwrap().starts_with('k'));
+        assert!(node["timestamp"].is_number());
+        assert!(node["content_hash"].as_str().unwrap().starts_with('k'));
+    }
+
+    #[test]
+    fn test_merkle_dag_edge_creation() {
+        use crate::merkle_dag::*;
+
+        let from_cid = "kFromNode123";
+        let to_cid = "kToNode456";
+        let edge_type = "depends_on";
+        let edge = create_merkle_edge(from_cid, to_cid, edge_type);
+
+        assert_eq!(edge["from"], from_cid);
+        assert_eq!(edge["to"], to_cid);
+        assert_eq!(edge["type"], edge_type);
+        assert!(edge["cid"].as_str().unwrap().starts_with('k'));
+        assert!(edge["timestamp"].is_number());
+        assert!(edge["edge_hash"].as_str().unwrap().starts_with('k'));
     }
 
     #[test]

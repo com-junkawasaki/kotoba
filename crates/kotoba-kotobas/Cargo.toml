@@ -23,6 +23,11 @@ kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.0" }
 # Kotoba core dependencies
 kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
 
+# Merkle DAG dependencies
+sha2 = "0.10"
+base64 = "0.21"
+chrono = { version = "0.4", features = ["serde"] }
+
 [features]
 default = []
 async = ["tokio"]

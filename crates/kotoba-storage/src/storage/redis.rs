@@ -49,7 +49,7 @@ impl RedisBackend {
 impl StorageBackend for RedisBackend {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
         let mut conn = self.connection_manager.lock().await;
-        conn.set(key, value)
+        conn.set::<_, _, ()>(key, value)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to put data in Redis: {}", e)))?;
         Ok(())
@@ -57,14 +57,14 @@ impl StorageBackend for RedisBackend {
 
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
         let mut conn = self.connection_manager.lock().await;
-        conn.get(key)
+        conn.get::<_, Option<Vec<u8>>>(key)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to get data from Redis: {}", e)))
     }
 
     async fn delete(&self, key: String) -> Result<()> {
         let mut conn = self.connection_manager.lock().await;
-        conn.del(key)
+        conn.del::<_, ()>(key)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to delete data from Redis: {}", e)))?;
         Ok(())
@@ -73,7 +73,7 @@ impl StorageBackend for RedisBackend {
     async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
         let mut conn = self.connection_manager.lock().await;
         let pattern = format!("{}*", prefix);
-        conn.keys(pattern)
+        conn.keys::<_, Vec<String>>(pattern)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))
     }
@@ -81,7 +81,7 @@ impl StorageBackend for RedisBackend {
     async fn clear(&self) -> Result<()> {
         let mut conn = self.connection_manager.lock().await;
         redis::cmd("FLUSHDB")
-            .query_async(&mut conn)
+            .query_async(&mut *conn)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to clear Redis database: {}", e)))?;
         Ok(())
@@ -90,7 +90,7 @@ impl StorageBackend for RedisBackend {
     async fn stats(&self) -> Result<BackendStats> {
         let mut conn = self.connection_manager.lock().await;
         let info: String = redis::cmd("INFO")
-            .query_async(&mut conn)
+            .query_async(&mut *conn)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to get Redis info: {}", e)))?;
 

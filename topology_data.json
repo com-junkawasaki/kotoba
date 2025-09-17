@@ -1,0 +1,3803 @@
+{
+   "topology_graph": {
+      "edges": [
+         {
+            "from": "types",
+            "to": "ir_catalog"
+         },
+         {
+            "from": "types",
+            "to": "schema_validator"
+         },
+         {
+            "from": "types",
+            "to": "ir_rule"
+         },
+         {
+            "from": "types",
+            "to": "ir_query"
+         },
+         {
+            "from": "types",
+            "to": "ir_patch"
+         },
+         {
+            "from": "types",
+            "to": "graph_vertex"
+         },
+         {
+            "from": "types",
+            "to": "graph_edge"
+         },
+         {
+            "from": "types",
+            "to": "storage_mvcc"
+         },
+         {
+            "from": "types",
+            "to": "storage_merkle"
+         },
+         {
+            "from": "types",
+            "to": "storage_lsm"
+         },
+         {
+            "from": "types",
+            "to": "planner_logical"
+         },
+         {
+            "from": "types",
+            "to": "planner_physical"
+         },
+         {
+            "from": "types",
+            "to": "execution_parser"
+         },
+         {
+            "from": "types",
+            "to": "execution_engine"
+         },
+         {
+            "from": "types",
+            "to": "rewrite_matcher"
+         },
+         {
+            "from": "types",
+            "to": "rewrite_applier"
+         },
+         {
+            "from": "types",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "types",
+            "to": "lib"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "lib"
+         },
+         {
+            "from": "schema_validator",
+            "to": "lib"
+         },
+         {
+            "from": "ir_rule",
+            "to": "lib"
+         },
+         {
+            "from": "ir_query",
+            "to": "lib"
+         },
+         {
+            "from": "ir_patch",
+            "to": "lib"
+         },
+         {
+            "from": "ir_strategy",
+            "to": "lib"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "schema_validator"
+         },
+         {
+            "from": "types",
+            "to": "ir_strategy"
+         },
+         {
+            "from": "ir_patch",
+            "to": "ir_strategy"
+         },
+         {
+            "from": "ir_strategy",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "types",
+            "to": "ir_workflow"
+         },
+         {
+            "from": "ir_strategy",
+            "to": "ir_workflow"
+         },
+         {
+            "from": "types",
+            "to": "workflow_executor"
+         },
+         {
+            "from": "types",
+            "to": "workflow_store"
+         },
+         {
+            "from": "ir_workflow",
+            "to": "workflow_executor"
+         },
+         {
+            "from": "ir_workflow",
+            "to": "workflow_store"
+         },
+         {
+            "from": "graph_core",
+            "to": "workflow_executor"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "workflow_executor"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "workflow_executor"
+         },
+         {
+            "from": "execution_engine",
+            "to": "workflow_executor"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "workflow_store"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "workflow_store"
+         },
+         {
+            "from": "types",
+            "to": "workflow_designer"
+         },
+         {
+            "from": "types",
+            "to": "activity_libraries"
+         },
+         {
+            "from": "ir_workflow",
+            "to": "activity_libraries"
+         },
+         {
+            "from": "workflow_executor",
+            "to": "activity_libraries"
+         },
+         {
+            "from": "types",
+            "to": "kubernetes_operator"
+         },
+         {
+            "from": "ir_workflow",
+            "to": "kubernetes_operator"
+         },
+         {
+            "from": "workflow_executor",
+            "to": "kubernetes_operator"
+         },
+         {
+            "from": "workflow_store",
+            "to": "kubernetes_operator"
+         },
+         {
+            "from": "types",
+            "to": "cloud_integrations"
+         },
+         {
+            "from": "types",
+            "to": "graph_core"
+         },
+         {
+            "from": "graph_vertex",
+            "to": "graph_core"
+         },
+         {
+            "from": "graph_edge",
+            "to": "graph_core"
+         },
+         {
+            "from": "graph_core",
+            "to": "storage_mvcc"
+         },
+         {
+            "from": "graph_core",
+            "to": "storage_merkle"
+         },
+         {
+            "from": "graph_core",
+            "to": "planner_logical"
+         },
+         {
+            "from": "graph_core",
+            "to": "planner_physical"
+         },
+         {
+            "from": "graph_core",
+            "to": "execution_engine"
+         },
+         {
+            "from": "graph_core",
+            "to": "rewrite_matcher"
+         },
+         {
+            "from": "graph_core",
+            "to": "rewrite_applier"
+         },
+         {
+            "from": "graph_core",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "graph_core",
+            "to": "lib"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "execution_engine"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "lib"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "execution_engine"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "lib"
+         },
+         {
+            "from": "storage_lsm",
+            "to": "lib"
+         },
+         {
+            "from": "security_core",
+            "to": "lib"
+         },
+         {
+            "from": "ir_query",
+            "to": "planner_logical"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "planner_logical"
+         },
+         {
+            "from": "ir_query",
+            "to": "planner_physical"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "planner_physical"
+         },
+         {
+            "from": "types",
+            "to": "planner_optimizer"
+         },
+         {
+            "from": "ir_query",
+            "to": "planner_optimizer"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "planner_optimizer"
+         },
+         {
+            "from": "graph_core",
+            "to": "planner_optimizer"
+         },
+         {
+            "from": "planner_logical",
+            "to": "planner_optimizer"
+         },
+         {
+            "from": "planner_physical",
+            "to": "planner_optimizer"
+         },
+         {
+            "from": "planner_logical",
+            "to": "execution_engine"
+         },
+         {
+            "from": "planner_physical",
+            "to": "execution_engine"
+         },
+         {
+            "from": "planner_optimizer",
+            "to": "execution_engine"
+         },
+         {
+            "from": "ir_query",
+            "to": "execution_engine"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "execution_engine"
+         },
+         {
+            "from": "planner_logical",
+            "to": "lib"
+         },
+         {
+            "from": "planner_physical",
+            "to": "lib"
+         },
+         {
+            "from": "planner_optimizer",
+            "to": "lib"
+         },
+         {
+            "from": "ir_query",
+            "to": "execution_parser"
+         },
+         {
+            "from": "execution_parser",
+            "to": "execution_engine"
+         },
+         {
+            "from": "execution_parser",
+            "to": "lib"
+         },
+         {
+            "from": "execution_engine",
+            "to": "lib"
+         },
+         {
+            "from": "ir_rule",
+            "to": "rewrite_matcher"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "rewrite_matcher"
+         },
+         {
+            "from": "ir_rule",
+            "to": "rewrite_applier"
+         },
+         {
+            "from": "ir_patch",
+            "to": "rewrite_applier"
+         },
+         {
+            "from": "ir_rule",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "rewrite_matcher",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "rewrite_applier",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "rewrite_matcher",
+            "to": "lib"
+         },
+         {
+            "from": "rewrite_applier",
+            "to": "lib"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "security_jwt"
+         },
+         {
+            "from": "types",
+            "to": "security_oauth2"
+         },
+         {
+            "from": "security_jwt",
+            "to": "security_oauth2"
+         },
+         {
+            "from": "types",
+            "to": "security_mfa"
+         },
+         {
+            "from": "types",
+            "to": "security_password"
+         },
+         {
+            "from": "types",
+            "to": "security_session"
+         },
+         {
+            "from": "types",
+            "to": "security_capabilities"
+         },
+         {
+            "from": "security_jwt",
+            "to": "security_core"
+         },
+         {
+            "from": "security_oauth2",
+            "to": "security_core"
+         },
+         {
+            "from": "security_mfa",
+            "to": "security_core"
+         },
+         {
+            "from": "security_password",
+            "to": "security_core"
+         },
+         {
+            "from": "security_session",
+            "to": "security_core"
+         },
+         {
+            "from": "security_capabilities",
+            "to": "security_core"
+         },
+         {
+            "from": "security_core",
+            "to": "http_ir"
+         },
+         {
+            "from": "jsonnet_error",
+            "to": "jsonnet_value"
+         },
+         {
+            "from": "jsonnet_error",
+            "to": "jsonnet_lexer"
+         },
+         {
+            "from": "jsonnet_value",
+            "to": "jsonnet_ast"
+         },
+         {
+            "from": "jsonnet_value",
+            "to": "jsonnet_evaluator"
+         },
+         {
+            "from": "jsonnet_value",
+            "to": "jsonnet_stdlib"
+         },
+         {
+            "from": "jsonnet_ast",
+            "to": "jsonnet_parser"
+         },
+         {
+            "from": "jsonnet_ast",
+            "to": "jsonnet_evaluator"
+         },
+         {
+            "from": "jsonnet_lexer",
+            "to": "jsonnet_parser"
+         },
+         {
+            "from": "jsonnet_parser",
+            "to": "jsonnet_core"
+         },
+         {
+            "from": "jsonnet_evaluator",
+            "to": "jsonnet_core"
+         },
+         {
+            "from": "jsonnet_stdlib",
+            "to": "jsonnet_core"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "lib"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "http_parser"
+         },
+         {
+            "from": "kotobanet_error",
+            "to": "kotobanet_http_parser"
+         },
+         {
+            "from": "kotobanet_error",
+            "to": "kotobanet_frontend"
+         },
+         {
+            "from": "kotobanet_error",
+            "to": "kotobanet_deploy"
+         },
+         {
+            "from": "kotobanet_error",
+            "to": "kotobanet_config"
+         },
+         {
+            "from": "kotobanet_error",
+            "to": "kotobanet_core"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "kotobanet_http_parser"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "kotobanet_frontend"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "kotobanet_deploy"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "kotobanet_config"
+         },
+         {
+            "from": "kotobanet_http_parser",
+            "to": "kotobanet_core"
+         },
+         {
+            "from": "kotobanet_frontend",
+            "to": "kotobanet_core"
+         },
+         {
+            "from": "kotobanet_deploy",
+            "to": "kotobanet_core"
+         },
+         {
+            "from": "kotobanet_config",
+            "to": "kotobanet_core"
+         },
+         {
+            "from": "kotobanet_core",
+            "to": "lib"
+         },
+         {
+            "from": "kotobanet_http_parser",
+            "to": "http_parser"
+         },
+         {
+            "from": "kotobanet_frontend",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "kotobanet_deploy",
+            "to": "deploy_parser"
+         },
+         {
+            "from": "kotobanet_config",
+            "to": "deploy_config"
+         },
+         {
+            "from": "types",
+            "to": "http_ir"
+         },
+         {
+            "from": "ir_catalog",
+            "to": "http_ir"
+         },
+         {
+            "from": "security_core",
+            "to": "http_ir"
+         },
+         {
+            "from": "http_ir",
+            "to": "http_parser"
+         },
+         {
+            "from": "types",
+            "to": "http_parser"
+         },
+         {
+            "from": "http_ir",
+            "to": "http_handlers"
+         },
+         {
+            "from": "graph_core",
+            "to": "http_handlers"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "http_handlers"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "http_handlers"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "http_handlers"
+         },
+         {
+            "from": "security_core",
+            "to": "http_handlers"
+         },
+         {
+            "from": "http_ir",
+            "to": "http_engine"
+         },
+         {
+            "from": "http_handlers",
+            "to": "http_engine"
+         },
+         {
+            "from": "graph_core",
+            "to": "http_engine"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "http_engine"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "http_engine"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "http_engine"
+         },
+         {
+            "from": "security_core",
+            "to": "http_engine"
+         },
+         {
+            "from": "http_ir",
+            "to": "http_server"
+         },
+         {
+            "from": "http_parser",
+            "to": "http_server"
+         },
+         {
+            "from": "http_engine",
+            "to": "http_server"
+         },
+         {
+            "from": "http_handlers",
+            "to": "http_server"
+         },
+         {
+            "from": "types",
+            "to": "graphql_schema"
+         },
+         {
+            "from": "schema_validator",
+            "to": "graphql_schema"
+         },
+         {
+            "from": "types",
+            "to": "graphql_handler"
+         },
+         {
+            "from": "graphql_schema",
+            "to": "graphql_handler"
+         },
+         {
+            "from": "graphql_schema",
+            "to": "http_server"
+         },
+         {
+            "from": "graphql_handler",
+            "to": "http_server"
+         },
+         {
+            "from": "http_ir",
+            "to": "lib"
+         },
+         {
+            "from": "http_parser",
+            "to": "lib"
+         },
+         {
+            "from": "http_handlers",
+            "to": "lib"
+         },
+         {
+            "from": "http_engine",
+            "to": "lib"
+         },
+         {
+            "from": "http_server",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "frontend_component_ir"
+         },
+         {
+            "from": "types",
+            "to": "frontend_route_ir"
+         },
+         {
+            "from": "frontend_component_ir",
+            "to": "frontend_route_ir"
+         },
+         {
+            "from": "types",
+            "to": "frontend_render_ir"
+         },
+         {
+            "from": "frontend_component_ir",
+            "to": "frontend_render_ir"
+         },
+         {
+            "from": "types",
+            "to": "frontend_build_ir"
+         },
+         {
+            "from": "frontend_component_ir",
+            "to": "frontend_build_ir"
+         },
+         {
+            "from": "types",
+            "to": "frontend_api_ir"
+         },
+         {
+            "from": "types",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "frontend_component_ir",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "frontend_route_ir",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "frontend_render_ir",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "frontend_build_ir",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "frontend_api_ir",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "http_ir",
+            "to": "frontend_framework"
+         },
+         {
+            "from": "frontend_component_ir",
+            "to": "lib"
+         },
+         {
+            "from": "frontend_route_ir",
+            "to": "lib"
+         },
+         {
+            "from": "frontend_render_ir",
+            "to": "lib"
+         },
+         {
+            "from": "frontend_build_ir",
+            "to": "lib"
+         },
+         {
+            "from": "frontend_api_ir",
+            "to": "lib"
+         },
+         {
+            "from": "frontend_framework",
+            "to": "lib"
+         },
+         {
+            "from": "lib",
+            "to": "example_frontend_app"
+         },
+         {
+            "from": "frontend_framework",
+            "to": "example_frontend_app"
+         },
+         {
+            "from": "http_server",
+            "to": "example_frontend_app"
+         },
+         {
+            "from": "lib",
+            "to": "example_http_server"
+         },
+         {
+            "from": "http_server",
+            "to": "example_http_server"
+         },
+         {
+            "from": "lib",
+            "to": "example_social_network"
+         },
+         {
+            "from": "graph_core",
+            "to": "example_social_network"
+         },
+         {
+            "from": "execution_engine",
+            "to": "example_social_network"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "example_social_network"
+         },
+         {
+            "from": "lib",
+            "to": "example_tauri_react_app"
+         },
+         {
+            "from": "frontend_framework",
+            "to": "example_tauri_react_app"
+         },
+         {
+            "from": "graph_core",
+            "to": "example_tauri_react_app"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "example_tauri_react_app"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "example_tauri_react_app"
+         },
+         {
+            "from": "types",
+            "to": "deploy_config"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_parser"
+         },
+         {
+            "from": "types",
+            "to": "deploy_parser"
+         },
+         {
+            "from": "types",
+            "to": "deploy_scaling"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_scaling"
+         },
+         {
+            "from": "graph_core",
+            "to": "deploy_scaling"
+         },
+         {
+            "from": "types",
+            "to": "deploy_network"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_network"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "deploy_network"
+         },
+         {
+            "from": "types",
+            "to": "deploy_git_integration"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_git_integration"
+         },
+         {
+            "from": "deploy_network",
+            "to": "deploy_git_integration"
+         },
+         {
+            "from": "types",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "deploy_network",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "deploy_git_integration",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "graph_core",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "deploy_controller"
+         },
+         {
+            "from": "types",
+            "to": "deploy_cli"
+         },
+         {
+            "from": "deploy_controller",
+            "to": "deploy_cli"
+         },
+         {
+            "from": "http_server",
+            "to": "deploy_cli"
+         },
+         {
+            "from": "types",
+            "to": "deploy_runtime"
+         },
+         {
+            "from": "deploy_controller",
+            "to": "deploy_runtime"
+         },
+         {
+            "from": "wasm",
+            "to": "deploy_runtime"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_example_simple"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_example_microservices"
+         },
+         {
+            "from": "deploy_example_simple",
+            "to": "deploy_example_microservices"
+         },
+         {
+            "from": "deploy_config",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_parser",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_network",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_git_integration",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_controller",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_cli",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_runtime",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_controller",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "http_server",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "frontend_framework",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "graph_core",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "execution_engine",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "deploy_hosting_server",
+            "to": "deploy_hosting_manager"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "deploy_hosting_manager"
+         },
+         {
+            "from": "deploy_network",
+            "to": "deploy_hosting_manager"
+         },
+         {
+            "from": "deploy_hosting_manager",
+            "to": "deploy_hosting_example"
+         },
+         {
+            "from": "deploy_cli",
+            "to": "deploy_hosting_example"
+         },
+         {
+            "from": "deploy_hosting_server",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_hosting_manager",
+            "to": "lib"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "ai_agent_parser"
+         },
+         {
+            "from": "kotobanet_core",
+            "to": "ai_agent_parser"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "db_handler"
+         },
+         {
+            "from": "execution_engine",
+            "to": "db_handler"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "db_handler"
+         },
+         {
+            "from": "ai_agent_parser",
+            "to": "ai_runtime"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "ai_runtime"
+         },
+         {
+            "from": "http_ir",
+            "to": "ai_runtime"
+         },
+         {
+            "from": "db_handler",
+            "to": "ai_runtime"
+         },
+         {
+            "from": "ai_runtime",
+            "to": "ai_models"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "ai_models"
+         },
+         {
+            "from": "ai_runtime",
+            "to": "ai_tools"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "ai_tools"
+         },
+         {
+            "from": "ai_runtime",
+            "to": "ai_memory"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "ai_memory"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "ai_memory"
+         },
+         {
+            "from": "db_handler",
+            "to": "ai_memory"
+         },
+         {
+            "from": "ai_agent_parser",
+            "to": "ai_chains"
+         },
+         {
+            "from": "ai_runtime",
+            "to": "ai_chains"
+         },
+         {
+            "from": "ai_models",
+            "to": "ai_chains"
+         },
+         {
+            "from": "ai_tools",
+            "to": "ai_chains"
+         },
+         {
+            "from": "ai_memory",
+            "to": "ai_chains"
+         },
+         {
+            "from": "ai_chains",
+            "to": "ai_examples"
+         },
+         {
+            "from": "ai_models",
+            "to": "ai_examples"
+         },
+         {
+            "from": "ai_tools",
+            "to": "ai_examples"
+         },
+         {
+            "from": "ai_memory",
+            "to": "ai_examples"
+         },
+         {
+            "from": "ai_agent_parser",
+            "to": "lib"
+         },
+         {
+            "from": "ai_runtime",
+            "to": "lib"
+         },
+         {
+            "from": "ai_models",
+            "to": "lib"
+         },
+         {
+            "from": "ai_tools",
+            "to": "lib"
+         },
+         {
+            "from": "ai_memory",
+            "to": "lib"
+         },
+         {
+            "from": "ai_chains",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "deploy_cli_core"
+         },
+         {
+            "from": "deploy_controller",
+            "to": "deploy_cli_core"
+         },
+         {
+            "from": "http_server",
+            "to": "deploy_cli_core"
+         },
+         {
+            "from": "deploy_cli_core",
+            "to": "deploy_cli_binary"
+         },
+         {
+            "from": "deploy_controller",
+            "to": "deploy_cli_binary"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "deploy_cli_binary"
+         },
+         {
+            "from": "deploy_network",
+            "to": "deploy_cli_binary"
+         },
+         {
+            "from": "deploy_runtime",
+            "to": "deploy_cli_binary"
+         },
+         {
+            "from": "types",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "deploy_network",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "deploy_git_integration",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "graph_core",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "deploy_controller_core"
+         },
+         {
+            "from": "types",
+            "to": "deploy_network_core"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_network_core"
+         },
+         {
+            "from": "deploy_scaling",
+            "to": "deploy_network_core"
+         },
+         {
+            "from": "types",
+            "to": "deploy_scaling_core"
+         },
+         {
+            "from": "deploy_config",
+            "to": "deploy_scaling_core"
+         },
+         {
+            "from": "graph_core",
+            "to": "deploy_scaling_core"
+         },
+         {
+            "from": "deploy_controller_core",
+            "to": "deploy_hosting_server"
+         },
+         {
+            "from": "deploy_controller_core",
+            "to": "deploy_hosting_manager"
+         },
+         {
+            "from": "deploy_cli_core",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_cli_binary",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_controller_core",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_network_core",
+            "to": "lib"
+         },
+         {
+            "from": "deploy_scaling_core",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "distributed_engine"
+         },
+         {
+            "from": "graph_core",
+            "to": "distributed_engine"
+         },
+         {
+            "from": "execution_engine",
+            "to": "distributed_engine"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "distributed_engine"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "distributed_engine"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "distributed_engine"
+         },
+         {
+            "from": "types",
+            "to": "network_protocol"
+         },
+         {
+            "from": "distributed_engine",
+            "to": "network_protocol"
+         },
+         {
+            "from": "types",
+            "to": "cid_system"
+         },
+         {
+            "from": "types",
+            "to": "cli_interface"
+         },
+         {
+            "from": "distributed_engine",
+            "to": "cli_interface"
+         },
+         {
+            "from": "network_protocol",
+            "to": "cli_interface"
+         },
+         {
+            "from": "cid_system",
+            "to": "cli_interface"
+         },
+         {
+            "from": "distributed_engine",
+            "to": "lib"
+         },
+         {
+            "from": "network_protocol",
+            "to": "lib"
+         },
+         {
+            "from": "cid_system",
+            "to": "lib"
+         },
+         {
+            "from": "cli_interface",
+            "to": "lib"
+         },
+         {
+            "from": "kotobanet_core",
+            "to": "kotoba_lsp"
+         },
+         {
+            "from": "jsonnet_core",
+            "to": "kotoba_lsp"
+         },
+         {
+            "from": "types",
+            "to": "package_manager"
+         },
+         {
+            "from": "cid_system",
+            "to": "package_manager"
+         },
+         {
+            "from": "distributed_engine",
+            "to": "lib"
+         },
+         {
+            "from": "network_protocol",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "state_graph_lib"
+         },
+         {
+            "from": "rewrite_engine",
+            "to": "state_graph_lib"
+         },
+         {
+            "from": "execution_engine",
+            "to": "state_graph_lib"
+         },
+         {
+            "from": "state_graph_lib",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "docs_parser"
+         },
+         {
+            "from": "docs_parser",
+            "to": "docs_generator"
+         },
+         {
+            "from": "docs_parser",
+            "to": "docs_search"
+         },
+         {
+            "from": "docs_parser",
+            "to": "docs_core"
+         },
+         {
+            "from": "types",
+            "to": "docs_config"
+         },
+         {
+            "from": "docs_config",
+            "to": "docs_generator"
+         },
+         {
+            "from": "docs_config",
+            "to": "docs_core"
+         },
+         {
+            "from": "types",
+            "to": "docs_generator"
+         },
+         {
+            "from": "docs_generator",
+            "to": "docs_template"
+         },
+         {
+            "from": "docs_generator",
+            "to": "docs_server"
+         },
+         {
+            "from": "docs_generator",
+            "to": "docs_core"
+         },
+         {
+            "from": "types",
+            "to": "docs_template"
+         },
+         {
+            "from": "docs_template",
+            "to": "docs_core"
+         },
+         {
+            "from": "types",
+            "to": "docs_search"
+         },
+         {
+            "from": "docs_search",
+            "to": "docs_server"
+         },
+         {
+            "from": "docs_search",
+            "to": "docs_core"
+         },
+         {
+            "from": "types",
+            "to": "docs_server"
+         },
+         {
+            "from": "http_ir",
+            "to": "docs_server"
+         },
+         {
+            "from": "docs_server",
+            "to": "docs_core"
+         },
+         {
+            "from": "types",
+            "to": "docs_core"
+         },
+         {
+            "from": "docs_core",
+            "to": "docs_cli"
+         },
+         {
+            "from": "docs_core",
+            "to": "lib"
+         },
+         {
+            "from": "types",
+            "to": "docs_cli"
+         },
+         {
+            "from": "cli_interface",
+            "to": "docs_cli"
+         },
+         {
+            "from": "docs_cli",
+            "to": "lib"
+         }
+      ],
+      "nodes": {
+         "activity_libraries": {
+            "build_order": 10,
+            "dependencies": [
+               "types",
+               "ir_workflow",
+               "workflow_executor"
+            ],
+            "description": "Pre-built activity libraries (HTTP, Database, Cloud, etc.)",
+            "name": "activity_libraries",
+            "node_type": "ecosystem",
+            "path": "crates/kotoba-workflow-activities/src/lib.rs",
+            "provides": [
+               "ActivityLibrary",
+               "HttpActivities",
+               "DatabaseActivities",
+               "CloudActivities"
+            ],
+            "status": "completed"
+         },
+         "ai_agent_parser": {
+            "build_order": 20,
+            "dependencies": [
+               "kotobanet_core",
+               "jsonnet_core"
+            ],
+            "description": "Jsonnet-based AI agent定義パーサー - .manimaniファイルの解析",
+            "name": "ai_agent_parser",
+            "node_type": "ai_agent",
+            "path": "crates/kotoba-kotobas/src/ai_parser.rs",
+            "provides": [
+               "AiAgentParser",
+               "AgentConfig",
+               "ToolConfig",
+               "ChainConfig"
+            ],
+            "status": "pending"
+         },
+         "ai_chains": {
+            "build_order": 26,
+            "dependencies": [
+               "ai_agent_parser",
+               "ai_runtime",
+               "ai_models",
+               "ai_tools",
+               "ai_memory"
+            ],
+            "description": "AIチェーンシステム - 複数ステップのワークフロー実行",
+            "name": "ai_chains",
+            "node_type": "ai_agent",
+            "path": "crates/kotoba-kotobas/src/ai_chains.rs",
+            "provides": [
+               "ChainExecutor",
+               "SequentialChain",
+               "ParallelChain",
+               "ConditionalChain",
+               "LoopChain"
+            ],
+            "status": "pending"
+         },
+         "ai_examples": {
+            "build_order": 27,
+            "dependencies": [
+               "ai_chains",
+               "ai_models",
+               "ai_tools",
+               "ai_memory"
+            ],
+            "description": "AI Agentの使用例 - Jsonnet-only AI agentアプリケーション",
+            "name": "ai_examples",
+            "node_type": "ai_example",
+            "path": "examples/ai_agents/",
+            "provides": [
+               "ai_agent_examples",
+               "chatbot_example",
+               "code_assistant_example",
+               "data_analyzer_example"
+            ],
+            "status": "pending"
+         },
+         "ai_memory": {
+            "build_order": 25,
+            "dependencies": [
+               "ai_runtime",
+               "storage_mvcc",
+               "storage_merkle",
+               "db_handler"
+            ],
+            "description": "AIメモリ管理 - 会話履歴、コンテキスト、状態管理",
+            "name": "ai_memory",
+            "node_type": "ai_agent",
+            "path": "crates/kotoba-kotobas/src/ai_memory.rs",
+            "provides": [
+               "MemoryManager",
+               "ConversationMemory",
+               "VectorMemory",
+               "StateManager"
+            ],
+            "status": "pending"
+         },
+         "ai_models": {
+            "build_order": 23,
+            "dependencies": [
+               "ai_runtime",
+               "jsonnet_core"
+            ],
+            "description": "AIモデル統合 - OpenAI, Anthropic, Google AIなどのAPI統合",
+            "name": "ai_models",
+            "node_type": "ai_agent",
+            "path": "crates/kotoba-kotobas/src/ai_models.rs",
+            "provides": [
+               "OpenAiModel",
+               "AnthropicModel",
+               "GoogleAiModel",
+               "ModelManager",
+               "ApiClient"
+            ],
+            "status": "pending"
+         },
+         "ai_runtime": {
+            "build_order": 22,
+            "dependencies": [
+               "ai_agent_parser",
+               "jsonnet_core",
+               "http_ir",
+               "db_handler"
+            ],
+            "description": "AI Agent実行ランタイム - Jsonnet evaluator拡張によるAI処理",
+            "name": "ai_runtime",
+            "node_type": "ai_agent",
+            "path": "crates/kotoba-kotobas/src/ai_runtime.rs",
+            "provides": [
+               "AiRuntime",
+               "AgentExecutor",
+               "AsyncEvaluator",
+               "StreamingProcessor"
+            ],
+            "status": "pending"
+         },
+         "ai_tools": {
+            "build_order": 24,
+            "dependencies": [
+               "ai_runtime",
+               "jsonnet_core"
+            ],
+            "description": "AIツールシステム - 外部コマンド実行、関数呼び出し、データ処理",
+            "name": "ai_tools",
+            "node_type": "ai_agent",
+            "path": "crates/kotoba-kotobas/src/ai_tools.rs",
+            "provides": [
+               "ToolExecutor",
+               "CommandTool",
+               "FunctionTool",
+               "DataTool",
+               "ToolRegistry"
+            ],
+            "status": "pending"
+         },
+         "cid_system": {
+            "build_order": 3,
+            "dependencies": [
+               "types"
+            ],
+            "description": "CID (Content ID) システム - Merkle DAGにおけるコンテンツアドレッシング",
+            "name": "cid_system",
+            "node_type": "cid",
+            "path": "crates/kotoba-cid/src/lib.rs",
+            "provides": [
+               "CidCalculator",
+               "CidManager",
+               "MerkleTreeBuilder",
+               "JsonCanonicalizer"
+            ],
+            "status": "completed"
+         },
+         "cli_interface": {
+            "build_order": 10,
+            "dependencies": [
+               "types",
+               "distributed_engine",
+               "network_protocol",
+               "cid_system"
+            ],
+            "description": "CLI - Denoを参考にしたコマンドラインインターフェース",
+            "name": "cli_interface",
+            "node_type": "cli",
+            "path": "crates/kotoba-cli/src/lib.rs",
+            "provides": [
+               "Cli",
+               "Commands",
+               "ConfigManager",
+               "ProgressBar",
+               "LogFormatter"
+            ],
+            "status": "completed"
+         },
+         "cloud_integrations": {
+            "build_order": 12,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Cloud-native integrations (AWS, GCP, Azure)",
+            "name": "cloud_integrations",
+            "node_type": "ecosystem",
+            "path": "crates/kotoba-cloud-integrations/src/lib.rs",
+            "provides": [
+               "CloudIntegrationManager",
+               "AWSService",
+               "GCPService",
+               "AzureService"
+            ],
+            "status": "completed"
+         },
+         "db_handler": {
+            "build_order": 21,
+            "dependencies": [
+               "jsonnet_core",
+               "execution_engine",
+               "rewrite_engine"
+            ],
+            "description": "Jsonnet evaluator handler for database operations (GQL Query, Rewrite Rules)",
+            "name": "db_handler",
+            "node_type": "runtime_extension",
+            "path": "crates/kotoba-jsonnet/src/runtime/db.rs",
+            "provides": [
+               "DbHandler",
+               "std.ext.db.query",
+               "std.ext.db.rewrite",
+               "std.ext.db.patch"
+            ],
+            "status": "in_progress"
+         },
+         "deploy_cli": {
+            "build_order": 13,
+            "dependencies": [
+               "types",
+               "deploy_controller",
+               "http_server"
+            ],
+            "description": "kotoba deploy CLIコマンド",
+            "name": "deploy_cli",
+            "node_type": "deploy",
+            "path": "src/deploy/cli.rs",
+            "provides": [
+               "DeployCLI"
+            ],
+            "status": "completed"
+         },
+         "deploy_cli_binary": {
+            "build_order": 16,
+            "dependencies": [
+               "deploy_cli_core",
+               "deploy_controller",
+               "deploy_scaling",
+               "deploy_network",
+               "deploy_runtime"
+            ],
+            "description": "CLIバイナリ - 完全なデプロイメント処理、設定ファイル管理、進捗バー表示",
+            "name": "deploy_cli_binary",
+            "node_type": "deploy_cli",
+            "path": "crates/kotoba-deploy-cli/src/main.rs",
+            "provides": [
+               "kotoba-deploy-cli"
+            ],
+            "status": "completed"
+         },
+         "deploy_cli_core": {
+            "build_order": 15,
+            "dependencies": [
+               "types",
+               "deploy_controller",
+               "http_server"
+            ],
+            "description": "拡張CLIマネージャー - デプロイメント管理、設定管理、進捗表示",
+            "name": "deploy_cli_core",
+            "node_type": "deploy_cli",
+            "path": "crates/kotoba-deploy-cli/src/lib.rs",
+            "provides": [
+               "CliManager",
+               "DeploymentInfo",
+               "OutputFormat",
+               "FormatOutput"
+            ],
+            "status": "completed"
+         },
+         "deploy_config": {
+            "build_order": 7,
+            "dependencies": [
+               "types"
+            ],
+            "description": "デプロイ設定のIR定義 (Jsonnetベースの.kotoba-deployファイル)",
+            "name": "deploy_config",
+            "node_type": "deploy",
+            "path": "src/deploy/config.rs",
+            "provides": [
+               "DeployConfig",
+               "ScalingConfig",
+               "RegionConfig"
+            ],
+            "status": "completed"
+         },
+         "deploy_controller": {
+            "build_order": 12,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "deploy_scaling",
+               "deploy_network",
+               "deploy_git_integration",
+               "graph_core",
+               "rewrite_engine"
+            ],
+            "description": "ISO GQLを使用したデプロイコントロール",
+            "name": "deploy_controller",
+            "node_type": "deploy",
+            "path": "src/deploy/controller.rs",
+            "provides": [
+               "DeployController",
+               "DeploymentManager"
+            ],
+            "status": "completed"
+         },
+         "deploy_controller_core": {
+            "build_order": 17,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "deploy_scaling",
+               "deploy_network",
+               "deploy_git_integration",
+               "graph_core",
+               "rewrite_engine"
+            ],
+            "description": "高度なデプロイコントローラー - ロールバック、ブルーグリーン、カナリアデプロイ",
+            "name": "deploy_controller_core",
+            "node_type": "deploy_controller",
+            "path": "crates/kotoba-deploy-controller/src/lib.rs",
+            "provides": [
+               "DeployController",
+               "DeploymentHistoryManager",
+               "RollbackManager",
+               "BlueGreenDeploymentManager",
+               "CanaryDeploymentManager",
+               "HealthCheckManager"
+            ],
+            "status": "completed"
+         },
+         "deploy_example_microservices": {
+            "build_order": 16,
+            "dependencies": [
+               "deploy_config",
+               "deploy_example_simple"
+            ],
+            "description": "マイクロサービスデプロイメント設定例",
+            "name": "deploy_example_microservices",
+            "node_type": "deploy_example",
+            "path": "examples/deploy/microservices.kotoba-deploy",
+            "provides": [
+               "microservices_deploy_example"
+            ],
+            "status": "pending"
+         },
+         "deploy_example_simple": {
+            "build_order": 15,
+            "dependencies": [
+               "deploy_config"
+            ],
+            "description": "シンプルなデプロイメント設定例",
+            "name": "deploy_example_simple",
+            "node_type": "deploy_example",
+            "path": "examples/deploy/simple.kotoba-deploy",
+            "provides": [
+               "simple_deploy_example"
+            ],
+            "status": "pending"
+         },
+         "deploy_git_integration": {
+            "build_order": 11,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "deploy_network"
+            ],
+            "description": "GitHub連携と自動デプロイ",
+            "name": "deploy_git_integration",
+            "node_type": "deploy",
+            "path": "src/deploy/git_integration.rs",
+            "provides": [
+               "GitIntegration",
+               "AutoDeploy",
+               "WebhookHandler"
+            ],
+            "status": "completed"
+         },
+         "deploy_hosting_example": {
+            "build_order": 19,
+            "dependencies": [
+               "deploy_hosting_manager",
+               "deploy_cli"
+            ],
+            "description": "ホスティングサーバーの使用例",
+            "name": "deploy_hosting_example",
+            "node_type": "deploy_example",
+            "path": "examples/deploy/hosting_example.rs",
+            "provides": [
+               "hosting_server_example"
+            ],
+            "status": "pending"
+         },
+         "deploy_hosting_manager": {
+            "build_order": 18,
+            "dependencies": [
+               "deploy_hosting_server",
+               "deploy_scaling",
+               "deploy_network"
+            ],
+            "description": "ホスティングマネージャー - アプリのライフサイクル管理",
+            "name": "deploy_hosting_manager",
+            "node_type": "deploy",
+            "path": "src/deploy/hosting_manager.rs",
+            "provides": [
+               "HostingManager",
+               "DeploymentLifecycle"
+            ],
+            "status": "completed"
+         },
+         "deploy_hosting_server": {
+            "build_order": 20,
+            "dependencies": [
+               "deploy_controller_core",
+               "http_server",
+               "frontend_framework",
+               "graph_core",
+               "execution_engine",
+               "storage_mvcc",
+               "storage_merkle"
+            ],
+            "description": "ホスティングサーバーの実装 - デプロイされたアプリをホスト",
+            "name": "deploy_hosting_server",
+            "node_type": "deploy",
+            "path": "src/deploy/hosting_server.rs",
+            "provides": [
+               "HostingServer",
+               "AppHost",
+               "RuntimeManager"
+            ],
+            "status": "completed"
+         },
+         "deploy_network": {
+            "build_order": 10,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "deploy_scaling"
+            ],
+            "description": "グローバル分散ネットワーク管理",
+            "name": "deploy_network",
+            "node_type": "deploy",
+            "path": "src/deploy/network.rs",
+            "provides": [
+               "NetworkManager",
+               "RegionManager",
+               "EdgeRouter"
+            ],
+            "status": "completed"
+         },
+         "deploy_network_core": {
+            "build_order": 18,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "deploy_scaling"
+            ],
+            "description": "高度なネットワークマネージャー - CDN統合、セキュリティ、エッジ最適化",
+            "name": "deploy_network_core",
+            "node_type": "deploy_network",
+            "path": "crates/kotoba-deploy-network/src/lib.rs",
+            "provides": [
+               "NetworkManager",
+               "CdnManager",
+               "SecurityManager",
+               "GeoManager",
+               "EdgeOptimizationManager"
+            ],
+            "status": "completed"
+         },
+         "deploy_parser": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "deploy_config"
+            ],
+            "description": ".kotoba-deployファイルのパーサー",
+            "name": "deploy_parser",
+            "node_type": "deploy",
+            "path": "src/deploy/parser.rs",
+            "provides": [
+               "DeployConfigParser"
+            ],
+            "status": "completed"
+         },
+         "deploy_runtime": {
+            "build_order": 14,
+            "dependencies": [
+               "types",
+               "deploy_controller",
+               "wasm"
+            ],
+            "description": "デプロイ実行ランタイム (WebAssembly + WASM Edge対応)",
+            "name": "deploy_runtime",
+            "node_type": "deploy",
+            "path": "src/deploy/runtime.rs",
+            "provides": [
+               "DeployRuntime",
+               "WasmRuntime"
+            ],
+            "status": "completed"
+         },
+         "deploy_scaling": {
+            "build_order": 9,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "graph_core"
+            ],
+            "description": "自動スケーリングエンジン",
+            "name": "deploy_scaling",
+            "node_type": "deploy",
+            "path": "src/deploy/scaling.rs",
+            "provides": [
+               "ScalingEngine",
+               "LoadBalancer",
+               "AutoScaler"
+            ],
+            "status": "completed"
+         },
+         "deploy_scaling_core": {
+            "build_order": 19,
+            "dependencies": [
+               "types",
+               "deploy_config",
+               "graph_core"
+            ],
+            "description": "AI予測スケーリングエンジン - トラフィック予測、コスト最適化、異常検知",
+            "name": "deploy_scaling_core",
+            "node_type": "deploy_scaling",
+            "path": "crates/kotoba-deploy-scaling/src/lib.rs",
+            "provides": [
+               "PredictiveScaler",
+               "CostOptimizer",
+               "AdvancedMetricsAnalyzer",
+               "IntegratedScalingManager"
+            ],
+            "status": "completed"
+         },
+         "distributed_engine": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "graph_core",
+               "execution_engine",
+               "rewrite_engine",
+               "storage_mvcc",
+               "storage_merkle"
+            ],
+            "description": "分散実行エンジン - CIDベースの分散グラフ処理",
+            "name": "distributed_engine",
+            "node_type": "distributed",
+            "path": "crates/kotoba-distributed/src/lib.rs",
+            "provides": [
+               "DistributedEngine",
+               "CidCache",
+               "ClusterManager",
+               "DistributedTask",
+               "TaskResult"
+            ],
+            "status": "completed"
+         },
+         "docs_cli": {
+            "build_order": 11,
+            "dependencies": [
+               "types",
+               "docs_core",
+               "cli_interface"
+            ],
+            "description": "CLI commands for documentation generation (generate, serve, search, init)",
+            "name": "docs_cli",
+            "node_type": "documentation_cli",
+            "path": "crates/kotoba-cli/src/main.rs",
+            "provides": [
+               "docs generate",
+               "docs serve",
+               "docs search",
+               "docs init"
+            ],
+            "status": "completed"
+         },
+         "docs_config": {
+            "build_order": 3,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Documentation configuration management and TOML/JSON/YAML parsing",
+            "name": "docs_config",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/config.rs",
+            "provides": [
+               "DocsConfig",
+               "ConfigManager",
+               "auto_detect_config",
+               "create_default_config_file"
+            ],
+            "status": "completed"
+         },
+         "docs_core": {
+            "build_order": 6,
+            "dependencies": [
+               "types",
+               "docs_parser",
+               "docs_config",
+               "docs_generator",
+               "docs_template",
+               "docs_search",
+               "docs_server"
+            ],
+            "description": "Kotoba Documentation Generator core library - main API and error handling",
+            "name": "docs_core",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/lib.rs",
+            "provides": [
+               "DocsError",
+               "Result<T>",
+               "DocType",
+               "DocsConfig",
+               "DocItem"
+            ],
+            "status": "completed"
+         },
+         "docs_generator": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "docs_parser",
+               "docs_config"
+            ],
+            "description": "Documentation generation engine with HTML/Markdown/JSON output support",
+            "name": "docs_generator",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/generator.rs",
+            "provides": [
+               "DocGenerator",
+               "OutputFormat",
+               "GenerateResult",
+               "DocItem"
+            ],
+            "status": "completed"
+         },
+         "docs_parser": {
+            "build_order": 3,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Multi-language source code parser for documentation generation (Rust, JS, TS, Python, Go)",
+            "name": "docs_parser",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/parser.rs",
+            "provides": [
+               "DocParser",
+               "LanguageParser",
+               "RustParser",
+               "JavaScriptParser",
+               "TypeScriptParser",
+               "PythonParser",
+               "GoParser"
+            ],
+            "status": "completed"
+         },
+         "docs_search": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "docs_parser"
+            ],
+            "description": "Full-text search engine with fuzzy matching and indexing",
+            "name": "docs_search",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/search.rs",
+            "provides": [
+               "SearchEngine",
+               "SearchResult",
+               "SearchOptions",
+               "SearchEntry"
+            ],
+            "status": "completed"
+         },
+         "docs_server": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "docs_generator",
+               "docs_search",
+               "http_ir"
+            ],
+            "description": "Web server for documentation with REST API and static file serving",
+            "name": "docs_server",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/server.rs",
+            "provides": [
+               "DocServer",
+               "ServerState",
+               "SearchParams",
+               "SearchResponse"
+            ],
+            "status": "completed"
+         },
+         "docs_template": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "docs_generator"
+            ],
+            "description": "Template engine for documentation with Tera integration and custom filters",
+            "name": "docs_template",
+            "node_type": "documentation",
+            "path": "crates/kotoba-docs/src/template.rs",
+            "provides": [
+               "TemplateEngine",
+               "TemplateContext",
+               "TemplateFilter",
+               "DocTemplate"
+            ],
+            "status": "completed"
+         },
+         "example_frontend_app": {
+            "build_order": 12,
+            "dependencies": [
+               "lib",
+               "frontend_framework",
+               "http_server"
+            ],
+            "description": "JsonnetベースのフルスタックWebフレームワークの使用例",
+            "name": "example_frontend_app",
+            "node_type": "example",
+            "path": "examples/frontend_app/main.rs",
+            "provides": [
+               "frontend_app_example"
+            ],
+            "status": "completed"
+         },
+         "example_http_server": {
+            "build_order": 12,
+            "dependencies": [
+               "lib",
+               "http_server"
+            ],
+            "description": "HTTPサーバーの使用例",
+            "name": "example_http_server",
+            "node_type": "example",
+            "path": "examples/http_server/main.rs",
+            "provides": [
+               "http_server_example"
+            ],
+            "status": "completed"
+         },
+         "example_social_network": {
+            "build_order": 12,
+            "dependencies": [
+               "lib",
+               "graph_core",
+               "execution_engine",
+               "rewrite_engine"
+            ],
+            "description": "ソーシャルネットワークグラフ処理の使用例",
+            "name": "example_social_network",
+            "node_type": "example",
+            "path": "examples/social_network/main.rs",
+            "provides": [
+               "social_network_example"
+            ],
+            "status": "completed"
+         },
+         "example_tauri_react_app": {
+            "build_order": 13,
+            "dependencies": [
+               "lib",
+               "frontend_framework",
+               "graph_core",
+               "storage_mvcc",
+               "storage_merkle"
+            ],
+            "description": "Tauri + React + Kotoba Frontend Frameworkのデスクトップアプリケーション例",
+            "name": "example_tauri_react_app",
+            "node_type": "example",
+            "path": "examples/tauri_react_app/main.rs",
+            "provides": [
+               "tauri_react_app_example"
+            ],
+            "status": "in_progress"
+         },
+         "execution_engine": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "ir_query",
+               "ir_catalog",
+               "graph_core",
+               "storage_mvcc",
+               "storage_merkle",
+               "planner_logical",
+               "planner_physical",
+               "planner_optimizer",
+               "execution_parser"
+            ],
+            "description": "クエリ実行器",
+            "name": "execution_engine",
+            "node_type": "execution",
+            "path": "src/execution/executor.rs",
+            "provides": [
+               "QueryExecutor"
+            ],
+            "status": "completed"
+         },
+         "execution_parser": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "ir_query"
+            ],
+            "description": "GQLパーサー",
+            "name": "execution_parser",
+            "node_type": "execution",
+            "path": "src/execution/gql_parser.rs",
+            "provides": [
+               "GqlParser"
+            ],
+            "status": "completed"
+         },
+         "frontend_api_ir": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "APIルートIR定義 (REST/GraphQL/WebSocket)",
+            "name": "frontend_api_ir",
+            "node_type": "frontend",
+            "path": "src/frontend/api_ir.rs",
+            "provides": [
+               "ApiRouteIR",
+               "DatabaseIR",
+               "MiddlewareIR",
+               "WebSocketIR"
+            ],
+            "status": "completed"
+         },
+         "frontend_build_ir": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "frontend_component_ir"
+            ],
+            "description": "ブイルド/バンドルシステムのIR定義",
+            "name": "frontend_build_ir",
+            "node_type": "frontend",
+            "path": "src/frontend/build_ir.rs",
+            "provides": [
+               "BuildConfigIR",
+               "BundleResultIR",
+               "CodeSplittingIR"
+            ],
+            "status": "completed"
+         },
+         "frontend_component_ir": {
+            "build_order": 3,
+            "dependencies": [
+               "types"
+            ],
+            "description": "ReactコンポーネントIR定義 (Server/Client Components, Props, State)",
+            "name": "frontend_component_ir",
+            "node_type": "frontend",
+            "path": "src/frontend/component_ir.rs",
+            "provides": [
+               "ComponentIR",
+               "ElementIR",
+               "JSXIR",
+               "HookIR"
+            ],
+            "status": "completed"
+         },
+         "frontend_framework": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "frontend_component_ir",
+               "frontend_route_ir",
+               "frontend_render_ir",
+               "frontend_build_ir",
+               "frontend_api_ir",
+               "http_ir"
+            ],
+            "description": "Web Frameworkのコア実装",
+            "name": "frontend_framework",
+            "node_type": "frontend",
+            "path": "src/frontend/framework.rs",
+            "provides": [
+               "WebFramework",
+               "ComponentRenderer",
+               "BuildEngine"
+            ],
+            "status": "in_progress"
+         },
+         "frontend_render_ir": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "frontend_component_ir"
+            ],
+            "description": "コンポーネントツリーとレンダリングエンジンのIR定義",
+            "name": "frontend_render_ir",
+            "node_type": "frontend",
+            "path": "src/frontend/render_ir.rs",
+            "provides": [
+               "VirtualNodeIR",
+               "RenderContext",
+               "RenderResultIR",
+               "DiffIR"
+            ],
+            "status": "completed"
+         },
+         "frontend_route_ir": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "frontend_component_ir"
+            ],
+            "description": "App RouterシステムIR定義 (ファイルベースルーティング, Layout, Loading, Error境界)",
+            "name": "frontend_route_ir",
+            "node_type": "frontend",
+            "path": "src/frontend/route_ir.rs",
+            "provides": [
+               "RouteIR",
+               "RouteTableIR",
+               "NavigationIR"
+            ],
+            "status": "completed"
+         },
+         "graph_core": {
+            "build_order": 3,
+            "dependencies": [
+               "types",
+               "graph_vertex",
+               "graph_edge"
+            ],
+            "description": "列指向グラフ表現とGraphRef",
+            "name": "graph_core",
+            "node_type": "graph",
+            "path": "src/graph/graph.rs",
+            "provides": [
+               "Graph",
+               "GraphRef"
+            ],
+            "status": "completed"
+         },
+         "graph_edge": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "エッジ関連構造体とビルダー",
+            "name": "graph_edge",
+            "node_type": "graph",
+            "path": "src/graph/edge.rs",
+            "provides": [
+               "EdgeBuilder",
+               "EdgeData"
+            ],
+            "status": "completed"
+         },
+         "graph_vertex": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "頂点関連構造体とビルダー",
+            "name": "graph_vertex",
+            "node_type": "graph",
+            "path": "src/graph/vertex.rs",
+            "provides": [
+               "VertexBuilder",
+               "VertexData"
+            ],
+            "status": "completed"
+         },
+         "graphql_handler": {
+            "build_order": 9,
+            "dependencies": [
+               "types",
+               "graphql_schema"
+            ],
+            "description": "GraphQLリクエスト処理と実行エンジン",
+            "name": "graphql_handler",
+            "node_type": "graphql",
+            "path": "crates/kotoba-server/src/http/graphql.rs",
+            "provides": [
+               "GraphQLHandler",
+               "RequestExecutor"
+            ],
+            "status": "completed"
+         },
+         "graphql_schema": {
+            "build_order": 9,
+            "dependencies": [
+               "types",
+               "schema_validator"
+            ],
+            "description": "GraphQLスキーマ定義とスキーマ管理操作",
+            "name": "graphql_schema",
+            "node_type": "graphql",
+            "path": "crates/kotoba-server/src/http/graphql.rs",
+            "provides": [
+               "GraphQLSchema",
+               "SchemaMutations",
+               "SchemaQueries"
+            ],
+            "status": "completed"
+         },
+         "http_engine": {
+            "build_order": 9,
+            "dependencies": [
+               "types",
+               "http_ir",
+               "http_handlers",
+               "graph_core",
+               "storage_mvcc",
+               "storage_merkle",
+               "rewrite_engine",
+               "security_core"
+            ],
+            "description": "HTTPサーバーエンジン",
+            "name": "http_engine",
+            "node_type": "http",
+            "path": "src/http/engine.rs",
+            "provides": [
+               "HttpEngine",
+               "ServerState"
+            ],
+            "status": "pending"
+         },
+         "http_handlers": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "http_ir",
+               "graph_core",
+               "rewrite_engine",
+               "storage_mvcc",
+               "storage_merkle",
+               "security_core"
+            ],
+            "description": "HTTPハンドラーとミドルウェア処理",
+            "name": "http_handlers",
+            "node_type": "http",
+            "path": "src/http/handlers.rs",
+            "provides": [
+               "HttpHandler",
+               "MiddlewareProcessor",
+               "RequestProcessor"
+            ],
+            "status": "pending"
+         },
+         "http_ir": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "ir_catalog",
+               "security_core"
+            ],
+            "description": "HTTPサーバー用IR定義 (Route, Middleware, Request, Response)",
+            "name": "http_ir",
+            "node_type": "http",
+            "path": "src/http/ir.rs",
+            "provides": [
+               "HttpRoute",
+               "HttpMiddleware",
+               "HttpRequest",
+               "HttpResponse",
+               "HttpConfig"
+            ],
+            "status": "completed"
+         },
+         "http_parser": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "http_ir"
+            ],
+            "description": ".kotoba.json/.kotobaファイル（Jsonnet形式）のパーサー",
+            "name": "http_parser",
+            "node_type": "http",
+            "path": "src/http/parser.rs",
+            "provides": [
+               "HttpConfigParser",
+               "KotobaParser"
+            ],
+            "status": "pending"
+         },
+         "http_server": {
+            "build_order": 10,
+            "dependencies": [
+               "types",
+               "http_ir",
+               "http_parser",
+               "http_engine",
+               "http_handlers",
+               "graphql_schema",
+               "graphql_handler"
+            ],
+            "description": "メインHTTPサーバー",
+            "name": "http_server",
+            "node_type": "http",
+            "path": "crates/kotoba-server/src/http/server.rs",
+            "provides": [
+               "HttpServer",
+               "ServerBuilder"
+            ],
+            "status": "completed"
+         },
+         "ir_catalog": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "スキーマ/索引/不変量定義",
+            "name": "ir_catalog",
+            "node_type": "ir",
+            "path": "src/ir/catalog.rs",
+            "provides": [
+               "Catalog",
+               "LabelDef",
+               "IndexDef",
+               "Invariant"
+            ],
+            "status": "completed"
+         },
+         "ir_patch": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "差分表現 (addV/E, delV/E, setProp, relink)",
+            "name": "ir_patch",
+            "node_type": "ir",
+            "path": "src/ir/patch.rs",
+            "provides": [
+               "Patch",
+               "AddVertex",
+               "AddEdge",
+               "UpdateProp"
+            ],
+            "status": "completed"
+         },
+         "ir_query": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "GQL論理プラン代数",
+            "name": "ir_query",
+            "node_type": "ir",
+            "path": "src/ir/query.rs",
+            "provides": [
+               "PlanIR",
+               "LogicalOp",
+               "Expr",
+               "Predicate"
+            ],
+            "status": "completed"
+         },
+         "ir_rule": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "DPO型付き属性グラフ書換えルール",
+            "name": "ir_rule",
+            "node_type": "ir",
+            "path": "src/ir/rule.rs",
+            "provides": [
+               "RuleIR",
+               "Match",
+               "Guard"
+            ],
+            "status": "completed"
+         },
+         "ir_strategy": {
+            "build_order": 3,
+            "dependencies": [
+               "types",
+               "ir_patch"
+            ],
+            "description": "戦略表現 (once|exhaust|while|seq|choice|priority)",
+            "name": "ir_strategy",
+            "node_type": "ir",
+            "path": "src/ir/strategy.rs",
+            "provides": [
+               "StrategyIR",
+               "StrategyOp",
+               "StrategyResult",
+               "Externs"
+            ],
+            "status": "completed"
+         },
+         "ir_workflow": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "ir_strategy"
+            ],
+            "description": "TemporalベースワークフローIR (WorkflowIR, Activity, Saga)",
+            "name": "ir_workflow",
+            "node_type": "workflow",
+            "path": "crates/kotoba-workflow/src/ir.rs",
+            "provides": [
+               "WorkflowIR",
+               "ActivityIR",
+               "WorkflowExecution",
+               "SagaPattern"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_ast": {
+            "build_order": 3,
+            "dependencies": [
+               "jsonnet_value"
+            ],
+            "description": "Jsonnet抽象構文木定義 (Expr, ObjectField, BinaryOp, etc.)",
+            "name": "jsonnet_ast",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/ast.rs",
+            "provides": [
+               "Expr",
+               "Stmt",
+               "Program",
+               "ObjectField",
+               "BinaryOp",
+               "UnaryOp"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_core": {
+            "build_order": 6,
+            "dependencies": [
+               "jsonnet_evaluator",
+               "jsonnet_stdlib"
+            ],
+            "description": "JsonnetコアAPI - evaluate(), evaluate_to_json(), evaluate_to_yaml()",
+            "name": "jsonnet_core",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/lib.rs",
+            "provides": [
+               "evaluate",
+               "evaluate_with_filename",
+               "evaluate_to_json",
+               "evaluate_to_yaml",
+               "VERSION"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_error": {
+            "build_order": 1,
+            "dependencies": [ ],
+            "description": "Jsonnet評価エラー定義 (JsonnetError, Result)",
+            "name": "jsonnet_error",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/error.rs",
+            "provides": [
+               "JsonnetError",
+               "Result<T>"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_evaluator": {
+            "build_order": 5,
+            "dependencies": [
+               "jsonnet_ast",
+               "jsonnet_value"
+            ],
+            "description": "Jsonnet評価器 (Evaluator) - 式評価と実行",
+            "name": "jsonnet_evaluator",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/evaluator.rs",
+            "provides": [
+               "Evaluator"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_lexer": {
+            "build_order": 2,
+            "dependencies": [
+               "jsonnet_error"
+            ],
+            "description": "Jsonnet字句解析器 (Lexer) - トークン化",
+            "name": "jsonnet_lexer",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/lexer.rs",
+            "provides": [
+               "Lexer",
+               "Token",
+               "TokenWithPos",
+               "Position"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_parser": {
+            "build_order": 4,
+            "dependencies": [
+               "jsonnet_ast",
+               "jsonnet_lexer"
+            ],
+            "description": "Jsonnet構文解析器 (Parser) - AST構築",
+            "name": "jsonnet_parser",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/parser.rs",
+            "provides": [
+               "Parser",
+               "GqlToken"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_stdlib": {
+            "build_order": 5,
+            "dependencies": [
+               "jsonnet_value"
+            ],
+            "description": "Jsonnet標準ライブラリ (80+関数) - std.*関数群",
+            "name": "jsonnet_stdlib",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/stdlib.rs",
+            "provides": [
+               "StdLib",
+               "std_length",
+               "std_type",
+               "std_makeArray",
+               "std_filter",
+               "std_map",
+               "std_foldl",
+               "std_foldr",
+               "std_range",
+               "std_join",
+               "std_split",
+               "std_contains",
+               "std_startsWith",
+               "std_endsWith",
+               "std_substr",
+               "std_char",
+               "std_codepoint",
+               "std_toString",
+               "std_parseInt",
+               "std_parseJson",
+               "std_encodeUTF8",
+               "std_decodeUTF8",
+               "std_md5",
+               "std_base64",
+               "std_base64Decode",
+               "std_manifestJson",
+               "std_manifestJsonEx",
+               "std_manifestYaml",
+               "std_escapeStringJson",
+               "std_escapeStringYaml",
+               "std_escapeStringPython",
+               "std_escapeStringBash",
+               "std_escapeStringDollars",
+               "std_stringChars",
+               "std_stringBytes",
+               "std_format",
+               "std_isArray",
+               "std_isBoolean",
+               "std_isFunction",
+               "std_isNumber",
+               "std_isObject",
+               "std_isString",
+               "std_count",
+               "std_find",
+               "std_member",
+               "std_modulo",
+               "std_pow",
+               "std_exp",
+               "std_log",
+               "std_sqrt",
+               "std_sin",
+               "std_cos",
+               "std_tan",
+               "std_asin",
+               "std_acos",
+               "std_atan",
+               "std_floor",
+               "std_ceil",
+               "std_round",
+               "std_abs",
+               "std_max",
+               "std_min",
+               "std_clamp",
+               "std_assertEqual",
+               "std_sort",
+               "std_uniq",
+               "std_reverse",
+               "std_mergePatch",
+               "std_get",
+               "std_objectFields",
+               "std_objectFieldsAll",
+               "std_objectHas",
+               "std_objectHasAll",
+               "std_objectValues",
+               "std_objectValuesAll",
+               "std_prune",
+               "std_mapWithKey"
+            ],
+            "status": "completed"
+         },
+         "jsonnet_value": {
+            "build_order": 2,
+            "dependencies": [
+               "jsonnet_error"
+            ],
+            "description": "Jsonnet値型定義 (JsonnetValue, JsonnetFunction)",
+            "name": "jsonnet_value",
+            "node_type": "jsonnet",
+            "path": "crates/kotoba-jsonnet/src/value.rs",
+            "provides": [
+               "JsonnetValue",
+               "JsonnetFunction"
+            ],
+            "status": "completed"
+         },
+         "kotoba_lsp": {
+            "build_order": 10,
+            "dependencies": [
+               "kotobanet_core",
+               "jsonnet_core"
+            ],
+            "description": "Language Server Protocol implementation for Kotoba language",
+            "name": "kotoba_lsp",
+            "node_type": "lsp",
+            "path": "crates/kotoba-lsp/src/main.rs",
+            "provides": [
+               "lsp_server_binary"
+            ],
+            "status": "in_progress"
+         },
+         "kotobanet_config": {
+            "build_order": 8,
+            "dependencies": [
+               "kotobanet_error",
+               "jsonnet_core"
+            ],
+            "description": "General configuration management",
+            "name": "kotobanet_config",
+            "node_type": "kotobanet",
+            "path": "crates/kotoba-kotobas/src/config.rs",
+            "provides": [
+               "ConfigParser",
+               "AppConfig",
+               "DatabaseConfig",
+               "CacheConfig"
+            ],
+            "status": "completed"
+         },
+         "kotobanet_core": {
+            "build_order": 9,
+            "dependencies": [
+               "kotobanet_error",
+               "kotobanet_http_parser",
+               "kotobanet_frontend",
+               "kotobanet_deploy",
+               "kotobanet_config",
+               "jsonnet_core"
+            ],
+            "description": "Kotoba Kotobanet コアAPI - evaluate_kotoba(), HTTP/Frontend/Deploy/Config パーサー統合",
+            "name": "kotobanet_core",
+            "node_type": "kotobanet",
+            "path": "crates/kotoba-kotobas/src/lib.rs",
+            "provides": [
+               "evaluate_kotoba",
+               "evaluate_kotoba_to_json",
+               "evaluate_kotoba_to_yaml",
+               "HttpParser",
+               "FrontendParser",
+               "DeployParser",
+               "ConfigParser"
+            ],
+            "status": "completed"
+         },
+         "kotobanet_deploy": {
+            "build_order": 8,
+            "dependencies": [
+               "kotobanet_error",
+               "jsonnet_core"
+            ],
+            "description": "Deploy Configuration for deployment settings",
+            "name": "kotobanet_deploy",
+            "node_type": "kotobanet",
+            "path": "crates/kotoba-kotobas/src/deploy.rs",
+            "provides": [
+               "DeployParser",
+               "DeployConfig",
+               "ScalingConfig",
+               "RegionConfig"
+            ],
+            "status": "completed"
+         },
+         "kotobanet_error": {
+            "build_order": 7,
+            "dependencies": [ ],
+            "description": "Kotoba Kotobanet エラー定義",
+            "name": "kotobanet_error",
+            "node_type": "kotobanet",
+            "path": "crates/kotoba-kotobas/src/error.rs",
+            "provides": [
+               "KotobaNetError",
+               "Result<T>"
+            ],
+            "status": "completed"
+         },
+         "kotobanet_frontend": {
+            "build_order": 8,
+            "dependencies": [
+               "kotobanet_error",
+               "jsonnet_core"
+            ],
+            "description": "Frontend Framework for React component definitions",
+            "name": "kotobanet_frontend",
+            "node_type": "kotobanet",
+            "path": "crates/kotoba-kotobas/src/frontend.rs",
+            "provides": [
+               "FrontendParser",
+               "ComponentDef",
+               "PageDef",
+               "ApiRouteDef",
+               "FrontendConfig"
+            ],
+            "status": "completed"
+         },
+         "kotobanet_http_parser": {
+            "build_order": 8,
+            "dependencies": [
+               "kotobanet_error",
+               "jsonnet_core"
+            ],
+            "description": "HTTP Parser for .kotoba.json configuration files",
+            "name": "kotobanet_http_parser",
+            "node_type": "kotobanet",
+            "path": "crates/kotoba-kotobas/src/http_parser.rs",
+            "provides": [
+               "HttpParser",
+               "HttpRouteConfig",
+               "HttpConfig"
+            ],
+            "status": "completed"
+         },
+         "kubernetes_operator": {
+            "build_order": 11,
+            "dependencies": [
+               "types",
+               "ir_workflow",
+               "workflow_executor",
+               "workflow_store"
+            ],
+            "description": "Kubernetes operator for workflow management",
+            "name": "kubernetes_operator",
+            "node_type": "ecosystem",
+            "path": "crates/kotoba-workflow-operator/src/lib.rs",
+            "provides": [
+               "WorkflowOperator",
+               "WorkflowController",
+               "WorkflowReconciler"
+            ],
+            "status": "completed"
+         },
+         "lib": {
+            "build_order": 11,
+            "dependencies": [
+               "types",
+               "ir_catalog",
+               "ir_rule",
+               "ir_query",
+               "ir_patch",
+               "ir_strategy",
+               "graph_core",
+               "storage_mvcc",
+               "storage_merkle",
+               "storage_lsm",
+               "security_core",
+               "planner_logical",
+               "planner_physical",
+               "planner_optimizer",
+               "execution_parser",
+               "execution_engine",
+               "rewrite_matcher",
+               "rewrite_applier",
+               "rewrite_engine",
+               "http_ir",
+               "http_parser",
+               "http_handlers",
+               "http_engine",
+               "http_server"
+            ],
+            "description": "メインライブラリインターフェース",
+            "name": "lib",
+            "node_type": "library",
+            "path": "src/lib.rs",
+            "provides": [
+               "kotoba"
+            ],
+            "status": "completed"
+         },
+         "network_protocol": {
+            "build_order": 9,
+            "dependencies": [
+               "types",
+               "distributed_engine"
+            ],
+            "description": "ネットワーク通信プロトコル - 分散実行のための通信層",
+            "name": "network_protocol",
+            "node_type": "network",
+            "path": "crates/kotoba-network/src/lib.rs",
+            "provides": [
+               "NetworkMessage",
+               "NetworkManager",
+               "MessageHandler",
+               "TcpConnectionManager"
+            ],
+            "status": "completed"
+         },
+         "package_manager": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "cid_system"
+            ],
+            "description": "npm/deno like package manager with merkledag + cid",
+            "name": "package_manager",
+            "node_type": "package_manager",
+            "path": "crates/kotoba-package-manager/src/lib.rs",
+            "provides": [
+               "PackageManager",
+               "PackageResolver",
+               "PackageInstaller"
+            ],
+            "status": "in_progress"
+         },
+         "planner_logical": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "ir_query",
+               "ir_catalog",
+               "graph_core"
+            ],
+            "description": "論理プランナー (GQL → 論理プラン)",
+            "name": "planner_logical",
+            "node_type": "planner",
+            "path": "src/planner/logical.rs",
+            "provides": [
+               "LogicalPlanner",
+               "CostEstimator"
+            ],
+            "status": "completed"
+         },
+         "planner_optimizer": {
+            "build_order": 6,
+            "dependencies": [
+               "types",
+               "ir_query",
+               "ir_catalog",
+               "graph_core",
+               "planner_logical",
+               "planner_physical"
+            ],
+            "description": "クエリ最適化器 (述語押下げ, 結合順序DP, インデックス選択)",
+            "name": "planner_optimizer",
+            "node_type": "planner",
+            "path": "src/planner/optimizer.rs",
+            "provides": [
+               "QueryOptimizer",
+               "OptimizationRule"
+            ],
+            "status": "completed"
+         },
+         "planner_physical": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "ir_query",
+               "ir_catalog",
+               "graph_core"
+            ],
+            "description": "物理プランナー (論理プラン → 物理プラン)",
+            "name": "planner_physical",
+            "node_type": "planner",
+            "path": "src/planner/physical.rs",
+            "provides": [
+               "PhysicalPlanner",
+               "PhysicalPlan",
+               "PhysicalOp"
+            ],
+            "status": "completed"
+         },
+         "rewrite_applier": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "ir_rule",
+               "ir_patch",
+               "graph_core"
+            ],
+            "description": "ルール適用 (パッチ生成)",
+            "name": "rewrite_applier",
+            "node_type": "rewrite",
+            "path": "src/rewrite/applier.rs",
+            "provides": [
+               "RuleApplier"
+            ],
+            "status": "completed"
+         },
+         "rewrite_engine": {
+            "build_order": 6,
+            "dependencies": [
+               "types",
+               "ir_rule",
+               "ir_strategy",
+               "graph_core",
+               "storage_mvcc",
+               "storage_merkle",
+               "rewrite_matcher",
+               "rewrite_applier"
+            ],
+            "description": "DPO書換えエンジン (マッチング + 適用 + 戦略実行)",
+            "name": "rewrite_engine",
+            "node_type": "rewrite",
+            "path": "src/rewrite/engine.rs",
+            "provides": [
+               "RewriteEngine",
+               "RewriteExterns"
+            ],
+            "status": "completed"
+         },
+         "rewrite_matcher": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "ir_rule",
+               "ir_catalog",
+               "graph_core"
+            ],
+            "description": "ルールマッチング (LHS + NACチェック)",
+            "name": "rewrite_matcher",
+            "node_type": "rewrite",
+            "path": "src/rewrite/matcher.rs",
+            "provides": [
+               "RuleMatcher"
+            ],
+            "status": "completed"
+         },
+         "schema_validator": {
+            "build_order": 3,
+            "dependencies": [
+               "types",
+               "ir_catalog"
+            ],
+            "description": "Graph schema validation engine",
+            "name": "schema_validator",
+            "node_type": "schema",
+            "path": "crates/kotoba-schema/src/validator.rs",
+            "provides": [
+               "SchemaValidator",
+               "ValidationResult"
+            ],
+            "status": "completed"
+         },
+         "security_capabilities": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Deno風capabilityベースセキュリティシステム",
+            "name": "security_capabilities",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/capabilities.rs",
+            "provides": [
+               "Capability",
+               "CapabilitySet",
+               "CapabilityService",
+               "ResourceType",
+               "Action"
+            ],
+            "status": "completed"
+         },
+         "security_core": {
+            "build_order": 6,
+            "dependencies": [
+               "types",
+               "security_jwt",
+               "security_oauth2",
+               "security_mfa",
+               "security_password",
+               "security_session",
+               "security_capabilities"
+            ],
+            "description": "セキュリティ統合サービス",
+            "name": "security_core",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/lib.rs",
+            "provides": [
+               "SecurityService",
+               "SecurityError"
+            ],
+            "status": "completed"
+         },
+         "security_jwt": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "JWTトークンの生成・検証機能",
+            "name": "security_jwt",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/jwt.rs",
+            "provides": [
+               "JwtService",
+               "JwtClaims",
+               "TokenPair"
+            ],
+            "status": "completed"
+         },
+         "security_mfa": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "多要素認証 (TOTP) 機能",
+            "name": "security_mfa",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/mfa.rs",
+            "provides": [
+               "MfaService",
+               "MfaSecret",
+               "MfaCode"
+            ],
+            "status": "completed"
+         },
+         "security_oauth2": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "security_jwt"
+            ],
+            "description": "OAuth2/OpenID Connect統合",
+            "name": "security_oauth2",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/oauth2.rs",
+            "provides": [
+               "OAuth2Service",
+               "OAuth2Provider",
+               "OAuth2Config"
+            ],
+            "status": "completed"
+         },
+         "security_password": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "パスワードハッシュ化・検証機能",
+            "name": "security_password",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/password.rs",
+            "provides": [
+               "PasswordService",
+               "PasswordHash"
+            ],
+            "status": "completed"
+         },
+         "security_session": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "セッション管理機能",
+            "name": "security_session",
+            "node_type": "security",
+            "path": "crates/kotoba-security/src/session.rs",
+            "provides": [
+               "SessionManager",
+               "SessionData"
+            ],
+            "status": "completed"
+         },
+         "state_graph_lib": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "rewrite_engine",
+               "execution_engine"
+            ],
+            "description": "UI state management library providing schema, rules, and a .kotobas accessor library.",
+            "name": "state_graph_lib",
+            "node_type": "ui_library",
+            "path": "crates/kotoba-state-graph/src/lib.rs",
+            "provides": [
+               "UiVertexType",
+               "UiEdgeLabel",
+               "UiPropKey",
+               "get_standard_ui_rules",
+               "state.kotoba"
+            ],
+            "status": "completed"
+         },
+         "storage_lsm": {
+            "build_order": 4,
+            "dependencies": [
+               "types"
+            ],
+            "description": "RocksDB-based high-performance storage (95% test coverage)",
+            "name": "storage_lsm",
+            "node_type": "storage",
+            "path": "crates/kotoba-storage/src/storage/lsm.rs",
+            "provides": [
+               "LSMTree",
+               "RocksDB"
+            ],
+            "status": "completed"
+         },
+         "storage_merkle": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "graph_core"
+            ],
+            "description": "Merkle DAG永続化",
+            "name": "storage_merkle",
+            "node_type": "storage",
+            "path": "src/storage/merkle.rs",
+            "provides": [
+               "MerkleDAG",
+               "MerkleNode",
+               "GraphVersion"
+            ],
+            "status": "completed"
+         },
+         "storage_mvcc": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "graph_core"
+            ],
+            "description": "MVCCマネージャー",
+            "name": "storage_mvcc",
+            "node_type": "storage",
+            "path": "src/storage/mvcc.rs",
+            "provides": [
+               "MVCCManager",
+               "Transaction",
+               "TxState"
+            ],
+            "status": "completed"
+         },
+         "types": {
+            "build_order": 1,
+            "dependencies": [ ],
+            "description": "共通型定義 (Value, VertexId, EdgeId, GraphRef, etc.)",
+            "name": "types",
+            "node_type": "foundation",
+            "path": "src/types.rs",
+            "provides": [
+               "Value",
+               "VertexId",
+               "EdgeId",
+               "GraphRef",
+               "TxId",
+               "ContentHash"
+            ],
+            "status": "completed"
+         },
+         "workflow_designer": {
+            "build_order": 9,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Visual workflow designer UI with React/TypeScript",
+            "name": "workflow_designer",
+            "node_type": "ecosystem",
+            "path": "packages/kotoba-workflow-designer/src/index.tsx",
+            "provides": [
+               "WorkflowDesigner",
+               "ActivityPalette",
+               "PropertyPanel",
+               "WorkflowCanvas"
+            ],
+            "status": "completed"
+         },
+         "workflow_executor": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "ir_workflow",
+               "graph_core",
+               "storage_mvcc",
+               "storage_merkle",
+               "execution_engine"
+            ],
+            "description": "Temporalベースワークフロー実行器 (MVCC + Event Sourcing)",
+            "name": "workflow_executor",
+            "node_type": "workflow",
+            "path": "crates/kotoba-workflow/src/executor.rs",
+            "provides": [
+               "WorkflowExecutor",
+               "ActivityExecutor",
+               "SagaExecutor",
+               "WorkflowStateManager",
+               "EventSourcingManager"
+            ],
+            "status": "completed"
+         },
+         "workflow_store": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "ir_workflow",
+               "storage_mvcc",
+               "storage_merkle"
+            ],
+            "description": "ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots)",
+            "name": "workflow_store",
+            "node_type": "workflow",
+            "path": "crates/kotoba-workflow/src/store.rs",
+            "provides": [
+               "WorkflowStore",
+               "WorkflowStateManager",
+               "EventStore",
+               "SnapshotManager",
+               "EventSourcingManager"
+            ],
+            "status": "completed"
+         }
+      },
+      "reverse_topological_order": [
+         "ai_examples",
+         "ai_chains",
+         "ai_memory",
+         "ai_tools",
+         "ai_models",
+         "ai_runtime",
+         "db_handler",
+         "ai_agent_parser",
+         "deploy_hosting_example",
+         "deploy_hosting_manager",
+         "deploy_hosting_server",
+         "deploy_cli_binary",
+         "deploy_scaling_core",
+         "deploy_network_core",
+         "deploy_controller_core",
+         "deploy_cli_core",
+         "docs_cli",
+         "docs_core",
+         "docs_server",
+         "docs_search",
+         "docs_template",
+         "docs_generator",
+         "docs_config",
+         "docs_parser",
+         "deploy_example_microservices",
+         "deploy_example_simple",
+         "example_tauri_react_app",
+         "example_social_network",
+         "example_http_server",
+         "example_frontend_app",
+         "lib",
+         "cli_interface",
+         "kotoba_lsp",
+         "deploy_runtime",
+         "deploy_cli",
+         "http_server",
+         "graphql_handler",
+         "graphql_schema",
+         "deploy_controller",
+         "frontend_framework",
+         "deploy_git_integration",
+         "deploy_network",
+         "http_engine",
+         "http_handlers",
+         "deploy_scaling",
+         "deploy_parser",
+         "http_parser",
+         "deploy_config",
+         "frontend_api_ir",
+         "frontend_build_ir",
+         "frontend_render_ir",
+         "frontend_route_ir",
+         "frontend_component_ir",
+         "http_ir",
+         "execution_engine",
+         "network_protocol",
+         "distributed_engine",
+         "cloud_integrations",
+         "kubernetes_operator",
+         "activity_libraries",
+         "workflow_designer",
+         "rewrite_engine",
+         "planner_optimizer",
+         "rewrite_applier",
+         "rewrite_matcher",
+         "execution_parser",
+         "planner_physical",
+         "planner_logical",
+         "storage_lsm",
+         "storage_merkle",
+         "storage_mvcc",
+         "graph_core",
+         "ir_strategy",
+         "graph_edge",
+         "graph_vertex",
+         "ir_patch",
+         "ir_query",
+         "ir_rule",
+         "ir_catalog",
+         "schema_validator",
+         "jsonnet_core",
+         "kotobanet_core",
+         "kotobanet_config",
+         "kotobanet_deploy",
+         "kotobanet_frontend",
+         "kotobanet_http_parser",
+         "kotobanet_error",
+         "jsonnet_stdlib",
+         "jsonnet_evaluator",
+         "jsonnet_parser",
+         "jsonnet_lexer",
+         "jsonnet_ast",
+         "jsonnet_value",
+         "jsonnet_error",
+         "cid_system",
+         "types",
+         "package_manager",
+         "state_graph_lib"
+      ],
+      "topological_order": [
+         "types",
+         "cid_system",
+         "jsonnet_error",
+         "jsonnet_value",
+         "jsonnet_ast",
+         "jsonnet_lexer",
+         "jsonnet_parser",
+         "jsonnet_evaluator",
+         "jsonnet_stdlib",
+         "jsonnet_core",
+         "kotobanet_error",
+         "kotobanet_http_parser",
+         "kotobanet_frontend",
+         "kotobanet_deploy",
+         "kotobanet_config",
+         "kotobanet_core",
+         "ir_catalog",
+         "schema_validator",
+         "ir_rule",
+         "ir_query",
+         "ir_patch",
+         "graph_vertex",
+         "graph_edge",
+         "ir_strategy",
+         "graph_core",
+         "storage_mvcc",
+         "storage_merkle",
+         "storage_lsm",
+         "security_jwt",
+         "security_mfa",
+         "security_password",
+         "security_session",
+         "security_capabilities",
+         "security_oauth2",
+         "security_core",
+         "planner_logical",
+         "planner_physical",
+         "execution_parser",
+         "rewrite_matcher",
+         "rewrite_applier",
+         "planner_optimizer",
+         "rewrite_engine",
+         "execution_engine",
+         "workflow_designer",
+         "activity_libraries",
+         "kubernetes_operator",
+         "cloud_integrations",
+         "distributed_engine",
+         "network_protocol",
+         "cli_interface",
+         "kotoba_lsp",
+         "http_ir",
+         "frontend_component_ir",
+         "frontend_route_ir",
+         "frontend_render_ir",
+         "frontend_build_ir",
+         "frontend_api_ir",
+         "deploy_config",
+         "http_parser",
+         "deploy_parser",
+         "deploy_scaling",
+         "http_handlers",
+         "http_engine",
+         "deploy_network",
+         "deploy_git_integration",
+         "frontend_framework",
+         "deploy_controller",
+         "graphql_schema",
+         "graphql_handler",
+         "http_server",
+         "deploy_cli",
+         "deploy_runtime",
+         "docs_parser",
+         "docs_config",
+         "docs_generator",
+         "docs_template",
+         "docs_search",
+         "docs_server",
+         "docs_core",
+         "docs_cli",
+         "deploy_cli_core",
+         "deploy_controller_core",
+         "deploy_network_core",
+         "deploy_scaling_core",
+         "deploy_cli_binary",
+         "deploy_hosting_server",
+         "deploy_hosting_manager",
+         "lib",
+         "example_frontend_app",
+         "example_http_server",
+         "example_social_network",
+         "example_tauri_react_app",
+         "deploy_example_simple",
+         "deploy_example_microservices",
+         "deploy_hosting_example",
+         "ai_agent_parser",
+         "db_handler",
+         "ai_runtime",
+         "ai_models",
+         "ai_tools",
+         "ai_memory",
+         "ai_chains",
+         "ai_examples",
+         "package_manager",
+         "state_graph_lib"
+      ]
+   },
+   "validation_metadata": {
+      "metadata": {
+         "architecture": "Process Network Graph Model",
+         "project_name": "Kotoba",
+         "validation_timestamp": "2025-01-12T00:00:00Z",
+         "validator_version": "1.0.0",
+         "version": "0.1.0"
+      },
+      "statistics": {
+         "edge_count": 376,
+         "has_cycles": false,
+         "is_valid_topology": false,
+         "max_build_order": 108,
+         "node_count": 108
+      }
+   },
+   "validation_rules": {
+      "build_order_integrity": {
+         "description": "ビルド順序が依存関係を満たす",
+         "severity": "error"
+      },
+      "dependency_integrity": {
+         "description": "ノードの依存関係とエッジが一致する",
+         "severity": "error"
+      },
+      "edge_integrity": {
+         "description": "エッジの整合性が保たれている（重複、自己参照なし）",
+         "severity": "error"
+      },
+      "no_cycles": {
+         "description": "循環依存が存在しない",
+         "severity": "error"
+      },
+      "node_existence": {
+         "description": "すべてのエッジで参照されるノードが存在する",
+         "severity": "error"
+      },
+      "topological_order": {
+         "description": "トポロジカル順序が正しい",
+         "severity": "error"
+      }
+   }
+}

@@ -6,6 +6,7 @@
 use crate::schema::*;
 use crate::manager::*;
 use kotoba_core::types::*;
+use kotoba_errors::KotobaError;
 use std::collections::HashMap;
 use std::sync::Arc;
 
