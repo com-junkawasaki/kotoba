@@ -41,6 +41,7 @@ blake3 = "1.5"
 kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }
 # kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" } # Temporarily disabled to break circular dependency
 kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.15" }
+kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }
 kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.15" }
 kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.15" }
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15" }
@@ -89,6 +90,7 @@ panic = "abort"
 # kotoba-core = { path = "crates/kotoba-core" } # Temporarily disabled to avoid confusion
 kotoba-graph = { path = "crates/kotoba-graph" }
 kotoba-storage = { path = "crates/kotoba-storage" }
+kotoba-schema = { path = "crates/kotoba-schema" }
 kotoba-execution = { path = "crates/kotoba-execution" }
 kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-security.workspace = true

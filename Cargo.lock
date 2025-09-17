@@ -2207,6 +2207,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.7",
  "blake3",
+ "hex",
  "kotoba-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
@@ -2437,6 +2438,7 @@ dependencies = [
  "kotoba-jsonnet",
  "kotoba-network",
  "kotoba-rewrite 0.1.15",
+ "kotoba-schema",
  "kotoba-storage 0.1.15",
  "log",
  "proptest",
@@ -2501,6 +2503,23 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.16",
  "uuid",
+]
+
+[[package]]
+name = "kotoba-schema"
+version = "0.1.15"
+dependencies = [
+ "anyhow",
+ "jsonschema",
+ "kotoba-core 0.1.17",
+ "kotoba-graph 0.1.16",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
 ]
 
 [[package]]

@@ -33,6 +33,17 @@
       build_order: 2,
     },
 
+    'schema_validator': {
+      name: 'schema_validator',
+      path: 'crates/kotoba-schema/src/validator.rs',
+      type: 'schema',
+      description: 'Graph schema validation engine',
+      dependencies: ['types', 'ir_catalog'],
+      provides: ['SchemaValidator', 'ValidationResult'],
+      status: 'completed',
+      build_order: 3,
+    },
+
     'ir_rule': {
       name: 'ir_rule',
       path: 'src/ir/rule.rs',
@@ -898,6 +909,7 @@
   edges: [
     // types -> すべて
     { from: 'types', to: 'ir_catalog' },
+    { from: 'types', to: 'schema_validator' },
     { from: 'types', to: 'ir_rule' },
     { from: 'types', to: 'ir_query' },
     { from: 'types', to: 'ir_patch' },
@@ -915,12 +927,14 @@
     { from: 'types', to: 'rewrite_engine' },
     { from: 'types', to: 'lib' },
     { from: 'ir_catalog', to: 'lib' },
+    { from: 'schema_validator', to: 'lib' },
     { from: 'ir_rule', to: 'lib' },
     { from: 'ir_query', to: 'lib' },
     { from: 'ir_patch', to: 'lib' },
     { from: 'ir_strategy', to: 'lib' },
 
     // IR相互依存
+    { from: 'ir_catalog', to: 'schema_validator' },
     { from: 'types', to: 'ir_strategy' },
     { from: 'ir_patch', to: 'ir_strategy' },
     { from: 'ir_strategy', to: 'rewrite_engine' },
@@ -1279,6 +1293,7 @@
     'kotobanet_config',
     'kotobanet_core',
     'ir_catalog',
+    'schema_validator',
     'ir_rule',
     'ir_query',
     'ir_patch',
@@ -1394,6 +1409,7 @@
     'ir_query',
     'ir_rule',
     'ir_catalog',
+    'schema_validator',
     'jsonnet_core',
     'kotobanet_core',
     'kotobanet_config',
