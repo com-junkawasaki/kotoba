@@ -164,8 +164,7 @@ This section provides the theoretical foundations of Kotoba and compares it with
 
 The Double Pushout (DPO) approach to graph rewriting provides a categorical framework for graph transformations~\cite{ehrig1973}. We formalize DPO rewriting through the following mathematical structure:
 
-\begin{definition}[Graph]
-A graph $G = (V, E, s, t, \lambda_V, \lambda_E)$ consists of:
+\textbf{Definition 1 (Graph).} A graph $G = (V, E, s, t, \lambda_V, \lambda_E)$ consists of:
 \begin{itemize}
 \item $V$: Set of vertices
 \item $E$: Set of edges
@@ -173,30 +172,24 @@ A graph $G = (V, E, s, t, \lambda_V, \lambda_E)$ consists of:
 \item $\lambda_V: V \rightarrow L_V$: Vertex labeling function
 \item $\lambda_E: E \rightarrow L_E$: Edge labeling function
 \end{itemize}
-\end{definition}
 
-\begin{definition}[Graph Morphism]
-A graph morphism $f: G \rightarrow H$ consists of functions $f_V: V_G \rightarrow V_H$ and $f_E: E_G \rightarrow E_H$ such that:
+\textbf{Definition 2 (Graph Morphism).} A graph morphism $f: G \rightarrow H$ consists of functions $f_V: V_G \rightarrow V_H$ and $f_E: E_G \rightarrow E_H$ such that:
 \begin{itemize}
 \item $f_V \circ s_G = s_H \circ f_E$
 \item $f_V \circ t_G = t_H \circ f_E$
 \item $\lambda_{V_H} \circ f_V = \lambda_{V_G}$
 \item $\lambda_{E_H} \circ f_E = \lambda_{E_G}$
 \end{itemize}
-\end{definition}
 
-\begin{definition}[DPO Production]
-A DPO production $p = (L \leftarrow K \rightarrow R)$ consists of:
+\textbf{Definition 3 (DPO Production).} A DPO production $p = (L \leftarrow K \rightarrow R)$ consists of:
 \begin{itemize}
 \item $L$: Left-hand side (pattern to match)
 \item $K$: Interface graph (gluing condition)
 \item $R$: Right-hand side (result pattern)
 \item $m: L \rightarrow G$: Match morphism
 \end{itemize}
-\end{definition}
 
-\begin{theorem}[DPO Rewriting]
-Given a production $p = (L \leftarrow K \rightarrow R)$ and match $m: L \rightarrow G$, the DPO rewriting is defined by:
+\textbf{Theorem 1 (DPO Rewriting).} Given a production $p = (L \leftarrow K \rightarrow R)$ and match $m: L \rightarrow G$, the DPO rewriting is defined by:
 \[
 G \overset{m}{\Rightarrow}_{p} H \iff \exists m': K \rightarrow D, r: K \rightarrow H
 \]
@@ -208,7 +201,6 @@ L @>{l}>> K @>{r}>> H \\
 G @>{d}>> D @>{c}>> H
 \end{CD}
 \]
-\end{theorem}
 
 Kotoba implements DPO rewriting with practical optimizations:
 
@@ -250,8 +242,7 @@ Merkle DAGs provide content-addressable storage with cryptographic integrity~\ci
 
 Process networks~\cite{kahn1974} model concurrent systems as networks of processes communicating through channels. Kotoba extends this model to graphs:
 
-\begin{definition}[Process Network Graph]
-A Process Network Graph $PNG = (P, C, \lambda_P, \lambda_C, \tau)$ consists of:
+\textbf{Definition 4 (Process Network Graph).} A Process Network Graph $PNG = (P, C, \lambda_P, \lambda_C, \tau)$ consists of:
 \begin{itemize}
 \item $P$: Set of process nodes
 \item $C$: Set of communication channels
@@ -259,25 +250,18 @@ A Process Network Graph $PNG = (P, C, \lambda_P, \lambda_C, \tau)$ consists of:
 \item $\lambda_C: C \rightarrow \mathcal{D}$: Data type mapping
 \item $\tau: P \times P \rightarrow \{0,1\}$: Dependency relation
 \end{itemize}
-\end{definition}
 
-\begin{theorem}[Topological Execution Ordering]
-For a Process Network Graph $PNG = (P, C, \lambda_P, \lambda_C, \tau)$, there exists a topological ordering $\pi: P \rightarrow \mathbb{N}$ such that:
+\textbf{Theorem 2 (Topological Execution Ordering).} For a Process Network Graph $PNG = (P, C, \lambda_P, \lambda_C, \tau)$, there exists a topological ordering $\pi: P \rightarrow \mathbb{N}$ such that:
 \[
 \forall p_i, p_j \in P: (\tau(p_i, p_j) = 1) \implies \pi(p_i) < \pi(p_j)
 \]
-\end{theorem}
 
-\begin{proof}
-The dependency relation $\tau$ defines a DAG where edges represent execution dependencies. By the properties of DAGs, a topological ordering exists if and only if the graph contains no cycles. Process Network Graphs are constructed to be acyclic by design, ensuring topological execution is always possible.
-\end{proof}
+\textbf{Proof.} The dependency relation $\tau$ defines a DAG where edges represent execution dependencies. By the properties of DAGs, a topological ordering exists if and only if the graph contains no cycles. Process Network Graphs are constructed to be acyclic by design, ensuring topological execution is always possible.
 
-\begin{lemma}[Execution Parallelism]
-The maximum parallelism $\mathcal{P}(PNG)$ is given by:
+\textbf{Lemma 1 (Execution Parallelism).} The maximum parallelism $\mathcal{P}(PNG)$ is given by:
 \[
 \mathcal{P}(PNG) = \max_{L \subseteq P} |L| \text{ where } \forall p_i, p_j \in L: \tau(p_i, p_j) = \tau(p_j, p_i) = 0
 \]
-\end{lemma}
 
 Kotoba's Process Network Graph Model provides:
 
@@ -291,29 +275,23 @@ Kotoba's Process Network Graph Model provides:
 \subsubsection{Algorithmic Complexity Analysis}
 \label{subsubsec:complexity}
 
-\begin{theorem}[Pattern Matching Complexity]
-For attributed graphs with $n$ vertices and $m$ edges, the incremental pattern matching algorithm runs in:
+\textbf{Theorem 3 (Pattern Matching Complexity).} For attributed graphs with $n$ vertices and $m$ edges, the incremental pattern matching algorithm runs in:
 \[
 O\left(\min\left(n \cdot d^k, m \cdot \log n\right)\right)
 \]
 where $k$ is the pattern size and $d$ is the maximum vertex degree.
-\end{theorem}
 
-\begin{theorem}[Topological Sort Complexity]
-The dependency resolution algorithm for $n$ processes with $e$ dependencies executes in:
+\textbf{Theorem 4 (Topological Sort Complexity).} The dependency resolution algorithm for $n$ processes with $e$ dependencies executes in:
 \[
 O(n + e)
 \]
 using Kahn's algorithm with efficient queue-based implementation.
-\end{theorem}
 
-\begin{theorem}[Graph Rewriting Complexity]
-A single DPO rewriting step on a graph with $n$ vertices and $m$ edges has complexity:
+\textbf{Theorem 5 (Graph Rewriting Complexity).} A single DPO rewriting step on a graph with $n$ vertices and $m$ edges has complexity:
 \[
 O\left(\min\left(n^{\omega}, m \cdot \log n\right)\right)
 \]
 where $\omega$ is the matrix multiplication exponent.
-\end{theorem}
 
 \subsection{Theoretical Contributions and Formal Properties}
 \label{subsec:theoretical_contributions}
@@ -321,35 +299,26 @@ where $\omega$ is the matrix multiplication exponent.
 \subsubsection{Formal Properties of Process Network Graphs}
 \label{subsubsec:formal_properties}
 
-\begin{theorem}[Termination Property]
-For any well-formed Process Network Graph $PNG$, the execution terminates if:
+\textbf{Theorem 6 (Termination Property).} For any well-formed Process Network Graph $PNG$, the execution terminates if:
 \[
 \forall p \in P: \text{domain}(\lambda_P(p)) \subseteq \bigcup_{c \in \text{incoming}(p)} \lambda_C(c)
 \]
-\end{theorem}
 
-\begin{theorem}[Deadlock Freedom]
-A Process Network Graph $PNG$ is deadlock-free if the communication graph is acyclic and each process has bounded buffer capacity.
-\end{theorem}
+\textbf{Theorem 7 (Deadlock Freedom).} A Process Network Graph $PNG$ is deadlock-free if the communication graph is acyclic and each process has bounded buffer capacity.
 
-\begin{proof}
-By construction, Process Network Graphs maintain acyclic communication patterns. Bounded buffers prevent unbounded waiting, ensuring progress. The combination guarantees deadlock freedom under the standard process network semantics.
-\end{proof}
+\textbf{Proof.} By construction, Process Network Graphs maintain acyclic communication patterns. Bounded buffers prevent unbounded waiting, ensuring progress. The combination guarantees deadlock freedom under the standard process network semantics.
 
-\begin{theorem}[Consistency Preservation]
-Graph rewriting operations preserve structural consistency:
+\textbf{Theorem 8 (Consistency Preservation).} Graph rewriting operations preserve structural consistency:
 \[
 \text{rewrite}(G, p) \models \text{consistent}(G) \implies \text{consistent}(\text{rewrite}(G, p))
 \]
-\end{theorem}
 
 \subsubsection{Unification of Declarative and Imperative Paradigms}
 \label{subsubsec:paradigm_unification}
 
 Kotoba achieves theoretical unification through:
 
-\begin{definition}[Declarative-Imperative Bridge]
-A bridge function $\beta: \mathcal{D} \rightarrow \mathcal{I}$ maps declarative specifications to imperative implementations:
+\textbf{Definition 5 (Declarative-Imperative Bridge).} A bridge function $\beta: \mathcal{D} \rightarrow \mathcal{I}$ maps declarative specifications to imperative implementations:
 \[
 \beta(spec) = \left\{\begin{array}{ll}
 \text{compile}(spec) & \text{if } \text{static}(spec) \\
@@ -357,14 +326,11 @@ A bridge function $\beta: \mathcal{D} \rightarrow \mathcal{I}$ maps declarative 
 \text{rewrite}(spec) & \text{if } \text{transformative}(spec)
 \end{array}\right.
 \]
-\end{definition}
 
-\begin{theorem}[Expressiveness Equivalence]
-The Process Network Graph Model is expressively equivalent to Turing-complete systems:
+\textbf{Theorem 9 (Expressiveness Equivalence).} The Process Network Graph Model is expressively equivalent to Turing-complete systems:
 \[
 \mathcal{PNG} \equiv \mathcal{TM} \text{ under composition and recursion}
 \]
-\end{theorem}
 
 \subsection{Jsonnet and Declarative Configuration}
 \label{subsec:jsonnet}
@@ -404,20 +370,16 @@ GraphX & Property Graph & Functional & RDD & Fault Tolerance \\
 \end{tabular}
 \end{table}
 
-\begin{theorem}[Theoretical Superiority]
-Kotoba provides stronger theoretical guarantees than existing systems:
+\textbf{Theorem 10 (Theoretical Superiority).} Kotoba provides stronger theoretical guarantees than existing systems:
 \[
 \text{Kotoba} \succ \text{existing systems in:} \quad \text{expressiveness} \times \text{consistency} \times \text{parallelism}
 \]
-\end{theorem}
 
-\begin{proof}
-\textbf{Expressiveness}: Process Network Graphs are Turing-complete under composition and recursion, enabling arbitrary computation patterns.
+\textbf{Proof.} \textbf{Expressiveness}: Process Network Graphs are Turing-complete under composition and recursion, enabling arbitrary computation patterns.
 
 \textbf{Consistency}: DPO rewriting preserves graph consistency by construction, with formal proofs of termination and deadlock freedom.
 
 \textbf{Parallelism}: Topological execution ordering maximizes parallelism while maintaining correctness, with provable bounds on complexity.
-\end{proof}
 
 \subsubsection{Novel Contributions to Graph Processing Theory}
 \label{subsubsec:novel_contributions}
@@ -440,18 +402,15 @@ Kotoba advances graph processing theory through:
 
 Kotoba establishes a new theoretical foundation for graph processing by unifying three previously separate paradigms:
 
-\begin{theorem}[Paradigm Unification Theorem]
-The Process Network Graph Model provides a universal framework that subsumes:
+\textbf{Theorem 11 (Paradigm Unification Theorem).} The Process Network Graph Model provides a universal framework that subsumes:
 \[
 \text{Property Graphs} \subseteq \text{Process Networks} \supseteq \text{DPO Rewriting}
 \]
-\end{theorem}
 
-\begin{corollary}[Expressiveness Hierarchy]
+\textbf{Corollary 1 (Expressiveness Hierarchy).}
 \[
 \text{Imperative Systems} \subsetneq \text{Functional Systems} \subsetneq \text{Process Networks}
 \]
-\end{corollary}
 
 \subsubsection{Future Research Directions}
 \label{subsubsec:future_theory}
