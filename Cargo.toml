@@ -31,7 +31,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.15"
+version = "0.1.16"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jun784/kotoba"
@@ -92,7 +92,7 @@ kotoba-cli = { path = "crates/kotoba-cli", version = "0.1.15" }
 # Root crate configuration
 [package]
 name = "kotoba-main"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
 license = "MIT OR Apache-2.0"
