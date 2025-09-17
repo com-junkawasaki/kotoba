@@ -5,6 +5,7 @@
 
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use colored::Colorize;
 
 /// ビルドツールのエラー型
 #[derive(Debug, thiserror::Error)]
@@ -61,6 +62,9 @@ pub struct TaskConfig {
     pub command: String,
     pub args: Vec<String>,
     pub description: Option<String>,
+    pub depends_on: Vec<String>,
+    pub cwd: Option<String>,
+    pub env: Option<std::collections::HashMap<String, String>>,
 }
 
 /// ビルドエンジン

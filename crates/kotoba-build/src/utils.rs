@@ -1,6 +1,7 @@
 //! ユーティリティ関数モジュール
 
 use super::{Result, BuildError};
+use colored::Colorize;
 use std::path::{Path, PathBuf};
 use std::fs;
 

@@ -96,7 +96,7 @@ impl FileWatcher {
     }
 
     /// ファイル変更を監視
-    async fn watch_file_changes(&self, rx: std::sync::mpsc::Receiver<Result<Event, notify::Error>>) -> Result<()> {
+    async fn watch_file_changes(&self, rx: std::sync::mpsc::Receiver<std::result::Result<Event, notify::Error>>) -> super::Result<()> {
         loop {
             match rx.recv() {
                 Ok(Ok(event)) => {

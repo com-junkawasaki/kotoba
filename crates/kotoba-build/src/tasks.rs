@@ -1,6 +1,7 @@
 //! タスク実行モジュール
 
 use super::{BuildConfig, TaskConfig, Result, BuildError};
+use colored::Colorize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -44,21 +45,32 @@ impl TaskRunner {
 
     /// タスクを非同期で実行
     pub async fn run_task_async(&self, task_name: &str) -> Result<String> {
-        let task_name = task_name.to_string();
+        let task_name_clone = task_name.to_string();
         let config = self.config.read().await;
-        let config_clone = config.clone();
+        let task_config = if let Some(tc) = config.tasks.get(&task_name_clone) {
+            Some(tc.clone())
+        } else {
+            None
+        };
         let project_root = self.project_root.clone();
 
         let handle = tokio::spawn(async move {
-            if let Some(task_config) = config_clone.tasks.get(&task_name) {
+            if let Some(task_config) = task_config {
+                let config_clone = BuildConfig {
+                    name: "temp".to_string(),
+                    version: "0.1.0".to_string(),
+                    description: None,
+                    tasks: std::collections::HashMap::from([(task_name_clone.clone(), task_config)]),
+                    dependencies: std::collections::HashMap::new(),
+                };
                 let runner = TaskRunner::new(
                     Arc::new(RwLock::new(config_clone)),
                     project_root
                 );
-                runner.execute_task(task_config, &task_name).await?;
+                runner.execute_task(&task_config, &task_name_clone).await?;
                 Ok(())
             } else {
-                Err(BuildError::Task(format!("Task '{}' not found", task_name)))
+                Err(BuildError::Task(format!("Task '{}' not found", task_name_clone)))
             }
         });
 

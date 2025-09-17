@@ -1142,8 +1142,19 @@
       description: 'npm/deno like package manager with merkledag + cid',
       dependencies: ['types', 'cid_system'],
       provides: ['PackageManager', 'PackageResolver', 'PackageInstaller'],
-      status: 'completed',
+      status: 'in_progress',
       build_order: 4,
+    },
+
+    'state_graph_lib': {
+      name: 'state_graph_lib',
+      path: 'crates/kotoba-state-graph/src/lib.rs',
+      type: 'ui_library',
+      description: 'UI state management library providing schema, rules, and a .kotobas accessor library.',
+      dependencies: ['types', 'rewrite_engine', 'execution_engine'],
+      provides: ['UiVertexType', 'UiEdgeLabel', 'UiPropKey', 'get_standard_ui_rules', 'state.kotoba'],
+      status: 'completed',
+      build_order: 7,
     },
   },
 
@@ -1642,6 +1653,12 @@
     // Integration with main library
     { from: 'distributed_engine', to: 'lib' },
     { from: 'network_protocol', to: 'lib' },
+
+    // State Graph Library dependencies
+    { from: 'types', to: 'state_graph_lib' },
+    { from: 'rewrite_engine', to: 'state_graph_lib' },
+    { from: 'execution_engine', to: 'state_graph_lib' },
+    { from: 'state_graph_lib', to: 'lib' },
   ],
 
   // ==========================================
@@ -1746,6 +1763,7 @@
     'ai_chains',
     'ai_examples',
     'package_manager',
+    'state_graph_lib',
   ],
 
   // ==========================================
@@ -1842,6 +1860,7 @@
     'cid_system',
     'types',
     'package_manager',
+    'state_graph_lib',
   ],
 
   // ==========================================

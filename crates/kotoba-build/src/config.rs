@@ -67,7 +67,8 @@ impl ConfigManager {
 
     /// 設定をファイルに保存
     pub async fn save_config(&self, config: &BuildConfig, path: Option<&Path>) -> Result<()> {
-        let config_path = path.unwrap_or(&self.project_root.join("kotoba-build.toml"));
+        let config_path_buf = path.unwrap_or(&self.project_root.join("kotoba-build.toml")).to_path_buf();
+        let config_path = config_path_buf.as_path();
 
         // ディレクトリが存在することを確認
         if let Some(parent) = config_path.parent() {
@@ -250,6 +251,9 @@ fn merge_package_config(build_config: &mut BuildConfig, package_config: &serde_j
                     command,
                     args,
                     description: Some(format!("Run {}", script_name)),
+                    depends_on: vec![],
+                    cwd: None,
+                    env: None,
                 };
 
                 build_config.tasks.insert(script_name.clone(), task);

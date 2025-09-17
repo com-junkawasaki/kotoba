@@ -23,6 +23,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = "0.9"
 toml = "0.8"
+clap = { version = "4.0", features = ["derive"] }
+libc = "0.2"
+nix = { version = "0.26", features = ["process"] }
 
 # Error handling
 anyhow = { workspace = true }
