@@ -22,6 +22,7 @@ Kotoba is a powerful graph processing system built on graph theory foundations. 
 - **Multi-format Support**: JSON, YAML output capabilities
 - **Rust Native Architecture**: Memory-safe, high-performance implementation
 - **Modular Crate Design**: kotoba-jsonnet, kotoba-graph, kotoba-core, and more
+- **GraphQL API**: Schema management and graph operations via GraphQL
 
 ## 🚀 Quick Start
 

@@ -9,6 +9,7 @@ members = [
     "crates/kotoba-rewrite",
     "crates/kotoba-server",
     "crates/kotoba-security",
+    "crates/kotoba-runtime",
     ".",  # Root crate
 ]
 resolver = "2"

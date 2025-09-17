@@ -1,0 +1,103 @@
+# Example GraphQL queries for Kotoba Schema Management
+
+# Query available schemas
+query GetSchemas {
+  schemas {
+    id
+    name
+    description
+    version
+    createdAt
+    updatedAt
+  }
+}
+
+# Query specific schema details
+query GetSchema($id: ID!) {
+  schema(id: $id) {
+    id
+    name
+    description
+    version
+    vertexTypes {
+      name
+      properties {
+        name
+        type
+        nullable
+      }
+    }
+    edgeTypes {
+      name
+      sourceType
+      targetType
+      properties {
+        name
+        type
+        nullable
+      }
+    }
+  }
+}
+
+# Create a new schema
+mutation CreateSchema($input: CreateSchemaInput!) {
+  createSchema(input: $input) {
+    id
+    name
+    description
+    version
+  }
+}
+
+# Update existing schema
+mutation UpdateSchema($id: ID!, $input: UpdateSchemaInput!) {
+  updateSchema(id: $id, input: $input) {
+    id
+    name
+    description
+    version
+    updatedAt
+  }
+}
+
+# Delete schema
+mutation DeleteSchema($id: ID!) {
+  deleteSchema(id: $id) {
+    success
+    message
+  }
+}
+
+# Validate graph data against schema
+mutation ValidateGraphData($schemaId: ID!, $graphData: String!) {
+  validateGraphData(schemaId: $schemaId, graphData: $graphData) {
+    valid
+    errors {
+      message
+      path
+    }
+    warnings {
+      message
+      path
+    }
+  }
+}
+
+# GraphQL introspection query
+query IntrospectionQuery {
+  __schema {
+    types {
+      name
+      kind
+      description
+      fields {
+        name
+        type {
+          name
+          kind
+        }
+      }
+    }
+  }
+}
