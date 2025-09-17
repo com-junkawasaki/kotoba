@@ -1,8 +1,14 @@
 [package]
 name = "kotobas-wasm"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.16"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "WASM bindings for the KotobaScript compiler"
+keywords = ["wasm", "webassembly", "compiler", "kotoba", "javascript"]
+categories = ["wasm", "compilers"]
+documentation = "https://docs.rs/kotobas-wasm"
+homepage = "https://github.com/jun784/kotoba"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -21,7 +21,7 @@ regex = "1.0"
 # Kotoba ecosystem
 kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 # kotoba-errors removed - use through kotoba-core
-kotoba-graph = { path = "../kotoba-graph", optional = true }
+kotoba-graph = { path = "../kotoba-graph", version = "0.1.17", optional = true }
 
 # Schema validation
 schemars = { version = "0.8", features = ["derive"] }

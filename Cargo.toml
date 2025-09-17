@@ -186,6 +186,7 @@ frontend = []
 wasm = []
 deploy = []
 vercel = ["vercel_runtime", "reqwest"]
+lsm = []
 
 # Platform-specific features
 [target.'cfg(target_arch = "wasm32")'.dependencies]

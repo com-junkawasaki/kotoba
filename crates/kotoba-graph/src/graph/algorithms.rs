@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque};
 use std::cmp::Reverse;
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
 use crate::graph::{Graph, EdgeData, VertexData};
 
 /// 最短経路の結果
@@ -67,7 +67,7 @@ impl GraphAlgorithms {
         graph: &Graph,
         source: VertexId,
         weight_fn: impl Fn(&EdgeData) -> u64,
-    ) -> Result<ShortestPathResult, KotobaError> {
+    ) -> Result<ShortestPathResult> {
         let mut distances: HashMap<VertexId, u64> = HashMap::new();
         let mut predecessors: HashMap<VertexId, VertexId> = HashMap::new();
         let mut pq: BinaryHeap<Reverse<(u64, VertexId)>> = BinaryHeap::new();
@@ -117,7 +117,7 @@ impl GraphAlgorithms {
         graph: &Graph,
         source: VertexId,
         weight_fn: impl Fn(&EdgeData) -> u64,
-    ) -> Result<ShortestPathResult, KotobaError> {
+    ) -> Result<ShortestPathResult> {
         let mut distances: HashMap<VertexId, u64> = HashMap::new();
         let mut predecessors: HashMap<VertexId, VertexId> = HashMap::new();
 
@@ -153,7 +153,7 @@ impl GraphAlgorithms {
 
             if let (Some(&dist_u), Some(&dist_v)) = (distances.get(&u), distances.get(&v)) {
                 if dist_u + weight < dist_v {
-                    return Err(KotobaError::Execution("Negative cycle detected".to_string()));
+                    return Err(kotoba_errors::KotobaError::Execution("Negative cycle detected".to_string()));
                 }
             }
         }

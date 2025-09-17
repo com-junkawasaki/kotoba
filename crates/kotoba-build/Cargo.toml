@@ -1,13 +1,14 @@
-[workspace]
-
 [package]
 name = "kotoba-build"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.16"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Kotoba Build Tool - Project build and task management system"
 keywords = ["build", "task", "automation", "project", "management"]
 categories = ["development-tools", "command-line-utilities"]
-readme = "README.md"
+documentation = "https://docs.rs/kotoba-build"
+homepage = "https://github.com/jun784/kotoba"
 
 [[bin]]
 name = "kotoba-build"
