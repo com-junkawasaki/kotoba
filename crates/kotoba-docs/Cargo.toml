@@ -7,7 +7,6 @@ repository.workspace = true
 description = "Kotoba Documentation Generator - Generate beautiful documentation from source code"
 keywords = ["documentation", "generator", "docs", "html", "markdown"]
 categories = ["development-tools", "command-line-utilities"]
-readme = "README.md"
 documentation = "https://docs.rs/kotoba-docs"
 homepage = "https://github.com/jun784/kotoba"
 
@@ -75,7 +74,7 @@ reqwest = { version = "0.11", features = ["json"] }
 html-escape = "0.2"
 
 # Kotoba ecosystem
-kotoba-core = { path = "../kotoba-core", version = "0.1.17" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 
 [dev-dependencies]
 tokio-test = "0.4"

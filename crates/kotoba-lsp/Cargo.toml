@@ -1,15 +1,20 @@
 [package]
 name = "kotoba-lsp"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.16"
+edition.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Language Server Protocol implementation for Kotoba programming language"
+keywords = ["lsp", "language-server", "editor", "ide", "kotoba"]
+categories = ["development-tools", "command-line-utilities"]
+documentation = "https://docs.rs/kotoba-lsp"
+homepage = "https://github.com/jun784/kotoba"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kotoba-kotobas = { path = "../kotoba-kotobas" }
-kotoba-jsonnet = { path = "../kotoba-jsonnet" }
+kotoba-kotobas = { path = "../kotoba-kotobas", version = "0.1.17" }
+kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.17" }
 tokio = { version = "1.0", features = ["full"] }
 tower-lsp = "0.20"
 dashmap = "5.5"

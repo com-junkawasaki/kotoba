@@ -5522,7 +5522,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-routing"
-version = "0.1.0"
+version = "0.1.16"
 dependencies = [
  "anyhow",
  "serde",
@@ -5625,7 +5625,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-state-graph"
-version = "0.1.0"
+version = "0.1.16"
 dependencies = [
  "serde",
  "serde_json",
