@@ -1,0 +1,38 @@
+[package]
+name = "kotoba-deploy-hosting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hosting server for Kotoba deployment system"
+keywords = ["hosting", "http", "server", "deployment", "web"]
+categories = ["web-programming", "network-programming"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy-hosting"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba dependencies
+kotoba-core = { workspace = true }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+
+# HTTP server
+tokio = { workspace = true, features = ["full"] }
+hyper = { version = "0.14", features = ["full"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.4", features = ["full"] }
+
+# Common dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+regex.workspace = true
+
+# File system and utilities
+tempfile.workspace = true
+
+# URL parsing
+url.workspace = true

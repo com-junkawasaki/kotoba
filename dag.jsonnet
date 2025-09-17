@@ -453,6 +453,17 @@
       build_order: 10,
     },
 
+    'kotoba_lsp': {
+      name: 'kotoba_lsp',
+      path: 'crates/kotoba-lsp/src/main.rs',
+      type: 'lsp',
+      description: 'Language Server Protocol implementation for Kotoba language',
+      dependencies: ['kotobanet_core', 'jsonnet_core'],
+      provides: ['lsp_server_binary'],
+      status: 'in_progress',
+      build_order: 10,
+    },
+
     // ==========================================
     // Jsonnet 0.21.0 実装層 (Google Jsonnet完全対応)
     // ==========================================
@@ -1487,6 +1498,10 @@
     { from: 'cid_system', to: 'lib' },
     { from: 'cli_interface', to: 'lib' },
 
+    // LSP server dependencies
+    { from: 'kotobanet_core', to: 'kotoba_lsp' },
+    { from: 'jsonnet_core', to: 'kotoba_lsp' },
+
   ],
 
   // ==========================================
@@ -1543,6 +1558,8 @@
     'cloud_integrations',
     'distributed_engine',
     'network_protocol',
+    'cli_interface',
+    'kotoba_lsp',
     'http_ir',
     'frontend_component_ir',
     'frontend_route_ir',
@@ -1564,7 +1581,6 @@
     'http_server',
     'deploy_cli',
     'deploy_runtime',
-    'cli_interface',
     'lib',
     'example_frontend_app',
     'example_http_server',
@@ -1607,6 +1623,7 @@
     'example_frontend_app',
     'lib',
     'cli_interface',
+    'kotoba_lsp',
     'deploy_runtime',
     'deploy_cli',
     'http_server',
@@ -1635,6 +1652,7 @@
     'kubernetes_operator',
     'activity_libraries',
     'workflow_designer',
+    'kotoba_lsp',
     'rewrite_engine',
     'planner_optimizer',
     'rewrite_applier',

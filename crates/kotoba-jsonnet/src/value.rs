@@ -4,6 +4,7 @@ use crate::ast::Expr;
 use crate::error::{JsonnetError, Result};
 use std::collections::HashMap;
 use std::fmt;
+use serde::{Deserialize, Serialize};
 
 /// Jsonnet value types
 #[derive(Debug, Clone, PartialEq)]
@@ -411,28 +412,6 @@ impl JsonnetFunction {
             body,
             environment,
         }
-    }
-
-    /// Call the function with arguments
-    pub fn call(&self, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        if args.len() != self.parameters.len() {
-            return Err(JsonnetError::invalid_function_call(format!(
-                "Expected {} arguments, got {}",
-                self.parameters.len(),
-                args.len()
-            )));
-        }
-
-        // Create function environment
-        let mut env = self.environment.clone();
-        for (param, arg) in self.parameters.iter().zip(args) {
-            env.insert(param.clone(), arg);
-        }
-
-        // Evaluate function body
-        // This would need access to the evaluator
-        // For now, return a placeholder
-        Err(JsonnetError::runtime_error("Function evaluation not yet implemented"))
     }
 }
 

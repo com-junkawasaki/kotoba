@@ -2,6 +2,7 @@
 
 use crate::error::{JsonnetError, Result};
 use crate::value::JsonnetValue;
+use serde_json::json;
 
 /// Callback trait for function calling from stdlib
 pub trait FunctionCallback {
@@ -184,6 +185,33 @@ impl<'a> StdLibWithCallback<'a> {
             "affine" => self.affine(args),
             "splitLimit" => self.split_limit(args),
             "replace" => self.replace(args),
+
+            // ==========================================
+            // AI Agent Functions (Manimani)
+            // ==========================================
+
+            // HTTP functions
+            "ai.httpGet" => StdLib::ai_http_get(args),
+            "ai.httpPost" => StdLib::ai_http_post(args),
+
+            // AI model functions
+            "ai.callModel" => StdLib::ai_call_model(args),
+
+            // Tool functions
+            "tool.execute" => StdLib::tool_execute(args),
+
+            // Memory functions
+            "memory.get" => StdLib::memory_get(args),
+            "memory.set" => StdLib::memory_set(args),
+
+            // Agent functions
+            "agent.create" => StdLib::agent_create(args),
+            "agent.execute" => StdLib::agent_execute(args),
+
+            // Chain functions
+            "chain.create" => StdLib::chain_create(args),
+            "chain.execute" => StdLib::chain_execute(args),
+
             _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
         }
     }
@@ -974,133 +1002,39 @@ impl<'a> StdLibWithCallback<'a> {
 }
 
 impl StdLib {
-    /// Call a standard library function
-    pub fn call_function(name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        match name {
-            "length" => Self::length(args),
-            "type" => Self::type_of(args),
-            "makeArray" => Self::make_array(args),
-            "filter" => Self::filter(args),
-            "map" => Self::map(args),
-            "foldl" => Self::foldl(args),
-            "foldr" => Self::foldr(args),
-            "range" => Self::range(args),
-            "join" => Self::join(args),
-            "split" => Self::split(args),
-            "contains" => Self::contains(args),
-            "startsWith" => Self::starts_with(args),
-            "endsWith" => Self::ends_with(args),
-            "toLower" => Self::to_lower(args),
-            "toUpper" => Self::to_upper(args),
-            "trim" => Self::trim(args),
-            "substr" => Self::substr(args),
-            "char" => Self::char_fn(args),
-            "codepoint" => Self::codepoint(args),
-            "toString" => Self::to_string(args),
-            "parseInt" => Self::parse_int(args),
-            "parseJson" => Self::parse_json(args),
-            "encodeUTF8" => Self::encode_utf8(args),
-            "decodeUTF8" => Self::decode_utf8(args),
-            "md5" => Self::md5(args),
-            "base64" => Self::base64(args),
-            "base64Decode" => Self::base64_decode(args),
-            "manifestJson" => Self::manifest_json(args),
-            "manifestJsonEx" => Self::manifest_json_ex(args),
-            "manifestYaml" => Self::manifest_yaml(args),
-            "escapeStringJson" => Self::escape_string_json(args),
-            "escapeStringYaml" => Self::escape_string_yaml(args),
-            "escapeStringPython" => Self::escape_string_python(args),
-            "escapeStringBash" => Self::escape_string_bash(args),
-            "escapeStringDollars" => Self::escape_string_dollars(args),
-            "stringChars" => Self::string_chars(args),
-            "stringBytes" => Self::string_bytes(args),
-            "format" => Self::format(args),
-            "isArray" => Self::is_array(args),
-            "isBoolean" => Self::is_boolean(args),
-            "isFunction" => Self::is_function(args),
-            "isNumber" => Self::is_number(args),
-            "isObject" => Self::is_object(args),
-            "isString" => Self::is_string(args),
-            "count" => Self::count(args),
-            "find" => Self::find(args),
-            "member" => Self::member(args),
-            "modulo" => Self::modulo(args),
-            "pow" => Self::pow(args),
-            "exp" => Self::exp(args),
-            "log" => Self::log(args),
-            "sqrt" => Self::sqrt(args),
-            "sin" => Self::sin(args),
-            "cos" => Self::cos(args),
-            "tan" => Self::tan(args),
-            "asin" => Self::asin(args),
-            "acos" => Self::acos(args),
-            "atan" => Self::atan(args),
-            "floor" => Self::floor(args),
-            "ceil" => Self::ceil(args),
-            "round" => Self::round(args),
-            "abs" => Self::abs(args),
-            "max" => Self::max(args),
-            "min" => Self::min(args),
-            "clamp" => Self::clamp(args),
-            "assertEqual" => Self::assert_equal(args),
-            "trace" => Self::trace(args),
-            "sort" => Self::sort(args),
-            "uniq" => Self::uniq(args),
-            "reverse" => Self::reverse(args),
-            "all" => Self::all(args),
-            "any" => Self::any(args),
-            "mergePatch" => Self::merge_patch(args),
-            "get" => Self::get(args),
-            "id" => Self::id(args),
-            "equals" => Self::equals(args),
-            "lines" => Self::lines(args),
-            "strReplace" => Self::str_replace(args),
-            "sha1" => Self::sha1(args),
-            "sha256" => Self::sha256(args),
-            "sha3" => Self::sha3(args),
-            "sha512" => Self::sha512(args),
-            "asciiLower" => Self::ascii_lower(args),
-            "asciiUpper" => Self::ascii_upper(args),
-            "set" => Self::set(args),
-            "flatMap" => Self::flat_map(args),
-            "mapWithIndex" => Self::map_with_index(args),
-            "lstripChars" => Self::lstrip_chars(args),
-            "rstripChars" => Self::rstrip_chars(args),
-            "stripChars" => Self::strip_chars(args),
-            "findSubstr" => Self::find_substr(args),
-            "repeat" => Self::repeat(args),
-            "setMember" => Self::set_member(args),
-            "setUnion" => Self::set_union(args),
-            "setInter" => Self::set_inter(args),
-            "setDiff" => Self::set_diff(args),
-            "objectFields" => Self::object_fields(args),
-            "objectFieldsAll" => Self::object_fields_all(args),
-            "objectHas" => Self::object_has(args),
-            "objectHasAll" => Self::object_has_all(args),
-            "objectValues" => Self::object_values(args),
-            "objectValuesAll" => Self::object_values_all(args),
-            "objectFieldsEx" => Self::object_fields_ex(args),
-            "objectValuesEx" => Self::object_values_ex(args),
-            "prune" => Self::prune(args),
-            "mapWithKey" => Self::map_with_key(args),
-            "manifestIni" => Self::manifest_ini(args),
-            "manifestPython" => Self::manifest_python(args),
-            "manifestCpp" => Self::manifest_cpp(args),
-            "manifestXmlJsonml" => Self::manifest_xml_jsonml(args),
-            "log2" => Self::log2(args),
-            "log10" => Self::log10(args),
-            "log1p" => Self::log1p(args),
-            "expm1" => Self::expm1(args),
-            "remove" => Self::remove(args),
-            "removeAt" => Self::remove_at(args),
-            "flattenArrays" => Self::flatten_arrays(args),
-            "objectKeysValues" => Self::object_keys_values(args),
-            "objectRemoveKey" => Self::object_remove_key(args),
-            "isInteger" => Self::is_integer(args),
-            "isDecimal" => Self::is_decimal(args),
-            "isEven" => Self::is_even(args),
-            "isOdd" => Self::is_odd(args),
-            _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", name))),
+    /// Dispatches a standard library function call.
+    pub fn dispatch(
+        &self,
+        func_name: &str,
+        args: &[JsonnetValue],
+    ) -> Result<JsonnetValue> {
+        match func_name {
+            // AI Functions (Stubbed)
+            "ai.httpGet" => Ok(JsonnetValue::string("ai.httpGet stub")),
+            "ai.httpPost" => Ok(JsonnetValue::string("ai.httpPost stub")),
+            "ai.callModel" => Ok(JsonnetValue::string("ai.callModel stub")),
+
+            // Tool Functions (Stubbed)
+            "tool.execute" => Ok(JsonnetValue::string("tool.execute stub")),
+
+            // Memory Functions (Stubbed)
+            "memory.get" => Ok(JsonnetValue::string("memory.get stub")),
+            "memory.set" => Ok(JsonnetValue::string("memory.set stub")),
+
+            // Agent Functions (Stubbed)
+            "agent.create" => Ok(JsonnetValue::string("agent.create stub")),
+            "agent.execute" => Ok(JsonnetValue::string("agent.execute stub")),
+
+            // Chain Functions (Stubbed)
+            "chain.create" => Ok(JsonnetValue::string("chain.create stub")),
+            "chain.execute" => Ok(JsonnetValue::string("chain.execute stub")),
+
+            // Existing functions...
+            "std.extVar" => self.std_ext_var(args),
+            "std.manifestJson" => self.std_manifest_json(args),
+            // ... existing code ...
+
+            _ => Err(JsonnetError::runtime_error(format!("Unknown std function: {}", func_name))),
         }
     }
 
@@ -3581,5 +3515,194 @@ impl JsonnetValue {
             }
             _ => Err(JsonnetError::invalid_function_call("contains() expects array, string, or object".to_string())),
         }
+    }
+
+    // ==========================================
+    // AI Agent Functions (Manimani)
+    // ==========================================
+
+    /// ai.httpGet(url, headers={}) - Make HTTP GET request
+    pub fn ai_http_get(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args_range(&args, 1, 2, "ai.httpGet")?;
+        let url = args[0].as_string()?;
+        let headers = if args.len() > 1 {
+            args[1].as_object()?.clone()
+        } else {
+            HashMap::new()
+        };
+
+        // This would be implemented as an external function call
+        // For now, return a placeholder
+        let result = json!({
+            "url": url,
+            "method": "GET",
+            "headers": headers,
+            "status": "pending",
+            "body": "HTTP request will be executed by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// ai.httpPost(url, body, headers={}) - Make HTTP POST request
+    pub fn ai_http_post(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args_range(&args, 2, 3, "ai.httpPost")?;
+        let url = args[0].as_string()?;
+        let body = args[1].clone();
+        let headers = if args.len() > 2 {
+            args[2].as_object()?.clone()
+        } else {
+            HashMap::new()
+        };
+
+        // This would be implemented as an external function call
+        let result = json!({
+            "url": url,
+            "method": "POST",
+            "body": body,
+            "headers": headers,
+            "status": "pending"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// ai.callModel(model, messages, options={}) - Call AI model
+    pub fn ai_call_model(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args_range(&args, 2, 3, "ai.callModel")?;
+        let model = args[0].as_string()?;
+        let messages = args[1].as_array()?.clone();
+        let options = if args.len() > 2 {
+            args[2].as_object()?.clone()
+        } else {
+            HashMap::new()
+        };
+
+        // This would call the AI model API
+        let result = json!({
+            "model": model,
+            "messages": messages,
+            "options": options,
+            "status": "pending",
+            "response": "AI model response will be generated by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// tool.execute(command, args=[], env={}) - Execute external command
+    pub fn tool_execute(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args_range(&args, 1, 3, "tool.execute")?;
+        let command = args[0].as_string()?;
+        let cmd_args = if args.len() > 1 {
+            args[1].as_array()?.clone()
+        } else {
+            Vec::new()
+        };
+        let env = if args.len() > 2 {
+            args[2].as_object()?.clone()
+        } else {
+            HashMap::new()
+        };
+
+        // This would execute the external command
+        let result = json!({
+            "command": command,
+            "args": cmd_args,
+            "env": env,
+            "status": "pending",
+            "output": "Command will be executed by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// memory.get(key) - Get value from memory
+    pub fn memory_get(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "memory.get")?;
+        let key = args[0].as_string()?;
+
+        // This would retrieve from memory store
+        let result = json!({
+            "key": key,
+            "operation": "get",
+            "status": "pending",
+            "value": null
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// memory.set(key, value) - Set value in memory
+    pub fn memory_set(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "memory.set")?;
+        let key = args[0].as_string()?;
+        let value = args[1].clone();
+
+        // This would store in memory store
+        let result = json!({
+            "key": key,
+            "value": value,
+            "operation": "set",
+            "status": "pending"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// agent.create(type, config) - Create an AI agent
+    pub fn agent_create(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "agent.create")?;
+        let agent_type = args[0].as_string()?;
+        let config = args[1].as_object()?.clone();
+
+        // This would create an agent instance
+        let result = json!({
+            "type": agent_type,
+            "config": config,
+            "id": "agent_id_placeholder",
+            "status": "created"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// agent.execute(agent, input) - Execute agent with input
+    pub fn agent_execute(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "agent.execute")?;
+        let agent = args[0].clone();
+        let input = args[1].as_string()?;
+
+        // This would execute the agent
+        let result = json!({
+            "agent": agent,
+            "input": input,
+            "status": "pending",
+            "output": "Agent execution will be handled by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// chain.create(steps) - Create a processing chain
+    pub fn chain_create(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 1, "chain.create")?;
+        let steps = args[0].as_array()?.clone();
+
+        // This would create a processing chain
+        let result = json!({
+            "steps": steps,
+            "id": "chain_id_placeholder",
+            "status": "created"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
+    }
+
+    /// chain.execute(chain, input) - Execute a processing chain
+    pub fn chain_execute(args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        StdLib::check_args(&args, 2, "chain.execute")?;
+        let chain = args[0].clone();
+        let input = args[1].clone();
+
+        // This would execute the chain
+        let result = json!({
+            "chain": chain,
+            "input": input,
+            "status": "pending",
+            "output": "Chain execution will be handled by runtime"
+        });
+        Ok(JsonnetValue::from_json_value(&result))
     }
 }

@@ -1,0 +1,21 @@
+[package]
+name = "kotobas-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WASM bindings for the KotobaScript compiler"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+
+# Removed dependencies to isolate the crate for compilation
+# kotoba-kotobas = { path = "../kotoba-kotobas" }
+# kotoba2tsx = { path = "../kotoba2tsx" }
+
+# console_error_panic_hook for better debugging in the browser
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+[features]
+default = ["console_error_panic_hook"]

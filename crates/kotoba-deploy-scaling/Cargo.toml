@@ -1,0 +1,35 @@
+[package]
+name = "kotoba-deploy-scaling"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Auto-scaling engine for Kotoba deployment system"
+keywords = ["scaling", "autoscaling", "metrics", "load-balancing", "deployment"]
+categories = ["concurrency", "algorithms", "development-tools"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-deploy-scaling"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Kotoba dependencies
+kotoba-core = { workspace = true }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
+
+# Common dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full"] }
+uuid.workspace = true
+chrono.workspace = true
+
+# Metrics and monitoring
+hdrhistogram = "7.5"
+
+# Utilities
+tempfile.workspace = true
+
+# Random number generation
+rand.workspace = true

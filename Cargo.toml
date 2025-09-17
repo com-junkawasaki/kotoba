@@ -10,11 +10,14 @@ members = [
     "crates/kotoba-server",
     "crates/kotoba-security",
     "crates/kotoba-runtime",
+    "crates/kotobas-wasm",
     "crates/kotoba-deploy-core",
     "crates/kotoba-deploy-cli",
     "crates/kotoba-deploy-git",
     "crates/kotoba-deploy-network",
-    ".",  # Root crate
+    "crates/kotoba-deploy-hosting",
+    "crates/kotoba-deploy-scaling",
+    ".", "crates/kotoba-lsp",  # Root crate
 ]
 resolver = "2"
 

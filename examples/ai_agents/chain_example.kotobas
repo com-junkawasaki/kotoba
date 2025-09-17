@@ -1,0 +1,164 @@
+#!/usr/bin/env kotoba
+// Manimani AI Agent Example: Processing Chain
+// Demonstrates multi-step AI agent workflows
+
+{
+  // Chain metadata
+  name: "ResearchAndSummarizeChain",
+  version: "1.0.0",
+  description: "A chain that researches a topic and creates a summary",
+
+  // Chain configuration
+  config: {
+    research_model: "gpt-4",
+    summary_model: "gpt-3.5-turbo",
+    max_research_tokens: 1000,
+    max_summary_tokens: 500,
+  },
+
+  // Chain steps definition
+  steps: [
+    {
+      name: "research",
+      type: "llm_call",
+      config: {
+        model: $.config.research_model,
+        temperature: 0.3,
+        max_tokens: $.config.max_research_tokens,
+        prompt_template: |||
+          Research the following topic comprehensively: {topic}
+
+          Provide detailed information including:
+          - Key facts and background
+          - Important developments
+          - Current status
+          - Relevant statistics or data
+
+          Be thorough but concise.
+        |||,
+      },
+    },
+    {
+      name: "analyze",
+      type: "llm_call",
+      config: {
+        model: $.config.research_model,
+        temperature: 0.2,
+        max_tokens: $.config.max_research_tokens,
+        prompt_template: |||
+          Analyze the following research information: {research_output}
+
+          Identify:
+          - Main themes and patterns
+          - Key insights
+          - Potential implications
+          - Areas needing further clarification
+        |||,
+      },
+    },
+    {
+      name: "summarize",
+      type: "llm_call",
+      config: {
+        model: $.config.summary_model,
+        temperature: 0.1,
+        max_tokens: $.config.max_summary_tokens,
+        prompt_template: |||
+          Create a concise summary of the research and analysis below:
+
+          RESEARCH:
+          {research_output}
+
+          ANALYSIS:
+          {analysis_output}
+
+          Provide:
+          - Executive summary (2-3 sentences)
+          - Key findings (3-5 bullet points)
+          - Conclusion and recommendations
+        |||,
+      },
+    },
+  ],
+
+  // Initialize chain
+  init()::
+    local chain = std.chain.create(self.steps);
+    chain,
+
+  // Execute individual step
+  execute_step(step, input_data)::
+    if step.type == "llm_call" then
+      // Format prompt with input data
+      local prompt = std.strReplace(step.config.prompt_template, "{topic}", input_data.topic);
+      local filled_prompt = if std.objectHas(input_data, "research_output") then
+        std.strReplace(prompt, "{research_output}", input_data.research_output)
+      else
+        prompt;
+
+      local final_prompt = if std.objectHas(input_data, "analysis_output") then
+        std.strReplace(filled_prompt, "{analysis_output}", input_data.analysis_output)
+      else
+        filled_prompt;
+
+      // Call AI model
+      local messages = [
+        { role: "user", content: final_prompt }
+      ];
+
+      local response = std.ai.callModel(step.config.model, messages, {
+        temperature: step.config.temperature,
+        max_tokens: step.config.max_tokens,
+      });
+
+      response.response
+
+    else if step.type == "tool_call" then
+      // Tool execution would go here
+      "Tool execution not implemented in this example"
+
+    else
+      "Unknown step type: " + step.type,
+
+  // Execute the entire chain
+  execute_chain(chain, input)::
+    local initial_data = { topic: input };
+
+    // Execute each step in sequence
+    local execute_steps(steps, data, step_index) =
+      if step_index >= std.length(steps) then
+        data
+      else
+        local current_step = steps[step_index];
+        local step_output = self.execute_step(current_step, data);
+
+        // Add step output to data for next step
+        local updated_data = data {
+          [current_step.name + "_output"]: step_output,
+        };
+
+        execute_steps(steps, updated_data, step_index + 1);
+
+    execute_steps(self.steps, initial_data, 0),
+
+  // Main execution function
+  run(topic)::
+    local chain = self.init();
+    local result = self.execute_chain(chain, topic);
+
+    // Format final output
+    local output = std.join("\n\n", [
+      "# Research Summary: " + topic,
+      "",
+      "## Executive Summary",
+      result.summarize_output,
+      "",
+      "## Research Details",
+      result.research_output,
+      "",
+      "## Analysis",
+      result.analyze_output,
+    ]);
+
+    output,
+}

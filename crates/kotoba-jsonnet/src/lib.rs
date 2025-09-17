@@ -5,9 +5,11 @@
 
 pub mod ast;
 pub mod error;
+pub mod eval;
 pub mod evaluator;
 pub mod lexer;
 pub mod parser;
+pub mod runtime;
 pub mod stdlib;
 pub mod value;
 

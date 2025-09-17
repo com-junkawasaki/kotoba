@@ -1,0 +1,15 @@
+[package]
+name = "kotoba-lsp"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+kotoba-kotobas = { path = "../kotoba-kotobas" }
+kotoba-jsonnet = { path = "../kotoba-jsonnet" }
+tokio = { version = "1.0", features = ["full"] }
+tower-lsp = "0.20"
+dashmap = "5.5"

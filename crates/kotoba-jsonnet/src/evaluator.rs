@@ -4,25 +4,88 @@ use crate::ast::{self, BinaryOp, Expr, Program, Stmt, UnaryOp};
 use crate::error::{JsonnetError, Result};
 use crate::value::{JsonnetBuiltin, JsonnetFunction, JsonnetValue};
 use crate::stdlib::FunctionCallback;
+use crate::eval::{Context, OpHandler, FuncallHandler, ComprehensionHandler};
+use crate::runtime::{RuntimeManager, ExternalHandler};
 use std::collections::HashMap;
 
-/// Jsonnet evaluator
-pub struct Evaluator {
-    /// Global environment
-    globals: HashMap<String, JsonnetValue>,
+/// External function handler trait for synchronous external function calls
+pub trait ExternalHandler {
+    fn call_external_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue>;
 }
 
-impl FunctionCallback for Evaluator {
-    fn call_function(&mut self, func: JsonnetValue, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
-        self.call_function(func, args)
+/// Default external function handler (returns errors for unimplemented functions)
+pub struct DefaultExternalHandler;
+
+impl ExternalHandler for DefaultExternalHandler {
+    fn call_external_function(&mut self, name: &str, _args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        Err(JsonnetError::runtime_error(format!("External function '{}' not implemented", name)))
     }
 }
 
-impl Evaluator {
-    /// Create a new evaluator
+/// Extensible Jsonnet evaluator using handler-based architecture
+pub struct Evaluator<H, O, F, C>
+where
+    H: ExternalHandler + Send + Sync,
+    O: OpHandler + Send + Sync,
+    F: FuncallHandler + Send + Sync,
+    C: ComprehensionHandler + Send + Sync,
+{
+    /// Evaluation context
+    context: Context,
+    /// Runtime manager for external functions
+    runtime_manager: RuntimeManager,
+    /// Operation handler
+    op_handler: O,
+    /// Function call handler
+    funcall_handler: F,
+    /// Comprehension handler
+    comprehension_handler: C,
+    /// Phantom data for external handler type
+    _phantom: std::marker::PhantomData<H>,
+}
+
+/// Type alias for the default evaluator with all default handlers
+pub type DefaultEvaluator = Evaluator<
+    DefaultExternalHandler,
+    DefaultOpHandler,
+    DefaultFuncallHandler,
+    DefaultComprehensionHandler,
+>;
+
+impl<H: ExternalFunctionHandler> FunctionCallback for Evaluator<H> {
+    fn call_function(&mut self, func: JsonnetValue, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        self.call_function(func, args)
+    }
+
+    fn call_external_function(&mut self, name: &str, args: Vec<JsonnetValue>) -> Result<JsonnetValue> {
+        self.external_handler.call_external_function(name, args)
+    }
+}
+
+impl Default for Evaluator<DefaultExternalHandler> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Evaluator<DefaultExternalHandler> {
+    /// Create a new evaluator with default external handler
     pub fn new() -> Self {
         let mut evaluator = Evaluator {
             globals: HashMap::new(),
+            external_handler: DefaultExternalHandler,
+        };
+        evaluator.init_stdlib();
+        evaluator
+    }
+}
+
+impl<H: ExternalFunctionHandler> Evaluator<H> {
+    /// Create a new evaluator with custom external handler
+    pub fn with_handler(handler: H) -> Self {
+        let mut evaluator = Evaluator {
+            globals: HashMap::new(),
+            external_handler: handler,
         };
         evaluator.init_stdlib();
         evaluator
