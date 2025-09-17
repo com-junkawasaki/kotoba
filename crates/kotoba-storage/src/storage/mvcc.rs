@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use parking_lot::RwLock;
 use kotoba_core::types::*;
-use kotoba_graph::prelude::*;
+use kotoba_graph::graph::GraphRef;
 use kotoba_errors::KotobaError;
 
 /// トランザクション状態
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TxState {
     Active,
     Committed,

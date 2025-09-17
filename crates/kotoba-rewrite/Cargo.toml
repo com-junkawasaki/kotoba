@@ -21,6 +21,7 @@ kotoba-core = { path = "../kotoba-core", version = "0.1.15" }
 kotoba-errors = { path = "../kotoba-errors", version = "0.1.0" }
 kotoba-graph = { path = "../kotoba-graph", version = "0.1.15" }
 kotoba-storage = { path = "../kotoba-storage", version = "0.1.15" }
+kotoba-cid = { path = "../kotoba-cid" }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

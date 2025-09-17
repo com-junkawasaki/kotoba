@@ -1,9 +1,9 @@
 //! ルール適用
 
-use kotoba_core::{ir::*, types::*};
-use kotoba_graph::graph::*;
+use kotoba_core::ir::*;
+use kotoba_graph::prelude::*;
+use kotoba_core::types::*;
 use std::collections::HashMap;
-use kotoba_core::types::Result;
 
 /// ルール適用器
 #[derive(Debug)]

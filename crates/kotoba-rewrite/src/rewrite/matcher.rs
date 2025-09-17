@@ -1,9 +1,9 @@
 //! ルールマッチング
 
-use kotoba_core::{ir::*, types::*};
-use kotoba_graph::graph::*;
+use kotoba_core::ir::*;
+use kotoba_graph::prelude::*;
+use kotoba_core::types::*;
 use std::collections::HashMap;
-use kotoba_core::types::Result;
 
 /// ルールマッチャー
 #[derive(Debug)]
@@ -22,14 +22,14 @@ impl RuleMatcher {
         let mut matches = Vec::new();
 
         // 初期マッチング候補を生成
-        let initial_candidates = self.generate_initial_candidates(&graph, &rule.lhs);
+        let initial_candidates = self.generate_initial_candidates(&graph, &rule.lhs)?;
 
         for candidate in initial_candidates {
-            if self.match_lhs(&graph, &rule.lhs, &candidate, catalog) {
+            if self.match_lhs(&graph, &rule.lhs, &candidate, catalog)? {
                 // NAC（Negative Application Condition）をチェック
-                if self.check_nacs(&graph, &rule.nacs, &candidate, catalog) {
+                if self.check_nacs(&graph, &rule.nacs, &candidate, catalog)? {
                     // ガード条件をチェック
-                    if self.check_guards(&graph, &rule.guards, &candidate, catalog) {
+                    if self.check_guards(&graph, &rule.guards, &candidate, catalog)? {
                         let match_score = self.calculate_match_score(&candidate);
                         matches.push(Match {
                             mapping: candidate,
@@ -48,10 +48,10 @@ impl RuleMatcher {
 
     /// 初期マッチング候補を生成
     fn generate_initial_candidates(&self, graph: &Graph, lhs: &GraphPattern)
-        -> Vec<HashMap<String, VertexId>> {
+        -> Result<Vec<HashMap<String, VertexId>>> {
 
         if lhs.nodes.is_empty() {
-            return vec![HashMap::new()];
+            return Ok(vec![HashMap::new()]);
         }
 
         let mut candidates = Vec::new();
@@ -70,12 +70,12 @@ impl RuleMatcher {
             candidates.push(mapping);
         }
 
-        candidates
+        Ok(candidates)
     }
 
     /// LHSパターンマッチング
     fn match_lhs(&self, graph: &Graph, lhs: &GraphPattern,
-                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
+                 mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
 
         // ノードマッチング
         for node in &lhs.nodes {
@@ -84,7 +84,7 @@ impl RuleMatcher {
                     // ラベルチェック
                     if let Some(expected_label) = &node.type_ {
                         if !vertex.labels.contains(expected_label) {
-                            return false;
+                            return Ok(false);
                         }
                     }
 
@@ -93,15 +93,15 @@ impl RuleMatcher {
                         for (key, expected_value) in expected_props {
                             if let Some(actual_value) = vertex.props.get(key) {
                                 if !self.values_match(actual_value, expected_value) {
-                                    return false;
+                                    return Ok(false);
                                 }
                             } else {
-                                return false;
+                                return Ok(false);
                             }
                         }
                     }
                 } else {
-                    return false;
+                    return Ok(false);
                 }
             }
         }
@@ -113,7 +113,7 @@ impl RuleMatcher {
                 if !graph.adj_out.get(&src_id)
                     .map(|neighbors| neighbors.contains(&dst_id))
                     .unwrap_or(false) {
-                    return false;
+                    return Ok(false);
                 }
 
                 // エッジラベルチェック（簡易版）
@@ -121,26 +121,26 @@ impl RuleMatcher {
             }
         }
 
-        true
+        Ok(true)
     }
 
     /// NACチェック
     fn check_nacs(&self, graph: &Graph, nacs: &[Nac],
-                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> bool {
+                  mapping: &HashMap<String, VertexId>, catalog: &Catalog) -> Result<bool> {
 
         for nac in nacs {
             // NACパターンがマッチしないことを確認
-            if self.match_nac(graph, nac, mapping, catalog) {
-                return false;
+            if self.match_nac(graph, nac, mapping, catalog)? {
+                return Ok(false);
             }
         }
 
-        true
+        Ok(true)
     }
 
     /// NACマッチング
     fn match_nac(&self, graph: &Graph, nac: &Nac,
-                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
+                 mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
 
         // NAC内のノードをマッチング
         for node in &nac.nodes {
@@ -149,7 +149,7 @@ impl RuleMatcher {
                     // NAC条件に合致する場合、falseを返す
                     if let Some(expected_label) = &node.type_ {
                         if vertex.labels.contains(expected_label) {
-                            return true;
+                            return Ok(true);
                         }
                     }
                 }
@@ -162,30 +162,30 @@ impl RuleMatcher {
                 if graph.adj_out.get(&src_id)
                     .map(|neighbors| neighbors.contains(&dst_id))
                     .unwrap_or(false) {
-                    return true;
+                    return Ok(true);
                 }
             }
         }
 
-        false
+        Ok(false)
     }
 
     /// ガード条件チェック
     fn check_guards(&self, graph: &Graph, guards: &[Guard],
-                    mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
+                    mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
 
         for guard in guards {
-            if !self.evaluate_guard(graph, guard, mapping, _catalog) {
-                return false;
+            if !self.evaluate_guard(graph, guard, mapping, _catalog)? {
+                return Ok(false);
             }
         }
 
-        true
+        Ok(true)
     }
 
     /// ガード条件評価
     fn evaluate_guard(&self, graph: &Graph, guard: &Guard,
-                      mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> bool {
+                      mapping: &HashMap<String, VertexId>, _catalog: &Catalog) -> Result<bool> {
 
         match guard.ref_.as_str() {
             "deg_ge" => {
@@ -194,15 +194,15 @@ impl RuleMatcher {
                     if let Some(Value::String(var)) = guard.args.get("var") {
                         if let Some(&vertex_id) = mapping.get(var) {
                             let degree = graph.degree(&vertex_id);
-                            return degree >= *k as usize;
+                            return Ok(degree >= *k as usize);
                         }
                     }
                 }
-                false
+                Ok(false)
             }
             _ => {
                 // その他のガードはtrueとして扱う（実際の実装では関数テーブルを使用）
-                true
+                Ok(true)
             }
         }
     }

@@ -137,7 +137,7 @@
     // ストレージ層
     'storage_mvcc': {
       name: 'storage_mvcc',
-      path: 'src/storage/mvcc.rs',
+      path: 'crates/kotoba-storage/src/storage/mvcc.rs',
       type: 'storage',
       description: 'MVCCマネージャー',
       dependencies: ['types', 'graph_core'],
@@ -148,7 +148,7 @@
 
     'storage_merkle': {
       name: 'storage_merkle',
-      path: 'src/storage/merkle.rs',
+      path: 'crates/kotoba-storage/src/storage/merkle.rs',
       type: 'storage',
       description: 'Merkle DAG永続化',
       dependencies: ['types', 'graph_core'],
@@ -296,7 +296,7 @@
     // 書換え層
     'rewrite_matcher': {
       name: 'rewrite_matcher',
-      path: 'src/rewrite/matcher.rs',
+      path: 'crates/kotoba-rewrite/src/rewrite/matcher.rs',
       type: 'rewrite',
       description: 'ルールマッチング (LHS + NACチェック)',
       dependencies: ['types', 'ir_rule', 'ir_catalog', 'graph_core'],
@@ -307,7 +307,7 @@
 
     'rewrite_applier': {
       name: 'rewrite_applier',
-      path: 'src/rewrite/applier.rs',
+      path: 'crates/kotoba-rewrite/src/rewrite/applier.rs',
       type: 'rewrite',
       description: 'ルール適用 (パッチ生成)',
       dependencies: ['types', 'ir_rule', 'ir_patch', 'graph_core'],
@@ -318,7 +318,7 @@
 
     'rewrite_engine': {
       name: 'rewrite_engine',
-      path: 'src/rewrite/engine.rs',
+      path: 'crates/kotoba-rewrite/src/rewrite/engine.rs',
       type: 'rewrite',
       description: 'DPO書換えエンジン (マッチング + 適用 + 戦略実行)',
       dependencies: ['types', 'ir_rule', 'ir_strategy', 'graph_core', 'storage_mvcc', 'storage_merkle', 'rewrite_matcher', 'rewrite_applier'],
