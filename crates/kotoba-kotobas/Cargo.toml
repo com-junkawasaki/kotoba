@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-kotobas"
-version.workspace = true
+version = "0.1.16"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -18,10 +18,10 @@ regex = "1.10"
 uuid = { workspace = true, features = ["v4"] }
 
 # Base Jsonnet implementation
-kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.0" }
+kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.17" }
 
 # Kotoba core dependencies
-kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 
 # Merkle DAG dependencies
 sha2 = "0.10"
