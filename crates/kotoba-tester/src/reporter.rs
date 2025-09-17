@@ -18,7 +18,6 @@ pub enum ReportFormat {
 }
 
 /// レポートライター
-#[derive(Debug)]
 pub struct Reporter {
     format: ReportFormat,
     writer: Box<dyn Write>,

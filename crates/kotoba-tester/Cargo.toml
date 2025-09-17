@@ -26,6 +26,8 @@ colored = "2.0"
 console = "0.15"
 dialoguer = "0.11"
 indicatif = "0.17"
+glob = "0.3"
+num_cpus = "1.16"
 
 # Kotoba ecosystem
 kotoba-core = { path = "../kotoba-core", version = "0.1.17" }

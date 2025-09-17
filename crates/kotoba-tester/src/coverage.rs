@@ -82,7 +82,7 @@ impl CoverageCollector {
 
         // テストケースから実行された関数を推定
         let mut executed_lines = Vec::new();
-        let mut executed_functions = Vec::new();
+        let mut executed_functions: Vec<String> = Vec::new();
 
         for test_case in &suite.test_cases {
             if test_case.result == super::TestResult::Passed {
@@ -91,7 +91,7 @@ impl CoverageCollector {
 
                 // 関数名から実行された関数を推定
                 if let Some(func_name) = self.find_function_at_line(&functions, test_case.line) {
-                    if !executed_functions.contains(func_name) {
+                    if !executed_functions.iter().any(|f| f == func_name) {
                         executed_functions.push(func_name.to_string());
                     }
                 }
@@ -149,7 +149,7 @@ impl CoverageCollector {
     }
 
     /// 指定行の関数を見つける
-    fn find_function_at_line(&self, functions: &[(String, usize)], line: usize) -> Option<&str> {
+    fn find_function_at_line<'a>(&self, functions: &'a [(String, usize)], line: usize) -> Option<&'a str> {
         // 指定行に最も近い関数を見つける
         let mut closest_func = None;
         let mut min_distance = usize::MAX;

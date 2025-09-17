@@ -362,11 +362,11 @@ pub struct DistributedWorkflowExecutor {
     execution_stats: RwLock<HashMap<String, NodeExecutionStats>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct NodeExecutionStats {
-    pub total_executions: usize,
-    pub successful_executions: usize,
-    pub failed_executions: usize,
+    pub total_tasks: usize,
+    pub successful_tasks: usize,
+    pub failed_tasks: usize,
     pub avg_execution_time: std::time::Duration,
 }
 

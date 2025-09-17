@@ -609,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /// デフォルトテンプレートを読み込む
     fn load_default_templates(tera: &mut Tera) {
         // 基本的なHTMLテンプレートを定義
-        let index_template = r#"
+        let index_template = r##"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -634,10 +634,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <ul class="nav-list">
                 {% for module_name, module_items in modules %}
                 <li>
-                    <a href="#\{\{ module_name \}\}">\{\{ module_name \}\}</a>
+                    <a href="#{{ module_name }}">{{ module_name }}</a>
                     <ul>
                         {% for item in module_items %}
-                        <li><a href="\{\{ item.slug \}\}.html">\{\{ item.name \}\}</a></li>
+                        <li><a href="{{ item.slug }}.html">{{ item.name }}</a></li>
                         {% endfor %}
                     </ul>
                 </li>
@@ -795,7 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <script src="script.js"></script>
 </body>
 </html>
-"#;
+"##;
 
         // テンプレートを追加
         tera.add_raw_template("index.html", index_template).unwrap();
