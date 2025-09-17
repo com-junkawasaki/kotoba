@@ -1,0 +1,8 @@
+[package]
+name = "kotoba-db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kotoba-db-core = { path = "../kotoba-db-core" }
+kotoba-db-engine-memory = { path = "../kotoba-db-engine-memory" }

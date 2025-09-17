@@ -1,0 +1,8 @@
+[package]
+name = "kotoba-db-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kotoba-core = { path = "../kotoba-core" }
+kotoba-cid = { path = "../kotoba-cid" }

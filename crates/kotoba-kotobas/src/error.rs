@@ -26,12 +26,17 @@ pub enum KotobaNetError {
     #[error("Execution error: {0}")]
     Execution(String),
 
+    #[error("Network error: {0}")]
+    Network(String),
+
+    #[error("API error: {0}")]
+    Api(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-
 
     #[error("Regex error: {0}")]
     Regex(#[from] regex::Error),
@@ -138,6 +143,9 @@ mod tests {
             KotobaNetError::FrontendParse("test".to_string()),
             KotobaNetError::DeployConfig("test".to_string()),
             KotobaNetError::Config("test".to_string()),
+            KotobaNetError::Execution("test".to_string()),
+            KotobaNetError::Network("test".to_string()),
+            KotobaNetError::Api("test".to_string()),
             KotobaNetError::Io(std::io::Error::new(std::io::ErrorKind::Other, "test")),
             KotobaNetError::Json(json_error),
             KotobaNetError::Regex(regex::Error::Syntax("test".to_string())),
