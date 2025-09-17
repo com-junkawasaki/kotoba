@@ -6,8 +6,8 @@
 use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque};
 use std::cmp::Reverse;
 use kotoba_core::types::*;
+use kotoba_core::KotobaError;
 use crate::graph::{Graph, EdgeData, VertexData};
-use kotoba_errors::KotobaError;
 
 /// 最短経路の結果
 #[derive(Debug, Clone, Default)]
