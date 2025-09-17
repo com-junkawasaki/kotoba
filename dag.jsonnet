@@ -947,18 +947,78 @@
     },
 
     // ==========================================
-    // Hosting Server 層
+    // Deploy拡張層 (新しく実装された拡張機能)
     // ==========================================
 
+    // CLI拡張
+    'deploy_cli_core': {
+      name: 'deploy_cli_core',
+      path: 'crates/kotoba-deploy-cli/src/lib.rs',
+      type: 'deploy_cli',
+      description: '拡張CLIマネージャー - デプロイメント管理、設定管理、進捗表示',
+      dependencies: ['types', 'deploy_controller', 'http_server'],
+      provides: ['CliManager', 'DeploymentInfo', 'OutputFormat', 'FormatOutput'],
+      status: 'completed',
+      build_order: 15,
+    },
+
+    'deploy_cli_binary': {
+      name: 'deploy_cli_binary',
+      path: 'crates/kotoba-deploy-cli/src/main.rs',
+      type: 'deploy_cli',
+      description: 'CLIバイナリ - 完全なデプロイメント処理、設定ファイル管理、進捗バー表示',
+      dependencies: ['deploy_cli_core', 'deploy_controller', 'deploy_scaling', 'deploy_network', 'deploy_runtime'],
+      provides: ['kotoba-deploy-cli'],
+      status: 'completed',
+      build_order: 16,
+    },
+
+    // コントローラー拡張
+    'deploy_controller_core': {
+      name: 'deploy_controller_core',
+      path: 'crates/kotoba-deploy-controller/src/lib.rs',
+      type: 'deploy_controller',
+      description: '高度なデプロイコントローラー - ロールバック、ブルーグリーン、カナリアデプロイ',
+      dependencies: ['types', 'deploy_config', 'deploy_scaling', 'deploy_network', 'deploy_git_integration', 'graph_core', 'rewrite_engine'],
+      provides: ['DeployController', 'DeploymentHistoryManager', 'RollbackManager', 'BlueGreenDeploymentManager', 'CanaryDeploymentManager', 'HealthCheckManager'],
+      status: 'completed',
+      build_order: 17,
+    },
+
+    // ネットワーク拡張
+    'deploy_network_core': {
+      name: 'deploy_network_core',
+      path: 'crates/kotoba-deploy-network/src/lib.rs',
+      type: 'deploy_network',
+      description: '高度なネットワークマネージャー - CDN統合、セキュリティ、エッジ最適化',
+      dependencies: ['types', 'deploy_config', 'deploy_scaling'],
+      provides: ['NetworkManager', 'CdnManager', 'SecurityManager', 'GeoManager', 'EdgeOptimizationManager'],
+      status: 'completed',
+      build_order: 18,
+    },
+
+    // スケーリング拡張（準備中）
+    'deploy_scaling_core': {
+      name: 'deploy_scaling_core',
+      path: 'crates/kotoba-deploy-scaling/src/lib.rs',
+      type: 'deploy_scaling',
+      description: 'AI予測スケーリングエンジン - トラフィック予測、コスト最適化',
+      dependencies: ['types', 'deploy_config', 'graph_core'],
+      provides: ['ScalingEngine', 'LoadBalancer', 'AutoScaler', 'PredictiveScaler'],
+      status: 'pending',
+      build_order: 19,
+    },
+
+    // Hosting Server 層
     'deploy_hosting_server': {
       name: 'deploy_hosting_server',
       path: 'src/deploy/hosting_server.rs',
       type: 'deploy',
       description: 'ホスティングサーバーの実装 - デプロイされたアプリをホスト',
-      dependencies: ['deploy_controller', 'http_server', 'frontend_framework', 'graph_core', 'execution_engine', 'storage_mvcc', 'storage_merkle'],
+      dependencies: ['deploy_controller_core', 'http_server', 'frontend_framework', 'graph_core', 'execution_engine', 'storage_mvcc', 'storage_merkle'],
       provides: ['HostingServer', 'AppHost', 'RuntimeManager'],
       status: 'completed',
-      build_order: 17,
+      build_order: 20,
     },
 
     'deploy_hosting_manager': {
@@ -1468,6 +1528,50 @@
     { from: 'ai_chains', to: 'lib' },
 
     // ==========================================
+    // Deploy拡張機能の依存関係
+    // ==========================================
+
+    // CLI拡張の依存関係
+    { from: 'types', to: 'deploy_cli_core' },
+    { from: 'deploy_controller', to: 'deploy_cli_core' },
+    { from: 'http_server', to: 'deploy_cli_core' },
+    { from: 'deploy_cli_core', to: 'deploy_cli_binary' },
+    { from: 'deploy_controller', to: 'deploy_cli_binary' },
+    { from: 'deploy_scaling', to: 'deploy_cli_binary' },
+    { from: 'deploy_network', to: 'deploy_cli_binary' },
+    { from: 'deploy_runtime', to: 'deploy_cli_binary' },
+
+    // コントローラー拡張の依存関係
+    { from: 'types', to: 'deploy_controller_core' },
+    { from: 'deploy_config', to: 'deploy_controller_core' },
+    { from: 'deploy_scaling', to: 'deploy_controller_core' },
+    { from: 'deploy_network', to: 'deploy_controller_core' },
+    { from: 'deploy_git_integration', to: 'deploy_controller_core' },
+    { from: 'graph_core', to: 'deploy_controller_core' },
+    { from: 'rewrite_engine', to: 'deploy_controller_core' },
+
+    // ネットワーク拡張の依存関係
+    { from: 'types', to: 'deploy_network_core' },
+    { from: 'deploy_config', to: 'deploy_network_core' },
+    { from: 'deploy_scaling', to: 'deploy_network_core' },
+
+    // スケーリング拡張の依存関係（準備中）
+    { from: 'types', to: 'deploy_scaling_core' },
+    { from: 'deploy_config', to: 'deploy_scaling_core' },
+    { from: 'graph_core', to: 'deploy_scaling_core' },
+
+    // Hosting Serverの更新された依存関係
+    { from: 'deploy_controller_core', to: 'deploy_hosting_server' },
+    { from: 'deploy_controller_core', to: 'deploy_hosting_manager' },
+
+    // CLI拡張の統合
+    { from: 'deploy_cli_core', to: 'lib' },
+    { from: 'deploy_cli_binary', to: 'lib' },
+    { from: 'deploy_controller_core', to: 'lib' },
+    { from: 'deploy_network_core', to: 'lib' },
+    { from: 'deploy_scaling_core', to: 'lib' },
+
+    // ==========================================
     // 新規クレートの依存関係
     // ==========================================
 
@@ -1581,6 +1685,14 @@
     'http_server',
     'deploy_cli',
     'deploy_runtime',
+    // Deploy拡張機能
+    'deploy_cli_core',
+    'deploy_controller_core',
+    'deploy_network_core',
+    'deploy_scaling_core',
+    'deploy_cli_binary',
+    'deploy_hosting_server',
+    'deploy_hosting_manager',
     'lib',
     'example_frontend_app',
     'example_http_server',
@@ -1588,8 +1700,6 @@
     'example_tauri_react_app',
     'deploy_example_simple',
     'deploy_example_microservices',
-    'deploy_hosting_server',
-    'deploy_hosting_manager',
     'deploy_hosting_example',
     'ai_agent_parser',
     'ai_runtime',
@@ -1615,6 +1725,11 @@
     'deploy_hosting_example',
     'deploy_hosting_manager',
     'deploy_hosting_server',
+    'deploy_cli_binary',
+    'deploy_scaling_core',
+    'deploy_network_core',
+    'deploy_controller_core',
+    'deploy_cli_core',
     'deploy_example_microservices',
     'deploy_example_simple',
     'example_tauri_react_app',
@@ -1652,7 +1767,6 @@
     'kubernetes_operator',
     'activity_libraries',
     'workflow_designer',
-    'kotoba_lsp',
     'rewrite_engine',
     'planner_optimizer',
     'rewrite_applier',

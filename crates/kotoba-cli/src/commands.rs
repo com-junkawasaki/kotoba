@@ -85,9 +85,9 @@ pub async fn compile_file(
     }
 
     let output_path_buf = output_path.unwrap_or_else(|| {
-        let mut output = input_path.to_path_buf();
-        output.set_extension("compiled");
-        output
+        let mut path = input_path.to_path_buf();
+        path.set_extension("compiled");
+        path
     });
 
     println!("Output: {}", output_path_buf.display());

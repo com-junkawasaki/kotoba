@@ -14,6 +14,7 @@ use chrono::{DateTime, Utc};
 use reqwest::Client;
 use governor::{Quota, RateLimiter, clock::DefaultClock, state::{InMemoryState, NotKeyed}};
 use moka::future::Cache;
+use dashmap::DashMap;
 use url::Url;
 use base64::{Engine as _, engine::general_purpose};
 use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
@@ -105,17 +106,51 @@ pub struct SslConfig {
     pub domains: Vec<String>,
 }
 
+/// ヘルスチェック設定
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthCheckConfig {
+    /// チェック間隔（秒）
+    pub interval_seconds: u64,
+    /// タイムアウト（秒）
+    pub timeout_seconds: u64,
+    /// 成功判定のための連続成功回数
+    pub success_threshold: u32,
+    /// 失敗判定のための連続失敗回数
+    pub failure_threshold: u32,
+    /// HTTPステータスコード
+    pub expected_status_codes: Vec<u16>,
+    /// ヘルスチェックURL
+    pub url: String,
+}
+
+/// ヘルスチェック結果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthCheckResult {
+    pub last_check: SystemTime,
+    pub is_healthy: bool,
+    pub consecutive_successes: u32,
+    pub consecutive_failures: u32,
+    pub last_error: Option<String>,
+    pub response_time_ms: u64,
+}
+
 /// セキュリティマネージャー
 #[derive(Debug)]
 pub struct SecurityManager {
     /// セキュリティ設定
     config: SecurityConfig,
+    /// HTTPクライアント
+    http_client: Client,
     /// レートリミッター
     rate_limiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
     /// IPブロックキャッシュ
     blocked_ips: Cache<String, SystemTime>,
     /// レートリミットキャッシュ
     rate_limit_cache: Cache<String, u32>,
+    /// ヘルスチェック設定
+    health_checks: Arc<DashMap<String, HealthCheckConfig>>,
+    /// ヘルスチェック結果
+    health_results: Arc<DashMap<String, HealthCheckResult>>,
 }
 
 /// キャッシュ設定
@@ -151,20 +186,6 @@ pub struct GeoManager {
     geo_cache: Cache<String, GeoLocation>,
 }
 
-impl GeoManager {
-    /// 新しい地理情報マネージャーを作成
-    pub fn new(geo_db_path: Option<PathBuf>) -> Self {
-        let geo_cache = Cache::builder()
-            .max_capacity(100000)
-            .time_to_live(Duration::from_secs(3600)) // 1時間TTL
-            .build();
-
-        Self {
-            geo_db_path,
-            geo_cache,
-        }
-    }
-}
 
 /// エッジ最適化マネージャー
 #[derive(Debug)]
@@ -443,9 +464,12 @@ impl SecurityManager {
 
         Self {
             config,
+            http_client: Client::new(),
             rate_limiter,
             blocked_ips,
             rate_limit_cache,
+            health_checks: Arc::new(DashMap::new()),
+            health_results: Arc::new(DashMap::new()),
         }
     }
 
@@ -471,7 +495,8 @@ impl SecurityManager {
 
         // レートリミットチェック
         if self.config.rate_limiting_enabled {
-            if self.rate_limiter.check_n(1).is_err() {
+            use std::num::NonZeroU32;
+            if self.rate_limiter.check_n(NonZeroU32::new(1).unwrap()).is_err() {
                 // レートリミットを超えた場合、ブロック
                 let block_until = SystemTime::now() + Duration::from_secs(self.config.rate_limit.block_duration_seconds);
                 self.blocked_ips.insert(ip.to_string(), block_until).await;
@@ -587,6 +612,97 @@ impl SecurityManager {
 
         Ok(true)
     }
+
+    /// ヘルスチェック設定を登録
+    pub fn register_health_check(&self, deployment_id: &str, config: HealthCheckConfig) {
+        self.health_checks.insert(deployment_id.to_string(), config);
+
+        // 初期結果
+        let initial_result = HealthCheckResult {
+            last_check: SystemTime::now(),
+            is_healthy: false,
+            consecutive_successes: 0,
+            consecutive_failures: 0,
+            last_error: None,
+            response_time_ms: 0,
+        };
+
+        self.health_results.insert(deployment_id.to_string(), initial_result);
+    }
+
+    /// ヘルスチェックを実行
+    pub async fn perform_health_check(&self, deployment_id: &str) -> Result<bool> {
+        let config = self.health_checks
+            .get(deployment_id)
+            .ok_or_else(|| KotobaError::InvalidArgument("Health check config not found".to_string()))?;
+
+        let start_time = SystemTime::now();
+
+        let result = match self.http_client
+            .get(&config.url)
+            .timeout(Duration::from_secs(config.timeout_seconds))
+            .send()
+            .await
+        {
+            Ok(response) => {
+                let status_code = response.status().as_u16();
+                let is_success = config.expected_status_codes.contains(&status_code);
+
+                HealthCheckResult {
+                    last_check: SystemTime::now(),
+                    is_healthy: is_success,
+                    consecutive_successes: if is_success { 1 } else { 0 },
+                    consecutive_failures: if !is_success { 1 } else { 0 },
+                    last_error: if !is_success {
+                        Some(format!("Unexpected status code: {}", status_code))
+                    } else {
+                        None
+                    },
+                    response_time_ms: start_time.elapsed().unwrap_or_default().as_millis() as u64,
+                }
+            }
+            Err(e) => {
+                HealthCheckResult {
+                    last_check: SystemTime::now(),
+                    is_healthy: false,
+                    consecutive_successes: 0,
+                    consecutive_failures: 1,
+                    last_error: Some(e.to_string()),
+                    response_time_ms: start_time.elapsed().unwrap_or_default().as_millis() as u64,
+                }
+            }
+        };
+
+        // 結果を更新（連続成功/失敗を考慮）
+        if let Some(mut existing_result) = self.health_results.get_mut(deployment_id) {
+            if result.is_healthy {
+                existing_result.consecutive_successes += 1;
+                existing_result.consecutive_failures = 0;
+            } else {
+                existing_result.consecutive_failures += 1;
+                existing_result.consecutive_successes = 0;
+            }
+
+            existing_result.last_check = result.last_check;
+            existing_result.is_healthy = existing_result.consecutive_successes >= config.success_threshold;
+            existing_result.last_error = result.last_error;
+            existing_result.response_time_ms = result.response_time_ms;
+        } else {
+            self.health_results.insert(deployment_id.to_string(), result);
+        }
+
+        let final_result = self.health_results
+            .get(deployment_id)
+            .map(|r| r.is_healthy)
+            .unwrap_or(false);
+
+        Ok(final_result)
+    }
+
+    /// ヘルスチェック結果を取得
+    pub fn get_health_result(&self, deployment_id: &str) -> Option<HealthCheckResult> {
+        self.health_results.get(deployment_id).map(|r| r.clone())
+    }
 }
 
 /// WAF判定結果
@@ -638,7 +754,7 @@ impl GeoManager {
     fn lookup_geoip_database(&self, ip: &str, _db_path: &PathBuf) -> Result<GeoLocation> {
         // TODO: maxminddbクレートを使用した実際の実装
         println!("📍 Looking up IP in GeoIP database: {}", ip);
-        self.simple_geo_lookup(ip)
+        Ok(self.simple_geo_lookup(ip))
     }
 
     /// 簡易的な地理情報ルックアップ
@@ -1219,197 +1335,6 @@ impl NetworkManager {
             last_checked: SystemTime::now(),
         })
     }
-}
-
-impl Default for NetworkManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RegionManager {
-    /// 新しいリージョンマネージャーを作成
-    pub fn new() -> Self {
-        Self {
-            regions: Arc::new(RwLock::new(HashMap::new())),
-            connectivity_matrix: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    /// リージョンを追加
-    pub async fn add_region(&mut self, region: RegionInfo) -> Result<()> {
-        let mut regions = self.regions.write().unwrap();
-        regions.insert(region.id.clone(), region);
-        Ok(())
-    }
-
-    /// 最適なリージョンを選択
-    pub async fn select_optimal_region(&self, client_location: &GeoLocation) -> Result<String> {
-        let regions = self.regions.read().unwrap();
-
-        let mut best_region = None;
-        let mut best_distance = f64::INFINITY;
-
-        for (id, region) in regions.iter() {
-            if region.status != RegionStatus::Active {
-                continue;
-            }
-
-            // 簡易的な距離計算（実際にはより正確な計算が必要）
-            let distance = ((region.geography.latitude - client_location.latitude).powi(2) +
-                           (region.geography.longitude - client_location.longitude).powi(2)).sqrt();
-
-            if distance < best_distance {
-                best_distance = distance;
-                best_region = Some(id.clone());
-            }
-        }
-
-        best_region.ok_or_else(|| KotobaError::InvalidArgument("No suitable region found".to_string()))
-    }
-
-    /// ヘルスチェック
-    pub async fn check_health(&self) -> Result<HashMap<String, HealthStatus>> {
-        let regions = self.regions.read().unwrap();
-        let mut health_status = HashMap::new();
-
-        for (id, region) in regions.iter() {
-            let status = if region.status == RegionStatus::Active && region.utilization < 0.9 {
-                HealthStatus::Healthy
-            } else if region.status == RegionStatus::Degraded || region.utilization >= 0.9 {
-                HealthStatus::Warning
-            } else {
-                HealthStatus::Unhealthy
-            };
-
-            health_status.insert(id.clone(), status);
-        }
-
-        Ok(health_status)
-    }
-}
-
-impl EdgeRouter {
-    /// 新しいエッジルーターを作成
-    pub fn new() -> Self {
-        Self {
-            edge_locations: Arc::new(RwLock::new(HashMap::new())),
-            routing_table: Arc::new(RwLock::new(HashMap::new())),
-            geo_routing_enabled: true,
-        }
-    }
-
-    /// エッジロケーションを追加
-    pub async fn add_edge_location(&mut self, location: EdgeLocation) -> Result<()> {
-        let mut locations = self.edge_locations.write().unwrap();
-        locations.insert(location.id.clone(), location);
-        Ok(())
-    }
-
-    /// リクエストをルーティング
-    pub async fn route_request(&self, client_ip: &str, domain: &str) -> Result<String> {
-        // 簡易的な地理的ルーティング
-        // TODO: 実際のIP地理位置変換を実装
-        let client_location = GeoLocation {
-            latitude: 35.6762,  // Tokyo
-            longitude: 139.6503,
-            city: "Tokyo".to_string(),
-            country: "Japan".to_string(),
-        };
-
-        self.select_edge_location(&client_location, domain).await
-    }
-
-    /// エッジロケーションを選択
-    pub async fn select_edge_location(&self, client_location: &GeoLocation, domain: &str) -> Result<String> {
-        let locations = self.edge_locations.read().unwrap();
-
-        let mut best_location = None;
-        let mut best_distance = f64::INFINITY;
-
-        for (id, location) in locations.iter() {
-            if location.status != EdgeStatus::Online {
-                continue;
-            }
-
-            // 距離計算
-            let distance = ((location.latitude - client_location.latitude).powi(2) +
-                           (location.longitude - client_location.longitude).powi(2)).sqrt();
-
-            if distance < best_distance {
-                best_distance = distance;
-                best_location = Some(id.clone());
-            }
-        }
-
-        best_location.ok_or_else(|| KotobaError::InvalidArgument("No suitable edge location found".to_string()))
-    }
-
-    /// ヘルスチェック
-    pub async fn check_health(&self) -> Result<HashMap<String, HealthStatus>> {
-        let locations = self.edge_locations.read().unwrap();
-        let mut health_status = HashMap::new();
-
-        for (id, location) in locations.iter() {
-            let status = if location.status == EdgeStatus::Online && location.utilization < 0.9 {
-                HealthStatus::Healthy
-            } else if location.status == EdgeStatus::Degraded || location.utilization >= 0.9 {
-                HealthStatus::Warning
-            } else {
-                HealthStatus::Unhealthy
-            };
-
-            health_status.insert(id.clone(), status);
-        }
-
-        Ok(health_status)
-    }
-}
-
-impl DnsManager {
-    /// 新しいDNSマネージャーを作成
-    pub fn new() -> Self {
-        Self {
-            records: Arc::new(RwLock::new(HashMap::new())),
-            cdn_config: None,
-        }
-    }
-
-    /// DNSレコードを追加
-    pub async fn add_record(&mut self, record: DnsRecord) -> Result<()> {
-        let mut records = self.records.write().unwrap();
-        records.insert(record.domain.clone(), record);
-        Ok(())
-    }
-
-    /// CDN設定を設定
-    pub async fn set_cdn_config(&mut self, cdn_config: CdnConfig) -> Result<()> {
-        self.cdn_config = Some(cdn_config);
-        Ok(())
-    }
-
-    /// ドメインを追加
-    pub async fn add_domain(&self, domain: &str) -> Result<()> {
-        // 簡易的なDNSレコード作成
-        let record = DnsRecord {
-            domain: domain.to_string(),
-            record_type: RecordType::A,
-            value: "127.0.0.1".to_string(), // TODO: 実際のIPを設定
-            ttl: 300,
-            last_updated: SystemTime::now(),
-        };
-
-        let mut records = self.records.write().unwrap();
-        records.insert(domain.to_string(), record);
-        Ok(())
-    }
-
-    /// ヘルスチェック
-    pub async fn check_health(&self) -> Result<HealthStatus> {
-        // DNSサービスのヘルスチェック
-        // TODO: 実際のDNSクエリを実装
-        Ok(HealthStatus::Healthy)
-    }
 
     // ===== CDN・セキュリティ・最適化拡張機能 =====
 
@@ -1617,6 +1542,203 @@ impl DnsManager {
         self.optimize_request(request).await?;
 
         Ok(NetworkProcessResult::Allowed)
+    }
+}
+
+impl Default for NetworkManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RegionManager {
+    /// 新しいリージョンマネージャーを作成
+    pub fn new() -> Self {
+        Self {
+            regions: Arc::new(RwLock::new(HashMap::new())),
+            connectivity_matrix: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// リージョンを追加
+    pub async fn add_region(&mut self, region: RegionInfo) -> Result<()> {
+        let mut regions = self.regions.write().unwrap();
+        regions.insert(region.id.clone(), region);
+        Ok(())
+    }
+
+    /// 最適なリージョンを選択
+    pub async fn select_optimal_region(&self, client_location: &GeoLocation) -> Result<String> {
+        let regions = self.regions.read().unwrap();
+
+        let mut best_region = None;
+        let mut best_distance = f64::INFINITY;
+
+        for (id, region) in regions.iter() {
+            if region.status != RegionStatus::Active {
+                continue;
+            }
+
+            // 簡易的な距離計算（実際にはより正確な計算が必要）
+            let distance = ((region.geography.latitude - client_location.latitude).powi(2) +
+                           (region.geography.longitude - client_location.longitude).powi(2)).sqrt();
+
+            if distance < best_distance {
+                best_distance = distance;
+                best_region = Some(id.clone());
+            }
+        }
+
+        best_region.ok_or_else(|| KotobaError::InvalidArgument("No suitable region found".to_string()))
+    }
+
+    /// ヘルスチェック
+    pub async fn check_health(&self) -> Result<HashMap<String, HealthStatus>> {
+        let regions = self.regions.read().unwrap();
+        let mut health_status = HashMap::new();
+
+        for (id, region) in regions.iter() {
+            let status = if region.status == RegionStatus::Active && region.utilization < 0.9 {
+                HealthStatus::Healthy
+            } else if region.status == RegionStatus::Degraded || region.utilization >= 0.9 {
+                HealthStatus::Warning
+            } else {
+                HealthStatus::Unhealthy
+            };
+
+            health_status.insert(id.clone(), status);
+        }
+
+        Ok(health_status)
+    }
+}
+
+impl EdgeRouter {
+    /// 新しいエッジルーターを作成
+    pub fn new() -> Self {
+        Self {
+            edge_locations: Arc::new(RwLock::new(HashMap::new())),
+            routing_table: Arc::new(RwLock::new(HashMap::new())),
+            geo_routing_enabled: true,
+        }
+    }
+
+    /// エッジロケーションを追加
+    pub async fn add_edge_location(&mut self, location: EdgeLocation) -> Result<()> {
+        let mut locations = self.edge_locations.write().unwrap();
+        locations.insert(location.id.clone(), location);
+        Ok(())
+    }
+
+    /// リクエストをルーティング
+    pub async fn route_request(&self, client_ip: &str, domain: &str) -> Result<String> {
+        // 簡易的な地理的ルーティング
+        // TODO: 実際のIP地理位置変換を実装
+        let client_location = GeoLocation {
+            latitude: 35.6762,  // Tokyo
+            longitude: 139.6503,
+            city: "Tokyo".to_string(),
+            country: "Japan".to_string(),
+        };
+
+        self.select_edge_location(&client_location, domain).await
+    }
+
+    /// エッジロケーションを選択
+    pub async fn select_edge_location(&self, client_location: &GeoLocation, domain: &str) -> Result<String> {
+        let locations = self.edge_locations.read().unwrap();
+
+        let mut best_location = None;
+        let mut best_distance = f64::INFINITY;
+
+        for (id, location) in locations.iter() {
+            if location.status != EdgeStatus::Online {
+                continue;
+            }
+
+            // 距離計算
+            let distance = ((location.latitude - client_location.latitude).powi(2) +
+                           (location.longitude - client_location.longitude).powi(2)).sqrt();
+
+            if distance < best_distance {
+                best_distance = distance;
+                best_location = Some(id.clone());
+            }
+        }
+
+        best_location.ok_or_else(|| KotobaError::InvalidArgument("No suitable edge location found".to_string()))
+    }
+
+    /// ヘルスチェック
+    pub async fn check_health(&self) -> Result<HashMap<String, HealthStatus>> {
+        let locations = self.edge_locations.read().unwrap();
+        let mut health_status = HashMap::new();
+
+        for (id, location) in locations.iter() {
+            let status = if location.status == EdgeStatus::Online && location.utilization < 0.9 {
+                HealthStatus::Healthy
+            } else if location.status == EdgeStatus::Degraded || location.utilization >= 0.9 {
+                HealthStatus::Warning
+            } else {
+                HealthStatus::Unhealthy
+            };
+
+            health_status.insert(id.clone(), status);
+        }
+
+        Ok(health_status)
+    }
+
+    /// エッジロケーションを取得
+    pub fn get_edge_locations(&self) -> Vec<EdgeLocation> {
+        let locations = self.edge_locations.read().unwrap();
+        locations.values().cloned().collect()
+    }
+}
+
+impl DnsManager {
+    /// 新しいDNSマネージャーを作成
+    pub fn new() -> Self {
+        Self {
+            records: Arc::new(RwLock::new(HashMap::new())),
+            cdn_config: None,
+        }
+    }
+
+    /// DNSレコードを追加
+    pub async fn add_record(&mut self, record: DnsRecord) -> Result<()> {
+        let mut records = self.records.write().unwrap();
+        records.insert(record.domain.clone(), record);
+        Ok(())
+    }
+
+    /// CDN設定を設定
+    pub async fn set_cdn_config(&mut self, cdn_config: CdnConfig) -> Result<()> {
+        self.cdn_config = Some(cdn_config);
+        Ok(())
+    }
+
+    /// ドメインを追加
+    pub async fn add_domain(&self, domain: &str) -> Result<()> {
+        // 簡易的なDNSレコード作成
+        let record = DnsRecord {
+            domain: domain.to_string(),
+            record_type: RecordType::A,
+            value: "127.0.0.1".to_string(), // TODO: 実際のIPを設定
+            ttl: 300,
+            last_updated: SystemTime::now(),
+        };
+
+        let mut records = self.records.write().unwrap();
+        records.insert(domain.to_string(), record);
+        Ok(())
+    }
+
+    /// ヘルスチェック
+    pub async fn check_health(&self) -> Result<HealthStatus> {
+        // DNSサービスのヘルスチェック
+        // TODO: 実際のDNSクエリを実装
+        Ok(HealthStatus::Healthy)
     }
 }
 
