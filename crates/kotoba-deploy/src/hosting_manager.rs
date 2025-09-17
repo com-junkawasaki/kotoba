@@ -361,7 +361,7 @@ impl HostingManager {
         for (deployment_id, lifecycle) in deployments {
             if lifecycle.phase == LifecyclePhase::Running {
                 // ランタイムのヘルスチェック
-                self.runtime_manager.runtime.health_check().await?;
+                self.runtime_manager.runtime().health_check().await?;
             }
         }
 

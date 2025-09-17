@@ -158,8 +158,13 @@ impl DeployRuntime {
         func_name: &str,
         _params: &[i32], // 簡易版ではi32パラメータのみ
     ) -> Result<Vec<i32>> {
-        let instances = self.instances.read().unwrap();
-        if let Some(_wasm_instance) = instances.get(instance_id) {
+        // Check if instance exists (release read guard before await)
+        let instance_exists = {
+            let instances = self.instances.read().unwrap();
+            instances.contains_key(instance_id)
+        };
+
+        if instance_exists {
             // WASM関数のシミュレーション実行
             let start_time = SystemTime::now();
             tokio::time::sleep(Duration::from_millis(50)).await;

@@ -154,32 +154,46 @@ impl HostingServer {
         body: Option<&[u8]>,
     ) -> Result<Vec<u8>> {
         // ドメインからアプリケーションを検索
-        let apps = self.hosted_apps.read().unwrap();
-        let app = apps.values()
-            .find(|a| a.domain == domain)
-            .ok_or_else(|| {
-                kotoba_core::types::KotobaError::InvalidArgument(format!("No application found for domain {}", domain))
-            })?;
+        let app_id = {
+            let apps = self.hosted_apps.read().unwrap();
+            apps.values()
+                .find(|a| a.domain == domain)
+                .map(|a| a.id.clone())
+                .ok_or_else(|| {
+                    kotoba_core::types::KotobaError::InvalidArgument(format!("No application found for domain {}", domain))
+                })?
+        };
 
-        // アクセスを記録
-        drop(apps);
-        let mut apps = self.hosted_apps.write().unwrap();
-        if let Some(app) = apps.get_mut(&app.id) {
-            app.last_access = SystemTime::now();
-            app.request_count += 1;
+        // アクセスを記録し、アプリケーションデータを取得
+        let app_data = {
+            let mut apps = self.hosted_apps.write().unwrap();
+            if let Some(app) = apps.get_mut(&app_id) {
+                app.last_access = SystemTime::now();
+                app.request_count += 1;
+                Some((app.instance_id.clone(), app.deployment_id.clone()))
+            } else {
+                None
+            }
+        };
+
+        match app_data {
+            Some((instance_id, deployment_id)) => {
+                // ランタイムでリクエストを処理 (簡易実装)
+                let params = vec![path.len() as i32];
+                let _result = self.runtime_manager.call(&instance_id, "handle_request", &params).await?;
+
+                // レスポンスを構築
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello from {} at {}",
+                    deployment_id, path
+                );
+                Ok(response.into_bytes())
+            }
+            None => {
+                let response = "HTTP/1.1 404 Not Found\r\n\r\nApplication not found\r\n".to_string();
+                Ok(response.into_bytes())
+            }
         }
-
-        // ランタイムでリクエストを処理 (簡易実装)
-        let params = vec![path.len() as i32];
-        let result = self.runtime_manager.call(&app.instance_id, "handle_request", &params).await?;
-
-        // レスポンスを構築
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello from {} at {}",
-            app.deployment_id, path
-        );
-
-        Ok(response.into_bytes())
     }
 
     /// サーバーを開始
@@ -272,11 +286,13 @@ async fn process_http_request(
         }
     }
 
-    // アプリケーションを検索
-    let apps = hosted_apps.read().unwrap();
-    let app = apps.values().find(|a| a.domain == host);
+    // アプリケーションを検索 (Read guardをawait前に解放)
+    let app_data = {
+        let apps = hosted_apps.read().unwrap();
+        apps.values().find(|a| a.domain == host).cloned()
+    };
 
-    match app {
+    match app_data {
         Some(app) => {
             // ランタイムでリクエストを処理 (簡易実装)
             let params = vec![path.len() as i32];
