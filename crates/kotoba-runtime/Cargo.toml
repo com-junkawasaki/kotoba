@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kotoba-kotobanet = { path = "../kotoba-kotobanet" }
+kotoba-kotobas = { path = "../kotoba-kotobas" }
 kotoba-cli = { path = "../kotoba-cli" }
 # kotoba-server = { path = "../kotoba-server" } # TODO: Add back when deploy issues are fixed
 kotoba2tsx = { path = "../kotoba2tsx" }

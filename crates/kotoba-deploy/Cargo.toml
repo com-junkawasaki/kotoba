@@ -22,7 +22,7 @@ kotoba-graph = { path = "../kotoba-graph", version = "0.1.15" }
 kotoba-storage = { path = "../kotoba-storage", version = "0.1.15" }
 kotoba-execution = { path = "../kotoba-execution", version = "0.1.15" }
 kotoba-rewrite = { path = "../kotoba-rewrite", version = "0.1.15" }
-# kotoba-kotobanet.workspace = true  # Optional for now due to stability
+# kotoba-kotobas.workspace = true  # Optional for now due to stability
 
 # External dependencies
 serde = { workspace = true, features = ["derive"] }

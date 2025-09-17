@@ -1,6 +1,6 @@
 //! HTTP設定ファイルパーサー
 //!
-//! kotoba-kotobanet を使用して .kotoba.json と .kotoba ファイルのパースを担当します。
+//! kotoba-kotobas を使用して .kotoba.json と .kotoba ファイルのパースを担当します。
 
 use kotoba_core::types::{ContentHash, Result, KotobaError};
 use crate::http::ir::*;
@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 
 /// HTTP設定パーサー
 ///
-/// kotoba-kotobanet::HttpParser を使用して HTTP 設定をパースします。
+/// kotoba-kotobas::HttpParser を使用して HTTP 設定をパースします。
 pub struct HttpConfigParser;
 
 impl HttpConfigParser {
@@ -40,23 +40,23 @@ impl HttpConfigParser {
         let content = fs::read_to_string(path)
             .map_err(|e| KotobaError::IoError(format!("Failed to read config file: {}", e)))?;
 
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(HttpConfig::new(ServerConfig::default()))
     }
 
     /// .kotobaファイルをパース（Jsonnet形式）
     pub fn parse_kotoba_file<P: AsRef<Path>>(path: P) -> Result<HttpConfig> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(HttpConfig::new(ServerConfig::default()))
     }
 
-    /// kotoba-kotobanet::HttpConfig を Kotoba の HttpConfig に変換
+    /// kotoba-kotobas::HttpConfig を Kotoba の HttpConfig に変換
     fn convert_from_kotobanet_config(_kotobanet_config: serde_json::Value) -> Result<HttpConfig> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(HttpConfig::new(ServerConfig::default()))
     }
 
-    /// kotoba-kotobanet::ServerConfig を変換
+    /// kotoba-kotobas::ServerConfig を変換
     fn convert_server_config(kotobanet_config: &serde_json::Value) -> Result<ServerConfig> {
         let host = kotobanet_config
             .get("host")
@@ -94,9 +94,9 @@ impl HttpConfigParser {
         })
     }
 
-    /// kotoba-kotobanet::HttpRouteConfig を HttpRoute に変換
+    /// kotoba-kotobas::HttpRouteConfig を HttpRoute に変換
     fn convert_route(_route: serde_json::Value) -> Result<HttpRoute> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(HttpRoute::new(
             "default".to_string(),
             HttpMethod::GET,

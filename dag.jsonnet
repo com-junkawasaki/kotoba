@@ -551,7 +551,7 @@
 
     'kotobanet_error': {
       name: 'kotobanet_error',
-      path: 'crates/kotoba-kotobanet/src/error.rs',
+      path: 'crates/kotoba-kotobas/src/error.rs',
       type: 'kotobanet',
       description: 'Kotoba Kotobanet エラー定義',
       dependencies: [],
@@ -562,7 +562,7 @@
 
     'kotobanet_http_parser': {
       name: 'kotobanet_http_parser',
-      path: 'crates/kotoba-kotobanet/src/http_parser.rs',
+      path: 'crates/kotoba-kotobas/src/http_parser.rs',
       type: 'kotobanet',
       description: 'HTTP Parser for .kotoba.json configuration files',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
@@ -573,7 +573,7 @@
 
     'kotobanet_frontend': {
       name: 'kotobanet_frontend',
-      path: 'crates/kotoba-kotobanet/src/frontend.rs',
+      path: 'crates/kotoba-kotobas/src/frontend.rs',
       type: 'kotobanet',
       description: 'Frontend Framework for React component definitions',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
@@ -584,7 +584,7 @@
 
     'kotobanet_deploy': {
       name: 'kotobanet_deploy',
-      path: 'crates/kotoba-kotobanet/src/deploy.rs',
+      path: 'crates/kotoba-kotobas/src/deploy.rs',
       type: 'kotobanet',
       description: 'Deploy Configuration for deployment settings',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
@@ -595,7 +595,7 @@
 
     'kotobanet_config': {
       name: 'kotobanet_config',
-      path: 'crates/kotoba-kotobanet/src/config.rs',
+      path: 'crates/kotoba-kotobas/src/config.rs',
       type: 'kotobanet',
       description: 'General configuration management',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
@@ -606,7 +606,7 @@
 
     'kotobanet_core': {
       name: 'kotobanet_core',
-      path: 'crates/kotoba-kotobanet/src/lib.rs',
+      path: 'crates/kotoba-kotobas/src/lib.rs',
       type: 'kotobanet',
       description: 'Kotoba Kotobanet コアAPI - evaluate_kotoba(), HTTP/Frontend/Deploy/Config パーサー統合',
       dependencies: ['kotobanet_error', 'kotobanet_http_parser', 'kotobanet_frontend', 'kotobanet_deploy', 'kotobanet_config', 'jsonnet_core'],
@@ -1611,7 +1611,7 @@
       status: 'fully_compatible',
     },
     kotobanet_extensions: {
-      crate: 'kotoba-kotobanet',
+      crate: 'kotoba-kotobas',
       description: 'Kotoba-specific Jsonnet extensions',
       components: [
         {

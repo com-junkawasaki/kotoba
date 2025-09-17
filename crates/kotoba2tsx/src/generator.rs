@@ -118,8 +118,8 @@ impl TsxGenerator {
         Ok(())
     }
 
-    /// Generate TSX code from kotoba-kotobanet FrontendConfig
-    pub fn generate_tsx_from_frontend_config(&self, frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<String> {
+    /// Generate TSX code from kotoba-kotobas FrontendConfig
+    pub fn generate_tsx_from_frontend_config(&self, frontend_config: &kotoba_kotobas::frontend::FrontendConfig) -> Result<String> {
         let mut imports = Vec::new();
         let mut component_codes = Vec::new();
         let mut interfaces = Vec::new();
@@ -220,7 +220,7 @@ impl TsxGenerator {
     }
 
     /// Generate import statements from FrontendConfig
-    fn generate_imports_from_frontend_config(&self, config: &kotoba_kotobanet::frontend::FrontendConfig) -> Vec<ImportStatement> {
+    fn generate_imports_from_frontend_config(&self, config: &kotoba_kotobas::frontend::FrontendConfig) -> Vec<ImportStatement> {
         let mut imports = Vec::new();
 
         // React imports - use modern React import
@@ -285,7 +285,7 @@ impl TsxGenerator {
     }
 
     /// Generate a single component from Frontend ComponentDef
-    fn generate_component_from_frontend_def(&self, component: &kotoba_kotobanet::frontend::ComponentDef, frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<GeneratedComponent> {
+    fn generate_component_from_frontend_def(&self, component: &kotoba_kotobas::frontend::ComponentDef, frontend_config: &kotoba_kotobas::frontend::FrontendConfig) -> Result<GeneratedComponent> {
         let mut code = String::new();
 
         // Convert ComponentDef props to HashMap for interface generation
@@ -345,7 +345,7 @@ impl TsxGenerator {
     }
 
     /// Generate functional component from Frontend ComponentDef
-    fn generate_functional_component_from_frontend_def(&self, component: &kotoba_kotobanet::frontend::ComponentDef, _frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<String> {
+    fn generate_functional_component_from_frontend_def(&self, component: &kotoba_kotobas::frontend::ComponentDef, _frontend_config: &kotoba_kotobas::frontend::FrontendConfig) -> Result<String> {
         let mut code = String::new();
 
         // Component declaration
@@ -386,19 +386,19 @@ impl TsxGenerator {
     }
 
     /// Convert ComponentDef props to HashMap for interface generation
-    fn convert_component_props_to_hashmap(&self, props: &std::collections::HashMap<String, kotoba_kotobanet::frontend::PropDef>) -> std::collections::HashMap<String, serde_json::Value> {
+    fn convert_component_props_to_hashmap(&self, props: &std::collections::HashMap<String, kotoba_kotobas::frontend::PropDef>) -> std::collections::HashMap<String, serde_json::Value> {
         let mut result = std::collections::HashMap::new();
         for (key, prop_def) in props {
             // Convert PropType to string for interface generation
             let type_value = match prop_def.type_ {
-                kotoba_kotobanet::frontend::PropType::String => serde_json::Value::String("string".to_string()),
-                kotoba_kotobanet::frontend::PropType::Number => serde_json::Value::String("number".to_string()),
-                kotoba_kotobanet::frontend::PropType::Boolean => serde_json::Value::String("boolean".to_string()),
-                kotoba_kotobanet::frontend::PropType::Array => serde_json::Value::String("array".to_string()),
-                kotoba_kotobanet::frontend::PropType::Object => serde_json::Value::String("object".to_string()),
-                kotoba_kotobanet::frontend::PropType::Function => serde_json::Value::String("function".to_string()),
-                kotoba_kotobanet::frontend::PropType::Component => serde_json::Value::String("component".to_string()),
-                kotoba_kotobanet::frontend::PropType::Custom(ref s) => serde_json::Value::String(s.clone()),
+                kotoba_kotobas::frontend::PropType::String => serde_json::Value::String("string".to_string()),
+                kotoba_kotobas::frontend::PropType::Number => serde_json::Value::String("number".to_string()),
+                kotoba_kotobas::frontend::PropType::Boolean => serde_json::Value::String("boolean".to_string()),
+                kotoba_kotobas::frontend::PropType::Array => serde_json::Value::String("array".to_string()),
+                kotoba_kotobas::frontend::PropType::Object => serde_json::Value::String("object".to_string()),
+                kotoba_kotobas::frontend::PropType::Function => serde_json::Value::String("function".to_string()),
+                kotoba_kotobas::frontend::PropType::Component => serde_json::Value::String("component".to_string()),
+                kotoba_kotobas::frontend::PropType::Custom(ref s) => serde_json::Value::String(s.clone()),
             };
             result.insert(key.clone(), type_value);
         }
@@ -721,7 +721,7 @@ impl TsxGenerator {
 
 
     /// Generate API handler function
-    fn generate_api_handler(&self, api_route: &kotoba_kotobanet::frontend::ApiRouteDef) -> Result<String> {
+    fn generate_api_handler(&self, api_route: &kotoba_kotobas::frontend::ApiRouteDef) -> Result<String> {
         let mut code = String::new();
 
         code.push_str(&format!("const {} = async (params) => {{\n", api_route.handler));
@@ -742,7 +742,7 @@ impl TsxGenerator {
     }
 
     /// Generate main app component from FrontendConfig pages
-    fn generate_main_app_from_frontend_config(&self, frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> Result<String> {
+    fn generate_main_app_from_frontend_config(&self, frontend_config: &kotoba_kotobas::frontend::FrontendConfig) -> Result<String> {
         let mut code = String::new();
 
         code.push_str("const App: FC = () => {\n");

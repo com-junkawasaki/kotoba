@@ -1,6 +1,6 @@
 //! デプロイ設定ファイルパーサー
 //!
-//! kotoba-kotobanet を使用して .kotoba-deploy ファイルをパースします。
+//! kotoba-kotobas を使用して .kotoba-deploy ファイルをパースします。
 
 use kotoba_core::types::{Result, Value, ContentHash};
 use crate::config::{DeployConfig, DeployConfigBuilder};
@@ -10,7 +10,7 @@ use std::fs;
 
 /// デプロイ設定パーサー
 ///
-/// kotoba-kotobanet::DeployParser を使用してデプロイ設定をパースします。
+/// kotoba-kotobas::DeployParser を使用してデプロイ設定をパースします。
 pub struct DeployConfigParser;
 
 impl DeployConfigParser {
@@ -21,31 +21,31 @@ impl DeployConfigParser {
 
     /// 設定ファイルをパース
     pub fn parse<P: AsRef<Path>>(&self, path: P) -> Result<DeployConfig> {
-        // kotoba-kotobanet の DeployParser を使用 (コメントアウト due to stability issues)
+        // kotoba-kotobas の DeployParser を使用 (コメントアウト due to stability issues)
         // let deploy_config = KotobaNetDeployParser::parse_file(path)
         //     .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
         //         format!("Deploy config parsing failed: {}", e)
         //     ))?;
 
-        // kotoba-kotobanet::DeployConfig を Kotoba の DeployConfig に変換
+        // kotoba-kotobas::DeployConfig を Kotoba の DeployConfig に変換
         // Self::convert_from_kotobanet_config(deploy_config)
-        todo!("Implement deploy config parsing without kotoba-kotobanet")
+        todo!("Implement deploy config parsing without kotoba-kotobas")
     }
 
     /// JSON文字列から設定をパース
     pub fn parse_string(&self, content: &str) -> Result<DeployConfig> {
-        // kotoba-kotobanet の DeployParser を使用 (コメントアウト due to stability issues)
+        // kotoba-kotobas の DeployParser を使用 (コメントアウト due to stability issues)
         // let deploy_config = KotobaNetDeployParser::parse(content)
         //     .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
         //         format!("Deploy config parsing failed: {}", e)
         //     ))?;
 
-        // kotoba-kotobanet::DeployConfig を Kotoba の DeployConfig に変換
+        // kotoba-kotobas::DeployConfig を Kotoba の DeployConfig に変換
         // Self::convert_from_kotobanet_config(deploy_config)
-        todo!("Implement deploy config parsing without kotoba-kotobanet")
+        todo!("Implement deploy config parsing without kotoba-kotobas")
     }
 
-    // Commented out due to kotoba-kotobanet stability issues
+    // Commented out due to kotoba-kotobas stability issues
     // fn convert_from_kotobanet_config(kotobanet_config: kotoba_kotobanet::DeployConfig) -> Result<DeployConfig> {
     //     // 基本的な変換を行う（必要に応じて拡張）
     //     let mut builder = DeployConfigBuilder::new(

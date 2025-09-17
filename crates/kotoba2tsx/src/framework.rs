@@ -1,7 +1,7 @@
 //! App Routerフレームワークのコア実装
 //!
 //! Next.js風App Routerフレームワークの主要コンポーネントを実装します。
-//! kotoba-kotobanet を使用して Jsonnet ベースの設定ファイルをパースします。
+//! kotoba-kotobas を使用して Jsonnet ベースの設定ファイルをパースします。
 
 use kotoba_core::types::{Result, KotobaError, Value, Properties, ContentHash};
 use crate::component_ir::ExecutionEnvironment;
@@ -40,31 +40,31 @@ impl WebFramework {
 
     /// Jsonnet 設定ファイルをロード
     pub fn load_config<P: AsRef<std::path::Path>>(&mut self, _path: P) -> Result<()> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(())
     }
 
     /// Jsonnet 設定文字列をロード
     pub fn load_config_from_string(&mut self, _content: &str) -> Result<()> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(())
     }
 
     /// 設定からコンポーネントを初期化
     pub async fn initialize_from_config(&mut self) -> Result<()> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(())
     }
 
-    /// kotoba-kotobanet::ComponentDef を ComponentIR に変換
+    /// kotoba-kotobas::ComponentDef を ComponentIR に変換
     fn convert_component_def_to_ir(&self, name: &str, _def: &serde_json::Value) -> Result<ComponentIR> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(ComponentIR::new(name.to_string(), ComponentType::Server))
     }
 
-    /// kotoba-kotobanet::PageDef を RouteIR に変換
+    /// kotoba-kotobas::PageDef を RouteIR に変換
     fn convert_page_def_to_ir(&self, _def: &serde_json::Value) -> Result<RouteIR> {
-        // Stub implementation - kotoba-kotobanet not available
+        // Stub implementation - kotoba-kotobas not available
         Ok(RouteIR::new("/".to_string()))
     }
 

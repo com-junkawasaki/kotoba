@@ -57,7 +57,7 @@ kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }
 kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.15" }
 kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.15" }
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15" }
-kotoba-kotobanet = { path = "crates/kotoba-kotobanet", version = "0.1.0" }
+kotoba-kotobas = { path = "crates/kotoba-kotobas", version = "0.1.0" }
 kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
 kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
 kotoba2tsx = { path = "crates/kotoba2tsx", version = "0.1.15" }

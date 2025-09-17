@@ -1,11 +1,11 @@
 [package]
-name = "kotoba-kotobanet"
+name = "kotoba-kotobas"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Kotoba-specific Jsonnet extensions providing HTTP parsing, frontend framework integration, deployment configuration"
-keywords = ["jsonnet", "templating", "configuration", "frontend", "deploy", "infrastructure", "iac"]
+description = "KotobaScript - Declarative programming language for frontend applications, extending Jsonnet with React component definitions"
+keywords = ["jsonnet", "programming-language", "frontend", "react", "declarative", "typescript"]
 categories = ["config", "template-engine", "web-programming", "development-tools"]
 
 [dependencies]

@@ -184,7 +184,7 @@ Kotoba adopts a modular multi-crate architecture for maximum flexibility:
 ├── kotoba-execution/      # Query execution and planner
 ├── kotoba-rewrite/        # Graph rewriting engine
 ├── kotoba-server/         # HTTP server and handlers
-├── kotoba-kotobanet/      # Kotoba extensions for Jsonnet
+├── kotoba-kotobas/         # KotobaScript - Declarative programming language
 ├── kotoba2tsx/            # TypeScript/React code generation
 └── kotoba/                # Main integration crate
 ```

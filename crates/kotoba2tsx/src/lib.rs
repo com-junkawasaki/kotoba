@@ -62,14 +62,14 @@ pub fn convert_content(content: &str) -> crate::error::Result<String> {
     generator.generate_tsx(&config)
 }
 
-/// Convert kotoba-kotobanet FrontendConfig to TSX code string
+/// Convert kotoba-kotobas FrontendConfig to TSX code string
 ///
 /// # Arguments
-/// * `frontend_config` - The parsed FrontendConfig from kotoba-kotobanet
+/// * `frontend_config` - The parsed FrontendConfig from kotoba-kotobas
 ///
 /// # Returns
 /// Result<String, Kotoba2TSError> containing the generated TSX code
-pub fn convert_frontend_config(frontend_config: &kotoba_kotobanet::frontend::FrontendConfig) -> crate::error::Result<String> {
+pub fn convert_frontend_config(frontend_config: &kotoba_kotobas::frontend::FrontendConfig) -> crate::error::Result<String> {
     let generator = TsxGenerator::new();
     generator.generate_tsx_from_frontend_config(frontend_config)
 }

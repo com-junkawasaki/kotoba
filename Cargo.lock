@@ -2165,7 +2165,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-kotobanet"
+name = "kotoba-kotobas"
 version = "0.1.15"
 dependencies = [
  "anyhow",
@@ -2258,7 +2258,7 @@ dependencies = [
  "anyhow",
  "clap",
  "kotoba-cli",
- "kotoba-kotobanet",
+ "kotoba-kotobas",
  "kotoba2tsx",
  "serde_json",
  "tokio",
@@ -2376,7 +2376,7 @@ dependencies = [
  "js-sys",
  "jsonnet-rs",
  "kotoba-core",
- "kotoba-kotobanet",
+ "kotoba-kotobas",
  "parking_lot",
  "regex",
  "serde",

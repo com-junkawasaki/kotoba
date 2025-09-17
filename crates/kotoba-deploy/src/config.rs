@@ -2,7 +2,7 @@
 //!
 //! このモジュールはJsonnetベースの.kotoba-deployファイルの構造を定義します。
 //! Deno Deployと同等の機能をサポートしつつ、KotobaのLive Graph Modelに適応しています。
-//! kotoba-kotobanet を使用して一般設定も管理します。
+//! kotoba-kotobas を使用して一般設定も管理します。
 
 use kotoba_core::types::{Result, Value, ContentHash, KotobaError};
 // use kotoba_kotobanet::ConfigParser; // Commented out due to stability issues
@@ -528,7 +528,7 @@ mod tests {
 
 /// 一般アプリケーション設定管理
 ///
-/// kotoba-kotobanet::ConfigParser を使用して一般的な設定を管理します。
+/// kotoba-kotobas::ConfigParser を使用して一般的な設定を管理します。
 pub struct AppConfigManager;
 
 impl AppConfigManager {

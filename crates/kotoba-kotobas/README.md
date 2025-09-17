@@ -1,23 +1,23 @@
-# Kotoba Kotobanet
+# KotobaScript
 
-[![Crates.io](https://img.shields.io/crates/v/kotoba-kotobanet.svg)](https://crates.io/crates/kotoba-kotobanet)
-[![Documentation](https://docs.rs/kotoba-kotobanet/badge.svg)](https://docs.rs/kotoba-kotobanet)
-[![License](https://img.shields.io/crates/l/kotoba-kotobanet.svg)](https://github.com/jun784/kotoba)
+[![Crates.io](https://img.shields.io/crates/v/kotoba-kotobas.svg)](https://crates.io/crates/kotoba-kotobas)
+[![Documentation](https://docs.rs/kotoba-kotobas/badge.svg)](https://docs.rs/kotoba-kotobas)
+[![License](https://img.shields.io/crates/l/kotoba-kotobas.svg)](https://github.com/jun784/kotoba)
 
-**Kotoba-specific Jsonnet extensions providing HTTP parsing, frontend framework integration, deployment configuration, and configuration management built on top of kotoba-jsonnet.**
+**KotobaScript - Declarative programming language for frontend applications, extending Jsonnet with React component definitions.**
 
 ## 🎯 Overview
 
-Kotoba Kotobanet extends the Jsonnet configuration language with domain-specific functionality for web applications, microservices deployment, and configuration management. It provides a unified declarative approach to defining HTTP APIs, frontend components, deployment topologies, and application configurations.
+KotobaScript is a declarative programming language that extends Jsonnet to enable frontend application development without writing Rust code. It provides a unified approach to defining React components, pages, state management, and API integrations using familiar Jsonnet syntax.
 
 ## 🏗️ Architecture
 
-### Jsonnet Integration Pipeline
+### KotobaScript Pipeline
 ```
-Kotoba Files (.kotoba) → kotoba-jsonnet → kotoba-kotobanet → Domain Objects
-        ↓                        ↓              ↓                ↓
-   Jsonnet Syntax           AST Evaluation   Domain Parsing   Application
-   & Extensions             & Validation      & Validation     Runtime
+KotobaScript (.kotobas) → kotoba-jsonnet → kotoba-kotobas → React Components
+           ↓                        ↓              ↓                ↓
+    Declarative Syntax        AST Evaluation   Component Parsing   TSX Generation
+    & React Extensions        & Validation      & Validation     & TypeScript
 ```
 
 ### Component Architecture
@@ -433,7 +433,7 @@ Kotoba Kotobanet serves as the configuration layer for:
 ## 🧪 Testing
 
 ```bash
-cargo test -p kotoba-kotobanet
+cargo test -p kotoba-kotobas
 ```
 
 **Test Coverage:**

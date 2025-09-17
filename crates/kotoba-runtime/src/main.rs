@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
 
     // 1. Read and parse the .kotobanet file
     let config_content = std::fs::read_to_string(&args.input_file)?;
-    let frontend_config = kotoba_kotobanet::frontend::FrontendParser::parse(&config_content)?;
+    let frontend_config = kotoba_kotobas::frontend::FrontendParser::parse(&config_content)?;
 
     println!("✅ Configuration parsed successfully!");
     println!("📦 Found {} components.", frontend_config.components.len());
