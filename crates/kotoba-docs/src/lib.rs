@@ -40,6 +40,9 @@ pub enum DocsError {
     #[error("TOML error: {0}")]
     Toml(#[from] toml::de::Error),
 
+    #[error("Regex error: {0}")]
+    Regex(#[from] regex::Error),
+
     #[error("Template error: {0}")]
     Template(String),
 

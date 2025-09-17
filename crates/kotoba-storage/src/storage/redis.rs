@@ -1,11 +1,10 @@
 //! Redis-based storage backend for Upstash compatibility
 
-use redis::aio::MultiplexedConnection;
-use redis::AsyncCommands;
-use crate::storage::{StorageBackend, StorageConfig};
+use crate::storage::{StorageBackend, StorageConfig, BackendStats};
+use async_trait::async_trait;
 use kotoba_core::types::Result;
 use kotoba_errors::KotobaError;
-use redis::{aio::ConnectionManager, Client};
+use redis::{aio::ConnectionManager, AsyncCommands, Client};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -54,7 +53,7 @@ impl RedisBackend {
 #[async_trait]
 impl StorageBackend for RedisBackend {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
-        let mut conn = self.get_connection().await?;
+        let mut conn = self.connection_manager.lock().await;
         conn.set::<_, _, ()>(key, value)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to put data in Redis: {}", e)))?;

@@ -89,54 +89,146 @@ The core innovation lies in the Process Network Graph Model, where all system co
 \section{Introduction}
 \label{sec:introduction}
 
-Modern software systems face increasing complexity from distributed architectures, heterogeneous data models, and evolving deployment requirements. Traditional approaches separate concerns across different tools and frameworks, creating integration challenges and maintenance overhead. Kotoba addresses these challenges through a unified graph processing paradigm that treats all system components---from data structures to deployment configurations---as interconnected transformations within a single Process Network Graph Model.
+Kotoba is a comprehensive graph processing system that unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel Process Network Graph Model. Built entirely in Rust with 95\% test coverage, Kotoba provides a complete implementation of Google Jsonnet 0.21.0, ISO GQL-compliant queries, DPO (Double Pushout) graph rewriting, and MVCC+Merkle DAG persistence.
 
-\subsection{Background and Motivation}
-\label{subsec:background}
+The core innovation lies in the Process Network Graph Model, where all system components are centrally managed through a declarative configuration file (dag.jsonnet), enabling automatic topological sorting for build order and reverse topological sorting for problem resolution. This approach eliminates the traditional separation between data, computation, and deployment concerns by representing everything as interconnected graph transformations.
 
-Graph processing systems have evolved significantly from early graph databases to modern distributed frameworks. However, most systems maintain strict separations between:
-\begin{itemize}
-\item Data models and query languages
-\item Computation engines and storage backends
-\item Development environments and deployment systems
-\item Theoretical foundations and practical implementations
-\end{itemize}
-
-This fragmentation creates several challenges:
-\begin{enumerate}
-\item \textbf{Integration Complexity}: Different tools require separate expertise and integration effort
-\item \textbf{Consistency Issues}: Changes in one component may break assumptions in others
-\item \textbf{Development Friction}: Switching between different paradigms and tools
-\item \textbf{Deployment Complexity}: Coordinating multiple systems across distributed environments
-\end{enumerate}
-
-Kotoba addresses these challenges through a unified approach that represents all system aspects as graph transformations within a single, coherent model.
-
-\subsection{Key Contributions}
-\label{subsec:contributions}
+\section{Key Contributions}
+\label{sec:contributions}
 
 Kotoba makes several significant contributions to the field of graph processing and declarative programming:
 
-\begin{enumerate}
-\item \textbf{Process Network Graph Model}: A novel architectural framework that unifies all system components through declarative graph configuration, enabling automatic dependency resolution and problem diagnosis.
+\subsection{Process Network Graph Model}
+Kotoba introduces a novel architectural framework that unifies all system components through declarative graph configuration. This model enables:
 
-\item \textbf{Complete Jsonnet Implementation}: The first pure Rust implementation of Google Jsonnet 0.21.0 with 38/38 compatibility tests passing, providing a powerful declarative configuration language.
+\begin{itemize}
+\item \textbf{Novel architectural framework} unifying system components
+\item \textbf{Automatic dependency resolution} through topological sorting
+\item \textbf{Declarative configuration management} with dag.jsonnet
+\end{itemize}
 
-\item \textbf{Theoretical Graph Rewriting}: Full implementation of DPO (Double Pushout) graph rewriting with practical optimizations for large-scale graph processing.
+The Process Network Graph Model treats software systems as networks of interconnected processes, extending Kahn process networks to graph structures. All components are represented as nodes in a directed acyclic graph (DAG) with automatic dependency resolution.
 
-\item \textbf{Unified Query and Transformation}: ISO GQL-compliant queries that work seamlessly with graph rewriting operations under a single optimization framework.
+\subsection{Complete Jsonnet Implementation}
+Kotoba provides the first pure Rust implementation of Google Jsonnet 0.21.0, achieving:
 
-\item \textbf{Distributed Execution with Merkle DAG}: MVCC+Merkle DAG persistence enabling consistent distributed execution with CID-based addressing.
+\begin{itemize}
+\item \textbf{First pure Rust implementation} of Jsonnet 0.21.0
+\item \textbf{38/38 compatibility tests} passing
+\item \textbf{Competitive performance} with existing implementations
+\end{itemize}
 
-\item \textbf{Advanced Deployment Automation}: Integrated deployment system with AI-powered scaling, blue-green deployments, and advanced networking features.
+This complete implementation enables powerful declarative configuration capabilities, allowing users to define complex system configurations through functional programming constructs.
 
-\item \textbf{High-Quality Implementation}: 95\% test coverage, memory-safe Rust implementation, and comprehensive benchmarking suite.
-\end{enumerate}
+\subsection{Theoretical Graph Rewriting}
+The system implements full DPO (Double Pushout) graph rewriting with practical optimizations:
 
-\subsection{Paper Organization}
-\label{subsec:organization}
+\begin{itemize}
+\item \textbf{Full DPO implementation} for theoretical completeness
+\item \textbf{Practical optimizations} for large-scale processing
+\item \textbf{Integration with GQL queries} under unified optimization
+\end{itemize}
 
-The remainder of this paper is organized as follows: Section~\ref{sec:background} provides theoretical background and compares with related work. Section~\ref{sec:architecture} details the Process Network Graph Model and system architecture. Section~\ref{sec:implementation} covers implementation details and key technologies. Section~\ref{sec:evaluation} presents performance evaluations and quality metrics. Section~\ref{sec:case_studies} demonstrates practical applications through case studies. Section~\ref{sec:future_work} discusses future extensions and research directions. Finally, Section~\ref{sec:conclusion} concludes with the broader impact of Kotoba.
+DPO rewriting provides a categorical framework for graph transformations, enabling formal reasoning about graph manipulation operations.
+
+\subsection{Distributed Execution with Merkle DAG}
+Kotoba combines MVCC with Merkle DAGs for consistent distributed execution:
+
+\begin{itemize}
+\item \textbf{MVCC + Merkle DAG} for distributed processing
+\item \textbf{CID-based addressing} for location-independent references
+\item \textbf{Content-addressable storage} with cryptographic integrity
+\end{itemize}
+
+This approach ensures data consistency across distributed nodes while maintaining performance and reliability.
+
+\subsection{Advanced Features}
+Kotoba includes several advanced features that demonstrate its practical viability:
+
+\begin{itemize}
+\item \textbf{Temporal-based workflow orchestration}
+\item \textbf{Capability-based security system}
+\item \textbf{Multi-language documentation generation}
+\item \textbf{AI-powered deployment automation}
+\end{itemize}
+
+These features showcase Kotoba's ability to handle complex, real-world system requirements through unified graph processing.
+
+\section{Performance Highlights}
+\label{sec:performance}
+
+Kotoba achieves high performance and reliability through its Rust-based implementation:
+
+\begin{itemize}
+\item \textbf{95\% test coverage} across all components
+\item \textbf{38/38 Jsonnet compatibility} tests passing
+\item \textbf{Competitive performance} with Neo4j and TigerGraph
+\item \textbf{Memory safe} Rust implementation
+\item \textbf{Distributed scaling} to 16+ nodes
+\end{itemize}
+
+The system's performance characteristics demonstrate its suitability for both research and production environments.
+
+\section{System Architecture}
+\label{sec:architecture}
+
+\subsection{Process Network Graph Model}
+The Process Network Graph Model represents all system components as nodes in a directed acyclic graph. This model enables automatic topological sorting for build order and reverse topological sorting for problem resolution.
+
+\subsubsection{DAG Configuration with dag.jsonnet}
+All system components are defined in dag.jsonnet, a declarative configuration file that specifies component relationships and dependencies.
+
+\subsubsection{Automatic Dependency Resolution}
+The system automatically computes build order and problem resolution paths through graph traversal algorithms.
+
+\subsection{Declarative Programming with .kotoba Files}
+Kotoba introduces .kotoba files (Jsonnet format) as the primary development interface, eliminating the need for imperative Rust code in most cases.
+
+\subsubsection{.kotoba File Structure}
+.kotoba files define complete applications through declarative specifications, including graph structures, queries, and execution strategies.
+
+\subsubsection{Execution Pipeline}
+.kotoba files are processed through a unified pipeline: Jsonnet evaluation, IR generation, optimization, execution, and result formatting.
+
+\section{Implementation Details}
+\label{sec:implementation}
+
+\subsection{Jsonnet Implementation}
+Kotoba provides a complete implementation of Jsonnet 0.21.0 with all language features: data types, object inheritance, functions, operators, and standard library functions.
+
+\subsubsection{Implementation Architecture}
+The implementation follows a standard compiler pipeline: lexical analysis, syntactic analysis, semantic analysis, evaluation, and code generation.
+
+\subsubsection{Performance Optimizations}
+Several optimizations improve performance: lazy evaluation, value interning, tail call optimization, and caching.
+
+\subsection{Graph Processing Engine}
+The graph processing engine uses columnar storage optimized for analytical workloads, with LSM tree integration and MVCC + Merkle DAG for version control.
+
+\subsection{Distributed Execution}
+CID-based addressing enables distributed execution with content hashing and global addressing.
+
+\subsection{Advanced Features}
+Kotoba includes temporal-based workflow orchestration, capability-based security, multi-language documentation generation, and AI-powered deployment automation.
+
+\section{Building the Paper}
+\label{sec:building}
+
+\subsection{Requirements}
+The paper requires a LaTeX distribution (TeX Live, MacTeX, etc.) and BibTeX for bibliography processing.
+
+\subsection{Compilation}
+To build the paper:
+\begin{verbatim}
+# Compile the paper
+pdflatex main.tex
+bibtex main
+pdflatex main.tex
+pdflatex main.tex
+
+# Or use latexmk for automatic compilation
+latexmk -pdf main.tex
+\end{verbatim}
 
 \section{Background and Related Work}
 \label{sec:background}
