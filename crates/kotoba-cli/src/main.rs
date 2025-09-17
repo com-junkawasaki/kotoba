@@ -55,9 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Repl => {
             run_command::execute_repl().await
         }
-        Commands::Build { task, config, watch, verbose, list, clean } => {
-            run_command::execute_build(task, config, watch, verbose, list, clean).await
-        }
+        // Commands::Build { task, config, watch, verbose, list, clean } => {
+        //     run_command::execute_build(task, config, watch, verbose, list, clean).await
+        // }
         Commands::Task { name, args } => {
             run_command::execute_task(name, args).await
         }
@@ -352,70 +352,70 @@ mod run_command {
         Ok(())
     }
 
-    pub async fn execute_build(
-        task: Option<String>,
-        config: Option<std::path::PathBuf>,
-        watch: bool,
-        verbose: bool,
-        list: bool,
-        clean: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        use kotoba_build::{BuildEngine, WatchOptions, FileWatcher};
-        use std::sync::Arc;
-        use tokio::sync::RwLock;
-
-        // プロジェクトルートを検出
-        let project_root = kotoba_build::utils::find_project_root()?;
-
-        if verbose {
-            println!("📁 Project root: {}", project_root.display());
-        }
-
-        // ビルドエンジンを作成
-        let engine = Arc::new(RwLock::new(BuildEngine::new(project_root.clone()).await?));
-
-        if list {
-            // 利用可能なタスク一覧を表示
-            println!("📋 Available tasks:");
-            let tasks = engine.read().await.list_tasks().await;
-            for (name, desc) in tasks {
-                println!("  {} - {}", name.green(), desc);
-            }
-            return Ok(());
-        }
-
-        if clean {
-            // クリーン処理
-            println!("🧹 Cleaning build artifacts...");
-            // TODO: 実際のクリーン処理を実装
-            println!("✅ Clean completed");
-            return Ok(());
-        }
-
-        if watch {
-            // ウォッチモードで起動
-            println!("👀 Starting watch mode...");
-            let mut watcher = FileWatcher::new(Arc::clone(&engine));
-
-            // 監視対象のパスを設定
-            watcher.add_watch_path(project_root.join("src"));
-            watcher.add_watch_path(project_root.join("kotoba-build.toml"));
-
-            watcher.start().await?;
-        } else if let Some(task_name) = task {
-            // 指定されたタスクを実行
-            println!("🚀 Running task: {}", task_name);
-            let result = engine.write().await.run_task(&task_name).await?;
-            println!("✅ Task completed successfully");
-        } else {
-            // デフォルトビルドを実行
-            println!("🏗️  Building project...");
-            let result = engine.write().await.build().await?;
-            println!("✅ Build completed successfully");
-        }
-
-        Ok(())
-    }
+    // pub async fn execute_build(
+    //     task: Option<String>,
+    //     config: Option<std::path::PathBuf>,
+    //     watch: bool,
+    //     verbose: bool,
+    //     list: bool,
+    //     clean: bool,
+    // ) -> Result<(), Box<dyn std::error::Error>> {
+    //     use kotoba_build::{BuildEngine, WatchOptions, FileWatcher};
+    //     use std::sync::Arc;
+    //     use tokio::sync::RwLock;
+    //
+    //     // プロジェクトルートを検出
+    //     let project_root = kotoba_build::utils::find_project_root()?;
+    //
+    //     if verbose {
+    //         println!("📁 Project root: {}", project_root.display());
+    //     }
+    //
+    //     // ビルドエンジンを作成
+    //     let engine = Arc::new(RwLock::new(BuildEngine::new(project_root.clone()).await?));
+    //
+    //     if list {
+    //         // 利用可能なタスク一覧を表示
+    //         println!("📋 Available tasks:");
+    //         let tasks = engine.read().await.list_tasks().await;
+    //         for (name, desc) in tasks {
+    //             println!("  {} - {}", name.green(), desc);
+    //         }
+    //         return Ok(());
+    //     }
+    //
+    //     if clean {
+    //         // クリーン処理
+    //         println!("🧹 Cleaning build artifacts...");
+    //         // TODO: 実際のクリーン処理を実装
+    //         println!("✅ Clean completed");
+    //         return Ok(());
+    //     }
+    //
+    //     if watch {
+    //         // ウォッチモードで起動
+    //         println!("👀 Starting watch mode...");
+    //         let mut watcher = FileWatcher::new(Arc::clone(&engine));
+    //
+    //         // 監視対象のパスを設定
+    //         watcher.add_watch_path(project_root.join("src"));
+    //         watcher.add_watch_path(project_root.join("kotoba-build.toml"));
+    //
+    //         watcher.start().await?;
+    //     } else if let Some(task_name) = task {
+    //         // 指定されたタスクを実行
+    //         println!("🚀 Running task: {}", task_name);
+    //         let result = engine.write().await.run_task(&task_name).await?;
+    //         println!("✅ Task completed successfully");
+    //     } else {
+    //         // デフォルトビルドを実行
+    //         println!("🏗️  Building project...");
+    //         let result = engine.write().await.build().await?;
+    //         println!("✅ Build completed successfully");
+    //     }
+    //
+    //     Ok(())
+    // }
 
     pub async fn execute_task(
         _name: String,

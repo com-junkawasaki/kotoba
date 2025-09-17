@@ -173,31 +173,31 @@ pub enum Commands {
     /// REPLを起動
     Repl,
 
-    /// ビルドツール
-    Build {
-        /// 実行するタスク
-        task: Option<String>,
-
-        /// 設定ファイルのパス
-        #[arg(short, long)]
-        config: Option<PathBuf>,
-
-        /// ファイル監視モード
-        #[arg(short, long)]
-        watch: bool,
-
-        /// 詳細出力
-        #[arg(short, long)]
-        verbose: bool,
-
-        /// 利用可能なタスク一覧を表示
-        #[arg(short, long)]
-        list: bool,
-
-        /// ビルドアーティファクトをクリーン
-        #[arg(long)]
-        clean: bool,
-    },
+    // /// ビルドツール (一時的に無効化)
+    // Build {
+    //     /// 実行するタスク
+    //     task: Option<String>,
+    //
+    //     /// 設定ファイルのパス
+    //     #[arg(short, long)]
+    //     config: Option<PathBuf>,
+    //
+    //     /// ファイル監視モード
+    //     #[arg(short, long)]
+    //     watch: bool,
+    //
+    //     /// 詳細出力
+    //     #[arg(short, long)]
+    //     verbose: bool,
+    //
+    //     /// 利用可能なタスク一覧を表示
+    //     #[arg(short, long)]
+    //     list: bool,
+    //
+    //     /// ビルドアーティファクトをクリーン
+    //     #[arg(long)]
+    //     clean: bool,
+    // },
 
     /// テストを実行
     Test {

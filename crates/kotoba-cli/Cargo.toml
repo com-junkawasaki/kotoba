@@ -24,7 +24,7 @@ kotoba-package-manager = { path = "../kotoba-package-manager" }
 kotoba-formatter = { path = "../kotoba-formatter" }
 kotoba-linter = { path = "../kotoba-linter" }
 kotoba-tester = { path = "../kotoba-tester" }
-kotoba-build = { path = "../kotoba-build" }
+# kotoba-build = { path = "../kotoba-build" }  # Temporarily disabled due to dependency conflicts
 kotoba-repl = { path = "../kotoba-repl" }
 
 # CLI framework

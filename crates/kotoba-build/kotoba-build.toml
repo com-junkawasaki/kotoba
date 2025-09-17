@@ -1,0 +1,48 @@
+# Kotoba Build Configuration
+name = "kotoba-build-test"
+version = "0.1.0"
+description = "Test configuration for Kotoba Build Tool"
+
+[tasks.dev]
+command = "echo"
+args = ["🚀 Starting development server..."]
+description = "Start development server"
+depends_on = []
+cwd = "."
+env = {}
+
+[tasks.build]
+command = "echo"
+args = ["🏗️ Building project..."]
+description = "Build project in release mode"
+depends_on = []
+cwd = "."
+env = {}
+
+[tasks.test]
+command = "echo"
+args = ["🧪 Running tests..."]
+description = "Run tests"
+depends_on = []
+cwd = "."
+env = {}
+
+[tasks.clean]
+command = "echo"
+args = ["🧹 Cleaning build artifacts..."]
+description = "Clean build artifacts"
+depends_on = []
+cwd = "."
+env = {}
+
+[tasks.lint]
+command = "echo"
+args = ["🔍 Running linter..."]
+description = "Run linter"
+depends_on = []
+cwd = "."
+env = {}
+
+[dependencies]
+tokio = "1.0"
+serde = "1.0"

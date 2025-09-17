@@ -20,7 +20,7 @@ members = [
     "crates/kotoba-deploy-controller",
     "crates/kotoba-deploy-runtime",
     "crates/kotoba-handler",  # New unified handler
-    ".", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter", "crates/kotoba-linter", "crates/kotoba-tester", "crates/kotoba-repl", "crates/kotoba-build",  # Root crate
+    ".", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter", "crates/kotoba-linter", "crates/kotoba-tester", "crates/kotoba-repl",  # Root crate
     "crates/kotoba-jsonnet",
     "crates/kotoba-kotobas",
     "crates/kotoba-security",
@@ -39,7 +39,7 @@ members = [
     "crates/kotoba-workflow-activities",
     "crates/kotoba-workflow-operator",
     "crates/kotoba-cloud-integrations",
-    "crates/kotoba-state-graph",
+    "crates/kotoba-state-graph", "crates/kotoba-docs",
 ]
 resolver = "2"
 

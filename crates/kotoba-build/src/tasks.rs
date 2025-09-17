@@ -56,6 +56,7 @@ impl TaskRunner {
 
         let handle = tokio::spawn(async move {
             if let Some(task_config) = task_config {
+                let task_config_clone = task_config.clone();
                 let config_clone = BuildConfig {
                     name: "temp".to_string(),
                     version: "0.1.0".to_string(),
@@ -67,7 +68,7 @@ impl TaskRunner {
                     Arc::new(RwLock::new(config_clone)),
                     project_root
                 );
-                runner.execute_task(&task_config, &task_name_clone).await?;
+                runner.execute_task(&task_config_clone, &task_name_clone).await?;
                 Ok(())
             } else {
                 Err(BuildError::Task(format!("Task '{}' not found", task_name_clone)))

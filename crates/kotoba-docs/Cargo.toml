@@ -1,0 +1,79 @@
+[package]
+name = "kotoba-docs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kotoba Documentation Generator - Generate beautiful documentation from source code"
+keywords = ["documentation", "generator", "docs", "html", "markdown"]
+categories = ["development-tools", "command-line-utilities"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba-docs"
+homepage = "https://github.com/jun784/kotoba"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Web framework
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+
+# Template engine
+tera = "1.19"
+handlebars = "4.4"
+
+# Markdown processing
+pulldown-cmark = { version = "0.9", features = ["html"] }
+comrak = { version = "0.18", features = ["shortcodes"] }
+
+# Source code parsing (for future language support)
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+# File system operations
+walkdir = "2.4"
+fs_extra = "1.3"
+ignore = "0.4"
+
+# Configuration management
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = "0.9"
+toml = "0.8"
+config = "0.13"
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+regex = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true }
+url = "2.4"
+mime_guess = "2.0"
+
+# Terminal UI
+console = "0.15"
+indicatif = "0.17"
+colored = "2.0"
+
+# Search functionality
+tantivy = "0.21"
+
+# HTTP client for fetching remote docs
+reqwest = { version = "0.11", features = ["json"] }
+
+# Kotoba ecosystem
+kotoba-core = { path = "../kotoba-core", version = "0.1.17" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
