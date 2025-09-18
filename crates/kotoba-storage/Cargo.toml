@@ -26,7 +26,7 @@ async-trait = "0.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
 kotoba-core = { version = "0.1.21", features = ["schemars"] }
-kotoba-errors = "0.1.1"
+kotoba-errors = "0.1.2"
 kotoba-graph = "0.1.21"
 kotoba-cid = "0.1.21"
 kotoba-db-core = "0.1.16"
