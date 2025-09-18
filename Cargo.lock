@@ -6410,18 +6410,20 @@ dependencies = [
 
 [[package]]
 name = "kotoba-workflow"
-version = "0.1.16"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
  "futures",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-jsonnet",
+ "kotoba-routing 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.21",
  "lapin",
  "parking_lot",
+ "redis",
  "reqwest",
  "rocksdb",
  "rusqlite",
