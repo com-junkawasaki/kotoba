@@ -11,18 +11,9 @@ use jsonschema::JSONSchema;
 use thiserror::Error;
 use anyhow::Result;
 
-/// Defines the compatibility check mode for schema evolution.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CompatibilityMode {
-    /// No compatibility check is performed.
-    None,
-    /// The new schema must be able to read data from the previous schema.
-    Backward,
-    /// The previous schema must be able to read data from the new schema.
-    Forward,
-    /// Both Backward and Forward compatibility must be met.
-    Full,
-}
+pub mod compatibility;
+pub use compatibility::CompatibilityMode;
+
 
 /// Represents a schema in the registry.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -140,37 +131,15 @@ impl SchemaRegistry {
     
     /// Checks compatibility between an old and a new schema.
     fn check_compatibility(&self, old_schema: &Schema, new_schema: &Schema) -> Result<(), SchemaError> {
-        match self.compatibility_mode {
-            CompatibilityMode::None => Ok(()),
-            CompatibilityMode::Backward => {
-                // For BACKWARD, the new schema must be a superset of the old one.
-                // A simple check: old schema must validate against the new schema.
-                if new_schema.validate(&old_schema.body).is_err() {
-                     return Err(SchemaError::CompatibilityError(
-                        new_schema.id.clone(),
-                        new_schema.version,
-                        "Backward compatibility check failed.".to_string(),
-                    ));
-                }
-                Ok(())
-            }
-            CompatibilityMode::Forward => {
-                // For FORWARD, the old schema must be a superset of the new one.
-                // A simple check: new schema must validate against the old schema.
-                if old_schema.validate(&new_schema.body).is_err() {
-                    return Err(SchemaError::CompatibilityError(
-                        new_schema.id.clone(),
-                        new_schema.version,
-                        "Forward compatibility check failed.".to_string(),
-                    ));
-                }
-                Ok(())
-            }
-            CompatibilityMode::Full => {
-                self.check_compatibility(old_schema, new_schema)?; // check backward
-                self.check_compatibility(new_schema, old_schema) // check forward by swapping
-            }
-        }
+        compatibility::check(&old_schema.body, &new_schema.body, self.compatibility_mode).map_err(
+            |e| {
+                SchemaError::CompatibilityError(
+                    new_schema.id.clone(),
+                    new_schema.version,
+                    e,
+                )
+            },
+        )
     }
 }
 
@@ -226,7 +195,7 @@ mod tests {
         registry.register_schema(schema1).unwrap();
         let result = registry.register_schema(schema2);
 
-        assert_eq!(result, Err(SchemaError::VersionAlreadyExists(schema1.id, schema1.version)));
+        assert_eq!(result, Err(SchemaError::VersionAlreadyExists("user".to_string(), 1)));
     }
 
     #[test]
@@ -271,12 +240,12 @@ mod tests {
     }
 
     #[test]
-    fn test_backward_compatibility() {
+    fn test_backward_compatibility_ok() {
         let mut registry = SchemaRegistry::new(CompatibilityMode::Backward);
-        let mut schema1 = create_test_schema("user", 1);
+        let schema1 = create_test_schema("user", 1);
         registry.register_schema(schema1.clone()).unwrap();
 
-        // Add a new optional field, which is backward compatible.
+        // Add a new optional field `email`, which is backward compatible.
         let mut schema2 = create_test_schema("user", 2);
         schema2.body = json!({
             "type": "object",
@@ -288,20 +257,58 @@ mod tests {
         });
         
         assert!(registry.register_schema(schema2).is_ok());
+    }
 
-        // Add a new required field, which is not backward compatible.
-        let mut schema3 = create_test_schema("user", 3);
-        schema3.body = json!({
+    #[test]
+    fn test_backward_compatibility_fail() {
+        let mut registry = SchemaRegistry::new(CompatibilityMode::Backward);
+        let schema1 = create_test_schema("user", 1);
+        registry.register_schema(schema1.clone()).unwrap();
+
+        // Add a new required field `age`, which is NOT backward compatible.
+        let mut schema2 = create_test_schema("user", 2);
+        schema2.body = json!({
             "type": "object",
             "properties": {
                 "name": { "type": "string" },
-                "email": { "type": "string" },
                 "age": { "type": "integer" }
             },
             "required": ["name", "age"]
         });
 
-        let result = registry.register_schema(schema3);
+        let result = registry.register_schema(schema2);
         assert!(matches!(result, Err(SchemaError::CompatibilityError(_, _, _))));
+        assert!(result.unwrap_err().to_string().contains("Optional properties {\"age\"} were made required."));
+    }
+
+    #[test]
+    fn test_forward_compatibility_fail() {
+        let mut registry = SchemaRegistry::new(CompatibilityMode::Forward);
+        let mut schema1 = create_test_schema("user", 1);
+        schema1.body = json!({
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+        });
+        registry.register_schema(schema1.clone()).unwrap();
+
+        // Add a new optional field `email`. This is not forward compatible
+        // if the old schema has `additionalProperties: false`.
+        let mut schema2 = create_test_schema("user", 2);
+        schema2.body = json!({
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+            },
+            "required": ["name"]
+        });
+        
+        let result = registry.register_schema(schema2);
+        assert!(matches!(result, Err(SchemaError::CompatibilityError(_, _, _))));
+        assert!(result.unwrap_err().to_string().contains("New properties {\"email\"} added, but old schema does not allow additional properties."));
     }
 }
