@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotoba Pages Demo - GitHub Pages</title>
+    <meta name="description" content="A static site generated from pure Jsonnet using Kotoba language">
+    <meta name="generator" content="Kotoba + kotoba2tsx">
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="container">
+                <a href="/" class="navbar-brand">Kotoba Demo Site</a>
+                <ul class="navbar-nav">
+                    <li><a href="/" class="active">Home</a></li>
+                    <li><a href="/docs">Docs</a></li>
+                    <li><a href="/examples">Examples</a></li>
+                    <li><a href="/about">About</a></li>
+                    <li><a href="/contact">Contact</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <h1>🚀 Build Websites with Pure Jsonnet</h1>
+                <p class="hero-subtitle">
+                    No HTML, no CSS, no JavaScript - just beautiful Jsonnet code that generates everything automatically
+                </p>
+                <div class="hero-cta">
+                    <button class="btn btn-primary" onclick="showDemo()">See Interactive Demo</button>
+                    <a href="/docs" class="btn btn-secondary">Get Started</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section class="features-section">
+            <div class="container">
+                <h2>Features</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Zero Boilerplate</h3>
+                        <p>Write your entire website in clean, readable Jsonnet syntax</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <h3>Beautiful Design</h3>
+                        <p>Responsive, modern designs generated automatically</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔧</div>
+                        <h3>Type Safe</h3>
+                        <p>Jsonnet's type system prevents configuration errors</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🚀</div>
+                        <h3>GitHub Pages Ready</h3>
+                        <p>Deploy directly to GitHub Pages with a single command</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Demo Section -->
+        <section id="demo-section" class="demo-section" style="display: none;">
+            <div class="container">
+                <h2>Interactive Demo</h2>
+                <div class="demo-container">
+                    <div class="demo-counter">
+                        <h3>Counter: <span id="counter">0</span></h3>
+                        <button class="btn btn-primary" onclick="incrementCounter()">Increment</button>
+                        <button class="btn btn-secondary" onclick="resetCounter()">Reset</button>
+                    </div>
+                    <div class="demo-message">
+                        <h3>Message: <span id="message">Hello from Kotoba!</span></h3>
+                        <button class="btn btn-primary" onclick="updateMessage()">Update Message</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <p>© 2024 Kotoba. Built with Kotoba language and kotoba2tsx.</p>
+                    <p>This static site was generated from pure Jsonnet code!</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

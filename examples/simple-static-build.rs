@@ -667,12 +667,12 @@ main li {
     fs::write(format!("{}/assets/css/style.css", output_dir), css_content)?;
 
     // JavaScriptファイルをテンプレートからコピー
-    let js_content = fs::read_to_string("examples/js-template.js")
+    let js_content = fs::read_to_string("js-template.js")
         .expect("Failed to read JavaScript template");
     fs::write(format!("{}/assets/js/main.js", output_dir), js_content)?;
 
     // GitHub Pages用の特別ファイル
-    fs::write(format!("{}/CNAME", output_dir), "jun784.github.io")?;
+    fs::write(format!("{}/CNAME", output_dir), "kotoba.jun784.dev")?;
     fs::write(format!("{}/.nojekyll", output_dir), "")?;
     fs::write(format!("{}/robots.txt", output_dir), "User-agent: *\nAllow: /\n\nSitemap: https://jun784.github.io/kotoba-pages-demo/sitemap.xml")?;
     fs::write(format!("{}/sitemap.xml", output_dir), r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -776,7 +776,7 @@ Built with ❤️ using Kotoba ecosystem.
 
     println!("✅ Static GitHub Pages site built successfully!");
     println!("📁 Output directory: {}", output_dir);
-    println!("🌐 Ready for GitHub Pages deployment");
+    println!("🌐 Ready for GitHub Pages deployment at https://com-junkawasaki.github.io/kotoba/");
     println!("💡 To preview locally: cd {} && python3 -m http.server 8000", output_dir);
 
     // 生成されたファイルの一覧を表示

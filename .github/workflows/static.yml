@@ -4,6 +4,11 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
+    paths:
+      - 'examples/simple-static-build.rs'
+      - 'examples/js-template.js'
+      - 'docs-site.kotoba'
+      - '.github/workflows/static.yml'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -62,8 +67,13 @@ jobs:
           # Build static site using Kotoba if available
           if [ -f "examples/simple-static-build.rs" ]; then
             echo "Building Kotoba static site..."
-            rustc --edition 2021 examples/simple-static-build.rs
+            cd examples
+            rustc --edition 2021 simple-static-build.rs
             ./simple-static-build
+            cd ..
+            echo "Kotoba static site build completed"
+          else
+            echo "Kotoba static build script not found"
           fi
 
       - name: Convert Markdown to HTML (if needed)
