@@ -7,6 +7,29 @@ pub mod prelude {
     // Re-export commonly used items
 }
 
+use axum::{
+    routing::get,
+    Router,
+};
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
+
+/// Start the Kotoba HTTP server
+pub async fn start_server(host: &str, port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = format!("{}:{}", host, port).parse::<SocketAddr>()?;
+
+    let app = Router::new()
+        .route("/", get(|| async { "Hello from Kotoba Server!" }))
+        .route("/health", get(|| async { "OK" }));
+
+    println!("🚀 Kotoba server starting on http://{}", addr);
+
+    let listener = TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
