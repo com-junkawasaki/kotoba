@@ -817,7 +817,17 @@
       path: 'src/lib.rs',
       type: 'library',
       description: 'メインライブラリインターフェース',
-      dependencies: ['types', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy', 'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object', 'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier', 'rewrite_engine', 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'],
+      dependencies: [
+        'types', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy',
+        'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object',
+        'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer',
+        'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier',
+        'rewrite_engine',
+        // --- 古いHTTP依存を削除 ---
+        // 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'
+        // --- 新しいサーバーを追加 ---
+        'kotoba_server'
+      ],
       provides: ['kotoba'],
       status: 'planned',
       build_order: 11,
@@ -829,7 +839,7 @@
       path: 'examples/frontend_app/main.rs',
       type: 'example',
       description: 'JsonnetベースのフルスタックWebフレームワークの使用例',
-      dependencies: ['lib', 'frontend_framework', 'http_server'],
+      dependencies: ['lib', 'frontend_framework', 'kotoba_server'], // http_server -> kotoba_server
       provides: ['frontend_app_example'],
       status: 'planned',
       build_order: 12,
@@ -840,7 +850,7 @@
       path: 'examples/http_server/main.rs',
       type: 'example',
       description: 'HTTPサーバーの使用例',
-      dependencies: ['lib', 'http_server'],
+      dependencies: ['lib', 'kotoba_server'], // http_server -> kotoba_server
       provides: ['http_server_example'],
       status: 'planned',
       build_order: 12,
@@ -2287,6 +2297,20 @@
       status: 'in_progress',
       build_order: 13,
     },
+
+    // ==========================================
+    // HTTP/GraphQLサーバー層 - axumベースに刷新
+    // ==========================================
+    'kotoba_server': {
+      name: 'kotoba_server',
+      path: 'crates/kotoba-server/src/main.rs',
+      type: 'http',
+      description: 'axumベースのメインHTTPサーバー',
+      dependencies: ['types', 'ir_workflow', 'workflow_executor', 'graphql_schema'],
+      provides: ['HttpServer', 'GraphQLApi', 'WorkflowApi'],
+      status: 'in_progress',
+      build_order: 10,
+    },
   },
 
   // ==========================================
@@ -2523,8 +2547,8 @@
     { from: 'schema_validator', to: 'graphql_schema' },
     { from: 'types', to: 'graphql_handler' },
     { from: 'graphql_schema', to: 'graphql_handler' },
-    { from: 'graphql_schema', to: 'http_server' },
-    { from: 'graphql_handler', to: 'http_server' },
+    { from: 'graphql_schema', to: 'kotoba_server' },
+    { from: 'graphql_handler', to: 'kotoba_server' },
     { from: 'http_ir', to: 'lib' },
     { from: 'http_parser', to: 'lib' },
     { from: 'http_handlers', to: 'lib' },
@@ -2557,9 +2581,9 @@
     // Examples層依存
     { from: 'lib', to: 'example_frontend_app' },
     { from: 'frontend_framework', to: 'example_frontend_app' },
-    { from: 'http_server', to: 'example_frontend_app' },
+    { from: 'kotoba_server', to: 'example_frontend_app' },
     { from: 'lib', to: 'example_http_server' },
-    { from: 'http_server', to: 'example_http_server' },
+    { from: 'kotoba_server', to: 'example_http_server' },
     { from: 'lib', to: 'example_social_network' },
     { from: 'graph_core', to: 'example_social_network' },
     { from: 'execution_engine', to: 'example_social_network' },
@@ -3780,4 +3804,18 @@
       status: 'fully_implemented',
     },
   },
+
+  groups: {
+    // ... (中略) ...
+    'server': {
+      name: 'Server',
+      description: 'HTTP/GraphQLサーバー関連のノード',
+      nodes: [
+        'kotoba_server', // http_serverなどを置き換え
+        'graphql_schema',
+        'graphql_handler',
+      ],
+    },
+// ... (中略) ...
+  }
 }
