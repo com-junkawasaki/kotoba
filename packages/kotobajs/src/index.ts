@@ -2,8 +2,14 @@
 
 // This file is the public API for the @kotoba/kotobajs package.
 
-export { k, infer, ValidationError, type ValidationErrorIssue } from './validation/schema';
-export { KotobaClient, type KotobaClientOptions } from './client';
-export { Vertex } from './model/vertex';
-export { Edge } from './model/edge';
-export { QueryBuilder } from './query/builder';
+export * from './client';
+export * from './generator';
+export * from './validation/schema';
+
+export * from './model/vertex';
+export * from './model/edge';
+
+export * from './query/builder';
+
+export * from './workflow';
+export * from './types';

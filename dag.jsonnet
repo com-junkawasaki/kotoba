@@ -2262,6 +2262,31 @@
       status: 'planned',
       build_order: 1,
     },
+
+    // ==========================================
+    // TypeScript/JavaScript Ecosystem
+    // ==========================================
+    'kotobajs': {
+      name: 'kotobajs',
+      path: 'packages/kotobajs',
+      type: 'typescript_sdk',
+      description: 'Isomorphic JS/TS SDK for Kotoba with validation and query builder.',
+      dependencies: ['schema_registry', 'http_server'],
+      provides: ['KotobaClient', 'k_validator', 'QueryBuilder'],
+      status: 'in_progress',
+      build_order: 12,
+    },
+
+    'kotoba_web': {
+      name: 'kotoba_web',
+      path: 'packages/web',
+      type: 'typescript_framework',
+      description: 'Full-stack web framework using file-based routing and kotobajs.',
+      dependencies: ['kotobajs'],
+      provides: ['WebAppServer', 'FileBasedRouter'],
+      status: 'in_progress',
+      build_order: 13,
+    },
   },
 
   // ==========================================
@@ -3041,6 +3066,11 @@
     // Kotobas Language Components
     { from: 'kotobas_parser', to: 'kotobas_ast' },
     { from: 'kotobas_ast', to: 'kotobas_compiler' },
+
+    // TypeScript/JavaScript Ecosystem Dependencies
+    { from: 'schema_registry', to: 'kotobajs' },
+    { from: 'http_server', to: 'kotobajs' },
+    { from: 'kotobajs', to: 'kotoba_web' },
   ],
 
   // ==========================================
@@ -3159,6 +3189,8 @@
     'docs_generator',
     'docs_search',
     'storage_main',
+    'kotobajs',
+    'kotoba_web',
 
     // Future Features (reverse topological order)
     'serverless_deployment',
@@ -3198,6 +3230,10 @@
     'docs_server',
     'docs_core',
     'docs_cli',
+
+    // TypeScript/JavaScript Ecosystem (Reverse Order)
+    'kotoba_web',
+    'kotobajs',
   ],
 
   // ==========================================
