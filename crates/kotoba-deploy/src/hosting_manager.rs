@@ -219,7 +219,7 @@ impl HostingManager {
         states.get(deployment_id)
             .cloned()
             .ok_or_else(|| {
-                Box::new(KotobaError::InvalidArgument(format!("Deployment {} not found", deployment_id)))
+                Box::new(KotobaError::InvalidArgument(format!("Deployment {} not found", deployment_id))) as Box<dyn std::error::Error + Send + Sync>
             })
     }
 

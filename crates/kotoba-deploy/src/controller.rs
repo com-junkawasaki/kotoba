@@ -463,38 +463,35 @@ impl DeployController {
         match self.extract_value_from_gql(gql_query, "id") {
             Ok(Some(id_str)) => Uuid::parse_str(&id_str).map_err(|_| {
                 Box::new(KotobaError::InvalidArgument(
-                    format!("Invalid UUID format: {}", id_str))
-                )
+                    format!("Invalid UUID format: {}", id_str))) as Box<dyn std::error::Error + Send + Sync>
             }),
-            Ok(None) => Err(Box::new(Box::new(KotobaError::InvalidArgument(
-                "Deployment ID not found in GQL query".to_string()))
-            )),
+            Ok(None) => Err(Box::new(KotobaError::InvalidArgument(
+                "Deployment ID not found in GQL query".to_string())) as Box<dyn std::error::Error + Send + Sync>),
             Err(e) => Err(e)
         }
     }
 
     /// GQLクエリからスケールターゲットを抽出
     fn extract_scale_target_from_gql(&self, gql_query: &str) -> Result<u32> {
-        self.extract_value_from_gql(gql_query, "instances")
-            .and_then(|opt| Ok(opt.ok_or_else(|| {
+        let value_str = self.extract_value_from_gql(gql_query, "instances")
+            .and_then(|opt| opt.ok_or_else(|| {
                 Box::new(KotobaError::InvalidArgument(
                     "Scale target not found in GQL query".to_string()
-                ))
-            })))?
-            .parse()
-            .map_err(|_| Box::new(KotobaError::InvalidArgument(
-                "Invalid scale target".to_string()
-            )))
+                )) as Box<dyn std::error::Error + Send + Sync>
+            }))?;
+        value_str.parse().map_err(|_| Box::new(KotobaError::InvalidArgument(
+            "Invalid scale target".to_string()
+        )) as Box<dyn std::error::Error + Send + Sync>)
     }
 
     /// GQLクエリからロールバックターゲットを抽出
     fn extract_rollback_target_from_gql(&self, gql_query: &str) -> Result<String> {
         self.extract_value_from_gql(gql_query, "version")
-            .and_then(|opt| Ok(opt.ok_or_else(|| {
+            .and_then(|opt| opt.ok_or_else(|| {
                 Box::new(KotobaError::InvalidArgument(
                     "Rollback target not found in GQL query".to_string()
-                ))
-            })))
+                )) as Box<dyn std::error::Error + Send + Sync>
+            }))
     }
 
     /// GQLクエリから値を抽出するヘルパー関数
@@ -636,13 +633,11 @@ impl GqlDeploymentExtensions for DeployController {
                         if response.success {
                             response.data.ok_or_else(|| {
                                 Box::new(KotobaError::InvalidArgument(
-                                    "No data in response".to_string())
-                                )
+                                    "No data in response".to_string())) as Box<dyn std::error::Error + Send + Sync>
                             })
                         } else {
-                            Err(Box::new(Box::new(KotobaError::InvalidArgument(
-                                response.error.unwrap_or_default()))
-                            ))
+                            Err(Box::new(KotobaError::InvalidArgument(
+                                response.error.unwrap_or_default())) as Box<dyn std::error::Error + Send + Sync>)
                         }
                     })
             })

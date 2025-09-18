@@ -99,7 +99,7 @@ impl HostingServer {
     ) -> Result<Self> {
         // HTTP設定を作成
         let http_config = HttpConfig::new(ServerConfig {
-            host: "0.0.0.0".,
+            host: "0.0.0.0".to_string(),
             port: 8080,
         });
 
@@ -134,9 +134,9 @@ impl HostingServer {
 
         let hosted_app = HostedApp {
             id: app_id.clone(),
-            deployment_id: deployment_id.,
-            instance_id: instance_id.,
-            domain: domain.,
+            deployment_id: deployment_id.to_string(),
+            instance_id: instance_id.to_string(),
+            domain: domain.to_string(),
             port,
             created_at: SystemTime::now(),
             last_access: SystemTime::now(),
@@ -191,11 +191,11 @@ impl HostingServer {
                     "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello from {} at {}",
                     deployment_id, path
                 );
-                Ok(response.into_bytes())
+                Ok(response.as_bytes().to_vec())
             }
             None => {
-                let response = "HTTP/1.1 404 Not Found\r\n\r\nApplication not found\r\n".;
-                Ok(response.into_bytes())
+                let response = "HTTP/1.1 404 Not Found\r\n\r\nApplication not found\r\n";
+                Ok(response.as_bytes().to_vec())
             }
         }
     }
