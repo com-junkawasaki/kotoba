@@ -1,0 +1,64 @@
+{
+    "dsl": "1.0.0",
+    "namespace": "examples",
+    "name": "error-handling-workflow",
+    "version": "1.0.0",
+    "description": "A workflow demonstrating error handling",
+    "do": [
+        {
+            "type": "set",
+            "name": "initialize",
+            "variables": {
+                "retry_count": 0,
+                "max_retries": 3
+            }
+        },
+        {
+            "type": "try",
+            "name": "attempt-api-call",
+            "try": [
+                {
+                    "type": "callHttp",
+                    "name": "unstable-api-call",
+                    "method": "GET",
+                    "endpoint": "https://httpbin.org/status/500",
+                    "output": {
+                        "as": "api_result"
+                    }
+                }
+            ],
+            "catch": [
+                {
+                    "errors": ["HttpError"],
+                    "as": "error",
+                    "do": [
+                        {
+                            "type": "set",
+                            "name": "handle-error",
+                            "variables": {
+                                "error_message": "${error.message}",
+                                "error_status": "${error.status}",
+                                "retry_count": "${retry_count + 1}"
+                            }
+                        },
+                        {
+                            "type": "wait",
+                            "name": "wait-before-retry",
+                            "wait": {
+                                "seconds": 2
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "set",
+            "name": "final-result",
+            "variables": {
+                "final_status": "completed",
+                "total_retries": "${retry_count}"
+            }
+        }
+    ]
+}
