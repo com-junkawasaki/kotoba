@@ -10,8 +10,8 @@ keywords = ["workflow", "http", "server", "integration"]
 categories = ["web-programming::http-server", "development-tools"]
 
 [dependencies]
-# Core server functionality - temporarily commented out for publishing
-# kotoba-server-core = { version = "0.1.21" }
+# Core server functionality
+kotoba-server-core = { version = "0.1.21" }
 
 # Workflow engine - minimal core interface
 kotoba-workflow-core = { version = "0.1.21", optional = true }
