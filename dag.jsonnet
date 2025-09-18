@@ -1622,6 +1622,99 @@
       build_order: 10,
     },
 
+    // ==========================================
+    // セキュリティ・機能ベース層 (Security & Capabilities)
+    // ==========================================
+
+    'capabilities_documentation': {
+      name: 'capabilities_documentation',
+      path: 'docs/security/CAPABILITIES_README.md',
+      type: 'documentation',
+      description: '機能ベースセキュリティドキュメント - Denoに似たセキュリティシステム',
+      dependencies: ['security_capabilities'],
+      provides: ['SecurityDocumentation', 'CapabilityExamples', 'SecurityGuide'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // Jsonnet拡張・Google統合層 (Jsonnet Extensions & Google Integration)
+    // ==========================================
+
+    'google_stdlib_implementation': {
+      name: 'google_stdlib_implementation',
+      path: 'crates/kotoba-jsonnet/src/google_stdlib.jsonnet',
+      type: 'jsonnet_extension',
+      description: 'Google Jsonnet標準ライブラリ実装 - 完全なJsonnet std.*関数群',
+      dependencies: ['jsonnet_core'],
+      provides: ['GoogleStdlib', 'JsonnetCompatibility', 'ExtendedStdlib'],
+      status: 'completed',
+      build_order: 11,
+    },
+
+    'google_stdlib_tests': {
+      name: 'google_stdlib_tests',
+      path: 'crates/kotoba-jsonnet/src/tests/google_stdlib_test.jsonnet',
+      type: 'test',
+      description: 'Google Jsonnet標準ライブラリテストスイート',
+      dependencies: ['google_stdlib_implementation'],
+      provides: ['JsonnetTestSuite', 'CompatibilityTests', 'StdlibValidation'],
+      status: 'completed',
+      build_order: 12,
+    },
+
+    'compatibility_analysis': {
+      name: 'compatibility_analysis',
+      path: 'docs/jsonnet/compatibility_report.md',
+      type: 'analysis',
+      description: 'Jsonnet互換性分析レポート - 実装状況と欠落機能の分析',
+      dependencies: ['google_stdlib_implementation'],
+      provides: ['CompatibilityReport', 'ImplementationStatus', 'MissingFeatures'],
+      status: 'completed',
+      build_order: 13,
+    },
+
+    // ==========================================
+    // コード生成・変換層 (Code Generation & Conversion)
+    // ==========================================
+
+    'graph_code_generation': {
+      name: 'graph_code_generation',
+      path: 'src/codegen/graph_converted.json',
+      type: 'code_generation',
+      description: 'グラフ構造コード生成 - Jsonnet DSLからのRustコード生成',
+      dependencies: ['graph_core', 'jsonnet_core'],
+      provides: ['GraphDSL', 'CodeGeneration', 'TypeConversion'],
+      status: 'completed',
+      build_order: 6,
+    },
+
+    // ==========================================
+    // Nix環境管理層 (Nix Environment Management)
+    // ==========================================
+
+    'nix_environment_config': {
+      name: 'nix_environment_config',
+      path: 'flake.nix',
+      type: 'infrastructure',
+      description: 'Nix環境設定ファイル - 開発環境とビルド環境の管理',
+      dependencies: [],
+      provides: ['DevEnvironment', 'BuildEnvironment', 'DependencyManagement'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'nix_lock_file': {
+      name: 'nix_lock_file',
+      path: 'flake.lock',
+      type: 'infrastructure',
+      description: 'Nixロックファイル - 依存関係の正確なバージョン固定',
+      dependencies: ['nix_environment_config'],
+      provides: ['DependencyLocking', 'ReproducibleBuilds', 'VersionStability'],
+      status: 'completed',
+      build_order: 1,
+    },
+
     'package_manager': {
       name: 'package_manager',
       path: 'crates/kotoba-package-manager/src/lib.rs',
@@ -2828,6 +2921,21 @@
 
     // External integrations
     { from: 'google_integration', to: 'lib' },
+
+    // Security capabilities integration
+    { from: 'capabilities_documentation', to: 'lib' },
+
+    // Jsonnet extensions integration
+    { from: 'google_stdlib_implementation', to: 'lib' },
+    { from: 'google_stdlib_tests', to: 'lib' },
+    { from: 'compatibility_analysis', to: 'lib' },
+
+    // Code generation integration
+    { from: 'graph_code_generation', to: 'lib' },
+
+    // Nix environment integration
+    { from: 'nix_environment_config', to: 'lib' },
+    { from: 'nix_lock_file', to: 'lib' },
   ],
 
   // ==========================================
@@ -3011,6 +3119,21 @@
     // External integrations layer (reverse order)
     'google_integration',
 
+    // Nix environment layer (reverse order)
+    'nix_lock_file',
+    'nix_environment_config',
+
+    // Code generation layer (reverse order)
+    'graph_code_generation',
+
+    // Jsonnet extensions layer (reverse order)
+    'compatibility_analysis',
+    'google_stdlib_tests',
+    'google_stdlib_implementation',
+
+    // Security & capabilities layer (reverse order)
+    'capabilities_documentation',
+
     // Release management layer (reverse order)
     'release_artifacts',
 
@@ -3142,6 +3265,21 @@
 
     // External integrations layer
     'google_integration',
+
+    // Security & capabilities layer
+    'capabilities_documentation',
+
+    // Jsonnet extensions layer
+    'google_stdlib_implementation',
+    'google_stdlib_tests',
+    'compatibility_analysis',
+
+    // Code generation layer
+    'graph_code_generation',
+
+    // Nix environment layer
+    'nix_environment_config',
+    'nix_lock_file',
 
     'cli_interface',
     'kotoba_lsp',
