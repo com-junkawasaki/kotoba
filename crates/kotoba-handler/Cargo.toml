@@ -68,14 +68,43 @@ tracing = "0.1"
 # UUID for request tracking
 uuid = { workspace = true, features = ["v4"] }
 
+# Template engines
+tera = { version = "1.19", optional = true }
+handlebars = { version = "4.3", optional = true }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "mysql", "sqlite"], optional = true }
+redis = { version = "0.23", features = ["tokio-comp"], optional = true }
+
+# Authentication
+jsonwebtoken = { version = "9.0", optional = true }
+bcrypt = { version = "0.15", optional = true }
+
+# File watching for dev server
+notify = { version = "6.0", optional = true }
+
+# Additional utilities
+mime_guess = { version = "2.0", optional = true }
+base64 = { version = "0.21", optional = true }
+url = { version = "2.4", optional = true }
+chrono = { version = "0.4", features = ["serde"], optional = true }
+
 [features]
 default = ["cli", "server"]
 cli = ["kotoba-cli", "server"]
 server = ["tokio", "futures", "hyper", "tower", "tower-http"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "serde-wasm-bindgen", "web-sys", "js-sys"]
 websocket = ["server", "tokio-tungstenite"]
+
+# Web development features
+web = ["server", "tera", "handlebars", "mime_guess", "url"]
+database = ["sqlx", "redis", "chrono"]
+auth = ["jsonwebtoken", "bcrypt", "base64"]
+dev_server = ["web", "notify"]
+templates = ["tera", "handlebars"]
+
 # Jsonnet support removed - using kotobas only
-full = ["cli", "server", "wasm", "websocket"]
+full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

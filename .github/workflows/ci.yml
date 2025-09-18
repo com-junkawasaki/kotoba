@@ -1,34 +1,68 @@
-name: KotobaDB CI/CD Pipeline
+name: CI
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  schedule:
-    # Run comprehensive tests daily at 2 AM UTC
-    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
 jobs:
-  # Fast feedback: Basic checks and unit tests
-  quality-gate:
-    name: Quality Gate
-    runs-on: ubuntu-latest
+  # 基本的なテストとビルド
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable, beta]
+        exclude:
+          - os: macos-latest
+            rust: beta
+          - os: windows-latest
+            rust: beta
+        include:
+          - os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Rust
+    - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
-        components: rustfmt, clippy
+        toolchain: ${{ matrix.rust }}
+        targets: ${{ matrix.target }}
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ runner.os }}-target-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-target-${{ matrix.rust }}-
 
     - name: Check formatting
       run: cargo fmt --all -- --check
@@ -36,407 +70,352 @@ jobs:
     - name: Run clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
 
-    - name: Run security audit
-      uses: actions-rs/audit@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build project
+      run: cargo build --verbose
 
-    - name: Check documentation
-      run: cargo doc --no-deps --document-private-items
+    - name: Run tests
+      run: cargo test --verbose --lib
 
-    - name: Run unit tests
-      run: cargo test --lib --bins -- --nocapture
+    - name: Run doctests
+      run: cargo test --doc
 
-  # Integration tests with different configurations
-  integration-tests:
+    - name: Test with all features
+      run: cargo test --all-features
+
+  # 統合テスト
+  integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: quality-gate
-    strategy:
-      matrix:
-        rust: [stable, beta]
-        features: ["", "--all-features"]
-        exclude:
-          # Skip beta with all features for faster CI
-          - rust: beta
-            features: "--all-features"
+    needs: test
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Rust (${{ matrix.rust }})
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Run integration tests
-      run: |
-        cargo test --test integration ${{ matrix.features }} -- --nocapture
-
-  # Load testing and performance benchmarks
-  performance-tests:
-    name: Performance Tests
-    runs-on: ubuntu-latest
-    needs: integration-tests
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
+    - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-
 
-    - name: Install profiling tools
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ubuntu-latest-target-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-target-
+
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y linux-tools-common linux-tools-generic valgrind
+        sudo apt-get install -y libssl-dev pkg-config
 
-    - name: Run performance benchmarks
-      run: |
-        cargo bench -- --nocapture | tee benchmark_results.txt
+    - name: Run integration tests
+      run: cargo test --test integration --verbose
+      env:
+        REDIS_URL: redis://localhost:6379
 
     - name: Run load tests (basic)
       run: |
-        cd tests/load
-        cargo run --bin load_test_runner -- --workload ycsb-a --duration 30 --output-dir ../../load_test_results
-      continue-on-error: true
+        cargo build --release --bin load_test_runner
+        timeout 60 ./target/release/load_test_runner workload ycsb-a 30 || true
 
-    - name: Upload performance results
-      uses: actions/upload-artifact@v4
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
       with:
-        name: performance-results-${{ github.sha }}
+        name: integration-test-results
         path: |
-          benchmark_results.txt
-          load_test_results/
+          target/debug/deps/integration-*
+          target/debug/deps/load-*
 
-  # Cross-platform compatibility testing
-  cross-platform:
-    name: Cross Platform Tests
-    runs-on: ${{ matrix.os }}
-    needs: quality-gate
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Run tests
-      run: cargo test --lib --bins -- --nocapture
-
-  # Memory safety and concurrency testing
-  safety-tests:
-    name: Safety & Concurrency Tests
+  # ベンチマーク実行
+  benchmark:
+    name: Benchmark
     runs-on: ubuntu-latest
-    needs: integration-tests
+    needs: test
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Rust
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ubuntu-latest-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-
+
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ubuntu-latest-target-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-target-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev pkg-config
+
+    - name: Run benchmarks
+      run: cargo bench --workspace
+
+    - name: Run load test benchmarks
+      run: |
+        cargo build --release --bin load_test_runner
+        mkdir -p benchmark_results
+        timeout 120 ./target/release/load_test_runner scenario benchmarks > benchmark_results/load_test_output.txt || true
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: |
+          target/criterion/*
+          benchmark_results/*
+
+  # ファジングテスト
+  fuzz-test:
+    name: Fuzz Tests
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@nightly
+
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
       with:
-        components: miri
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ubuntu-latest-cargo-fuzz-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-fuzz-
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ubuntu-latest-target-fuzz-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-target-fuzz-
 
-    - name: Run Miri (memory safety)
+    - name: Install system dependencies
       run: |
-        cargo miri test --lib
-      continue-on-error: true # Miri is experimental
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev pkg-config
 
-    - name: Run Loom (concurrency testing)
+    - name: Run fuzz tests (short)
       run: |
-        cargo test --test concurrency --features loom
-      continue-on-error: true # Loom tests are specialized
+        cd tests/fuzz
+        cargo fuzz run data_structures -- -max_total_time=30
+        cargo fuzz run graph_operations -- -max_total_time=30
+        cargo fuzz run transaction_operations -- -max_total_time=30
 
-    - name: Run sanitizers
-      run: |
-        export RUSTFLAGS="-Zsanitizer=address"
-        cargo test --lib --bins
-      env:
-        ASAN_OPTIONS: detect_leaks=1
-      continue-on-error: true
+    - name: Upload fuzz artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: fuzz-artifacts
+        path: |
+          tests/fuzz/fuzz-artifacts/**
 
-  # Build and package verification
-  build-verification:
-    name: Build Verification
-    runs-on: ubuntu-latest
-    needs: quality-gate
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Build all targets
-      run: cargo build --all-targets --all-features
-
-    - name: Build examples
-      run: cargo build --examples --all-features
-
-    - name: Build documentation
-      run: cargo doc --all-features --no-deps
-
-    - name: Check workspace
-      run: cargo check --workspace
-
-    - name: Verify package can be published
-      run: cargo publish --dry-run --allow-dirty
-
-  # Dependency vulnerability scanning
-  security-scan:
+  # セキュリティスキャン
+  security:
     name: Security Scan
     runs-on: ubuntu-latest
-    needs: quality-gate
+    needs: test
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Rust
+    - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ubuntu-latest-cargo-security-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-security-
 
     - name: Run cargo-audit
-      uses: actions-rs/audit@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cargo install cargo-audit
+        cargo audit
 
     - name: Run cargo-deny
-      uses: EmbarkStudios/cargo-deny-action@v1
-      with:
-        command: check
-
-  # Code coverage analysis
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    needs: integration-tests
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Install cargo-tarpaulin
-      run: cargo install cargo-tarpaulin
-
-    - name: Run coverage analysis
       run: |
-        cargo tarpaulin --out Xml --output-dir coverage-reports -- --test-threads 1
+        cargo install cargo-deny
+        cargo deny check
 
-    - name: Upload coverage to Codecov
+    - name: Run cargo-tarpaulin for coverage
+      run: |
+        cargo install cargo-tarpaulin
+        cargo tarpaulin --workspace --out Xml
+
+    - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
-        file: coverage-reports/cobertura.xml
-        flags: unittests
-        name: codecov-umbrella
+        file: ./cobertura.xml
         fail_ci_if_error: false
 
-  # Release and deployment (only on main branch)
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    needs: [integration-tests, performance-tests, cross-platform, safety-tests, build-verification, security-scan]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
-
-    - name: Run release tests
-      run: |
-        cargo test --release --all-features -- --nocapture
-
-    - name: Build release binaries
-      run: |
-        cargo build --release --all-features
-
-    - name: Create release archives
-      run: |
-        # Create release directory
-        mkdir -p release-artifacts
-
-        # Archive main binary
-        tar -czf release-artifacts/kotoba-linux-x64.tar.gz -C target/release kotoba
-
-        # Archive all crates
-        for crate in crates/*/; do
-          if [ -f "$crate/Cargo.toml" ]; then
-            crate_name=$(basename "$crate")
-            tar -czf "release-artifacts/${crate_name}.tar.gz" -C "$crate" .
-          fi
-        done
-
-    - name: Upload release artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: kotoba-release-${{ github.sha }}
-        path: release-artifacts/
-
-    - name: Create GitHub release
-      if: github.event_name == 'push' && contains(github.event.head_commit.message, 'release:')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: release-artifacts/*
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Performance regression detection
+  # パフォーマンス回帰テスト
   performance-regression:
-    name: Performance Regression Check
+    name: Performance Regression
     runs-on: ubuntu-latest
-    needs: performance-tests
-    if: github.event_name == 'pull_request'
+    needs: [test, benchmark]
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
-    - name: Install Rust
+    - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v2
+    - name: Cache Cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ubuntu-latest-cargo-regression-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-cargo-regression-
 
-    - name: Get base branch performance
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ubuntu-latest-target-regression-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ubuntu-latest-target-regression-
+
+    - name: Install system dependencies
       run: |
-        git checkout ${{ github.base_ref }}
-        cargo bench -- --nocapture | tee base_benchmark.txt || echo "No base benchmarks"
+        sudo apt-get update
+        sudo apt-get install -y libssl-dev pkg-config
 
-    - name: Get PR branch performance
+    - name: Check for performance baseline
       run: |
-        git checkout ${{ github.sha }}
-        cargo bench -- --nocapture | tee pr_benchmark.txt || echo "No PR benchmarks"
+        if [ -f "performance_baseline.json" ]; then
+          echo "Baseline exists, running regression test"
+          cargo build --release --bin load_test_runner
+          ./target/release/load_test_runner regression compare
+        else
+          echo "No baseline found, creating one"
+          cargo build --release --bin load_test_runner
+          ./target/release/load_test_runner regression baseline
+        fi
 
-    - name: Compare performance
-      run: |
-        # Simple performance comparison script
-        python3 -c "
-        import re
+    - name: Upload regression results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: regression-results
+        path: |
+          performance_baseline.json
+          regression_analysis.json
 
-        def extract_throughput(filename):
-            try:
-                with open(filename, 'r') as f:
-                    content = f.read()
-                    # Look for throughput numbers (simplified)
-                    matches = re.findall(r'(\d+(?:\.\d+)?)\s*ops/sec', content)
-                    return float(max(matches)) if matches else 0.0
-            except:
-                return 0.0
-
-        base_throughput = extract_throughput('base_benchmark.txt')
-        pr_throughput = extract_throughput('pr_benchmark.txt')
-
-        if base_throughput > 0 and pr_throughput > 0:
-            regression = (base_throughput - pr_throughput) / base_throughput * 100
-            print(f'Performance regression: {regression:.2f}%')
-            if regression > 10:  # More than 10% regression
-                print('::error::Significant performance regression detected!')
-                exit(1)
-            elif regression < -10:  # More than 10% improvement
-                print('::notice::Performance improvement detected!')
-        else:
-            print('Could not extract performance metrics')
-        "
-
-  # Notification and reporting
-  notify:
-    name: Notification
+  # 品質ゲート
+  quality-gate:
+    name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [quality-gate, integration-tests, performance-tests, cross-platform, safety-tests, build-verification, security-scan, coverage]
+    needs: [test, integration-test, benchmark, fuzz-test, security]
     if: always()
 
     steps:
-    - name: Generate CI status report
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check test results
       run: |
-        echo "# KotobaDB CI/CD Status Report" > ci_status.md
-        echo "" >> ci_status.md
-        echo "Generated: $(date)" >> ci_status.md
-        echo "" >> ci_status.md
-        echo "## Pipeline Results" >> ci_status.md
-        echo "" >> ci_status.md
-
-        # Check each job status
-        jobs="quality-gate integration-tests performance-tests cross-platform safety-tests build-verification security-scan coverage"
-        for job in $jobs; do
-          status=$(jq -r ".jobs.\"$job\".result // \"unknown\"" "$GITHUB_EVENT_PATH")
-          if [ "$status" = "success" ]; then
-            echo "- ✅ $job: PASSED" >> ci_status.md
-          elif [ "$status" = "failure" ]; then
-            echo "- ❌ $job: FAILED" >> ci_status.md
-          else
-            echo "- ⚠️  $job: $status" >> ci_status.md
-          fi
-        done
-
-        echo "" >> ci_status.md
-        echo "## Summary" >> ci_status.md
-        echo "" >> ci_status.md
-
-        # Overall status
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "✅ All CI checks passed!" >> ci_status.md
-        else
-          echo "❌ Some CI checks failed. Please review the pipeline results." >> ci_status.md
+        # Check if all required jobs passed
+        if [ "${{ needs.test.result }}" != "success" ]; then
+          echo "❌ Unit tests failed"
+          exit 1
         fi
 
-        cat ci_status.md
+        if [ "${{ needs.integration-test.result }}" != "success" ]; then
+          echo "❌ Integration tests failed"
+          exit 1
+        fi
 
-    - name: Upload CI status report
-      uses: actions/upload-artifact@v4
-      with:
-        name: ci-status-report
-        path: ci_status.md
+        if [ "${{ needs.security.result }}" != "success" ]; then
+          echo "❌ Security scan failed"
+          exit 1
+        fi
 
-    - name: Send notification (optional)
-      if: failure()
+        echo "✅ All quality gates passed"
+
+    - name: Generate quality report
       run: |
-        # This could be extended to send Slack, Discord, or email notifications
-        echo "CI pipeline failed. Check the logs for details."
+        echo "# Quality Gate Report" > quality_report.md
+        echo "" >> quality_report.md
+        echo "## Test Results" >> quality_report.md
+        echo "- Unit Tests: ${{ needs.test.result }}" >> quality_report.md
+        echo "- Integration Tests: ${{ needs.integration-test.result }}" >> quality_report.md
+        echo "- Benchmark Tests: ${{ needs.benchmark.result }}" >> quality_report.md
+        echo "- Fuzz Tests: ${{ needs.fuzz-test.result }}" >> quality_report.md
+        echo "- Security Scan: ${{ needs.security.result }}" >> quality_report.md
+        echo "- Performance Regression: ${{ needs.performance-regression.result }}" >> quality_report.md
+        echo "" >> quality_report.md
+        echo "## Coverage" >> quality_report.md
+        echo "- Code coverage report available in artifacts" >> quality_report.md
+
+    - name: Upload quality report
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-report
+        path: quality_report.md
+
+    - name: Quality gate check
+      run: |
+        # Final quality gate - fail if any critical test failed
+        if [ "${{ needs.test.result }}" = "failure" ] || \
+           [ "${{ needs.integration-test.result }}" = "failure" ] || \
+           [ "${{ needs.security.result }}" = "failure" ]; then
+          echo "🚨 Quality gate failed - blocking merge"
+          exit 1
+        else
+          echo "🎉 Quality gate passed - ready for merge"
+        fi

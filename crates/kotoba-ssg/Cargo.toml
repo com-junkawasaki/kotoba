@@ -1,17 +1,21 @@
 [package]
 name = "kotoba-ssg"
-version = "0.1.0"
+version = "0.1.16"
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Static Site Generator implemented in Kotoba language"
-authors = ["Kotoba Team"]
-license = "MIT OR Apache-2.0"
+keywords = ["ssg", "static", "generator", "markdown", "html"]
+categories = ["web-programming", "text-processing", "development-tools"]
+documentation = "https://docs.rs/kotoba-ssg"
+homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba core dependencies
-kotoba-core = { path = "../kotoba-core" }
-kotoba-jsonnet = { path = "../kotoba-jsonnet" }
-kotoba-kotobas = { path = "../kotoba-kotobas" }
-kotoba-docs = { path = "../kotoba-docs" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.17" }
+kotoba-kotobas = { path = "../kotoba-kotobas", version = "0.1.16" }
+kotoba-docs = { path = "../kotoba-docs", version = "0.1.16" }
 
 # External dependencies
 serde = { version = "1.0", features = ["derive"] }
