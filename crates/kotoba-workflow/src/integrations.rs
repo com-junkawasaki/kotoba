@@ -125,6 +125,7 @@ impl HttpIntegration {
     }
 }
 
+#[cfg(feature = "activities-http")]
 #[async_trait]
 impl Integration for HttpIntegration {
     async fn execute(
@@ -197,6 +198,7 @@ impl DatabaseIntegration {
     }
 }
 
+#[cfg(feature = "activities-db")]
 #[async_trait]
 impl Integration for DatabaseIntegration {
     async fn execute(
@@ -276,6 +278,7 @@ impl MessageQueueIntegration {
     }
 }
 
+#[cfg(feature = "activities-db")]
 #[async_trait]
 impl Integration for MessageQueueIntegration {
     async fn execute(

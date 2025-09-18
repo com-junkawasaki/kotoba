@@ -47,8 +47,9 @@ pub mod monitoring;
 pub mod optimization;
 pub mod integrations;
 
-// Re-export main types
-pub use ir::{WorkflowIR, ActivityIR, ExecutionStatus};
+// Re-export main types - use core types where possible
+pub use kotoba_workflow_core::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus, WorkflowEngineInterface};
+pub use ir::{ActivityIR};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager};
 pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
 pub use parser::WorkflowParser;
@@ -114,7 +115,7 @@ impl WorkflowEngineBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<WorkflowEngine, WorkflowError> {
+    pub async fn build(self) -> Result<ExtendedWorkflowEngine, WorkflowError> {
         let storage = if let Some(backend) = self.storage_backend {
             StorageFactory::create(backend).await?
         } else if let Some(kotoba_backend) = self.kotoba_backend {
@@ -135,7 +136,11 @@ impl WorkflowEngineBuilder {
             std::sync::Arc::clone(&event_sourcing)
         ).with_config(50, 5));
 
-        Ok(WorkflowEngine {
+        // Create core engine first
+        let core_engine = kotoba_workflow_core::WorkflowEngine::new();
+
+        Ok(ExtendedWorkflowEngine {
+            core_engine,
             storage,
             activity_registry,
             state_manager,
@@ -147,8 +152,9 @@ impl WorkflowEngineBuilder {
     }
 }
 
-/// Main workflow engine - Phase 2: MVCC + Event Sourcing + Distributed
-pub struct WorkflowEngine {
+/// Extended workflow engine - builds on core workflow functionality
+pub struct ExtendedWorkflowEngine {
+    core_engine: kotoba_workflow_core::WorkflowEngine,
     storage: std::sync::Arc<dyn WorkflowStore>,
     activity_registry: std::sync::Arc<ActivityRegistry>,
     state_manager: std::sync::Arc<WorkflowStateManager>,
@@ -159,7 +165,7 @@ pub struct WorkflowEngine {
     distributed_executor: Option<std::sync::Arc<DistributedWorkflowExecutor>>,
 }
 
-impl WorkflowEngine {
+impl ExtendedWorkflowEngine {
     pub fn builder() -> WorkflowEngineBuilder {
         WorkflowEngineBuilder::new()
     }
@@ -365,21 +371,24 @@ impl WorkflowEngine {
     }
 }
 
-/// Workflow execution result
+/// Extended workflow execution result with additional timing information
 #[derive(Debug, Clone)]
 pub struct WorkflowResult {
     pub execution_id: WorkflowExecutionId,
     pub status: ExecutionStatus,
-    pub outputs: Option<std::collections::HashMap<String, serde_json::Value>>,
+    pub outputs: Option<WorkflowExecution>,
     pub execution_time: std::time::Duration,
 }
 
 // WorkflowError is re-exported from executor module
 
+// Alias for backward compatibility
+pub type WorkflowEngine = ExtendedWorkflowEngine;
+
 /// Prelude for convenient imports
 pub mod prelude {
     pub use super::{
-        WorkflowEngine, WorkflowIR,
+        WorkflowEngine, ExtendedWorkflowEngine, WorkflowIR,
         ActivityRegistry, Activity, WorkflowStore, ExecutionStatus,
         WorkflowParser, EventSourcingManager, SnapshotManager,
         // Phase 2 distributed types

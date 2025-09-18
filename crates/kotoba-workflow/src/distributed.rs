@@ -186,19 +186,23 @@ impl DistributedCoordinator {
 
     /// タスク完了を報告
     pub async fn complete_task(&self, task_id: &str, success: bool) -> Result<(), WorkflowError> {
-        let mut tasks = self.tasks.write().await;
+        // まずタスクの情報を取得
+        let node_id = {
+            let mut tasks = self.tasks.write().await;
+            if let Some(task) = tasks.get_mut(task_id) {
+                task.status = if success { TaskStatus::Completed } else { TaskStatus::Failed };
+                task.completed_at = Some(chrono::Utc::now());
+                task.node_id.clone()
+            } else {
+                None
+            }
+        };
 
-        if let Some(task) = tasks.get_mut(task_id) {
-            task.status = if success { TaskStatus::Completed } else { TaskStatus::Failed };
-            task.completed_at = Some(chrono::Utc::now());
-
-            // ノードのアクティブワークフロー数を減らす
-            if let Some(node_id) = &task.node_id {
-                drop(tasks);
-                let mut nodes = self.nodes.write().await;
-                if let Some(node) = nodes.get_mut(node_id) {
-                    node.active_workflows = node.active_workflows.saturating_sub(1);
-                }
+        // ノードのアクティブワークフロー数を減らす
+        if let Some(node_id) = node_id {
+            let mut nodes = self.nodes.write().await;
+            if let Some(node) = nodes.get_mut(&node_id) {
+                node.active_workflows = node.active_workflows.saturating_sub(1);
             }
         }
 
