@@ -30,10 +30,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4.0", features = ["derive"] }
 
 # Kotoba crates
-kotoba-core = { path = "../kotoba-core" }
-kotoba-routing = { path = "../kotoba-routing" }
+kotoba-core = "0.1.21"
+kotoba-routing = "0.1.16"
 kotoba-errors = "0.1.2"
-kotoba-workflow = { path = "../kotoba-workflow" }
+kotoba-workflow = "0.1.15"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # GraphQL support
