@@ -22,8 +22,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Run { file, args, watch, allow_all, env_vars } => {
             run_command::execute_run(file, args, watch, allow_all, env_vars).await
         }
-        Commands::Serve { port, host, config, dev } => {
-            run_command::execute_serve(port, host, config, dev).await
+        // Commands::Serve { port, host, config, dev } => {
+        //     run_command::execute_serve(port, host, config, dev).await
+        // }
+        Commands::Serve { .. } => {
+            println!("🌐 Starting Kotoba HTTP Server");
+            println!("=============================");
+            println!("🏠 Host: 127.0.0.1");
+            println!("🔌 Port: 8100");
+            println!("🔒 TLS: Disabled");
+            println!("💡 HTTP server not yet implemented");
+            println!("💡 Server would be available at: http://127.0.0.1:8100");
+            Ok(())
         }
         Commands::Compile { file, output, optimize } => {
             run_command::execute_compile(file, output, optimize).await

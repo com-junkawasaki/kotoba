@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-cli"
-version = "0.1.16"
+version = "0.1.21"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
@@ -13,12 +13,12 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
-kotoba-execution = { path = "../kotoba-execution", version = "0.1.16" }
-kotoba-rewrite = { path = "../kotoba-rewrite", version = "0.1.16" }
-kotoba-storage = { path = "../kotoba-storage", version = "0.1.16" }
-kotoba-server = { path = "../kotoba-server", version = "0.1.16" }
+kotoba-core = "0.1.21"
+kotoba-graph = "0.1.21"
+kotoba-execution = "0.1.21"
+kotoba-rewrite = "0.1.21"
+kotoba-storage = "0.1.21"
+# kotoba-server = "0.1.21"  # Temporarily disabled due to workflow dependencies
 kotoba-deploy = { path = "../kotoba-deploy", version = "0.1.16", optional = true }
 kotoba-package-manager = { path = "../kotoba-package-manager", version = "0.1.16" }
 kotoba-formatter = { path = "../kotoba-formatter", version = "0.1.16" }
