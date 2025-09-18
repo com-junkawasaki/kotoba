@@ -1,4 +1,6 @@
 //! 設定管理
+//!
+//! Merkle DAG: cli_interface -> ConfigManager component
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

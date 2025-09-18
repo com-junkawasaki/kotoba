@@ -1,4 +1,6 @@
 //! ユーティリティ関数
+//!
+//! Merkle DAG: cli_interface -> ProgressBar component
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -240,5 +242,73 @@ pub fn get_platform_name() -> &'static str {
         "linux"
     } else {
         "unknown"
+    }
+}
+
+/// プログレスバー表示
+/// Merkle DAG: cli_interface -> ProgressBar component
+pub struct ProgressBar {
+    total: usize,
+    current: usize,
+    width: usize,
+    title: String,
+}
+
+impl ProgressBar {
+    /// 新しいプログレスバーを作成
+    pub fn new(total: usize, title: impl Into<String>) -> Self {
+        Self {
+            total,
+            current: 0,
+            width: 50,
+            title: title.into(),
+        }
+    }
+
+    /// プログレスバーを更新
+    pub fn update(&mut self, current: usize) {
+        self.current = current.min(self.total);
+        self.display();
+    }
+
+    /// プログレスバーをインクリメント
+    pub fn inc(&mut self) {
+        self.update(self.current + 1);
+    }
+
+    /// プログレスバーを完了状態にする
+    pub fn finish(&mut self) {
+        self.update(self.total);
+        println!(); // 改行
+    }
+
+    /// プログレスバーを表示
+    fn display(&self) {
+        let percentage = if self.total > 0 {
+            (self.current as f64 / self.total as f64 * 100.0) as usize
+        } else {
+            100
+        };
+
+        let filled = (self.current as f64 / self.total as f64 * self.width as f64) as usize;
+        let filled = filled.min(self.width);
+
+        let bar = "█".repeat(filled) + &"░".repeat(self.width - filled);
+
+        print!("\r{} [{:<width$}] {}/{} ({}%)",
+               self.title,
+               bar,
+               self.current,
+               self.total,
+               percentage,
+               width = self.width
+        );
+        std::io::Write::flush(&mut std::io::stdout()).ok();
+    }
+}
+
+impl Drop for ProgressBar {
+    fn drop(&mut self) {
+        println!(); // ドロップ時に改行
     }
 }

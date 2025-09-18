@@ -1,4 +1,6 @@
 //! ログ管理
+//!
+//! Merkle DAG: cli_interface -> LogFormatter component
 
 use tracing::{Level, Subscriber};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -52,6 +54,7 @@ pub fn level_to_string(level: Level) -> &'static str {
 }
 
 /// ログメッセージのフォーマッタ
+/// Merkle DAG: cli_interface -> LogFormatter component
 pub struct LogFormatter;
 
 impl LogFormatter {
@@ -91,63 +94,6 @@ impl LogFormatter {
     }
 }
 
-/// プログレスバー
-pub struct ProgressBar {
-    total: usize,
-    current: usize,
-    message: String,
-}
-
-impl ProgressBar {
-    /// 新しいプログレスバーを作成
-    pub fn new(total: usize, message: String) -> Self {
-        Self {
-            total,
-            current: 0,
-            message,
-        }
-    }
-
-    /// 進捗を更新
-    pub fn update(&mut self, current: usize) {
-        self.current = current;
-        self.display();
-    }
-
-    /// 進捗をインクリメント
-    pub fn increment(&mut self) {
-        self.current += 1;
-        self.display();
-    }
-
-    /// プログレスバーを表示
-    fn display(&self) {
-        let percentage = if self.total > 0 {
-            (self.current as f64 / self.total as f64 * 100.0) as usize
-        } else {
-            100
-        };
-
-        let width = 20;
-        let filled = (percentage * width) / 100;
-        let empty = width - filled;
-
-        let bar = "█".repeat(filled) + &"░".repeat(empty);
-
-        print!("\r{} [{}] {}/{} ({}%)", self.message, bar, self.current, self.total, percentage);
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    /// 完了
-    pub fn finish(&self) {
-        println!("\r{} [{}] {}/{} (100%) ✅", self.message, "█".repeat(20), self.total, self.total);
-    }
-
-    /// 完了（エラー）
-    pub fn finish_with_error(&self, error: &str) {
-        println!("\r{} ❌ {}", self.message, error);
-    }
-}
 
 /// ログレベルの設定を変更
 pub fn set_log_level(level: &str) -> Result<(), Box<dyn std::error::Error>> {

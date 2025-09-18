@@ -1,7 +1,11 @@
 //! Kotoba CLI のメインエントリーポイント
+//!
+//! Merkle DAG: docs_cli (build_order: 11)
+//! Dependencies: types, docs_core, cli_interface
+//! Provides: docs generate, docs serve, docs search, docs init
 
 use clap::Parser;
-use kotoba_cli::{Cli, Commands};
+use kotoba_cli::{Cli, Commands, DocsCommand};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,6 +16,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = match cli.command {
         Commands::Info { verbose } => {
             execute_info(verbose).await
+        }
+        Commands::Docs(command) => match command {
+            DocsCommand::Generate { source, output, config, watch } => {
+                execute_docs_generate(&source, &output, config.as_deref(), watch).await
+            }
+            DocsCommand::Serve { port, host, dir, open } => {
+                execute_docs_serve(port, &host, &dir, open).await
+            }
+            DocsCommand::Search { query, dir, json } => {
+                execute_docs_search(&query, &dir, json).await
+            }
+            DocsCommand::Init { config, force } => {
+                execute_docs_init(&config, force).await
+            }
         }
     };
 
@@ -62,4 +80,45 @@ async fn execute_info(verbose: bool) -> Result<(), Box<dyn std::error::Error>> {
     println!("📖 For more information, visit: https://github.com/com-junkawasaki/kotoba");
 
     Ok(())
+}
+
+/// Docs generateコマンドの実行
+async fn execute_docs_generate(
+    source: &str,
+    output: &str,
+    config: Option<&str>,
+    watch: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use kotoba_cli::commands::docs_generate;
+    docs_generate(source, output, config, watch).await
+}
+
+/// Docs serveコマンドの実行
+async fn execute_docs_serve(
+    port: u16,
+    host: &str,
+    dir: &str,
+    open: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use kotoba_cli::commands::docs_serve;
+    docs_serve(port, host, dir, open).await
+}
+
+/// Docs searchコマンドの実行
+async fn execute_docs_search(
+    query: &str,
+    dir: &str,
+    json: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use kotoba_cli::commands::docs_search;
+    docs_search(query, dir, json).await
+}
+
+/// Docs initコマンドの実行
+async fn execute_docs_init(
+    config: &str,
+    force: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use kotoba_cli::commands::docs_init;
+    docs_init(config, force).await
 }
