@@ -12,12 +12,14 @@
     // 基底層
     'types': {
       name: 'types',
-      path: 'src/types.rs',
+      path: 'crates/kotoba-core/src/types.rs',
       type: 'foundation',
       description: '共通型定義 (Value, VertexId, EdgeId, GraphRef, etc.)',
       dependencies: [],
       provides: ['Value', 'VertexId', 'EdgeId', 'GraphRef', 'TxId', 'ContentHash'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.19',
+      crate_name: 'kotoba-core',
       build_order: 1,
     },
 
@@ -29,7 +31,9 @@
       description: 'スキーマ/索引/不変量定義',
       dependencies: ['types'],
       provides: ['Catalog', 'LabelDef', 'IndexDef', 'Invariant'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.19',
+      crate_name: 'kotoba-core',
       build_order: 2,
     },
 
@@ -40,7 +44,9 @@
       description: 'Graph schema validation engine',
       dependencies: ['types', 'ir_catalog'],
       provides: ['SchemaValidator', 'ValidationResult'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.16',
+      crate_name: 'kotoba-schema',
       build_order: 3,
     },
 
@@ -51,7 +57,9 @@
       description: 'DPO型付き属性グラフ書換えルール',
       dependencies: ['types'],
       provides: ['RuleIR', 'Match', 'Guard'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.19',
+      crate_name: 'kotoba-core',
       build_order: 2,
     },
 
