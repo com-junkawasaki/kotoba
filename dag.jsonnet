@@ -1116,6 +1116,28 @@
       build_order: 17,
     },
 
+    'ssg_assets': {
+      name: 'ssg_assets',
+      path: 'crates/kotoba-ssg/src/assets/',
+      type: 'ssg_assets',
+      description: 'SSGアセット - CSS, JavaScript, テンプレートファイル',
+      dependencies: [],
+      provides: ['CSSAssets', 'JSAssets', 'HTMLTemplates', 'StaticAssets'],
+      status: 'completed',
+      build_order: 15,
+    },
+
+    'project_documentation': {
+      name: 'project_documentation',
+      path: 'docs/',
+      type: 'documentation',
+      description: 'プロジェクトドキュメント - Markdown形式のドキュメントコンテンツ',
+      dependencies: [],
+      provides: ['DocumentationContent', 'TutorialContent', 'APIDocs', 'DeploymentDocs', 'ArchitectureDocs'],
+      status: 'completed',
+      build_order: 1,
+    },
+
     'github_pages_deployer': {
       name: 'github_pages_deployer',
       path: 'crates/kotoba-ssg/src/deploy/github_pages.rs',
@@ -1132,10 +1154,21 @@
       path: 'crates/kotoba-ssg/src/builder/documentation.rs',
       type: 'ssg',
       description: 'ドキュメントビルダー - 技術ドキュメント特化のビルダー',
-      dependencies: ['types', 'static_site_generator', 'docs_core'],
+      dependencies: ['types', 'static_site_generator', 'docs_core', 'project_documentation'],
       provides: ['DocumentationBuilder', 'ApiDocGenerator', 'CodeExampleRenderer', 'SearchIndexBuilder'],
       status: 'planned',
       build_order: 19,
+    },
+
+    'site_build_output': {
+      name: 'site_build_output',
+      path: 'build/site/',
+      type: 'build_output',
+      description: 'サイトビルド出力 - 生成された静的サイトファイル',
+      dependencies: ['static_site_generator', 'documentation_builder', 'ssg_assets'],
+      provides: ['StaticSiteOutput', 'GeneratedHTML', 'SiteAssets', 'DocumentationSite'],
+      status: 'completed',
+      build_order: 20,
     },
 
     // ==========================================
@@ -2369,12 +2402,21 @@
     { from: 'static_site_generator', to: 'documentation_builder' },
     { from: 'docs_core', to: 'documentation_builder' },
 
+    // SSG assets and project documentation dependencies
+    { from: 'ssg_assets', to: 'html_template_engine' },
+    { from: 'ssg_assets', to: 'static_site_generator' },
+    { from: 'project_documentation', to: 'documentation_builder' },
+    { from: 'project_documentation', to: 'markdown_parser' },
+
     // SSG integration with main library
     { from: 'markdown_parser', to: 'lib' },
     { from: 'html_template_engine', to: 'lib' },
     { from: 'static_site_generator', to: 'lib' },
     { from: 'github_pages_deployer', to: 'lib' },
     { from: 'documentation_builder', to: 'lib' },
+    { from: 'ssg_assets', to: 'lib' },
+    { from: 'project_documentation', to: 'lib' },
+    { from: 'site_build_output', to: 'lib' },
   ],
 
   // ==========================================
@@ -2539,11 +2581,14 @@
   // ==========================================
 
   reverse_topological_order: [
+    'site_build_output',
     'documentation_builder',
     'github_pages_deployer',
     'static_site_generator',
     'html_template_engine',
     'markdown_parser',
+    'project_documentation',
+    'ssg_assets',
     'db',
     'db_engine_memory',
     'db_core',
@@ -2579,12 +2624,15 @@
     'example_frontend_app',
     'lib',
 
-    // SSG layer (build_order: 15-19)
+    // Documentation and SSG layer
+    'project_documentation',
+    'ssg_assets',
     'markdown_parser',
     'html_template_engine',
     'static_site_generator',
     'github_pages_deployer',
     'documentation_builder',
+    'site_build_output',
 
     'cli_interface',
     'kotoba_lsp',
