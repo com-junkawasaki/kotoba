@@ -5364,6 +5364,7 @@ name = "kotoba-db"
 version = "0.1.16"
 dependencies = [
  "anyhow",
+ "kotoba-core",
  "kotoba-db-core",
  "kotoba-db-engine-lsm",
  "kotoba-db-engine-memory",

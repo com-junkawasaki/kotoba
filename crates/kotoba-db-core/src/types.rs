@@ -4,9 +4,7 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use blake3;
 use ciborium;
-
-/// A Content ID (CID), which is the BLAKE3 hash of a serialized Block.
-pub type Cid = [u8; 32];
+use kotoba_core::prelude::Cid;
 
 /// A generic, serializable value that can be stored as a property.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -34,7 +32,7 @@ pub enum Block {
 impl Block {
     /// Computes the CID (Content ID) for this block.
     /// The CID is the BLAKE3 hash of the CBOR-serialized block.
-    pub fn cid(&self) -> Result<Cid> {
+    pub fn cid(&self) -> Result<[u8; 32]> {
         let mut hasher = blake3::Hasher::new();
         ciborium::into_writer(self, &mut hasher)?;
         let hash = hasher.finalize();
