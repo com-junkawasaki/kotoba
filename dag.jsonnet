@@ -70,7 +70,9 @@
       description: 'GQL論理プラン代数',
       dependencies: ['types'],
       provides: ['PlanIR', 'LogicalOp', 'Expr', 'Predicate'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.19',
+      crate_name: 'kotoba-core',
       build_order: 2,
     },
 
@@ -172,7 +174,9 @@
       description: 'RocksDB-based high-performance storage (95% test coverage)',
       dependencies: ['types'],
       provides: ['LSMTree', 'RocksDB'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.16',
+      crate_name: 'kotoba-storage',
       build_order: 4,
     },
 
@@ -246,12 +250,14 @@
 
     'execution_engine': {
       name: 'execution_engine',
-      path: 'src/execution/executor.rs',
+      path: 'crates/kotoba-execution/src/execution/executor.rs',
       type: 'execution',
       description: 'クエリ実行器',
       dependencies: ['types', 'ir_query', 'ir_catalog', 'graph_core', 'storage_mvcc', 'storage_merkle', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser'],
       provides: ['QueryExecutor'],
-      status: 'planned',
+      status: 'published',
+      published_version: '0.1.16',
+      crate_name: 'kotoba-execution',
       build_order: 7,
     },
 
@@ -1515,7 +1521,7 @@
       description: 'CI/CD pipeline with automated testing and deployment.',
       dependencies: ['integration_tests', 'load_testing', 'benchmarking_suite'],
       provides: ['CIPipeline', 'AutoDeployment', 'QualityGates', 'ReleaseAutomation'],
-      status: 'planned',
+      status: 'completed',
       build_order: 13,
       priority: 'high',
       estimated_effort: '1-2 weeks',
