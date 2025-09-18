@@ -1,26 +1,46 @@
 ---
 layout: default
-title: Process Network Model
+title: Process Network Graph Model
 ---
 
-# Process Network Graph Model
+# Process Network Graph Model: Declarative System Architecture
 
-Kotobaプロジェクトの基盤となる**Process Network Graph Model**について説明します。このモデルは、プロジェクト全体の依存関係とビルド順序を管理し、計算可能性を保証します。
+The **Process Network Graph Model** is Kotoba's core architectural framework that unifies declarative programming, theoretical graph rewriting, and distributed execution through a novel approach to system composition and dependency management.
 
-## 🎯 概要
+## 🎯 Core Innovation
 
-Process Network Graph Modelは、以下の特徴を持つプロセスネットワークグラフです：
+### Mathematical Foundation
 
-- **階層構造**: ノードは再帰的なサブグラフとして定義
-- **Merkle DAG**: 各ノードはMerkle DAGで表現
-- **トポロジカルソート**: ビルド順序の決定
-- **逆トポロジカルソート**: 問題解決順序の決定
+The Process Network Graph Model is formally defined as:
 
-## 📊 ネットワーク構造
+**Process Network Graph:**
+```math
+PNG = (P, C, λ_P, λ_C, τ)
+```
+- **P**: Set of process nodes (system components)
+- **C**: Set of communication channels (dependencies)
+- **λ_P**: Process function mapping (component implementation)
+- **λ_C**: Data type mapping (interface specifications)
+- **τ**: Dependency relation (build and execution order)
 
-### ノード定義
+**Topological Execution Theorem:**
+```math
+∀p_i, p_j ∈ P: (τ(p_i, p_j) = 1) ⟹ π(p_i) < π(p_j)
+```
 
-各ノードは以下のプロパティを持ちます：
+### Declarative Configuration Management
+
+All system components are centrally managed through `dag.jsonnet`, enabling:
+- **Automatic topological sorting** for build order determination
+- **Reverse topological sorting** for problem resolution
+- **Dependency analysis** and conflict detection
+- **Incremental builds** and change propagation
+
+## 🏗️ Architecture Principles
+
+### Hierarchical Node Structure
+
+Each node in the Process Network Graph represents a system component with the following properties:
 
 ```jsonnet
 {
@@ -30,24 +50,306 @@ Process Network Graph Modelは、以下の特徴を持つプロセスネット�
       path: 'crates/kotoba-component/src/lib.rs',
       type: 'component_type',
       description: 'コンポーネントの説明',
+
+      // 依存関係定義
       dependencies: ['dependency1', 'dependency2'],
       provides: ['feature1', 'feature2'],
-      status: 'planned|in_progress|completed',
+
+      // 状態管理
+      status: 'planned|in_progress|completed|published',
+      published_version: '0.1.0',
+      crate_name: 'kotoba-component',
+
+      // 実行順序
       build_order: 1,
     },
   },
 }
 ```
 
-### エッジ定義
+### Communication Channels (Edges)
 
-ノード間の依存関係を定義：
+Node interconnections define data flow and execution dependencies:
 
 ```jsonnet
 {
   edges: [
-    { from: 'component_a', to: 'component_b' },
-    { from: 'component_b', to: 'component_c' },
+    {
+      from: 'jsonnet_parser',
+      to: 'graph_processor',
+      type: 'data_flow',
+      description: 'Jsonnet AST to Graph IR transformation'
+    },
+    {
+      from: 'graph_processor',
+      to: 'query_executor',
+      type: 'execution_dependency',
+      description: 'Graph processing precedes query execution'
+    },
+  ],
+}
+```
+
+## 🔧 Implementation Details
+
+### Component Categories
+
+#### Foundation Layer
+- **Types**: Core type definitions (`Value`, `VertexId`, `EdgeId`, `GraphRef`)
+- **IR Definitions**: Intermediate representations for compilation
+- **Schema Management**: Type validation and constraint enforcement
+
+#### Processing Layer
+- **Parser Components**: Jsonnet parsing and AST generation
+- **Graph Operations**: Vertex/edge manipulation and traversal
+- **Query Processing**: GQL query compilation and optimization
+
+#### Execution Layer
+- **Storage Engines**: LSM-Tree and Memory implementations
+- **Query Execution**: Optimized execution plans and result processing
+- **Transaction Management**: MVCC and concurrency control
+
+#### Integration Layer
+- **API Interfaces**: GraphQL and REST API endpoints
+- **External Connectors**: Database and service integrations
+- **Deployment Tools**: Build and deployment automation
+
+### Dependency Resolution Algorithm
+
+#### Forward Topological Sort (Build Order)
+```python
+def topological_sort(nodes, edges):
+    """
+    Kahn's algorithm for build order determination
+    """
+    result = []
+    in_degree = {node: 0 for node in nodes}
+
+    # Calculate in-degrees
+    for edge in edges:
+        in_degree[edge.to] += 1
+
+    # Initialize queue with zero in-degree nodes
+    queue = [node for node in nodes if in_degree[node] == 0]
+
+    while queue:
+        current = queue.pop(0)
+        result.append(current)
+
+        # Update in-degrees of dependent nodes
+        for edge in edges:
+            if edge.from == current:
+                in_degree[edge.to] -= 1
+                if in_degree[edge.to] == 0:
+                    queue.append(edge.to)
+
+    return result
+```
+
+#### Reverse Topological Sort (Problem Resolution)
+```python
+def reverse_topological_sort(nodes, edges):
+    """
+    Reverse topological sort for dependency analysis
+    Used when resolving build failures or circular dependencies
+    """
+    # Transpose the graph
+    reverse_edges = [(edge.to, edge.from) for edge in edges]
+
+    # Apply standard topological sort to reversed graph
+    return topological_sort(nodes, reverse_edges)
+```
+
+## 📊 Current Network Status
+
+### Build Order Analysis
+
+The current `dag.jsonnet` defines the following build sequence:
+
+1. **Foundation Layer** (Build order 1-5)
+   - `types`, `ir_catalog`, `schema_validator`
+   - Core type system and validation
+
+2. **IR Layer** (Build order 6-15)
+   - `ir_rule`, `ir_query`, `ir_patch`, `ir_strategy`
+   - Intermediate representation definitions
+
+3. **Processing Layer** (Build order 16-25)
+   - Parser, graph operations, storage engines
+   - Core processing components
+
+4. **Integration Layer** (Build order 26-35)
+   - APIs, external connectors, deployment tools
+   - System integration and user interfaces
+
+### Dependency Graph Metrics
+
+- **Total Nodes**: 35+ system components
+- **Total Edges**: 80+ dependency relationships
+- **Graph Depth**: 8 levels of dependency hierarchy
+- **Parallel Build Groups**: 6 independent build clusters
+- **Critical Path Length**: 12 sequential dependencies
+
+## 🛠️ Development Workflow
+
+### Adding New Components
+
+1. **Define Component in dag.jsonnet**
+   ```jsonnet
+   'new_component': {
+     name: 'new_component',
+     path: 'crates/kotoba-new/src/lib.rs',
+     dependencies: ['existing_dependency'],
+     provides: ['new_feature'],
+     build_order: 99,
+   },
+   ```
+
+2. **Add Dependency Edges**
+   ```jsonnet
+   edges: [
+     { from: 'existing_dependency', to: 'new_component' },
+   ],
+   ```
+
+3. **Validate Build Order**
+   ```bash
+   # Check for circular dependencies
+   ./scripts/validate_topology.sh
+
+   # Verify build order
+   ./scripts/check_build_order.sh
+   ```
+
+### Troubleshooting Dependencies
+
+#### Circular Dependency Detection
+```bash
+# Find circular dependencies
+./scripts/find_cycles.sh
+
+# Analyze dependency chains
+./scripts/analyze_dependencies.sh component_name
+```
+
+#### Build Order Verification
+```bash
+# Validate topological sort
+./scripts/validate_topology.sh
+
+# Check build prerequisites
+./scripts/check_prerequisites.sh
+```
+
+## 🔬 Theoretical Properties
+
+### Termination Guarantee
+
+For any well-formed Process Network Graph:
+```math
+∀p ∈ P: domain(λ_P(p)) ⊆ ⋃_{c ∈ incoming(p)} λ_C(c)
+```
+
+This ensures all process inputs are satisfied by their communication channels.
+
+### Deadlock Freedom
+
+Process Network Graphs maintain acyclic communication patterns with bounded buffers, ensuring deadlock freedom through:
+- **Non-blocking channels** with bounded capacity
+- **Asynchronous communication** between processes
+- **Backpressure handling** for flow control
+
+### Consistency Preservation
+
+Graph rewriting operations preserve structural consistency by construction:
+- **Type safety** through formal type systems
+- **Invariant maintenance** during transformations
+- **Consistency checking** at transformation boundaries
+
+## 🚀 Advanced Features
+
+### Incremental Builds
+
+The Process Network Graph enables efficient incremental builds:
+
+```jsonnet
+{
+  incremental: {
+    enabled: true,
+    cache_strategy: 'content_hash',
+    change_detection: 'file_modification',
+    parallel_builds: true,
+  },
+}
+```
+
+### Distributed Compilation
+
+For large-scale projects, the graph can be partitioned for distributed compilation:
+
+```jsonnet
+{
+  distributed: {
+    partitions: [
+      { name: 'foundation', nodes: ['types', 'ir_*'] },
+      { name: 'processing', nodes: ['parser', 'graph_*'] },
+      { name: 'integration', nodes: ['api_*', 'deploy_*'] },
+    ],
+    coordination: 'master_worker',
+  },
+}
+```
+
+### Performance Optimization
+
+Build performance is optimized through:
+
+1. **Parallel Processing**: Independent components build simultaneously
+2. **Caching**: Content-addressed caching prevents redundant builds
+3. **Dependency Analysis**: Minimal rebuild sets for incremental changes
+4. **Resource Management**: Load balancing across build workers
+
+## 📈 Metrics and Monitoring
+
+### Build Performance Metrics
+- **Build Time**: Average time for full system build
+- **Incremental Build Ratio**: Time saved through incremental builds
+- **Cache Hit Rate**: Percentage of builds served from cache
+- **Parallelization Efficiency**: CPU utilization during parallel builds
+
+### Dependency Analysis Metrics
+- **Graph Density**: Ratio of actual to possible dependencies
+- **Critical Path Length**: Longest chain of dependent components
+- **Parallel Build Groups**: Number of independent build clusters
+- **Change Propagation**: Average components affected by single change
+
+## 🔮 Future Enhancements
+
+### Planned Features
+
+1. **Visual Dependency Graph**
+   - Web-based visualization of component relationships
+   - Interactive dependency exploration
+   - Build pipeline visualization
+
+2. **Advanced Caching Strategies**
+   - Machine learning-based cache optimization
+   - Predictive build acceleration
+   - Cross-project cache sharing
+
+3. **Distributed Build Coordination**
+   - Cluster-wide build orchestration
+   - Load balancing and resource optimization
+   - Failure recovery and retry mechanisms
+
+4. **Performance Analytics**
+   - Build time trend analysis
+   - Bottleneck identification and optimization
+   - Predictive build time estimation
+
+---
+
+The Process Network Graph Model provides a solid foundation for Kotoba's declarative system architecture, enabling reliable builds, efficient dependency management, and scalable development workflows.
   ],
 }
 ```

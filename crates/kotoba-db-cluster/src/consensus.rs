@@ -42,14 +42,16 @@ impl RaftConsensus {
 
     /// Start the consensus algorithm
     pub async fn start(&mut self, cluster_state: Arc<ClusterState>) -> Result<(), ConsensusError> {
+        let cluster_state_clone = Arc::clone(&cluster_state);
+
         // Start election timer
-        let election_handle = self.start_election_timer(cluster_state.clone());
+        let election_handle = self.start_election_timer(Arc::clone(&cluster_state));
 
         // Start heartbeat timer (only for leader)
-        let heartbeat_handle = self.start_heartbeat_timer(cluster_state.clone());
+        let heartbeat_handle = self.start_heartbeat_timer(Arc::clone(&cluster_state));
 
         // Start command processor
-        let command_handle = self.start_command_processor(cluster_state);
+        let command_handle = self.start_command_processor(cluster_state_clone);
 
         // Wait for all tasks
         tokio::try_join!(election_handle, heartbeat_handle, command_handle)?;

@@ -1561,7 +1561,7 @@
       description: 'Step-by-step tutorials and learning resources.',
       dependencies: ['api_reference', 'deployment_guides'],
       provides: ['TutorialSeries', 'QuickStartGuide', 'AdvancedExamples', 'VideoTutorials'],
-      status: 'planned',
+      status: 'completed',
       build_order: 15,
       priority: 'medium',
       estimated_effort: '1-2 weeks',

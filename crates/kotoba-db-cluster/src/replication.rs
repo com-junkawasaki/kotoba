@@ -42,10 +42,13 @@ impl ReplicationManager {
 
     /// Start replication processes
     pub async fn start(&mut self) -> Result<(), ReplicationError> {
+        // Clone state for async tasks
+        let cluster_state = Arc::clone(&self.cluster_state);
+
         // Start replication worker tasks
-        let status_handle = self.start_status_monitor();
-        let queue_handle = self.start_queue_processor();
-        let sync_handle = self.start_sync_scheduler();
+        let status_handle = self.start_status_monitor(cluster_state.clone());
+        let queue_handle = self.start_queue_processor(cluster_state.clone());
+        let sync_handle = self.start_sync_scheduler(cluster_state);
 
         // Wait for all tasks
         tokio::try_join!(status_handle, queue_handle, sync_handle)?;

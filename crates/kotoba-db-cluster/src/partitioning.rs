@@ -205,7 +205,7 @@ impl PartitionTable {
 
             // Update mappings
             for node in &nodes {
-                self.node_partitions.get_mut(node).unwrap().push(partition_id);
+                self.node_partitions.get_mut(node).unwrap().push(partition_id.clone());
             }
             self.partition_nodes.insert(partition_id, nodes);
         }
@@ -221,7 +221,7 @@ impl PartitionTable {
         }
 
         for (partition, nodes) in &self.partition_nodes {
-            partition_counts.insert(*partition, nodes.len());
+            partition_counts.insert(partition.clone(), nodes.len());
         }
 
         PartitionStats {

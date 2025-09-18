@@ -117,6 +117,20 @@ impl ClusterState {
             .map(|(id, _)| id.clone())
             .collect()
     }
+
+    /// Get nodes responsible for a key
+    pub async fn get_nodes_for_key(&self, key: &[u8]) -> Vec<NodeId> {
+        let partition = self.get_partition_for_key(key).await;
+        self.get_nodes_for_partition(&partition).await
+    }
+
+    /// Get partitions for a node
+    pub async fn get_partitions_for_node(&self, node_id: &NodeId) -> Vec<PartitionId> {
+        let config = self.config.read().await;
+        config.nodes.get(node_id)
+            .map(|info| info.partitions.clone())
+            .unwrap_or_default()
+    }
 }
 
 /// Log entry for consensus
