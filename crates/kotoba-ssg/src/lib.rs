@@ -30,11 +30,10 @@
 //! }
 //! ```
 
+pub mod generator;
 pub mod markdown;
 pub mod template;
-pub mod generator;
-pub mod deploy;
-pub mod builder;
+pub mod renderer;
 
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
