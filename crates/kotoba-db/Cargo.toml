@@ -22,3 +22,7 @@ kotoba-storage = { path = "../kotoba-storage" }
 [features]
 default = []
 lsm = ["dep:kotoba-db-engine-lsm"]
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tempfile = "3"

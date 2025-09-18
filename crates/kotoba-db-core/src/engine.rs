@@ -22,15 +22,15 @@ impl dyn StorageEngine {
     /// Stores a content-addressed block in the database.
     /// Returns the CID of the stored block.
     pub async fn put_block(&mut self, block: &Block) -> Result<Cid> {
-        let cid = block.cid()?;
+        let cid_bytes = block.cid()?;
         let bytes = block.to_bytes()?;
-        self.put(&cid, &bytes).await?;
-        Ok(cid)
+        self.put(&cid_bytes, &bytes).await?;
+        Ok(Cid(cid_bytes))
     }
 
     /// Retrieves a content-addressed block from the database by its CID.
     pub async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
-        match self.get(cid).await? {
+        match self.get(&cid.0).await? {
             Some(bytes) => {
                 let block = Block::from_bytes(&bytes)?;
                 Ok(Some(block))

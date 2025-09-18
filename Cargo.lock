@@ -5369,6 +5369,7 @@ dependencies = [
  "kotoba-db-engine-lsm",
  "kotoba-db-engine-memory",
  "kotoba-storage",
+ "tempfile",
  "tokio",
 ]
 

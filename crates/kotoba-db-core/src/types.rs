@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use blake3;
 use ciborium;
-use kotoba_core::prelude::Cid;
+pub use kotoba_core::prelude::Cid;
 
 /// A generic, serializable value that can be stored as a property.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

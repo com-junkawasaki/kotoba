@@ -178,13 +178,13 @@ impl DB {
     ///
     /// # Returns
     /// The CID of the created node block
-    pub async fn create_node(&self, properties: BTreeMap<String, Value>) -> Result<Cid> {
+    pub async fn create_node(&mut self, properties: BTreeMap<String, Value>) -> Result<Cid> {
         let node_block = NodeBlock {
             properties,
             edges: Vec::new(), // Start with no edges
         };
         let block = Block::Node(node_block);
-        self.storage.put_block(&block).await
+        self.storage.put_block(&block).await.map_err(Into::into)
     }
 
     /// Creates a new edge in the database.
@@ -198,7 +198,7 @@ impl DB {
     /// # Returns
     /// The CID of the created edge block
     pub async fn create_edge(
-        &self,
+        &mut self,
         label: String,
         from_cid: Cid,
         to_cid: Cid,
@@ -211,7 +211,7 @@ impl DB {
             properties,
         };
         let block = Block::Edge(edge_block);
-        self.storage.put_block(&block).await
+        self.storage.put_block(&block).await.map_err(Into::into)
     }
 
     /// Retrieves a block by its CID.
@@ -419,10 +419,20 @@ pub enum TraversalDirection {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
+
+    async fn create_test_db() -> DB {
+        let temp_dir = tempdir().unwrap();
+        let config = PersistentStorageConfig {
+            data_dir: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+        DB::open(config).await.unwrap()
+    }
 
     #[tokio::test]
     async fn test_basic_operations() {
-        let mut db = DB::open(PersistentStorageConfig::default()).await.unwrap();
+        let mut db = create_test_db().await;
 
         // Create a node
         let mut properties = BTreeMap::new();
@@ -533,7 +543,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transaction_operations() {
-        let mut db = DB::open(PersistentStorageConfig::default()).await.unwrap();
+        let mut db = create_test_db().await;
 
         // Begin transaction
         let txn_id = db.begin_transaction().await.unwrap();
@@ -559,7 +569,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_operations() {
-        let mut db = DB::open(PersistentStorageConfig::default()).await.unwrap();
+        let mut db = create_test_db().await;
 
         // Create some test data
         let mut alice_props = BTreeMap::new();

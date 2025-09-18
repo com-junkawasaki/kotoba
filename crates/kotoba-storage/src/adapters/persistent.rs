@@ -66,7 +66,16 @@ impl StoragePort for PersistentStorage {
         let prefix_hex = hex::encode(prefix);
         // Note: This scan is on hex keys, so it's a prefix scan on the hex representation.
         let lsm_tree = self.lsm_tree.read().await;
-        <LSMTree as KeyValuePort>::scan(&*lsm_tree, &prefix_hex).await
+        let kv_pairs = <LSMTree as KeyValuePort>::scan(&*lsm_tree, &prefix_hex).await?;
+
+        // Convert hex keys back to raw bytes for CID compatibility
+        let mut result = Vec::new();
+        for (key_hex, value) in kv_pairs {
+            if let Ok(key_bytes) = hex::decode(&key_hex) {
+                result.push((key_bytes, value));
+            }
+        }
+        Ok(result)
     }
 }
 
