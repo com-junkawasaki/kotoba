@@ -1,214 +1,244 @@
-# Kotoba GKE Deployment Guide
+# Kubernetes Deployment Configuration
 
-このガイドでは、KotobaをGoogle Kubernetes Engine (GKE)にデプロイする方法を説明します。
+This directory contains Kubernetes manifests and deployment configurations for running Kotoba in a cloud-native environment.
 
-## 📋 前提条件
+## Directory Structure
 
-- Google Cloud Platform アカウント
-- `gcloud` CLI がインストール済み
-- `kubectl` がインストール済み
-- Docker がインストール済み
-- GCP プロジェクトの作成
+```
+k8s/
+├── configmap.yaml         # Configuration data and environment variables
+├── deploy.sh              # Deployment script for automated setup
+├── ingress.yaml           # Ingress configuration for external access
+├── namespace.yaml         # Namespace definition
+├── services.yaml          # Service definitions (ClusterIP, LoadBalancer)
+├── statefulset.yaml       # StatefulSet for database persistence
+├── storage.yaml           # Persistent volume and storage class definitions
+├── templates/             # Helm chart templates
+├── values.yaml            # Helm chart default values
+├── kind/                  # Kind (Kubernetes in Docker) configurations
+│   ├── config.yaml        # Kind cluster configuration
+│   └── deploy.sh          # Kind-specific deployment script
+└── README.md              # This file
+```
 
-## 🚀 クイックスタート
+## Components
 
-### 1. 環境準備
+### Core Infrastructure
+
+#### `namespace.yaml`
+**Purpose**: Defines the `kotoba-system` namespace
+- **Labels**: Environment and team identification
+- **Resource Quotas**: CPU and memory limits
+- **Network Policies**: Pod-to-pod communication rules
+
+#### `configmap.yaml`
+**Purpose**: Centralized configuration management
+- **Database Configuration**: Connection strings and credentials
+- **Application Settings**: Environment-specific parameters
+- **Feature Flags**: Runtime configuration toggles
+- **Secrets**: Base64 encoded sensitive data references
+
+#### `secrets.yaml` (not shown)
+**Purpose**: Secure credential management
+- **Database Credentials**: Encrypted database access
+- **API Keys**: External service authentication
+- **TLS Certificates**: HTTPS certificate storage
+- **Service Account Tokens**: Kubernetes authentication
+
+### Storage Layer
+
+#### `storage.yaml`
+**Purpose**: Persistent storage configuration
+- **PersistentVolumeClaims**: Dynamic volume provisioning
+- **StorageClasses**: Performance and redundancy options
+- **Volume Snapshots**: Backup and restore capabilities
+- **Multi-zone Replication**: Cross-region data durability
+
+#### `statefulset.yaml`
+**Purpose**: Stateful application deployment
+- **Database Pods**: Persistent data management
+- **Ordered Deployment**: Sequential pod startup
+- **PVC Binding**: Stable volume attachment
+- **Rolling Updates**: Zero-downtime updates
+
+### Network Layer
+
+#### `services.yaml`
+**Purpose**: Service discovery and load balancing
+- **ClusterIP Services**: Internal pod communication
+- **LoadBalancer Services**: External traffic ingress
+- **Headless Services**: Direct pod access for stateful sets
+- **Service Mesh Integration**: Istio/Traffic management
+
+#### `ingress.yaml`
+**Purpose**: External traffic routing
+- **HTTP/HTTPS Routing**: Path and host-based routing
+- **SSL/TLS Termination**: Certificate management
+- **Rate Limiting**: DDoS protection and traffic shaping
+- **Authentication**: JWT validation and access control
+
+### Deployment Automation
+
+#### `deploy.sh`
+**Purpose**: Automated deployment pipeline
+- **Environment Setup**: Namespace and prerequisites
+- **Rolling Deployment**: Zero-downtime application updates
+- **Health Checks**: Post-deployment verification
+- **Rollback Procedures**: Automated failure recovery
+
+## Deployment Scenarios
+
+### Development Environment
 
 ```bash
-# GCP プロジェクトを設定
-export PROJECT_ID="your-gcp-project-id"
-export CLUSTER_NAME="kotoba-cluster"
-export REGION="us-central1"
+# Quick local deployment with Kind
+cd k8s/kind
+./deploy.sh dev
 
-# gcloud 認証
-gcloud auth login
-gcloud config set project $PROJECT_ID
+# Features:
+# - Single-node cluster
+# - Local storage
+# - Development configurations
+# - Hot reload capabilities
 ```
 
-### 2. デプロイスクリプト実行
+### Production Environment
 
 ```bash
-# デプロイスクリプトを実行
-./k8s/deploy.sh $PROJECT_ID $CLUSTER_NAME $REGION
+# Production deployment
+./deploy.sh prod
+
+# Features:
+# - Multi-zone deployment
+# - Persistent storage
+# - Load balancing
+# - Monitoring integration
+# - Backup automation
 ```
 
-スクリプトは以下の処理を自動的に実行します：
-- Dockerイメージのビルドとプッシュ
-- GKEクラスタの作成（存在しない場合）
-- Kubernetesリソースのデプロイ
-- サービスの起動確認
-
-## 📁 デプロイメント構成
-
-### アーキテクチャ
-
-```
-Internet
-    ↓
-[GKE Ingress]
-    ↓
-[LoadBalancer Service]
-    ↓
-[Kotoba StatefulSet] (3 replicas)
-    ↓
-[Persistent Disk] (GCP PD)
-```
-
-### コンポーネント
-
-- **StatefulSet**: Kotoba分散ストレージクラスタ（3ノード）
-- **PersistentVolume**: GKE Persistent Diskを使用
-- **Service**: クラスタ内通信と外部アクセス
-- **Ingress**: HTTP/HTTPSアクセス
-- **HPA**: 自動スケーリング
-- **PDB**: 障害耐性保証
-
-## ⚙️ 設定カスタマイズ
-
-### クラスタサイズの変更
+### High Availability Setup
 
 ```bash
-# StatefulSetのレプリカ数を変更
-kubectl scale statefulset kotoba-cluster --replicas=5 -n kotoba-system
+# HA deployment with redundancy
+./deploy.sh ha
+
+# Features:
+# - Multi-node clusters
+# - Cross-zone replication
+- Load balancer configuration
+- Automatic failover
+- Performance monitoring
 ```
 
-### リソース制限の調整
+## Configuration Management
 
-`k8s/statefulset.yaml` のリソース設定を変更：
+### Helm Integration
+
+#### `values.yaml`
+Default configuration values for Helm deployments:
 
 ```yaml
-resources:
-  requests:
-    memory: "4Gi"    # メモリ要求量を増加
-    cpu: "2000m"     # CPU要求量を増加
-  limits:
-    memory: "8Gi"    # メモリ上限を増加
-    cpu: "4000m"     # CPU上限を増加
+# Application configuration
+app:
+  name: kotoba
+  version: "0.1.0"
+  replicas: 3
+
+# Database configuration
+database:
+  type: postgresql
+  host: kotoba-db
+  port: 5432
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: kotoba.example.com
+      paths:
+        - path: /
+          pathType: Prefix
 ```
 
-### ストレージサイズの調整
-
-`k8s/storage.yaml` のストレージサイズを変更：
+### Environment-Specific Overrides
 
 ```yaml
-resources:
-  requests:
-    storage: 500Gi  # ストレージサイズを500GBに増加
+# production-values.yaml
+app:
+  replicas: 5
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+ingress:
+  tls:
+    - secretName: kotoba-tls
+      hosts:
+        - kotoba.example.com
 ```
 
-## 🔍 監視と運用
+## Monitoring and Observability
 
-### クラスタ状態確認
-
-```bash
-# Pod状態確認
-kubectl get pods -n kotoba-system
-
-# サービス状態確認
-kubectl get svc -n kotoba-system
-
-# PersistentVolume状態確認
-kubectl get pvc -n kotoba-system
-```
-
-### ログ確認
-
-```bash
-# 全Podのログを表示
-kubectl logs -f statefulset/kotoba-cluster -n kotoba-system
-
-# 特定Podのログを表示
-kubectl logs -f kotoba-cluster-0 -n kotoba-system
-```
-
-### メトリクス監視
-
-KotobaはPrometheusメトリクスを `/metrics` エンドポイントで提供します。
-
-```bash
-# メトリクス取得
-kubectl port-forward svc/kotoba-external 9090:80 -n kotoba-system
-curl http://localhost:9090/metrics
-```
-
-## 🔧 トラブルシューティング
-
-### よくある問題
-
-#### 1. Podが起動しない
-
-```bash
-# 詳細なPod状態確認
-kubectl describe pod kotoba-cluster-0 -n kotoba-system
-
-# ログ確認
-kubectl logs kotoba-cluster-0 -n kotoba-system --previous
-```
-
-#### 2. 永続ボリュームが作成されない
-
-```bash
-# PVC状態確認
-kubectl get pvc -n kotoba-system
-kubectl describe pvc data-kotoba-cluster-0 -n kotoba-system
-```
-
-#### 3. サービスにアクセスできない
-
-```bash
-# LoadBalancer IP確認
-kubectl get svc kotoba-external -n kotoba-system
-
-# ポートフォワーディングでテスト
-kubectl port-forward svc/kotoba-external 8080:80 -n kotoba-system
-curl http://localhost:8080/health
-```
-
-### デバッグコマンド
-
-```bash
-# Pod内でのデバッグ
-kubectl exec -it kotoba-cluster-0 -n kotoba-system -- /bin/bash
-
-# ネットワーク接続テスト
-kubectl exec -it kotoba-cluster-0 -n kotoba-system -- \
-  curl -f http://kotoba-cluster-1.kotoba-cluster.kotoba-system.svc.cluster.local:3000/health
-```
-
-## 🔄 更新とアップグレード
-
-### ローリングアップデート
-
-```bash
-# 新しいイメージで更新
-kubectl set image statefulset/kotoba-cluster kotoba=gcr.io/$PROJECT_ID/kotoba:v2.0.0 -n kotoba-system
-
-# 更新状況確認
-kubectl rollout status statefulset/kotoba-cluster -n kotoba-system
-```
-
-### 設定更新
-
-```bash
-# ConfigMap更新
-kubectl apply -f k8s/configmap.yaml
-
-# Pod再起動
-kubectl rollout restart statefulset/kotoba-cluster -n kotoba-system
-```
-
-## 🛡️ セキュリティ
-
-### ネットワークポリシー
-
-クラスタ内通信のみを許可するNetworkPolicyを作成：
+### Integrated Monitoring
 
 ```yaml
+# Prometheus metrics collection
+monitoring:
+  prometheus:
+    enabled: true
+    scrapeInterval: 30s
+
+  grafana:
+    enabled: true
+    dashboards:
+      - kotoba-overview
+      - database-metrics
+      - application-performance
+
+  alertmanager:
+    enabled: true
+    rules:
+      - kotoba-pod-restart
+      - database-connection-failure
+      - high-memory-usage
+```
+
+### Logging Integration
+
+```yaml
+# Centralized logging
+logging:
+  fluentd:
+    enabled: true
+    configMap: kotoba-logging-config
+
+  elasticsearch:
+    enabled: true
+    replicas: 3
+
+  kibana:
+    enabled: true
+    dashboards:
+      - kotoba-application-logs
+      - error-analysis
+      - performance-metrics
+```
+
+## Security Configuration
+
+### Network Policies
+
+```yaml
+# Pod-to-pod communication rules
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: kotoba-network-policy
-  namespace: kotoba-system
 spec:
   podSelector:
     matchLabels:
@@ -223,102 +253,231 @@ spec:
           app: kotoba
     ports:
     - protocol: TCP
-      port: 8080  # gRPC port
-    - protocol: TCP
-      port: 3000  # HTTP port
+      port: 8080
 ```
 
-### サービスアカウント
-
-GKE Workload Identityを使用した安全な認証：
+### RBAC Configuration
 
 ```yaml
-apiVersion: v1
-kind: ServiceAccount
+# Service account permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: kotoba-sa
-  namespace: kotoba-system
-  annotations:
-    iam.gke.io/gcp-service-account: kotoba-service@$PROJECT_ID.iam.gserviceaccount.com
+  name: kotoba-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ```
 
-## 📊 パフォーマンスチューニング
+## Scaling and Performance
 
-### ノードプール設定
-
-高性能ノードプールを作成：
-
-```bash
-gcloud container node-pools create high-mem-pool \
-  --cluster=$CLUSTER_NAME \
-  --region=$REGION \
-  --machine-type=n2-highmem-8 \
-  --num-nodes=3 \
-  --enable-autoscaling \
-  --min-nodes=3 \
-  --max-nodes=10
-```
-
-### ストレージクラス
-
-高性能SSDストレージを使用：
+### Horizontal Pod Autoscaling
 
 ```yaml
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
 metadata:
-  name: fast-ssd
-provisioner: pd.csi.storage.gke.io
-parameters:
-  type: pd-ssd
-  replication-type: regional-pd
-reclaimPolicy: Retain
-```
-
-## 🚀 高度な構成
-
-### マルチゾーン配置
-
-可用性を高めるためのマルチゾーン配置：
-
-```bash
-gcloud container clusters create $CLUSTER_NAME \
-  --region=$REGION \
-  --node-locations=$REGION-a,$REGION-b,$REGION-c \
-  --enable-autoscaling \
-  --min-nodes=9 \
-  --max-nodes=30
-```
-
-### 外部ロードバランサー
-
-外部アクセス用のロードバランサー設定：
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: kotoba-external-lb
-  namespace: kotoba-system
-  annotations:
-    cloud.google.com/load-balancer-type: "External"
+  name: kotoba-hpa
 spec:
-  type: LoadBalancer
-  loadBalancerIP: "YOUR_STATIC_IP"
-  # ... 他の設定
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kotoba
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
 ```
 
-## 📞 サポート
+### Vertical Pod Autoscaling
 
-問題が発生した場合：
+```yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: kotoba-vpa
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kotoba
+  updatePolicy:
+    updateMode: "Auto"
+```
 
-1. [Kotoba GitHub Issues](https://github.com/com-junkawasaki/kotoba/issues) を確認
-2. GKE の[トラブルシューティングガイド](https://cloud.google.com/kubernetes-engine/docs/troubleshooting) を参照
-3. 以下の情報を含めてIssueを作成：
-   - `kubectl get pods -n kotoba-system`
-   - `kubectl logs [pod-name] -n kotoba-system`
-   - GKEクラスタの設定情報
+## Disaster Recovery
+
+### Backup Configuration
+
+```yaml
+# Automated backup schedule
+backup:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 30d
+  storage:
+    type: s3
+    bucket: kotoba-backups
+    region: us-west-2
+```
+
+### Restore Procedures
+
+```bash
+# Database restore
+kubectl apply -f k8s/restore-job.yaml
+
+# Application rollback
+kubectl rollout undo deployment/kotoba --to-revision=2
+
+# Complete cluster restore
+./deploy.sh restore
+```
+
+## Development Workflow
+
+### Local Development
+
+```bash
+# Start local Kind cluster
+kind create cluster --config k8s/kind/config.yaml
+
+# Deploy application
+./k8s/deploy.sh dev
+
+# Port forward for local access
+kubectl port-forward svc/kotoba 8080:80
+
+# View logs
+kubectl logs -f deployment/kotoba
+```
+
+### CI/CD Integration
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Kubernetes
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Deploy to K8s
+      run: |
+        ./k8s/deploy.sh prod
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Pod Startup Failures
+```bash
+# Check pod status
+kubectl get pods -n kotoba-system
+
+# View detailed logs
+kubectl describe pod <pod-name>
+
+# Check resource constraints
+kubectl top pods
+```
+
+#### Network Connectivity
+```bash
+# Test service connectivity
+kubectl exec -it <pod-name> -- curl http://localhost:8080/health
+
+# Check network policies
+kubectl get networkpolicies
+
+# Verify ingress configuration
+kubectl describe ingress kotoba-ingress
+```
+
+#### Storage Issues
+```bash
+# Check PVC status
+kubectl get pvc
+
+# Verify storage class
+kubectl get storageclass
+
+# Check volume mounts
+kubectl describe pod <pod-name>
+```
+
+## Integration with Process Network
+
+This directory is part of the Kubernetes deployment process network:
+
+- **Node**: `kubernetes_deployment`
+- **Type**: `infrastructure`
+- **Dependencies**: `docker_infrastructure`
+- **Provides**: K8s manifests, services, ingress, storage
+- **Build Order**: 2
+
+## Best Practices
+
+1. **Use Helm Charts**: For complex deployments and configuration management
+2. **Implement Health Checks**: Ensure proper liveness and readiness probes
+3. **Configure Resource Limits**: Prevent resource exhaustion
+4. **Use Network Policies**: Secure pod-to-pod communication
+5. **Implement Monitoring**: Set up comprehensive observability
+6. **Automate Backups**: Regular data protection and disaster recovery
+7. **Test Deployments**: Use staging environments before production
+8. **Document Changes**: Keep deployment configurations versioned and documented
+
+## Related Components
+
+- **Docker Configuration**: `Dockerfile` (container build)
+- **Helm Charts**: `packages/kotoba-workflow-designer/` (application packaging)
+- **CI/CD**: `.github/workflows/` (automated deployment)
+- **Monitoring**: `crates/kotoba-monitoring/` (observability)
+- **Security**: `crates/kotoba-security/` (authentication and authorization)
 
 ---
 
-**Kotoba on GKE** - クラウドネイティブな分散グラフデータベースを実現
+## Quick Start
+
+### Deploy to Local Kind Cluster
+
+```bash
+# Install Kind and kubectl
+# Then run:
+cd k8s/kind
+./deploy.sh
+
+# Access the application
+kubectl port-forward svc/kotoba 8080:80
+# Visit http://localhost:8080
+```
+
+### Deploy to Production Cluster
+
+```bash
+# Ensure kubectl context is set to production cluster
+kubectl config current-context
+
+# Deploy with production configuration
+./k8s/deploy.sh prod
+
+# Verify deployment
+kubectl get all -n kotoba-system
+```
+
+This Kubernetes configuration provides a complete, production-ready deployment setup for the Kotoba system with high availability, security, and monitoring capabilities.

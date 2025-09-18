@@ -1322,6 +1322,306 @@
       build_order: 26,
     },
 
+    // ==========================================
+    // インフラストラクチャ層 (Infrastructure Layer)
+    // ==========================================
+
+    'docker_infrastructure': {
+      name: 'docker_infrastructure',
+      path: 'Dockerfile',
+      type: 'infrastructure',
+      description: 'Dockerコンテナ化設定 - アプリケーションのコンテナ化とデプロイ',
+      dependencies: [],
+      provides: ['DockerImage', 'ContainerDeployment', 'RuntimeEnvironment'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'kubernetes_deployment': {
+      name: 'kubernetes_deployment',
+      path: 'k8s/',
+      type: 'infrastructure',
+      description: 'Kubernetesデプロイメント設定 - クラウドネイティブデプロイメント',
+      dependencies: ['docker_infrastructure'],
+      provides: ['K8sManifests', 'ServiceMesh', 'AutoScaling', 'IngressConfig'],
+      status: 'completed',
+      build_order: 2,
+    },
+
+    'nix_environment': {
+      name: 'nix_environment',
+      path: 'flake.nix',
+      type: 'infrastructure',
+      description: 'Nix環境設定 - 再現可能な開発環境とビルド',
+      dependencies: [],
+      provides: ['DevEnvironment', 'BuildReproducibility', 'DependencyManagement'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'package_distribution': {
+      name: 'package_distribution',
+      path: 'Formula/',
+      type: 'distribution',
+      description: 'パッケージ配布設定 - Homebrew, システムパッケージ',
+      dependencies: [],
+      provides: ['HomebrewFormula', 'SystemPackages', 'InstallationTools'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // 開発ツール層 (Development Tools)
+    // ==========================================
+
+    'build_scripts': {
+      name: 'build_scripts',
+      path: 'scripts/',
+      type: 'dev_tools',
+      description: 'ビルド・デプロイスクリプト - 自動化ツールとユーティリティ',
+      dependencies: [],
+      provides: ['BuildAutomation', 'DeployScripts', 'DevelopmentTools'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'data_schemas': {
+      name: 'data_schemas',
+      path: 'schemas/',
+      type: 'dev_tools',
+      description: 'データスキーマ定義 - JSON Schema, データ構造定義',
+      dependencies: [],
+      provides: ['SchemaValidation', 'DataContracts', 'TypeDefinitions'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // 研究・ドキュメント層 (Research & Documentation)
+    // ==========================================
+
+    'research_documentation': {
+      name: 'research_documentation',
+      path: 'research/',
+      type: 'research',
+      description: '研究ドキュメント - 論文、研究ノート、技術調査',
+      dependencies: [],
+      provides: ['ResearchPapers', 'TechnicalReports', 'InvestigationResults'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'design_documentation': {
+      name: 'design_documentation',
+      path: 'DESIGN.md',
+      type: 'documentation',
+      description: '設計ドキュメント - システムアーキテクチャと設計原則',
+      dependencies: [],
+      provides: ['SystemDesign', 'ArchitectureDocs', 'DesignPrinciples'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'publishing_guide': {
+      name: 'publishing_guide',
+      path: 'PUBLISH_GUIDE.md',
+      type: 'documentation',
+      description: '公開ガイド - リリースと公開の手順',
+      dependencies: [],
+      provides: ['ReleaseProcess', 'PublishingWorkflow', 'DistributionGuide'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'capabilities_documentation': {
+      name: 'capabilities_documentation',
+      path: 'CAPABILITIES_README.md',
+      type: 'documentation',
+      description: '能力ドキュメント - システムの機能と能力の説明',
+      dependencies: [],
+      provides: ['FeatureDocumentation', 'CapabilityOverview', 'SystemFeatures'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'roadmap_documentation': {
+      name: 'roadmap_documentation',
+      path: 'next_functions.md',
+      type: 'documentation',
+      description: 'ロードマップドキュメント - 次期機能と開発計画',
+      dependencies: [],
+      provides: ['FeatureRoadmap', 'DevelopmentPlan', 'FutureCapabilities'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // プロジェクト設定層 (Project Configuration)
+    // ==========================================
+
+    'rust_project_config': {
+      name: 'rust_project_config',
+      path: 'Cargo.toml',
+      type: 'configuration',
+      description: 'Rustプロジェクト設定 - 依存関係、ビルド設定、メタデータ',
+      dependencies: [],
+      provides: ['ProjectMetadata', 'DependencyManagement', 'BuildConfiguration'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'license_documentation': {
+      name: 'license_documentation',
+      path: 'LICENSE',
+      type: 'legal',
+      description: 'ライセンスドキュメント - 法的権利と使用条件',
+      dependencies: [],
+      provides: ['LegalFramework', 'UsageRights', 'DistributionTerms'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'main_readme': {
+      name: 'main_readme',
+      path: 'README.md',
+      type: 'documentation',
+      description: 'メインREADME - プロジェクト概要と使用方法',
+      dependencies: [],
+      provides: ['ProjectOverview', 'UsageGuide', 'GettingStarted'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'contribution_guide': {
+      name: 'contribution_guide',
+      path: 'CONTRIBUTING.md',
+      type: 'documentation',
+      description: '貢献ガイド - 開発参加方法とワークフロー',
+      dependencies: [],
+      provides: ['DevelopmentWorkflow', 'ContributionProcess', 'CodeStandards'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'release_notes': {
+      name: 'release_notes',
+      path: 'RELEASE.md',
+      type: 'documentation',
+      description: 'リリースノート - バージョン履歴と変更点',
+      dependencies: [],
+      provides: ['VersionHistory', 'Changelog', 'ReleaseInformation'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // ランタイム・アセット層 (Runtime Assets)
+    // ==========================================
+
+    'jsonnet_stdlib': {
+      name: 'jsonnet_stdlib',
+      path: 'lib.jsonnet',
+      type: 'runtime_asset',
+      description: 'Jsonnet標準ライブラリ拡張 - Jsonnetランタイム拡張',
+      dependencies: ['jsonnet_core'],
+      provides: ['JsonnetExtensions', 'StandardLibrary', 'RuntimeFunctions'],
+      status: 'completed',
+      build_order: 10,
+    },
+
+    'compiled_binaries': {
+      name: 'compiled_binaries',
+      path: 'simple-static-build',
+      type: 'runtime_asset',
+      description: 'コンパイル済みバイナリ - 事前ビルドされた実行ファイル',
+      dependencies: ['rust_project_config'],
+      provides: ['PrebuiltBinaries', 'QuickStart', 'DistributionArtifacts'],
+      status: 'completed',
+      build_order: 15,
+    },
+
+    // ==========================================
+    // デプロイ・公開層 (Deployment & Publishing)
+    // ==========================================
+
+    'seo_configuration': {
+      name: 'seo_configuration',
+      path: 'robots.txt',
+      type: 'seo',
+      description: 'SEO設定 - 検索エンジン最適化とクローラー制御',
+      dependencies: [],
+      provides: ['SearchOptimization', 'CrawlerControl', 'SiteIndexing'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'github_pages_domain': {
+      name: 'github_pages_domain',
+      path: 'CNAME',
+      type: 'deployment',
+      description: 'GitHub Pagesドメイン設定 - カスタムドメイン設定',
+      dependencies: [],
+      provides: ['CustomDomain', 'DNSConfiguration', 'PageRouting'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // 品質管理・分析層 (Quality Assurance)
+    // ==========================================
+
+    'code_coverage_data': {
+      name: 'code_coverage_data',
+      path: 'build_rs_cov.profraw',
+      type: 'quality',
+      description: 'コードカバレッジデータ - テストカバレッジ分析',
+      dependencies: ['rust_project_config'],
+      provides: ['CoverageAnalysis', 'TestQualityMetrics', 'CodeQualityAssessment'],
+      status: 'completed',
+      build_order: 20,
+    },
+
+    'compatibility_reports': {
+      name: 'compatibility_reports',
+      path: 'compatibility_report.md',
+      type: 'quality',
+      description: '互換性レポート - プラットフォーム互換性とテスト結果',
+      dependencies: [],
+      provides: ['PlatformCompatibility', 'TestReports', 'QualityMetrics'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    // ==========================================
+    // リリース管理層 (Release Management)
+    // ==========================================
+
+    'release_artifacts': {
+      name: 'release_artifacts',
+      path: 'kotoba-*.tar.gz',
+      type: 'release',
+      description: 'リリースアーティファクト - 配布用パッケージファイル',
+      dependencies: ['rust_project_config'],
+      provides: ['DistributionPackages', 'InstallationArchives', 'ReleaseBundles'],
+      status: 'completed',
+      build_order: 25,
+    },
+
+    // ==========================================
+    // 外部統合層 (External Integrations)
+    // ==========================================
+
+    'google_integration': {
+      name: 'google_integration',
+      path: 'google_functions.txt',
+      type: 'integration',
+      description: 'Google統合ファイル - Jsonnet標準ライブラリ統合',
+      dependencies: ['jsonnet_core'],
+      provides: ['GoogleServices', 'JsonnetStdlib', 'ExternalIntegrations'],
+      status: 'completed',
+      build_order: 10,
+    },
+
     'package_manager': {
       name: 'package_manager',
       path: 'crates/kotoba-package-manager/src/lib.rs',
@@ -2485,6 +2785,49 @@
     { from: 'repl_tests', to: 'lib' },
     { from: 'general_tests', to: 'lib' },
     { from: 'cluster_tests', to: 'lib' },
+
+    // Infrastructure integration
+    { from: 'docker_infrastructure', to: 'kubernetes_deployment' },
+    { from: 'docker_infrastructure', to: 'lib' },
+    { from: 'kubernetes_deployment', to: 'lib' },
+    { from: 'nix_environment', to: 'lib' },
+    { from: 'package_distribution', to: 'lib' },
+
+    // Development tools integration
+    { from: 'build_scripts', to: 'lib' },
+    { from: 'data_schemas', to: 'lib' },
+
+    // Documentation integration
+    { from: 'research_documentation', to: 'lib' },
+    { from: 'design_documentation', to: 'lib' },
+    { from: 'publishing_guide', to: 'lib' },
+    { from: 'capabilities_documentation', to: 'lib' },
+    { from: 'roadmap_documentation', to: 'lib' },
+
+    // Configuration integration
+    { from: 'rust_project_config', to: 'lib' },
+    { from: 'license_documentation', to: 'lib' },
+    { from: 'main_readme', to: 'lib' },
+    { from: 'contribution_guide', to: 'lib' },
+    { from: 'release_notes', to: 'lib' },
+
+    // Runtime assets integration
+    { from: 'jsonnet_stdlib', to: 'lib' },
+    { from: 'compiled_binaries', to: 'lib' },
+
+    // Deployment integration
+    { from: 'seo_configuration', to: 'lib' },
+    { from: 'github_pages_domain', to: 'lib' },
+
+    // Quality assurance integration
+    { from: 'code_coverage_data', to: 'lib' },
+    { from: 'compatibility_reports', to: 'lib' },
+
+    // Release management integration
+    { from: 'release_artifacts', to: 'lib' },
+
+    // External integrations
+    { from: 'google_integration', to: 'lib' },
   ],
 
   // ==========================================
@@ -2664,6 +3007,48 @@
     'cluster_tests',
     'general_tests',
     'repl_tests',
+
+    // External integrations layer (reverse order)
+    'google_integration',
+
+    // Release management layer (reverse order)
+    'release_artifacts',
+
+    // Quality assurance layer (reverse order)
+    'compatibility_reports',
+    'code_coverage_data',
+
+    // Deployment & publishing layer (reverse order)
+    'github_pages_domain',
+    'seo_configuration',
+
+    // Runtime assets layer (reverse order)
+    'compiled_binaries',
+    'jsonnet_stdlib',
+
+    // Project configuration layer (reverse order)
+    'release_notes',
+    'contribution_guide',
+    'main_readme',
+    'license_documentation',
+    'rust_project_config',
+
+    // Research & documentation layer (reverse order)
+    'roadmap_documentation',
+    'capabilities_documentation',
+    'publishing_guide',
+    'design_documentation',
+    'research_documentation',
+
+    // Development tools layer (reverse order)
+    'data_schemas',
+    'build_scripts',
+
+    // Infrastructure layer (reverse order)
+    'package_distribution',
+    'nix_environment',
+    'kubernetes_deployment',
+    'docker_infrastructure',
     'db',
     'db_engine_memory',
     'db_core',
@@ -2715,6 +3100,48 @@
     'repl_tests',
     'general_tests',
     'cluster_tests',
+
+    // Infrastructure layer
+    'docker_infrastructure',
+    'kubernetes_deployment',
+    'nix_environment',
+    'package_distribution',
+
+    // Development tools layer
+    'build_scripts',
+    'data_schemas',
+
+    // Research & documentation layer
+    'research_documentation',
+    'design_documentation',
+    'publishing_guide',
+    'capabilities_documentation',
+    'roadmap_documentation',
+
+    // Project configuration layer
+    'rust_project_config',
+    'license_documentation',
+    'main_readme',
+    'contribution_guide',
+    'release_notes',
+
+    // Runtime assets layer
+    'jsonnet_stdlib',
+    'compiled_binaries',
+
+    // Deployment & publishing layer
+    'seo_configuration',
+    'github_pages_domain',
+
+    // Quality assurance layer
+    'code_coverage_data',
+    'compatibility_reports',
+
+    // Release management layer
+    'release_artifacts',
+
+    // External integrations layer
+    'google_integration',
 
     'cli_interface',
     'kotoba_lsp',
