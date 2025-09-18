@@ -299,12 +299,18 @@ impl ReplicationManager {
     fn get_operation_key(&self, operation: &Operation) -> Vec<u8> {
         // Generate a key for consistent partitioning
         match operation {
-            Operation::CreateNode { .. } | Operation::UpdateNode { cid, .. } | Operation::DeleteNode { cid } => {
+            Operation::CreateNode { .. } => {
+                // For new nodes, use a default key or generate one
+                b"default".to_vec()
+            }
+            Operation::UpdateNode { cid, .. } | Operation::DeleteNode { cid } => {
                 cid.as_bytes().to_vec()
             }
-            Operation::CreateEdge { source_cid, .. } | Operation::UpdateEdge { cid, .. } | Operation::DeleteEdge { cid } => {
-                // Use source CID for edges, or CID if available
+            Operation::CreateEdge { source_cid, .. } => {
                 source_cid.as_bytes().to_vec()
+            }
+            Operation::UpdateEdge { cid, .. } | Operation::DeleteEdge { cid } => {
+                cid.as_bytes().to_vec()
             }
         }
     }

@@ -4,7 +4,6 @@
 //! Provides gRPC-based communication between cluster nodes.
 
 use crate::*;
-use crate::cluster_proto::*;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
