@@ -8,20 +8,22 @@ use tokio::sync::RwLock;
 
 /// The main database handle for KotobaDB.
 /// This provides the user-facing API for database operations.
+/// Merkle DAG: Root node of the database transaction graph, maintaining consistency through MVCC
 pub struct DB {
-    pub storage: Arc<dyn StoragePort>,
+    pub storage: Arc<dyn StoragePort>, // Merkle DAG: Storage adapter for persistent block storage
     /// Active transactions
-    transactions: Arc<RwLock<HashMap<u64, Transaction>>>,
+    transactions: Arc<RwLock<HashMap<u64, Transaction>>>, // Merkle DAG: Transaction state management graph
     /// Transaction ID counter
-    next_txn_id: Arc<RwLock<u64>>,
+    next_txn_id: Arc<RwLock<u64>>, // Merkle DAG: Sequential ID generator for transaction ordering
 }
 
 /// A database transaction that supports ACID operations
+/// Merkle DAG: Transaction node containing operation sequence for atomic execution
 pub struct Transaction {
-    id: u64,
-    operations: Vec<Operation>,
-    state: TransactionState,
-    created_at: std::time::Instant,
+    id: u64, // Merkle DAG: Unique transaction identifier for conflict resolution
+    operations: Vec<Operation>, // Merkle DAG: Ordered sequence of operations forming transaction DAG
+    state: TransactionState, // Merkle DAG: Transaction lifecycle state for consistency checks
+    created_at: std::time::Instant, // Merkle DAG: Timestamp for transaction ordering and conflict detection
 }
 
 /// State of a transaction
@@ -56,6 +58,7 @@ impl DB {
     }
 
     /// Begins a new transaction
+    /// Merkle DAG: Creates new transaction node in the database's transaction graph
     pub async fn begin_transaction(&self) -> Result<u64> {
         let mut next_id = self.next_txn_id.write().await;
         let txn_id = *next_id;
@@ -75,6 +78,7 @@ impl DB {
     }
 
     /// Commits a transaction
+    /// Merkle DAG: Atomically executes all operations in transaction and updates database state
     pub async fn commit_transaction(&mut self, txn_id: u64) -> Result<()> {
         // Get the transaction operations first
         let operations = {
@@ -178,6 +182,7 @@ impl DB {
     ///
     /// # Returns
     /// The CID of the created node block
+    /// Merkle DAG: Creates new node block and adds it to the database's content-addressed graph
     pub async fn create_node(&mut self, properties: BTreeMap<String, Value>) -> Result<Cid> {
         let node_block = NodeBlock {
             properties,
@@ -197,6 +202,7 @@ impl DB {
     ///
     /// # Returns
     /// The CID of the created edge block
+    /// Merkle DAG: Creates directed edge between nodes in the content-addressed graph
     pub async fn create_edge(
         &mut self,
         label: String,
@@ -238,6 +244,7 @@ impl DB {
     }
 
     /// Finds nodes that match the given property filters
+    /// Merkle DAG: Traverses the database graph to find nodes matching property constraints
     pub async fn find_nodes(&self, filters: &[(String, Value)]) -> Result<Vec<(Cid, NodeBlock)>> {
         let mut results = Vec::new();
 
@@ -337,6 +344,7 @@ impl DB {
     }
 
     /// Performs a basic graph traversal from a starting node
+    /// Merkle DAG: Executes graph traversal algorithm on the content-addressed database graph
     pub async fn traverse(&self,
                          start_cid: Cid,
                          direction: TraversalDirection,

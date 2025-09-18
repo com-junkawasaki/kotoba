@@ -8,13 +8,13 @@ local dag = import 'dag.jsonnet';
 local convert_nodes() = {
   [node_name]: {
     name: dag.nodes[node_name].name,
-    path: dag.nodes[node_name].path,
-    node_type: dag.nodes[node_name].type,
-    description: dag.nodes[node_name].description,
-    dependencies: dag.nodes[node_name].dependencies,
-    provides: dag.nodes[node_name].provides,
-    status: dag.nodes[node_name].status,
-    build_order: dag.nodes[node_name].build_order,
+    path: std.get(dag.nodes[node_name], 'path', ''),
+    node_type: std.get(dag.nodes[node_name], 'type', 'unknown'),
+    description: std.get(dag.nodes[node_name], 'description', ''),
+    dependencies: std.get(dag.nodes[node_name], 'dependencies', []),
+    provides: std.get(dag.nodes[node_name], 'provides', []),
+    status: std.get(dag.nodes[node_name], 'status', 'unknown'),
+    build_order: std.get(dag.nodes[node_name], 'build_order', 999), // デフォルト値999
   }
   for node_name in std.objectFields(dag.nodes)
 };

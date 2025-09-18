@@ -1573,7 +1573,7 @@
     // ==========================================
 
     'jsonnet_stdlib_ext': {
-      name: 'jsonnet_stdlib',
+      name: 'jsonnet_stdlib_ext',
       path: 'config/lib.jsonnet',
       type: 'runtime_asset',
       description: 'Jsonnet標準ライブラリ拡張 - Jsonnetランタイム拡張',
@@ -1691,8 +1691,8 @@
     // セキュリティ・機能ベース層 (Security & Capabilities)
     // ==========================================
 
-    'capabilities_documentation': {
-      name: 'capabilities_documentation',
+    'security_capabilities_documentation': {
+      name: 'security_capabilities_documentation',
       path: 'docs/security/CAPABILITIES_README.md',
       type: 'documentation',
       description: '機能ベースセキュリティドキュメント - Denoに似たセキュリティシステム',
@@ -2222,8 +2222,8 @@
     },
 
     // クラウド統合 (Cloud Integration)
-    'cloud_integrations': {
-      name: 'cloud_integrations',
+    'cloud_integrations_alt': {
+      name: 'cloud_integrations_alt',
       path: 'crates/kotoba-cloud/',
       type: 'cloud',
       description: 'Cloud platform integrations (AWS, GCP, Azure).',
@@ -2240,7 +2240,7 @@
       path: 'crates/kotoba-serverless/',
       type: 'cloud',
       description: 'Serverless deployment and scaling capabilities.',
-      dependencies: ['cloud_integrations', 'monitoring_metrics'],
+      dependencies: ['cloud_integrations_alt', 'monitoring_metrics'],
       provides: ['LambdaDeployment', 'CloudRun', 'KubernetesOperator', 'AutoScaling'],
       status: 'planned',
       build_order: 22,
@@ -2313,7 +2313,7 @@
     },
 
     'capabilities_documentation_ext': {
-      name: 'capabilities_documentation',
+      name: 'capabilities_documentation_ext',
       path: 'examples/capabilities/README.md',
       type: 'documentation',
       description: '機能ベースセキュリティドキュメント - Denoに似たセキュリティシステム',
@@ -2902,7 +2902,7 @@
     { from: 'errors', to: 'storage_main' },
     { from: 'graph', to: 'storage_main' },
     { from: 'cid', to: 'storage_main' },
-    { from: 'db', to: 'storage_main' },
+    { from: 'storage_main', to: 'db' },
 
     // ==========================================
     // Future Features Dependencies
@@ -2980,7 +2980,7 @@
     { from: 'db_cluster', to: 'cloud_integrations' },
     { from: 'backup_restore', to: 'cloud_integrations' },
 
-    { from: 'cloud_integrations', to: 'serverless_deployment' },
+    { from: 'cloud_integrations_alt', to: 'serverless_deployment' },
     { from: 'monitoring_metrics', to: 'serverless_deployment' },
 
     // LSP server dependencies
@@ -3090,7 +3090,7 @@
     { from: 'google_integration', to: 'lib' },
 
     // Security capabilities integration
-    { from: 'capabilities_documentation', to: 'lib' },
+    { from: 'security_capabilities_documentation', to: 'lib' },
 
     // Jsonnet extensions integration
     { from: 'google_stdlib_implementation', to: 'lib' },
@@ -3325,7 +3325,7 @@
     'google_stdlib_implementation',
 
     // Security & capabilities layer (reverse order)
-    'capabilities_documentation',
+    'security_capabilities_documentation',
 
     // Release management layer (reverse order)
     'arxiv_submission',
@@ -3470,7 +3470,7 @@
     'google_integration',
 
     // Security & capabilities layer
-    'capabilities_documentation',
+    'security_capabilities_documentation',
 
     // Jsonnet extensions layer
     'google_stdlib_implementation',

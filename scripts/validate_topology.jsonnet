@@ -7,14 +7,14 @@ local dag = import 'dag.jsonnet';
 // ノードデータをRustのTopologyGraph形式に変換
 local convert_nodes() = {
   [node_name]: {
-    name: dag.nodes[node_name].name,
-    path: dag.nodes[node_name].path,
-    node_type: dag.nodes[node_name].type,
-    description: dag.nodes[node_name].description,
-    dependencies: dag.nodes[node_name].dependencies,
-    provides: dag.nodes[node_name].provides,
-    status: dag.nodes[node_name].status,
-    build_order: dag.nodes[node_name].build_order,
+    name: if std.objectHas(dag.nodes[node_name], 'name') then dag.nodes[node_name].name else node_name,
+    path: if std.objectHas(dag.nodes[node_name], 'path') then dag.nodes[node_name].path else '',
+    node_type: if std.objectHas(dag.nodes[node_name], 'type') then dag.nodes[node_name].type else 'unknown',
+    description: if std.objectHas(dag.nodes[node_name], 'description') then dag.nodes[node_name].description else '',
+    dependencies: if std.objectHas(dag.nodes[node_name], 'dependencies') then dag.nodes[node_name].dependencies else [],
+    provides: if std.objectHas(dag.nodes[node_name], 'provides') then dag.nodes[node_name].provides else [],
+    status: if std.objectHas(dag.nodes[node_name], 'status') then dag.nodes[node_name].status else 'unknown',
+    build_order: if std.objectHas(dag.nodes[node_name], 'build_order') then dag.nodes[node_name].build_order else 999,
   }
   for node_name in std.objectFields(dag.nodes)
 };

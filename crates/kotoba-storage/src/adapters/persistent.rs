@@ -12,6 +12,7 @@ use kotoba_core::prelude::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
 use sha2::{Sha256, Digest};
+use hex;
 use crate::domain::merkle::{MerkleDAG, MerkleNode};
 use crate::adapters::lsm::LSMTree;
 use crate::domain::mvcc::MVCCManager;
@@ -46,33 +47,33 @@ impl StoragePort for PersistentStorage {
     }
 
     async fn put_block(&self, block: &Block) -> Result<Cid> {
-        let cid = block.cid()?;
-        let bytes = block.to_bytes()?;
-        self.lsm_tree.write().await.put(hex::encode(cid), bytes).await?;
+        let cid = block.cid()?; // Merkle DAG: Generate content identifier for the block
+        let bytes = block.to_bytes()?; // Merkle DAG: Serialize block to bytes for storage
+        self.lsm_tree.write().await.put(hex::encode(cid), bytes).await?; // Merkle DAG: Store block with hex-encoded CID as key
         Ok(Cid(cid))
     }
 
     async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
-        let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid.0)).await?;
+        let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid.0)).await?; // Merkle DAG: Retrieve block using hex-encoded CID
         if let Some(bytes) = bytes_opt {
-            let block = Block::from_bytes(&bytes)?;
+            let block = Block::from_bytes(&bytes)?; // Merkle DAG: Deserialize bytes back to block structure
             Ok(Some(block))
         } else {
-            Ok(None)
+            Ok(None) // Merkle DAG: Block not found in the content-addressed storage
         }
     }
 
     async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        let prefix_hex = hex::encode(prefix);
+        let prefix_hex = hex::encode(prefix); // Merkle DAG: Convert prefix to hex for LSM tree lookup
         // Note: This scan is on hex keys, so it's a prefix scan on the hex representation.
         let lsm_tree = self.lsm_tree.read().await;
-        let kv_pairs = <LSMTree as KeyValuePort>::scan(&*lsm_tree, &prefix_hex).await?;
+        let kv_pairs = <LSMTree as KeyValuePort>::scan(&*lsm_tree, &prefix_hex).await?; // Merkle DAG: Scan LSM tree for blocks matching prefix
 
         // Convert hex keys back to raw bytes for CID compatibility
         let mut result = Vec::new();
         for (key_hex, value) in kv_pairs {
-            if let Ok(key_bytes) = hex::decode(&key_hex) {
-                result.push((key_bytes, value));
+            if let Ok(key_bytes) = hex::decode(&key_hex) { // Merkle DAG: Decode hex key back to raw CID bytes
+                result.push((key_bytes, value)); // Merkle DAG: Return CID bytes with block data
             }
         }
         Ok(result)
