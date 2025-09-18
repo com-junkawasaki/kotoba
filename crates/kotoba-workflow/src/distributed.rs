@@ -37,6 +37,7 @@ pub struct DistributedTask {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TaskStatus {
     Pending,
+    Assigned,
     Running,
     Completed,
     Failed,
@@ -263,29 +264,31 @@ impl DistributedCoordinator {
 
     /// フェイルオーバー: 失敗したタスクを別のノードに再割り当て
     pub async fn failover_task(&self, task_id: &str) -> Result<Option<String>, WorkflowError> {
-        let mut tasks = self.tasks.write().await;
+        // まずタスクの状態を確認
+        let task_info = {
+            let tasks = self.tasks.read().await;
+            tasks.get(task_id).map(|t| (t.status.clone(), t.node_id.clone()))
+        };
 
-        if let Some(task) = tasks.get_mut(task_id) {
-            if task.status == TaskStatus::Failed {
-                // 以前のノードのカウンターを減らす
-                if let Some(old_node_id) = &task.node_id {
-                    drop(tasks);
-                    let mut nodes = self.nodes.write().await;
-                    if let Some(node) = nodes.get_mut(old_node_id) {
-                        node.active_workflows = node.active_workflows.saturating_sub(1);
-                    }
-                    tasks = self.tasks.write().await;
+        if let Some((TaskStatus::Failed, Some(old_node_id))) = task_info {
+            // 以前のノードのカウンターを減らす
+            {
+                let mut nodes = self.nodes.write().await;
+                if let Some(node) = nodes.get_mut(&old_node_id) {
+                    node.active_workflows = node.active_workflows.saturating_sub(1);
                 }
+            }
 
-                // 新しいノードを探す
-                let nodes = self.nodes.read().await;
-                if let Some(new_node_id) = self.load_balancer.select_node(&nodes).await {
-                    if let Some(task) = tasks.get_mut(task_id) {
-                        task.node_id = Some(new_node_id.clone());
-                        task.status = TaskStatus::Running;
-                        task.assigned_at = Some(chrono::Utc::now());
+            // 新しいノードを探す
+            let nodes = self.nodes.read().await;
+            if let Some(new_node_id) = self.load_balancer.select_node(&nodes).await {
+                let mut tasks = self.tasks.write().await;
+                if let Some(task) = tasks.get_mut(task_id) {
+                    task.node_id = Some(new_node_id.clone());
+                    task.status = TaskStatus::Running;
+                    task.assigned_at = Some(chrono::Utc::now());
 
-                        // 新しいノードのカウンターを増やす
+                    // 新しいノードのカウンターを増やす
                         drop(tasks);
                         let mut nodes = self.nodes.write().await;
                         if let Some(node) = nodes.get_mut(&new_node_id) {
@@ -300,7 +303,6 @@ impl DistributedCoordinator {
 
         Ok(None)
     }
-}
 
 /// 分散実行マネージャー
 pub struct DistributedExecutionManager {
@@ -357,7 +359,7 @@ impl DistributedExecutionManager {
 
 /// 分散ワークフロー実行器
 pub struct DistributedWorkflowExecutor {
-    execution_manager: Arc<DistributedExecutionManager>,
+    pub execution_manager: Arc<DistributedExecutionManager>,
     /// ノードごとの実行統計
     execution_stats: RwLock<HashMap<String, NodeExecutionStats>>,
 }

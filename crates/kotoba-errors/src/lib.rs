@@ -44,12 +44,14 @@ pub enum KotobaError {
 pub enum WorkflowError {
     #[error("Workflow not found: {0}")]
     WorkflowNotFound(String),
-    // #[error("Activity execution failed: {0}")]
-    // ActivityFailed(#[from] ActivityError), // ActivityError is not defined here
+    #[error("Activity execution failed: {0}")]
+    ActivityFailed(String),
     #[error("Invalid strategy: {0}")]
     InvalidStrategy(String),
     #[error("Invalid workflow definition: {0}")]
     InvalidDefinition(String),
+    #[error("Invalid step type: {0}")]
+    InvalidStepType(String),
     #[error("Timeout exceeded")]
     Timeout,
     #[error("Compensation failed: {0}")]
@@ -60,8 +62,6 @@ pub enum WorkflowError {
     StorageError(String),
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
-    // #[error("Invalid step type for this executor: {0:?}")]
-    // InvalidStepType(kotoba_routing::schema::WorkflowStepType),
     #[error("Context variable not found: {0}")]
     ContextVariableNotFound(String),
 }

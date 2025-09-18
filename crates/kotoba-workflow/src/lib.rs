@@ -75,6 +75,7 @@ impl WorkflowEngineBuilder {
     pub fn new() -> Self {
         Self {
             storage_backend: Some(StorageBackend::Memory), // Default to memory
+            kotoba_backend: None,
         }
     }
 

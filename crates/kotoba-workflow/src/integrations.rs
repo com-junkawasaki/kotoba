@@ -458,11 +458,13 @@ impl Integration for EmailIntegration {
 }
 
 /// Webhook統合
+#[cfg(feature = "activities-http")]
 pub struct WebhookIntegration {
     client: reqwest::Client,
     timeout: std::time::Duration,
 }
 
+#[cfg(feature = "activities-http")]
 impl WebhookIntegration {
     pub fn new(timeout: std::time::Duration) -> Self {
         Self {
@@ -472,6 +474,7 @@ impl WebhookIntegration {
     }
 }
 
+#[cfg(feature = "activities-http")]
 #[async_trait]
 impl Integration for WebhookIntegration {
     async fn execute(

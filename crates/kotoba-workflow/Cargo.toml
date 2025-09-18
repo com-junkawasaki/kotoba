@@ -8,8 +8,8 @@ description = "Temporal-inspired workflow engine for Kotoba"
 
 [dependencies]
 # Kotoba crates - only core types for now to avoid RocksDB dependency
-kotoba-core = "0.1.21"
-kotoba-errors = "0.1.2"
+kotoba-core.workspace = true
+kotoba-errors.workspace = true
 kotoba-routing = { version = "0.1.16", optional = true }
 
 # Common dependencies

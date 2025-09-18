@@ -40,7 +40,7 @@ pub type Properties = HashMap<PropertyKey, Value>;
 pub struct GraphRef_(pub String);
 
 /// トランザクションID
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct TxId(pub String);
 
 /// コンテンツハッシュ

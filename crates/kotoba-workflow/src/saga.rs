@@ -402,7 +402,7 @@ impl SagaExecutionEngine {
         self.saga_manager.update_saga_status(&saga_id, SagaStatus::Executing).await?;
 
         // 実行キューを初期化
-        let mut execution_queue: VecDeque<String> = self.saga_manager.resolve_dependencies(pattern, &[]).into();
+        let mut execution_queue: VecDeque<String> = self.saga_manager.resolve_dependencies(pattern, &[]).await.into();
         let mut completed = Vec::new();
         let mut failed = false;
 
@@ -415,7 +415,7 @@ impl SagaExecutionEngine {
                     completed.push(activity_ref);
 
                     // 新しい実行可能なActivityを追加
-                    let new_ready = self.saga_manager.resolve_dependencies(pattern, &completed);
+                    let new_ready = self.saga_manager.resolve_dependencies(pattern, &completed).await;
                     for activity in new_ready {
                         if !execution_queue.contains(&activity) {
                             execution_queue.push_back(activity);

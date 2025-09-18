@@ -47,6 +47,17 @@ pub enum ActivityError {
     InvalidInput(String),
 }
 
+impl From<ActivityError> for crate::WorkflowError {
+    fn from(err: ActivityError) -> Self {
+        match err {
+            ActivityError::NotFound(msg) => crate::WorkflowError::ActivityFailed(format!("Activity not found: {}", msg)),
+            ActivityError::ExecutionFailed(msg) => crate::WorkflowError::ActivityFailed(format!("Activity execution failed: {}", msg)),
+            ActivityError::Timeout => crate::WorkflowError::ActivityFailed("Activity timeout".to_string()),
+            ActivityError::InvalidInput(msg) => crate::WorkflowError::ActivityFailed(format!("Invalid input: {}", msg)),
+        }
+    }
+}
+
 /// リトライポリシー
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetryPolicy {
@@ -893,7 +904,7 @@ impl WorkflowStateManager {
 
         let mut executions = self.executions.write().await;
         let versions = executions.entry(execution.id.0.clone()).or_insert_with(Vec::new);
-        versions.push((tx_id, execution));
+        versions.push((tx_id.clone(), execution));
 
         Ok(tx_id)
     }

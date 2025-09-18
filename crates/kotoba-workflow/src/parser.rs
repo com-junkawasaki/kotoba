@@ -106,7 +106,7 @@ impl WorkflowParser {
 
         params.iter()
             .map(|param| self.parse_workflow_param(param))
-            .collect::<Result<Vec<_>, _>>()
+            .collect::<Result<Vec<_>>>()
     }
 
     /// 単一のワークフローパラメータをパース
@@ -216,7 +216,7 @@ impl WorkflowParser {
 
                 let strategies = strategies.iter()
                     .map(|s| self.parse_basic_strategy(s))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>>>()?;
 
                 Ok(WorkflowStrategyOp::Basic {
                     strategy: StrategyOp::Choice {
@@ -232,7 +232,7 @@ impl WorkflowParser {
 
                 let strategies = strategies.iter()
                     .map(|s| self.parse_prioritized_strategy(s))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>>>()?;
 
                 Ok(WorkflowStrategyOp::Basic {
                     strategy: StrategyOp::Priority { strategies },
@@ -246,7 +246,7 @@ impl WorkflowParser {
 
                 let strategies = strategies.iter()
                     .map(|s| self.parse_strategy_op(s))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>>>()?;
 
                 Ok(WorkflowStrategyOp::Seq { strategies: strategies.into_iter().map(Box::new).collect() })
             }
@@ -258,7 +258,7 @@ impl WorkflowParser {
 
                 let branches = branches.iter()
                     .map(|b| self.parse_strategy_op(b))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>>>()?;
 
                 let completion_condition = obj.get("completion_condition")
                     .and_then(|v| self.parse_completion_condition(v))
@@ -277,7 +277,7 @@ impl WorkflowParser {
 
                 let conditions = conditions.iter()
                     .map(|c| self.parse_decision_branch(c))
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .collect::<Result<Vec<_>>>()?;
 
                 let default_branch = obj.get("default_branch")
                     .and_then(|v| self.parse_strategy_op(v).ok())
@@ -495,7 +495,7 @@ impl WorkflowParser {
     }
 
     /// オブジェクトから文字列を抽出
-    fn extract_string(&self, obj: &Map<String, JsonValue>, key: &str) -> Result<String, WorkflowError> {
+    fn extract_string(&self, obj: &Map<String, JsonValue>, key: &str) -> Result<String> {
         obj.get(key)
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
@@ -521,7 +521,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
         JsonnetValue::Array(arr) => {
             let values = arr.into_iter()
                 .map(jsonnet_to_json)
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>>>()?;
             Ok(JsonValue::Array(values))
         }
         JsonnetValue::Object(obj) => {

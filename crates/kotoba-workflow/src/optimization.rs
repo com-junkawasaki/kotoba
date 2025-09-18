@@ -330,7 +330,7 @@ impl WorkflowOptimizer {
     pub fn estimate_cost(&self, workflow: &WorkflowIR) -> f64 {
         let mut total_cost = 0.0;
 
-        self.traverse_workflow(workflow, &mut |activity_ref| {
+        self.traverse_workflow(&workflow.strategy, &mut |activity_ref| {
             if let Some(activity_cost) = self.cost_model.activity_costs.get(activity_ref) {
                 total_cost += activity_cost.base_cost
                     + activity_cost.cpu_usage * self.cost_model.cpu_cost_factor
@@ -347,7 +347,7 @@ impl WorkflowOptimizer {
     pub fn estimate_duration(&self, workflow: &WorkflowIR) -> std::time::Duration {
         let mut total_duration = std::time::Duration::from_secs(0);
 
-        self.traverse_workflow(workflow, &mut |activity_ref| {
+        self.traverse_workflow(&workflow.strategy, &mut |activity_ref| {
             if let Some(activity_cost) = self.cost_model.activity_costs.get(activity_ref) {
                 total_duration += activity_cost.estimated_duration;
             }
@@ -510,7 +510,7 @@ impl ParallelExecutionRule {
                                     completion_condition: crate::ir::CompletionCondition::All,
                                 });
                             } else {
-                                optimized_strategies.extend(parallel_group.into_iter().map(Box::new));
+                                optimized_strategies.extend(parallel_group);
                             }
                             parallel_group = Vec::new();
                         }
@@ -531,7 +531,7 @@ impl ParallelExecutionRule {
                 }
 
                 WorkflowStrategyOp::Seq {
-                    strategies: optimized_strategies,
+                    strategies: optimized_strategies.into_iter().map(Box::new).collect(),
                 }
             }
             _ => strategy.clone(),
