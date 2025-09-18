@@ -19,9 +19,10 @@ members = [
     "crates/kotoba-deploy-scaling",
     "crates/kotoba-deploy-controller",
     "crates/kotoba-deploy-runtime",
-    "crates/kotoba-handler",  # New unified handler
-    ".", "crates/kotoba-build", "crates/kotoba-bench", "crates/kotoba-ssg", "crates/kotoba-monitoring", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter", "crates/kotoba-linter", "crates/kotoba-tester", "crates/kotoba-repl",  # Root crate
+    "crates/kotoba-handler", "crates/kotoba-cli",  # New unified handler
+    ".", "crates/kotoba-build", "crates/kotoba-bench", "crates/kotoba-ssg", "crates/kotoba-monitoring", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter", "crates/kotoba-linter", "crates/kotoba-tester", "crates/kotoba-repl", "crates/kotoba-profiler",  # Root crate
     "crates/kotoba-workflow-activities",
+    "crates/kotoba-memory",
     "crates/kotoba-workflow-operator",
     "crates/kotoba-cloud-integrations",
     "crates/kotoba-state-graph",

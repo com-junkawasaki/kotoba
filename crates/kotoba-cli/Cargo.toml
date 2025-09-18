@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-cli"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.16"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Command Line Interface for Kotoba graph processing system"
 keywords = ["cli", "command-line", "graph", "processing", "tool"]
 categories = ["command-line-utilities", "development-tools"]
