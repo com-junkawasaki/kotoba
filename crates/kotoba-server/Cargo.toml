@@ -27,6 +27,9 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# CLI argument parsing
+clap = { version = "4.0", features = ["derive"] }
+
 # Kotoba crates
 kotoba-core = { path = "../kotoba-core" }
 kotoba-routing = { path = "../kotoba-routing" }

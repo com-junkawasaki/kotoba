@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::path::PathBuf;
 use std::collections::HashMap;
+use clap::Parser;
 use axum::{
     routing::{any, get, post},
     extract::{Path as AxumPath, State, RawBody},
@@ -15,6 +16,28 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use kotoba_errors::KotobaError;
+
+/// Command line arguments for kotoba-server
+#[derive(Parser)]
+#[command(name = "kotoba-server")]
+#[command(about = "Kotoba HTTP Server")]
+struct Args {
+    /// Host address to bind to
+    #[arg(long, default_value = "127.0.0.1")]
+    host: String,
+
+    /// Port number to bind to
+    #[arg(long, default_value = "8100")]
+    port: u16,
+
+    /// Configuration file path
+    #[arg(long)]
+    config: Option<PathBuf>,
+
+    /// Enable development mode
+    #[arg(long)]
+    dev: bool,
+}
 
 // Application state holds both the workflow engine and the new routing engine.
 struct AppStateInt {
@@ -45,6 +68,9 @@ impl IntoResponse for KotobaError {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Parse command line arguments
+    let args = Args::parse();
+
     // initialize tracing
     tracing_subscriber::registry()
         .with(
@@ -85,8 +111,14 @@ async fn main() -> anyhow::Result<()> {
         )
         .layer(TraceLayer::new_for_http());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::debug!("listening on {}", listener.local_addr()?);
+    let addr = format!("{}:{}", args.host, args.port);
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    tracing::info!("🌐 Kotoba HTTP Server listening on {}", listener.local_addr()?);
+
+    if args.dev {
+        tracing::info!("🚀 Development mode enabled");
+    }
+
     axum::serve(listener, app).await?;
 
     Ok(())

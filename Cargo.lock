@@ -6184,6 +6184,7 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "axum 0.7.9",
+ "clap",
  "graphql-parser",
  "js-sys",
  "kotoba-core",

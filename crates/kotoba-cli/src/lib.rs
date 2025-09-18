@@ -56,7 +56,7 @@ pub enum Commands {
     /// サーバーを起動
     Serve {
         /// ポート番号
-        #[arg(short, long, default_value = "3000")]
+        #[arg(short, long, default_value = "8100")]
         port: u16,
 
         /// ホストアドレス

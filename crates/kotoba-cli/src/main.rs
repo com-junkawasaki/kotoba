@@ -121,12 +121,69 @@ mod run_command {
     }
 
     pub async fn execute_serve(
-        _port: u16,
-        _host: String,
-        _config: Option<std::path::PathBuf>,
-        _dev: bool,
+        port: u16,
+        host: String,
+        config: Option<std::path::PathBuf>,
+        dev: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Starting server... (not implemented yet)");
+        use std::process::Stdio;
+
+        // Find the kotoba-server binary
+        let server_binary_name = "kotoba-server";
+        let current_exe = std::env::current_exe()?;
+        let bin_dir = current_exe.parent().ok_or("Could not find parent directory of executable")?;
+        let mut server_binary_path = bin_dir.join(server_binary_name);
+
+        if !server_binary_path.exists() {
+            // Fallback for development: cargo run -p kotoba-server
+            let target_dir = bin_dir.parent().ok_or("Could not find target dir")?;
+            let fallback_path = target_dir.join(server_binary_name);
+            if !fallback_path.exists() {
+                eprintln!("Error: kotoba-server binary not found.");
+                eprintln!("Searched at: {} and {}", server_binary_path.display(), fallback_path.display());
+                eprintln!("Please run 'cargo build -p kotoba-server' first.");
+                return Err("kotoba-server binary not found".into());
+            }
+            // Use fallback path
+            server_binary_path = fallback_path;
+        }
+
+        println!("🌐 Starting Kotoba HTTP Server");
+        println!("=============================");
+        println!("🏠 Host: {}", host);
+        println!("🔌 Port: {}", port);
+        println!("🔒 TLS: Disabled");
+
+        if dev {
+            println!("🚀 Development mode enabled");
+        }
+
+        if let Some(config_path) = &config {
+            println!("⚙️  Using config file: {}", config_path.display());
+        }
+
+        println!("💡 Server would be available at: http://{}:{}", host, port);
+
+        // Build command arguments
+        let mut cmd = std::process::Command::new(server_binary_path);
+        cmd.arg("--host").arg(&host)
+           .arg("--port").arg(port.to_string())
+           .stdout(Stdio::inherit())
+           .stderr(Stdio::inherit());
+
+        if let Some(config_path) = config {
+            cmd.arg("--config").arg(config_path);
+        }
+
+        if dev {
+            cmd.arg("--dev");
+        }
+
+        // Start the server process
+        let mut child = cmd.spawn()?;
+        let status = child.wait()?;
+
+        println!("[kotoba cli] kotoba-server process exited with status: {}", status);
         Ok(())
     }
 
