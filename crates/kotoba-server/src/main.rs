@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use clap::Parser;
 use kotoba_server_core::{HttpServer, AppRouter, handlers::*};
+#[cfg(feature = "workflow")]
 use kotoba_server_workflow::{WorkflowRouter, WorkflowServerExt};
+#[cfg(feature = "workflow")]
 use kotoba_workflow_core::WorkflowEngine;
 
 /// Command line arguments for kotoba-server
@@ -52,9 +54,14 @@ async fn main() -> anyhow::Result<()> {
     router = router.route("/health", get(health_check));
 
     // Add workflow features if enabled
+    #[cfg(feature = "workflow")]
     if args.workflow {
         router = router.with_workflow_routes();
         tracing::info!("🔄 Workflow features enabled");
+    }
+    #[cfg(not(feature = "workflow"))]
+    if args.workflow {
+        tracing::warn!("⚠️  Workflow features requested but not available (compiled without workflow support)");
     }
 
     // Build server

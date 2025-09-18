@@ -33,7 +33,9 @@ clap = { version = "4.0", features = ["derive"] }
 kotoba-core = "0.1.21"
 kotoba-routing = "0.1.16"
 kotoba-errors = "0.1.2"
-kotoba-workflow = { path = "../kotoba-workflow", version = "0.1.16" }
+kotoba-workflow-core = { version = "0.1.21", optional = true }
+kotoba-server-core = "0.1.21"
+kotoba-server-workflow = { version = "0.1.21", optional = true }  # Now available on crates.io
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # GraphQL support
@@ -44,6 +46,7 @@ graphql-parser = "0.4"
 default = ["std"]
 std = []
 wasm = ["wasm-bindgen", "web-sys", "js-sys"]
+workflow = ["kotoba-workflow-core", "kotoba-server-workflow"]  # Optional workflow features
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
