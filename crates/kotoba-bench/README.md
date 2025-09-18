@@ -13,6 +13,24 @@ A comprehensive performance benchmarking framework for KotobaDB with advanced an
 
 ## 📊 Quick Start
 
+### Running Standalone Benchmarks
+
+The crate includes standalone benchmark executables that can be run directly:
+
+```bash
+# Run simple benchmark (graph operations and algorithms)
+cargo run --bin simple_benchmark
+
+# Run parallel benchmark (concurrent processing)
+cargo run --bin parallel_benchmark
+
+# Use the benchmark runner for easier execution
+cargo run --bin benchmark_runner simple
+cargo run --bin benchmark_runner parallel
+```
+
+### Library Usage
+
 ```rust
 use kotoba_bench::*;
 use kotoba_db::DB;
@@ -39,6 +57,29 @@ reporter.generate_reports(&[result])?;
 ```
 
 ## 🏃 Benchmark Types
+
+### Standalone Benchmarks
+
+#### Simple Benchmark (`simple_benchmark`)
+- **Purpose**: Basic graph operations and algorithm performance testing
+- **Features**:
+  - Graph structure creation and manipulation
+  - Vertex and edge lookup operations
+  - Degree calculation algorithms
+  - BFS (Breadth-First Search) and DFS (Depth-First Search) traversal
+  - Memory usage estimation
+- **Use Case**: Testing fundamental graph operations performance
+
+#### Parallel Benchmark (`parallel_benchmark`)
+- **Purpose**: Concurrent processing and parallel algorithm evaluation
+- **Features**:
+  - Parallel vertex and edge processing
+  - Concurrent graph traversals
+  - Multi-threaded operations
+  - Scalability testing
+- **Use Case**: Evaluating parallel processing capabilities
+
+### Integrated Benchmarks
 
 ### CRUD Operations Benchmark
 ```rust

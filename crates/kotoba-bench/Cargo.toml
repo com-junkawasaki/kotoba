@@ -66,3 +66,46 @@ path = "src/memory_usage.rs"
 name = "storage_operations"
 harness = false
 path = "src/storage_operations.rs"
+
+[[bench]]
+name = "advanced_algorithms"
+harness = false
+path = "src/advanced_algorithms.rs"
+
+[[bench]]
+name = "jsonnet_benchmark"
+harness = false
+path = "src/jsonnet_benchmark.rs"
+
+[[bench]]
+name = "parallel_processing"
+harness = false
+path = "src/parallel_processing.rs"
+
+[[bench]]
+name = "query_execution"
+harness = false
+path = "src/query_execution.rs"
+
+[[bench]]
+name = "rewrite_operations"
+harness = false
+path = "src/rewrite_operations.rs"
+
+[[bench]]
+name = "graph_operations"
+harness = false
+path = "src/graph_operations.rs"
+
+
+[[bin]]
+name = "simple_benchmark"
+path = "src/simple_benchmark.rs"
+
+[[bin]]
+name = "parallel_benchmark"
+path = "src/parallel_benchmark.rs"
+
+[[bin]]
+name = "benchmark_runner"
+path = "src/bin/benchmark_runner.rs"
