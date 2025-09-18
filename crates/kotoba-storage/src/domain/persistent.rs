@@ -12,7 +12,9 @@ use kotoba_core::prelude::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
 use sha2::{Sha256, Digest};
-use crate::storage::{lsm::*, merkle::*, mvcc::*};
+use crate::domain::merkle::MerkleNode;
+use crate::adapters::lsm::LSMTree;
+use crate::domain::mvcc::MVCCManager;
 use std::collections::HashMap;
 
 /// 永続ストレージ設定
@@ -306,7 +308,7 @@ impl PersistentStorage {
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
         if merkle_snapshot_path.exists() {
             let merkle_data = std::fs::read(merkle_snapshot_path)?;
-            let nodes: HashMap<ContentHash, crate::storage::merkle::MerkleNode> = serde_json::from_slice(&merkle_data)?;
+            let nodes: HashMap<ContentHash, crate::domain::merkle::MerkleNode> = serde_json::from_slice(&merkle_data)?;
             let mut merkle_dag = self.merkle_dag.write();
             merkle_dag.set_nodes(nodes);
         }

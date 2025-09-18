@@ -1,6 +1,6 @@
 //! Redis-based storage backend for Upstash compatibility
 
-use crate::storage::{StorageBackend, StorageConfig, BackendStats};
+use crate::domain::backend::{StorageBackend, StorageConfig, BackendStats};
 use async_trait::async_trait;
 use kotoba_core::types::Result;
 use kotoba_errors::KotobaError;

@@ -3,8 +3,17 @@
 //! Ready-to-use benchmark implementations for common database operations
 
 use crate::{Benchmark, BenchmarkConfig, BenchmarkResult, utils};
+
+/// Database operation types for benchmarking
+#[derive(Debug, Clone)]
+pub enum Operation {
+    Insert { key: Vec<u8>, value: Vec<u8> },
+    Read { key: Vec<u8> },
+    Update { key: Vec<u8>, value: Vec<u8> },
+    Delete { key: Vec<u8> },
+}
 use crate::runner::BenchmarkExt;
-use kotoba_db::{DB, Operation};
+use kotoba_db::DB;
 use kotoba_db_core::{Block, NodeBlock, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -50,7 +59,7 @@ impl CrudBenchmark {
         self
     }
 
-    fn generate_operation(&self, operation_count: u64) -> crate::Operation {
+    fn generate_operation(&self, operation_count: u64) -> Operation {
         use rand::Rng;
 
         let mut rng = rand::thread_rng();
@@ -62,20 +71,20 @@ impl CrudBenchmark {
             // Create
             let key = format!("crud_record_{}_create_{}", record_id, operation_count);
             let value = format!("value_{}_{}", record_id, operation_count).into_bytes();
-            crate::Operation::Insert { key: key.into_bytes(), value }
+            Operation::Insert { key: key.into_bytes(), value }
         } else if rand_val < self.operation_mix.create_percent + self.operation_mix.read_percent {
             // Read
             let key = format!("crud_record_{}", record_id);
-            crate::Operation::Read { key: key.into_bytes() }
+            Operation::Read { key: key.into_bytes() }
         } else if rand_val < self.operation_mix.create_percent + self.operation_mix.read_percent + self.operation_mix.update_percent {
             // Update
             let key = format!("crud_record_{}", record_id);
             let value = format!("updated_value_{}_{}", record_id, operation_count).into_bytes();
-            crate::Operation::Update { key: key.into_bytes(), value }
+            Operation::Update { key: key.into_bytes(), value }
         } else {
             // Delete
             let key = format!("crud_record_{}", record_id);
-            crate::Operation::Delete { key: key.into_bytes() }
+            Operation::Delete { key: key.into_bytes() }
         }
     }
 }
@@ -117,12 +126,12 @@ impl Benchmark for CrudBenchmark {
     }
 }
 
-impl crate::BenchmarkExt for CrudBenchmark {
+impl BenchmarkExt for CrudBenchmark {
     async fn run_operation(&self, _worker_id: usize, operation_count: u64) -> Result<(), Box<dyn std::error::Error>> {
         let operation = self.generate_operation(operation_count);
 
         match operation {
-            crate::Operation::Insert { key, value } => {
+            Operation::Insert { key, value } => {
                 let node = NodeBlock {
                     labels: vec!["CrudRecord".to_string()],
                     properties: HashMap::from([
@@ -132,14 +141,14 @@ impl crate::BenchmarkExt for CrudBenchmark {
                 };
                 self.db.put_block(&Block::Node(node)).await?;
             }
-            crate::Operation::Read { key } => {
+            Operation::Read { key } => {
                 // Try to find a node with this key pattern
                 let nodes = self.db.find_nodes_by_label("CrudRecord").await?;
                 if let Some(node_cid) = nodes.first() {
                     let _ = self.db.get_block(node_cid).await?;
                 }
             }
-            crate::Operation::Update { key, value } => {
+            Operation::Update { key, value } => {
                 // Simplified update - create new version
                 let node = NodeBlock {
                     labels: vec!["CrudRecord".to_string()],
@@ -151,7 +160,7 @@ impl crate::BenchmarkExt for CrudBenchmark {
                 };
                 self.db.put_block(&Block::Node(node)).await?;
             }
-            crate::Operation::Delete { key } => {
+            Operation::Delete { key } => {
                 // Simplified delete - just mark as deleted
                 let node = NodeBlock {
                     labels: vec!["CrudRecord".to_string()],
@@ -221,7 +230,7 @@ impl Benchmark for QueryBenchmark {
     }
 }
 
-impl crate::BenchmarkExt for QueryBenchmark {
+impl BenchmarkExt for QueryBenchmark {
     async fn run_operation(&self, _worker_id: usize, operation_count: u64) -> Result<(), Box<dyn std::error::Error>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
@@ -314,7 +323,7 @@ impl Benchmark for TransactionBenchmark {
     }
 }
 
-impl crate::BenchmarkExt for TransactionBenchmark {
+impl BenchmarkExt for TransactionBenchmark {
     async fn run_operation(&self, _worker_id: usize, operation_count: u64) -> Result<(), Box<dyn std::error::Error>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
@@ -410,7 +419,7 @@ impl Benchmark for MemoryBenchmark {
     }
 }
 
-impl crate::BenchmarkExt for MemoryBenchmark {
+impl BenchmarkExt for MemoryBenchmark {
     async fn run_operation(&self, _worker_id: usize, operation_count: u64) -> Result<(), Box<dyn std::error::Error>> {
         // Create data that consumes memory
         let large_data = vec![b'A'; self.data_size];
@@ -466,7 +475,7 @@ impl Benchmark for StorageBenchmark {
     }
 }
 
-impl crate::BenchmarkExt for StorageBenchmark {
+impl BenchmarkExt for StorageBenchmark {
     async fn run_operation(&self, _worker_id: usize, operation_count: u64) -> Result<(), Box<dyn std::error::Error>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();

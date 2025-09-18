@@ -6,7 +6,8 @@
 //! - Burst and spike generation
 //! - Custom load profiles
 
-use crate::{BenchmarkConfig, Operation};
+use crate::BenchmarkConfig;
+use kotoba_db::Operation;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use std::sync::Mutex;

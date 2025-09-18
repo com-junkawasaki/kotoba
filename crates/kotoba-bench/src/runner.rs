@@ -14,7 +14,7 @@ use hdrhistogram::Histogram;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{Process, System};
 use tokio::sync::mpsc;
 
 /// Benchmark runner for executing performance tests

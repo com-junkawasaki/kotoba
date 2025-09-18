@@ -6,8 +6,8 @@
 //! - HTML reports with charts
 //! - Custom report templates
 
-use crate::{BenchmarkResult, AnalysisReport, PerformanceSummary};
-use crate::analyzer::{Severity, Priority};
+use crate::BenchmarkResult;
+use crate::analyzer::{AnalysisReport, PerformanceSummary, Severity, Priority};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -149,10 +149,10 @@ impl MetricsReporter {
             println!("\n{}", "🚧 Performance Bottlenecks:".bold().yellow());
             for bottleneck in &analysis.bottlenecks {
                 let severity = match bottleneck.severity {
-                    crate::Severity::Critical => "Critical",
-                    crate::Severity::High => "High",
-                    crate::Severity::Medium => "Medium",
-                    crate::Severity::Low => "Low",
+                    Severity::Critical => "Critical",
+                    Severity::High => "High",
+                    Severity::Medium => "Medium",
+                    Severity::Low => "Low",
                 };
                 println!("  🔍 {} ({}): {}", bottleneck.benchmark_name, severity, bottleneck.description);
             }
@@ -163,10 +163,10 @@ impl MetricsReporter {
             println!("\n{}", "💡 Optimization Recommendations:".bold().green());
             for rec in &analysis.recommendations {
                 let priority = match rec.priority {
-                    crate::Priority::Critical => "Critical",
-                    crate::Priority::High => "High",
-                    crate::Priority::Medium => "Medium",
-                    crate::Priority::Low => "Low",
+                    Priority::Critical => "Critical",
+                    Priority::High => "High",
+                    Priority::Medium => "Medium",
+                    Priority::Low => "Low",
                 };
                 println!("  🎯 {} ({}): {}", rec.title, priority, rec.description);
             }
@@ -461,6 +461,8 @@ impl MetricsReporter {
         const benchmarkNames = {};
         const throughputData = {};
         const latencyData = {};
+        const benchmarkLabels = {};
+        const latencyLabels = {};
 
         // Initialize charts when page loads
         document.addEventListener('DOMContentLoaded', function() {{
@@ -518,10 +520,10 @@ impl MetricsReporter {
             results.iter().map(|r| r.latency_percentiles.p95 as f64 / 1000.0).sum::<f64>() / results.len() as f64,
             results.iter().map(|r| r.error_rate * 100.0).sum::<f64>() / results.len() as f64,
             results.len(),
-            serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap(),
-            serde_json::to_string(&results.iter().map(|r| r.operations_per_second).collect::<Vec<_>>()).unwrap(),
-            serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap(),
-            serde_json::to_string(&results.iter().map(|r| r.latency_percentiles.p95).collect::<Vec<_>>()).unwrap(),
+            serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.operations_per_second).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.latency_percentiles.p95).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
         );
 
         fs::write(&html_path, html_content)?;

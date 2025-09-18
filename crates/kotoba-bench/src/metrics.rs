@@ -6,7 +6,7 @@ use crate::{BenchmarkResult, MemoryStats, StorageStats};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{Process, System};
 
 /// Real-time metrics collector
 pub struct RealTimeMetrics {

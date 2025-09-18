@@ -4,9 +4,13 @@
 //! interface over various database backends like RocksDB (LSM Tree) and Redis.
 //! It includes support for MVCC and Merkle DAG persistence.
 
-pub mod storage;
+pub mod adapters;
+pub mod domain;
+pub mod port;
 
 pub mod prelude {
-    pub use crate::storage::merkle::MerkleDAG;
-    pub use crate::storage::mvcc::MVCCManager;
+    pub use crate::port::StoragePort;
+    pub use crate::adapters::lsm::LSMTree;
+    pub use crate::adapters::memory::MemoryStorage;
+    pub use crate::domain::persistent::{PersistentStorage, PersistentStorageConfig};
 }

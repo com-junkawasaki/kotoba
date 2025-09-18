@@ -33,6 +33,7 @@ chrono = { version = "0.4", features = ["serde"] }
 rand = { version = "0.8", features = ["small_rng"] }
 hdrhistogram = "7.5"
 csv = "1.1"
+statrs = "0.16"
 plotters = { version = "0.3", optional = true }
 
 # System monitoring
