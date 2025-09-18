@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 
 use crate::ir::{WorkflowExecutionId, ActivityExecutionId, ExecutionStatus, WorkflowStrategyOp};
-use crate::WorkflowError;
+use kotoba_errors::WorkflowError;
 
 /// Saga トランザクションの状態
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 
 use kotoba_core::types::GraphRef_ as GraphRef;
 use crate::ir::{WorkflowExecution, WorkflowExecutionId, ExecutionEvent, ExecutionEventType, ExecutionStatus};
-use crate::WorkflowError;
+use kotoba_errors::WorkflowError;
 
 /// ストレージバックエンド種別
 #[derive(Debug, Clone)]
@@ -663,11 +663,11 @@ impl WorkflowStore for SQLiteWorkflowStore {
 }
 /// Bridge to Kotoba storage backend
 pub struct KotobaStorageBridge {
-    kotoba_backend: std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>,
+    kotoba_backend: std::sync::Arc<dyn kotoba_storage::port::StoragePort>,
 }
 
 impl KotobaStorageBridge {
-    pub fn new(backend: std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>) -> Self {
+    pub fn new(backend: std::sync::Arc<dyn kotoba_storage::port::StoragePort>) -> Self {
         Self {
             kotoba_backend: backend,
         }

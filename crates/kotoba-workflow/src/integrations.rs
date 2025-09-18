@@ -95,6 +95,7 @@ pub trait Integration: Send + Sync {
 }
 
 /// HTTP統合
+#[cfg(feature = "activities-http")]
 pub struct HttpIntegration {
     client: reqwest::Client,
     base_url: String,
@@ -102,6 +103,7 @@ pub struct HttpIntegration {
     timeout: std::time::Duration,
 }
 
+#[cfg(feature = "activities-http")]
 impl HttpIntegration {
     pub fn new(base_url: &str, timeout: std::time::Duration) -> Self {
         Self {
@@ -172,11 +174,13 @@ impl Integration for HttpIntegration {
 }
 
 /// データベース統合
+#[cfg(feature = "activities-db")]
 pub struct DatabaseIntegration {
     connection_string: String,
     pool: Option<sqlx::PgPool>, // PostgreSQLを例として使用
 }
 
+#[cfg(feature = "activities-db")]
 impl DatabaseIntegration {
     pub fn new(connection_string: &str) -> Self {
         Self {
@@ -243,11 +247,13 @@ impl Integration for DatabaseIntegration {
 }
 
 /// メッセージキュー統合
+#[cfg(feature = "activities-db")]
 pub struct MessageQueueIntegration {
     broker_url: String,
     client: Option<lapin::Connection>,
 }
 
+#[cfg(feature = "activities-db")]
 impl MessageQueueIntegration {
     pub fn new(broker_url: &str) -> Self {
         Self {

@@ -10,7 +10,7 @@ use kotoba_core::types::Value;
 use kotoba_core::prelude::*;
 
 use crate::ir::*;
-use crate::WorkflowError;
+use kotoba_errors::WorkflowError;
 
 /// Kotobaワークフローパーサー
 pub struct WorkflowParser {
@@ -504,7 +504,7 @@ impl WorkflowParser {
 }
 
 /// JsonnetValueをserde_json::Valueに変換
-fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
+fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
     match value {
         JsonnetValue::Null => Ok(JsonValue::Null),
         JsonnetValue::Boolean(b) => Ok(JsonValue::Bool(b)),
@@ -536,7 +536,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
 }
 
     /// 基本戦略をパース
-    fn parse_basic_strategy(&self, value: &JsonValue) -> Result<StrategyOp, WorkflowError> {
+    fn parse_basic_strategy(&self, value: &JsonValue) -> Result<StrategyOp> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Basic strategy must be an object".to_string()))?;
 
@@ -582,7 +582,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
     }
 
     /// 優先順位付き戦略をパース
-    fn parse_prioritized_strategy(&self, value: &JsonValue) -> Result<PrioritizedStrategy, WorkflowError> {
+    fn parse_prioritized_strategy(&self, value: &JsonValue) -> Result<PrioritizedStrategy> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Prioritized strategy must be an object".to_string()))?;
 
@@ -601,7 +601,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue, WorkflowError> {
     }
 
 /// ISO 8601 duration文字列をDurationに変換
-fn parse_duration(s: &str) -> Result<Duration, WorkflowError> {
+fn parse_duration(s: &str) -> Result<Duration> {
     // 簡易的なISO 8601 durationパーサー
     // PT5M, PT1H30M などの形式をサポート
 

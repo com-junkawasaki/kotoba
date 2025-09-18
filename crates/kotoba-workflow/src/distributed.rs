@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 
 use crate::ir::{WorkflowExecutionId, WorkflowExecution, ExecutionStatus};
-use crate::WorkflowError;
+use kotoba_errors::WorkflowError;
 
 /// ノード情報
 #[derive(Debug, Clone, Serialize, Deserialize)]

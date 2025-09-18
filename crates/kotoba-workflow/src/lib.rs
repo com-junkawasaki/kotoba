@@ -46,25 +46,29 @@ pub mod optimization;
 pub mod integrations;
 
 // Re-export main types
-pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ActivityIR, ExecutionStatus};
-pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager, WorkflowError};
+pub use ir::{WorkflowIR, ActivityIR, ExecutionStatus};
+pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager};
+pub use kotoba_errors::WorkflowError;
 pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
 pub use parser::WorkflowParser;
 pub use activity::prelude::*;
 pub use distributed::{
-    DistributedCoordinator, DistributedExecutionManager, DistributedWorkflowExecutor,
-    LoadBalancer, RoundRobinBalancer, LeastLoadedBalancer, NodeInfo, ClusterHealth
+    DistributedCoordinator, RoundRobinBalancer, LeastLoadedBalancer, NodeInfo, ClusterHealth
 };
 // Phase 3: Advanced Features
 pub use saga::{SagaManager, SagaExecutionEngine, AdvancedSagaPattern, SagaContext};
 pub use monitoring::{MonitoringManager, MonitoringConfig, WorkflowStats, ActivityStats, SystemHealth};
 pub use optimization::{WorkflowOptimizer, OptimizationStrategy, OptimizationResult, ParallelExecutionPlan};
-pub use integrations::{IntegrationManager, Integration, HttpIntegration, DatabaseIntegration};
+#[cfg(feature = "activities-http")]
+pub use integrations::HttpIntegration;
+#[cfg(feature = "activities-db")]
+pub use integrations::{DatabaseIntegration, MessageQueueIntegration};
+pub use integrations::{IntegrationManager, Integration};
 
 /// Workflow engine builder
 pub struct WorkflowEngineBuilder {
     storage_backend: Option<StorageBackend>,
-    kotoba_backend: Option<std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>>,
+    kotoba_backend: Option<std::sync::Arc<dyn kotoba_storage::port::StoragePort>>,
 }
 
 impl WorkflowEngineBuilder {
@@ -101,7 +105,7 @@ impl WorkflowEngineBuilder {
     }
 
     /// Use Kotoba storage backend for full integration
-    pub fn with_kotoba_storage(mut self, backend: std::sync::Arc<dyn kotoba_storage::storage::backend::StorageBackend>) -> Self {
+    pub fn with_kotoba_storage(mut self, backend: std::sync::Arc<dyn kotoba_storage::port::StoragePort>) -> Self {
         self.kotoba_backend = Some(backend);
         // When using Kotoba backend, disable internal storage
         self.storage_backend = None;
@@ -373,14 +377,13 @@ pub struct WorkflowResult {
 /// Prelude for convenient imports
 pub mod prelude {
     pub use super::{
-        WorkflowEngine, WorkflowIR, WorkflowExecution, WorkflowExecutionId,
+        WorkflowEngine, WorkflowIR,
         ActivityRegistry, Activity, WorkflowStore, ExecutionStatus,
         WorkflowParser, EventSourcingManager, SnapshotManager,
         // Phase 2 distributed types
-        DistributedCoordinator, DistributedExecutionManager, DistributedWorkflowExecutor,
-        LoadBalancer, RoundRobinBalancer, LeastLoadedBalancer,
+        DistributedCoordinator, RoundRobinBalancer, LeastLoadedBalancer,
         // Phase 3 advanced features
         SagaManager, SagaExecutionEngine, MonitoringManager, WorkflowOptimizer,
-        IntegrationManager, HttpIntegration, DatabaseIntegration,
+        IntegrationManager,
     };
 }
