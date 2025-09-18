@@ -1,11 +1,16 @@
 //! クエリ実行器
 
 use kotoba_core::ir::*;
-use kotoba_graph::prelude::*;
-use crate::planner::{PhysicalPlanner, PhysicalPlan, PhysicalOp};
-use kotoba_distributed::DistributedEngine;
-use kotoba_cid::CidManager;
 use kotoba_core::types::*;
+use kotoba_graph::prelude::*;
+use kotoba_errors::KotobaError;
+use std::collections::HashSet;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+use crate::planner::{PhysicalPlanner, PhysicalPlan, PhysicalOp};
+// use kotoba_distributed::DistributedEngine; // DistributedEngine not available
+// use kotoba_core::CidManager; // CidManager not available in kotoba_core
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -18,8 +23,7 @@ pub struct QueryExecutor {
     logical_planner: LogicalPlanner,
     physical_planner: PhysicalPlanner,
     optimizer: QueryOptimizer,
-    /// 分散実行エンジン（オプション）
-    distributed_engine: Option<Arc<tokio::sync::RwLock<DistributedEngine>>>,
+    // distributed_engine: Option<Arc<tokio::sync::RwLock<DistributedEngine>>>, // Distributed execution not supported
 }
 
 impl QueryExecutor {
@@ -28,51 +32,20 @@ impl QueryExecutor {
             logical_planner: LogicalPlanner::new(),
             physical_planner: PhysicalPlanner::new(),
             optimizer: QueryOptimizer::new(),
-            distributed_engine: None,
+            // distributed_engine: None, // Distributed execution not supported
         }
     }
 
-    /// 分散実行エンジンを設定
-    pub fn with_distributed_engine(mut self, engine: Arc<tokio::sync::RwLock<DistributedEngine>>) -> Self {
-        self.distributed_engine = Some(engine);
-        self
-    }
+    /// 分散実行エンジンを設定（現在未サポート）
+    // pub fn with_distributed_engine(mut self, engine: Arc<tokio::sync::RwLock<DistributedEngine>>) -> Self {
+    //     self.distributed_engine = Some(engine);
+    //     self
+    // }
 
     /// GQLクエリを実行
     pub fn execute_gql(&self, gql: &str, graph: &GraphRef, catalog: &Catalog) -> Result<RowStream> {
-        // 分散実行エンジンが利用可能な場合は分散実行を使用
-        if let Some(dist_engine) = &self.distributed_engine {
-            // 非同期実行のため、ブロックして結果を取得
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            let gql_clone = gql.to_string();
-            let graph_clone = graph.clone();
-            let catalog_clone = catalog.clone();
-            let engine_clone = dist_engine.clone();
-
-            let result = rt.block_on(async {
-                let mut cid_manager = CidManager::new();
-                engine_clone.read().await.execute_gql_distributed(
-                    &gql_clone,
-                    &graph_clone,
-                    &catalog_clone,
-                    &mut cid_manager,
-                ).await
-            });
-
-            match result {
-                Ok(dist_result) => {
-                    // 分散実行結果をRowStreamに変換
-                    self.convert_distributed_result_to_row_stream(dist_result)
-                }
-                Err(_) => {
-                    // 分散実行に失敗した場合はローカル実行にフォールバック
-                    self.execute_gql_local(gql, graph, catalog)
-                }
-            }
-        } else {
-            // ローカル実行
-            self.execute_gql_local(gql, graph, catalog)
-        }
+        // ローカル実行（分散実行は現在サポートされていない）
+        self.execute_gql_local(gql, graph, catalog)
     }
 
     /// ローカルGQLクエリ実行
@@ -94,21 +67,9 @@ impl QueryExecutor {
     }
 
     /// 分散実行結果をRowStreamに変換
-    fn convert_distributed_result_to_row_stream(&self, dist_result: DistributedResult) -> Result<RowStream> {
-        match dist_result.data {
-            ResultData::Success(graph_instance) => {
-                // 簡易版: 成功した場合は空の結果を返す
-                // 実際の実装ではグラフインスタンスから適切な行データを抽出
-                Ok(vec![])
-            }
-            ResultData::Partial(partials) => {
-                // 部分結果の場合も簡易的に空を返す
-                Ok(vec![])
-            }
-            ResultData::Error(err) => {
-                Err(err)
-            }
-        }
+    fn convert_distributed_result_to_row_stream(&self, _dist_result: ()) -> Result<RowStream> {
+        // 簡易実装: 分散実行は現在サポートされていないので空の結果を返す
+        Ok(vec![])
     }
 
     /// 論理プランを実行
@@ -488,9 +449,9 @@ impl QueryExecutor {
     fn evaluate_expr(&self, row: &Row, expr: &Expr) -> Result<Value> {
         match expr {
             Expr::Var(var) => {
-                row.values.get(var)
-                    .cloned()
-                    .ok_or_else(|| KotobaError::Execution(format!("Variable {} not found", var)))
+        row.values.get(var)
+            .cloned()
+            .ok_or_else(|| Box::new(KotobaError::Execution(format!("Variable {} not found", var))) as Box<dyn std::error::Error + Send + Sync>)
             }
             Expr::Const(val) => Ok(val.clone()),
             Expr::Fn { fn_: name, args } => {

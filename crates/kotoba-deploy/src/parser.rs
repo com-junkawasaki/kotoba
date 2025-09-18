@@ -3,6 +3,7 @@
 //! kotoba-kotobas を使用して .kotoba-deploy ファイルをパースします。
 
 use kotoba_core::types::{Result, Value, ContentHash};
+use kotoba_errors::KotobaError;
 use crate::config::{DeployConfig, DeployConfigBuilder};
 // use kotoba_kotobanet::DeployParser as KotobaNetDeployParser; // Commented out due to stability issues
 use std::path::Path;
@@ -23,7 +24,7 @@ impl DeployConfigParser {
     pub fn parse<P: AsRef<Path>>(&self, path: P) -> Result<DeployConfig> {
         // kotoba-kotobas の DeployParser を使用 (コメントアウト due to stability issues)
         // let deploy_config = KotobaNetDeployParser::parse_file(path)
-        //     .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
+        //     .map_err(|e| KotobaError::InvalidArgument(
         //         format!("Deploy config parsing failed: {}", e)
         //     ))?;
 
@@ -36,7 +37,7 @@ impl DeployConfigParser {
     pub fn parse_string(&self, content: &str) -> Result<DeployConfig> {
         // kotoba-kotobas の DeployParser を使用 (コメントアウト due to stability issues)
         // let deploy_config = KotobaNetDeployParser::parse(content)
-        //     .map_err(|e| kotoba_core::types::KotobaError::InvalidArgument(
+        //     .map_err(|e| KotobaError::InvalidArgument(
         //         format!("Deploy config parsing failed: {}", e)
         //     ))?;
 

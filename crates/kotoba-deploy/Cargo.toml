@@ -17,6 +17,7 @@ path = "src/lib.rs"
 [dependencies]
 # Kotoba internal crates
 kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
 kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
 kotoba-storage = { path = "../kotoba-storage", version = "0.1.16" }
 kotoba-execution = { path = "../kotoba-execution", version = "0.1.16" }

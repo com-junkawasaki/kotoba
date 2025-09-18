@@ -3,8 +3,11 @@
 //! このモジュールはデプロイされたアプリケーションをWebAssemblyランタイムで実行します。
 //! ISO GQLプロトコルでコントロールされ、WASM Edge対応のグローバル分散実行を実現します。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::Value;
 use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use crate::controller::DeployController;
 use std::time::SystemTimeError;
 use crate::config::{DeployConfig, RuntimeType};
@@ -104,8 +107,8 @@ impl DeployRuntime {
     ) -> Result<String> {
         // WASMファイルの存在確認
         if !wasm_path.exists() {
-            return Err(kotoba_core::types::KotobaError::InvalidArgument(
-                format!("WASM file not found: {:?}", wasm_path)
+            return Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                format!("WASM file not found: {:?}", wasm_path)))
             ));
         }
 
@@ -180,7 +183,7 @@ impl DeployRuntime {
             // 簡易的な戻り値
             Ok(vec![42]) // 成功を示すダミー値
         } else {
-            Err(kotoba_core::types::KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))))
         }
     }
 
@@ -192,7 +195,7 @@ impl DeployRuntime {
             self.log_message(instance_id, "Instance stopped");
             Ok(())
         } else {
-            Err(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))))
         }
     }
 
@@ -229,7 +232,7 @@ impl DeployRuntime {
             println!("=== END LOG CONFIRMATION ===");
             Ok(())
         } else {
-            Err(KotobaError::InvalidArgument("No logs found".to_string()))
+            Err(Box::new(Box::new(KotobaError::InvalidArgument("No logs found".to_string()))))
         }
     }
 
@@ -247,7 +250,7 @@ impl DeployRuntime {
         if let Some(instance_logs) = logs.get(instance_id) {
             Ok(instance_logs.clone())
         } else {
-            Err(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(format!("Instance {} not found", instance_id)))))
         }
     }
 

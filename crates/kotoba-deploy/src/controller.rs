@@ -3,8 +3,11 @@
 //! このモジュールはISO GQLプロトコルを使用してデプロイメントを管理し、
 //! ライブグラフモデルとの統合を実現します。
 
-use kotoba_core::types::{Result, Value, ContentHash, VertexId};
+use kotoba_core::types::Value;
 use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use kotoba_graph::prelude::*;
 use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::*;
@@ -265,7 +268,7 @@ impl DeployController {
         // デプロイメントグラフに頂点を追加
         let deployment_id = Uuid::new_v4();
         let created_at = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| KotobaError::InvalidArgument(format!("Time error: {}", e)))?
+            .map_err(|e| Box::new(KotobaError::InvalidArgument(format!("Time error: {}", e))))?
             .as_secs();
 
         let vertex_data = VertexData {
@@ -332,7 +335,7 @@ impl DeployController {
                 props.insert("id".to_string(), Value::String(deployment_id.to_string()));
                 props.insert("status".to_string(), Value::String("updating".to_string()));
                 let updated_at = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
-                    .map_err(|e| KotobaError::InvalidArgument(format!("Time error: {}", e)))?
+                    .map_err(|e| Box::new(KotobaError::InvalidArgument(format!("Time error: {}", e))))?
                     .as_secs();
                 props.insert("updated_at".to_string(), Value::String(updated_at.to_string()));
 
@@ -347,8 +350,8 @@ impl DeployController {
 
             Ok(Value::String(format!("Deployment {} updated successfully", deployment_id)))
         } else {
-            Err(KotobaError::InvalidArgument(
-                format!("Deployment {} not found", deployment_id)
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                format!("Deployment {} not found", deployment_id)))
             ))
         }
     }
@@ -366,8 +369,8 @@ impl DeployController {
 
             Ok(Value::String(format!("Deployment {} deleted successfully", deployment_id)))
         } else {
-            Err(KotobaError::InvalidArgument(
-                format!("Deployment {} not found", deployment_id)
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                format!("Deployment {} not found", deployment_id)))
             ))
         }
     }
@@ -386,8 +389,8 @@ impl DeployController {
 
             Ok(Value::String(format!("{:?}", status_data)))
         } else {
-            Err(KotobaError::InvalidArgument(
-                format!("Deployment {} not found", deployment_id)
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                format!("Deployment {} not found", deployment_id)))
             ))
         }
     }
@@ -449,40 +452,38 @@ impl DeployController {
 
             Ok(DeployConfig::new(name, entry_point))
         } else {
-            Err(KotobaError::InvalidArgument(
-                "Invalid GQL deployment query".to_string()
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                "Invalid GQL deployment query".to_string()))
             ))
         }
     }
 
     /// GQLクエリからデプロイメントIDを抽出
     fn extract_deployment_id_from_gql(&self, gql_query: &str) -> Result<Uuid> {
-        self.extract_value_from_gql(gql_query, "id")
-            .and_then(|opt| opt.ok_or_else(|| {
-                KotobaError::InvalidArgument(
-                    "Deployment ID not found in GQL query".to_string()
+        match self.extract_value_from_gql(gql_query, "id") {
+            Ok(Some(id_str)) => Uuid::parse_str(&id_str).map_err(|_| {
+                Box::new(KotobaError::InvalidArgument(
+                    format!("Invalid UUID format: {}", id_str))
                 )
-            }))
-            .and_then(|id_str| {
-                Uuid::parse_str(&id_str).map_err(|_| {
-                    KotobaError::InvalidArgument(
-                        format!("Invalid UUID format: {}", id_str)
-                    )
-                })
-            })
+            }),
+            Ok(None) => Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                "Deployment ID not found in GQL query".to_string()))
+            )),
+            Err(e) => Err(e)
+        }
     }
 
     /// GQLクエリからスケールターゲットを抽出
     fn extract_scale_target_from_gql(&self, gql_query: &str) -> Result<u32> {
         self.extract_value_from_gql(gql_query, "instances")
             .and_then(|opt| opt.ok_or_else(|| {
-                KotobaError::InvalidArgument(
-                    "Scale target not found in GQL query".to_string()
+                Box::new(KotobaError::InvalidArgument(
+                    "Scale target not found in GQL query".to_string())
                 )
             }))?
             .parse()
-            .map_err(|_| KotobaError::InvalidArgument(
-                "Invalid scale target".to_string()
+            .map_err(|_| Box::new(KotobaError::InvalidArgument(
+                "Invalid scale target".to_string())
             ))
     }
 
@@ -490,8 +491,8 @@ impl DeployController {
     fn extract_rollback_target_from_gql(&self, gql_query: &str) -> Result<String> {
         self.extract_value_from_gql(gql_query, "version")
             .and_then(|opt| opt.ok_or_else(|| {
-                KotobaError::InvalidArgument(
-                    "Rollback target not found in GQL query".to_string()
+                Box::new(KotobaError::InvalidArgument(
+                    "Rollback target not found in GQL query".to_string())
                 )
             }))
     }
@@ -615,8 +616,8 @@ impl GqlDeploymentExtensions for DeployController {
         } else if query.contains("ROLLBACK DEPLOYMENT") {
             DeploymentQueryType::RollbackDeployment
         } else {
-            return Err(KotobaError::InvalidArgument(
-                "Unknown deployment GQL query type".to_string()
+            return Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                "Unknown deployment GQL query type".to_string()))
             ));
         };
 
@@ -634,13 +635,13 @@ impl GqlDeploymentExtensions for DeployController {
                     .and_then(|response| {
                         if response.success {
                             response.data.ok_or_else(|| {
-                                KotobaError::InvalidArgument(
-                                    "No data in response".to_string()
+                                Box::new(KotobaError::InvalidArgument(
+                                    "No data in response".to_string())
                                 )
                             })
                         } else {
-                            Err(KotobaError::InvalidArgument(
-                                response.error.unwrap_or_default()
+                            Err(Box::new(Box::new(KotobaError::InvalidArgument(
+                                response.error.unwrap_or_default()))
                             ))
                         }
                     })

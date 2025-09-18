@@ -2,6 +2,9 @@
 
 use std::time::{Duration, Instant};
 
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 /// 実行メトリクス
 #[derive(Debug, Clone)]
 pub struct ExecutionMetrics {

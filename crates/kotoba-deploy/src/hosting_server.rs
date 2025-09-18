@@ -3,8 +3,11 @@
 //! このモジュールはデプロイされたアプリケーションをホストするHTTPサーバーを提供します。
 //! WebAssemblyランタイムと統合され、グローバル分散実行を実現します。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::Value;
 use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use crate::controller::DeployController;
 use crate::runtime::{DeployRuntime, RuntimeManager};
 use crate::scaling::LoadBalancer;
@@ -101,8 +104,8 @@ impl HostingServer {
         });
 
         // HTTPサーバーを作成（モック依存関係）
-        let mvcc = Arc::new(kotoba_storage::storage::MVCCManager::new());
-        let merkle = Arc::new(kotoba_storage::storage::MerkleDAG::new());
+        let mvcc = Arc::new(kotoba_storage::domain::mvcc::MVCCManager::new());
+        let merkle = Arc::new(kotoba_storage::domain::merkle::MerkleDAG::new());
         let rewrite_engine = Arc::new(kotoba_rewrite::rewrite::RewriteEngine::new());
 
         let http_server = HttpServer::new(http_config, Arc::new(()), Arc::new(()), Arc::new(())).await?;
@@ -126,7 +129,7 @@ impl HostingServer {
     ) -> Result<String> {
         let app_id = format!("app-{}-{}", deployment_id, SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| KotobaError::Execution(format!("Failed to get system time: {}", e)))?
+            .map_err(|e| Box::new(KotobaError::Execution(format!("Failed to get system time: {}", e))))?
             .as_secs());
 
         let hosted_app = HostedApp {
@@ -161,7 +164,7 @@ impl HostingServer {
                 .find(|a| a.domain == domain)
                 .map(|a| a.id.clone())
                 .ok_or_else(|| {
-                    kotoba_core::types::KotobaError::InvalidArgument(format!("No application found for domain {}", domain))
+                    Box::new(KotobaError::InvalidArgument(format!("No application found for domain {}".to_string())))
                 })?
         };
 
@@ -250,7 +253,7 @@ impl HostingServer {
             println!("✅ Application {} removed", app_id);
             Ok(())
         } else {
-            Err(kotoba_core::types::KotobaError::InvalidArgument(format!("Application {} not found", app_id)))
+            Err(Box::new(Box::new(KotobaError::InvalidArgument(format!("Application {} not found", app_id)))))
         }
     }
 }

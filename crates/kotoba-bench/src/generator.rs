@@ -12,11 +12,12 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use std::sync::Mutex;
 use rand::prelude::*;
+use rand::{rngs::StdRng, SeedableRng};
 use async_trait::async_trait;
 
 /// Load generator trait for creating various load patterns
 #[async_trait]
-pub trait LoadGenerator {
+pub trait LoadGenerator: Send + Sync {
     /// Generate the next operation based on current state
     async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation;
 
@@ -57,7 +58,7 @@ pub mod workloads {
     pub struct YcsbWorkloadA {
         key_range: u64,
         value_size: usize,
-        rng: Mutex<ThreadRng>,
+        rng: Mutex<StdRng>,
     }
 
     impl YcsbWorkloadA {
@@ -65,13 +66,13 @@ pub mod workloads {
             Self {
                 key_range,
                 value_size,
-                rng: Mutex::new(thread_rng()),
+                rng: Mutex::new(StdRng::from_entropy()),
             }
         }
     }
 
     #[async_trait]
-    impl LoadGenerator for YcsbWorkloadA {
+    impl LoadGenerator for YcsbWorkloadA where Self: Send + Sync {
         async fn generate_operation(&mut self, _worker_id: usize, _operation_count: u64) -> Operation {
             let mut rng = self.rng.lock().unwrap();
             let key = format!("user{:010}", rng.gen_range(0..self.key_range));
@@ -95,7 +96,7 @@ pub mod workloads {
         }
 
         fn reset(&mut self) {
-            *self.rng.lock().unwrap() = thread_rng();
+            *self.rng.lock().unwrap() = StdRng::from_entropy();
         }
     }
 
@@ -103,7 +104,7 @@ pub mod workloads {
     pub struct SocialNetworkWorkload {
         user_count: u64,
         post_count: u64,
-        rng: Mutex<ThreadRng>,
+        rng: Mutex<StdRng>,
     }
 
     impl SocialNetworkWorkload {
@@ -111,13 +112,13 @@ pub mod workloads {
             Self {
                 user_count,
                 post_count,
-                rng: Mutex::new(thread_rng()),
+                rng: Mutex::new(StdRng::from_entropy()),
             }
         }
     }
 
     #[async_trait]
-    impl LoadGenerator for SocialNetworkWorkload {
+    impl LoadGenerator for SocialNetworkWorkload where Self: Send + Sync {
         async fn generate_operation(&mut self, _worker_id: usize, _operation_count: u64) -> Operation {
             let mut rng = self.rng.lock().unwrap();
 
@@ -174,7 +175,7 @@ pub mod workloads {
         }
 
         fn reset(&mut self) {
-            *self.rng.lock().unwrap() = thread_rng();
+            *self.rng.lock().unwrap() = StdRng::from_entropy();
         }
     }
 
@@ -182,7 +183,7 @@ pub mod workloads {
     pub struct EcommerceWorkload {
         product_count: u64,
         user_count: u64,
-        rng: Mutex<ThreadRng>,
+        rng: Mutex<StdRng>,
     }
 
     impl EcommerceWorkload {
@@ -190,13 +191,13 @@ pub mod workloads {
             Self {
                 product_count,
                 user_count,
-                rng: Mutex::new(thread_rng()),
+                rng: Mutex::new(StdRng::from_entropy()),
             }
         }
     }
 
     #[async_trait]
-    impl LoadGenerator for EcommerceWorkload {
+    impl LoadGenerator for EcommerceWorkload where Self: Send + Sync {
         async fn generate_operation(&mut self, _worker_id: usize, _operation_count: u64) -> Operation {
             let mut rng = self.rng.lock().unwrap();
 
@@ -255,7 +256,7 @@ pub mod workloads {
         }
 
         fn reset(&mut self) {
-            *self.rng.lock().unwrap() = thread_rng();
+            *self.rng.lock().unwrap() = StdRng::from_entropy();
         }
     }
 }
@@ -301,7 +302,7 @@ pub mod patterns {
     }
 
     #[async_trait]
-    impl<G: LoadGenerator + std::marker::Send> LoadGenerator for RampUpLoadGenerator<G> {
+    impl<G: LoadGenerator + std::marker::Send + std::marker::Sync> LoadGenerator for RampUpLoadGenerator<G> {
         async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation {
             self.inner.generate_operation(worker_id, operation_count).await
         }
@@ -334,7 +335,7 @@ pub mod patterns {
         cooldown_duration: Duration,
         burst_multiplier: f64,
         cycle_start: Instant,
-        rng: Mutex<ThreadRng>,
+        rng: Mutex<StdRng>,
     }
 
     impl<G: LoadGenerator> BurstyLoadGenerator<G> {
@@ -348,10 +349,10 @@ pub mod patterns {
                 inner,
                 burst_duration,
                 cooldown_duration,
-                burst_multiplier,
-                cycle_start: Instant::now(),
-                rng: Mutex::new(thread_rng()),
-            }
+            burst_multiplier,
+            cycle_start: Instant::now(),
+            rng: Mutex::new(StdRng::from_entropy()),
+        }
         }
 
         fn is_in_burst(&self) -> bool {
@@ -372,7 +373,7 @@ pub mod patterns {
     }
 
     #[async_trait]
-    impl<G: LoadGenerator + std::marker::Send> LoadGenerator for BurstyLoadGenerator<G> {
+    impl<G: LoadGenerator + std::marker::Send + std::marker::Sync> LoadGenerator for BurstyLoadGenerator<G> {
         async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation {
             self.inner.generate_operation(worker_id, operation_count).await
         }
@@ -409,7 +410,7 @@ pub mod patterns {
         spike_probability: f64,
         spike_duration: Duration,
         last_spike: Mutex<Option<Instant>>,
-        rng: Mutex<ThreadRng>,
+        rng: Mutex<StdRng>,
     }
 
     impl<G: LoadGenerator> SpikeLoadGenerator<G> {
@@ -427,7 +428,7 @@ pub mod patterns {
                 spike_probability,
                 spike_duration,
                 last_spike: Mutex::new(None),
-                rng: Mutex::new(thread_rng()),
+                rng: Mutex::new(StdRng::from_entropy()),
             }
         }
 
@@ -460,7 +461,7 @@ pub mod patterns {
     }
 
     #[async_trait]
-    impl<G: LoadGenerator + std::marker::Send> LoadGenerator for SpikeLoadGenerator<G> {
+    impl<G: LoadGenerator + std::marker::Send + std::marker::Sync> LoadGenerator for SpikeLoadGenerator<G> {
         async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation {
             self.inner.generate_operation(worker_id, operation_count).await
         }

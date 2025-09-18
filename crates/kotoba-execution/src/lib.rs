@@ -4,8 +4,12 @@ pub mod execution;
 
 use crate::execution::physical_plan::PhysicalPlan;
 use crate::execution::metrics::ExecutionMetrics;
-use kotoba_core::types::{Result, Value};
+// use kotoba_core::types::{Result, Value}; // Avoid conflicts with our custom Result type
+use kotoba_core::types::Value;
 use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[async_trait::async_trait]
 pub trait QueryExecutor: Send + Sync {
@@ -36,6 +40,8 @@ pub mod prelude {
     // Re-export commonly used items
     pub use crate::execution::*;
     pub use crate::planner::*;
+    // Avoid re-exporting duplicate types
+    // PhysicalPlan and PhysicalOp are available through both execution and planner
 }
 
 #[cfg(test)]

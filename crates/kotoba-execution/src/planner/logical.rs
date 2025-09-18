@@ -2,6 +2,7 @@
 
 use kotoba_core::ir::*;
 use kotoba_core::types::*;
+use kotoba_errors::KotobaError;
 use std::collections::HashMap;
 
 /// 論理プランナー

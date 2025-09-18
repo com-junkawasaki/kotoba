@@ -2,7 +2,6 @@
 
 use kotoba_core::ir::*;
 use kotoba_core::types::*;
-use crate::planner::{PhysicalPlan, PhysicalOp};
 
 /// 物理演算子
 #[derive(Debug, Clone)]

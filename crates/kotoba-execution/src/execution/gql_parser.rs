@@ -1,9 +1,15 @@
 //! GQLパーサー（Cypher-like構文対応）
 
-use crate::ir::*;
-use crate::types::*;
-use crate::graph::*;
+// use crate::ir::*; // These modules don't exist in this crate
+// use crate::types::*;
+// use crate::graph::*;
 use std::collections::HashMap;
+use kotoba_core::prelude::*;
+use kotoba_graph::prelude::*;
+use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// GQLパーサー
 #[derive(Debug)]
@@ -103,7 +109,7 @@ impl GqlParser {
         } else if gql_lower.starts_with("create") {
             self.parse_create_query(gql)
         } else {
-            Err(KotobaError::Parse(format!("Unsupported GQL operation: {}", gql)))
+            Err(Box::new(KotobaError::Parse(format!("Unsupported GQL operation: {}", gql))))
         }
     }
 
@@ -121,7 +127,7 @@ impl GqlParser {
         let mut i = 0;
 
         // MATCH句のパース
-        if parts.get(i).map(|s| s.to_lowercase()) == Some("match") {
+        if parts.get(i).map(|s| s.to_lowercase()) == Some("match".to_string()) {
             i += 1;
             let match_part = self.extract_clause(gql, "match", &["where", "return", "order", "skip", "limit"])?;
             let parsed_match = self.parse_match_clause(&match_part)?;
@@ -138,7 +144,7 @@ impl GqlParser {
                     }
                     GraphPattern::Path(path) => {
                         // パスを展開
-                        logical_plan = Some(self.build_path_plan(path)?);
+                        logical_plan = Some(self.build_path_plan(&path)?);
                     }
                 }
             }
@@ -275,7 +281,7 @@ impl GqlParser {
 
         let pattern = pattern.trim();
         if !pattern.starts_with("(") || !pattern.ends_with(")") {
-            return Err(KotobaError::Parse("Invalid node pattern".to_string()));
+            return Err(Box::new(KotobaError::Parse("Invalid node pattern".to_string())));
         }
 
         let inner = &pattern[1..pattern.len()-1];
@@ -303,7 +309,7 @@ impl GqlParser {
 
         let parts: Vec<&str> = pattern.split("->").collect();
         if parts.len() < 2 {
-            return Err(KotobaError::Parse("Invalid path pattern".to_string()));
+            return Err(Box::new(KotobaError::Parse("Invalid path pattern".to_string())));
         }
 
         let start_node = self.parse_node_pattern_simple(parts[0].trim())?;
@@ -442,12 +448,12 @@ impl GqlParser {
                     "<" => Ok(Predicate::Lt { lt: [left_expr, right_expr] }),
                     ">=" => Ok(Predicate::Ge { ge: [left_expr, right_expr] }),
                     "<=" => Ok(Predicate::Le { le: [left_expr, right_expr] }),
-                    _ => Err(KotobaError::Parse(format!("Unknown operator: {}", op))),
+                    _ => Err(Box::new(KotobaError::Parse(format!("Unknown operator: {}", op)))),
                 };
             }
         }
 
-        Err(KotobaError::Parse(format!("No comparison operator found in: {}", comp_str)))
+        Err(Box::new(KotobaError::Parse(format!("No comparison operator found in: {}", comp_str))))
     }
 
     /// 式のパース

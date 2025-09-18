@@ -4,7 +4,11 @@
 //! CPU使用率、メモリ使用率、リクエスト数などのメトリクスに基づいて
 //! インスタンス数を動的に調整します。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::Value;
+use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use kotoba_graph::prelude::*;
 use crate::config::{ScalingConfig, ScalingPolicy};
 use std::collections::HashMap;

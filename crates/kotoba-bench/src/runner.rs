@@ -43,7 +43,7 @@ impl BenchmarkRunner {
     }
 
     /// Run a single benchmark
-    pub async fn run_benchmark<B: Benchmark + std::marker::Sync>(
+    pub async fn run_benchmark<B: Benchmark + std::marker::Sync + Clone + Send + 'static>(
         &self,
         mut benchmark: B,
     ) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
@@ -76,7 +76,7 @@ impl BenchmarkRunner {
     }
 
     /// Execute the actual benchmark measurement
-    async fn execute_benchmark<B: Benchmark + std::marker::Sync>(
+    async fn execute_benchmark<B: Benchmark + std::marker::Sync + Clone + Send + 'static>(
         &self,
         benchmark: &B,
         benchmark_name: &str,
@@ -106,6 +106,7 @@ impl BenchmarkRunner {
         for worker_id in 0..self.config.concurrency {
             let config = self.config.clone();
             let (tx, mut rx) = mpsc::unbounded_channel();
+            let benchmark_clone = benchmark.clone();
 
             // Worker task
             let handle = tokio::spawn(async move {
@@ -132,7 +133,7 @@ impl BenchmarkRunner {
                     }
 
                     let op_start = Instant::now();
-                    let result = benchmark.run_operation(worker_id, op_count).await;
+                    let result = benchmark_clone.run_operation(worker_id, op_count).await;
                     let latency_us = op_start.elapsed().as_micros() as u64;
 
                     match result {

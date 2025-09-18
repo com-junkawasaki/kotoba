@@ -5419,6 +5419,7 @@ dependencies = [
  "clap",
  "hex",
  "kotoba-core",
+ "kotoba-errors",
  "kotoba-execution",
  "kotoba-graph",
  "kotoba-rewrite",

@@ -3,7 +3,10 @@
 //! このモジュールはコマンドラインインターフェースを提供し、
 //! ISO GQLベースのデプロイメント管理を可能にします。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::Value;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use crate::controller::{DeployController, DeploymentManager, GqlDeploymentQuery, DeploymentQueryType, GqlDeploymentExtensions};
 // use serde_json; // 簡易実装では使用しない
 use crate::config::{DeployConfig, DeployConfigBuilder, RuntimeType};

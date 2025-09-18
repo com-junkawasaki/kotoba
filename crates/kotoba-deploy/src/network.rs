@@ -3,7 +3,11 @@
 //! このモジュールは世界中のエッジロケーションにアプリケーションを分散配置し、
 //! 低遅延で高可用性のネットワークを実現します。
 
-use kotoba_core::types::{Result, Value};
+use kotoba_core::types::Value;
+use kotoba_errors::KotobaError;
+
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use kotoba_graph::prelude::*;
 use crate::config::{NetworkConfig, RegionConfig, GeographyConfig};
 use crate::scaling::{LoadBalancer, InstanceInfo, InstanceStatus, LoadBalancingAlgorithm};
@@ -551,7 +555,7 @@ impl RegionManager {
                 a.utilization.partial_cmp(&b.utilization).unwrap()
             })
             .ok_or_else(|| {
-                kotoba_core::types::KotobaError::InvalidArgument(
+                KotobaError::InvalidArgument(
                     "No active regions available".to_string()
                 )
             })?;
@@ -611,7 +615,7 @@ impl EdgeRouter {
                 dist_a.partial_cmp(&dist_b).unwrap()
             })
             .ok_or_else(|| {
-                kotoba_core::types::KotobaError::InvalidArgument(
+                KotobaError::InvalidArgument(
                     "No edge locations available".to_string()
                 )
             })?;

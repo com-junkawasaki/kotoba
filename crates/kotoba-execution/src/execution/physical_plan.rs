@@ -4,6 +4,9 @@ use kotoba_core::types::*;
 use kotoba_core::ir::*;
 use kotoba_errors::KotobaError;
 
+// Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 /// カラム情報
 #[derive(Debug, Clone, PartialEq)]
 pub struct Column {
