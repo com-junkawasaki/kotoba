@@ -201,7 +201,7 @@ impl MembershipManager {
 
     // Internal methods
 
-    async fn start_heartbeat_monitor(&self, cluster_state: Arc<ClusterState>, membership_tx: tokio::sync::mpsc::Sender<MembershipEvent>) -> Result<(), MembershipError> {
+    async fn start_heartbeat_monitor(&self, cluster_state: Arc<ClusterState>, membership_tx: tokio::sync::broadcast::Sender<MembershipEvent>) -> Result<(), MembershipError> {
         let heartbeats = Arc::clone(&self.heartbeats);
         let config = self.config.clone();
 
@@ -235,7 +235,7 @@ impl MembershipManager {
         Ok(())
     }
 
-    async fn start_failure_detector(&self, cluster_state: Arc<ClusterState>, membership_tx: tokio::sync::mpsc::Sender<MembershipEvent>) -> Result<(), MembershipError> {
+    async fn start_failure_detector(&self, cluster_state: Arc<ClusterState>, membership_tx: tokio::sync::broadcast::Sender<MembershipEvent>) -> Result<(), MembershipError> {
         let heartbeats = Arc::clone(&self.heartbeats);
         let config = self.config.clone();
 

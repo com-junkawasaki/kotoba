@@ -156,7 +156,7 @@ impl ReplicationManager {
 
     // Internal methods
 
-    async fn start_status_monitor(&self) -> Result<(), ReplicationError> {
+    async fn start_status_monitor(&self, cluster_state: Arc<ClusterState>) -> Result<(), ReplicationError> {
         let status = Arc::clone(&self.status);
         let queues = Arc::clone(&self.replication_queues);
         let config = self.config.clone();
@@ -201,7 +201,7 @@ impl ReplicationManager {
         Ok(())
     }
 
-    async fn start_queue_processor(&mut self) -> Result<(), ReplicationError> {
+    async fn start_queue_processor(&self, cluster_state: Arc<ClusterState>) -> Result<(), ReplicationError> {
         let queues = Arc::clone(&self.replication_queues);
         let status = Arc::clone(&self.status);
         let config = self.config.clone();
@@ -241,7 +241,7 @@ impl ReplicationManager {
         Ok(())
     }
 
-    async fn start_sync_scheduler(&self) -> Result<(), ReplicationError> {
+    async fn start_sync_scheduler(&self, cluster_state: Arc<ClusterState>) -> Result<(), ReplicationError> {
         let queues = Arc::clone(&self.replication_queues);
         let config = self.config.clone();
 
