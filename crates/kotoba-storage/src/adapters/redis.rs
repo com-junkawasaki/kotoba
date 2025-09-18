@@ -1,8 +1,9 @@
 //! Redis-based storage backend for Upstash compatibility
 
+use crate::domain::kv::KeyValuePort;
 use crate::domain::models::{StorageConfig, BackendStats};
 use async_trait::async_trait;
-use kotoba_core::types::Result;
+use kotoba_core::prelude::Result;
 use kotoba_errors::KotobaError;
 use redis::{aio::ConnectionManager, AsyncCommands, Client};
 use std::sync::Arc;
@@ -46,7 +47,7 @@ impl RedisBackend {
 }
 
 #[async_trait]
-impl StorageBackend for RedisBackend {
+impl KeyValuePort for RedisBackend {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
         let mut conn = self.connection_manager.lock().await;
         conn.set::<_, _, ()>(key, value)
@@ -106,6 +107,13 @@ impl StorageBackend for RedisBackend {
             connection_count: None,
         })
     }
+
+    async fn exists(&self, key: &str) -> Result<bool> {
+        let mut conn = self.connection_manager.lock().await;
+        conn.exists(key)
+            .await
+            .map_err(|e| KotobaError::Storage(format!("Failed to check key existence in Redis: {}", e)))
+    }
 }
 
 /// Parse Redis INFO command output for specific metrics
@@ -126,7 +134,7 @@ mod tests {
         let redis_url = env::var("TEST_REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
         match RedisBackend::new(&StorageConfig {
-            backend_type: crate::storage::BackendType::Redis,
+            backend_type: crate::domain::models::BackendType::Redis,
             redis_url: Some(redis_url),
             ..Default::default()
         }).await {

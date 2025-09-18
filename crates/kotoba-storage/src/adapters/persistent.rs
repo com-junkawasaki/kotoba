@@ -17,6 +17,7 @@ use crate::adapters::lsm::LSMTree;
 use crate::domain::mvcc::MVCCManager;
 use std::collections::HashMap;
 use crate::domain::models::{StorageStats, CidRange, StorageConfig};
+use crate::domain::kv::KeyValuePort;
 
 /// 永続ストレージ設定
 #[derive(Debug, Clone)]
@@ -110,7 +111,7 @@ impl PersistentStorage {
     }
 
     /// グラフを永続化
-    pub fn store_graph(&self, graph: &Graph) -> Result<Cid> {
+    pub async fn store_graph(&self, graph: &Graph) -> Result<Cid> {
         let mut cid_manager = self.cid_manager.write();
         let mut merkle_dag = self.merkle_dag.write();
 
@@ -125,7 +126,7 @@ impl PersistentStorage {
             let vertex_key = format!("vertex:{}", vertex_cid.as_str());
 
             let vertex_data = serde_json::to_vec(vertex)?;
-            self.store_data(&vertex_key, &vertex_data)?;
+            self.store_data(&vertex_key, &vertex_data).await?;
 
             vertex_cids.push(vertex_cid);
         }
@@ -137,7 +138,7 @@ impl PersistentStorage {
             let edge_key = format!("edge:{}", edge_cid.as_str());
 
             let edge_data = serde_json::to_vec(edge)?;
-            self.store_data(&edge_key, &edge_data)?;
+            self.store_data(&edge_key, &edge_data).await?;
 
             edge_cids.push(edge_cid);
         }
@@ -157,17 +158,17 @@ impl PersistentStorage {
         // メタデータを格納
         let metadata_key = format!("graph:{}", graph_cid.as_str());
         let metadata_data = serde_json::to_vec(&persisted_graph)?;
-        self.store_data(&metadata_key, &metadata_data)?;
+        self.store_data(&metadata_key, &metadata_data).await?;
 
         Ok(graph_cid)
     }
 
     /// CIDからグラフを復元
-    pub fn load_graph(&self, cid: &Cid) -> Result<Graph> {
+    pub async fn load_graph(&self, cid: &Cid) -> Result<Graph> {
         let metadata_key = format!("graph:{}", cid.as_str());
 
         // メタデータを取得
-        let metadata_data = match self.load_data(&metadata_key)? {
+        let metadata_data = match self.load_data(&metadata_key).await? {
             StorageResult::Success(data) => data,
             StorageResult::NotFound => return Err(KotobaError::Storage("Graph not found".to_string())),
             _ => return Err(KotobaError::Storage("Failed to load graph metadata".to_string())),
@@ -179,7 +180,7 @@ impl PersistentStorage {
         let mut vertices = HashMap::new();
         for vertex_cid in &persisted_graph.vertex_cids {
             let vertex_key = format!("vertex:{}", vertex_cid.as_str());
-            let vertex_data = match self.load_data(&vertex_key)? {
+            let vertex_data = match self.load_data(&vertex_key).await? {
                 StorageResult::Success(data) => data,
                 _ => continue, // 頂点が見つからない場合はスキップ
             };
@@ -192,7 +193,7 @@ impl PersistentStorage {
         let mut edges = HashMap::new();
         for edge_cid in &persisted_graph.edge_cids {
             let edge_key = format!("edge:{}", edge_cid.as_str());
-            let edge_data = match self.load_data(&edge_key)? {
+            let edge_data = match self.load_data(&edge_key).await? {
                 StorageResult::Success(data) => data,
                 _ => continue, // エッジが見つからない場合はスキップ
             };
@@ -218,26 +219,26 @@ impl PersistentStorage {
     }
 
     /// データを格納（CIDアドレス指定）
-    pub fn store_data(&self, key: &str, data: &[u8]) -> Result<()> {
+    pub async fn store_data(&self, key: &str, data: &[u8]) -> Result<()> {
         let mut lsm_tree = self.lsm_tree.write();
-        lsm_tree.put(key.to_string(), data.to_vec());
+        lsm_tree.put(key.to_string(), data.to_vec()).await?;
         Ok(())
     }
 
     /// データを読み込み（CIDアドレス指定）
-    pub fn load_data(&self, key: &str) -> Result<StorageResult<Vec<u8>>> {
+    pub async fn load_data(&self, key: &str) -> Result<StorageResult<Vec<u8>>> {
         let lsm_tree = self.lsm_tree.read();
 
-        match lsm_tree.get(key)? {
+        match lsm_tree.get(key).await? {
             Some(data) => Ok(StorageResult::Success(data)),
             None => Ok(StorageResult::NotFound),
         }
     }
 
     /// データを削除
-    pub fn delete_data(&self, key: &str) -> Result<()> {
+    pub async fn delete_data(&self, key: &str) -> Result<()> {
         let mut lsm_tree = self.lsm_tree.write();
-        lsm_tree.delete(key.to_string());
+        lsm_tree.delete(key.to_string()).await?;
         Ok(())
     }
 
@@ -331,10 +332,10 @@ impl PersistentStorage {
         let mvcc_manager = self.mvcc_manager.read();
 
         StorageStats {
-            lsm_entries: lsm_tree.stats().total_entries,
+            lsm_entries: lsm_tree.stats().total_keys.unwrap_or(0) as usize,
             merkle_nodes: merkle_dag.len(),
             active_transactions: mvcc_manager.active_transactions().len(),
-            data_size: lsm_tree.stats().total_size,
+            data_size: lsm_tree.stats().disk_usage.unwrap_or(0),
         }
     }
 
@@ -541,11 +542,9 @@ impl DistributedStorageManager {
         // 各バージョンのタイムスタンプを取得
         let mut version_info = Vec::new();
         for version in versions {
-            if let Ok(data) = self.local_storage.load_data(&format!("cid:{}", version.as_str())) {
-                if let StorageResult::Success(data_bytes) = data {
-                    // 簡易版：データサイズをタイムスタンプの代わりに使用
-                    version_info.push((version.clone(), data_bytes.len() as u64));
-                }
+            if let Ok(StorageResult::Success(data)) = self.local_storage.load_data(&format!("cid:{}", version.as_str())).await {
+                // 簡易版：データサイズをタイムスタンプの代わりに使用
+                version_info.push((version.clone(), data.len() as u64));
             }
         }
 
@@ -571,7 +570,7 @@ impl DistributedStorageManager {
         match self.consistency_config.read_consistency {
             ConsistencyLevel::One => {
                 // 1つのノードから読み取り
-                self.local_storage.load_data(&format!("cid:{}", cid.as_str()))
+                self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await
                     .map(|result| match result {
                         StorageResult::Success(data) => Some(data),
                         _ => None,
@@ -581,7 +580,7 @@ impl DistributedStorageManager {
                 // クォーラムから読み取り
                 let check = self.check_consistency(cid).await?;
                 if check.is_consistent && check.available_nodes >= check.required_replicas {
-                    self.local_storage.load_data(&format!("cid:{}", cid.as_str()))
+                    self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await
                         .map(|result| match result {
                             StorageResult::Success(data) => Some(data),
                             _ => None,
@@ -597,7 +596,7 @@ impl DistributedStorageManager {
                 let check = self.check_consistency(cid).await?;
 
                 if check.available_nodes == total_nodes && check.is_consistent {
-                    self.local_storage.load_data(&format!("cid:{}", cid.as_str()))
+                    self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await
                         .map(|result| match result {
                             StorageResult::Success(data) => Some(data),
                             _ => None,
@@ -612,7 +611,7 @@ impl DistributedStorageManager {
     /// 書き込み操作の整合性を確保
     pub async fn ensure_write_consistency(&self, cid: &Cid, data: &[u8]) -> Result<()> {
         // データをローカルに書き込み
-        self.local_storage.store_data(&format!("cid:{}", cid.as_str()), data)?;
+        self.local_storage.store_data(&format!("cid:{}", cid.as_str()), data).await?;
 
         match self.consistency_config.write_consistency {
             ConsistencyLevel::One => {
@@ -634,7 +633,7 @@ impl DistributedStorageManager {
     }
 
     /// ヘルパーメソッド：CIDを担当するノードを取得
-    fn get_responsible_nodes(&self, cid: &Cid) -> Vec<&NodeStorageInfo> {
+    pub fn get_responsible_nodes(&self, cid: &Cid) -> Vec<&NodeStorageInfo> {
         let mut responsible = Vec::new();
 
         for node_info in self.nodes.values() {
@@ -642,7 +641,7 @@ impl DistributedStorageManager {
                 let hash = cid.as_str().as_bytes();
                 let hash_value = hash.iter().fold(0u64, |acc, &b| acc.wrapping_add(b as u64));
 
-                if hash_value >= range.start && hash_value <= range.end {
+                if hash_value >= range.start.parse().unwrap_or(0) && hash_value <= range.end.parse().unwrap_or(u64::MAX) {
                     responsible.push(node_info);
                     break;
                 }
@@ -653,11 +652,11 @@ impl DistributedStorageManager {
     }
 
     /// ヘルパーメソッド：ノードからデータを取得（簡易版）
-    async fn fetch_data_from_node(&self, node_info: &NodeStorageInfo, cid: &Cid) -> Result<Vec<u8>> {
+    pub async fn fetch_data_from_node(&self, node_info: &NodeStorageInfo, cid: &Cid) -> Result<Vec<u8>> {
         // 実際の実装ではネットワーク通信を行う
         // ここではローカルノードのみをチェック
-        if node_info.node_id.0 == "local" {
-            match self.local_storage.load_data(&format!("cid:{}", cid.as_str()))? {
+        if node_info.node_id.to_string() == "local" {
+            match self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await? {
                 StorageResult::Success(data) => Ok(data),
                 _ => Err(KotobaError::Storage("Data not found".to_string())),
             }
@@ -667,11 +666,11 @@ impl DistributedStorageManager {
     }
 
     /// ヘルパーメソッド：ノードにデータを送信（簡易版）
-    async fn send_data_to_node(&self, node_info: &NodeStorageInfo, cid: &Cid, data: &[u8]) -> Result<()> {
+    pub async fn send_data_to_node(&self, node_info: &NodeStorageInfo, cid: &Cid, data: &[u8]) -> Result<()> {
         // 実際の実装ではネットワーク通信を行う
         // ここではローカルノードのみをサポート
-        if node_info.node_id.0 == "local" {
-            self.local_storage.store_data(&format!("cid:{}", cid.as_str()), data)?;
+        if node_info.node_id.to_string() == "local" {
+            self.local_storage.store_data(&format!("cid:{}", cid.as_str()), data).await?;
             Ok(())
         } else {
             Err(KotobaError::Storage("Remote node communication not implemented".to_string()))
@@ -686,7 +685,7 @@ impl DistributedStorageManager {
 
         for node_info in self.nodes.values() {
             for range in &node_info.cid_ranges {
-                if hash_value >= range.start && hash_value <= range.end {
+                if hash_value >= range.start.parse().unwrap_or(0) && hash_value <= range.end.parse().unwrap_or(u64::MAX) {
                     return Some(node_info);
                 }
             }
@@ -700,7 +699,7 @@ impl DistributedStorageManager {
     pub async fn verify_consistency(&self, cid: &Cid) -> Result<bool> {
         // 複数のノードから同じCIDのデータを取得して比較
         // 簡易版：ローカルのみチェック
-        match self.local_storage.load_data(&format!("cid:{}", cid.as_str()))? {
+        match self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await? {
             StorageResult::Success(_) => Ok(true),
             _ => Ok(false),
         }
@@ -749,25 +748,25 @@ mod tests {
         graph
     }
 
-    #[test]
-    fn test_store_and_load_graph() {
+    #[tokio::test]
+    async fn test_store_and_load_graph() {
         let config = create_test_config();
         let storage = PersistentStorage::new(config).unwrap();
         let test_graph = create_test_graph();
 
         // グラフを格納
-        let cid = storage.store_graph(&test_graph).unwrap();
+        let cid = storage.store_graph(&test_graph).await.unwrap();
 
         // グラフを読み込み
-        let loaded_graph = storage.load_graph(&cid).unwrap();
+        let loaded_graph = storage.load_graph(&cid).await.unwrap();
 
         // 比較
         assert_eq!(loaded_graph.vertices.len(), test_graph.vertices.len());
         assert_eq!(loaded_graph.edges.len(), test_graph.edges.len());
     }
 
-    #[test]
-    fn test_data_operations() {
+    #[tokio::test]
+    async fn test_data_operations() {
         let config = create_test_config();
         let storage = PersistentStorage::new(config).unwrap();
 
@@ -775,19 +774,19 @@ mod tests {
         let data = b"test_data";
 
         // データを格納
-        storage.store_data(key, data).unwrap();
+        storage.store_data(key, data).await.unwrap();
 
         // データを読み込み
-        match storage.load_data(key).unwrap() {
+        match storage.load_data(key).await.unwrap() {
             StorageResult::Success(loaded_data) => assert_eq!(loaded_data, data),
             _ => panic!("Data not found"),
         }
 
         // データを削除
-        storage.delete_data(key).unwrap();
+        storage.delete_data(key).await.unwrap();
 
         // 削除されたことを確認
-        match storage.load_data(key).unwrap() {
+        match storage.load_data(key).await.unwrap() {
             StorageResult::NotFound => {} // OK
             _ => panic!("Data should be deleted"),
         }

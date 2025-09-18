@@ -24,7 +24,7 @@ pub struct EdgeData {
 }
 
 /// グラフ（列指向表現）
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Graph {
     /// 頂点データ（ID→データ）
     pub vertices: HashMap<VertexId, VertexData>,

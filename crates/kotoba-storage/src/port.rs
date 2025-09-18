@@ -1,5 +1,5 @@
 //! `StoragePort` defines the core interface for all storage backends.
-use crate::domain::persistent::StorageStats;
+use crate::domain::models::StorageStats;
 use crate::domain::merkle::MerkleDAG;
 use crate::domain::mvcc::MVCCManager;
 use kotoba_core::prelude::{Result, Cid};

@@ -12,7 +12,6 @@ use crate::storage::backend::{StorageBackend, BackendStats, StorageConfig, Objec
 use async_trait::async_trait;
 #[cfg(feature = "object_storage")]
 use kotoba_core::prelude::*;
-#[cfg(feature = "object_storage")]
 use kotoba_errors::KotobaError;
 #[cfg(feature = "object_storage")]
 // Cloud provider enum for object storage
@@ -251,8 +250,8 @@ pub struct ObjectStorageBackend;
 #[cfg(not(feature = "object_storage"))]
 impl ObjectStorageBackend {
     pub async fn new(_config: &StorageConfig) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        Err(KotobaError::Storage(
+        Err(Box::new(KotobaError::Storage(
             "Object storage backend not available - compile with 'object_storage' feature".to_string()
-        ))
+        )))
     }
 }

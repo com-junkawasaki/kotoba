@@ -159,7 +159,8 @@ impl MerkleDAG {
                 self.nodes.insert(hash.clone(), node);
                 new_leaves.push(self.nodes.get(&hash).unwrap().clone());
             }
-            leaves = new_leaves;
+            let temp_vec: Vec<MerkleNode> = new_leaves.into_iter().collect();
+            leaves = temp_vec.iter().collect();
         }
 
         leaves[0].hash.clone()
