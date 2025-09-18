@@ -7,7 +7,7 @@ license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 keywords = ["cloud", "aws", "gcp", "azure", "integration"]
-categories = ["web-programming", "cloud"]
+categories = ["web-programming", "api-bindings"]
 documentation = "https://docs.rs/kotoba-cloud-integrations"
 
 [dependencies]
