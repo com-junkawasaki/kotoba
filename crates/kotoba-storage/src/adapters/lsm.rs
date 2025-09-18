@@ -155,7 +155,23 @@ impl KeyValuePort for LSMTree {
             Ok(())
         }
     }
-    
+
+    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        #[cfg(feature = "rocksdb")]
+        {
+            let iter = self.db.prefix_iterator(prefix.as_bytes());
+            Ok(iter.map(|(k, v)| (k.to_vec(), v.to_vec())).collect())
+        }
+        #[cfg(not(feature = "rocksdb"))]
+        {
+            let db = self.db.read().unwrap();
+            Ok(db.iter()
+                .filter(|(k, _)| k.starts_with(prefix))
+                .map(|(k, v)| (k.as_bytes().to_vec(), v.clone()))
+                .collect())
+        }
+    }
+
     async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
         #[cfg(feature = "rocksdb")]
         {

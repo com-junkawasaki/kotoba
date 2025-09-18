@@ -6,6 +6,7 @@ use parking_lot::RwLock;
 use kotoba_core::types::*;
 use kotoba_core::prelude::{Cid, GraphCore, GraphInstance, Node, Edge, GraphKind};
 use kotoba_cid::CidManager;
+use sha2::{Sha256, Digest};
 
 /// 頂点データ
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -17,8 +18,12 @@ pub struct VertexData {
 
 impl VertexData {
     pub fn to_node(&self) -> Node {
+        let mut hasher = Sha256::new();
+        hasher.update(self.id.to_string().as_bytes());
+        let hash: [u8; 32] = hasher.finalize().into();
+
         Node {
-            cid: Cid::new(&self.id.to_string()),
+            cid: Cid(hash),
             labels: self.labels.clone(),
             r#type: "node".to_string(),
             ports: Vec::new(),
@@ -40,8 +45,12 @@ pub struct EdgeData {
 
 impl EdgeData {
     pub fn to_edge(&self) -> Edge {
+        let mut hasher = Sha256::new();
+        hasher.update(self.id.to_string().as_bytes());
+        let hash: [u8; 32] = hasher.finalize().into();
+
         Edge {
-            cid: Cid::new(&self.id.to_string()),
+            cid: Cid(hash),
             label: Some(self.label.clone()),
             src: self.src.to_string(),
             tgt: self.dst.to_string(),

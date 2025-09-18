@@ -23,7 +23,7 @@ impl CidManager {
     /// グラフのCIDを計算
     pub fn compute_graph_cid(&mut self, graph: &GraphCore) -> kotoba_core::types::Result<Cid> {
         let cid = self.calculator.compute_cid(graph)?;
-        let key = format!("graph_{}", cid.as_str());
+        let key = format!("graph_{}", cid.to_hex());
         self.cache.insert(key, cid.clone());
         Ok(cid)
     }
@@ -31,7 +31,7 @@ impl CidManager {
     /// ルールのCIDを計算
     pub fn compute_rule_cid(&mut self, rule: &RuleDPO) -> kotoba_core::types::Result<Cid> {
         let cid = self.calculator.compute_cid(rule)?;
-        let key = format!("rule_{}", cid.as_str());
+        let key = format!("rule_{}", cid.to_hex());
         self.cache.insert(key, cid.clone());
         Ok(cid)
     }
@@ -39,7 +39,7 @@ impl CidManager {
     /// クエリのCIDを計算
     pub fn compute_query_cid(&mut self, query: &str) -> kotoba_core::types::Result<Cid> {
         let cid = self.calculator.compute_cid(&query.to_string())?;
-        let key = format!("query_{}", cid.as_str());
+        let key = format!("query_{}", cid.to_hex());
         self.cache.insert(key, cid.clone());
         Ok(cid)
     }
@@ -77,8 +77,8 @@ impl CidManager {
     /// CIDの距離を計算（ハッシュ値の差）
     pub fn cid_distance(&self, cid1: &Cid, cid2: &Cid) -> Option<u64> {
         // 簡易版: 最初の8バイトをu64として比較
-        let bytes1 = hex::decode(cid1.as_str()).ok()?;
-        let bytes2 = hex::decode(cid2.as_str()).ok()?;
+        let bytes1 = cid1.0;
+        let bytes2 = cid2.0;
 
         if bytes1.len() < 8 || bytes2.len() < 8 {
             return None;

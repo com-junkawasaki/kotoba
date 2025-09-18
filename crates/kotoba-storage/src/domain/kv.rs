@@ -15,6 +15,9 @@ pub trait KeyValuePort: Send + Sync {
     /// Deletes a key-value pair.
     async fn delete(&self, key: String) -> Result<()>;
 
+    /// Scans a range of keys with a given prefix.
+    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
+
     /// Gets all keys with a given prefix.
     async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>>;
 

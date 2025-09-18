@@ -21,6 +21,7 @@ use crate::domain::kv::KeyValuePort;
 use crate::port::StoragePort;
 use async_trait::async_trait;
 use kotoba_db_core::types::Block;
+use kotoba_core::prelude::Cid;
 
 #[async_trait]
 impl StoragePort for PersistentStorage {
@@ -48,11 +49,11 @@ impl StoragePort for PersistentStorage {
         let cid = block.cid()?;
         let bytes = block.to_bytes()?;
         self.lsm_tree.write().await.put(hex::encode(cid), bytes).await?;
-        Ok(cid)
+        Ok(Cid(cid))
     }
 
     async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
-        let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid)).await?;
+        let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid.0)).await?;
         if let Some(bytes) = bytes_opt {
             let block = Block::from_bytes(&bytes)?;
             Ok(Some(block))
@@ -64,7 +65,8 @@ impl StoragePort for PersistentStorage {
     async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let prefix_hex = hex::encode(prefix);
         // Note: This scan is on hex keys, so it's a prefix scan on the hex representation.
-        self.lsm_tree.read().await.scan(&prefix_hex).await
+        let lsm_tree = self.lsm_tree.read().await;
+        <LSMTree as KeyValuePort>::scan(&*lsm_tree, &prefix_hex).await
     }
 }
 
@@ -517,7 +519,7 @@ impl DistributedStorageManager {
 
     /// CIDの整合性をチェック
     pub async fn check_consistency(&self, cid: &Cid) -> Result<ConsistencyCheck> {
-        let responsible_nodes = self.get_responsible_nodes(cid);
+        let responsible_nodes = self.get_responsible_nodes(cid).await;
         let mut available_nodes = 0;
         let mut missing_nodes = Vec::new();
         let mut corrupted_nodes = Vec::new();
@@ -564,7 +566,7 @@ impl DistributedStorageManager {
 
     /// データをレプリケート
     pub async fn replicate_data(&self, cid: &Cid, data: &[u8], replication_factor: usize) -> Result<()> {
-        let responsible_nodes = self.get_responsible_nodes(cid);
+        let responsible_nodes = self.get_responsible_nodes(cid).await;
 
         for node_info in responsible_nodes.iter().take(replication_factor) {
             self.send_data_to_node(node_info, cid, data).await?;
@@ -640,7 +642,7 @@ impl DistributedStorageManager {
             }
             ConsistencyLevel::All => {
                 // 全ノードから読み取り
-                let responsible_nodes = self.get_responsible_nodes(cid);
+                let responsible_nodes = self.get_responsible_nodes(cid).await;
                 let total_nodes = responsible_nodes.len();
                 let check = self.check_consistency(cid).await?;
 
@@ -682,12 +684,13 @@ impl DistributedStorageManager {
     }
 
     /// ヘルパーメソッド：CIDを担当するノードを取得
-    pub fn get_responsible_nodes(&self, cid: &Cid) -> Vec<&NodeStorageInfo> {
+    pub async fn get_responsible_nodes(&self, cid: &Cid) -> Vec<&NodeStorageInfo> {
         let mut responsible = Vec::new();
 
         for node_info in self.nodes.values() {
             for range in &node_info.cid_ranges {
-                let hash = cid.to_hex().as_bytes();
+                let hex_str = cid.to_hex();
+                let hash = hex_str.as_bytes();
                 let hash_value = hash.iter().fold(0u64, |acc, &b| acc.wrapping_add(b as u64));
 
                 if hash_value >= range.start.parse().unwrap_or(0) && hash_value <= range.end.parse().unwrap_or(u64::MAX) {
@@ -729,7 +732,8 @@ impl DistributedStorageManager {
     /// CIDの担当ノードを決定
     pub fn get_responsible_node(&self, cid: &Cid) -> Option<&NodeStorageInfo> {
         // CIDハッシュに基づいて担当ノードを決定
-        let hash = cid.to_hex().as_bytes();
+        let hex_str = cid.to_hex();
+        let hash = hex_str.as_bytes();
         let hash_value = hash.iter().fold(0u64, |acc, &b| acc.wrapping_add(b as u64));
 
         for node_info in self.nodes.values() {
