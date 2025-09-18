@@ -111,16 +111,17 @@
       build_order: 3,
     },
 
-    // Workflow 層 (Itonami) - Phase 1 Complete
+    // Workflow 層 (Itonami) - Optional Feature
     'ir_workflow': {
       name: 'ir_workflow',
       path: 'crates/kotoba-workflow/src/ir.rs',
       type: 'workflow',
-      description: 'TemporalベースワークフローIR (WorkflowIR, Activity, Saga)',
+      description: 'TemporalベースワークフローIR (WorkflowIR, Activity, Saga) - オプション機能',
       dependencies: ['types', 'ir_strategy'],
       provides: ['WorkflowIR', 'ActivityIR', 'WorkflowExecution', 'SagaPattern'],
-      status: 'planned',
+      status: 'optional',
       build_order: 4,
+      optional: true,
     },
 
     // グラフ層
@@ -279,22 +280,24 @@
       name: 'workflow_executor',
       path: 'crates/kotoba-workflow/src/executor.rs',
       type: 'workflow',
-      description: 'Temporalベースワークフロー実行器 (MVCC + Event Sourcing)',
+      description: 'Temporalベースワークフロー実行器 (MVCC + Event Sourcing) - オプション機能',
       dependencies: ['types', 'ir_workflow', 'graph_core', 'storage_mvcc', 'storage_merkle', 'execution_engine'],
       provides: ['WorkflowExecutor', 'ActivityExecutor', 'SagaExecutor', 'WorkflowStateManager', 'EventSourcingManager'],
-      status: 'planned',
+      status: 'optional',
       build_order: 8,
+      optional: true,
     },
 
     'workflow_store': {
       name: 'workflow_store',
       path: 'crates/kotoba-workflow/src/store.rs',
       type: 'workflow',
-      description: 'ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots)',
+      description: 'ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots) - オプション機能',
       dependencies: ['types', 'ir_workflow', 'storage_mvcc', 'storage_merkle'],
       provides: ['WorkflowStore', 'WorkflowStateManager', 'EventStore', 'SnapshotManager', 'EventSourcingManager'],
-      status: 'planned',
+      status: 'optional',
       build_order: 7,
+      optional: true,
     },
 
     'workflow_designer': {
@@ -829,17 +832,17 @@
       name: 'lib',
       path: 'src/lib.rs',
       type: 'library',
-      description: 'メインライブラリインターフェース',
+      description: 'メインライブラリインターフェース - コア機能のみ',
       dependencies: [
-        'types', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy',
+        'types', 'error_handling', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy',
         'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object',
         'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer',
         'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier',
-        'rewrite_engine', 'error_handling',
-        // --- 古いHTTP依存を削除 ---
-        // 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'
-        // --- 新しいサーバーを追加 ---
-        'kotoba_server'
+        'rewrite_engine',
+        // --- オプション機能 ---
+        // 'ir_workflow', 'workflow_executor', 'workflow_store',  // ワークフロー機能（オプション）
+        // 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server',  // HTTPサーバー（オプション）
+        // 'kotoba_server'  // サーバー機能（オプション）
       ],
       provides: ['kotoba'],
       status: 'planned',
@@ -2318,9 +2321,9 @@
       name: 'kotoba_server',
       path: 'crates/kotoba-server/src/main.rs',
       type: 'http',
-      description: 'axumベースのメインHTTPサーバー',
-      dependencies: ['types', 'workflow_executor', 'graphql_schema', 'kotoba_routing'], // Added kotoba_routing
-      provides: ['HttpServer', 'GraphQLApi', 'WorkflowApi'],
+      description: 'axumベースのメインHTTPサーバー - ワークフローなしで動作可能',
+      dependencies: ['types', 'graphql_schema'], // ワークフロー依存を削除、基本的なHTTPサーバーとして動作
+      provides: ['HttpServer', 'GraphQLApi', 'BasicApi'],
       status: 'in_progress',
       build_order: 12,
     },
@@ -2397,30 +2400,30 @@
     { from: 'ir_patch', to: 'ir_strategy' },
     { from: 'ir_strategy', to: 'rewrite_engine' },
 
-    // Workflow 層依存
-    { from: 'types', to: 'ir_workflow' },
-    { from: 'ir_strategy', to: 'ir_workflow' },
-    { from: 'types', to: 'workflow_executor' },
-    { from: 'types', to: 'workflow_store' },
-    { from: 'ir_workflow', to: 'workflow_executor' },
-    { from: 'ir_workflow', to: 'workflow_store' },
-    { from: 'graph_core', to: 'workflow_executor' },
-    { from: 'storage_mvcc', to: 'workflow_executor' },
-    { from: 'storage_merkle', to: 'workflow_executor' },
-    { from: 'execution_engine', to: 'workflow_executor' },
-    { from: 'storage_mvcc', to: 'workflow_store' },
-    { from: 'storage_merkle', to: 'workflow_store' },
+    // Workflow 層依存 (オプション機能)
+    { from: 'types', to: 'ir_workflow', optional: true },
+    { from: 'ir_strategy', to: 'ir_workflow', optional: true },
+    { from: 'types', to: 'workflow_executor', optional: true },
+    { from: 'types', to: 'workflow_store', optional: true },
+    { from: 'ir_workflow', to: 'workflow_executor', optional: true },
+    { from: 'ir_workflow', to: 'workflow_store', optional: true },
+    { from: 'graph_core', to: 'workflow_executor', optional: true },
+    { from: 'storage_mvcc', to: 'workflow_executor', optional: true },
+    { from: 'storage_merkle', to: 'workflow_executor', optional: true },
+    { from: 'execution_engine', to: 'workflow_executor', optional: true },
+    { from: 'storage_mvcc', to: 'workflow_store', optional: true },
+    { from: 'storage_merkle', to: 'workflow_store', optional: true },
 
-    // Phase 4: Ecosystem 依存
-    { from: 'types', to: 'workflow_designer' },
-    { from: 'types', to: 'activity_libraries' },
-    { from: 'ir_workflow', to: 'activity_libraries' },
-    { from: 'workflow_executor', to: 'activity_libraries' },
-    { from: 'types', to: 'kubernetes_operator' },
-    { from: 'ir_workflow', to: 'kubernetes_operator' },
-    { from: 'workflow_executor', to: 'kubernetes_operator' },
-    { from: 'workflow_store', to: 'kubernetes_operator' },
-    { from: 'types', to: 'cloud_integrations' },
+    // Phase 4: Ecosystem 依存 (オプション機能)
+    { from: 'types', to: 'workflow_designer', optional: true },
+    { from: 'types', to: 'activity_libraries', optional: true },
+    { from: 'ir_workflow', to: 'activity_libraries', optional: true },
+    { from: 'workflow_executor', to: 'activity_libraries', optional: true },
+    { from: 'types', to: 'kubernetes_operator', optional: true },
+    { from: 'ir_workflow', to: 'kubernetes_operator', optional: true },
+    { from: 'workflow_executor', to: 'kubernetes_operator', optional: true },
+    { from: 'workflow_store', to: 'kubernetes_operator', optional: true },
+    { from: 'types', to: 'cloud_integrations', optional: true },
 
     // グラフ層依存
     { from: 'types', to: 'graph_core' },
@@ -3153,7 +3156,11 @@
   // ==========================================
 
   topological_order: [
+    // ==========================================
+    // Core Dependencies (必須)
+    // ==========================================
     'types',
+    'error_handling',
     'jsonnet_error',
     'ir_catalog',
     'ir_rule',
@@ -3165,43 +3172,11 @@
     'cid_system',
     'schema_validator',
     'ir_strategy',
-    'frontend_component_ir',
-    'docs_parser',
-    'docs_config',
-    'jsonnet_ast',
-    'jsonnet_lexer',
     'graph_core',
-    'storage_main',
-    'db_core',
-    'db_engine_memory',
-    'db_engine_lsm',
-    'db_cluster',
-
-    // Future Features (planned)
-    'backup_restore',
-    'monitoring_metrics',
-    'config_management',
-    'benchmarking_suite',
-    'profiling_tools',
-    'memory_optimization',
-    'integration_tests',
-    'load_testing',
-    'ci_cd_pipeline',
-    'api_reference',
-    'deployment_guides',
-    'tutorials',
-    'sample_applications',
-    'contribution_guidelines',
-    'open_source_release',
-    'multi_model_support',
-    'machine_learning_integration',
-    'streaming_processing',
-    'advanced_query_language',
-    'cloud_integrations',
-    'serverless_deployment',
-
-    'package_manager',
     'storage_mvcc',
+    'storage_merkle',
+    'storage_lsm',
+    'storage_object',
     'security_jwt',
     'security_mfa',
     'security_password',
@@ -3217,19 +3192,32 @@
     'planner_optimizer',
     'rewrite_engine',
     'execution_engine',
-    'workflow_designer',
-    'activity_libraries',
-    'kubernetes_operator',
-    'cloud_integrations',
-    'distributed_engine',
-    'network_protocol',
-    'cli_interface',
-    'kotoba_lsp',
-    'http_ir',
-    'http_parser',
-    'http_handlers',
-    'http_engine',
-    'http_server',
+
+    // ==========================================
+    // Optional Features (オプション)
+    // ==========================================
+    'ir_workflow',           // ワークフローIR
+    'workflow_executor',     // ワークフロー実行器
+    'workflow_store',        // ワークフロー永続化
+    'workflow_designer',     // ワークフローデザイナー
+    'activity_libraries',    // アクティビティライブラリ
+    'kubernetes_operator',   // Kubernetesオペレーター
+    'cloud_integrations',    // クラウド統合
+
+    'distributed_engine',    // 分散実行エンジン
+    'network_protocol',      // ネットワークプロトコル
+    'cli_interface',         // CLIインターフェース
+    'kotoba_lsp',            // LSPサーバー
+
+    'http_ir',               // HTTP IR
+    'http_parser',           // HTTPパーサー
+    'http_handlers',         // HTTPハンドラー
+    'http_engine',           // HTTPエンジン
+    'graphql_schema',        // GraphQLスキーマ
+    'graphql_handler',       // GraphQLハンドラー
+    'kotoba_server',        // HTTPサーバー
+
+    // Deploy関連
     'deploy_config',
     'deploy_parser',
     'deploy_scaling',
@@ -3237,21 +3225,22 @@
     'deploy_git_integration',
     'frontend_framework',
     'deploy_controller',
-    'graphql_schema',
-    'graphql_handler',
     'deploy_cli',
     'deploy_runtime',
     'deploy_example_simple',
     'deploy_example_microservices',
+
+    // 拡張機能
     'deploy_cli_core',
     'deploy_cli_binary',
     'deploy_controller_core',
     'deploy_network_core',
     'deploy_scaling_core',
-    'deploy_cli_binary',
     'deploy_hosting_server',
     'deploy_hosting_manager',
     'deploy_hosting_example',
+
+    // AI Agent
     'ai_agent_parser',
     'db_handler',
     'ai_runtime',
@@ -3260,55 +3249,79 @@
     'ai_memory',
     'ai_chains',
     'ai_examples',
-    'state_graph_lib',
+
+    // ドキュメント生成
+    'docs_parser',
+    'docs_config',
     'docs_generator',
-    'docs_search',
-    'storage_main',
-    'kotobajs',
-    'kotoba_web',
-
-    // Future Features (reverse topological order)
-    'serverless_deployment',
-    'cloud_integrations',
-    'advanced_query_language',
-    'streaming_processing',
-    'machine_learning_integration',
-    'multi_model_support',
-    'open_source_release',
-    'contribution_guidelines',
-    'sample_applications',
-    'tutorials',
-    'deployment_guides',
-    'api_reference',
-    'ci_cd_pipeline',
-    'load_testing',
-    'integration_tests',
-    'memory_optimization',
-    'profiling_tools',
-    'benchmarking_suite',
-    'config_management',
-    'monitoring_metrics',
-    'backup_restore',
-
-    'db_cluster',
-    'db_engine_lsm',
-    'db_engine_memory',
-    'planner_logical',
-    'planner_physical',
-    'jsonnet_parser',
-    'frontend_route_ir',
-    'frontend_render_ir',
-    'frontend_build_ir',
-    'frontend_api_ir',
     'docs_template',
-    'db',
+    'docs_search',
     'docs_server',
     'docs_core',
     'docs_cli',
 
-    // TypeScript/JavaScript Ecosystem (Reverse Order)
-    'kotoba_web',
+    // データベース
+    'storage_main',
+    'db_core',
+    'db_engine_memory',
+    'db_engine_lsm',
+    'db',
+    'db_cluster',
+
+    // パッケージマネージャー
+    'package_manager',
+
+    // 状態グラフライブラリ
+    'state_graph_lib',
+
+    // TypeScript/JavaScript Ecosystem
     'kotobajs',
+    'kotoba_web',
+
+    // Jsonnet関連
+    'jsonnet_ast',
+    'jsonnet_lexer',
+    'jsonnet_parser',
+    'jsonnet_stdlib',
+    'jsonnet_evaluator',
+    'jsonnet_core',
+    'kotobanet_error',
+    'kotobanet_http_parser',
+    'kotobanet_frontend',
+    'kotobanet_deploy',
+    'kotobanet_config',
+    'kotobanet_core',
+
+    // フロントエンド
+    'frontend_component_ir',
+    'frontend_route_ir',
+    'frontend_render_ir',
+    'frontend_build_ir',
+    'frontend_api_ir',
+
+    // ==========================================
+    // Future Features
+    // ==========================================
+    'backup_restore',
+    'monitoring_metrics',
+    'config_management',
+    'benchmarking_suite',
+    'profiling_tools',
+    'memory_optimization',
+    'integration_tests',
+    'load_testing',
+    'ci_cd_pipeline',
+    'api_reference',
+    'deployment_guides',
+    'tutorials',
+    'sample_applications',
+    'contribution_guidelines',
+    'open_source_release',
+    'multi_model_support',
+    'machine_learning_integration',
+    'streaming_processing',
+    'advanced_query_language',
+    'serverless_deployment',
   ],
 
   // ==========================================
