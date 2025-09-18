@@ -53,11 +53,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Add workflow features if enabled
     if args.workflow {
-        let workflow_engine = WorkflowEngine::builder()
-            .with_memory_storage()
-            .build();
-
-        router = router.with_workflow_engine(workflow_engine);
+        router = router.with_workflow_routes();
         tracing::info!("🔄 Workflow features enabled");
     }
 

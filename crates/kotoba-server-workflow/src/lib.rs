@@ -12,32 +12,21 @@ pub mod workflow;
 pub use handlers::{WorkflowApiHandler, WorkflowStatusHandler};
 pub use router::WorkflowRouter;
 
+use kotoba_server_core::AppRouter;
+
 #[cfg(feature = "workflow")]
 pub use workflow::{WorkflowEngine, WorkflowExecutionId, WorkflowIR, StartWorkflowResponse};
 
-use axum::Router;
-use kotoba_server_core::{AppRouter, ServerError};
-use std::sync::Arc;
+// Re-export main types
 
 /// Workflow server extension trait
 pub trait WorkflowServerExt {
     fn with_workflow_routes(self) -> Self;
-    fn with_workflow_engine<E>(self, engine: E) -> Self
-    where
-        E: WorkflowEngineInterface + Send + Sync + 'static;
 }
 
 impl WorkflowServerExt for AppRouter {
     fn with_workflow_routes(self) -> Self {
         self.merge(WorkflowRouter::new().build())
-    }
-
-    fn with_workflow_engine<E>(self, engine: E) -> Self
-    where
-        E: WorkflowEngineInterface + Send + Sync + 'static,
-    {
-        let workflow_router = WorkflowRouter::new().with_engine(engine);
-        self.merge(workflow_router.build())
     }
 }
 

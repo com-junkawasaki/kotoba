@@ -93,3 +93,4 @@ pub struct WorkflowResult {
     pub completed_at: chrono::DateTime<chrono::Utc>,
     pub activities: Vec<ActivityResult>,
 }
+

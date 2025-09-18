@@ -55,7 +55,7 @@ impl WorkflowEngineInterface for WorkflowEngine {
 
     async fn list_executions(&self) -> Result<Vec<WorkflowExecution>, kotoba_errors::KotobaError> {
         // TODO: Implement list_executions in WorkflowEngine
-        Err(kotoba_errors::KotobaError::Unknown("list_executions not implemented".to_string()))
+        Err(kotoba_errors::KotobaError::Execution("list_executions not implemented".to_string()))
     }
 
     async fn cancel_execution(
@@ -63,6 +63,6 @@ impl WorkflowEngineInterface for WorkflowEngine {
         execution_id: &WorkflowExecutionId,
     ) -> Result<(), kotoba_errors::KotobaError> {
         // TODO: Implement cancel_execution in WorkflowEngine
-        Err(kotoba_errors::KotobaError::Unknown("cancel_execution not implemented".to_string()))
+        Err(kotoba_errors::KotobaError::Execution("cancel_execution not implemented".to_string()))
     }
 }

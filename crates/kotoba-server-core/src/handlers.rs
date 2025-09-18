@@ -150,3 +150,4 @@ pub async fn metrics() -> Json<MetricsResponse> {
     // TODO: Integrate with actual metrics collection
     Json(MetricsResponse::default())
 }
+

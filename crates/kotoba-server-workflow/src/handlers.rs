@@ -7,6 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use chrono::{DateTime, Utc};
 
 #[cfg(feature = "workflow")]
 use crate::{WorkflowEngineInterface, WorkflowExecutionId, WorkflowIR, WorkflowExecution};
@@ -138,6 +139,6 @@ pub struct WorkflowListResponse {
 pub struct WorkflowSummary {
     pub execution_id: String,
     pub status: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
