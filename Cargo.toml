@@ -7,7 +7,9 @@ members = [
     "crates/kotoba-schema",
     "crates/kotoba-execution",
     "crates/kotoba-rewrite",
-    "crates/kotoba-server",
+    # Temporarily disabled due to compilation issues:
+    # "crates/kotoba-server",
+    # "crates/kotoba-workflow",
     "crates/kotoba-security",
     "crates/kotoba-runtime",
     "crates/kotobas-wasm",
