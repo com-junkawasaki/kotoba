@@ -17,11 +17,11 @@ serde_json = "1.0"
 thiserror = "2.0"
 anyhow = "1.0"
 uuid = { workspace = true, features = ["v4"] }
-kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
+kotoba-core = "0.1.21"
 kotoba-errors = "0.1.2"
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
-kotoba-storage = { path = "../kotoba-storage", version = "0.1.16" }
-kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }
+kotoba-graph = "0.1.21"
+kotoba-storage = "0.1.21"
+kotoba-cid = "0.1.21"
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

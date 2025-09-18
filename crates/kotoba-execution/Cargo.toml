@@ -19,7 +19,7 @@ anyhow = "1.0"
 uuid = { workspace = true, features = ["v4"] }
 async-trait = "0.1"
 tokio = { version = "1.0", features = ["full"] }
-kotoba-core = { workspace = true, version = "0.1.19" }
+kotoba-core = "0.1.21"
 kotoba-errors = "0.1.2"
-kotoba-graph = { workspace = true, version = "0.1.17" }
-kotoba-storage = { workspace = true, version = "0.1.16" }
+kotoba-graph = "0.1.21"
+kotoba-storage = "0.1.21"
