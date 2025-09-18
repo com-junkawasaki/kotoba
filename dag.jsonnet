@@ -846,6 +846,49 @@
       build_order: 11,
     },
 
+    // === 公開クレート依存関係解決トポロジー ===
+    // トポロジカルソート順序（公開順）
+    'publish_order_topological': {
+      name: 'publish_order_topological',
+      type: 'topology',
+      description: 'crates.io公開順序のトポロジカルソート',
+      dependencies: [],
+      provides: ['PublishOrder'],
+      status: 'active',
+      build_order: 1,
+      publish_sequence: [
+        'kotoba_errors',      // 1. 独立crate
+        'kotoba_core',        // 2. kotoba-errorsに依存
+        'kotoba_cid',         // 3. kotoba-coreに依存
+        'kotoba_graph',       // 4. kotoba-core, kotoba-cid, kotoba-errorsに依存
+        'kotoba_storage',     // 5. kotoba-core, kotoba-graph, kotoba-cid, kotoba-errorsに依存
+        'kotoba_execution',   // 6. kotoba-core, kotoba-graph, kotoba-storage, kotoba-errorsに依存
+        'kotoba_rewrite',     // 7. kotoba-core, kotoba-graph, kotoba-storage, kotoba-cid, kotoba-errorsに依存
+        'kotoba_workflow'     // 8. kotoba-core, kotoba-errorsに依存
+      ]
+    },
+
+    // 逆トポロジカルソート順序（依存関係解決順）
+    'dependency_resolution_reverse_topological': {
+      name: 'dependency_resolution_reverse_topological',
+      type: 'topology',
+      description: '依存関係解決順序の逆トポロジカルソート',
+      dependencies: [],
+      provides: ['DependencyResolutionOrder'],
+      status: 'active',
+      build_order: 2,
+      resolution_sequence: [
+        'kotoba_workflow',    // 1. 最も依存されるcrate
+        'kotoba_rewrite',     // 2. 次に依存されるcrate
+        'kotoba_execution',   // 3.
+        'kotoba_storage',     // 4.
+        'kotoba_graph',       // 5.
+        'kotoba_cid',         // 6.
+        'kotoba_core',        // 7.
+        'kotoba_errors'       // 8. 最も依存しないcrate
+      ]
+    },
+
     // Examples層
     'example_frontend_app': {
       name: 'example_frontend_app',
