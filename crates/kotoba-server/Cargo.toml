@@ -33,7 +33,7 @@ clap = { version = "4.0", features = ["derive"] }
 kotoba-core = "0.1.21"
 kotoba-routing = "0.1.16"
 kotoba-errors = "0.1.2"
-kotoba-workflow = "0.1.15"
+kotoba-workflow = { path = "../kotoba-workflow", version = "0.1.16" }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # GraphQL support
