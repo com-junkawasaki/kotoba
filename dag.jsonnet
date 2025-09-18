@@ -17,7 +17,7 @@
       description: '共通型定義 (Value, VertexId, EdgeId, GraphRef, etc.)',
       dependencies: [],
       provides: ['Value', 'VertexId', 'EdgeId', 'GraphRef', 'TxId', 'ContentHash'],
-      status: 'completed',
+      status: 'planned',
       build_order: 1,
     },
 
@@ -29,7 +29,7 @@
       description: 'スキーマ/索引/不変量定義',
       dependencies: ['types'],
       provides: ['Catalog', 'LabelDef', 'IndexDef', 'Invariant'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -40,7 +40,7 @@
       description: 'Graph schema validation engine',
       dependencies: ['types', 'ir_catalog'],
       provides: ['SchemaValidator', 'ValidationResult'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -51,7 +51,7 @@
       description: 'DPO型付き属性グラフ書換えルール',
       dependencies: ['types'],
       provides: ['RuleIR', 'Match', 'Guard'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -62,7 +62,7 @@
       description: 'GQL論理プラン代数',
       dependencies: ['types'],
       provides: ['PlanIR', 'LogicalOp', 'Expr', 'Predicate'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -73,7 +73,7 @@
       description: '差分表現 (addV/E, delV/E, setProp, relink)',
       dependencies: ['types'],
       provides: ['Patch', 'AddVertex', 'AddEdge', 'UpdateProp'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -84,7 +84,7 @@
       description: '戦略表現 (once|exhaust|while|seq|choice|priority)',
       dependencies: ['types', 'ir_patch'],
       provides: ['StrategyIR', 'StrategyOp', 'StrategyResult', 'Externs'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -96,7 +96,7 @@
       description: 'TemporalベースワークフローIR (WorkflowIR, Activity, Saga)',
       dependencies: ['types', 'ir_strategy'],
       provides: ['WorkflowIR', 'ActivityIR', 'WorkflowExecution', 'SagaPattern'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -108,7 +108,7 @@
       description: '頂点関連構造体とビルダー',
       dependencies: ['types'],
       provides: ['VertexBuilder', 'VertexData'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -119,7 +119,7 @@
       description: 'エッジ関連構造体とビルダー',
       dependencies: ['types'],
       provides: ['EdgeBuilder', 'EdgeData'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -130,7 +130,7 @@
       description: '列指向グラフ表現とGraphRef',
       dependencies: ['types', 'graph_vertex', 'graph_edge'],
       provides: ['Graph', 'GraphRef'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -142,7 +142,7 @@
       description: 'MVCCマネージャー',
       dependencies: ['types', 'graph_core'],
       provides: ['MVCCManager', 'Transaction', 'TxState'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -153,7 +153,7 @@
       description: 'Merkle DAG永続化',
       dependencies: ['types', 'graph_core'],
       provides: ['MerkleDAG', 'MerkleNode', 'GraphVersion'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -164,7 +164,7 @@
       description: 'RocksDB-based high-performance storage (95% test coverage)',
       dependencies: ['types'],
       provides: ['LSMTree', 'RocksDB'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -175,7 +175,7 @@
       description: 'Object storage backend (AWS S3, GCP Cloud Storage, Azure Blob Storage)',
       dependencies: ['types'],
       provides: ['ObjectStorageBackend', 'ObjectStorageProvider'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -198,7 +198,7 @@
       description: '論理プランナー (GQL → 論理プラン)',
       dependencies: ['types', 'ir_query', 'ir_catalog', 'graph_core'],
       provides: ['LogicalPlanner', 'CostEstimator'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -209,7 +209,7 @@
       description: '物理プランナー (論理プラン → 物理プラン)',
       dependencies: ['types', 'ir_query', 'ir_catalog', 'graph_core'],
       provides: ['PhysicalPlanner', 'PhysicalPlan', 'PhysicalOp'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -220,7 +220,7 @@
       description: 'クエリ最適化器 (述語押下げ, 結合順序DP, インデックス選択)',
       dependencies: ['types', 'ir_query', 'ir_catalog', 'graph_core', 'planner_logical', 'planner_physical'],
       provides: ['QueryOptimizer', 'OptimizationRule'],
-      status: 'completed',
+      status: 'planned',
       build_order: 6,
     },
 
@@ -232,7 +232,7 @@
       description: 'GQLパーサー',
       dependencies: ['types', 'ir_query'],
       provides: ['GqlParser'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -243,7 +243,7 @@
       description: 'クエリ実行器',
       dependencies: ['types', 'ir_query', 'ir_catalog', 'graph_core', 'storage_mvcc', 'storage_merkle', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser'],
       provides: ['QueryExecutor'],
-      status: 'completed',
+      status: 'planned',
       build_order: 7,
     },
 
@@ -255,7 +255,7 @@
       description: 'Temporalベースワークフロー実行器 (MVCC + Event Sourcing)',
       dependencies: ['types', 'ir_workflow', 'graph_core', 'storage_mvcc', 'storage_merkle', 'execution_engine'],
       provides: ['WorkflowExecutor', 'ActivityExecutor', 'SagaExecutor', 'WorkflowStateManager', 'EventSourcingManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -266,7 +266,7 @@
       description: 'ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots)',
       dependencies: ['types', 'ir_workflow', 'storage_mvcc', 'storage_merkle'],
       provides: ['WorkflowStore', 'WorkflowStateManager', 'EventStore', 'SnapshotManager', 'EventSourcingManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 7,
     },
 
@@ -277,7 +277,7 @@
       description: 'Visual workflow designer UI with React/TypeScript',
       dependencies: ['types'],
       provides: ['WorkflowDesigner', 'ActivityPalette', 'PropertyPanel', 'WorkflowCanvas'],
-      status: 'completed',
+      status: 'planned',
       build_order: 9,
     },
 
@@ -288,7 +288,7 @@
       description: 'Pre-built activity libraries (HTTP, Database, Cloud, etc.)',
       dependencies: ['types', 'ir_workflow', 'workflow_executor'],
       provides: ['ActivityLibrary', 'HttpActivities', 'DatabaseActivities', 'CloudActivities'],
-      status: 'completed',
+      status: 'planned',
       build_order: 10,
     },
 
@@ -299,7 +299,7 @@
       description: 'Kubernetes operator for workflow management',
       dependencies: ['types', 'ir_workflow', 'workflow_executor', 'workflow_store'],
       provides: ['WorkflowOperator', 'WorkflowController', 'WorkflowReconciler'],
-      status: 'completed',
+      status: 'planned',
       build_order: 11,
     },
 
@@ -310,7 +310,7 @@
       description: 'Cloud-native integrations (AWS, GCP, Azure)',
       dependencies: ['types'],
       provides: ['CloudIntegrationManager', 'AWSService', 'GCPService', 'AzureService'],
-      status: 'completed',
+      status: 'planned',
       build_order: 12,
     },
 
@@ -323,7 +323,7 @@
       description: 'ルールマッチング (LHS + NACチェック)',
       dependencies: ['types', 'ir_rule', 'ir_catalog', 'graph_core'],
       provides: ['RuleMatcher'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -334,7 +334,7 @@
       description: 'ルール適用 (パッチ生成)',
       dependencies: ['types', 'ir_rule', 'ir_patch', 'graph_core'],
       provides: ['RuleApplier'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -345,7 +345,7 @@
       description: 'DPO書換えエンジン (マッチング + 適用 + 戦略実行)',
       dependencies: ['types', 'ir_rule', 'ir_strategy', 'graph_core', 'storage_mvcc', 'storage_merkle', 'rewrite_matcher', 'rewrite_applier'],
       provides: ['RewriteEngine', 'RewriteExterns'],
-      status: 'completed',
+      status: 'planned',
       build_order: 6,
     },
 
@@ -357,7 +357,7 @@
       description: 'JWTトークンの生成・検証機能',
       dependencies: ['types'],
       provides: ['JwtService', 'JwtClaims', 'TokenPair'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -368,7 +368,7 @@
       description: 'OAuth2/OpenID Connect統合',
       dependencies: ['types', 'security_jwt'],
       provides: ['OAuth2Service', 'OAuth2Provider', 'OAuth2Config'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -379,7 +379,7 @@
       description: '多要素認証 (TOTP) 機能',
       dependencies: ['types'],
       provides: ['MfaService', 'MfaSecret', 'MfaCode'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -390,7 +390,7 @@
       description: 'パスワードハッシュ化・検証機能',
       dependencies: ['types'],
       provides: ['PasswordService', 'PasswordHash'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -401,7 +401,7 @@
       description: 'セッション管理機能',
       dependencies: ['types'],
       provides: ['SessionManager', 'SessionData'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -412,7 +412,7 @@
       description: 'セキュリティ統合サービス',
       dependencies: ['types', 'security_jwt', 'security_oauth2', 'security_mfa', 'security_password', 'security_session', 'security_capabilities'],
       provides: ['SecurityService', 'SecurityError'],
-      status: 'completed',
+      status: 'planned',
       build_order: 6,
     },
 
@@ -423,7 +423,7 @@
       description: 'Deno風capabilityベースセキュリティシステム',
       dependencies: ['types'],
       provides: ['Capability', 'CapabilitySet', 'CapabilityService', 'ResourceType', 'Action'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -438,7 +438,7 @@
       description: '分散実行エンジン - CIDベースの分散グラフ処理',
       dependencies: ['types', 'graph_core', 'execution_engine', 'rewrite_engine', 'storage_mvcc', 'storage_merkle'],
       provides: ['DistributedEngine', 'CidCache', 'ClusterManager', 'DistributedTask', 'TaskResult'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -449,7 +449,7 @@
       description: 'ネットワーク通信プロトコル - 分散実行のための通信層',
       dependencies: ['types', 'distributed_engine'],
       provides: ['NetworkMessage', 'NetworkManager', 'MessageHandler', 'TcpConnectionManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 9,
     },
 
@@ -460,7 +460,7 @@
       description: 'CID (Content ID) システム - Merkle DAGにおけるコンテンツアドレッシング',
       dependencies: ['types'],
       provides: ['CidCalculator', 'CidManager', 'MerkleTreeBuilder', 'JsonCanonicalizer'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -471,7 +471,7 @@
       description: 'CLI - Denoを参考にしたコマンドラインインターフェース',
       dependencies: ['types', 'distributed_engine', 'network_protocol', 'cid_system'],
       provides: ['Cli', 'Commands', 'ConfigManager', 'ProgressBar', 'LogFormatter'],
-      status: 'completed',
+      status: 'planned',
       build_order: 10,
     },
 
@@ -497,7 +497,7 @@
       description: 'Jsonnet評価エラー定義 (JsonnetError, Result)',
       dependencies: [],
       provides: ['JsonnetError', 'Result<T>'],
-      status: 'completed',
+      status: 'planned',
       build_order: 1,
     },
 
@@ -508,7 +508,7 @@
       description: 'Jsonnet値型定義 (JsonnetValue, JsonnetFunction)',
       dependencies: ['jsonnet_error'],
       provides: ['JsonnetValue', 'JsonnetFunction'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -519,7 +519,7 @@
       description: 'Jsonnet抽象構文木定義 (Expr, ObjectField, BinaryOp, etc.)',
       dependencies: ['jsonnet_value'],
       provides: ['Expr', 'Stmt', 'Program', 'ObjectField', 'BinaryOp', 'UnaryOp'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -530,7 +530,7 @@
       description: 'Jsonnet字句解析器 (Lexer) - トークン化',
       dependencies: ['jsonnet_error'],
       provides: ['Lexer', 'Token', 'TokenWithPos', 'Position'],
-      status: 'completed',
+      status: 'planned',
       build_order: 2,
     },
 
@@ -541,7 +541,7 @@
       description: 'Jsonnet構文解析器 (Parser) - AST構築',
       dependencies: ['jsonnet_ast', 'jsonnet_lexer'],
       provides: ['Parser', 'GqlToken'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -552,7 +552,7 @@
       description: 'Jsonnet評価器 (Evaluator) - 式評価と実行',
       dependencies: ['jsonnet_ast', 'jsonnet_value'],
       provides: ['Evaluator'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -563,7 +563,7 @@
       description: 'Jsonnet標準ライブラリ (80+関数) - std.*関数群',
       dependencies: ['jsonnet_value'],
       provides: ['StdLib', 'std_length', 'std_type', 'std_makeArray', 'std_filter', 'std_map', 'std_foldl', 'std_foldr', 'std_range', 'std_join', 'std_split', 'std_contains', 'std_startsWith', 'std_endsWith', 'std_substr', 'std_char', 'std_codepoint', 'std_toString', 'std_parseInt', 'std_parseJson', 'std_encodeUTF8', 'std_decodeUTF8', 'std_md5', 'std_base64', 'std_base64Decode', 'std_manifestJson', 'std_manifestJsonEx', 'std_manifestYaml', 'std_escapeStringJson', 'std_escapeStringYaml', 'std_escapeStringPython', 'std_escapeStringBash', 'std_escapeStringDollars', 'std_stringChars', 'std_stringBytes', 'std_format', 'std_isArray', 'std_isBoolean', 'std_isFunction', 'std_isNumber', 'std_isObject', 'std_isString', 'std_count', 'std_find', 'std_member', 'std_modulo', 'std_pow', 'std_exp', 'std_log', 'std_sqrt', 'std_sin', 'std_cos', 'std_tan', 'std_asin', 'std_acos', 'std_atan', 'std_floor', 'std_ceil', 'std_round', 'std_abs', 'std_max', 'std_min', 'std_clamp', 'std_assertEqual', 'std_sort', 'std_uniq', 'std_reverse', 'std_mergePatch', 'std_get', 'std_objectFields', 'std_objectFieldsAll', 'std_objectHas', 'std_objectHasAll', 'std_objectValues', 'std_objectValuesAll', 'std_prune', 'std_mapWithKey'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -574,7 +574,7 @@
       description: 'JsonnetコアAPI - evaluate(), evaluate_to_json(), evaluate_to_yaml()',
       dependencies: ['jsonnet_evaluator', 'jsonnet_stdlib'],
       provides: ['evaluate', 'evaluate_with_filename', 'evaluate_to_json', 'evaluate_to_yaml', 'VERSION'],
-      status: 'completed',
+      status: 'planned',
       build_order: 6,
     },
 
@@ -589,7 +589,7 @@
       description: 'Kotoba Kotobanet エラー定義',
       dependencies: [],
       provides: ['KotobaNetError', 'Result<T>'],
-      status: 'completed',
+      status: 'planned',
       build_order: 7,
     },
 
@@ -600,7 +600,7 @@
       description: 'HTTP Parser for .kotoba.json configuration files',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
       provides: ['HttpParser', 'HttpRouteConfig', 'HttpConfig'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -611,7 +611,7 @@
       description: 'Frontend Framework for React component definitions',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
       provides: ['FrontendParser', 'ComponentDef', 'PageDef', 'ApiRouteDef', 'FrontendConfig'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -622,7 +622,7 @@
       description: 'Deploy Configuration for deployment settings',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
       provides: ['DeployParser', 'DeployConfig', 'ScalingConfig', 'RegionConfig'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -633,7 +633,7 @@
       description: 'General configuration management',
       dependencies: ['kotobanet_error', 'jsonnet_core'],
       provides: ['ConfigParser', 'AppConfig', 'DatabaseConfig', 'CacheConfig'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -644,7 +644,7 @@
       description: 'Kotoba Kotobanet コアAPI - evaluate_kotoba(), HTTP/Frontend/Deploy/Config パーサー統合',
       dependencies: ['kotobanet_error', 'kotobanet_http_parser', 'kotobanet_frontend', 'kotobanet_deploy', 'kotobanet_config', 'jsonnet_core'],
       provides: ['evaluate_kotoba', 'evaluate_kotoba_to_json', 'evaluate_kotoba_to_yaml', 'HttpParser', 'FrontendParser', 'DeployParser', 'ConfigParser'],
-      status: 'completed',
+      status: 'planned',
       build_order: 9,
     },
 
@@ -656,7 +656,7 @@
       description: 'HTTPサーバー用IR定義 (Route, Middleware, Request, Response)',
       dependencies: ['types', 'ir_catalog', 'security_core'],
       provides: ['HttpRoute', 'HttpMiddleware', 'HttpRequest', 'HttpResponse', 'HttpConfig'],
-      status: 'completed',
+      status: 'planned',
       build_order: 7,
     },
 
@@ -700,7 +700,7 @@
       description: 'メインHTTPサーバー',
       dependencies: ['types', 'http_ir', 'http_parser', 'http_engine', 'http_handlers', 'graphql_schema', 'graphql_handler'],
       provides: ['HttpServer', 'ServerBuilder'],
-      status: 'completed',
+      status: 'planned',
       build_order: 10,
     },
 
@@ -715,7 +715,7 @@
       description: 'GraphQLスキーマ定義とスキーマ管理操作',
       dependencies: ['types', 'schema_validator'],
       provides: ['GraphQLSchema', 'SchemaMutations', 'SchemaQueries'],
-      status: 'completed',
+      status: 'planned',
       build_order: 9,
     },
 
@@ -726,7 +726,7 @@
       description: 'GraphQLリクエスト処理と実行エンジン',
       dependencies: ['types', 'graphql_schema'],
       provides: ['GraphQLHandler', 'RequestExecutor'],
-      status: 'completed',
+      status: 'planned',
       build_order: 9,
     },
 
@@ -738,7 +738,7 @@
       description: 'ReactコンポーネントIR定義 (Server/Client Components, Props, State)',
       dependencies: ['types'],
       provides: ['ComponentIR', 'ElementIR', 'JSXIR', 'HookIR'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -749,7 +749,7 @@
       description: 'App RouterシステムIR定義 (ファイルベースルーティング, Layout, Loading, Error境界)',
       dependencies: ['types', 'frontend_component_ir'],
       provides: ['RouteIR', 'RouteTableIR', 'NavigationIR'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -760,7 +760,7 @@
       description: 'コンポーネントツリーとレンダリングエンジンのIR定義',
       dependencies: ['types', 'frontend_component_ir'],
       provides: ['VirtualNodeIR', 'RenderContext', 'RenderResultIR', 'DiffIR'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -771,7 +771,7 @@
       description: 'ブイルド/バンドルシステムのIR定義',
       dependencies: ['types', 'frontend_component_ir'],
       provides: ['BuildConfigIR', 'BundleResultIR', 'CodeSplittingIR'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -782,7 +782,7 @@
       description: 'APIルートIR定義 (REST/GraphQL/WebSocket)',
       dependencies: ['types'],
       provides: ['ApiRouteIR', 'DatabaseIR', 'MiddlewareIR', 'WebSocketIR'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -805,7 +805,7 @@
       description: 'メインライブラリインターフェース',
       dependencies: ['types', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy', 'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object', 'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer', 'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier', 'rewrite_engine', 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'],
       provides: ['kotoba'],
-      status: 'completed',
+      status: 'planned',
       build_order: 11,
     },
 
@@ -817,7 +817,7 @@
       description: 'JsonnetベースのフルスタックWebフレームワークの使用例',
       dependencies: ['lib', 'frontend_framework', 'http_server'],
       provides: ['frontend_app_example'],
-      status: 'completed',
+      status: 'planned',
       build_order: 12,
     },
 
@@ -828,7 +828,7 @@
       description: 'HTTPサーバーの使用例',
       dependencies: ['lib', 'http_server'],
       provides: ['http_server_example'],
-      status: 'completed',
+      status: 'planned',
       build_order: 12,
     },
 
@@ -839,7 +839,7 @@
       description: 'ソーシャルネットワークグラフ処理の使用例',
       dependencies: ['lib', 'graph_core', 'execution_engine', 'rewrite_engine'],
       provides: ['social_network_example'],
-      status: 'completed',
+      status: 'planned',
       build_order: 12,
     },
 
@@ -865,7 +865,7 @@
       description: 'デプロイ設定のIR定義 (Jsonnetベースの.kotoba-deployファイル)',
       dependencies: ['types'],
       provides: ['DeployConfig', 'ScalingConfig', 'RegionConfig'],
-      status: 'completed',
+      status: 'planned',
       build_order: 7,
     },
 
@@ -876,7 +876,7 @@
       description: '.kotoba-deployファイルのパーサー',
       dependencies: ['types', 'deploy_config'],
       provides: ['DeployConfigParser'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -887,7 +887,7 @@
       description: '自動スケーリングエンジン',
       dependencies: ['types', 'deploy_config', 'graph_core'],
       provides: ['ScalingEngine', 'LoadBalancer', 'AutoScaler'],
-      status: 'completed',
+      status: 'planned',
       build_order: 9,
     },
 
@@ -898,7 +898,7 @@
       description: 'グローバル分散ネットワーク管理',
       dependencies: ['types', 'deploy_config', 'deploy_scaling'],
       provides: ['NetworkManager', 'RegionManager', 'EdgeRouter'],
-      status: 'completed',
+      status: 'planned',
       build_order: 10,
     },
 
@@ -909,7 +909,7 @@
       description: 'GitHub連携と自動デプロイ',
       dependencies: ['types', 'deploy_config', 'deploy_network'],
       provides: ['GitIntegration', 'AutoDeploy', 'WebhookHandler'],
-      status: 'completed',
+      status: 'planned',
       build_order: 11,
     },
 
@@ -920,7 +920,7 @@
       description: 'ISO GQLを使用したデプロイコントロール',
       dependencies: ['types', 'deploy_config', 'deploy_scaling', 'deploy_network', 'deploy_git_integration', 'graph_core', 'rewrite_engine'],
       provides: ['DeployController', 'DeploymentManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 12,
     },
 
@@ -931,7 +931,7 @@
       description: 'kotoba deploy CLIコマンド',
       dependencies: ['types', 'deploy_controller', 'http_server'],
       provides: ['DeployCLI'],
-      status: 'completed',
+      status: 'planned',
       build_order: 13,
     },
 
@@ -942,7 +942,7 @@
       description: 'デプロイ実行ランタイム (WebAssembly + WASM Edge対応)',
       dependencies: ['types', 'deploy_controller', 'wasm'],
       provides: ['DeployRuntime', 'WasmRuntime'],
-      status: 'completed',
+      status: 'planned',
       build_order: 14,
     },
 
@@ -980,7 +980,7 @@
       description: '拡張CLIマネージャー - デプロイメント管理、設定管理、進捗表示',
       dependencies: ['types', 'deploy_controller', 'http_server'],
       provides: ['CliManager', 'DeploymentInfo', 'OutputFormat', 'FormatOutput'],
-      status: 'completed',
+      status: 'planned',
       build_order: 15,
     },
 
@@ -991,7 +991,7 @@
       description: 'CLIバイナリ - 完全なデプロイメント処理、設定ファイル管理、進捗バー表示',
       dependencies: ['deploy_cli_core', 'deploy_controller', 'deploy_scaling', 'deploy_network', 'deploy_runtime'],
       provides: ['kotoba-deploy-cli'],
-      status: 'completed',
+      status: 'planned',
       build_order: 16,
     },
 
@@ -1003,7 +1003,7 @@
       description: '高度なデプロイコントローラー - ロールバック、ブルーグリーン、カナリアデプロイ',
       dependencies: ['types', 'deploy_config', 'deploy_scaling', 'deploy_network', 'deploy_git_integration', 'graph_core', 'rewrite_engine'],
       provides: ['DeployController', 'DeploymentHistoryManager', 'RollbackManager', 'BlueGreenDeploymentManager', 'CanaryDeploymentManager', 'HealthCheckManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 17,
     },
 
@@ -1015,7 +1015,7 @@
       description: '高度なネットワークマネージャー - CDN統合、セキュリティ、エッジ最適化',
       dependencies: ['types', 'deploy_config', 'deploy_scaling'],
       provides: ['NetworkManager', 'CdnManager', 'SecurityManager', 'GeoManager', 'EdgeOptimizationManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 18,
     },
 
@@ -1027,7 +1027,7 @@
       description: 'AI予測スケーリングエンジン - トラフィック予測、コスト最適化、異常検知',
       dependencies: ['types', 'deploy_config', 'graph_core'],
       provides: ['PredictiveScaler', 'CostOptimizer', 'AdvancedMetricsAnalyzer', 'IntegratedScalingManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 19,
     },
 
@@ -1039,7 +1039,7 @@
       description: 'ホスティングサーバーの実装 - デプロイされたアプリをホスト',
       dependencies: ['deploy_controller_core', 'http_server', 'frontend_framework', 'graph_core', 'execution_engine', 'storage_mvcc', 'storage_merkle'],
       provides: ['HostingServer', 'AppHost', 'RuntimeManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 20,
     },
 
@@ -1050,7 +1050,7 @@
       description: 'ホスティングマネージャー - アプリのライフサイクル管理',
       dependencies: ['deploy_hosting_server', 'deploy_scaling', 'deploy_network'],
       provides: ['HostingManager', 'DeploymentLifecycle'],
-      status: 'completed',
+      status: 'planned',
       build_order: 18,
     },
 
@@ -1175,7 +1175,7 @@
       description: 'UI state management library providing schema, rules, and a .kotobas accessor library.',
       dependencies: ['types', 'rewrite_engine', 'execution_engine'],
       provides: ['UiVertexType', 'UiEdgeLabel', 'UiPropKey', 'get_standard_ui_rules', 'state.kotoba'],
-      status: 'completed',
+      status: 'planned',
       build_order: 7,
     },
 
@@ -1190,7 +1190,7 @@
       description: 'Multi-language source code parser for documentation generation (Rust, JS, TS, Python, Go)',
       dependencies: ['types'],
       provides: ['DocParser', 'LanguageParser', 'RustParser', 'JavaScriptParser', 'TypeScriptParser', 'PythonParser', 'GoParser'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -1201,7 +1201,7 @@
       description: 'Documentation configuration management and TOML/JSON/YAML parsing',
       dependencies: ['types'],
       provides: ['DocsConfig', 'ConfigManager', 'auto_detect_config', 'create_default_config_file'],
-      status: 'completed',
+      status: 'planned',
       build_order: 3,
     },
 
@@ -1212,7 +1212,7 @@
       description: 'Documentation generation engine with HTML/Markdown/JSON output support',
       dependencies: ['types', 'docs_parser', 'docs_config'],
       provides: ['DocGenerator', 'OutputFormat', 'GenerateResult', 'DocItem'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -1223,7 +1223,7 @@
       description: 'Template engine for documentation with Tera integration and custom filters',
       dependencies: ['types', 'docs_generator'],
       provides: ['TemplateEngine', 'TemplateContext', 'TemplateFilter', 'DocTemplate'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -1234,7 +1234,7 @@
       description: 'Full-text search engine with fuzzy matching and indexing',
       dependencies: ['types', 'docs_parser'],
       provides: ['SearchEngine', 'SearchResult', 'SearchOptions', 'SearchEntry'],
-      status: 'completed',
+      status: 'planned',
       build_order: 4,
     },
 
@@ -1245,7 +1245,7 @@
       description: 'Web server for documentation with REST API and static file serving',
       dependencies: ['types', 'docs_generator', 'docs_search', 'http_ir'],
       provides: ['DocServer', 'ServerState', 'SearchParams', 'SearchResponse'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -1256,7 +1256,7 @@
       description: 'Kotoba Documentation Generator core library - main API and error handling',
       dependencies: ['types', 'docs_parser', 'docs_config', 'docs_generator', 'docs_template', 'docs_search', 'docs_server'],
       provides: ['DocsError', 'Result<T>', 'DocType', 'DocsConfig', 'DocItem'],
-      status: 'completed',
+      status: 'planned',
       build_order: 6,
     },
 
@@ -1267,7 +1267,7 @@
       description: 'CLI commands for documentation generation (generate, serve, search, init)',
       dependencies: ['types', 'docs_core', 'cli_interface'],
       provides: ['docs generate', 'docs serve', 'docs search', 'docs init'],
-      status: 'completed',
+      status: 'planned',
       build_order: 11,
     },
 
@@ -1292,7 +1292,7 @@
       description: 'Default in-memory storage engine for KotobaDB.',
       dependencies: ['db_core'],
       provides: ['MemoryStorageEngine'],
-      status: 'completed',
+      status: 'planned',
       build_order: 5,
     },
 
@@ -1314,7 +1314,7 @@
       description: 'User-facing API for KotobaDB, a graph-native, version-controlled database.',
       dependencies: ['db_core', 'db_engine_memory', 'db_engine_lsm'],
       provides: ['KotobaDB', 'DBSnapshot'],
-      status: 'completed',
+      status: 'planned',
       build_order: 6,
     },
 
@@ -1326,7 +1326,7 @@
       description: 'Distributed clustering and consensus for KotobaDB with Raft algorithm.',
       dependencies: ['db_core', 'db'],
       provides: ['KotobaCluster', 'RaftConsensus', 'PartitionManager', 'ReplicationManager'],
-      status: 'completed',
+      status: 'planned',
       build_order: 8,
     },
 
@@ -1342,7 +1342,7 @@
       description: 'Automated backup and restore system for KotobaDB.',
       dependencies: ['db', 'storage_main'],
       provides: ['BackupManager', 'RestoreManager', 'PointInTimeRecovery'],
-      status: 'planned',
+      status: 'completed',
       build_order: 9,
       priority: 'high',
       estimated_effort: '2-3 weeks',
@@ -1355,7 +1355,7 @@
       description: 'Comprehensive monitoring and metrics collection system.',
       dependencies: ['db', 'db_cluster'],
       provides: ['MetricsCollector', 'HealthChecker', 'PerformanceMonitor', 'PrometheusExporter'],
-      status: 'planned',
+      status: 'completed',
       build_order: 9,
       priority: 'high',
       estimated_effort: '2-3 weeks',
@@ -1368,7 +1368,7 @@
       description: 'Configuration management and CLI tools for operational tasks.',
       dependencies: ['db', 'db_cluster'],
       provides: ['ConfigManager', 'AdminCLI', 'ClusterManager', 'MigrationTools'],
-      status: 'planned',
+      status: 'completed',
       build_order: 9,
       priority: 'medium',
       estimated_effort: '1-2 weeks',
@@ -2680,7 +2680,7 @@
       description: '高度なドキュメント生成システム - Denoを参考にした使い勝手で、美しいHTMLドキュメントを自動生成',
       version: '0.1.0',
       last_updated: '2025-09-17',
-      status: 'completed',
+      status: 'planned',
 
       components: [
         {

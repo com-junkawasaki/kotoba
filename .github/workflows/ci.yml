@@ -1,0 +1,442 @@
+name: KotobaDB CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run comprehensive tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Fast feedback: Basic checks and unit tests
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Run security audit
+      uses: actions-rs/audit@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Check documentation
+      run: cargo doc --no-deps --document-private-items
+
+    - name: Run unit tests
+      run: cargo test --lib --bins -- --nocapture
+
+  # Integration tests with different configurations
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: quality-gate
+    strategy:
+      matrix:
+        rust: [stable, beta]
+        features: ["", "--all-features"]
+        exclude:
+          # Skip beta with all features for faster CI
+          - rust: beta
+            features: "--all-features"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust (${{ matrix.rust }})
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run integration tests
+      run: |
+        cargo test --test integration ${{ matrix.features }} -- --nocapture
+
+  # Load testing and performance benchmarks
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install profiling tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y linux-tools-common linux-tools-generic valgrind
+
+    - name: Run performance benchmarks
+      run: |
+        cargo bench -- --nocapture | tee benchmark_results.txt
+
+    - name: Run load tests (basic)
+      run: |
+        cd tests/load
+        cargo run --bin load_test_runner -- --workload ycsb-a --duration 30 --output-dir ../../load_test_results
+      continue-on-error: true
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-results-${{ github.sha }}
+        path: |
+          benchmark_results.txt
+          load_test_results/
+
+  # Cross-platform compatibility testing
+  cross-platform:
+    name: Cross Platform Tests
+    runs-on: ${{ matrix.os }}
+    needs: quality-gate
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run tests
+      run: cargo test --lib --bins -- --nocapture
+
+  # Memory safety and concurrency testing
+  safety-tests:
+    name: Safety & Concurrency Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: miri
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run Miri (memory safety)
+      run: |
+        cargo miri test --lib
+      continue-on-error: true # Miri is experimental
+
+    - name: Run Loom (concurrency testing)
+      run: |
+        cargo test --test concurrency --features loom
+      continue-on-error: true # Loom tests are specialized
+
+    - name: Run sanitizers
+      run: |
+        export RUSTFLAGS="-Zsanitizer=address"
+        cargo test --lib --bins
+      env:
+        ASAN_OPTIONS: detect_leaks=1
+      continue-on-error: true
+
+  # Build and package verification
+  build-verification:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: quality-gate
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Build all targets
+      run: cargo build --all-targets --all-features
+
+    - name: Build examples
+      run: cargo build --examples --all-features
+
+    - name: Build documentation
+      run: cargo doc --all-features --no-deps
+
+    - name: Check workspace
+      run: cargo check --workspace
+
+    - name: Verify package can be published
+      run: cargo publish --dry-run --allow-dirty
+
+  # Dependency vulnerability scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: quality-gate
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run cargo-audit
+      uses: actions-rs/audit@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Run cargo-deny
+      uses: EmbarkStudios/cargo-deny-action@v1
+      with:
+        command: check
+
+  # Code coverage analysis
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    needs: integration-tests
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin
+
+    - name: Run coverage analysis
+      run: |
+        cargo tarpaulin --out Xml --output-dir coverage-reports -- --test-threads 1
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: coverage-reports/cobertura.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # Release and deployment (only on main branch)
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [integration-tests, performance-tests, cross-platform, safety-tests, build-verification, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run release tests
+      run: |
+        cargo test --release --all-features -- --nocapture
+
+    - name: Build release binaries
+      run: |
+        cargo build --release --all-features
+
+    - name: Create release archives
+      run: |
+        # Create release directory
+        mkdir -p release-artifacts
+
+        # Archive main binary
+        tar -czf release-artifacts/kotoba-linux-x64.tar.gz -C target/release kotoba
+
+        # Archive all crates
+        for crate in crates/*/; do
+          if [ -f "$crate/Cargo.toml" ]; then
+            crate_name=$(basename "$crate")
+            tar -czf "release-artifacts/${crate_name}.tar.gz" -C "$crate" .
+          fi
+        done
+
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: kotoba-release-${{ github.sha }}
+        path: release-artifacts/
+
+    - name: Create GitHub release
+      if: github.event_name == 'push' && contains(github.event.head_commit.message, 'release:')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: release-artifacts/*
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Performance regression detection
+  performance-regression:
+    name: Performance Regression Check
+    runs-on: ubuntu-latest
+    needs: performance-tests
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Get base branch performance
+      run: |
+        git checkout ${{ github.base_ref }}
+        cargo bench -- --nocapture | tee base_benchmark.txt || echo "No base benchmarks"
+
+    - name: Get PR branch performance
+      run: |
+        git checkout ${{ github.sha }}
+        cargo bench -- --nocapture | tee pr_benchmark.txt || echo "No PR benchmarks"
+
+    - name: Compare performance
+      run: |
+        # Simple performance comparison script
+        python3 -c "
+        import re
+
+        def extract_throughput(filename):
+            try:
+                with open(filename, 'r') as f:
+                    content = f.read()
+                    # Look for throughput numbers (simplified)
+                    matches = re.findall(r'(\d+(?:\.\d+)?)\s*ops/sec', content)
+                    return float(max(matches)) if matches else 0.0
+            except:
+                return 0.0
+
+        base_throughput = extract_throughput('base_benchmark.txt')
+        pr_throughput = extract_throughput('pr_benchmark.txt')
+
+        if base_throughput > 0 and pr_throughput > 0:
+            regression = (base_throughput - pr_throughput) / base_throughput * 100
+            print(f'Performance regression: {regression:.2f}%')
+            if regression > 10:  # More than 10% regression
+                print('::error::Significant performance regression detected!')
+                exit(1)
+            elif regression < -10:  # More than 10% improvement
+                print('::notice::Performance improvement detected!')
+        else:
+            print('Could not extract performance metrics')
+        "
+
+  # Notification and reporting
+  notify:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [quality-gate, integration-tests, performance-tests, cross-platform, safety-tests, build-verification, security-scan, coverage]
+    if: always()
+
+    steps:
+    - name: Generate CI status report
+      run: |
+        echo "# KotobaDB CI/CD Status Report" > ci_status.md
+        echo "" >> ci_status.md
+        echo "Generated: $(date)" >> ci_status.md
+        echo "" >> ci_status.md
+        echo "## Pipeline Results" >> ci_status.md
+        echo "" >> ci_status.md
+
+        # Check each job status
+        jobs="quality-gate integration-tests performance-tests cross-platform safety-tests build-verification security-scan coverage"
+        for job in $jobs; do
+          status=$(jq -r ".jobs.\"$job\".result // \"unknown\"" "$GITHUB_EVENT_PATH")
+          if [ "$status" = "success" ]; then
+            echo "- ✅ $job: PASSED" >> ci_status.md
+          elif [ "$status" = "failure" ]; then
+            echo "- ❌ $job: FAILED" >> ci_status.md
+          else
+            echo "- ⚠️  $job: $status" >> ci_status.md
+          fi
+        done
+
+        echo "" >> ci_status.md
+        echo "## Summary" >> ci_status.md
+        echo "" >> ci_status.md
+
+        # Overall status
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ All CI checks passed!" >> ci_status.md
+        else
+          echo "❌ Some CI checks failed. Please review the pipeline results." >> ci_status.md
+        fi
+
+        cat ci_status.md
+
+    - name: Upload CI status report
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-status-report
+        path: ci_status.md
+
+    - name: Send notification (optional)
+      if: failure()
+      run: |
+        # This could be extended to send Slack, Discord, or email notifications
+        echo "CI pipeline failed. Check the logs for details."

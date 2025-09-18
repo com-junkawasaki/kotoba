@@ -1,0 +1,44 @@
+[package]
+name = "kotoba-fuzz-tests"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1.0", features = ["derive"] }
+# KotobaDB core crates
+kotoba-db-core = { path = "../../crates/kotoba-db-core", version = "0.1.0" }
+kotoba-db-engine-memory = { path = "../../crates/kotoba-db-engine-memory", version = "0.1.0" }
+kotoba-db-engine-lsm = { path = "../../crates/kotoba-db-engine-lsm", version = "0.1.0" }
+kotoba-db = { path = "../../crates/kotoba-db", version = "0.1.0" }
+
+# Testing utilities
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+anyhow = "1.0"
+tempfile = "3.0"
+uuid = { version = "1.18", features = ["v4"] }
+rand = "0.8"
+
+[[bin]]
+name = "fuzz_graph_operations"
+path = "fuzz_targets/graph_operations.rs"
+
+[[bin]]
+name = "fuzz_query_parsing"
+path = "fuzz_targets/query_parsing.rs"
+
+[[bin]]
+name = "fuzz_transaction_operations"
+path = "fuzz_targets/transaction_operations.rs"
+
+[[bin]]
+name = "fuzz_data_structures"
+path = "fuzz_targets/data_structures.rs"
+
+[[bin]]
+name = "fuzz_concurrent_operations"
+path = "fuzz_targets/concurrent_operations.rs"

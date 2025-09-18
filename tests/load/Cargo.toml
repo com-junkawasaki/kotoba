@@ -1,0 +1,41 @@
+[package]
+name = "kotoba-load-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# KotobaDB core crates
+kotoba-db-core = { path = "../../crates/kotoba-db-core", version = "0.1.0" }
+kotoba-db-engine-memory = { path = "../../crates/kotoba-db-engine-memory", version = "0.1.0" }
+kotoba-db-engine-lsm = { path = "../../crates/kotoba-db-engine-lsm", version = "0.1.0" }
+kotoba-db = { path = "../../crates/kotoba-db", version = "0.1.0" }
+kotoba-db-cluster = { path = "../../crates/kotoba-db-cluster", version = "0.1.0", optional = true }
+
+# Load testing utilities
+tokio = { version = "1.0", features = ["full", "test-util", "rt-multi-thread"] }
+futures = "0.3"
+async-trait = "0.1"
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.0"
+uuid = { version = "1.18", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = { version = "0.8", features = ["small_rng"] }
+hdrhistogram = "7.5"
+plotters = { version = "0.3", optional = true }
+csv = "1.3"
+
+# Metrics and monitoring
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+
+[features]
+default = []
+cluster = ["kotoba-db-cluster"]
+visualization = ["plotters"]
+
+[[bin]]
+name = "load_test_runner"
+path = "src/main.rs"
