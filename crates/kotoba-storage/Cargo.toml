@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-storage"
-version = "0.1.16"
+version = "0.1.21"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

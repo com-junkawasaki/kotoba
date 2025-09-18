@@ -5339,7 +5339,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-core"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "blake3",
@@ -5453,7 +5453,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-cli"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5478,7 +5478,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-controller"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5526,7 +5526,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-git"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -5548,7 +5548,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-hosting"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5569,7 +5569,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-network"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -5599,7 +5599,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-runtime"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5617,7 +5617,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-deploy-scaling"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5641,7 +5641,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-distributed"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "kotoba-cid",
@@ -5660,7 +5660,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-docs"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "axum 0.7.9",
@@ -5711,7 +5711,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-execution"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5728,7 +5728,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-formatter"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5747,7 +5747,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-graph"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "js-sys",
@@ -5767,7 +5767,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-handler"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -5852,7 +5852,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-linter"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5969,7 +5969,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-network"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "kotoba-core",
@@ -5984,7 +5984,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-package-manager"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6043,7 +6043,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-repl"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "chrono",
  "colored 2.2.0",
@@ -6065,7 +6065,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-rewrite"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "kotoba-cid",
@@ -6110,7 +6110,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-schema"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "jsonschema",
@@ -6127,7 +6127,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-schema-registry"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6141,7 +6141,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-security"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "argon2",
@@ -6179,7 +6179,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-server"
-version = "0.1.16"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -6240,7 +6240,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-storage"
-version = "0.1.16"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6264,7 +6264,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-tester"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
