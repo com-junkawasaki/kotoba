@@ -1127,6 +1127,17 @@
       build_order: 15,
     },
 
+    'ssg_examples': {
+      name: 'ssg_examples',
+      path: 'crates/kotoba-ssg/src/examples/',
+      type: 'ssg_examples',
+      description: 'SSGサンプル - Kotoba言語のサイト定義ファイル',
+      dependencies: [],
+      provides: ['KotobaSiteDefinitions', 'SiteTemplates', 'ExampleSites'],
+      status: 'completed',
+      build_order: 15,
+    },
+
     'project_documentation': {
       name: 'project_documentation',
       path: 'docs/',
@@ -1169,6 +1180,17 @@
       provides: ['StaticSiteOutput', 'GeneratedHTML', 'SiteAssets', 'DocumentationSite'],
       status: 'completed',
       build_order: 20,
+    },
+
+    'site_index_html': {
+      name: 'site_index_html',
+      path: 'build/site/index.html',
+      type: 'site_content',
+      description: 'サイトメインインデックスHTML - サイトのメインページ',
+      dependencies: ['site_build_output'],
+      provides: ['MainIndexPage', 'SiteEntryPoint'],
+      status: 'completed',
+      build_order: 21,
     },
 
     // ==========================================
@@ -1261,6 +1283,43 @@
       provides: ['ai_agent_examples', 'chatbot_example', 'code_assistant_example', 'data_analyzer_example'],
       status: 'pending',
       build_order: 27,
+    },
+
+    // ==========================================
+    // テスト層 (Test Layer)
+    // ==========================================
+
+    'repl_tests': {
+      name: 'repl_tests',
+      path: 'tests/repl/',
+      type: 'test',
+      description: 'REPL機能テスト - インタラクティブシェルのテスト',
+      dependencies: ['types'],
+      provides: ['ReplTestSuite', 'InteractiveTests', 'CommandTests'],
+      status: 'completed',
+      build_order: 25,
+    },
+
+    'general_tests': {
+      name: 'general_tests',
+      path: 'tests/',
+      type: 'test',
+      description: '一般的なテストスイート - 基本機能テスト',
+      dependencies: ['types'],
+      provides: ['GeneralTestSuite', 'UnitTests', 'IntegrationTests'],
+      status: 'completed',
+      build_order: 25,
+    },
+
+    'cluster_tests': {
+      name: 'cluster_tests',
+      path: 'tests/',
+      type: 'test',
+      description: 'クラスターテスト - 分散システムテスト',
+      dependencies: ['db_cluster', 'distributed_engine'],
+      provides: ['ClusterTestSuite', 'DistributedTests', 'ReplicationTests'],
+      status: 'completed',
+      build_order: 26,
     },
 
     'package_manager': {
@@ -2405,8 +2464,10 @@
     // SSG assets and project documentation dependencies
     { from: 'ssg_assets', to: 'html_template_engine' },
     { from: 'ssg_assets', to: 'static_site_generator' },
+    { from: 'ssg_examples', to: 'static_site_generator' },
     { from: 'project_documentation', to: 'documentation_builder' },
     { from: 'project_documentation', to: 'markdown_parser' },
+    { from: 'site_build_output', to: 'site_index_html' },
 
     // SSG integration with main library
     { from: 'markdown_parser', to: 'lib' },
@@ -2415,8 +2476,15 @@
     { from: 'github_pages_deployer', to: 'lib' },
     { from: 'documentation_builder', to: 'lib' },
     { from: 'ssg_assets', to: 'lib' },
+    { from: 'ssg_examples', to: 'lib' },
     { from: 'project_documentation', to: 'lib' },
     { from: 'site_build_output', to: 'lib' },
+    { from: 'site_index_html', to: 'lib' },
+
+    // Test integration
+    { from: 'repl_tests', to: 'lib' },
+    { from: 'general_tests', to: 'lib' },
+    { from: 'cluster_tests', to: 'lib' },
   ],
 
   // ==========================================
@@ -2581,14 +2649,21 @@
   // ==========================================
 
   reverse_topological_order: [
+    'site_index_html',
     'site_build_output',
     'documentation_builder',
     'github_pages_deployer',
     'static_site_generator',
     'html_template_engine',
     'markdown_parser',
+    'ssg_examples',
     'project_documentation',
     'ssg_assets',
+
+    // Test layer (reverse order)
+    'cluster_tests',
+    'general_tests',
+    'repl_tests',
     'db',
     'db_engine_memory',
     'db_core',
@@ -2627,12 +2702,19 @@
     // Documentation and SSG layer
     'project_documentation',
     'ssg_assets',
+    'ssg_examples',
     'markdown_parser',
     'html_template_engine',
     'static_site_generator',
     'github_pages_deployer',
     'documentation_builder',
     'site_build_output',
+    'site_index_html',
+
+    // Test layer
+    'repl_tests',
+    'general_tests',
+    'cluster_tests',
 
     'cli_interface',
     'kotoba_lsp',

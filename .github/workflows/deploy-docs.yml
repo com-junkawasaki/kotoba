@@ -1,68 +1,23 @@
-name: Deploy Documentation
+name: Deploy Documentation (Legacy - Replaced by static.yml)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'docs/**'
-      - 'dag.jsonnet'
-      - 'README.md'
-      - '.github/workflows/deploy-docs.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'docs/**'
-      - 'dag.jsonnet'
-      - 'README.md'
+  # This workflow is replaced by static.yml
+  # Keeping for reference but disabled
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
 
 jobs:
-  build-and-deploy:
+  deprecated:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Setup Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.1'
-        bundler-cache: true
-        working-directory: ./docs
-
-    - name: Install dependencies
-      working-directory: ./docs
-      run: bundle install
-
-    - name: Build with Jekyll
-      working-directory: ./docs
-      run: bundle exec jekyll build
-
-    - name: Deploy to GitHub Pages
-      if: github.ref == 'refs/heads/main'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs/_site
-        publish_branch: gh-pages
-        cname: kotoba.jun784.dev
-
-  test-docs:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Setup Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.1'
-        bundler-cache: true
-        working-directory: ./docs
-
-    - name: Install dependencies
-      working-directory: ./docs
-      run: bundle install
-
-    - name: Test build
-      working-directory: ./docs
-      run: bundle exec jekyll build --trace
+    - name: Deprecated Workflow Notice
+      run: |
+        echo "⚠️  This workflow (deploy-docs.yml) has been replaced by static.yml"
+        echo "📝 The new workflow uses the Kotoba SSG system instead of Jekyll"
+        echo "🔄 Documentation deployment is now handled by: .github/workflows/static.yml"
+        echo ""
+        echo "This workflow file is kept for reference but is no longer active."
+        echo "Please use 'static.yml' for documentation deployment."
