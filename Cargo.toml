@@ -49,33 +49,18 @@ tracing = "0.1"
 # Fix digest version conflict
 digest = "0.10.7"
 
-# Core published crates only
-kotoba-core = "0.1.21"
-kotoba-errors = "0.1.2"
-kotoba-graph = "0.1.21"
-kotoba-storage = "0.1.21"
-kotoba-execution = "0.1.21"
-kotoba-rewrite = "0.1.21"
-
-# Optional crates (commented out for core focus)
-# kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }
-# kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15" }
-# kotoba-kotobas = { path = "crates/kotoba-kotobas", version = "0.1.0" }
-# kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
-# kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
-# kotoba2tsx = { path = "crates/kotoba2tsx", version = "0.1.15" }
-# kotoba-runtime = { path = "crates/kotoba-runtime", version = "0.1.0" }
-
-# Core crates only (published versions)
-# kotoba-distributed = { path = "crates/kotoba-distributed", version = "0.1.15" }
-# kotoba-network = { path = "crates/kotoba-network", version = "0.1.15" }
-# kotoba-cid = { path = "crates/kotoba-cid", version = "0.1.15" }
-# kotoba-cli = { path = "crates/kotoba-cli", version = "0.1.15" }
+# Core crates (local workspace for main crate)
+kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
+kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
+kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
+kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
+kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
+kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
 
 # Root crate configuration
 [package]
 name = "kotoba-main"
-version = "0.1.17"
+version = "0.1.21"
 edition = "2021"
 description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
 license = "Apache-2.0"
@@ -112,15 +97,8 @@ kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-security.workspace = true
 # kotoba-server = "0.1.1" # オプション機能のためコメントアウト
 
-# Kotoba internal crates
-kotoba-jsonnet = { path = "crates/kotoba-jsonnet" }
-# kotoba-kotobanet = { path = "crates/kotoba-kotobanet" }  # まだ安定していないためコメントアウト
-
-# New modular crates
-kotoba-distributed = { path = "crates/kotoba-distributed" }
-kotoba-network = { path = "crates/kotoba-network" }
-kotoba-cid = { path = "crates/kotoba-cid" }
-kotoba-cli = { path = "crates/kotoba-cli" }
+# Core crates only (published versions)
+# Optional crates are disabled for stable core focus
 
 # Schema and CID dependencies
 schemars.workspace = true
