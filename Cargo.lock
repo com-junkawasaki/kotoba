@@ -5197,7 +5197,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-cloud-integrations"
-version = "0.1.0"
+version = "0.1.16"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -5844,7 +5844,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-monitoring"
-version = "0.1.0"
+version = "0.1.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5856,7 +5856,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.16",
  "tokio",
- "tokio-test",
 ]
 
 [[package]]
