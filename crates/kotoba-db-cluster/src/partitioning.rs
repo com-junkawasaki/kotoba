@@ -309,7 +309,7 @@ pub struct KeyRange {
 impl KeyRange {
     /// Check if a key falls within this range
     pub fn contains(&self, key: &[u8]) -> bool {
-        key >= &self.start && key < &self.end
+        *key >= *self.start && *key < *self.end
     }
 
     /// Split range into two halves
