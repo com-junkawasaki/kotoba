@@ -8,6 +8,7 @@ members = [
     "crates/kotoba-execution",     # v0.1.21 ✅
     "crates/kotoba-rewrite",       # v0.1.21 ✅
     "crates/kotoba-cli",           # v0.1.21 (core functionality only)
+    ".",                           # Root package for CLI binary
 ]
 resolver = "2"
 
@@ -49,13 +50,14 @@ tracing = "0.1"
 # Fix digest version conflict
 digest = "0.10.7"
 
-# Core crates (local workspace for main crate)
-kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
-kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
-kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
-kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
-kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
-kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
+# Core crates (local workspace paths for development)
+# These are workspace members, not external dependencies
+# kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
+# kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
+# kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
+# kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
+# kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
+# kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
 
 # Root crate configuration
 [package]
