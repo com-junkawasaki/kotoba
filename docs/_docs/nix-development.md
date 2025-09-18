@@ -1,3 +1,8 @@
+---
+layout: default
+title: Nix Development
+---
+
 # Nix Development Environment
 
 このドキュメントでは、KotobaプロジェクトでNixを使用した開発環境の設定と使用方法について説明します。

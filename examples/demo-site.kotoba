@@ -1,0 +1,433 @@
+{
+  // 🎉 Kotoba言語で実装されたGitHub Pagesデモンストレーション
+  // このファイルは完全にKotoba言語（Jsonnet）で書かれています
+
+  config: {
+    type: "github_pages_demo",
+    name: "Kotoba GitHub Pages Demo",
+    description: "完全Kotoba言語実装のGitHub Pagesデモンストレーションサイト",
+    base_url: "https://jun784.github.io/kotoba-demo",
+    github_repo: "jun784/kotoba",
+    theme: "modern",
+    author: "Kotoba Team",
+  },
+
+  // 📄 ページ定義
+  pages: [
+    {
+      name: "index",
+      title: "🏠 Welcome to Kotoba Pages",
+      description: "Experience GitHub Pages powered entirely by Kotoba language",
+      template: "hero",
+      layout: "default",
+      content: {
+        hero: {
+          title: "🚀 GitHub Pages with Kotoba",
+          subtitle: "Build beautiful static sites using pure Jsonnet syntax",
+          cta: {
+            text: "Get Started",
+            href: "/docs"
+          }
+        },
+        features: [
+          {
+            icon: "⚡",
+            title: "Pure Jsonnet",
+            description: "Write entire websites using familiar Jsonnet syntax"
+          },
+          {
+            icon: "🎨",
+            title: "Beautiful Design",
+            description: "Responsive layouts with modern CSS and JavaScript"
+          },
+          {
+            icon: "🔧",
+            title: "Full Control",
+            description: "Complete control over HTML, CSS, and site structure"
+          },
+          {
+            icon: "📱",
+            title: "Mobile First",
+            description: "Optimized for all devices and screen sizes"
+          }
+        ],
+        testimonials: [
+          {
+            quote: "Kotoba Pages changed how I think about static site generation",
+            author: "Developer A",
+            role: "Full Stack Developer"
+          },
+          {
+            quote: "The Jsonnet approach makes configuration so much cleaner",
+            author: "Developer B",
+            role: "DevOps Engineer"
+          }
+        ]
+      }
+    },
+
+    {
+      name: "docs",
+      title: "📚 Documentation",
+      description: "Learn how to build sites with Kotoba Pages",
+      template: "docs",
+      layout: "docs",
+      content: {
+        sections: [
+          {
+            title: "Getting Started",
+            description: "Quick start guide for new users",
+            items: [
+              {
+                title: "Installation",
+                href: "/docs/installation",
+                description: "Set up Kotoba Pages on your system"
+              },
+              {
+                title: "First Site",
+                href: "/docs/first-site",
+                description: "Create your first Kotoba Pages site"
+              },
+              {
+                title: "Configuration",
+                href: "/docs/configuration",
+                description: "Configure your site settings"
+              }
+            ]
+          },
+          {
+            title: "Templates & Layouts",
+            description: "Customize the look and feel of your site",
+            items: [
+              {
+                title: "Layout System",
+                href: "/docs/layouts",
+                description: "Create reusable layouts for your pages"
+              },
+              {
+                title: "Templates",
+                href: "/docs/templates",
+                description: "Build custom page templates"
+              },
+              {
+                title: "Styling",
+                href: "/docs/styling",
+                description: "Add CSS and customize appearance"
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      name: "examples",
+      title: "💡 Examples",
+      description: "See Kotoba Pages in action with real examples",
+      template: "examples",
+      layout: "default",
+      content: {
+        categories: [
+          {
+            name: "Basic Sites",
+            description: "Simple websites to get you started",
+            examples: [
+              {
+                title: "Personal Blog",
+                description: "A simple blog template with articles and categories",
+                href: "/examples/blog",
+                tags: ["blog", "personal", "simple"]
+              },
+              {
+                title: "Portfolio Site",
+                description: "Showcase your work with a beautiful portfolio",
+                href: "/examples/portfolio",
+                tags: ["portfolio", "showcase", "creative"]
+              },
+              {
+                title: "Documentation Site",
+                description: "Technical documentation with search and navigation",
+                href: "/examples/docs",
+                tags: ["documentation", "technical", "search"]
+              }
+            ]
+          },
+          {
+            name: "Advanced Features",
+            description: "Complex sites showcasing advanced features",
+            examples: [
+              {
+                title: "E-commerce Store",
+                description: "Full-featured online store with product catalog",
+                href: "/examples/store",
+                tags: ["ecommerce", "advanced", "commerce"]
+              },
+              {
+                title: "Multi-language Site",
+                description: "International site with multiple languages",
+                href: "/examples/multilang",
+                tags: ["i18n", "international", "multilingual"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      name: "about",
+      title: "ℹ️ About Kotoba Pages",
+      description: "Learn about the technology behind Kotoba Pages",
+      template: "about",
+      layout: "default",
+      content: {
+        mission: {
+          title: "Our Mission",
+          text: "To make static site generation as simple and powerful as possible using the elegance of Jsonnet."
+        },
+        technology: {
+          title: "Built with Modern Tech",
+          features: [
+            "Jsonnet for configuration and templating",
+            "Rust for performance and reliability",
+            "GitHub Pages for hosting",
+            "Modern CSS and JavaScript"
+          ]
+        },
+        team: [
+          {
+            name: "Jun Kawasaki",
+            role: "Creator & Lead Developer",
+            bio: "Passionate about programming languages and developer tools"
+          },
+          {
+            name: "Kotoba Community",
+            role: "Contributors & Users",
+            bio: "Making static sites better, one commit at a time"
+          }
+        ]
+      }
+    }
+  ],
+
+  // 🎨 コンポーネント定義（KotobaScript拡張）
+  components: [
+    {
+      name: "HeroSection",
+      type: "react_component",
+      props: ["title", "subtitle", "cta", "background"],
+      template: "hero-section.html.jsonnet"
+    },
+    {
+      name: "FeatureGrid",
+      type: "react_component",
+      props: ["features"],
+      template: "feature-grid.html.jsonnet"
+    },
+    {
+      name: "TestimonialCarousel",
+      type: "react_component",
+      props: ["testimonials"],
+      template: "testimonial-carousel.html.jsonnet"
+    },
+    {
+      name: "DocsSection",
+      type: "react_component",
+      props: ["sections"],
+      template: "docs-section.html.jsonnet"
+    }
+  ],
+
+  // 🧭 ナビゲーション
+  navigation: {
+    main: [
+      { label: "Home", href: "/" },
+      { label: "Docs", href: "/docs" },
+      { label: "Examples", href: "/examples" },
+      { label: "About", href: "/about" },
+      {
+        label: "GitHub",
+        href: "https://github.com/jun784/kotoba",
+        external: true
+      }
+    ],
+    footer: [
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+      { label: "Support", href: "/support" },
+      { label: "Contributing", href: "/contributing" }
+    ],
+    social: [
+      { platform: "GitHub", href: "https://github.com/jun784/kotoba" },
+      { platform: "Twitter", href: "https://twitter.com/kotoba_lang" },
+      { platform: "Discord", href: "https://discord.gg/kotoba" }
+    ]
+  },
+
+  // 🎭 レイアウト定義
+  layouts: [
+    {
+      name: "default",
+      template: "default-layout.html.jsonnet",
+      areas: ["header", "main", "footer"]
+    },
+    {
+      name: "docs",
+      template: "docs-layout.html.jsonnet",
+      parent: "default",
+      areas: ["header", "sidebar", "main", "footer"]
+    }
+  ],
+
+  // 📝 テンプレート定義
+  templates: [
+    {
+      name: "hero",
+      layout: "default",
+      content: |||
+        <div class="hero-section">
+          <div class="container">
+            <h1>{{ hero.title }}</h1>
+            <p class="hero-subtitle">{{ hero.subtitle }}</p>
+            <a href="{{ hero.cta.href }}" class="cta-button">{{ hero.cta.text }}</a>
+          </div>
+        </div>
+
+        <div class="features-section">
+          <div class="container">
+            <div class="feature-grid">
+              {% for feature in features %}
+              <div class="feature-card">
+                <div class="feature-icon">{{ feature.icon }}</div>
+                <h3>{{ feature.title }}</h3>
+                <p>{{ feature.description }}</p>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      |||
+    },
+
+    {
+      name: "docs",
+      layout: "docs",
+      content: |||
+        <div class="docs-header">
+          <div class="container">
+            <h1>{{ title }}</h1>
+            <p class="docs-description">{{ description }}</p>
+          </div>
+        </div>
+
+        <div class="docs-content">
+          <div class="container">
+            <div class="docs-grid">
+              {% for section in sections %}
+              <section class="docs-section">
+                <h2>{{ section.title }}</h2>
+                <p>{{ section.description }}</p>
+                <div class="docs-items">
+                  {% for item in section.items %}
+                  <div class="docs-item">
+                    <h3><a href="{{ item.href }}">{{ item.title }}</a></h3>
+                    <p>{{ item.description }}</p>
+                  </div>
+                  {% endfor %}
+                </div>
+              </section>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      |||
+    }
+  ],
+
+  // 🚀 デプロイメント設定
+  deployment: {
+    provider: "github_pages",
+    branch: "gh-pages",
+    cname: "kotoba-demo.jun784.dev",
+    build_command: "kotoba build demo-site.kotoba",
+    output_dir: "_site",
+    optimization: {
+      minify_html: true,
+      compress_assets: true,
+      generate_sitemap: true,
+      generate_feed: true
+    }
+  },
+
+  // 🔧 ビルド設定
+  build: {
+    source_dir: ".",
+    output_dir: "_site",
+    template_dir: "_templates",
+    asset_dir: "assets",
+
+    markdown: {
+      extensions: ["table", "fenced_code", "autolink", "strikethrough", "footnotes"],
+      highlight_languages: ["rust", "jsonnet", "javascript", "typescript", "bash", "python"],
+      code_block_template: "code-block.html.jsonnet"
+    },
+
+    optimization: {
+      minify_html: true,
+      compress_css: true,
+      compress_js: true,
+      optimize_images: true,
+      generate_sourcemaps: false
+    },
+
+    cache: {
+      enabled: true,
+      strategy: "file",
+      max_age: "1h"
+    }
+  },
+
+  // 📊 サイト統計・メトリクス
+  analytics: {
+    enabled: true,
+    provider: "plausible",
+    domain: "kotoba-demo.jun784.dev",
+    track_events: true,
+    exclude_admin: true
+  },
+
+  // 🔍 SEO設定
+  seo: {
+    title_template: "%s | Kotoba Pages",
+    description: "Build beautiful static sites with Kotoba language",
+    keywords: ["kotoba", "jsonnet", "static-site", "github-pages", "documentation"],
+    og_image: "/assets/og-image.png",
+    twitter_card: "summary_large_image",
+    structured_data: {
+      "@type": "WebSite",
+      "name": "Kotoba Pages",
+      "description": "Static site generator powered by Jsonnet",
+      "url": "https://kotoba-demo.jun784.dev"
+    }
+  },
+
+  // 🌐 国際化設定
+  i18n: {
+    default_locale: "en",
+    locales: ["en", "ja", "es", "fr"],
+    strings: {
+      en: {
+        nav_home: "Home",
+        nav_docs: "Docs",
+        nav_examples: "Examples",
+        nav_about: "About"
+      },
+      ja: {
+        nav_home: "ホーム",
+        nav_docs: "ドキュメント",
+        nav_examples: "例",
+        nav_about: "概要"
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'dag.jsonnet'
+      - 'README.md'
+      - '.github/workflows/deploy-docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'dag.jsonnet'
+      - 'README.md'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.1'
+        bundler-cache: true
+        working-directory: ./docs
+
+    - name: Install dependencies
+      working-directory: ./docs
+      run: bundle install
+
+    - name: Build with Jekyll
+      working-directory: ./docs
+      run: bundle exec jekyll build
+
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/_site
+        publish_branch: gh-pages
+        cname: kotoba.jun784.dev
+
+  test-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.1'
+        bundler-cache: true
+        working-directory: ./docs
+
+    - name: Install dependencies
+      working-directory: ./docs
+      run: bundle install
+
+    - name: Test build
+      working-directory: ./docs
+      run: bundle exec jekyll build --trace

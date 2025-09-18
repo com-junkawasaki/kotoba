@@ -26,6 +26,7 @@ pub mod ai_models;
 pub mod ai_tools;
 pub mod ai_memory;
 pub mod ai_chains;
+pub mod github_pages;
 
 pub use error::*;
 pub use http_parser::*;
@@ -38,6 +39,7 @@ pub use ai_models::*;
 pub use ai_tools::*;
 pub use ai_memory::*;
 pub use ai_chains::*;
+pub use github_pages::*;
 
 /// Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

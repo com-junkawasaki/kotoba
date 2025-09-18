@@ -1,0 +1,47 @@
+[package]
+name = "kotoba-memory"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# KotobaDB core crates
+kotoba-db-core = { path = "../kotoba-db-core", version = "0.1.0" }
+kotoba-db-engine-memory = { path = "../kotoba-db-engine-memory", version = "0.1.0" }
+kotoba-db-engine-lsm = { path = "../kotoba-db-engine-lsm", version = "0.1.0" }
+kotoba-db = { path = "../kotoba-db", version = "0.1.0" }
+kotoba-db-cluster = { path = "../kotoba-db-cluster", version = "0.1.0", optional = true }
+
+# Profiling integration
+kotoba-profiler = { path = "../kotoba-profiler", version = "0.1.0" }
+
+# Memory management
+tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
+futures = "0.3"
+async-trait = "0.1"
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.0"
+uuid = { version = "1.18", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+
+# Memory optimization
+crossbeam = "0.8"
+dashmap = "5.5"
+lru = "0.12"
+
+[features]
+default = []
+cluster = ["kotoba-db-cluster"]
+jemalloc = ["tikv-jemallocator"]
+mimalloc = ["mimalloc"]
+
+[dependencies.tikv-jemallocator]
+version = "0.5"
+optional = true
+
+[dependencies.mimalloc]
+version = "0.1"
+optional = true

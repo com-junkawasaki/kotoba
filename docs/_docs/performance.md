@@ -1,3 +1,8 @@
+---
+layout: default
+title: Performance Guide
+---
+
 # KotobaDB Performance Guide
 
 This guide covers KotobaDB's performance characteristics, optimization strategies, and benchmarking results.

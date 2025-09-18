@@ -1,3 +1,8 @@
+---
+layout: default
+title: Architecture Overview
+---
+
 # KotobaDB Architecture
 
 This document describes the architecture, design principles, and implementation details of KotobaDB.

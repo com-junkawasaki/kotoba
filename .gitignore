@@ -24,3 +24,22 @@ Thumbs.db
 # Logs
 *.log
 
+# Ruby/Bundler
+.bundle/
+Gemfile.lock
+
+# Jekyll (GitHub Pages)
+docs/vendor/
+docs/_site/
+docs/.sass-cache/
+docs/.jekyll-cache/
+.jekyll-cache/
+.sass-cache/
+
+# RubyMine
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+

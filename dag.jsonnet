@@ -1066,6 +1066,65 @@
     },
 
     // ==========================================
+    // Static Site Generator 層 (Kotoba SSG) - Kotoba言語で実装されたGitHub Pages
+    // ==========================================
+
+    'markdown_parser': {
+      name: 'markdown_parser',
+      path: 'crates/kotoba-ssg/src/markdown/parser.rs',
+      type: 'ssg',
+      description: 'Markdownパーサー - MarkdownファイルをHTMLに変換',
+      dependencies: ['types', 'jsonnet_core'],
+      provides: ['MarkdownParser', 'HtmlRenderer', 'CodeHighlighter', 'TableRenderer'],
+      status: 'planned',
+      build_order: 15,
+    },
+
+    'html_template_engine': {
+      name: 'html_template_engine',
+      path: 'crates/kotoba-ssg/src/template/engine.rs',
+      type: 'ssg',
+      description: 'HTMLテンプレートエンジン - Jsonnetベースのテンプレート処理',
+      dependencies: ['types', 'jsonnet_core', 'markdown_parser'],
+      provides: ['TemplateEngine', 'LayoutRenderer', 'PartialRenderer', 'AssetManager'],
+      status: 'planned',
+      build_order: 16,
+    },
+
+    'static_site_generator': {
+      name: 'static_site_generator',
+      path: 'crates/kotoba-ssg/src/generator.rs',
+      type: 'ssg',
+      description: '静的サイトジェネレーター - 完全Kotoba言語実装のSSG',
+      dependencies: ['types', 'jsonnet_core', 'markdown_parser', 'html_template_engine', 'http_ir'],
+      provides: ['SiteGenerator', 'PageBuilder', 'SitemapGenerator', 'FeedGenerator'],
+      status: 'planned',
+      build_order: 17,
+    },
+
+    'github_pages_deployer': {
+      name: 'github_pages_deployer',
+      path: 'crates/kotoba-ssg/src/deploy/github_pages.rs',
+      type: 'ssg',
+      description: 'GitHub Pagesデプロイヤー - GitHub Pagesへの自動デプロイメント',
+      dependencies: ['types', 'static_site_generator', 'http_ir'],
+      provides: ['GitHubPagesDeployer', 'GitIntegration', 'CNAMEHandler', 'RedirectManager'],
+      status: 'planned',
+      build_order: 18,
+    },
+
+    'documentation_builder': {
+      name: 'documentation_builder',
+      path: 'crates/kotoba-ssg/src/builder/documentation.rs',
+      type: 'ssg',
+      description: 'ドキュメントビルダー - 技術ドキュメント特化のビルダー',
+      dependencies: ['types', 'static_site_generator', 'docs_core'],
+      provides: ['DocumentationBuilder', 'ApiDocGenerator', 'CodeExampleRenderer', 'SearchIndexBuilder'],
+      status: 'planned',
+      build_order: 19,
+    },
+
+    // ==========================================
     // AI Agent 層 (Manimani) - Jsonnet-only AI Agent Framework
     // ==========================================
 
@@ -1395,7 +1454,7 @@
       description: 'Performance profiling and optimization tools.',
       dependencies: ['db', 'benchmarking_suite'],
       provides: ['Profiler', 'MemoryAnalyzer', 'QueryOptimizer', 'PerformanceAdvisor'],
-      status: 'planned',
+      status: 'completed',
       build_order: 10,
       priority: 'medium',
       estimated_effort: '2-3 weeks',
@@ -1408,7 +1467,7 @@
       description: 'Advanced memory management and optimization features.',
       dependencies: ['db', 'profiling_tools'],
       provides: ['MemoryPool', 'CacheManager', 'MemoryProfiler', 'GCOptimizer'],
-      status: 'planned',
+      status: 'completed',
       build_order: 11,
       priority: 'medium',
       estimated_effort: '2-3 weeks',
@@ -1422,7 +1481,7 @@
       description: 'Comprehensive integration test suite.',
       dependencies: ['db', 'db_cluster', 'benchmarking_suite'],
       provides: ['IntegrationTestSuite', 'EndToEndTests', 'ClusterTests'],
-      status: 'planned',
+      status: 'completed',
       build_order: 12,
       priority: 'high',
       estimated_effort: '1-2 weeks',
@@ -1435,7 +1494,7 @@
       description: 'Load testing and stress testing framework.',
       dependencies: ['db', 'db_cluster', 'benchmarking_suite'],
       provides: ['LoadTestRunner', 'StressTester', 'ConcurrencyTester', 'ScalabilityTester'],
-      status: 'planned',
+      status: 'completed',
       build_order: 12,
       priority: 'high',
       estimated_effort: '2-3 weeks',
@@ -2265,6 +2324,43 @@
 
     // LSP server dependencies
     { from: 'kotobanet_core', to: 'kotoba_lsp' },
+
+    // ==========================================
+    // Static Site Generator 依存関係
+    // ==========================================
+
+    // Markdown parser dependencies
+    { from: 'types', to: 'markdown_parser' },
+    { from: 'jsonnet_core', to: 'markdown_parser' },
+
+    // HTML template engine dependencies
+    { from: 'types', to: 'html_template_engine' },
+    { from: 'jsonnet_core', to: 'html_template_engine' },
+    { from: 'markdown_parser', to: 'html_template_engine' },
+
+    // Static site generator dependencies
+    { from: 'types', to: 'static_site_generator' },
+    { from: 'jsonnet_core', to: 'static_site_generator' },
+    { from: 'markdown_parser', to: 'static_site_generator' },
+    { from: 'html_template_engine', to: 'static_site_generator' },
+    { from: 'http_ir', to: 'static_site_generator' },
+
+    // GitHub Pages deployer dependencies
+    { from: 'types', to: 'github_pages_deployer' },
+    { from: 'static_site_generator', to: 'github_pages_deployer' },
+    { from: 'http_ir', to: 'github_pages_deployer' },
+
+    // Documentation builder dependencies
+    { from: 'types', to: 'documentation_builder' },
+    { from: 'static_site_generator', to: 'documentation_builder' },
+    { from: 'docs_core', to: 'documentation_builder' },
+
+    // SSG integration with main library
+    { from: 'markdown_parser', to: 'lib' },
+    { from: 'html_template_engine', to: 'lib' },
+    { from: 'static_site_generator', to: 'lib' },
+    { from: 'github_pages_deployer', to: 'lib' },
+    { from: 'documentation_builder', to: 'lib' },
   ],
 
   // ==========================================
@@ -2429,6 +2525,11 @@
   // ==========================================
 
   reverse_topological_order: [
+    'documentation_builder',
+    'github_pages_deployer',
+    'static_site_generator',
+    'html_template_engine',
+    'markdown_parser',
     'db',
     'db_engine_memory',
     'db_core',
@@ -2463,6 +2564,14 @@
     'example_http_server',
     'example_frontend_app',
     'lib',
+
+    // SSG layer (build_order: 15-19)
+    'markdown_parser',
+    'html_template_engine',
+    'static_site_generator',
+    'github_pages_deployer',
+    'documentation_builder',
+
     'cli_interface',
     'kotoba_lsp',
     'deploy_runtime',
