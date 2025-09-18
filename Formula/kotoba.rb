@@ -2,7 +2,7 @@ class Kotoba < Formula
   desc "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
   homepage "https://github.com/com-junkawasaki/kotoba"
   url "https://github.com/com-junkawasaki/kotoba/archive/refs/tags/v0.1.21.tar.gz"
-  sha256 "e1e23e782f999ab665aa9da48fd8774be61924fe3c6557789f280d79eac4e50c"
+  sha256 "da91ee6c110cbc9a09ec05a27915948532533cf569e7d2d1d96c5b0a5c887ba3"
   license "Apache-2.0"
 
   depends_on "rust" => :build
@@ -13,8 +13,8 @@ class Kotoba < Formula
   end
 
   test do
-    assert_match "Kotoba - Graph processing system inspired by Deno", shell_output("#{bin}/kotoba --help")
-    assert_match "Kotoba 0.1.21", shell_output("#{bin}/kotoba version")
-    assert_match "Kotoba Project Information", shell_output("#{bin}/kotoba info")
+    assert_match "Kotoba - Graph processing system core", shell_output("#{bin}/kotoba --help")
+    assert_match "Kotoba 0.1.21", shell_output("#{bin}/kotoba --version")
+    assert_match "Graph Processing System Core", shell_output("#{bin}/kotoba info")
   end
 end
