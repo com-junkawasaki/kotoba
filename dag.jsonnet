@@ -1328,7 +1328,7 @@
 
     'docker_infrastructure': {
       name: 'docker_infrastructure',
-      path: 'Dockerfile',
+      path: '.devcontainer/Dockerfile',
       type: 'infrastructure',
       description: 'Dockerコンテナ化設定 - アプリケーションのコンテナ化とデプロイ',
       dependencies: [],
@@ -1350,7 +1350,7 @@
 
     'nix_environment': {
       name: 'nix_environment',
-      path: 'flake.nix',
+      path: '.devcontainer/flake.nix',
       type: 'infrastructure',
       description: 'Nix環境設定 - 再現可能な開発環境とビルド',
       dependencies: [],
@@ -1575,7 +1575,7 @@
 
     'compiled_binaries': {
       name: 'compiled_binaries',
-      path: 'simple-static-build',
+      path: 'artifacts/simple-static-build',
       type: 'runtime_asset',
       description: 'コンパイル済みバイナリ - 事前ビルドされた実行ファイル',
       dependencies: ['rust_project_config'],
@@ -1642,13 +1642,24 @@
 
     'release_artifacts': {
       name: 'release_artifacts',
-      path: 'kotoba-*.tar.gz',
+      path: 'artifacts/',
       type: 'release',
       description: 'リリースアーティファクト - 配布用パッケージファイル',
       dependencies: ['rust_project_config'],
       provides: ['DistributionPackages', 'InstallationArchives', 'ReleaseBundles'],
       status: 'completed',
       build_order: 25,
+    },
+
+    'arxiv_submission': {
+      name: 'arxiv_submission',
+      path: 'artifacts/kotoba-arxiv-submission.tar.gz',
+      type: 'research',
+      description: 'arXiv論文提出アーカイブ - 研究論文配布用パッケージ',
+      dependencies: ['research_documentation'],
+      provides: ['ResearchPublication', 'AcademicArchive', 'PaperDistribution'],
+      status: 'completed',
+      build_order: 30,
     },
 
     // ==========================================
@@ -1739,7 +1750,7 @@
 
     'nix_environment_config': {
       name: 'nix_environment_config',
-      path: 'flake.nix',
+      path: '.devcontainer/flake.nix',
       type: 'infrastructure',
       description: 'Nix環境設定ファイル - 開発環境とビルド環境の管理',
       dependencies: [],
@@ -1750,11 +1761,22 @@
 
     'nix_lock_file': {
       name: 'nix_lock_file',
-      path: 'flake.lock',
+      path: '.devcontainer/flake.lock',
       type: 'infrastructure',
       description: 'Nixロックファイル - 依存関係の正確なバージョン固定',
       dependencies: ['nix_environment_config'],
       provides: ['DependencyLocking', 'ReproducibleBuilds', 'VersionStability'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'shell_nix_fallback': {
+      name: 'shell_nix_fallback',
+      path: '.devcontainer/shell.nix',
+      type: 'infrastructure',
+      description: 'Shell.nixフォールバック - flakeをサポートしないシステム用の開発環境',
+      dependencies: [],
+      provides: ['FallbackDevEnvironment', 'LegacyNixSupport'],
       status: 'completed',
       build_order: 1,
     },
@@ -2966,6 +2988,7 @@
 
     // Release management integration
     { from: 'release_artifacts', to: 'lib' },
+    { from: 'arxiv_submission', to: 'lib' },
 
     // External integrations
     { from: 'google_integration', to: 'lib' },
@@ -2984,6 +3007,7 @@
     // Nix environment integration
     { from: 'nix_environment_config', to: 'lib' },
     { from: 'nix_lock_file', to: 'lib' },
+    { from: 'shell_nix_fallback', to: 'lib' },
   ],
 
   // ==========================================
@@ -3168,6 +3192,7 @@
     'google_integration',
 
     // Nix environment layer (reverse order)
+    'shell_nix_fallback',
     'nix_lock_file',
     'nix_environment_config',
 
@@ -3183,6 +3208,7 @@
     'capabilities_documentation',
 
     // Release management layer (reverse order)
+    'arxiv_submission',
     'release_artifacts',
 
     // Quality assurance layer (reverse order)
@@ -3318,6 +3344,7 @@
 
     // Release management layer
     'release_artifacts',
+    'arxiv_submission',
 
     // External integrations layer
     'google_integration',
@@ -3336,6 +3363,7 @@
     // Nix environment layer
     'nix_environment_config',
     'nix_lock_file',
+    'shell_nix_fallback',
 
     'cli_interface',
     'kotoba_lsp',
