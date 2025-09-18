@@ -73,7 +73,7 @@ pub mod workloads {
     #[async_trait]
     impl LoadGenerator for YcsbWorkloadA {
         async fn generate_operation(&mut self, _worker_id: usize, _operation_count: u64) -> Operation {
-            let mut rng = self.rng.lock().await;
+            let mut rng = self.rng.lock().unwrap();
             let key = format!("user{:010}", rng.gen_range(0..self.key_range));
             let value = format!("value_{:020}", rng.gen::<u64>()).into_bytes();
 
@@ -119,7 +119,7 @@ pub mod workloads {
     #[async_trait]
     impl LoadGenerator for SocialNetworkWorkload {
         async fn generate_operation(&mut self, _worker_id: usize, _operation_count: u64) -> Operation {
-            let mut rng = self.rng.lock().await;
+            let mut rng = self.rng.lock().unwrap();
 
             let operation_type = rng.gen_range(0..100);
 
@@ -198,7 +198,7 @@ pub mod workloads {
     #[async_trait]
     impl LoadGenerator for EcommerceWorkload {
         async fn generate_operation(&mut self, _worker_id: usize, _operation_count: u64) -> Operation {
-            let mut rng = self.rng.lock().await;
+            let mut rng = self.rng.lock().unwrap();
 
             let operation_type = rng.gen_range(0..100);
 

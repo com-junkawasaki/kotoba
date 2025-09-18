@@ -5352,6 +5352,7 @@ dependencies = [
  "kotoba-db-core",
  "kotoba-db-engine-lsm",
  "kotoba-db-engine-memory",
+ "kotoba-storage",
  "tokio",
 ]
 
@@ -5732,7 +5733,6 @@ dependencies = [
  "anyhow",
  "js-sys",
  "kotoba-core",
- "kotoba-db",
  "kotoba-errors",
  "parking_lot",
  "serde",
@@ -6208,7 +6208,7 @@ dependencies = [
  "hex",
  "kotoba-cid",
  "kotoba-core",
- "kotoba-db",
+ "kotoba-db-core",
  "kotoba-errors",
  "kotoba-graph",
  "parking_lot",

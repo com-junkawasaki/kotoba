@@ -28,13 +28,12 @@ tokio = { version = "1.0", features = ["sync", "rt"] }
 kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
 kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
-kotoba-db = { path = "../kotoba-db", version = "0.1.0", optional = true }
 kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }
+kotoba-db-core = { path = "../kotoba-db-core" }
 
 [features]
 default = []
 rocksdb = ["dep:rocksdb"]
-kotoba_db = ["dep:kotoba-db"]
 object_storage = []
 
 [dev-dependencies]

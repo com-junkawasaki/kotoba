@@ -16,6 +16,7 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 kotoba-db-core = { path = "../kotoba-db-core", version = "0.1.16" }
 kotoba-db-engine-memory = { path = "../kotoba-db-engine-memory", version = "0.1.16" }
 kotoba-db-engine-lsm = { path = "../kotoba-db-engine-lsm", version = "0.1.16", optional = true }
+kotoba-storage = { path = "../kotoba-storage" }
 
 [features]
 default = []

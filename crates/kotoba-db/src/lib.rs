@@ -1,10 +1,6 @@
-use kotoba_db_engine_memory::MemoryStorageEngine;
-#[cfg(feature = "lsm")]
-use kotoba_db_engine_lsm::LSMStorageEngine;
-use kotoba_db_core::engine::StorageEngine;
+use kotoba_storage::prelude::{StoragePort, PersistentStorage, PersistentStorageConfig};
 use kotoba_db_core::types::{Block, Cid, NodeBlock, EdgeBlock, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
 use std::sync::Arc;
 use anyhow::Result;
 use tokio::sync::RwLock;
@@ -12,7 +8,7 @@ use tokio::sync::RwLock;
 /// The main database handle for KotobaDB.
 /// This provides the user-facing API for database operations.
 pub struct DB {
-    engine: Box<dyn StorageEngine>,
+    pub storage: Arc<dyn StoragePort>,
     /// Active transactions
     transactions: Arc<RwLock<HashMap<u64, Transaction>>>,
     /// Transaction ID counter
@@ -48,26 +44,11 @@ pub enum Operation {
 }
 
 impl DB {
-    /// Opens a new database instance using an in-memory storage engine.
-    /// This is useful for testing, prototyping, or temporary data.
-    pub fn open_memory() -> Result<Self> {
+    /// Opens a new database instance using a persistent storage engine.
+    pub async fn open(config: PersistentStorageConfig) -> Result<Self> {
+        let storage = PersistentStorage::new(config)?;
         Ok(Self {
-            engine: Box::new(MemoryStorageEngine::new()),
-            transactions: Arc::new(RwLock::new(HashMap::new())),
-            next_txn_id: Arc::new(RwLock::new(1)),
-        })
-    }
-
-    /// Opens a new database instance using an LSM-Tree based storage engine.
-    /// This provides durable, high-performance persistent storage.
-    ///
-    /// # Arguments
-    /// * `path` - Directory path where database files will be stored
-    #[cfg(feature = "lsm")]
-    pub async fn open_lsm<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let engine = LSMStorageEngine::new(path).await?;
-        Ok(Self {
-            engine: Box::new(engine),
+            storage: Arc::new(storage),
             transactions: Arc::new(RwLock::new(HashMap::new())),
             next_txn_id: Arc::new(RwLock::new(1)),
         })
@@ -202,7 +183,11 @@ impl DB {
             edges: Vec::new(), // Start with no edges
         };
         let block = Block::Node(node_block);
-        self.engine.put_block(&block).await
+        // This will require a method on StoragePort to store arbitrary blocks
+        // For now, let's assume `store_graph` can be adapted or a new method is added.
+        // This part needs further implementation on the storage port/adapter side.
+        // For example: self.storage.put_block(&block).await
+        unimplemented!("StoragePort does not have put_block method yet")
     }
 
     /// Creates a new edge in the database.
@@ -229,12 +214,14 @@ impl DB {
             properties,
         };
         let block = Block::Edge(edge_block);
-        self.engine.put_block(&block).await
+        // self.storage.put_block(&block).await
+        unimplemented!("StoragePort does not have put_block method yet")
     }
 
     /// Retrieves a block by its CID.
     pub async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
-        self.engine.get_block(cid).await
+        // self.storage.get_block(cid).await
+        unimplemented!("StoragePort does not have get_block method yet")
     }
 
     /// Retrieves a node by its CID.
@@ -263,7 +250,7 @@ impl DB {
         // In a real implementation, this would use indexes for efficient filtering
 
         // Get all node CIDs by scanning (this is inefficient but works for basic functionality)
-        let all_keys = self.engine.scan(b"").await?; // Get all keys
+        let all_keys = self.storage.scan(b"").await?; // Get all keys
 
         for (key_bytes, _) in all_keys {
             if let Ok(cid) = <[u8; 32]>::try_from(&key_bytes[..]) {
@@ -300,7 +287,7 @@ impl DB {
         let mut results = Vec::new();
 
         // Get all keys and filter edges
-        let all_keys = self.engine.scan(b"").await?;
+        let all_keys = self.storage.scan(b"").await?;
 
         for (key_bytes, _) in all_keys {
             if let Ok(cid) = <[u8; 32]>::try_from(&key_bytes[..]) {
@@ -438,7 +425,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_basic_operations() {
-        let mut db = DB::open_memory().unwrap();
+        let mut db = DB::open(PersistentStorageConfig::default()).await.unwrap();
 
         // Create a node
         let mut properties = BTreeMap::new();
@@ -479,7 +466,7 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
 
         // Test that LSM engine can be created
-        let db = DB::open_lsm(&temp_dir).await;
+        let db = DB::open(PersistentStorageConfig::lsm(&temp_dir)).await;
         assert!(db.is_ok(), "LSM engine should be created successfully");
 
         // Clean up
@@ -502,7 +489,7 @@ mod tests {
             use kotoba_db_engine_lsm::LSMStorageEngine;
             let engine = LSMStorageEngine::with_config(&temp_dir, compaction_config).await.unwrap();
             DB {
-                engine: Box::new(engine),
+                storage: Arc::new(engine),
                 transactions: Arc::new(RwLock::new(HashMap::new())),
                 next_txn_id: Arc::new(RwLock::new(1)),
             }
@@ -549,7 +536,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_transaction_operations() {
-        let mut db = DB::open_memory().unwrap();
+        let mut db = DB::open(PersistentStorageConfig::default()).await.unwrap();
 
         // Begin transaction
         let txn_id = db.begin_transaction().await.unwrap();
@@ -575,7 +562,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_operations() {
-        let mut db = DB::open_memory().unwrap();
+        let mut db = DB::open(PersistentStorageConfig::default()).await.unwrap();
 
         // Create some test data
         let mut alice_props = BTreeMap::new();

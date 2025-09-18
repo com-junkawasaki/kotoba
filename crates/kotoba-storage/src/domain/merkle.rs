@@ -124,43 +124,58 @@ impl MerkleDAG {
             return ContentHash("empty".to_string());
         }
 
-        // 葉ノードを集める（子を持たないノード）
-        let mut leaves: Vec<_> = self.nodes.values()
+        // Collect leaf nodes (nodes with no children)
+        let mut leaves: Vec<&MerkleNode> = self.nodes.values()
             .filter(|node| node.children.is_empty())
             .collect();
 
-        // 葉ノードをソートして一貫性を確保
+        // Sort leaves for consistent hash calculation
         leaves.sort_by_key(|node| &node.hash);
 
-        // Merkleツリーを構築
-        while leaves.len() > 1 {
-            let mut new_level = Vec::new();
+        if leaves.is_empty() {
+            // This can happen if all nodes are interconnected and there are no leaves
+            // As a fallback, use all nodes as the base.
+            leaves = self.nodes.values().collect();
+            leaves.sort_by_key(|node| &node.hash);
+        }
 
+        // Build the tree level by level until one root is left
+        while leaves.len() > 1 {
+            let mut new_nodes_for_level = Vec::new();
             for chunk in leaves.chunks(2) {
                 let mut hasher = sha2::Sha256::new();
                 hasher.update(chunk[0].hash.0.as_bytes());
-                if chunk.len() > 1 {
+
+                let children = if chunk.len() > 1 {
                     hasher.update(chunk[1].hash.0.as_bytes());
-                }
+                    vec![chunk[0].hash.clone(), chunk[1].hash.clone()]
+                } else {
+                    // If there's an odd number of nodes, hash the last one with itself
+                    hasher.update(chunk[0].hash.0.as_bytes());
+                    vec![chunk[0].hash.clone(), chunk[0].hash.clone()]
+                };
 
                 let combined_hash = ContentHash(format!("{:x}", hasher.finalize()));
-                new_level.push(combined_hash);
-            }
-
-            // 新しいレベルのノードをDAGに追加
-            let mut new_leaves = Vec::new();
-            for hash in new_level {
-                let node = MerkleNode {
-                    hash: hash.clone(),
+                
+                let new_node = MerkleNode {
+                    hash: combined_hash,
                     data: Vec::new(),
-                    children: Vec::new(),
+                    children,
                     timestamp: 0,
                 };
-                self.nodes.insert(hash.clone(), node);
-                new_leaves.push(self.nodes.get(&hash).unwrap().clone());
+                new_nodes_for_level.push(new_node);
             }
-            let temp_vec: Vec<MerkleNode> = new_leaves.into_iter().collect();
-            leaves = temp_vec.iter().collect();
+
+            // Get keys before inserting to avoid borrow checker issues
+            let new_hashes: Vec<ContentHash> = new_nodes_for_level.iter().map(|n| n.hash.clone()).collect();
+
+            // Add the new level of nodes to the main nodes map
+            for node in new_nodes_for_level {
+                self.nodes.insert(node.hash.clone(), node);
+            }
+
+            // The next level of leaves are the nodes we just created
+            leaves = new_hashes.iter().map(|hash| self.nodes.get(hash).unwrap()).collect();
         }
 
         leaves[0].hash.clone()

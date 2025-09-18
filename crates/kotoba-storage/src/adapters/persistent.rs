@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use parking_lot::RwLock;
+use tokio::sync::RwLock;
 use kotoba_core::prelude::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
@@ -18,6 +18,44 @@ use crate::domain::mvcc::MVCCManager;
 use std::collections::HashMap;
 use crate::domain::models::{StorageStats, CidRange, StorageConfig};
 use crate::domain::kv::KeyValuePort;
+use crate::port::StoragePort;
+use async_trait::async_trait;
+use kotoba_db_core::types::Block;
+
+#[async_trait]
+impl StoragePort for PersistentStorage {
+    async fn store_graph(&self, graph: &Graph) -> Result<Cid> {
+        PersistentStorage::store_graph(self, graph).await
+    }
+
+    async fn load_graph(&self, cid: &Cid) -> Result<Graph> {
+        PersistentStorage::load_graph(self, cid).await
+    }
+
+    async fn get_stats(&self) -> Result<StorageStats> {
+        PersistentStorage::get_stats(self).await
+    }
+
+    fn merkle_dag(&self) -> Arc<RwLock<MerkleDAG>> {
+        self.merkle_dag.clone()
+    }
+
+    fn mvcc_manager(&self) -> Arc<RwLock<MVCCManager>> {
+        self.mvcc_manager.clone()
+    }
+    
+    async fn put_block(&self, _block: &Block) -> Result<Cid> {
+        unimplemented!()
+    }
+
+    async fn get_block(&self, _cid: &Cid) -> Result<Option<Block>> {
+        unimplemented!()
+    }
+
+    async fn scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        unimplemented!()
+    }
+}
 
 /// 永続ストレージ設定
 #[derive(Debug, Clone)]
@@ -112,8 +150,8 @@ impl PersistentStorage {
 
     /// グラフを永続化
     pub async fn store_graph(&self, graph: &Graph) -> Result<Cid> {
-        let mut cid_manager = self.cid_manager.write();
-        let mut merkle_dag = self.merkle_dag.write();
+        let mut cid_manager = self.cid_manager.write().await;
+        let mut merkle_dag = self.merkle_dag.write().await;
 
         // グラフのCIDを計算（簡易版）
         let graph_data = serde_json::to_string(graph)?;
@@ -220,14 +258,14 @@ impl PersistentStorage {
 
     /// データを格納（CIDアドレス指定）
     pub async fn store_data(&self, key: &str, data: &[u8]) -> Result<()> {
-        let mut lsm_tree = self.lsm_tree.write();
+        let mut lsm_tree = self.lsm_tree.write().await;
         lsm_tree.put(key.to_string(), data.to_vec()).await?;
         Ok(())
     }
 
     /// データを読み込み（CIDアドレス指定）
     pub async fn load_data(&self, key: &str) -> Result<StorageResult<Vec<u8>>> {
-        let lsm_tree = self.lsm_tree.read();
+        let lsm_tree = self.lsm_tree.read().await;
 
         match lsm_tree.get(key).await? {
             Some(data) => Ok(StorageResult::Success(data)),
@@ -237,14 +275,14 @@ impl PersistentStorage {
 
     /// データを削除
     pub async fn delete_data(&self, key: &str) -> Result<()> {
-        let mut lsm_tree = self.lsm_tree.write();
+        let mut lsm_tree = self.lsm_tree.write().await;
         lsm_tree.delete(key.to_string()).await?;
         Ok(())
     }
 
     /// Merkleルートを取得
     pub fn get_merkle_root(&self) -> ContentHash {
-        let merkle_dag = self.merkle_dag.read();
+        let merkle_dag = self.merkle_dag.blocking_read();
         // 簡易版：全ノードのハッシュをまとめて計算
         let mut hasher = sha2::Sha256::new();
         let mut sorted_hashes: Vec<_> = merkle_dag.nodes().keys().collect();
@@ -259,7 +297,7 @@ impl PersistentStorage {
 
     /// データ整合性を検証
     pub fn verify_integrity(&self) -> Result<bool> {
-        let merkle_dag = self.merkle_dag.read();
+        let merkle_dag = self.merkle_dag.blocking_read();
 
         // Merkle DAGの整合性を検証
         for node in merkle_dag.nodes().values() {
@@ -288,11 +326,11 @@ impl PersistentStorage {
         let snapshot_id = format!("snapshot_{}", timestamp);
 
         // LSMツリーのスナップショット
-        let lsm_tree = self.lsm_tree.read();
+        let lsm_tree = self.lsm_tree.blocking_read();
         lsm_tree.create_snapshot(&snapshot_id)?;
 
         // Merkle DAGのスナップショット
-        let merkle_dag = self.merkle_dag.read();
+        let merkle_dag = self.merkle_dag.blocking_read();
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
         let merkle_data = serde_json::to_vec(merkle_dag.nodes())?;
         std::fs::write(merkle_snapshot_path, merkle_data)?;
@@ -301,9 +339,9 @@ impl PersistentStorage {
     }
 
     /// スナップショットから復元
-    pub fn restore_from_snapshot(&self, snapshot_id: &str) -> Result<()> {
+    pub async fn restore_from_snapshot(&self, snapshot_id: &str) -> Result<()> {
         // LSMツリーの復元
-        let mut lsm_tree = self.lsm_tree.write();
+        let mut lsm_tree = self.lsm_tree.blocking_write();
         lsm_tree.restore_from_snapshot(snapshot_id)?;
 
         // Merkle DAGの復元
@@ -311,7 +349,7 @@ impl PersistentStorage {
         if merkle_snapshot_path.exists() {
             let merkle_data = std::fs::read(merkle_snapshot_path)?;
             let nodes: HashMap<ContentHash, crate::domain::merkle::MerkleNode> = serde_json::from_slice(&merkle_data)?;
-            let mut merkle_dag = self.merkle_dag.write();
+            let mut merkle_dag = self.merkle_dag.blocking_write();
             merkle_dag.set_nodes(nodes);
         }
 
@@ -319,35 +357,35 @@ impl PersistentStorage {
     }
 
     /// 圧縮を実行
-    pub fn compact(&self) -> Result<()> {
-        let mut lsm_tree = self.lsm_tree.write();
+    pub async fn compact(&self) -> Result<()> {
+        let mut lsm_tree = self.lsm_tree.blocking_write();
         lsm_tree.compact()?;
         Ok(())
     }
 
     /// 統計情報を取得
-    pub fn get_stats(&self) -> StorageStats {
-        let lsm_tree = self.lsm_tree.read();
-        let merkle_dag = self.merkle_dag.read();
-        let mvcc_manager = self.mvcc_manager.read();
+    pub async fn get_stats(&self) -> Result<StorageStats> {
+        let lsm_tree = self.lsm_tree.read().await;
+        let merkle_dag = self.merkle_dag.read().await;
+        let mvcc_manager = self.mvcc_manager.read().await;
 
-        StorageStats {
+        Ok(StorageStats {
             lsm_entries: lsm_tree.stats().total_keys.unwrap_or(0) as usize,
             merkle_nodes: merkle_dag.len(),
             active_transactions: mvcc_manager.active_transactions().len(),
             data_size: lsm_tree.stats().disk_usage.unwrap_or(0),
-        }
+        })
     }
 
     /// クリーンアップ（古いデータを削除）
-    pub fn cleanup(&self, max_age_days: u64) -> Result<()> {
+    pub async fn cleanup(&self, max_age_days: u64) -> Result<()> {
         let cutoff_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs()
             .saturating_sub(max_age_days * 24 * 3600);
 
-        let mut lsm_tree = self.lsm_tree.write();
+        let mut lsm_tree = self.lsm_tree.blocking_write();
         lsm_tree.cleanup(cutoff_time)?;
 
         Ok(())
@@ -806,7 +844,7 @@ mod tests {
         let config = create_test_config();
         let storage = PersistentStorage::new(config).unwrap();
 
-        let stats = storage.get_stats();
+        let stats = storage.get_stats().await.unwrap();
         assert_eq!(stats.lsm_entries, 0);
         assert_eq!(stats.merkle_nodes, 0);
         assert_eq!(stats.active_transactions, 0);

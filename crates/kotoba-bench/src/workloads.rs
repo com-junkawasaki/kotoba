@@ -98,16 +98,17 @@ impl Benchmark for CrudBenchmark {
     async fn setup(&mut self, _config: &BenchmarkConfig) -> Result<(), Box<dyn std::error::Error>> {
         // Pre-populate some initial data
         for i in 0..std::cmp::min(self.record_count, 1000) {
-            let node = NodeBlock {
-                labels: vec!["CrudRecord".to_string()],
-                properties: HashMap::from([
+            let mut properties = HashMap::from([
                     ("record_id".to_string(), Value::Int(i as i64)),
                     ("data".to_string(), Value::String(format!("initial_data_{}", i))),
                     ("created_at".to_string(), Value::String(chrono::Utc::now().to_rfc3339())),
-                ]),
-            };
-
-            self.db.put_block(&Block::Node(node)).await?;
+                ]);
+                properties.insert("labels".to_string(), Value::String("CrudRecord".to_string()));
+                let node = NodeBlock {
+                    properties,
+                    edges: vec![],
+                };
+                self.db.storage.put_block(&Block::Node(node)).await?;
         }
 
         Ok(())
@@ -132,44 +133,50 @@ impl BenchmarkExt for CrudBenchmark {
 
         match operation {
             Operation::Insert { key, value } => {
+                let mut properties = HashMap::from([
+                    ("key".to_string(), Value::String(String::from_utf8_lossy(&key).to_string())),
+                    ("value".to_string(), Value::String(String::from_utf8_lossy(&value).to_string())),
+                ]);
+                properties.insert("labels".to_string(), Value::String("CrudRecord".to_string()));
                 let node = NodeBlock {
-                    labels: vec!["CrudRecord".to_string()],
-                    properties: HashMap::from([
-                        ("key".to_string(), Value::String(String::from_utf8_lossy(&key).to_string())),
-                        ("value".to_string(), Value::String(String::from_utf8_lossy(&value).to_string())),
-                    ]),
+                    properties,
+                    edges: vec![],
                 };
-                self.db.put_block(&Block::Node(node)).await?;
+                self.db.storage.put_block(&Block::Node(node)).await?;
             }
             Operation::Read { key } => {
                 // Try to find a node with this key pattern
-                let nodes = self.db.find_nodes_by_label("CrudRecord").await?;
+                let nodes = self.db.find_nodes(&[("labels".to_string(), Value::String("CrudRecord".to_string()))]).await?;
                 if let Some(node_cid) = nodes.first() {
                     let _ = self.db.get_block(node_cid).await?;
                 }
             }
             Operation::Update { key, value } => {
                 // Simplified update - create new version
+                let mut properties = HashMap::from([
+                    ("key".to_string(), Value::String(String::from_utf8_lossy(&key).to_string())),
+                    ("value".to_string(), Value::String(String::from_utf8_lossy(&value).to_string())),
+                    ("updated".to_string(), Value::Bool(true)),
+                ]);
+                properties.insert("labels".to_string(), Value::String("CrudRecord".to_string()));
                 let node = NodeBlock {
-                    labels: vec!["CrudRecord".to_string()],
-                    properties: HashMap::from([
-                        ("key".to_string(), Value::String(String::from_utf8_lossy(&key).to_string())),
-                        ("value".to_string(), Value::String(String::from_utf8_lossy(&value).to_string())),
-                        ("updated".to_string(), Value::Bool(true)),
-                    ]),
+                    properties,
+                    edges: vec![],
                 };
-                self.db.put_block(&Block::Node(node)).await?;
+                self.db.storage.put_block(&Block::Node(node)).await?;
             }
             Operation::Delete { key } => {
                 // Simplified delete - just mark as deleted
+                let mut properties = HashMap::from([
+                    ("key".to_string(), Value::String(String::from_utf8_lossy(&key).to_string())),
+                    ("deleted".to_string(), Value::Bool(true)),
+                ]);
+                properties.insert("labels".to_string(), Value::String("CrudRecord".to_string()));
                 let node = NodeBlock {
-                    labels: vec!["CrudRecord".to_string()],
-                    properties: HashMap::from([
-                        ("key".to_string(), Value::String(String::from_utf8_lossy(&key).to_string())),
-                        ("deleted".to_string(), Value::Bool(true)),
-                    ]),
+                    properties,
+                    edges: vec![],
                 };
-                self.db.put_block(&Block::Node(node)).await?;
+                self.db.storage.put_block(&Block::Node(node)).await?;
             }
             _ => {}
         }
@@ -377,9 +384,9 @@ impl BenchmarkExt for TransactionBenchmark {
 
         // Randomly commit or rollback
         if rng.gen_bool(0.9) { // 90% success rate
-            tx.commit().await?;
+            self.db.commit_transaction(tx).await?;
         } else {
-            tx.rollback().await?;
+            self.db.rollback_transaction(tx).await?;
         }
 
         Ok(())

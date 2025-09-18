@@ -4,8 +4,10 @@ use crate::domain::merkle::MerkleDAG;
 use crate::domain::mvcc::MVCCManager;
 use kotoba_core::prelude::{Result, Cid};
 use kotoba_graph::prelude::Graph;
+use kotoba_db_core::types::Block;
 use std::sync::Arc;
 use async_trait::async_trait;
+use tokio::sync::RwLock;
 
 #[async_trait]
 pub trait StoragePort: Send + Sync {
@@ -16,11 +18,15 @@ pub trait StoragePort: Send + Sync {
     async fn load_graph(&self, cid: &Cid) -> Result<Graph>;
 
     /// Retrieves storage statistics.
-    fn get_stats(&self) -> StorageStats;
+    async fn get_stats(&self) -> Result<StorageStats>;
 
     /// Returns a reference to the Merkle DAG.
-    fn merkle_dag(&self) -> Arc<MerkleDAG>;
+    fn merkle_dag(&self) -> Arc<RwLock<MerkleDAG>>;
 
     /// Returns a reference to the MVCC manager.
-    fn mvcc_manager(&self) -> Arc<MVCCManager>;
+    fn mvcc_manager(&self) -> Arc<RwLock<MVCCManager>>;
+
+    async fn put_block(&self, block: &Block) -> Result<Cid>;
+    async fn get_block(&self, cid: &Cid) -> Result<Option<Block>>;
+    async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
 }
