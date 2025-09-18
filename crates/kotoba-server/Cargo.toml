@@ -32,7 +32,7 @@ clap = { version = "4.0", features = ["derive"] }
 # Kotoba crates
 kotoba-core = { path = "../kotoba-core" }
 kotoba-routing = { path = "../kotoba-routing" }
-kotoba-errors = { path = "../kotoba-errors" }
+kotoba-errors = "0.1.2"
 kotoba-workflow = { path = "../kotoba-workflow" }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
