@@ -7,10 +7,45 @@ This directory contains JSON Schema definitions and data validation specificatio
 ```
 schemas/
 ├── process-network-schema.json   # Process network DAG validation schema
+├── kotoba.schema.json           # Kotoba project JSON Schema definition
 └── README.md                     # This documentation
 ```
 
 ## Files
+
+### `kotoba.schema.json`
+**Purpose**: Complete JSON Schema definition for the Kotoba project structure
+
+**Schema Overview**:
+- **Title**: "Process Network as GTS(DPO)+OpenGraph with Merkle DAG & PG view"
+- **Model**: GTS-DPO-OpenGraph-Merkle DAG architecture
+- **Components**: Type graphs, instance graphs, rules, strategies, queries
+- **Features**: CID-based content addressing, multicodec/multihash support
+
+**Key Components**:
+```json
+{
+  "typeGraph": { "$ref": "#/$defs/GraphType" },
+  "graphs": {
+    "type": "array",
+    "items": { "$ref": "#/$defs/GraphInstance" }
+  },
+  "components": {
+    "type": "array",
+    "items": { "$ref": "#/$defs/Component" }
+  },
+  "rules": {
+    "type": "array",
+    "items": { "$ref": "#/$defs/RuleDPO" }
+  }
+}
+```
+
+**Integration**:
+- **Node**: `project_schema`
+- **Dependencies**: `data_schemas`
+- **Provides**: Project schema validation, type definitions
+- **Build Order**: 2
 
 ### `process-network-schema.json`
 **Purpose**: JSON Schema for validating dag.jsonnet structure

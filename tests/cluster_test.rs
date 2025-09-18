@@ -8,42 +8,18 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use kotoba_core::types::*;
-use kotoba_storage::storage::mvcc::{MVCCManager, Transaction};
-use kotoba_storage::storage::merkle::MerkleNode;
-
-/// 簡易ストレージ（インメモリ）
-#[derive(Debug)]
-struct SimpleStorage {
-    data: RwLock<HashMap<String, Vec<u8>>>,
-}
-
-impl SimpleStorage {
-    fn new() -> Self {
-        Self {
-            data: RwLock::new(HashMap::new()),
-        }
-    }
-
-    async fn store(&self, key: &str, value: &[u8]) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let mut data = self.data.write().await;
-        data.insert(key.to_string(), value.to_vec());
-        Ok(())
-    }
-
-    async fn load(&self, key: &str) -> std::result::Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
-        let data = self.data.read().await;
-        Ok(data.get(key).cloned())
-    }
-}
+use kotoba_storage::storage::mvcc::MVCCManager;
+use kotoba_storage::storage::merkle::MerkleTree;
+use kotoba_storage::prelude::*;
 
 /// クラスタノード情報
 #[derive(Debug, Clone)]
 struct ClusterNode {
     id: String,
     address: String,
-    storage: Arc<SimpleStorage>,
+    storage: Arc<PersistentStorage>,
     mvcc: Arc<MVCCManager>,
-    merkle_hashes: Arc<RwLock<HashMap<String, String>>>, // 簡易Merkleハッシュ
+    merkle: Arc<RwLock<MerkleTree>>,
 }
 
 /// 分散ストレージマネージャー
@@ -63,16 +39,16 @@ impl DistributedStorageTest {
     }
 
     /// ノードを追加
-    async fn add_node(&mut self, node_id: &str, storage: Arc<SimpleStorage>) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    async fn add_node(&mut self, node_id: &str, storage: Arc<PersistentStorage>) -> Result<(), Box<dyn std::error::Error>> {
         let mvcc = Arc::new(MVCCManager::new());
-        let merkle_hashes = Arc::new(RwLock::new(HashMap::new()));
+        let merkle = Arc::new(RwLock::new(MerkleTree::new()));
 
         let node = ClusterNode {
             id: node_id.to_string(),
             address: format!("127.0.0.1:808{}", self.nodes.len()),
             storage: storage.clone(),
             mvcc: mvcc.clone(),
-            merkle_hashes: merkle_hashes.clone(),
+            merkle: merkle.clone(),
         };
 
         self.nodes.insert(node_id.to_string(), node);
@@ -81,24 +57,18 @@ impl DistributedStorageTest {
     }
 
     /// データを全ノードに書き込み
-    async fn write_data_distributed(&self, key: &str, value: &[u8]) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    async fn write_data_distributed(&self, key: &str, value: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
         println!("📝 Writing data to all nodes: key={}, value_len={}", key, value.len());
 
         for (node_id, node) in &self.nodes {
             // MVCCトランザクションで書き込み
-            let tx_id = node.mvcc.begin_tx();
-            let storage_key = format!("test:{}", key);
-            node.storage.store(&storage_key, value).await?;
-            node.mvcc.commit_tx(&tx_id)?;
+            let mut tx = node.mvcc.begin_transaction()?;
+            tx.put(&format!("test:{}", key).as_bytes(), value)?;
+            node.mvcc.commit_transaction(tx)?;
 
-            // Merkleハッシュを計算して保存
-            use sha2::{Sha256, Digest};
-            let mut hasher = Sha256::new();
-            hasher.update(value);
-            let hash = format!("{:x}", hasher.finalize());
-
-            let mut merkle_hashes = node.merkle_hashes.write().await;
-            merkle_hashes.insert(key.to_string(), hash);
+            // Merkleツリーに追加
+            let mut merkle = node.merkle.write().await;
+            merkle.add_node(value);
 
             println!("  ✓ Node {}: committed transaction", node_id);
         }
@@ -107,18 +77,18 @@ impl DistributedStorageTest {
     }
 
     /// 整合性チェックを実行
-    async fn check_consistency(&self, key: &str) -> std::result::Result<bool, Box<dyn std::error::Error>> {
+    async fn check_consistency(&self, key: &str) -> Result<bool, Box<dyn std::error::Error>> {
         println!("🔍 Checking consistency for key: {}", key);
 
         let mut references = Vec::new();
 
         for (node_id, node) in &self.nodes {
-            let data = node.storage.load(&format!("test:{}", key)).await?;
+            let data = node.storage.load_data(&format!("test:{}", key))?;
             match data {
-                Some(bytes) => {
+                StorageResult::Success(bytes) => {
                     references.push((node_id.clone(), bytes));
                 }
-                None => {
+                _ => {
                     println!("  ⚠️  Node {}: data not found", node_id);
                     return Ok(false);
                 }
@@ -138,56 +108,49 @@ impl DistributedStorageTest {
         Ok(true)
     }
 
-    /// Merkleハッシュの一貫性をチェック
-    async fn check_merkle_consistency(&self) -> std::result::Result<bool, Box<dyn std::error::Error>> {
-        println!("🌳 Checking Merkle hash consistency");
+    /// Merkleルートの一貫性をチェック
+    async fn check_merkle_consistency(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        println!("🌳 Checking Merkle tree consistency");
 
-        let mut all_hashes = Vec::new();
+        let mut roots = Vec::new();
 
         for (node_id, node) in &self.nodes {
-            let merkle_hashes = node.merkle_hashes.read().await;
-            let mut node_hashes: Vec<(String, String)> = merkle_hashes.iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            node_hashes.sort_by_key(|(k, _)| k.clone());
-            all_hashes.push((node_id.clone(), node_hashes));
-            println!("  📋 Node {}: {} hashes", node_id, merkle_hashes.len());
+            let merkle = node.merkle.read().await;
+            let root = merkle.root_hash();
+            roots.push((node_id.clone(), root));
+            println!("  📋 Node {}: Merkle root = {}", node_id, root);
         }
 
-        // 全ノードのハッシュを比較
-        if all_hashes.is_empty() {
-            return Ok(true);
-        }
-
-        let first_hashes = &all_hashes[0].1;
-        for (node_id, hashes) in &all_hashes[1..] {
-            if hashes != first_hashes {
-                println!("  ❌ Node {}: hash mismatch", node_id);
+        // 全ノードのMerkleルートを比較
+        let first_root = &roots[0].1;
+        for (node_id, root) in &roots[1..] {
+            if root != first_root {
+                println!("  ❌ Node {}: Merkle root mismatch", node_id);
                 return Ok(false);
             }
         }
 
-        println!("  ✅ All nodes have consistent Merkle hashes");
+        println!("  ✅ All nodes have consistent Merkle roots");
         Ok(true)
     }
 
     /// クラスタ統計を表示
-    async fn show_statistics(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    async fn show_statistics(&self) -> Result<(), Box<dyn std::error::Error>> {
         println!("📊 Cluster Statistics:");
         println!("  Nodes: {}", self.nodes.len());
         println!("  Replication Factor: {}", self.replication_factor);
 
         for (node_id, node) in &self.nodes {
-            let merkle_hashes = node.merkle_hashes.read().await;
-            println!("  Node {}: {} Merkle hashes", node_id, merkle_hashes.len());
+            let merkle = node.merkle.read().await;
+            println!("  Node {}: {} Merkle nodes", node_id, merkle.node_count());
         }
 
         Ok(())
     }
 }
 
-#[tokio::test]
-async fn test_local_cluster_synchronization() -> std::result::Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Kotoba Local Cluster Test");
     println!("Testing distributed database synchronization");
     println!("Based on Process Network Graph Model");
@@ -199,7 +162,7 @@ async fn test_local_cluster_synchronization() -> std::result::Result<(), Box<dyn
     // 3つのノードをシミュレート
     for i in 0..3 {
         let node_id = format!("node-{}", i);
-        let storage = Arc::new(SimpleStorage::new());
+        let storage = Arc::new(PersistentStorage::new_memory()?);
         cluster.add_node(&node_id, storage).await?;
     }
 
@@ -207,9 +170,9 @@ async fn test_local_cluster_synchronization() -> std::result::Result<(), Box<dyn
 
     // テストデータを書き込み
     let test_data = [
-        ("user:alice", "{\"name\":\"Alice\",\"age\":30,\"city\":\"Tokyo\"}".as_bytes()),
-        ("user:bob", "{\"name\":\"Bob\",\"age\":25,\"city\":\"Osaka\"}".as_bytes()),
-        ("user:charlie", "{\"name\":\"Charlie\",\"age\":35,\"city\":\"Kyoto\"}".as_bytes()),
+        ("user:alice", b"{\"name\":\"Alice\",\"age\":30,\"city\":\"Tokyo\"}"),
+        ("user:bob", b"{\"name\":\"Bob\",\"age\":25,\"city\":\"Osaka\"}"),
+        ("user:charlie", b"{\"name\":\"Charlie\",\"age\":35,\"city\":\"Kyoto\"}"),
     ];
 
     for (key, value) in &test_data {

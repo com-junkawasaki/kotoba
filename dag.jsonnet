@@ -1396,6 +1396,50 @@
       build_order: 1,
     },
 
+    'project_schema': {
+      name: 'project_schema',
+      path: 'schemas/kotoba.schema.json',
+      type: 'schema',
+      description: 'プロジェクトスキーマ定義 - KotobaプロジェクトのJSON Schema',
+      dependencies: ['data_schemas'],
+      provides: ['ProjectSchema', 'ValidationRules', 'TypeDefinitions'],
+      status: 'completed',
+      build_order: 2,
+    },
+
+    'topology_data': {
+      name: 'topology_data',
+      path: 'topology/topology_data.json',
+      type: 'topology',
+      description: 'トポロジーデータ - プロセスネットワークグラフの構造データ',
+      dependencies: [],
+      provides: ['TopologyGraph', 'ProcessNetwork', 'DependencyGraph'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'types_codegen': {
+      name: 'types_codegen',
+      path: 'src/codegen/types_converted.json',
+      type: 'codegen',
+      description: '型変換データ - Jsonnet DSLから生成された型定義',
+      dependencies: ['types'],
+      provides: ['TypeConversion', 'CodeGeneration', 'TypeMapping'],
+      status: 'completed',
+      build_order: 3,
+    },
+
+    'topology_validator': {
+      name: 'topology_validator',
+      path: 'scripts/validate_topology.jsonnet',
+      type: 'validation',
+      description: 'トポロジー検証スクリプト - dag.jsonnetの整合性検証',
+      dependencies: ['topology_data'],
+      provides: ['TopologyValidation', 'ConsistencyCheck', 'IntegrityVerification'],
+      status: 'completed',
+      build_order: 2,
+    },
+
     // ==========================================
     // 研究・ドキュメント層 (Research & Documentation)
     // ==========================================
@@ -1446,7 +1490,7 @@
 
     'roadmap_documentation': {
       name: 'roadmap_documentation',
-      path: 'next_functions.md',
+      path: 'docs/next_functions.md',
       type: 'documentation',
       description: 'ロードマップドキュメント - 次期機能と開発計画',
       dependencies: [],
@@ -2889,6 +2933,10 @@
     // Development tools integration
     { from: 'build_scripts', to: 'lib' },
     { from: 'data_schemas', to: 'lib' },
+    { from: 'project_schema', to: 'lib' },
+    { from: 'topology_data', to: 'lib' },
+    { from: 'types_codegen', to: 'lib' },
+    { from: 'topology_validator', to: 'lib' },
 
     // Documentation integration
     { from: 'research_documentation', to: 'lib' },
@@ -3164,6 +3212,10 @@
     'research_documentation',
 
     // Development tools layer (reverse order)
+    'topology_validator',
+    'types_codegen',
+    'topology_data',
+    'project_schema',
     'data_schemas',
     'build_scripts',
 
@@ -3233,6 +3285,10 @@
     // Development tools layer
     'build_scripts',
     'data_schemas',
+    'project_schema',
+    'topology_data',
+    'types_codegen',
+    'topology_validator',
 
     // Research & documentation layer
     'research_documentation',
