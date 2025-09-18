@@ -16,7 +16,6 @@ kotoba-db-core = { path = "../kotoba-db-core", version = "0.1.16" }
 kotoba-db-engine-memory = { path = "../kotoba-db-engine-memory", version = "0.1.16" }
 kotoba-db-engine-lsm = { path = "../kotoba-db-engine-lsm", version = "0.1.16" }
 kotoba-db = { path = "../kotoba-db", version = "0.1.16" }
-kotoba-db-cluster = { path = "../kotoba-db-cluster", version = "0.1.0", optional = true }
 
 # Profiling integration
 kotoba-profiler = { path = "../kotoba-profiler", version = "0.1.16" }
