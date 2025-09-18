@@ -99,7 +99,7 @@ impl HostingServer {
     ) -> Result<Self> {
         // HTTP設定を作成
         let http_config = HttpConfig::new(ServerConfig {
-            host: "0.0.0.0".to_string(),
+            host: "0.0.0.0".,
             port: 8080,
         });
 
@@ -134,9 +134,9 @@ impl HostingServer {
 
         let hosted_app = HostedApp {
             id: app_id.clone(),
-            deployment_id: deployment_id.to_string(),
-            instance_id: instance_id.to_string(),
-            domain: domain.to_string(),
+            deployment_id: deployment_id.,
+            instance_id: instance_id.,
+            domain: domain.,
             port,
             created_at: SystemTime::now(),
             last_access: SystemTime::now(),
@@ -164,7 +164,7 @@ impl HostingServer {
                 .find(|a| a.domain == domain)
                 .map(|a| a.id.clone())
                 .ok_or_else(|| {
-                    Box::new(KotobaError::InvalidArgument(format!("No application found for domain {}".to_string())))
+                    Box::new(KotobaError::InvalidArgument(format!("No application found for domain {}".)))
                 })?
         };
 
@@ -194,7 +194,7 @@ impl HostingServer {
                 Ok(response.into_bytes())
             }
             None => {
-                let response = "HTTP/1.1 404 Not Found\r\n\r\nApplication not found\r\n".to_string();
+                let response = "HTTP/1.1 404 Not Found\r\n\r\nApplication not found\r\n".;
                 Ok(response.into_bytes())
             }
         }

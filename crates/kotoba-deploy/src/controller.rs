@@ -476,25 +476,25 @@ impl DeployController {
     /// GQLクエリからスケールターゲットを抽出
     fn extract_scale_target_from_gql(&self, gql_query: &str) -> Result<u32> {
         self.extract_value_from_gql(gql_query, "instances")
-            .and_then(|opt| opt.ok_or_else(|| {
+            .and_then(|opt| Ok(opt.ok_or_else(|| {
                 Box::new(KotobaError::InvalidArgument(
-                    "Scale target not found in GQL query".to_string())
-                )
-            }))?
+                    "Scale target not found in GQL query".to_string()
+                ))
+            })))?
             .parse()
             .map_err(|_| Box::new(KotobaError::InvalidArgument(
-                "Invalid scale target".to_string())
-            ))
+                "Invalid scale target".to_string()
+            )))
     }
 
     /// GQLクエリからロールバックターゲットを抽出
     fn extract_rollback_target_from_gql(&self, gql_query: &str) -> Result<String> {
         self.extract_value_from_gql(gql_query, "version")
-            .and_then(|opt| opt.ok_or_else(|| {
+            .and_then(|opt| Ok(opt.ok_or_else(|| {
                 Box::new(KotobaError::InvalidArgument(
-                    "Rollback target not found in GQL query".to_string())
-                )
-            }))
+                    "Rollback target not found in GQL query".to_string()
+                ))
+            })))
     }
 
     /// GQLクエリから値を抽出するヘルパー関数
