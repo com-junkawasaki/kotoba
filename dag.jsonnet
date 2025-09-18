@@ -827,7 +827,7 @@
       build_order: 5,
     },
 
-    // メインライブラリ
+    // メインライブラリ - Core crates only
     'lib': {
       name: 'lib',
       path: 'src/lib.rs',
@@ -836,13 +836,7 @@
       dependencies: [
         'types', 'error_handling', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy',
         'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object',
-        'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer',
-        'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier',
-        'rewrite_engine',
-        // --- オプション機能 ---
-        // 'ir_workflow', 'workflow_executor', 'workflow_store',  // ワークフロー機能（オプション）
-        // 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server',  // HTTPサーバー（オプション）
-        // 'kotoba_server'  // サーバー機能（オプション）
+        'execution_engine', 'rewrite_engine'
       ],
       provides: ['kotoba'],
       status: 'planned',

@@ -1,43 +1,13 @@
 [workspace]
 members = [
-    # "crates/*",  # Temporarily disabled due to dependency conflicts
-    "crates/kotoba-core",
-    "crates/kotoba-graph",
-    "crates/kotoba-storage",
-    "crates/kotoba-schema",
-    "crates/kotoba-execution",
-    "crates/kotoba-rewrite",
-    # Temporarily disabled due to compilation issues:
-    # "crates/kotoba-server",
-    # "crates/kotoba-workflow",
-    "crates/kotoba-security",
-    "crates/kotoba-runtime",
-    "crates/kotobas-wasm",
-    "crates/kotoba-deploy-core",
-    "crates/kotoba-deploy-cli",
-    "crates/kotoba-deploy-git",
-    "crates/kotoba-deploy-network",
-    "crates/kotoba-deploy-hosting",
-    "crates/kotoba-deploy-scaling",
-    "crates/kotoba-deploy-controller",
-    "crates/kotoba-deploy-runtime",
-    "crates/kotoba-handler", "crates/kotoba-cli",  # New unified handler
-    ".", "crates/kotoba-build", "crates/kotoba-bench", "crates/kotoba-ssg", "crates/kotoba-monitoring", "crates/kotoba-lsp", "crates/kotoba-package-manager", "crates/kotoba-formatter", "crates/kotoba-linter", "crates/kotoba-tester", "crates/kotoba-repl", "crates/kotoba-profiler",  # Root crate
-    "crates/kotoba-workflow-activities",
-    "crates/kotoba-memory",
-    "crates/kotoba-workflow-operator",
-    "crates/kotoba-cloud-integrations",
-    "crates/kotoba-state-graph",
-    "crates/kotoba-routing",
-    "crates/kotoba-errors",
-    "crates/kotoba-db-core",
-    "crates/kotoba-db-engine-memory",
-    "crates/kotoba-db-cluster",
-    "crates/kotoba-db-engine-lsm",
-    "crates/kotoba-db",
-    "crates/kotoba-backup",
-    "crates/kotoba-monitoring",
-    "crates/kotoba-config", "crates/kotoba-schema-registry",
+    # Core crates only (published and stable)
+    "crates/kotoba-core",          # v0.1.21 ✅
+    "crates/kotoba-errors",        # v0.1.2 ✅
+    "crates/kotoba-graph",         # v0.1.21 ✅
+    "crates/kotoba-storage",       # v0.1.21 ✅
+    "crates/kotoba-execution",     # v0.1.21 ✅
+    "crates/kotoba-rewrite",       # v0.1.21 ✅
+    "crates/kotoba-cli",           # v0.1.21 (core functionality only)
 ]
 resolver = "2"
 
@@ -79,26 +49,28 @@ tracing = "0.1"
 # Fix digest version conflict
 digest = "0.10.7"
 
-# Kotoba internal crates
-kotoba-core = { path = "crates/kotoba-core", version = "0.1.15" }
-kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.0" }
-kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.15" }
-kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.15" }
-kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }
-kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.15" }
-kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.15" }
-kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15" }
-kotoba-kotobas = { path = "crates/kotoba-kotobas", version = "0.1.0" }
-kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
-kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
-kotoba2tsx = { path = "crates/kotoba2tsx", version = "0.1.15" }
-kotoba-runtime = { path = "crates/kotoba-runtime", version = "0.1.0" }
+# Core published crates only
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
+kotoba-graph = "0.1.21"
+kotoba-storage = "0.1.21"
+kotoba-execution = "0.1.21"
+kotoba-rewrite = "0.1.21"
 
-# New modular crates
-kotoba-distributed = { path = "crates/kotoba-distributed", version = "0.1.15" }
-kotoba-network = { path = "crates/kotoba-network", version = "0.1.15" }
-kotoba-cid = { path = "crates/kotoba-cid", version = "0.1.15" }
-kotoba-cli = { path = "crates/kotoba-cli", version = "0.1.15" }
+# Optional crates (commented out for core focus)
+# kotoba-schema = { path = "crates/kotoba-schema", version = "0.1.15" }
+# kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.15" }
+# kotoba-kotobas = { path = "crates/kotoba-kotobas", version = "0.1.0" }
+# kotoba-security = { path = "crates/kotoba-security", version = "0.1.15" }
+# kotoba-workflow = { path = "crates/kotoba-workflow", version = "0.1.15" }
+# kotoba2tsx = { path = "crates/kotoba2tsx", version = "0.1.15" }
+# kotoba-runtime = { path = "crates/kotoba-runtime", version = "0.1.0" }
+
+# Core crates only (published versions)
+# kotoba-distributed = { path = "crates/kotoba-distributed", version = "0.1.15" }
+# kotoba-network = { path = "crates/kotoba-network", version = "0.1.15" }
+# kotoba-cid = { path = "crates/kotoba-cid", version = "0.1.15" }
+# kotoba-cli = { path = "crates/kotoba-cli", version = "0.1.15" }
 
 # Root crate configuration
 [package]

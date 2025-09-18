@@ -12,21 +12,15 @@ documentation = "https://docs.rs/kotoba-cli"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Kotoba ecosystem
+# Core dependencies (published crates only)
 kotoba-core = "0.1.21"
-kotoba-graph = "0.1.21"
-kotoba-execution = "0.1.21"
-kotoba-rewrite = "0.1.21"
-kotoba-storage = "0.1.21"
-# kotoba-server = "0.1.21"  # Temporarily disabled due to workflow dependencies
-kotoba-deploy = { path = "../kotoba-deploy", version = "0.1.16", optional = true }
-kotoba-package-manager = { path = "../kotoba-package-manager", version = "0.1.16" }
-kotoba-formatter = { path = "../kotoba-formatter", version = "0.1.16" }
-kotoba-linter = { path = "../kotoba-linter", version = "0.1.16" }
-kotoba-tester = { path = "../kotoba-tester", version = "0.1.16" }
-# kotoba-build = { path = "../kotoba-build" }  # Temporarily disabled due to dependency conflicts
-kotoba-repl = { path = "../kotoba-repl", version = "0.1.16" }
-kotoba-docs = { path = "../kotoba-docs", version = "0.1.16" }
+kotoba-errors = "0.1.2"
+
+# Optional features (temporarily disabled to focus on core functionality)
+# kotoba-graph = "0.1.21"
+# kotoba-execution = "0.1.21"
+# kotoba-rewrite = "0.1.21"
+# kotoba-storage = "0.1.21"
 
 # CLI framework
 clap = { version = "4.0", features = ["derive"] }
@@ -55,10 +49,6 @@ dirs = "5.0"
 # Terminal UI
 console = "0.15"
 dialoguer = "0.11"
-
-[features]
-default = ["deploy"]
-deploy = ["kotoba-deploy"]
 
 [[bin]]
 name = "kotoba"

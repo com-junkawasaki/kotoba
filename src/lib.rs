@@ -1,31 +1,37 @@
-//! # Kotoba: GP2系グラフ書換え言語
+//! # Kotoba: Core Graph Processing System
 //!
-//! ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム
+//! GP2-based Graph Rewriting Language with ISO GQL-compliant queries,
+//! MVCC+Merkle persistence, and distributed execution.
 //!
-//! ## Multi-Crate Architecture
+//! ## Core Architecture
 //!
-//! Kotobaは以下のcrateに分割されています：
-//! - `kotoba-core`: 基本型とIR定義
-//! - `kotoba-graph`: グラフデータ構造
-//! - `kotoba-storage`: 永続化層
-//! - `kotoba-execution`: クエリ実行とプランナー
-//! - `kotoba-rewrite`: グラフ書き換え
-//! - `kotoba-server`: ServerフレームワークとHTTP
-//! - `kotoba-distributed`: 分散実行エンジン
-//! - `kotoba-network`: ネットワーク通信プロトコル
-//! - `kotoba-cid`: CID (Content ID) システム
-//! - `kotoba-cli`: コマンドラインインターフェース
+//! Kotoba's core consists of the following published crates:
+//! - `kotoba-core`: Core types and IR definitions
+//! - `kotoba-errors`: Unified error handling
+//! - `kotoba-graph`: Graph data structures
+//! - `kotoba-storage`: Persistence layer with MVCC and Merkle DAG
+//! - `kotoba-execution`: Query execution and planning
+//! - `kotoba-rewrite`: Graph rewriting engine
+//! - `kotoba-cli`: Basic command-line interface
+//!
+//! ## Optional Features
+//!
+//! Additional functionality is available through optional crates:
+//! - Workflow engine, HTTP server, distributed execution, etc.
+//! (These are currently disabled to focus on core stability)
 
-// Re-export from individual crates
+// Re-export from core published crates only
 pub use kotoba_core as core;
 pub use kotoba_graph as graph;
 pub use kotoba_storage as storage;
 pub use kotoba_execution as execution;
 pub use kotoba_rewrite as rewrite;
-pub use kotoba_distributed as distributed;
-pub use kotoba_network as network;
-pub use kotoba_cid as cid;
-pub use kotoba_cli as cli;
+
+// Optional crates (commented out for core focus)
+// pub use kotoba_distributed as distributed;
+// pub use kotoba_network as network;
+// pub use kotoba_cid as cid;
+// pub use kotoba_cli as cli;
 // pub use kotoba_deploy; // Temporarily disabled until crate is fixed
 // pub use kotoba_web as web; // まだpublishされていないため一時的にコメントアウト
 
