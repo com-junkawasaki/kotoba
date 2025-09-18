@@ -17,6 +17,9 @@ members = [
     # Workflow core (minimal interface)
     "crates/kotoba-workflow-core", # Core workflow engine interface
 
+    # Legacy workflow engine (being refactored)
+    "crates/kotoba-workflow",      # Full workflow engine (legacy)
+
     ".",                           # Root package for CLI binary
 ]
 resolver = "2"
