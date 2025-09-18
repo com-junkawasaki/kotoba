@@ -10,6 +10,7 @@ artifacts/
 ├── kotoba-0.1.2.tar.gz          # Release v0.1.2 source package
 ├── kotoba-arxiv-submission.tar.gz # arXiv research paper submission archive
 ├── simple-static-build          # Pre-compiled static binary
+├── build_rs_cov.profraw         # Code coverage data
 └── README.md                    # This documentation
 ```
 
@@ -96,6 +97,33 @@ ls supplementary/
 - **Provides**: Research publication, academic archive
 - **Build Order**: 30
 
+### `build_rs_cov.profraw`
+**Purpose**: Code coverage data generated during Rust test execution
+
+**Coverage Analysis**:
+- **Format**: LLVM coverage profiling data (.profraw)
+- **Tool**: rustc with `-C instrument-coverage` flag
+- **Processing**: Convert to human-readable reports with `llvm-cov` or `grcov`
+- **Scope**: Line coverage, branch coverage, function coverage
+
+**Usage**:
+```bash
+# Generate HTML coverage report
+grcov artifacts/build_rs_cov.profraw -s . --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/coverage/
+
+# Generate LCOV format for CI/CD
+grcov artifacts/build_rs_cov.profraw -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./target/lcov.info
+
+# View coverage summary
+grcov artifacts/build_rs_cov.profraw -s . --binary-path ./target/debug/ -t coveralls --token $COVERALLS_TOKEN
+```
+
+**Integration**:
+- **Node**: `code_coverage_data`
+- **Dependencies**: `rust_project_config`
+- **Provides**: Coverage analysis, test quality metrics, code quality assessment
+- **Build Order**: 20
+
 ## Generation Process
 
 ### Release Packages (`kotoba-*.tar.gz`)
@@ -162,13 +190,20 @@ gpg --verify kotoba-0.1.16.tar.gz.asc kotoba-0.1.16.tar.gz
 ### Testing
 ```bash
 # Test static binary
-./simple-static-build --version
+./artifacts/simple-static-build --version
 
 # Test release package
-tar -tf kotoba-0.1.16.tar.gz | head -20
+tar -tf artifacts/kotoba-0.1.16.tar.gz | head -20
 
 # Test arXiv submission
-tar -tf kotoba-arxiv-submission.tar.gz
+tar -tf artifacts/kotoba-arxiv-submission.tar.gz
+
+# Verify coverage data
+file artifacts/build_rs_cov.profraw
+# Should show: LLVM coverage profiling data
+
+# Generate coverage report
+grcov artifacts/build_rs_cov.profraw -s . --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/coverage/
 ```
 
 ## Process Network Integration

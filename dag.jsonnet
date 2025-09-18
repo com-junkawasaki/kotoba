@@ -1564,7 +1564,7 @@
 
     'jsonnet_stdlib': {
       name: 'jsonnet_stdlib',
-      path: 'lib.jsonnet',
+      path: 'config/lib.jsonnet',
       type: 'runtime_asset',
       description: 'Jsonnet標準ライブラリ拡張 - Jsonnetランタイム拡張',
       dependencies: ['jsonnet_core'],
@@ -1616,7 +1616,7 @@
 
     'code_coverage_data': {
       name: 'code_coverage_data',
-      path: 'build_rs_cov.profraw',
+      path: 'artifacts/build_rs_cov.profraw',
       type: 'quality',
       description: 'コードカバレッジデータ - テストカバレッジ分析',
       dependencies: ['rust_project_config'],
@@ -1668,7 +1668,7 @@
 
     'google_integration': {
       name: 'google_integration',
-      path: 'google_functions.txt',
+      path: 'crates/kotoba-jsonnet/src/google_functions.txt',
       type: 'integration',
       description: 'Google統合ファイル - Jsonnet標準ライブラリ統合',
       dependencies: ['jsonnet_core'],
