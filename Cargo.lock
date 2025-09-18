@@ -5319,7 +5319,7 @@ dependencies = [
  "google-cloud-pubsub",
  "google-cloud-storage 0.14.0",
  "google_cloud_logging",
- "kotoba-workflow 0.1.16",
+ "kotoba-workflow",
  "regex",
  "serde",
  "serde_json",
@@ -5779,10 +5779,10 @@ version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
- "kotoba-core 0.1.21",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.21",
- "kotoba-storage 0.1.21",
+ "kotoba-graph 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -5913,30 +5913,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-jsonnet"
-version = "0.1.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "faf4933a2b9a8e4519f176dadd8e6dc88943cee2b7fadea5884d8e964b2ca82e"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "hex",
- "md-5 0.10.6",
- "parking_lot",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.10.9",
- "sha3",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "kotoba-kotobas"
 version = "0.1.17"
 dependencies = [
@@ -5944,7 +5920,7 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "kotoba-core 0.1.21",
- "kotoba-jsonnet 0.1.17",
+ "kotoba-jsonnet",
  "regex",
  "reqwest",
  "serde",
@@ -5982,7 +5958,7 @@ name = "kotoba-lsp"
 version = "0.1.16"
 dependencies = [
  "dashmap 5.5.3",
- "kotoba-jsonnet 0.1.17",
+ "kotoba-jsonnet",
  "kotoba-kotobas",
  "tokio",
  "tower-lsp",
@@ -6005,7 +5981,7 @@ dependencies = [
  "kotoba-distributed",
  "kotoba-execution",
  "kotoba-graph 0.1.21",
- "kotoba-jsonnet 0.1.17",
+ "kotoba-jsonnet",
  "kotoba-network",
  "kotoba-rewrite",
  "kotoba-schema",
@@ -6174,11 +6150,11 @@ name = "kotoba-rewrite"
 version = "0.1.21"
 dependencies = [
  "anyhow",
- "kotoba-cid 0.1.21",
- "kotoba-core 0.1.21",
+ "kotoba-cid 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph 0.1.21",
- "kotoba-storage 0.1.21",
+ "kotoba-graph 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -6194,7 +6170,7 @@ dependencies = [
  "glob",
  "kotoba-cid 0.1.21",
  "kotoba-ssg",
- "kotoba-workflow 0.1.16",
+ "kotoba-workflow",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -6308,7 +6284,7 @@ dependencies = [
  "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-routing 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-workflow 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-workflow",
  "reqwest",
  "serde",
  "serde_json",
@@ -6331,7 +6307,7 @@ dependencies = [
  "git2",
  "kotoba-core 0.1.21",
  "kotoba-docs",
- "kotoba-jsonnet 0.1.17",
+ "kotoba-jsonnet",
  "kotoba-kotobas",
  "mime_guess",
  "pulldown-cmark",
@@ -6442,7 +6418,7 @@ dependencies = [
  "futures",
  "kotoba-core 0.1.21",
  "kotoba-errors 0.1.2",
- "kotoba-jsonnet 0.1.17",
+ "kotoba-jsonnet",
  "kotoba-storage 0.1.21",
  "lapin",
  "parking_lot",
@@ -6459,28 +6435,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-workflow"
-version = "0.1.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36918d91f0e6f6205c3f50ab599b6c8207b4e108b945381930396a61549f08ae"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "futures",
- "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-jsonnet 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-storage 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "parking_lot",
- "serde",
- "serde_json",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "kotoba-workflow-activities"
 version = "0.1.16"
 dependencies = [
@@ -6490,7 +6444,7 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "csv",
- "kotoba-workflow 0.1.16",
+ "kotoba-workflow",
  "lapin",
  "lettre",
  "mime_guess",
@@ -6516,7 +6470,7 @@ dependencies = [
  "chrono",
  "futures",
  "k8s-openapi",
- "kotoba-workflow 0.1.16",
+ "kotoba-workflow",
  "kube",
  "serde",
  "serde_json",
@@ -6558,7 +6512,7 @@ name = "kotobas-wasm"
 version = "0.1.16"
 dependencies = [
  "console_error_panic_hook",
- "kotoba-workflow 0.1.16",
+ "kotoba-workflow",
  "serde",
  "serde-wasm-bindgen",
  "uuid",
