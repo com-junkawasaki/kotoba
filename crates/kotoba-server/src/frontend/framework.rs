@@ -3,6 +3,7 @@
 //! Next.js風App Routerフレームワークの主要コンポーネントを実装します。
 
 use kotoba_core::prelude::*;
+use kotoba_core::types::Value;
 use crate::frontend::component_ir::ExecutionEnvironment;
 use crate::frontend::component_ir::*;
 use crate::frontend::route_ir::*;
@@ -37,9 +38,7 @@ impl WebFramework {
     }
 
     /// HTTPリクエストを処理
-    pub async fn handle_request(&self, request: crate::http::HttpRequest) -> Result<crate::http::HttpResponse> {
-        let path = &request.path;
-
+    pub async fn handle_request(&self, path: &str) -> Result<String> {
         // ページルートをチェック
         let table = self.route_table.read().await;
         if let Some((route, params)) = table.find_route(path) {
@@ -50,29 +49,19 @@ impl WebFramework {
         }
 
         // 404 Not Found
-        Ok(crate::http::HttpResponse {
-            request_id: request.id.clone(),
-            status: crate::http::HttpStatus { code: 404, reason: "Not Found".to_string() },
-            headers: crate::http::HttpHeaders::new(),
-            body_ref: None,
-            timestamp: 1234567890,
-        })
+        let html = r#"<!DOCTYPE html>
+<html>
+<head><title>404 Not Found</title></head>
+<body><h1>404 Not Found</h1></body>
+</html>"#;
+        Ok(html.to_string())
     }
 
 
 
     /// ページレスポンスを作成
-    fn create_page_response(&self, render_result: RenderResultIR) -> Result<crate::http::HttpResponse> {
-        let mut http_headers = crate::http::HttpHeaders::new();
-        http_headers.set("Content-Type".to_string(), "text/html".to_string());
-
-        Ok(crate::http::HttpResponse {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            status: crate::http::HttpStatus { code: 200, reason: "OK".to_string() },
-            headers: http_headers,
-            body_ref: Some(ContentHash::sha256(render_result.html.as_bytes().try_into().unwrap())),
-            timestamp: 1234567890,
-        })
+    fn create_page_response(&self, render_result: RenderResultIR) -> Result<String> {
+        Ok(render_result.html)
     }
 
     /// ルートを追加
@@ -103,7 +92,7 @@ impl WebFramework {
     /// パスとパラメータによるルートレンダリング
     async fn render_route_with_params(&self, route: &RouteIR, params: HashMap<String, String>) -> Result<RenderResultIR> {
         // ルートパラメータをグローバル状態に設定
-        let mut global_props = Properties::new();
+        let mut global_props = HashMap::new();
         for (key, value) in params {
             global_props.insert(key, Value::String(value));
         }
@@ -111,8 +100,8 @@ impl WebFramework {
         let context = RenderContext {
             environment: ExecutionEnvironment::Universal,
             route_params: global_props,
-            query_params: Properties::new(),
-            global_state: Properties::new(),
+            query_params: HashMap::new(),
+            global_state: HashMap::new(),
             is_server_side: true,
             is_client_side: false,
             hydration_id: Some(format!("route_{}", uuid::Uuid::new_v4())),
@@ -309,7 +298,7 @@ impl ComponentRenderer {
                 // レイアウトコンポーネント
                 let mut layout = VirtualNodeIR::element("div".to_string());
                 if let VirtualNodeIR::Element(ref mut el) = layout {
-                    el.add_attribute("data-layout".to_string(), crate::types::Value::String(component.name.clone()));
+                    el.add_attribute("data-layout".to_string(), Value::String(component.name.clone()));
 
                     for child in &component.children {
                         let child_dom = self.build_virtual_dom(child, context)?;
@@ -335,7 +324,7 @@ impl ComponentRenderer {
                 // ページコンポーネント
                 let mut page = VirtualNodeIR::element("main".to_string());
                 if let VirtualNodeIR::Element(ref mut el) = page {
-                    el.add_attribute("data-page".to_string(), crate::types::Value::String(component.name.clone()));
+                    el.add_attribute("data-page".to_string(), Value::String(component.name.clone()));
 
                     // ページコンテンツ（簡略化）
                     let content = format!("Content of {}", component.name);
@@ -358,7 +347,7 @@ impl ComponentRenderer {
 
                 // 属性を追加
                 for (key, value) in &element.attributes {
-                    if let crate::types::Value::String(val) = value {
+                    if let Value::String(val) = value {
                         html.push_str(&format!(" {}=\"{}\"", key, val));
                     }
                 }

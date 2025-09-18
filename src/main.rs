@@ -79,7 +79,7 @@ enum Commands {
         #[arg(short, long, default_value = "3000")]
         port: u16,
         /// Server host
-        #[arg(short, long, default_value = "127.0.0.1")]
+        #[arg(long, default_value = "127.0.0.1")]
         host: String,
         /// Configuration file
         #[arg(short, long)]
