@@ -2,6 +2,7 @@ import fastify from 'fastify';
 import path from 'path';
 import fs from 'fs'; // Using sync fs for simplicity in this part
 import { glob } from 'glob';
+import chokidar from 'chokidar';
 import { RouteModule, MiddlewareModule, Handler, MiddlewareHandler } from './types';
 
 interface DevServerOptions {
@@ -78,12 +79,36 @@ async function registerRoutes(app: ReturnType<typeof fastify>, appDir: string) {
   }
 }
 
+function watchForChanges(appDir: string) {
+  console.log(`[KotobaWeb] Watching for changes in: ${appDir}`);
+
+  const watcher = chokidar.watch(appDir, {
+    ignored: /(^|[\/\\])\../, // ignore dotfiles
+    persistent: true,
+  });
+
+  watcher.on('all', (event, filePath) => {
+    // We only need to log this. The actual restart is handled by ts-node-dev.
+    // This provides a better developer experience by giving immediate feedback.
+    if (event === 'add' || event === 'change' || event === 'unlink') {
+      console.log(`[KotobaWeb] Detected ${event} in '${path.relative(process.cwd(), filePath)}'. Restarting server...`);
+      // Invalidate the require cache to ensure the new module is loaded on restart
+      delete require.cache[path.resolve(filePath)];
+    }
+  });
+}
+
 export async function startDevServer(options: DevServerOptions) {
-  const app = fastify({ logger: true });
+  const app = fastify({ logger: { transport: { target: 'pino-pretty' } } });
   const appDir = path.join(process.cwd(), 'src', 'app');
 
-  console.log(`[KotobaWeb] Starting server... scanning routes in ${appDir}`);
+  console.log(`[KotobaWeb] Starting server...`);
   await registerRoutes(app, appDir);
+
+  // Start watching for file changes in development mode
+  if (process.env.NODE_ENV !== 'production') {
+    watchForChanges(appDir);
+  }
 
   try {
     await app.listen({ port: options.port });
