@@ -1,0 +1,370 @@
+{
+  // 🎉 Kotoba言語でReactコンポーネントを定義したGitHub Pagesサイト
+  // このファイルは完全にJsonnetだけで定義されたReactアプリケーションです
+
+  name: "KotobaPagesDemo",
+  version: "1.0.0",
+  theme: "modern",
+
+  // 📱 コンポーネント定義
+  components: {
+    // メインナビゲーションコンポーネント
+    Navbar: {
+      type: "component",
+      name: "Navbar",
+      component_type: "nav",
+      props: {
+        className: "navbar",
+        brand: "Kotoba Pages Demo",
+        links: [
+          { text: "Home", href: "/", active: true },
+          { text: "Docs", href: "/docs" },
+          { text: "Examples", href: "/examples" },
+          { text: "About", href: "/about" },
+          { text: "Contact", href: "/contact" }
+        ]
+      },
+      children: ["Brand", "NavLinks"],
+      metadata: {
+        description: "Main navigation component"
+      }
+    },
+
+    // ブランドロゴ/テキスト
+    Brand: {
+      type: "component",
+      name: "Brand",
+      component_type: "div",
+      props: {
+        className: "navbar-brand",
+        children: "{props.brand}"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    // ナビゲーションリンク
+    NavLinks: {
+      type: "component",
+      name: "NavLinks",
+      component_type: "ul",
+      props: {
+        className: "navbar-nav"
+      },
+      children: ["NavLink1", "NavLink2", "NavLink3", "NavLink4", "NavLink5"],
+      metadata: {}
+    },
+
+    // 個別のナビゲーションリンク
+    NavLink1: {
+      type: "component",
+      name: "NavLink1",
+      component_type: "li",
+      props: {
+        children: "<a href='{props.links[0].href}' className='{props.links[0].active ? \"active\" : \"\"}'>{props.links[0].text}</a>"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    NavLink2: {
+      type: "component",
+      name: "NavLink2",
+      component_type: "li",
+      props: {
+        children: "<a href='{props.links[1].href}'>{props.links[1].text}</a>"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    NavLink3: {
+      type: "component",
+      name: "NavLink3",
+      component_type: "li",
+      props: {
+        children: "<a href='{props.links[2].href}'>{props.links[2].text}</a>"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    NavLink4: {
+      type: "component",
+      name: "NavLink4",
+      component_type: "li",
+      props: {
+        children: "<a href='{props.links[3].href}'>{props.links[3].text}</a>"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    NavLink5: {
+      type: "component",
+      name: "NavLink5",
+      component_type: "li",
+      props: {
+        children: "<a href='{props.links[4].href}'>{props.links[4].text}</a>"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    // ヒーローセクション
+    HeroSection: {
+      type: "component",
+      name: "HeroSection",
+      component_type: "section",
+      props: {
+        className: "hero"
+      },
+      children: ["HeroTitle", "HeroSubtitle", "HeroCTA"],
+      metadata: {
+        description: "Hero section with title, subtitle and CTA button"
+      }
+    },
+
+    HeroTitle: {
+      type: "component",
+      name: "HeroTitle",
+      component_type: "h1",
+      props: {
+        children: "🚀 Build Websites with Pure Jsonnet"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    HeroSubtitle: {
+      type: "component",
+      name: "HeroSubtitle",
+      component_type: "p",
+      props: {
+        className: "hero-subtitle",
+        children: "No HTML, no CSS, no JavaScript - just beautiful Jsonnet code that generates everything automatically"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    HeroCTA: {
+      type: "component",
+      name: "HeroCTA",
+      component_type: "div",
+      props: {
+        className: "hero-cta"
+      },
+      children: ["CTAButton"],
+      metadata: {}
+    },
+
+    CTAButton: {
+      type: "component",
+      name: "CTAButton",
+      component_type: "button",
+      props: {
+        className: "btn btn-primary",
+        children: "Get Started",
+        onClick: "handleGetStarted"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    // 特徴カード
+    FeatureCard: {
+      type: "component",
+      name: "FeatureCard",
+      component_type: "div",
+      props: {
+        className: "feature-card"
+      },
+      children: ["FeatureIcon", "FeatureTitle", "FeatureDescription"],
+      metadata: {
+        description: "Feature card component"
+      }
+    },
+
+    FeatureIcon: {
+      type: "component",
+      name: "FeatureIcon",
+      component_type: "div",
+      props: {
+        className: "feature-icon",
+        children: "{props.icon}"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    FeatureTitle: {
+      type: "component",
+      name: "FeatureTitle",
+      component_type: "h3",
+      props: {
+        children: "{props.title}"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    FeatureDescription: {
+      type: "component",
+      name: "FeatureDescription",
+      component_type: "p",
+      props: {
+        children: "{props.description}"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    // 特徴グリッド
+    FeaturesGrid: {
+      type: "component",
+      name: "FeaturesGrid",
+      component_type: "div",
+      props: {
+        className: "features-grid"
+      },
+      children: ["Feature1", "Feature2", "Feature3", "Feature4"],
+      metadata: {}
+    },
+
+    Feature1: {
+      type: "component",
+      name: "Feature1",
+      component_type: "FeatureCard",
+      props: {
+        icon: "⚡",
+        title: "Zero Boilerplate",
+        description: "Write your entire website in clean, readable Jsonnet syntax"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    Feature2: {
+      type: "component",
+      name: "Feature2",
+      component_type: "FeatureCard",
+      props: {
+        icon: "🎨",
+        title: "Beautiful Design",
+        description: "Responsive, modern designs generated automatically"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    Feature3: {
+      type: "component",
+      name: "Feature3",
+      component_type: "FeatureCard",
+      props: {
+        icon: "🔧",
+        title: "Type Safe",
+        description: "Jsonnet's type system prevents configuration errors"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    Feature4: {
+      type: "component",
+      name: "Feature4",
+      component_type: "FeatureCard",
+      props: {
+        icon: "🚀",
+        title: "GitHub Pages Ready",
+        description: "Deploy directly to GitHub Pages with a single command"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    // フッター
+    Footer: {
+      type: "component",
+      name: "Footer",
+      component_type: "footer",
+      props: {
+        className: "footer"
+      },
+      children: ["FooterContent"],
+      metadata: {}
+    },
+
+    FooterContent: {
+      type: "component",
+      name: "FooterContent",
+      component_type: "div",
+      props: {
+        className: "footer-content",
+        children: "© 2024 Kotoba. Built with Kotoba language."
+      },
+      children: [],
+      metadata: {}
+    },
+
+    // メインアプリコンポーネント
+    App: {
+      type: "component",
+      name: "App",
+      component_type: "div",
+      props: {
+        className: "app"
+      },
+      children: ["Navbar", "HeroSection", "FeaturesGrid", "Footer"],
+      metadata: {
+        description: "Main application component"
+      }
+    }
+  },
+
+  // 🎯 イベントハンドラー
+  handlers: {
+    handleGetStarted: {
+      type: "handler",
+      name: "handleGetStarted",
+      function: "window.location.href = '/docs';"
+    }
+  },
+
+  // 📊 状態管理
+  states: {
+    currentPage: {
+      type: "state",
+      name: "currentPage",
+      initial: "home"
+    },
+
+    isMenuOpen: {
+      type: "state",
+      name: "isMenuOpen",
+      initial: false
+    },
+
+    theme: {
+      type: "state",
+      name: "theme",
+      initial: "light"
+    }
+  },
+
+  // ⚙️ 設定
+  config: {
+    title: "Kotoba Pages Demo",
+    description: "A beautiful static site built entirely with Kotoba language",
+    baseUrl: "https://jun784.github.io/kotoba-pages-demo",
+    theme: "modern",
+    outputDir: "_site",
+    features: {
+      responsive: true,
+      darkMode: false,
+      animations: true,
+      seo: true
+    }
+  }
+}

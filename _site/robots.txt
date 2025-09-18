@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jun784.github.io/kotoba-pages-demo/sitemap.xml

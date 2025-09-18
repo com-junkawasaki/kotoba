@@ -44,7 +44,7 @@ pub struct GraphRef_(pub String);
 pub struct TxId(pub String);
 
 /// コンテンツハッシュ
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ContentHash(pub String);
 
 impl ContentHash {

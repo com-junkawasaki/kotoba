@@ -2,7 +2,8 @@
 //!
 //! 仮想DOM、コンポーネントツリー、レンダリングパイプラインを表現します。
 
-use kotoba_core::types::{Value, Properties, ContentHash, Result, KotobaError};
+use kotoba_core::prelude::KotobaError;
+use kotoba_core::types::{Value, Properties, ContentHash, Result};
 use crate::component_ir::{ComponentIR, ElementIR, ElementChild, ComponentType, ExecutionEnvironment};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

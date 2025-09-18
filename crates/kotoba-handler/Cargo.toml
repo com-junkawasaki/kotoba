@@ -105,6 +105,7 @@ templates = ["tera", "handlebars"]
 
 # Jsonnet support removed - using kotobas only
 full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates"]
+chrono = ["dep:chrono"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

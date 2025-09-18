@@ -1,13 +1,12 @@
 [package]
 name = "kotoba-monitoring"
-version = "0.1.0"
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.16"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Comprehensive monitoring and metrics collection system for KotobaDB"
 keywords = ["monitoring", "metrics", "prometheus", "health-check", "observability"]
 categories = ["development-tools::profiling", "database-implementations"]
-readme = "README.md"
 documentation = "https://docs.rs/kotoba-monitoring"
 homepage = "https://github.com/jun784/kotoba"
 

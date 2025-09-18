@@ -11,7 +11,8 @@ use parking_lot::RwLock;
 use kotoba_core::types::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
-use crate::{lsm::*, merkle::*, mvcc::*};
+use sha2::{Sha256, Digest};
+use crate::storage::{lsm::*, merkle::*, mvcc::*};
 
 /// 永続ストレージ設定
 #[derive(Debug, Clone)]
@@ -120,7 +121,7 @@ impl PersistentStorage {
         // 頂点を個別に格納
         let mut vertex_cids = Vec::new();
         for vertex in graph.vertices.values() {
-            let vertex_cid = cid_manager.compute_node_cid(vertex)?;
+            let vertex_cid = cid_manager.compute_rule_cid(vertex)?;
             let vertex_key = format!("vertex:{}", vertex_cid.as_str());
 
             let vertex_data = serde_json::to_vec(vertex)?;
@@ -132,7 +133,7 @@ impl PersistentStorage {
         // エッジを個別に格納
         let mut edge_cids = Vec::new();
         for edge in graph.edges.values() {
-            let edge_cid = cid_manager.compute_edge_cid(edge)?;
+            let edge_cid = cid_manager.compute_rule_cid(edge)?;
             let edge_key = format!("edge:{}", edge_cid.as_str());
 
             let edge_data = serde_json::to_vec(edge)?;
@@ -707,21 +708,6 @@ impl DistributedStorageManager {
         None
     }
 
-    /// データをレプリケート
-    pub async fn replicate_data(&self, cid: &Cid, data: &[u8], replication_factor: usize) -> Result<()> {
-        // 担当ノードを取得
-        let responsible_nodes: Vec<_> = (0..replication_factor)
-            .filter_map(|_| self.get_responsible_node(cid))
-            .collect();
-
-        // 各ノードにデータを送信（簡易版）
-        for node_info in responsible_nodes {
-            println!("Replicating {} to node {}", cid.as_str(), node_info.node_id.0);
-            // 実際の実装ではネットワーク通信を行う
-        }
-
-        Ok(())
-    }
 
     /// データの整合性を検証
     pub async fn verify_consistency(&self, cid: &Cid) -> Result<bool> {

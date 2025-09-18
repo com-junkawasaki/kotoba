@@ -1,5 +1,6 @@
 //! RocksDBベースのストレージエンジン
 
+#[cfg(feature = "rocksdb")]
 use rocksdb::{DB, Options, WriteBatch, IteratorMode};
 use std::path::PathBuf;
 use kotoba_core::types::*;

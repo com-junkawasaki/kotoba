@@ -247,7 +247,7 @@ pub struct ObjectStorageBackend;
 
 #[cfg(not(feature = "object_storage"))]
 impl ObjectStorageBackend {
-    pub async fn new(_config: &StorageConfig) -> Result<Self> {
+    pub async fn new(_config: &StorageConfig) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Err(KotobaError::Storage(
             "Object storage backend not available - compile with 'object_storage' feature".to_string()
         ))

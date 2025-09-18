@@ -27,14 +27,7 @@ Thumbs.db
 # Ruby/Bundler
 .bundle/
 Gemfile.lock
-
-# Jekyll (GitHub Pages)
-docs/vendor/
-docs/_site/
-docs/.sass-cache/
-docs/.jekyll-cache/
-.jekyll-cache/
-.sass-cache/
+vendor/
 
 # RubyMine
 .idea/

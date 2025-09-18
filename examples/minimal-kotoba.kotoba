@@ -1,0 +1,91 @@
+{
+  // 最小限のKotoba定義 - TSX変換テスト用
+  name: "MinimalDemo",
+  version: "1.0.0",
+  theme: "light",
+
+  // シンプルなコンポーネント
+  components: {
+    App: {
+      type: "component",
+      name: "App",
+      component_type: "div",
+      props: {
+        className: "app"
+      },
+      children: ["Header", "Main", "Footer"],
+      metadata: {}
+    },
+
+    Header: {
+      type: "component",
+      name: "Header",
+      component_type: "header",
+      props: {
+        className: "header"
+      },
+      children: ["Title"],
+      metadata: {}
+    },
+
+    Title: {
+      type: "component",
+      name: "Title",
+      component_type: "h1",
+      props: {
+        children: "Hello from Kotoba!"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    Main: {
+      type: "component",
+      name: "Main",
+      component_type: "main",
+      props: {
+        className: "main"
+      },
+      children: ["Message"],
+      metadata: {}
+    },
+
+    Message: {
+      type: "component",
+      name: "Message",
+      component_type: "p",
+      props: {
+        children: "This component was generated from pure Jsonnet!"
+      },
+      children: [],
+      metadata: {}
+    },
+
+    Footer: {
+      type: "component",
+      name: "Footer",
+      component_type: "footer",
+      props: {
+        className: "footer",
+        children: "© 2024 Kotoba"
+      },
+      children: [],
+      metadata: {}
+    }
+  },
+
+  // シンプルな状態管理
+  states: {
+    message: {
+      type: "state",
+      name: "message",
+      initial: "Hello World!"
+    }
+  },
+
+  // 設定
+  config: {
+    title: "Minimal Kotoba Demo",
+    outputDir: "_site"
+  }
+}

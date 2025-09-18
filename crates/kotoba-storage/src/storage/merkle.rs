@@ -154,7 +154,7 @@ impl MerkleDAG {
                     children: Vec::new(),
                     timestamp: 0,
                 })
-                .collect();
+                .collect::<Vec<_>>();
         }
 
         leaves[0].hash.clone()

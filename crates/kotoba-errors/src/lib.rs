@@ -33,6 +33,8 @@ pub enum KotobaError {
     Network(String),
     #[error("Workflow error: {0}")]
     Workflow(String), // Variant to hold stringified WorkflowError
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 /// Error type specific to the `kotoba-workflow` crate.
