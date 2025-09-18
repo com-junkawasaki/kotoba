@@ -24,6 +24,24 @@ export interface HandlerContext<
 export type Handler = (ctx: HandlerContext<any, any, any>) => Promise<any> | any;
 
 /**
+ * A function to pass control to the next middleware or handler in the chain.
+ */
+export type NextFunction = () => Promise<any> | any;
+
+/**
+ * A middleware handler function.
+ */
+export type MiddlewareHandler = (ctx: HandlerContext<any, any, any>, next: NextFunction) => Promise<any> | any;
+
+/**
+ * The structure of a middleware file (`_middleware.ts`).
+ * It must have a default export.
+ */
+export interface MiddlewareModule {
+  default: MiddlewareHandler;
+}
+
+/**
  * The structure of a route file (`route.ts`).
  */
 export interface RouteModule {
