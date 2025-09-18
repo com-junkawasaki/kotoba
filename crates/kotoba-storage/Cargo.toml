@@ -25,11 +25,11 @@ tempfile = "3.0"
 async-trait = "0.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
-kotoba-core = { path = "../kotoba-core", version = "0.1.19", features = ["schemars"] }
-kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
-kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }
-kotoba-db-core = { path = "../kotoba-db-core" }
+kotoba-core = { version = "0.1.21", features = ["schemars"] }
+kotoba-errors = "0.1.1"
+kotoba-graph = "0.1.21"
+kotoba-cid = "0.1.21"
+kotoba-db-core = "0.1.16"
 
 [features]
 default = []
