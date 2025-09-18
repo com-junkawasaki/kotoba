@@ -255,25 +255,9 @@ impl MembershipManager {
         Ok(())
     }
 
-    async fn start_command_processor(&self, cluster_state: Arc<ClusterState>, command_tx: tokio::sync::mpsc::Sender<MembershipCommand>, command_rx: &mut tokio::sync::mpsc::Receiver<MembershipCommand>) -> Result<(), MembershipError> {
-        let membership_tx = tokio::sync::mpsc::Sender::clone(&command_tx);
-
-        tokio::spawn(async move {
-            while let Some(command) = command_rx.recv().await {
-                match command {
-                    MembershipCommand::AddNode { node_id, node_info, response_tx } => {
-                        // TODO: Implement add_node logic
-                        let _ = response_tx.send(Ok(()));
-                    }
-                    MembershipCommand::RemoveNode { node_id, response_tx } => {
-                        // TODO: Implement remove_node logic
-                        let _ = response_tx.send(Ok(()));
-                    }
-                }
-            }
-            Ok::<(), MembershipError>(())
-        });
-
+    async fn start_command_processor(&self, _cluster_state: Arc<ClusterState>, _command_tx: tokio::sync::mpsc::Sender<MembershipCommand>, _command_rx: &mut tokio::sync::mpsc::Receiver<MembershipCommand>) -> Result<(), MembershipError> {
+        // TODO: Implement command processor
+        // For now, just return Ok to allow compilation
         Ok(())
     }
 
