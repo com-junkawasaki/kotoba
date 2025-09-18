@@ -4,6 +4,7 @@ import fs from 'fs'; // Using sync fs for simplicity in this part
 import { glob } from 'glob';
 import chokidar from 'chokidar';
 import { RouteModule, MiddlewareModule, Handler, MiddlewareHandler } from './types';
+import { ValidationError } from '@kotoba/kotobajs';
 
 interface DevServerOptions {
   port: number;
@@ -53,26 +54,55 @@ async function registerRoutes(app: ReturnType<typeof fastify>, appDir: string) {
       const handler = routeModule[method];
       if (handler) {
         app[method.toLowerCase() as 'get'](url, async (request, reply) => {
-          // Combine middleware and the final handler into an execution chain
-          const executionChain: (MiddlewareHandler | Handler)[] = [...allMiddlewares, handler];
+          try {
+            const ctx: any = { request, reply };
 
-          const runChain = async (index: number, ctx: any): Promise<any> => {
-            const currentFn = executionChain[index];
-            const isLast = index === executionChain.length - 1;
+            // --- 1. Automatic Request Validation ---
+            if (routeModule.params) ctx.params = routeModule.params.parse(request.params);
+            if (routeModule.body) ctx.body = routeModule.body.parse(request.body);
+            if (routeModule.query) ctx.query = routeModule.query.parse(request.query);
 
-            if (isLast) {
-              return (currentFn as Handler)(ctx);
-            } else {
-              const next = () => runChain(index + 1, ctx);
-              return (currentFn as MiddlewareHandler)(ctx, next);
+            // Combine middleware and the final handler into an execution chain
+            const executionChain: (MiddlewareHandler | Handler)[] = [...allMiddlewares, handler];
+
+            const runChain = async (index: number): Promise<any> => {
+              const currentFn = executionChain[index];
+              const isLast = index === executionChain.length - 1;
+
+              if (isLast) {
+                return (currentFn as Handler)(ctx);
+              } else {
+                const next = () => runChain(index + 1);
+                return (currentFn as MiddlewareHandler)(ctx, next);
+              }
+            };
+            
+            const handlerResult = await runChain(0); // Pass ctx implicitly via closure
+            
+            const status = typeof handlerResult === 'object' && handlerResult.status ? handlerResult.status : 200;
+            const body = typeof handlerResult === 'object' && handlerResult.body ? handlerResult.body : handlerResult;
+
+            // --- 2. Automatic Response Validation (Foundation) ---
+            const responseSchema = routeModule.response?.[status];
+            if (responseSchema) {
+              // This will throw if the handler's output doesn't match the schema.
+              responseSchema.parse(body); 
             }
-          };
-          
-          // --- Validation ---
-          // ... (validation logic remains the same)
-          const ctx = { request, reply, params: request.params, body: request.body, query: request.query };
-          
-          return runChain(0, ctx);
+
+            return reply.status(status).send(body);
+
+          } catch (error) {
+            if (error instanceof ValidationError) {
+              // Handle request validation errors
+              return reply.status(400).send({
+                error: 'Bad Request: Validation failed',
+                issues: error.issues,
+              });
+            }
+            // Handle response validation errors and other unexpected errors
+            console.error(`[KotobaWeb] Unhandled error in ${method} ${url}:`, error);
+            return reply.status(500).send({ error: 'Internal Server Error' });
+          }
         });
       }
     }

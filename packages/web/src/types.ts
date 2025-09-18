@@ -48,6 +48,9 @@ export interface RouteModule {
   params?: KotobaSchema<any>;
   body?: KotobaSchema<any>;
   query?: KotobaSchema<any>;
+  response?: {
+    [statusCode: number]: KotobaSchema<any>;
+  };
 
   GET?: Handler;
   POST?: Handler;
