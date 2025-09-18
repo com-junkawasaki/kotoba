@@ -18,10 +18,10 @@ thiserror = "2.0"
 anyhow = "1.0"
 parking_lot = "0.12"
 sha2 = "0.10"
-kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
-kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
-uuid = { workspace = true, features = ["v4"] }
-kotoba-cid = { path = "../kotoba-cid" }
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.1"
+uuid = { version = "1.18", features = ["v4"] }
+kotoba-cid = "0.1.16"
 
 [features]
 default = ["std"]
