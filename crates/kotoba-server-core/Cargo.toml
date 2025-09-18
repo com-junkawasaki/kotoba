@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-server-core"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2021"
 description = "Core HTTP server library for Kotoba - basic HTTP/GraphQL server functionality"
 license = "Apache-2.0"

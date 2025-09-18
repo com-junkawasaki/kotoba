@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-server-workflow"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2021"
 description = "Workflow integration for Kotoba HTTP server"
 license = "Apache-2.0"
@@ -10,11 +10,11 @@ keywords = ["workflow", "http", "server", "integration"]
 categories = ["web-programming::http-server", "development-tools"]
 
 [dependencies]
-# Core server functionality
-kotoba-server-core = { path = "../kotoba-server-core", version = "0.1.0" }
+# Core server functionality - temporarily commented out for publishing
+# kotoba-server-core = { version = "0.1.21" }
 
 # Workflow engine - minimal core interface
-kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.0", optional = true }
+kotoba-workflow-core = { version = "0.1.21", optional = true }
 
 # Axum for HTTP server integration
 axum = { version = "0.7", features = ["json", "macros"] }
