@@ -314,8 +314,8 @@ impl PerformanceProfiler {
         }
 
         ProfilingReport {
-            trends,
-            event_summaries,
+            trends: trends.clone(),
+            event_summaries: event_summaries.clone(),
             recommendations: self.generate_recommendations(&trends, &event_summaries),
         }
     }

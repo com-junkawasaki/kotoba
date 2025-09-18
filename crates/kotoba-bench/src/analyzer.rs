@@ -94,7 +94,7 @@ impl PerformanceAnalyzer {
             }
         }
 
-        regressions.sort_by(|a, b| (b.significance as u8).cmp(&(a.significance as u8)));
+        regressions.sort_by(|a, b| (b.significance.clone() as u8).cmp(&(a.significance.clone() as u8)));
         regressions
     }
 
@@ -257,9 +257,10 @@ impl PerformanceAnalyzer {
             return StatisticalAnalysis::default();
         }
 
-        let throughputs: Vec<f64> = self.results.iter().map(|r| r.operations_per_second).collect();
-        let mean = throughputs.sort_by(|a, b| a.partial_cmp(b).unwrap()).mean();
-        let std_dev = throughputs.std_dev();
+        let mut throughputs: Vec<f64> = self.results.iter().map(|r| r.operations_per_second).collect();
+        throughputs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mean = throughputs.iter().sum::<f64>() / throughputs.len() as f64;
+        let std_dev = (throughputs.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / throughputs.len() as f64).sqrt();
         let n = throughputs.len() as f64;
 
         // 95% confidence interval using t-distribution approximation
@@ -271,8 +272,8 @@ impl PerformanceAnalyzer {
                 mean,
                 median: mean, // Assuming median is the same as mean for simplicity
                 std_dev,
-                min: throughputs.min(),
-                max: throughputs.max(),
+                min: *throughputs.first().unwrap_or(&0.0),
+                max: *throughputs.last().unwrap_or(&0.0),
                 quartiles: (
                     throughputs[(throughputs.len() as f64 * 0.25) as usize],
                     throughputs[(throughputs.len() as f64 * 0.5) as usize],
@@ -364,8 +365,8 @@ impl PerformanceAnalyzer {
             return StatisticalSignificance::InsufficientData;
         }
 
-        let mean = throughputs.mean();
-        let std_dev = throughputs.std_dev();
+        let mean = throughputs.iter().sum::<f64>() / throughputs.len() as f64;
+        let std_dev = (throughputs.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / throughputs.len() as f64).sqrt();
         let cv = if mean != 0.0 { std_dev / mean } else { 0.0 };
 
         match cv {

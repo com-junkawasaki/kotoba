@@ -20,6 +20,7 @@ parking_lot = "0.12"
 kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
 uuid = { workspace = true, features = ["v4"] }
+kotoba-cid = { path = "../kotoba-cid" }
 
 [features]
 default = ["std"]

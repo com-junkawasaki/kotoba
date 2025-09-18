@@ -5732,6 +5732,7 @@ version = "0.1.17"
 dependencies = [
  "anyhow",
  "js-sys",
+ "kotoba-cid",
  "kotoba-core",
  "kotoba-errors",
  "parking_lot",
@@ -6097,6 +6098,20 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.16",
  "tokio",
+]
+
+[[package]]
+name = "kotoba-schema-registry"
+version = "0.1.16"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "jsonschema",
+ "kotoba-schema",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "url",
 ]
 
 [[package]]

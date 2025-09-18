@@ -184,10 +184,11 @@ pub struct GraphInstance {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub enum GraphKind {
-    #[serde(rename = "type")]
-    Type,
-    #[serde(rename = "instance")]
-    Instance,
+    Graph,
+    Rule,
+    Pattern,
+    NAC,
+    AC,
 }
 
 /// 写像定義

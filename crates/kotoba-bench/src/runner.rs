@@ -43,7 +43,7 @@ impl BenchmarkRunner {
     }
 
     /// Run a single benchmark
-    pub async fn run_benchmark<B: Benchmark>(
+    pub async fn run_benchmark<B: Benchmark + std::marker::Sync>(
         &self,
         mut benchmark: B,
     ) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
@@ -76,7 +76,7 @@ impl BenchmarkRunner {
     }
 
     /// Execute the actual benchmark measurement
-    async fn execute_benchmark<B: Benchmark>(
+    async fn execute_benchmark<B: Benchmark + std::marker::Sync>(
         &self,
         benchmark: &B,
         benchmark_name: &str,
@@ -391,7 +391,8 @@ fn calculate_latency_percentiles(mut latencies: Vec<u64>) -> LatencyPercentiles 
 pub trait BenchmarkExt: Benchmark {
     /// Run a single warmup operation
     async fn run_warmup_operation(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.run_operation(0, 0).await?;
+        // Default implementation - just return success
+        // Benchmarks can override this if they need custom warmup
         Ok(())
     }
 }

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use parking_lot::RwLock;
 use kotoba_core::types::*;
+use kotoba_core::prelude::{Cid, GraphCore, GraphInstance, Node, Edge, GraphKind};
+use kotoba_cid::CidManager;
 
 /// 頂点データ
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -11,6 +13,19 @@ pub struct VertexData {
     pub id: VertexId,
     pub labels: Vec<Label>,
     pub props: Properties,
+}
+
+impl VertexData {
+    pub fn to_node(&self) -> Node {
+        Node {
+            cid: Cid::new(&self.id.to_string()),
+            labels: self.labels.clone(),
+            r#type: "node".to_string(),
+            ports: Vec::new(),
+            attrs: Some(self.props.clone()),
+            component_ref: None,
+        }
+    }
 }
 
 /// エッジデータ
@@ -21,6 +36,19 @@ pub struct EdgeData {
     pub dst: VertexId,
     pub label: Label,
     pub props: Properties,
+}
+
+impl EdgeData {
+    pub fn to_edge(&self) -> Edge {
+        Edge {
+            cid: Cid::new(&self.id.to_string()),
+            label: Some(self.label.clone()),
+            src: self.src.to_string(),
+            tgt: self.dst.to_string(),
+            attrs: Some(self.props.clone()),
+            r#type: "edge".to_string(),
+        }
+    }
 }
 
 /// グラフ（列指向表現）
@@ -194,6 +222,15 @@ impl Graph {
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
+
+    pub fn to_graph_core(&self) -> GraphCore {
+        GraphCore {
+            nodes: self.vertices.values().map(|v| v.to_node()).collect(),
+            edges: self.edges.values().map(|e| e.to_edge()).collect(),
+            boundary: None,
+            attrs: None,
+        }
+    }
 }
 
 /// スレッドセーフなグラフ参照
@@ -215,5 +252,17 @@ impl GraphRef {
 
     pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, Graph> {
         self.inner.write()
+    }
+
+    pub fn to_graph_instance_with_cid(&self, cid_manager: &mut CidManager) -> Result<GraphInstance> {
+        let core_graph = self.read().to_graph_core();
+        let cid = cid_manager.compute_graph_cid(&core_graph)?;
+
+        Ok(GraphInstance {
+            cid,
+            kind: GraphKind::Graph,
+            core: core_graph,
+            typing: None, // Simplified
+        })
     }
 }

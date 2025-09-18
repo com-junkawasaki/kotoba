@@ -2237,6 +2237,31 @@
       priority: 'low',
       estimated_effort: '4-5 weeks',
     },
+
+    'schema_registry': {
+      name: 'schema_registry',
+      path: 'crates/kotoba-schema-registry/src/lib.rs',
+      type: 'registry',
+      description: 'Schema registration and evolution engine',
+      layer: 'core',
+      properties: {
+        api: true,
+        persistance: true,
+      },
+      crate_name: 'kotoba-schema-registry',
+      dependencies: ['schema_validator'],
+    },
+
+    'kotobas_parser': {
+      name: 'kotobas_parser',
+      path: 'crates/kotobas/src/parser.rs',
+      type: 'kotobas',
+      description: 'Kotoba language parser',
+      dependencies: ['kotobanet_core', 'jsonnet_core'],
+      provides: ['KotobaParser'],
+      status: 'planned',
+      build_order: 1,
+    },
   },
 
   // ==========================================
@@ -3008,6 +3033,14 @@
     { from: 'nix_environment_config', to: 'lib' },
     { from: 'nix_lock_file', to: 'lib' },
     { from: 'shell_nix_fallback', to: 'lib' },
+
+    // Schema registry dependencies
+    { from: 'schema_validator', to: 'schema_registry' },
+    { from: 'ir_catalog', to: 'schema_registry' },
+
+    // Kotobas Language Components
+    { from: 'kotobas_parser', to: 'kotobas_ast' },
+    { from: 'kotobas_ast', to: 'kotobas_compiler' },
   ],
 
   // ==========================================

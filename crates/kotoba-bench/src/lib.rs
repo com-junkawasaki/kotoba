@@ -137,7 +137,7 @@ pub struct StorageStats {
 
 /// Benchmark suite that runs multiple benchmarks
 pub struct BenchmarkSuite {
-    benchmarks: Vec<Box<dyn Benchmark>>,
+    benchmarks: Vec<Box<dyn Benchmark + std::marker::Send>>,
     config: BenchmarkConfig,
 }
 
@@ -149,7 +149,7 @@ impl BenchmarkSuite {
         }
     }
 
-    pub fn add_benchmark<B: Benchmark + 'static>(mut self, benchmark: B) -> Self {
+    pub fn add_benchmark<B: Benchmark + std::marker::Send + 'static>(mut self, benchmark: B) -> Self {
         self.benchmarks.push(Box::new(benchmark));
         self
     }
@@ -181,6 +181,9 @@ pub trait Benchmark {
 
     /// Cleanup after benchmark
     async fn teardown(&mut self) -> Result<(), Box<dyn std::error::Error>>;
+
+    /// Run a single benchmark operation
+    async fn run_operation(&self, worker_id: usize, operation_count: u64) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 /// Performance baseline for regression detection

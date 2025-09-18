@@ -1,5 +1,6 @@
 //! 書換えエンジン
 
+use kotoba_core::prelude::{RuleDPO, GraphInstance};
 use kotoba_core::ir::*;
 use kotoba_graph::prelude::*;
 use kotoba_core::types::*;
@@ -330,13 +331,6 @@ impl RewriteEngine {
 
         Ok(())
     }
-}
-
-/// DPOマッチング結果
-#[derive(Debug, Clone)]
-pub struct DPOMatch {
-    pub node_mapping: std::collections::HashMap<String, String>,
-    pub edge_mapping: std::collections::HashMap<String, String>,
 }
 
 /// 外部関数インターフェース

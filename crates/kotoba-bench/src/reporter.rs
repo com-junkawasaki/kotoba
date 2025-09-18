@@ -524,6 +524,11 @@ impl MetricsReporter {
             serde_json::to_string(&results.iter().map(|r| r.operations_per_second).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
             serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
             serde_json::to_string(&results.iter().map(|r| r.latency_percentiles.p95).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.operations_per_second).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.name.clone()).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.latency_percentiles.p95).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
+            serde_json::to_string(&results.iter().map(|r| r.operations_per_second).collect::<Vec<_>>()).unwrap_or_else(|_| "[]".to_string()),
         );
 
         fs::write(&html_path, html_content)?;

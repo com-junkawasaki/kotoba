@@ -7,7 +7,7 @@
 //! - Custom load profiles
 
 use crate::BenchmarkConfig;
-use kotoba_db::Operation;
+use crate::workloads::Operation;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use std::sync::Mutex;
@@ -301,7 +301,7 @@ pub mod patterns {
     }
 
     #[async_trait]
-    impl<G: LoadGenerator> LoadGenerator for RampUpLoadGenerator<G> {
+    impl<G: LoadGenerator + std::marker::Send> LoadGenerator for RampUpLoadGenerator<G> {
         async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation {
             self.inner.generate_operation(worker_id, operation_count).await
         }
@@ -372,7 +372,7 @@ pub mod patterns {
     }
 
     #[async_trait]
-    impl<G: LoadGenerator> LoadGenerator for BurstyLoadGenerator<G> {
+    impl<G: LoadGenerator + std::marker::Send> LoadGenerator for BurstyLoadGenerator<G> {
         async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation {
             self.inner.generate_operation(worker_id, operation_count).await
         }
@@ -460,7 +460,7 @@ pub mod patterns {
     }
 
     #[async_trait]
-    impl<G: LoadGenerator> LoadGenerator for SpikeLoadGenerator<G> {
+    impl<G: LoadGenerator + std::marker::Send> LoadGenerator for SpikeLoadGenerator<G> {
         async fn generate_operation(&mut self, worker_id: usize, operation_count: u64) -> Operation {
             self.inner.generate_operation(worker_id, operation_count).await
         }
