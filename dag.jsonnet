@@ -111,6 +111,19 @@
       build_order: 3,
     },
 
+    // Workflow Core 層 - 軽量コア機能
+    'workflow_core': {
+      name: 'workflow_core',
+      path: 'crates/kotoba-workflow-core/src/lib.rs',
+      type: 'workflow',
+      description: 'ワークフローエンジンコア - 基本的なワークフロー実行機能',
+      dependencies: ['types', 'error_handling', 'ir_workflow'],
+      provides: ['WorkflowEngine', 'WorkflowIR', 'Activity', 'WorkflowExecution'],
+      status: 'planned',
+      build_order: 8,
+      optional: true,
+    },
+
     // Workflow 層 (Itonami) - Optional Feature
     'ir_workflow': {
       name: 'ir_workflow',
@@ -281,10 +294,10 @@
       path: 'crates/kotoba-workflow/src/executor.rs',
       type: 'workflow',
       description: 'Temporalベースワークフロー実行器 (MVCC + Event Sourcing) - オプション機能',
-      dependencies: ['types', 'ir_workflow', 'graph_core', 'storage_mvcc', 'storage_merkle', 'execution_engine'],
+      dependencies: ['types', 'workflow_core', 'graph_core', 'storage_mvcc', 'storage_merkle', 'execution_engine'],
       provides: ['WorkflowExecutor', 'ActivityExecutor', 'SagaExecutor', 'WorkflowStateManager', 'EventSourcingManager'],
       status: 'optional',
-      build_order: 8,
+      build_order: 9,
       optional: true,
     },
 
@@ -293,10 +306,10 @@
       path: 'crates/kotoba-workflow/src/store.rs',
       type: 'workflow',
       description: 'ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots) - オプション機能',
-      dependencies: ['types', 'ir_workflow', 'storage_mvcc', 'storage_merkle'],
+      dependencies: ['types', 'workflow_core', 'storage_mvcc', 'storage_merkle'],
       provides: ['WorkflowStore', 'WorkflowStateManager', 'EventStore', 'SnapshotManager', 'EventSourcingManager'],
       status: 'optional',
-      build_order: 7,
+      build_order: 9,
       optional: true,
     },
 
@@ -311,15 +324,40 @@
       build_order: 9,
     },
 
+    'activity_libraries_core': {
+      name: 'activity_libraries_core',
+      path: 'crates/kotoba-workflow-activities-core/src/lib.rs',
+      type: 'ecosystem',
+      description: 'コアアクティビティライブラリ - 基本的なアクティビティ機能',
+      dependencies: ['types', 'workflow_core'],
+      provides: ['ActivityLibraryCore', 'BasicActivities'],
+      status: 'planned',
+      build_order: 10,
+      optional: true,
+    },
+
     'activity_libraries': {
       name: 'activity_libraries',
       path: 'crates/kotoba-workflow-activities/src/lib.rs',
       type: 'ecosystem',
       description: 'Pre-built activity libraries (HTTP, Database, Cloud, etc.)',
-      dependencies: ['types', 'ir_workflow', 'workflow_executor'],
+      dependencies: ['types', 'activity_libraries_core', 'workflow_executor'],
       provides: ['ActivityLibrary', 'HttpActivities', 'DatabaseActivities', 'CloudActivities'],
       status: 'planned',
-      build_order: 10,
+      build_order: 11,
+      optional: true,
+    },
+
+    'kubernetes_operator_core': {
+      name: 'kubernetes_operator_core',
+      path: 'crates/kotoba-workflow-operator-core/src/lib.rs',
+      type: 'ecosystem',
+      description: 'Kubernetes operatorコア - 基本的なoperator機能',
+      dependencies: ['types', 'workflow_core'],
+      provides: ['WorkflowOperatorCore', 'BasicOperator'],
+      status: 'planned',
+      build_order: 11,
+      optional: true,
     },
 
     'kubernetes_operator': {
@@ -327,10 +365,11 @@
       path: 'crates/kotoba-workflow-operator/src/lib.rs',
       type: 'ecosystem',
       description: 'Kubernetes operator for workflow management',
-      dependencies: ['types', 'ir_workflow', 'workflow_executor', 'workflow_store'],
+      dependencies: ['types', 'kubernetes_operator_core', 'workflow_executor', 'workflow_store'],
       provides: ['WorkflowOperator', 'WorkflowController', 'WorkflowReconciler'],
       status: 'planned',
-      build_order: 11,
+      build_order: 12,
+      optional: true,
     },
 
     'cloud_integrations': {
@@ -2311,15 +2350,37 @@
     // ==========================================
     // HTTP/GraphQLサーバー層 - axumベースに刷新
     // ==========================================
+    'kotoba_server_core': {
+      name: 'kotoba_server_core',
+      path: 'crates/kotoba-server-core/src/lib.rs',
+      type: 'http',
+      description: 'コアHTTPサーバーライブラリ - 基本的なHTTP/GraphQLサーバー機能のみ',
+      dependencies: ['types', 'error_handling', 'graphql_schema', 'graphql_handler'],
+      provides: ['HttpServerCore', 'GraphQLApi', 'BasicApi'],
+      status: 'planned',
+      build_order: 12,
+    },
+
+    'kotoba_server_workflow': {
+      name: 'kotoba_server_workflow',
+      path: 'crates/kotoba-server-workflow/src/lib.rs',
+      type: 'http',
+      description: 'ワークフロー統合HTTPサーバー機能',
+      dependencies: ['types', 'error_handling', 'kotoba_server_core', 'workflow_core'],
+      provides: ['WorkflowHttpServer', 'WorkflowApi', 'WorkflowIntegration'],
+      status: 'planned',
+      build_order: 13,
+    },
+
     'kotoba_server': {
       name: 'kotoba_server',
       path: 'crates/kotoba-server/src/main.rs',
       type: 'http',
-      description: 'axumベースのメインHTTPサーバー - ワークフローなしで動作可能',
-      dependencies: ['types', 'graphql_schema'], // ワークフロー依存を削除、基本的なHTTPサーバーとして動作
-      provides: ['HttpServer', 'GraphQLApi', 'BasicApi'],
+      description: 'メインHTTPサーバーバイナリ - コア + ワークフロー統合',
+      dependencies: ['types', 'error_handling', 'kotoba_server_core', 'kotoba_server_workflow'],
+      provides: ['HttpServerBinary', 'FullServer'],
       status: 'in_progress',
-      build_order: 12,
+      build_order: 14,
     },
 
     'capabilities_documentation_ext': {
@@ -2394,13 +2455,18 @@
     { from: 'ir_patch', to: 'ir_strategy' },
     { from: 'ir_strategy', to: 'rewrite_engine' },
 
+    // Workflow Core 層依存
+    { from: 'types', to: 'workflow_core', optional: true },
+    { from: 'error_handling', to: 'workflow_core', optional: true },
+    { from: 'ir_workflow', to: 'workflow_core', optional: true },
+
     // Workflow 層依存 (オプション機能)
     { from: 'types', to: 'ir_workflow', optional: true },
     { from: 'ir_strategy', to: 'ir_workflow', optional: true },
     { from: 'types', to: 'workflow_executor', optional: true },
     { from: 'types', to: 'workflow_store', optional: true },
-    { from: 'ir_workflow', to: 'workflow_executor', optional: true },
-    { from: 'ir_workflow', to: 'workflow_store', optional: true },
+    { from: 'workflow_core', to: 'workflow_executor', optional: true },
+    { from: 'workflow_core', to: 'workflow_store', optional: true },
     { from: 'graph_core', to: 'workflow_executor', optional: true },
     { from: 'storage_mvcc', to: 'workflow_executor', optional: true },
     { from: 'storage_merkle', to: 'workflow_executor', optional: true },
@@ -2410,11 +2476,15 @@
 
     // Phase 4: Ecosystem 依存 (オプション機能)
     { from: 'types', to: 'workflow_designer', optional: true },
+    { from: 'types', to: 'activity_libraries_core', optional: true },
+    { from: 'workflow_core', to: 'activity_libraries_core', optional: true },
     { from: 'types', to: 'activity_libraries', optional: true },
-    { from: 'ir_workflow', to: 'activity_libraries', optional: true },
+    { from: 'activity_libraries_core', to: 'activity_libraries', optional: true },
     { from: 'workflow_executor', to: 'activity_libraries', optional: true },
+    { from: 'types', to: 'kubernetes_operator_core', optional: true },
+    { from: 'workflow_core', to: 'kubernetes_operator_core', optional: true },
     { from: 'types', to: 'kubernetes_operator', optional: true },
-    { from: 'ir_workflow', to: 'kubernetes_operator', optional: true },
+    { from: 'kubernetes_operator_core', to: 'kubernetes_operator', optional: true },
     { from: 'workflow_executor', to: 'kubernetes_operator', optional: true },
     { from: 'workflow_store', to: 'kubernetes_operator', optional: true },
     { from: 'types', to: 'cloud_integrations', optional: true },
@@ -2585,13 +2655,31 @@
     { from: 'http_engine', to: 'http_server' },
     { from: 'http_handlers', to: 'http_server' },
 
+    // Server Core dependencies
+    { from: 'types', to: 'kotoba_server_core' },
+    { from: 'error_handling', to: 'kotoba_server_core' },
+    { from: 'graphql_schema', to: 'kotoba_server_core' },
+    { from: 'graphql_handler', to: 'kotoba_server_core' },
+
+    // Server Workflow dependencies
+    { from: 'types', to: 'kotoba_server_workflow' },
+    { from: 'error_handling', to: 'kotoba_server_workflow' },
+    { from: 'kotoba_server_core', to: 'kotoba_server_workflow' },
+    { from: 'workflow_core', to: 'kotoba_server_workflow', optional: true },
+
+    // Server binary dependencies
+    { from: 'types', to: 'kotoba_server' },
+    { from: 'error_handling', to: 'kotoba_server' },
+    { from: 'kotoba_server_core', to: 'kotoba_server' },
+    { from: 'kotoba_server_workflow', to: 'kotoba_server' },
+
     // GraphQL dependencies
     { from: 'types', to: 'graphql_schema' },
     { from: 'schema_validator', to: 'graphql_schema' },
     { from: 'types', to: 'graphql_handler' },
     { from: 'graphql_schema', to: 'graphql_handler' },
-    { from: 'graphql_schema', to: 'kotoba_server' },
-    { from: 'graphql_handler', to: 'kotoba_server' },
+    { from: 'graphql_schema', to: 'kotoba_server_core' },
+    { from: 'graphql_handler', to: 'kotoba_server_core' },
     { from: 'http_ir', to: 'lib' },
     { from: 'http_parser', to: 'lib' },
     { from: 'http_handlers', to: 'lib' },
@@ -3191,10 +3279,13 @@
     // Optional Features (オプション)
     // ==========================================
     'ir_workflow',           // ワークフローIR
+    'workflow_core',         // ワークフローコア
     'workflow_executor',     // ワークフロー実行器
     'workflow_store',        // ワークフロー永続化
     'workflow_designer',     // ワークフローデザイナー
+    'activity_libraries_core',    // アクティビティコア
     'activity_libraries',    // アクティビティライブラリ
+    'kubernetes_operator_core',   // Kubernetesオペレーターコア
     'kubernetes_operator',   // Kubernetesオペレーター
     'cloud_integrations',    // クラウド統合
 
@@ -3209,6 +3300,8 @@
     'http_engine',           // HTTPエンジン
     'graphql_schema',        // GraphQLスキーマ
     'graphql_handler',       // GraphQLハンドラー
+    'kotoba_server_core',   // HTTPサーバーコア
+    'kotoba_server_workflow', // ワークフロー統合
     'kotoba_server',        // HTTPサーバー
 
     // Deploy関連
@@ -3520,9 +3613,12 @@
     'kotoba_lsp',
     'deploy_runtime',
     'deploy_cli',
-    'http_server',
+    'kotoba_server',
+    'kotoba_server_workflow',
+    'kotoba_server_core',
     'graphql_handler',
     'graphql_schema',
+    'http_server',
     'deploy_controller',
     'frontend_framework',
     'deploy_git_integration',

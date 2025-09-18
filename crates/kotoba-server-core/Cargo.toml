@@ -1,0 +1,46 @@
+[package]
+name = "kotoba-server-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core HTTP server library for Kotoba - basic HTTP/GraphQL server functionality"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
+keywords = ["http", "server", "graphql", "axum", "web"]
+categories = ["web-programming::http-server", "api-bindings"]
+
+[dependencies]
+# Axum for HTTP server
+axum = { version = "0.7", features = ["json", "http2", "macros"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = "0.4"
+tower-layer = "0.3"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "fs"] }
+hyper.workspace = true
+hyper-util = { version = "0.1", features = ["full"] }
+tokio = { version = "1.0", features = ["full"] }
+
+# JSON and serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Async traits
+async-trait = "0.1"
+futures = "0.3"
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Date/time handling
+chrono.workspace = true
+
+# Kotoba crates - minimal dependencies for core functionality
+kotoba-errors.workspace = true
+
+[dev-dependencies]
+tempfile = "3.3"
