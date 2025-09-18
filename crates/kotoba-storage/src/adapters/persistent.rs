@@ -47,8 +47,8 @@ impl StoragePort for PersistentStorage {
     }
 
     async fn put_block(&self, block: &Block) -> Result<Cid> {
-        let cid = block.cid()?; // Merkle DAG: Generate content identifier for the block
-        let bytes = block.to_bytes()?; // Merkle DAG: Serialize block to bytes for storage
+        let cid = block.cid().map_err(|e| KotobaError::Anyhow(e))?; // Merkle DAG: Generate content identifier for the block
+        let bytes = block.to_bytes().map_err(|e| KotobaError::Anyhow(e))?; // Merkle DAG: Serialize block to bytes for storage
         self.lsm_tree.write().await.put(hex::encode(cid), bytes).await?; // Merkle DAG: Store block with hex-encoded CID as key
         Ok(Cid(cid))
     }
@@ -56,7 +56,7 @@ impl StoragePort for PersistentStorage {
     async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
         let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid.0)).await?; // Merkle DAG: Retrieve block using hex-encoded CID
         if let Some(bytes) = bytes_opt {
-            let block = Block::from_bytes(&bytes)?; // Merkle DAG: Deserialize bytes back to block structure
+            let block = Block::from_bytes(&bytes).map_err(|e| KotobaError::Anyhow(e))?; // Merkle DAG: Deserialize bytes back to block structure
             Ok(Some(block))
         } else {
             Ok(None) // Merkle DAG: Block not found in the content-addressed storage
@@ -177,7 +177,7 @@ impl PersistentStorage {
         let mut merkle_dag = self.merkle_dag.write().await;
 
         // グラフのCIDを計算（簡易版）
-        let graph_data = serde_json::to_string(graph)?;
+        let graph_data = serde_json::to_string(graph).map_err(|e| KotobaError::Json(e))?;
         let graph_cid = cid_manager.calculator().compute_cid(&graph_data)?;
 
         // 頂点を個別に格納
@@ -186,7 +186,7 @@ impl PersistentStorage {
             let vertex_cid = cid_manager.calculator().compute_cid(vertex)?;
             let vertex_key = format!("vertex:{}", vertex_cid.to_hex());
 
-            let vertex_data = serde_json::to_vec(vertex)?;
+            let vertex_data = serde_json::to_vec(vertex).map_err(|e| KotobaError::Json(e))?;
             self.store_data(&vertex_key, &vertex_data).await?;
 
             vertex_cids.push(vertex_cid);
@@ -198,7 +198,7 @@ impl PersistentStorage {
             let edge_cid = cid_manager.calculator().compute_cid(edge)?;
             let edge_key = format!("edge:{}", edge_cid.to_hex());
 
-            let edge_data = serde_json::to_vec(edge)?;
+            let edge_data = serde_json::to_vec(edge).map_err(|e| KotobaError::Json(e))?;
             self.store_data(&edge_key, &edge_data).await?;
 
             edge_cids.push(edge_cid);
@@ -218,7 +218,7 @@ impl PersistentStorage {
 
         // メタデータを格納
         let metadata_key = format!("graph:{}", graph_cid.to_hex());
-        let metadata_data = serde_json::to_vec(&persisted_graph)?;
+        let metadata_data = serde_json::to_vec(&persisted_graph).map_err(|e| KotobaError::Json(e))?;
         self.store_data(&metadata_key, &metadata_data).await?;
 
         Ok(graph_cid)
@@ -235,7 +235,7 @@ impl PersistentStorage {
             _ => return Err(KotobaError::Storage("Failed to load graph metadata".to_string())),
         };
 
-        let persisted_graph: PersistedGraph = serde_json::from_slice(&metadata_data)?;
+        let persisted_graph: PersistedGraph = serde_json::from_slice(&metadata_data).map_err(|e| KotobaError::Json(e))?;
 
         // 頂点を復元
         let mut vertices = HashMap::new();
@@ -246,7 +246,7 @@ impl PersistentStorage {
                 _ => continue, // 頂点が見つからない場合はスキップ
             };
 
-            let vertex: VertexData = serde_json::from_slice(&vertex_data)?;
+            let vertex: VertexData = serde_json::from_slice(&vertex_data).map_err(|e| KotobaError::Json(e))?;
             vertices.insert(vertex.id, vertex);
         }
 
@@ -259,7 +259,7 @@ impl PersistentStorage {
                 _ => continue, // エッジが見つからない場合はスキップ
             };
 
-            let edge: EdgeData = serde_json::from_slice(&edge_data)?;
+            let edge: EdgeData = serde_json::from_slice(&edge_data).map_err(|e| KotobaError::Json(e))?;
             edges.insert(edge.id, edge);
         }
 
@@ -355,7 +355,7 @@ impl PersistentStorage {
         // Merkle DAGのスナップショット
         let merkle_dag = self.merkle_dag.blocking_read();
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
-        let merkle_data = serde_json::to_vec(merkle_dag.nodes())?;
+        let merkle_data = serde_json::to_vec(merkle_dag.nodes()).map_err(|e| KotobaError::Json(e))?;
         std::fs::write(merkle_snapshot_path, merkle_data)?;
 
         Ok(snapshot_id)
@@ -371,7 +371,7 @@ impl PersistentStorage {
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
         if merkle_snapshot_path.exists() {
             let merkle_data = std::fs::read(merkle_snapshot_path)?;
-            let nodes: HashMap<ContentHash, crate::domain::merkle::MerkleNode> = serde_json::from_slice(&merkle_data)?;
+            let nodes: HashMap<ContentHash, crate::domain::merkle::MerkleNode> = serde_json::from_slice(&merkle_data).map_err(|e| KotobaError::Json(e))?;
             let mut merkle_dag = self.merkle_dag.blocking_write();
             merkle_dag.set_nodes(nodes);
         }
