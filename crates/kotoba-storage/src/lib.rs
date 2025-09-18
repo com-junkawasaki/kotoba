@@ -11,6 +11,6 @@ pub mod port;
 pub mod prelude {
     pub use crate::port::StoragePort;
     pub use crate::adapters::lsm::LSMTree;
-    pub use crate::adapters::memory::MemoryStorage;
-    pub use crate::domain::persistent::{PersistentStorage, PersistentStorageConfig};
+    // pub use crate::adapters::memory::MemoryStorage;
+    pub use crate::domain::persistent::{PersistentStorage, PersistentStorageConfig, StorageConfig, CidRange};
 }

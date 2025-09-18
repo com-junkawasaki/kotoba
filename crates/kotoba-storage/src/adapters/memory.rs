@@ -1,1 +1,1 @@
-//! In-memory storage backend for testing and development.
+pub mod memory;

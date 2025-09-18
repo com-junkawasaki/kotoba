@@ -4,6 +4,9 @@
 //! integrated with kotoba-cloud-integrations.
 
 #[cfg(feature = "object_storage")]
+use crate::port::StoragePort;
+use crate::domain::models::StorageConfig;
+#[cfg(feature = "object_storage")]
 use crate::storage::backend::{StorageBackend, BackendStats, StorageConfig, ObjectStorageProvider};
 #[cfg(feature = "object_storage")]
 use async_trait::async_trait;

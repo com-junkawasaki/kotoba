@@ -2,7 +2,8 @@
 use crate::domain::persistent::StorageStats;
 use crate::domain::merkle::MerkleDAG;
 use crate::domain::mvcc::MVCCManager;
-use kotoba_core::prelude::{Result, Cid, Graph};
+use kotoba_core::prelude::{Result, Cid};
+use kotoba_graph::prelude::Graph;
 use std::sync::Arc;
 use async_trait::async_trait;
 

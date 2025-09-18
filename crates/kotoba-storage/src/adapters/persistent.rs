@@ -12,10 +12,11 @@ use kotoba_core::prelude::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
 use sha2::{Sha256, Digest};
-use crate::domain::merkle::MerkleNode;
+use crate::domain::merkle::{MerkleDAG, MerkleNode};
 use crate::adapters::lsm::LSMTree;
 use crate::domain::mvcc::MVCCManager;
 use std::collections::HashMap;
+use crate::domain::models::{StorageStats, CidRange, StorageConfig};
 
 /// 永続ストレージ設定
 #[derive(Debug, Clone)]
@@ -350,19 +351,6 @@ impl PersistentStorage {
 
         Ok(())
     }
-}
-
-/// ストレージ統計情報
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageStats {
-    /// LSMエントリ数
-    pub lsm_entries: usize,
-    /// Merkleノード数
-    pub merkle_nodes: usize,
-    /// アクティブトランザクション数
-    pub active_transactions: usize,
-    /// データサイズ（バイト）
-    pub data_size: u64,
 }
 
 /// 分散ストレージマネージャー
@@ -824,20 +812,4 @@ mod tests {
         assert_eq!(stats.merkle_nodes, 0);
         assert_eq!(stats.active_transactions, 0);
     }
-}
-
-/// CID範囲（簡易実装）
-#[derive(Debug, Clone)]
-pub struct CidRange {
-    pub start: String,
-    pub end: String,
-}
-
-/// ストレージ設定（簡易実装）
-#[derive(Debug, Clone)]
-pub struct StorageConfig {
-    pub bucket: String,
-    pub region: String,
-    pub access_key: String,
-    pub secret_key: String,
 }
