@@ -2834,7 +2834,6 @@ dependencies = [
  "kotoba-jsonnet",
  "kotoba-routing",
  "kotoba-storage 0.1.21",
- "kotoba-workflow-core 0.1.21",
  "lapin",
  "parking_lot",
  "redis",

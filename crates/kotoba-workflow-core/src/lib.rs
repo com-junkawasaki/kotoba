@@ -1,27 +1,23 @@
 //! # Kotoba Workflow Core
 //!
-//! Serverless Workflow specification compliant workflow engine.
-//! Based on https://serverlessworkflow.io/specification
+//! Minimal workflow engine interface for Kotoba.
+//! Provides core workflow execution functionality without heavy dependencies.
 
 pub mod engine;
-pub mod parser;
 pub mod types;
 
-/// Re-export main types
-pub use engine::{WorkflowEngine, WorkflowEngineBuilder};
+pub use engine::WorkflowEngine;
 pub use types::*;
 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use super::{
         WorkflowEngine,
-        WorkflowDocument,
-        WorkflowState,
-        ExecutionContext,
-        ExecutionResult,
+        WorkflowIR,
+        WorkflowExecution,
+        WorkflowExecutionId,
         ExecutionStatus,
-        StateResult,
-        StateStatus,
+        StartWorkflowResponse,
         WorkflowError,
     };
 }
@@ -52,6 +48,15 @@ impl From<&str> for WorkflowExecutionId {
     }
 }
 
+/// Workflow execution status
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ExecutionStatus {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
 
 /// Workflow execution state
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,35 +103,25 @@ pub struct Connection {
     pub condition: Option<String>,
 }
 
-/// Workflow engine interface trait
+/// Workflow engine interface
 #[async_trait]
 pub trait WorkflowEngineInterface: Send + Sync {
-    /// Start workflow execution
     async fn start_workflow(
         &self,
-        workflow: &WorkflowDocument,
-        input: serde_json::Value,
-    ) -> Result<String, WorkflowError>;
+        workflow: &WorkflowIR,
+        context: serde_json::Value,
+    ) -> Result<WorkflowExecutionId, WorkflowError>;
 
-    /// Get execution status
-    async fn get_execution_status(
+    async fn get_execution(
         &self,
-        execution_id: &str,
-    ) -> Result<Option<ExecutionStatus>, WorkflowError>;
+        execution_id: &WorkflowExecutionId,
+    ) -> Result<Option<WorkflowExecution>, WorkflowError>;
 
-    /// Get execution result
-    async fn get_execution_result(
-        &self,
-        execution_id: &str,
-    ) -> Result<Option<ExecutionResult>, WorkflowError>;
+    async fn list_executions(&self) -> Result<Vec<WorkflowExecution>, WorkflowError>;
 
-    /// List all executions
-    async fn list_executions(&self) -> Result<Vec<String>, WorkflowError>;
-
-    /// Cancel execution
     async fn cancel_execution(
         &self,
-        execution_id: &str,
+        execution_id: &WorkflowExecutionId,
     ) -> Result<(), WorkflowError>;
 }
 
@@ -141,9 +136,6 @@ pub enum WorkflowError {
 
     #[error("Workflow execution failed: {0}")]
     Execution(String),
-
-    #[error("Workflow execution error: {0}")]
-    ExecutionError(String),
 
     #[error("Storage error: {0}")]
     Storage(String),
