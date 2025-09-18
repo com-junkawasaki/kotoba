@@ -71,6 +71,7 @@ kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
 kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.16" }
 kotoba-routing = { path = "crates/kotoba-routing", version = "0.1.16" }
+kotoba-workflow-core = { path = "crates/kotoba-workflow-core", version = "0.1.21" }
 
 # Fix digest version conflict
 digest = "0.10.7"

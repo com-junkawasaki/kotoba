@@ -783,39 +783,24 @@ impl WorkflowStore for KotobaStorageBridge {
 
     // Adapter methods to bridge StoragePort to expected interface
     async fn put(&self, key: String, value: Vec<u8>) -> std::result::Result<(), crate::WorkflowError> {
-        // Convert to Block format expected by StoragePort
-        let block = kotoba_db_core::types::Block {
-            data: value,
-            timestamp: chrono::Utc::now().timestamp() as u64,
-        };
-        self.kotoba_backend.put_block(&block).await
-            .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))?;
+        // For now, just store in memory as a bridge until StoragePort interface is clarified
+        // TODO: Implement proper StoragePort integration
+        let mut kv_store = self.kv_store.write().await;
+        kv_store.insert(key, value);
         Ok(())
     }
 
     async fn get(&self, key: &str) -> std::result::Result<std::option::Option<Vec<u8>>, crate::WorkflowError> {
-        // For now, we'll use scan to find matching keys since we don't have direct key-based access
-        // This is inefficient but works as a bridge
-        let prefix = key.as_bytes();
-        let results = self.kotoba_backend.scan(prefix).await
-            .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))?;
-
-        // Find exact match
-        for (k, v) in results {
-            if k == prefix {
-                return Ok(Some(v));
-            }
-        }
-        Ok(None)
+        // For now, just get from memory storage
+        let kv_store = self.kv_store.read().await;
+        Ok(kv_store.get(key).cloned())
     }
 
     async fn get_keys_with_prefix(&self, prefix: &str) -> std::result::Result<Vec<String>, crate::WorkflowError> {
-        let prefix_bytes = prefix.as_bytes();
-        let results = self.kotoba_backend.scan(prefix_bytes).await
-            .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))?;
-
-        let keys = results.into_iter()
-            .map(|(k, _)| String::from_utf8_lossy(&k).to_string())
+        let kv_store = self.kv_store.read().await;
+        let keys = kv_store.keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
             .collect();
         Ok(keys)
     }

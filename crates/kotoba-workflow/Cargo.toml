@@ -7,9 +7,10 @@ repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Temporal-inspired workflow engine for Kotoba"
 
 [dependencies]
-# Kotoba crates - only core types for now to avoid RocksDB dependency
+# Kotoba crates - core workflow functionality
 kotoba-core.workspace = true
 kotoba-errors.workspace = true
+kotoba-workflow-core.workspace = true
 kotoba-routing = { version = "0.1.16", optional = true }
 
 # Common dependencies
