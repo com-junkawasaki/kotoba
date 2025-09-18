@@ -1,5 +1,6 @@
 use kotoba_storage::prelude::{StoragePort, PersistentStorage, PersistentStorageConfig};
-use kotoba_db_core::types::{Block, Cid, NodeBlock, EdgeBlock, Value};
+use kotoba_core::prelude::Cid;
+use kotoba_db_core::types::{Block, NodeBlock, EdgeBlock, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 use anyhow::Result;
@@ -100,7 +101,7 @@ impl DB {
                 Operation::UpdateNode { cid, properties } => {
                     // For now, we recreate the node with updated properties
                     // TODO: Implement proper update semantics
-                    let existing_node = self.get_node(&cid).await?
+                    let existing_node = self.get_node(&cid.0).await?
                         .ok_or_else(|| anyhow::anyhow!("Node not found"))?;
                     let mut new_properties = existing_node.properties.clone();
                     new_properties.extend(properties);
@@ -109,7 +110,7 @@ impl DB {
                 Operation::UpdateEdge { cid, properties } => {
                     // For now, we recreate the edge with updated properties
                     // TODO: Implement proper update semantics
-                    let existing_edge = self.get_edge(&cid).await?
+                    let existing_edge = self.get_edge(&cid.0).await?
                         .ok_or_else(|| anyhow::anyhow!("Edge not found"))?;
                     let mut new_properties = existing_edge.properties.clone();
                     new_properties.extend(properties);
@@ -183,7 +184,8 @@ impl DB {
             edges: Vec::new(), // Start with no edges
         };
         let block = Block::Node(node_block);
-        self.storage.put_block(&block).await
+        let cid = self.storage.put_block(&block).await?;
+        Ok(cid)
     }
 
     /// Creates a new edge in the database.
@@ -210,7 +212,8 @@ impl DB {
             properties,
         };
         let block = Block::Edge(edge_block);
-        self.storage.put_block(&block).await
+        let cid = self.storage.put_block(&block).await?;
+        Ok(cid)
     }
 
     /// Retrieves a block by its CID.
@@ -219,7 +222,7 @@ impl DB {
     }
 
     /// Retrieves a node by its CID.
-    pub async fn get_node(&self, cid: &Cid) -> Result<Option<NodeBlock>> {
+    pub async fn get_node(&self, cid: &[u8; 32]) -> Result<Option<NodeBlock>> {
         match self.get_block(cid).await? {
             Some(Block::Node(node)) => Ok(Some(node)),
             Some(Block::Edge(_)) => Ok(None),
@@ -228,7 +231,7 @@ impl DB {
     }
 
     /// Retrieves an edge by its CID.
-    pub async fn get_edge(&self, cid: &Cid) -> Result<Option<EdgeBlock>> {
+    pub async fn get_edge(&self, cid: &[u8; 32]) -> Result<Option<EdgeBlock>> {
         match self.get_block(cid).await? {
             Some(Block::Edge(edge)) => Ok(Some(edge)),
             Some(Block::Node(_)) => Ok(None),
@@ -248,7 +251,7 @@ impl DB {
 
         for (key_bytes, _) in all_keys {
             if let Ok(cid) = <[u8; 32]>::try_from(&key_bytes[..]) {
-                if let Some(Block::Node(node)) = self.get_block(&cid).await? {
+                if let Some(Block::Node(node)) = self.get_block(&Cid(*cid)).await? {
                     // Check if node matches all filters
                     let mut matches = true;
                     for (prop_name, expected_value) in filters {
@@ -263,7 +266,7 @@ impl DB {
                         }
                     }
                     if matches {
-                        results.push((cid, node));
+                        results.push((Cid(*cid), node));
                     }
                 }
             }
@@ -285,7 +288,7 @@ impl DB {
 
         for (key_bytes, _) in all_keys {
             if let Ok(cid) = <[u8; 32]>::try_from(&key_bytes[..]) {
-                if let Some(Block::Edge(edge)) = self.get_block(&cid).await? {
+                if let Some(Block::Edge(edge)) = self.get_block(&Cid(*cid)).await? {
                     // Check filters
                     let mut matches = true;
 
@@ -324,7 +327,7 @@ impl DB {
                     }
 
                     if matches {
-                        results.push((cid, edge));
+                        results.push((Cid(*cid), edge));
                     }
                 }
             }
@@ -429,7 +432,7 @@ mod tests {
         let node_cid = db.create_node(properties).await.unwrap();
 
         // Retrieve the node
-        let node = db.get_node(&node_cid).await.unwrap().unwrap();
+        let node = db.get_node(&node_cid.0).await.unwrap().unwrap();
         assert_eq!(node.properties["name"], Value::String("Alice".to_string()));
         assert_eq!(node.properties["age"], Value::Int(30));
         assert!(node.edges.is_empty());
@@ -446,7 +449,7 @@ mod tests {
         ).await.unwrap();
 
         // Retrieve the edge
-        let edge = db.get_edge(&edge_cid).await.unwrap().unwrap();
+        let edge = db.get_edge(&edge_cid.0).await.unwrap().unwrap();
         assert_eq!(edge.label, "FRIENDS_WITH");
         assert_eq!(edge.from, node_cid);
         assert_eq!(edge.to, node_cid);
@@ -517,7 +520,7 @@ mod tests {
         let test_cid = db.create_node(properties).await.unwrap();
 
         // Verify we can read back the test data
-        let node = db.get_node(&test_cid).await.unwrap().unwrap();
+        let node = db.get_node(&test_cid.0).await.unwrap().unwrap();
         assert_eq!(node.properties["test_key"], Value::String("test_value".to_string()));
 
         // Also verify that some of the original data is still accessible

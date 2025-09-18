@@ -71,6 +71,28 @@ impl KeyValuePort for RedisBackend {
         Ok(())
     }
 
+    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let mut conn = self.connection_manager.lock().await;
+        let pattern = format!("{}*", prefix);
+        
+        let keys: Vec<String> = conn.keys(pattern).await
+            .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))?;
+
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let values: Vec<Vec<u8>> = conn.mget(keys.clone()).await
+            .map_err(|e| KotobaError::Storage(format!("Failed to MGET values in Redis: {}", e)))?;
+
+        let results = keys.into_iter()
+            .map(|k| k.into_bytes())
+            .zip(values.into_iter())
+            .collect();
+            
+        Ok(results)
+    }
+
     async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
         let mut conn = self.connection_manager.lock().await;
         let pattern = format!("{}*", prefix);

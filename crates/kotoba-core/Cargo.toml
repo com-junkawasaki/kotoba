@@ -36,7 +36,7 @@ regex = "1.10"
 blake3 = "1.8"
 
 [features]
-default = ["std"]
+default = ["std", "schemars"]
 std = []
 wasm = ["wasm-bindgen", "web-sys", "js-sys"]
 schemars = ["dep:schemars"]

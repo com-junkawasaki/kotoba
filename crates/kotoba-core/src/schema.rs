@@ -17,6 +17,10 @@ impl Cid {
         hex::encode(self.0)
     }
 
+    pub fn as_str(&self) -> String {
+        self.to_hex()
+    }
+
     pub fn from_hex(s: &str) -> Result<Self, hex::FromHexError> {
         let mut bytes = [0u8; 32];
         hex::decode_to_slice(s, &mut bytes)?;
