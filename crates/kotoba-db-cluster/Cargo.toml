@@ -24,6 +24,10 @@ futures = "0.3"
 rand = "0.8"
 dashmap = "5.5"
 
+# Build dependencies
+[build-dependencies]
+tonic-build = "0.9"
+
 # KotobaDB dependencies
 kotoba-db-core = { path = "../kotoba-db-core", version = "0.1.16" }
 kotoba-db = { path = "../kotoba-db", version = "0.1.16", optional = true }

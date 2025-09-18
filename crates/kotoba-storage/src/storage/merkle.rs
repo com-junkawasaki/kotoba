@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
 use kotoba_errors::KotobaError;
 use kotoba_graph::graph::Graph;
 
@@ -119,7 +119,7 @@ impl MerkleDAG {
     }
 
     /// Merkleルートを計算
-    pub fn compute_root(&self) -> ContentHash {
+    pub fn compute_root(&mut self) -> ContentHash {
         if self.nodes.is_empty() {
             return ContentHash("empty".to_string());
         }
@@ -147,14 +147,19 @@ impl MerkleDAG {
                 new_level.push(combined_hash);
             }
 
-            leaves = new_level.into_iter()
-                .map(|hash| MerkleNode {
+            // 新しいレベルのノードをDAGに追加
+            let mut new_leaves = Vec::new();
+            for hash in new_level {
+                let node = MerkleNode {
                     hash: hash.clone(),
                     data: Vec::new(),
                     children: Vec::new(),
                     timestamp: 0,
-                })
-                .collect::<Vec<_>>();
+                };
+                self.nodes.insert(hash.clone(), node);
+                new_leaves.push(self.nodes.get(&hash).unwrap().clone());
+            }
+            leaves = new_leaves;
         }
 
         leaves[0].hash.clone()
@@ -256,6 +261,26 @@ impl MerkleDAG {
         }
 
         Ok(corrupted)
+    }
+
+    /// ノードを挿入
+    pub fn insert_node(&mut self, hash: ContentHash, node: MerkleNode) {
+        self.nodes.insert(hash, node);
+    }
+
+    /// ノードを取得
+    pub fn get_node(&self, hash: &ContentHash) -> Option<&MerkleNode> {
+        self.nodes.get(hash)
+    }
+
+    /// 全ノードを取得（読み取り専用）
+    pub fn nodes(&self) -> &HashMap<ContentHash, MerkleNode> {
+        &self.nodes
+    }
+
+    /// 全ノードを置き換え
+    pub fn set_nodes(&mut self, nodes: HashMap<ContentHash, MerkleNode>) {
+        self.nodes = nodes;
     }
 
     /// 正規化されたJSONをハッシュ化

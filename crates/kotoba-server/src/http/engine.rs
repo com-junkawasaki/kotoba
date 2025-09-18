@@ -3,7 +3,7 @@
 //! このモジュールはHTTPサーバーのコアエンジンを提供します。
 //! 設定管理、リクエスト処理、状態管理を行います。
 
-use kotoba_core::types::{ContentHash, Result, KotobaError};
+use kotoba_core::prelude::*;
 use crate::http::ir::*;
 use crate::http::handlers::*;
 use kotoba_graph::prelude::*;

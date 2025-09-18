@@ -7,6 +7,7 @@
 //! - Custom report templates
 
 use crate::{BenchmarkResult, AnalysisReport, PerformanceSummary};
+use crate::analyzer::{Severity, Priority};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;

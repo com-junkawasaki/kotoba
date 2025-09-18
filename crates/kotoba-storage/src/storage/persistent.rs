@@ -4,15 +4,16 @@
 //! LSMツリー、Merkle DAG、MVCCを統合した高性能ストレージエンジンです。
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use parking_lot::RwLock;
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
 use sha2::{Sha256, Digest};
 use crate::storage::{lsm::*, merkle::*, mvcc::*};
+use std::collections::HashMap;
 
 /// 永続ストレージ設定
 #[derive(Debug, Clone)]
@@ -110,18 +111,14 @@ impl PersistentStorage {
         let mut cid_manager = self.cid_manager.write();
         let mut merkle_dag = self.merkle_dag.write();
 
-        // グラフのCIDを計算
-        let graph_cid = cid_manager.compute_graph_cid(&GraphCore {
-            nodes: graph.vertices.values().cloned().collect(),
-            edges: graph.edges.values().cloned().collect(),
-            boundary: None,
-            attrs: None,
-        })?;
+        // グラフのCIDを計算（簡易版）
+        let graph_data = serde_json::to_string(graph)?;
+        let graph_cid = cid_manager.calculator().compute_cid(&graph_data)?;
 
         // 頂点を個別に格納
         let mut vertex_cids = Vec::new();
         for vertex in graph.vertices.values() {
-            let vertex_cid = cid_manager.compute_rule_cid(vertex)?;
+            let vertex_cid = cid_manager.calculator().compute_cid(vertex)?;
             let vertex_key = format!("vertex:{}", vertex_cid.as_str());
 
             let vertex_data = serde_json::to_vec(vertex)?;
@@ -133,7 +130,7 @@ impl PersistentStorage {
         // エッジを個別に格納
         let mut edge_cids = Vec::new();
         for edge in graph.edges.values() {
-            let edge_cid = cid_manager.compute_rule_cid(edge)?;
+            let edge_cid = cid_manager.calculator().compute_cid(edge)?;
             let edge_key = format!("edge:{}", edge_cid.as_str());
 
             let edge_data = serde_json::to_vec(edge)?;
@@ -246,7 +243,7 @@ impl PersistentStorage {
         let merkle_dag = self.merkle_dag.read();
         // 簡易版：全ノードのハッシュをまとめて計算
         let mut hasher = sha2::Sha256::new();
-        let mut sorted_hashes: Vec<_> = merkle_dag.nodes.keys().collect();
+        let mut sorted_hashes: Vec<_> = merkle_dag.nodes().keys().collect();
         sorted_hashes.sort();
 
         for hash in sorted_hashes {
@@ -261,7 +258,7 @@ impl PersistentStorage {
         let merkle_dag = self.merkle_dag.read();
 
         // Merkle DAGの整合性を検証
-        for node in merkle_dag.nodes.values() {
+        for node in merkle_dag.nodes().values() {
             let mut hasher = sha2::Sha256::new();
             hasher.update(&node.data);
             for child in &node.children {
@@ -293,7 +290,7 @@ impl PersistentStorage {
         // Merkle DAGのスナップショット
         let merkle_dag = self.merkle_dag.read();
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
-        let merkle_data = serde_json::to_vec(&merkle_dag.nodes)?;
+        let merkle_data = serde_json::to_vec(merkle_dag.nodes())?;
         std::fs::write(merkle_snapshot_path, merkle_data)?;
 
         Ok(snapshot_id)
@@ -309,9 +306,9 @@ impl PersistentStorage {
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
         if merkle_snapshot_path.exists() {
             let merkle_data = std::fs::read(merkle_snapshot_path)?;
-            let nodes: HashMap<ContentHash, MerkleNode> = serde_json::from_slice(&merkle_data)?;
+            let nodes: HashMap<ContentHash, crate::storage::merkle::MerkleNode> = serde_json::from_slice(&merkle_data)?;
             let mut merkle_dag = self.merkle_dag.write();
-            merkle_dag.nodes = nodes;
+            merkle_dag.set_nodes(nodes);
         }
 
         Ok(())
@@ -333,7 +330,7 @@ impl PersistentStorage {
         StorageStats {
             lsm_entries: lsm_tree.stats().total_entries,
             merkle_nodes: merkle_dag.len(),
-            active_transactions: mvcc_manager.active_transactions(),
+            active_transactions: mvcc_manager.active_transactions().len(),
             data_size: lsm_tree.stats().total_size,
         }
     }
@@ -372,7 +369,7 @@ pub struct DistributedStorageManager {
     /// ローカルストレージ
     local_storage: Arc<PersistentStorage>,
     /// 分散ノード情報
-    nodes: HashMap<NodeId, NodeStorageInfo>,
+    nodes: HashMap<VertexId, NodeStorageInfo>,
     /// 整合性チェック設定
     consistency_config: ConsistencyConfig,
 }
@@ -413,9 +410,9 @@ pub struct ConsistencyCheck {
     /// 整合性があるかどうか
     pub is_consistent: bool,
     /// 欠損しているノード
-    pub missing_nodes: Vec<NodeId>,
+    pub missing_nodes: Vec<VertexId>,
     /// 破損しているノード
-    pub corrupted_nodes: Vec<NodeId>,
+    pub corrupted_nodes: Vec<VertexId>,
 }
 
 /// 競合解決結果
@@ -448,7 +445,7 @@ pub enum ConflictResolutionMethod {
 #[derive(Debug, Clone)]
 pub struct NodeStorageInfo {
     /// ノードID
-    pub node_id: NodeId,
+    pub node_id: VertexId,
     /// アドレス
     pub address: String,
     /// 保持するCID範囲
@@ -825,4 +822,20 @@ mod tests {
         assert_eq!(stats.merkle_nodes, 0);
         assert_eq!(stats.active_transactions, 0);
     }
+}
+
+/// CID範囲（簡易実装）
+#[derive(Debug, Clone)]
+pub struct CidRange {
+    pub start: String,
+    pub end: String,
+}
+
+/// ストレージ設定（簡易実装）
+#[derive(Debug, Clone)]
+pub struct StorageConfig {
+    pub bucket: String,
+    pub region: String,
+    pub access_key: String,
+    pub secret_key: String,
 }

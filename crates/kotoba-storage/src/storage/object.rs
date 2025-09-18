@@ -8,7 +8,7 @@ use crate::storage::backend::{StorageBackend, BackendStats, StorageConfig, Objec
 #[cfg(feature = "object_storage")]
 use async_trait::async_trait;
 #[cfg(feature = "object_storage")]
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
 #[cfg(feature = "object_storage")]
 use kotoba_errors::KotobaError;
 #[cfg(feature = "object_storage")]

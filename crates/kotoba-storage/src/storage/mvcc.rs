@@ -113,4 +113,12 @@ impl MVCCManager {
         let snapshots = self.snapshots.read();
         snapshots.keys().max().and_then(|ts| snapshots.get(ts).cloned())
     }
+
+    /// アクティブなトランザクションを取得
+    pub fn active_transactions(&self) -> Vec<Transaction> {
+        self.transactions.read().values()
+            .filter(|tx| matches!(tx.state, TxState::Active))
+            .cloned()
+            .collect()
+    }
 }

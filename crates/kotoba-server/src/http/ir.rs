@@ -2,7 +2,7 @@
 //!
 //! このモジュールはHTTPサーバー関連のデータ構造とIR定義を提供します。
 
-use kotoba_core::types::{Value, Properties, ContentHash, Result, KotobaError};
+use kotoba_core::prelude::*;
 use kotoba_core::ir::catalog::{LabelDef, PropertyDef, ValueType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -2,7 +2,7 @@
 //!
 //! Next.js風App Routerフレームワークの主要コンポーネントを実装します。
 
-use crate::types::{Result, KotobaError, Value, Properties, ContentHash};
+use kotoba_core::prelude::*;
 use crate::frontend::component_ir::ExecutionEnvironment;
 use crate::frontend::component_ir::*;
 use crate::frontend::route_ir::*;

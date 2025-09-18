@@ -495,8 +495,8 @@ impl From<SchemaStatistics> for SchemaStatisticsGQL {
     }
 }
 
-impl From<ValidationResult> for ValidationResultGQL {
-    fn from(result: ValidationResult) -> Self {
+impl From<kotoba_schema::ValidationResult> for ValidationResultGQL {
+    fn from(result: kotoba_schema::ValidationResult) -> Self {
         ValidationResultGQL {
             is_valid: result.is_valid,
             errors: result.errors.into_iter().map(Into::into).collect(),

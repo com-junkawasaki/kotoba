@@ -49,6 +49,11 @@ impl CidManager {
         self.cache.get(key)
     }
 
+    /// CID計算器を取得
+    pub fn calculator(&self) -> &CidCalculator {
+        &self.calculator
+    }
+
     /// キャッシュをクリア
     pub fn clear_cache(&mut self) {
         self.cache.clear();

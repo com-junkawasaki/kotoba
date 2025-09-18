@@ -2,7 +2,7 @@
 //!
 //! このモジュールはHTTPサーバーのメインインターフェースを提供します。
 
-use kotoba_core::types::Result;
+use kotoba_core::prelude::*;
 use crate::http::ir::*;
 use crate::http::parser::HttpConfigParser;
 use crate::http::engine::{HttpEngine, RawHttpRequest};

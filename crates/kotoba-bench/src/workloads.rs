@@ -3,7 +3,8 @@
 //! Ready-to-use benchmark implementations for common database operations
 
 use crate::{Benchmark, BenchmarkConfig, BenchmarkResult, utils};
-use kotoba_db::DB;
+use crate::runner::BenchmarkExt;
+use kotoba_db::{DB, Operation};
 use kotoba_db_core::{Block, NodeBlock, Value};
 use std::collections::HashMap;
 use std::sync::Arc;

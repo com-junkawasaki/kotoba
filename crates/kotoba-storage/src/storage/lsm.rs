@@ -3,8 +3,28 @@
 #[cfg(feature = "rocksdb")]
 use rocksdb::{DB, Options, WriteBatch, IteratorMode};
 use std::path::PathBuf;
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
 use kotoba_errors::KotobaError;
+
+// RocksDBが有効でない場合のスタブ実装
+#[cfg(not(feature = "rocksdb"))]
+pub type DB = std::collections::HashMap<String, Vec<u8>>;
+#[cfg(not(feature = "rocksdb"))]
+pub struct Options;
+#[cfg(not(feature = "rocksdb"))]
+pub struct WriteBatch(Vec<(String, Vec<u8>)>);
+#[cfg(not(feature = "rocksdb"))]
+pub enum IteratorMode { Start }
+
+#[cfg(not(feature = "rocksdb"))]
+impl Default for Options {
+    fn default() -> Self { Options }
+}
+
+#[cfg(not(feature = "rocksdb"))]
+impl Default for WriteBatch {
+    fn default() -> Self { WriteBatch(Vec::new()) }
+}
 
 /// RocksDBベースのストレージマネージャー
 #[derive(Debug)]

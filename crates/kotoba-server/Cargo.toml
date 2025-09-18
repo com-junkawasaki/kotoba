@@ -26,6 +26,8 @@ hex = "0.4"
 sha2 = { version = "0.10", features = ["std"] }
 kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
 kotoba-schema = { path = "../kotoba-schema", version = "0.1.16" }
+kotoba-rewrite = { path = "../kotoba-rewrite", version = "0.1.15" }
+kotoba-security = { path = "../kotoba-security", version = "0.1.15" }
 
 # GraphQL support
 async-graphql = { version = "6.0", features = ["dynamic-schema", "apollo_tracing"] }

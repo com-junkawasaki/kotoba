@@ -2,7 +2,7 @@
 //!
 //! kotoba-kotobas を使用して .kotoba.json と .kotoba ファイルのパースを担当します。
 
-use kotoba_core::types::{ContentHash, Result, KotobaError};
+use kotoba_core::prelude::*;
 use crate::http::ir::*;
 use std::fs;
 use std::path::Path;
