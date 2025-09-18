@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use kotoba_errors::KotobaError;
 
 // Application state holds both the workflow engine and the new routing engine.
 struct AppStateInt {
@@ -22,6 +23,25 @@ struct AppStateInt {
     routing_engine: Arc<HttpRoutingEngine>,
 }
 type AppState = Arc<AppStateInt>;
+
+// Make our custom error type convertible into a response.
+impl IntoResponse for KotobaError {
+    fn into_response(self) -> Response {
+        let (status, message) = match &self {
+            KotobaError::NotFound(ressource) => (StatusCode::NOT_FOUND, format!("Resource not found: {}", ressource)),
+            KotobaError::Validation(details) => (StatusCode::BAD_REQUEST, format!("Validation failed: {}", details)),
+            KotobaError::Security(details) => (StatusCode::FORBIDDEN, format!("Forbidden: {}", details)),
+            KotobaError::InvalidArgument(details) => (StatusCode::BAD_REQUEST, format!("Invalid argument: {}", details)),
+            // For other errors, we don't want to leak internal details to the client.
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, "An internal server error occurred".to_string()),
+        };
+
+        // Log the full error for debugging, regardless of what is sent to the client.
+        tracing::error!("An error occurred: {:?}", self);
+
+        (status, message).into_response()
+    }
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

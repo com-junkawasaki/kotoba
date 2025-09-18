@@ -4,6 +4,7 @@ use anyhow::Result;
 use kotoba_routing::schema::{Component, ComponentOrString, LayoutModule, PageModule};
 use serde_json::Value;
 use std::collections::HashMap;
+use kotoba_jsonnet::{evaluate, EvaluationResult, FileResolver};
 
 #[derive(Default)]
 pub struct ComponentRenderer;
@@ -78,25 +79,31 @@ impl ComponentRenderer {
         Ok(format!("<{}{}>{}</{}>", tag, props_str, children_html, tag))
     }
 
-    /// A very basic interpolator that replaces `{{ props.user.name }}` style variables.
+    /// Evaluates a Jsonnet expression string with props as context.
     fn interpolate(&self, template: &str, props: &Value) -> String {
-        // This is a placeholder. A real implementation would use a proper template engine
-        // or a more robust regex.
-        if template.starts_with("{{") && template.ends_with("}}") {
-            let key = template
-                .trim_matches(|c| c == '{' || c == '}' || c == ' ')
-                .split('.')
-                .collect::<Vec<_>>();
-            
-            // Simplified lookup (e.g., props.user.name)
-            if key.get(0) == Some(&"props") {
-                return props
-                    .get(key[1])
-                    .and_then(|v| v.get(key[2]))
-                    .and_then(Value::as_str)
-                    .unwrap_or("").to_string();
-            }
+        // We wrap the template in a function and call it with `props`
+        // to make the `props` object available in the expression.
+        let expr = format!(r#"
+            function(props)
+                {template}
+        "#);
+
+        let props_json = serde_json::to_string(props).unwrap_or_else(|_| "{}".to_string());
+        
+        // Use a simple resolver as we are not dealing with file imports here.
+        let resolver = FileResolver::default();
+        
+        match evaluate(&expr, &resolver) {
+            Ok(EvaluationResult::Str(evaluated_func)) => {
+                // Now, evaluate the function call with the actual props
+                let final_expr = format!("({})({})", evaluated_func, props_json);
+                match evaluate(&final_expr, &resolver) {
+                    Ok(EvaluationResult::Str(result)) => result,
+                    Ok(EvaluationResult::Val(json_val)) => json_val.to_string(),
+                    _ => template.to_string(), // Fallback on error
+                }
+            },
+            _ => template.to_string(), // Fallback if the initial function creation fails
         }
-        template.to_string()
     }
 }

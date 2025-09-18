@@ -195,11 +195,11 @@
       name: 'storage_main',
       path: 'crates/kotoba-storage/',
       type: 'storage_api',
-      description: 'Main storage crate providing unified backend interface including KotobaDB',
-      dependencies: ['types', 'errors', 'graph', 'cid', 'db'],
+      description: 'Main storage crate providing unified backend interface for KotobaDB',
+      dependencies: ['types', 'errors', 'graph', 'cid'],
       provides: ['StorageBackend', 'StorageBackendFactory', 'KotobaDBBackend'],
       status: 'in_progress',
-      build_order: 7,
+      build_order: 5,
     },
 
     // プランナー層
@@ -1572,7 +1572,7 @@
     // ランタイム・アセット層 (Runtime Assets)
     // ==========================================
 
-    'jsonnet_stdlib': {
+    'jsonnet_stdlib_ext': {
       name: 'jsonnet_stdlib',
       path: 'config/lib.jsonnet',
       type: 'runtime_asset',
@@ -1946,7 +1946,7 @@
       path: 'crates/kotoba-db/',
       type: 'db_api',
       description: 'User-facing API for KotobaDB, a graph-native, version-controlled database.',
-      dependencies: ['db_core', 'db_engine_memory', 'db_engine_lsm'],
+      dependencies: ['db_core', 'db_engine_memory', 'db_engine_lsm', 'storage_main'],
       provides: ['KotobaDB', 'DBSnapshot'],
       status: 'planned',
       build_order: 6,
@@ -3049,7 +3049,7 @@
     { from: 'release_notes', to: 'lib' },
 
     // Runtime assets integration
-    { from: 'jsonnet_stdlib', to: 'lib' },
+    { from: 'jsonnet_stdlib_ext', to: 'lib' },
     { from: 'compiled_binaries', to: 'lib' },
 
     // Deployment integration
@@ -3314,7 +3314,7 @@
 
     // Runtime assets layer (reverse order)
     'compiled_binaries',
-    'jsonnet_stdlib',
+    'jsonnet_stdlib_ext',
 
     // Project configuration layer (reverse order)
     'release_notes',
@@ -3424,7 +3424,7 @@
     'release_notes',
 
     // Runtime assets layer
-    'jsonnet_stdlib',
+    'jsonnet_stdlib_ext',
     'compiled_binaries',
 
     // Deployment & publishing layer

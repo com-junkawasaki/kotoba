@@ -1,12 +1,15 @@
 //! The core of the file-based routing system.
 use crate::schema::{ApiRoute, PageModule, LayoutModule, HandlerWorkflow};
-use anyhow::{Context, Result};
+use anyhow::{Context}; // Remove Result
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use glob::glob;
-use kotoba_workflow::prelude::{WorkflowEngine, WorkflowExecution, WorkflowExecutionId, WorkflowStatus};
-use kotoba_ssg::renderer::ComponentRenderer; // Assuming this is the main renderer
+use kotoba_workflow::prelude::{WorkflowEngine};
+use kotoba_ssg::renderer::ComponentRenderer;
+use kotoba_errors::KotobaError; // Import our error type
+use tokio::sync::Mutex;
+use kotoba_cid::Cid; // Assuming a Cid struct/functionality exists
 
 
 // The context available to workflow steps.
@@ -61,16 +64,22 @@ pub struct HttpRoutingEngine {
     root_node: Arc<RouteNode>,
     workflow_engine: Arc<WorkflowEngine>,
     ui_renderer: ComponentRenderer,
+    // The cache key is the CID of the HttpRequest.
+    route_cache: Mutex<HashMap<String, Arc<RouteMatch<'static>>>>,
 }
+
+// All public functions will now return our specific error type
+type Result<T> = std::result::Result<T, KotobaError>;
 
 impl HttpRoutingEngine {
     /// Creates a new `HttpRoutingEngine`.
     pub async fn new(app_dir: &Path, workflow_engine: Arc<WorkflowEngine>) -> Result<Self> {
         let root_node = Self::discover_routes(app_dir).await?;
         Ok(Self {
-            root_node: Arc::new(root_node),
+            root_node: Arc::new(root_node).leak(), // Leak the Arc to get a 'static lifetime for the cache
             workflow_engine,
-            ui_renderer: ComponentRenderer::new(), // Initialize the UI renderer
+            ui_renderer: ComponentRenderer::new(),
+            route_cache: Mutex::new(HashMap::new()),
         })
     }
 
@@ -173,88 +182,43 @@ impl HttpRoutingEngine {
         Ok(serde_json::Value::Null)
     }
 
-    /// Processes an HTTP request.
+    /// Processes an HTTP request, utilizing a CID-based cache.
     pub async fn handle_request(
         &self,
         request: HttpRequest,
     ) -> Result<HttpResponse> {
-        let path_segments: Vec<&str> = request.path.split('/').filter(|s| !s.is_empty()).collect();
-        let route_match = self.find_match(&path_segments);
+        // 1. Calculate the CID for the incoming request.
+        // This is a simplified representation. A real implementation would serialize
+        // the relevant parts of the request (method, path, specific headers) canonically.
+        let request_bytes = serde_json::to_vec(&request.path)?;
+        let request_cid = Cid::new_v1(0x55, &request_bytes); // Using raw codec for simplicity
+        let cid_string = request_cid.to_string();
         
-        if let Some(m) = route_match {
-            if let Some(api) = m.api {
-                if let Some(handler_workflow) = api.handlers.get(&request.method) {
-                    println!("Executing API handler for {} {}", request.method, request.path);
-                    
-                    // --- Execute the actual workflow ---
-                    let mut context = WorkflowContext { request: request.clone(), ..Default::default() };
-                    
-                    for step in &handler_workflow.steps {
-                        // This is a simplified execution loop. A real implementation
-                        // would use the `workflow_engine` to execute GQL, rewrites etc.
-                        println!("  - Executing step: {}", step.id);
-                        
-                        // Example: if step.step_type == DbQuery {
-                        //   let result = self.workflow_engine.execute_query(&step.query, &step.params).await?;
-                        //   context.steps.insert(step.id.clone(), result);
-                        // }
-                        
-                        // For now, we mock the final return step
-                        if step.step_type == crate::schema::WorkflowStepType::Return {
-                            // TODO: Interpolate context variables into the response body
-                            return Ok(HttpResponse {
-                                status_code: step.status_code,
-                                headers: Default::default(),
-                                body: step.body.clone(),
-                            });
-                        }
-                    }
-                    
-                    // If workflow doesn't end with a return step
-                    anyhow::bail!("Workflow did not produce a response.");
-                }
-            }
+        // 2. Check the cache first.
+        let mut cache = self.route_cache.lock().await;
+        if let Some(cached_match) = cache.get(&cid_string) {
+            println!("[Cache] HIT for CID: {}", cid_string);
+            // NOTE: We drop the lock before executing the rest of the logic
+            // to avoid holding it for too long.
+            let route_match = Arc::clone(cached_match);
+            drop(cache);
+            return self.execute_match(request, &route_match).await;
+        }
+        drop(cache); // Explicitly drop lock
 
-            // Priority 2: Page Route
-            if let Some(page) = m.page {
-                println!("Rendering Page for {}", request.path);
-                
-                let mut props = serde_json::Map::new();
-                props.insert("params".to_string(), serde_json::to_value(&m.params)?);
+        println!("[Cache] MISS for CID: {}", cid_string);
 
-                // --- Execute data loading workflows ---
-                let initial_context = WorkflowContext { request: request.clone(), ..Default::default() };
-
-                // 1. Execute layout workflows
-                for layout in &m.layouts {
-                    if let Some(workflow) = &layout.load_workflow {
-                        println!("  - Loading data for layout...");
-                        let result = self.execute_workflow(workflow, &initial_context).await?;
-                        // We assume the result is an object to merge into props.
-                        if let serde_json::Value::Object(map) = result {
-                            props.extend(map);
-                        }
-                    }
-                }
-                
-                // 2. Execute page workflow
-                if let Some(workflow) = &page.load_workflow {
-                    println!("  - Loading data for page...");
-                    let result = self.execute_workflow(workflow, &initial_context).await?;
-                    if let serde_json::Value::Object(map) = result {
-                        props.extend(map);
-                    }
-                }
-
-                // --- Render the UI component tree to HTML ---
-                let html_body = self.ui_renderer.render_page(&m.layouts, page, props.into())?;
-                
-                return Ok(HttpResponse {
-                    status_code: 200,
-                    headers: { let mut map = HashMap::new(); map.insert("Content-Type".to_string(), "text/html".to_string()); map },
-                    body: serde_json::Value::String(html_body),
-                });
-            }
+        // 3. If cache miss, perform the expensive route matching.
+        let path_segments: Vec<&str> = request.path.split('/').filter(|s| !s.is_empty()).collect();
+        if let Some(route_match) = self.find_match(&path_segments) {
+            let boxed_match = Arc::new(route_match);
+            
+            // 4. Store the result in the cache.
+            let mut cache = self.route_cache.lock().await;
+            cache.insert(cid_string, Arc::clone(&boxed_match));
+            drop(cache);
+            
+            return self.execute_match(request, &boxed_match).await;
         }
 
         // Nothing matched
@@ -263,5 +227,85 @@ impl HttpRoutingEngine {
             headers: Default::default(),
             body: serde_json::json!({ "error": "Not Found" }),
         })
+    }
+
+    /// A new helper function to execute the logic after a match is found (either from cache or fresh).
+    async fn execute_match(&self, request: HttpRequest, route_match: &RouteMatch<'_>) -> Result<HttpResponse> {
+        if let Some(api) = route_match.api {
+            if let Some(handler_workflow) = api.handlers.get(&request.method) {
+                println!("Executing API handler for {} {}", request.method, request.path);
+                
+                // --- Execute the actual workflow ---
+                let mut context = WorkflowContext { request: request.clone(), ..Default::default() };
+                
+                for step in &handler_workflow.steps {
+                    // This is a simplified execution loop. A real implementation
+                    // would use the `workflow_engine` to execute GQL, rewrites etc.
+                    println!("  - Executing step: {}", step.id);
+                    
+                    // Example: if step.step_type == DbQuery {
+                    //   let result = self.workflow_engine.execute_query(&step.query, &step.params).await?;
+                    //   context.steps.insert(step.id.clone(), result);
+                    // }
+                    
+                    // For now, we mock the final return step
+                    if step.step_type == crate::schema::WorkflowStepType::Return {
+                        // TODO: Interpolate context variables into the response body
+                        return Ok(HttpResponse {
+                            status_code: step.status_code,
+                            headers: Default::default(),
+                            body: step.body.clone(),
+                        });
+                    }
+                }
+                
+                // If workflow doesn't end with a return step
+                anyhow::bail!("Workflow did not produce a response.");
+            }
+        }
+
+        // Priority 2: Page Route
+        if let Some(page) = route_match.page {
+            println!("Rendering Page for {}", request.path);
+            
+            let mut props = serde_json::Map::new();
+            props.insert("params".to_string(), serde_json::to_value(&route_match.params)?);
+
+            // --- Execute data loading workflows ---
+            let initial_context = WorkflowContext { request: request.clone(), ..Default::default() };
+
+            // 1. Execute layout workflows
+            for layout in &route_match.layouts {
+                if let Some(workflow) = &layout.load_workflow {
+                    println!("  - Loading data for layout...");
+                    let result = self.execute_workflow(workflow, &initial_context).await?;
+                    // We assume the result is an object to merge into props.
+                    if let serde_json::Value::Object(map) = result {
+                        props.extend(map);
+                    }
+                }
+            }
+            
+            // 2. Execute page workflow
+            if let Some(workflow) = &page.load_workflow {
+                println!("  - Loading data for page...");
+                let result = self.execute_workflow(workflow, &initial_context).await?;
+                if let serde_json::Value::Object(map) = result {
+                    props.extend(map);
+                }
+            }
+
+            // --- Render the UI component tree to HTML ---
+            let html_body = self.ui_renderer.render_page(&route_match.layouts, page, props.into())?;
+            
+            return Ok(HttpResponse {
+                status_code: 200,
+                headers: { let mut map = HashMap::new(); map.insert("Content-Type".to_string(), "text/html".to_string()); map },
+                body: serde_json::Value::String(html_body),
+            });
+        }
+
+        // If no API or Page route matched
+        anyhow::bail!("No route matched for the given request.");
     }
 }
