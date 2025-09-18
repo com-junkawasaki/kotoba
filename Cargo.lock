@@ -5232,14 +5232,32 @@ dependencies = [
  "base64 0.21.7",
  "blake3",
  "hex",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.16",
  "tokio",
  "tokio-test",
+]
+
+[[package]]
+name = "kotoba-cid"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4127854a19755c48f347c8f83d0bb327ec9752d434fb734268da94d0003e5499"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "blake3",
+ "hex",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -5251,7 +5269,7 @@ dependencies = [
  "console",
  "dialoguer",
  "dirs 5.0.1",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy",
  "kotoba-docs",
  "kotoba-execution",
@@ -5346,7 +5364,7 @@ dependencies = [
  "hex",
  "js-sys",
  "jsonschema",
- "kotoba-errors",
+ "kotoba-errors 0.1.1",
  "regex",
  "schemars",
  "serde",
@@ -5360,11 +5378,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-core"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e09f6e0521d5054217a73be2f3f2d8ab978f77a2eb4922b9bbec0c393fc94e44"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "hex",
+ "jsonschema",
+ "kotoba-errors 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.16",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-db"
 version = "0.1.16"
 dependencies = [
  "anyhow",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-db-core",
  "kotoba-db-engine-lsm",
  "kotoba-db-engine-memory",
@@ -5401,8 +5439,8 @@ dependencies = [
  "async-trait",
  "blake3",
  "ciborium",
- "kotoba-cid",
- "kotoba-core",
+ "kotoba-cid 0.1.16",
+ "kotoba-core 0.1.21",
  "serde",
 ]
 
@@ -5435,8 +5473,8 @@ dependencies = [
  "chrono",
  "clap",
  "hex",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "kotoba-execution",
  "kotoba-graph",
  "kotoba-rewrite",
@@ -5460,7 +5498,7 @@ dependencies = [
  "clap",
  "dirs 5.0.1",
  "indicatif",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-controller",
  "kotoba-deploy-core",
  "kotoba-deploy-network",
@@ -5485,7 +5523,7 @@ dependencies = [
  "cron",
  "dashmap 5.5.3",
  "futures",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-core",
  "kotoba-deploy-git",
  "kotoba-deploy-network",
@@ -5512,8 +5550,8 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "hex",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "regex",
  "serde",
  "serde_json",
@@ -5533,7 +5571,7 @@ dependencies = [
  "chrono",
  "hex",
  "hmac 0.12.1",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-core",
  "regex",
  "reqwest",
@@ -5553,7 +5591,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "hyper 0.14.32",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-core",
  "regex",
  "serde",
@@ -5578,7 +5616,7 @@ dependencies = [
  "futures",
  "governor",
  "jsonwebtoken 9.3.1",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-core",
  "maxminddb",
  "moka",
@@ -5603,7 +5641,7 @@ version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-core",
  "kotoba-deploy-scaling",
  "serde",
@@ -5623,7 +5661,7 @@ dependencies = [
  "chrono",
  "futures",
  "hdrhistogram",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-deploy-core",
  "metrics",
  "metrics-exporter-prometheus",
@@ -5644,8 +5682,8 @@ name = "kotoba-distributed"
 version = "0.1.21"
 dependencies = [
  "anyhow",
- "kotoba-cid",
- "kotoba-core",
+ "kotoba-cid 0.1.16",
+ "kotoba-core 0.1.21",
  "kotoba-execution",
  "kotoba-graph",
  "kotoba-rewrite",
@@ -5674,7 +5712,7 @@ dependencies = [
  "html-escape",
  "ignore",
  "indicatif",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "mime_guess",
  "proc-macro2",
  "pulldown-cmark",
@@ -5710,13 +5748,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-errors"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76aaab867bd56240b3d7c143056cf24f12110a5f71729c7bd47760b146295c5d"
+dependencies = [
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "kotoba-execution"
 version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "kotoba-graph",
  "kotoba-storage",
  "serde",
@@ -5734,7 +5782,7 @@ dependencies = [
  "async-trait",
  "dirs 5.0.1",
  "futures",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "parking_lot",
  "regex",
  "serde",
@@ -5751,9 +5799,9 @@ version = "0.1.21"
 dependencies = [
  "anyhow",
  "js-sys",
- "kotoba-cid",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-cid 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot",
  "serde",
  "serde_json",
@@ -5779,7 +5827,7 @@ dependencies = [
  "js-sys",
  "jsonwebtoken 9.3.1",
  "kotoba-cli",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-kotobas",
  "kotoba-server",
  "kotoba2tsx",
@@ -5837,7 +5885,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.7",
  "chrono",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-jsonnet",
  "regex",
  "reqwest",
@@ -5860,7 +5908,7 @@ dependencies = [
  "colored 2.2.0",
  "dirs 5.0.1",
  "futures",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "parking_lot",
  "regex",
  "serde",
@@ -5894,7 +5942,7 @@ dependencies = [
  "hmac 0.12.1",
  "js-sys",
  "jsonschema",
- "kotoba-cid",
+ "kotoba-cid 0.1.16",
  "kotoba-cli",
  "kotoba-distributed",
  "kotoba-execution",
@@ -5972,7 +6020,7 @@ name = "kotoba-network"
 version = "0.1.21"
 dependencies = [
  "anyhow",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-distributed",
  "serde",
  "serde_json",
@@ -5993,8 +6041,8 @@ dependencies = [
  "flate2",
  "futures",
  "hex",
- "kotoba-cid",
- "kotoba-core",
+ "kotoba-cid 0.1.16",
+ "kotoba-core 0.1.21",
  "parking_lot",
  "reqwest",
  "semver",
@@ -6051,7 +6099,7 @@ dependencies = [
  "dialoguer",
  "dirs 5.0.1",
  "indicatif",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "regex",
  "rustyline",
  "rustyline-derive",
@@ -6068,9 +6116,9 @@ name = "kotoba-rewrite"
 version = "0.1.21"
 dependencies = [
  "anyhow",
- "kotoba-cid",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-cid 0.1.16",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "kotoba-graph",
  "kotoba-storage",
  "serde",
@@ -6086,7 +6134,7 @@ version = "0.1.16"
 dependencies = [
  "anyhow",
  "glob",
- "kotoba-cid",
+ "kotoba-cid 0.1.16",
  "kotoba-ssg",
  "kotoba-workflow",
  "serde",
@@ -6114,7 +6162,7 @@ version = "0.1.21"
 dependencies = [
  "anyhow",
  "jsonschema",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-graph",
  "regex",
  "schemars",
@@ -6187,8 +6235,8 @@ dependencies = [
  "clap",
  "graphql-parser",
  "js-sys",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "kotoba-routing",
  "kotoba-workflow",
  "reqwest",
@@ -6211,7 +6259,7 @@ dependencies = [
  "assert_fs",
  "fs_extra",
  "git2",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-docs",
  "kotoba-jsonnet",
  "kotoba-kotobas",
@@ -6245,10 +6293,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "hex",
- "kotoba-cid",
- "kotoba-core",
+ "kotoba-cid 0.1.16",
+ "kotoba-core 0.1.21",
  "kotoba-db-core",
- "kotoba-errors",
+ "kotoba-errors 0.1.1",
  "kotoba-graph",
  "parking_lot",
  "redis",
@@ -6276,7 +6324,7 @@ dependencies = [
  "futures",
  "glob",
  "indicatif",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "num_cpus",
  "parking_lot",
  "regex",
@@ -6297,8 +6345,8 @@ dependencies = [
  "async-trait",
  "chrono",
  "futures",
- "kotoba-core",
- "kotoba-errors",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.1",
  "kotoba-jsonnet",
  "kotoba-storage",
  "lapin",
@@ -6374,7 +6422,7 @@ dependencies = [
  "indexmap 2.11.3",
  "js-sys",
  "jsonnet-rs",
- "kotoba-core",
+ "kotoba-core 0.1.21",
  "kotoba-kotobas",
  "parking_lot",
  "regex",
