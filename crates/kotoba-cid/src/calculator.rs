@@ -21,7 +21,7 @@ impl CidCalculator {
     pub fn compute_cid<T: Serialize>(&self, data: &T) -> kotoba_core::types::Result<Cid> {
         let canonical_bytes = self.canonicalize_json(data)?;
         let hash = self.compute_hash(&canonical_bytes);
-        Ok(Cid::new(&hash))
+        Ok(Cid(hash))
     }
 
     /// JSONを正規化
@@ -58,17 +58,15 @@ impl CidCalculator {
     }
 
     /// ハッシュを計算
-    fn compute_hash(&self, data: &[u8]) -> String {
+    fn compute_hash(&self, data: &[u8]) -> [u8; 32] {
         match self.hash_algo {
             HashAlgorithm::Sha2256 => {
                 let mut hasher = Sha256::new();
                 hasher.update(data);
-                let result = hasher.finalize();
-                hex::encode(result)
+                hasher.finalize().into()
             }
             HashAlgorithm::Blake3 => {
-                let hash = blake3::hash(data);
-                hash.to_hex().to_string()
+                *blake3::hash(data).as_bytes()
             }
         }
     }
@@ -81,7 +79,7 @@ impl CidCalculator {
             combined.push(0); // 区切り文字
         }
         let hash = self.compute_hash(&combined);
-        Ok(Cid::new(&hash))
+        Ok(Cid(hash))
     }
 
     /// CIDを検証

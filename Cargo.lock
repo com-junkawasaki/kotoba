@@ -5702,6 +5702,7 @@ dependencies = [
 name = "kotoba-errors"
 version = "0.1.1"
 dependencies = [
+ "anyhow",
  "serde_json",
  "thiserror 1.0.69",
 ]
@@ -6081,9 +6082,14 @@ name = "kotoba-routing"
 version = "0.1.16"
 dependencies = [
  "anyhow",
+ "glob",
+ "kotoba-cid",
+ "kotoba-ssg",
+ "kotoba-workflow",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]
@@ -6174,22 +6180,20 @@ version = "0.1.16"
 dependencies = [
  "anyhow",
  "async-graphql",
+ "axum 0.7.9",
  "graphql-parser",
- "hex",
- "hyper 0.14.32",
  "js-sys",
  "kotoba-core",
- "kotoba-rewrite",
- "kotoba-schema",
- "kotoba-security",
- "parking_lot",
+ "kotoba-errors",
+ "kotoba-routing",
+ "kotoba-workflow",
+ "reqwest",
  "serde",
  "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.16",
  "tokio",
- "tower 0.4.13",
- "tower-http 0.4.4",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
  "wasm-bindgen",
  "web-sys",

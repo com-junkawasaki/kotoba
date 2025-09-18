@@ -67,6 +67,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Upgrade { version, force } => {
             run_command::execute_upgrade(version, force).await
         }
+        Commands::Web { command } => {
+            run_command::execute_web(command).await
+        }
     };
 
     // エラーハンドリング
@@ -585,5 +588,44 @@ mod run_command {
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("Upgrading Kotoba... (not implemented yet)");
         Ok(())
+    }
+
+    pub async fn execute_web(command: crate::WebCommands) -> Result<(), Box<dyn std::error::Error>> {
+        match command {
+            crate::WebCommands::Dev { cwd, port } => {
+                let server_binary_name = "kotoba-server";
+                // Find the binary relative to the `kotoba` CLI executable itself.
+                let current_exe = std::env::current_exe()?;
+                let bin_dir = current_exe.parent().ok_or("Could not find parent directory of executable")?;
+                let server_binary_path = bin_dir.join(server_binary_name);
+
+                if !server_binary_path.exists() {
+                    // Fallback for development: cargo run -p kotoba-cli ...
+                    let target_dir = bin_dir.parent().ok_or("Could not find target dir")?;
+                    let fallback_path = target_dir.join(server_binary_name);
+                    if !fallback_path.exists() {
+                         eprintln!("Error: kotoba-server binary not found.");
+                         eprintln!("Searched at: {} and {}", server_binary_path.display(), fallback_path.display());
+                         eprintln!("Please run 'cargo build -p kotoba-server' first.");
+                         return Err("kotoba-server binary not found".into());
+                    }
+                }
+
+                println!("[kotoba cli] Starting kotoba-server in {:?} on port {}", &cwd, port);
+
+                let mut child = std::process::Command::new(server_binary_path)
+                    .arg("--port") // Assuming kotoba-server will also use clap to parse this
+                    .arg(port.to_string())
+                    .current_dir(cwd)
+                    .stdout(std::process::Stdio::inherit())
+                    .stderr(std::process::Stdio::inherit())
+                    .spawn()?;
+                
+                let status = child.wait()?;
+
+                println!("[kotoba cli] kotoba-server process exited with status: {}", status);
+                Ok(())
+            }
+        }
     }
 }

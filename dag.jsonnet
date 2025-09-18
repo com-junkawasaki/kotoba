@@ -2280,11 +2280,11 @@
       name: 'kotobajs',
       path: 'packages/kotobajs',
       type: 'typescript_sdk',
-      description: 'Isomorphic JS/TS SDK for Kotoba with validation and query builder.',
-      dependencies: ['schema_registry', 'http_server'],
-      provides: ['KotobaClient', 'k_validator', 'QueryBuilder'],
+      description: 'External TypeScript SDK for querying the Kotoba API.',
+      dependencies: ['schema_registry', 'kotoba_server'], // Depends on the server's API contract
+      provides: ['KotobaClient', 'k_validator'],
       status: 'in_progress',
-      build_order: 12,
+      build_order: 13, // After the server is defined
     },
 
     'kotoba_web': {
@@ -2306,10 +2306,32 @@
       path: 'crates/kotoba-server/src/main.rs',
       type: 'http',
       description: 'axumベースのメインHTTPサーバー',
-      dependencies: ['types', 'ir_workflow', 'workflow_executor', 'graphql_schema'],
+      dependencies: ['types', 'workflow_executor', 'graphql_schema', 'kotoba_routing'], // Added kotoba_routing
       provides: ['HttpServer', 'GraphQLApi', 'WorkflowApi'],
       status: 'in_progress',
-      build_order: 10,
+      build_order: 12,
+    },
+
+    'capabilities_documentation_ext': {
+      name: 'capabilities_documentation',
+      path: 'examples/capabilities/README.md',
+      type: 'documentation',
+      description: '機能ベースセキュリティドキュメント - Denoに似たセキュリティシステム',
+      dependencies: ['security_capabilities'],
+      provides: ['SecurityDocumentation', 'CapabilityExamples', 'SecurityGuide'],
+      status: 'completed',
+      build_order: 1,
+    },
+
+    'kotoba_routing': {
+      name: 'kotoba_routing',
+      path: 'crates/kotoba-routing/src/lib.rs',
+      type: 'http_internal',
+      description: 'Rust-native file-based routing engine.',
+      dependencies: ['kotoba-workflow', 'kotoba-ssg', 'kotoba-cid', 'kotoba-errors'],
+      provides: ['HttpRoutingEngine'],
+      status: 'in_progress',
+      build_order: 11,
     },
   },
 
@@ -3095,6 +3117,11 @@
     { from: 'schema_registry', to: 'kotobajs' },
     { from: 'http_server', to: 'kotobajs' },
     { from: 'kotobajs', to: 'kotoba_web' },
+
+    // Rust-native routing dependencies
+    { from: 'kotoba-workflow', to: 'kotoba_routing' },
+    { from: 'kotoba-ssg', to: 'kotoba_routing' },
+    { from: 'kotoba_routing', to: 'kotoba_server' },
   ],
 
   // ==========================================

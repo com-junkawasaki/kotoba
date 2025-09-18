@@ -43,17 +43,28 @@ impl StoragePort for PersistentStorage {
     fn mvcc_manager(&self) -> Arc<RwLock<MVCCManager>> {
         self.mvcc_manager.clone()
     }
-    
-    async fn put_block(&self, _block: &Block) -> Result<Cid> {
-        unimplemented!()
+
+    async fn put_block(&self, block: &Block) -> Result<Cid> {
+        let cid = block.cid()?;
+        let bytes = block.to_bytes()?;
+        self.lsm_tree.write().await.put(hex::encode(cid), bytes).await?;
+        Ok(cid)
     }
 
-    async fn get_block(&self, _cid: &Cid) -> Result<Option<Block>> {
-        unimplemented!()
+    async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
+        let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid)).await?;
+        if let Some(bytes) = bytes_opt {
+            let block = Block::from_bytes(&bytes)?;
+            Ok(Some(block))
+        } else {
+            Ok(None)
+        }
     }
 
-    async fn scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        unimplemented!()
+    async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let prefix_hex = hex::encode(prefix);
+        // Note: This scan is on hex keys, so it's a prefix scan on the hex representation.
+        self.lsm_tree.read().await.scan(&prefix_hex).await
     }
 }
 
@@ -161,7 +172,7 @@ impl PersistentStorage {
         let mut vertex_cids = Vec::new();
         for vertex in graph.vertices.values() {
             let vertex_cid = cid_manager.calculator().compute_cid(vertex)?;
-            let vertex_key = format!("vertex:{}", vertex_cid.as_str());
+            let vertex_key = format!("vertex:{}", vertex_cid.to_hex());
 
             let vertex_data = serde_json::to_vec(vertex)?;
             self.store_data(&vertex_key, &vertex_data).await?;
@@ -173,7 +184,7 @@ impl PersistentStorage {
         let mut edge_cids = Vec::new();
         for edge in graph.edges.values() {
             let edge_cid = cid_manager.calculator().compute_cid(edge)?;
-            let edge_key = format!("edge:{}", edge_cid.as_str());
+            let edge_key = format!("edge:{}", edge_cid.to_hex());
 
             let edge_data = serde_json::to_vec(edge)?;
             self.store_data(&edge_key, &edge_data).await?;
@@ -194,7 +205,7 @@ impl PersistentStorage {
         };
 
         // メタデータを格納
-        let metadata_key = format!("graph:{}", graph_cid.as_str());
+        let metadata_key = format!("graph:{}", graph_cid.to_hex());
         let metadata_data = serde_json::to_vec(&persisted_graph)?;
         self.store_data(&metadata_key, &metadata_data).await?;
 
@@ -203,7 +214,7 @@ impl PersistentStorage {
 
     /// CIDからグラフを復元
     pub async fn load_graph(&self, cid: &Cid) -> Result<Graph> {
-        let metadata_key = format!("graph:{}", cid.as_str());
+        let metadata_key = format!("graph:{}", cid.to_hex());
 
         // メタデータを取得
         let metadata_data = match self.load_data(&metadata_key).await? {
@@ -217,7 +228,7 @@ impl PersistentStorage {
         // 頂点を復元
         let mut vertices = HashMap::new();
         for vertex_cid in &persisted_graph.vertex_cids {
-            let vertex_key = format!("vertex:{}", vertex_cid.as_str());
+            let vertex_key = format!("vertex:{}", vertex_cid.to_hex());
             let vertex_data = match self.load_data(&vertex_key).await? {
                 StorageResult::Success(data) => data,
                 _ => continue, // 頂点が見つからない場合はスキップ
@@ -230,7 +241,7 @@ impl PersistentStorage {
         // エッジを復元
         let mut edges = HashMap::new();
         for edge_cid in &persisted_graph.edge_cids {
-            let edge_key = format!("edge:{}", edge_cid.as_str());
+            let edge_key = format!("edge:{}", edge_cid.to_hex());
             let edge_data = match self.load_data(&edge_key).await? {
                 StorageResult::Success(data) => data,
                 _ => continue, // エッジが見つからない場合はスキップ
@@ -580,7 +591,7 @@ impl DistributedStorageManager {
         // 各バージョンのタイムスタンプを取得
         let mut version_info = Vec::new();
         for version in versions {
-            if let Ok(StorageResult::Success(data)) = self.local_storage.load_data(&format!("cid:{}", version.as_str())).await {
+            if let Ok(StorageResult::Success(data)) = self.local_storage.load_data(&format!("cid:{}", version.to_hex())).await {
                 // 簡易版：データサイズをタイムスタンプの代わりに使用
                 version_info.push((version.clone(), data.len() as u64));
             }
@@ -608,7 +619,7 @@ impl DistributedStorageManager {
         match self.consistency_config.read_consistency {
             ConsistencyLevel::One => {
                 // 1つのノードから読み取り
-                self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await
+                self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await
                     .map(|result| match result {
                         StorageResult::Success(data) => Some(data),
                         _ => None,
@@ -618,7 +629,7 @@ impl DistributedStorageManager {
                 // クォーラムから読み取り
                 let check = self.check_consistency(cid).await?;
                 if check.is_consistent && check.available_nodes >= check.required_replicas {
-                    self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await
+                    self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await
                         .map(|result| match result {
                             StorageResult::Success(data) => Some(data),
                             _ => None,
@@ -634,7 +645,7 @@ impl DistributedStorageManager {
                 let check = self.check_consistency(cid).await?;
 
                 if check.available_nodes == total_nodes && check.is_consistent {
-                    self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await
+                    self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await
                         .map(|result| match result {
                             StorageResult::Success(data) => Some(data),
                             _ => None,
@@ -649,7 +660,7 @@ impl DistributedStorageManager {
     /// 書き込み操作の整合性を確保
     pub async fn ensure_write_consistency(&self, cid: &Cid, data: &[u8]) -> Result<()> {
         // データをローカルに書き込み
-        self.local_storage.store_data(&format!("cid:{}", cid.as_str()), data).await?;
+        self.local_storage.store_data(&format!("cid:{}", cid.to_hex()), data).await?;
 
         match self.consistency_config.write_consistency {
             ConsistencyLevel::One => {
@@ -676,7 +687,7 @@ impl DistributedStorageManager {
 
         for node_info in self.nodes.values() {
             for range in &node_info.cid_ranges {
-                let hash = cid.as_str().as_bytes();
+                let hash = cid.to_hex().as_bytes();
                 let hash_value = hash.iter().fold(0u64, |acc, &b| acc.wrapping_add(b as u64));
 
                 if hash_value >= range.start.parse().unwrap_or(0) && hash_value <= range.end.parse().unwrap_or(u64::MAX) {
@@ -694,7 +705,7 @@ impl DistributedStorageManager {
         // 実際の実装ではネットワーク通信を行う
         // ここではローカルノードのみをチェック
         if node_info.node_id.to_string() == "local" {
-            match self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await? {
+            match self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await? {
                 StorageResult::Success(data) => Ok(data),
                 _ => Err(KotobaError::Storage("Data not found".to_string())),
             }
@@ -708,7 +719,7 @@ impl DistributedStorageManager {
         // 実際の実装ではネットワーク通信を行う
         // ここではローカルノードのみをサポート
         if node_info.node_id.to_string() == "local" {
-            self.local_storage.store_data(&format!("cid:{}", cid.as_str()), data).await?;
+            self.local_storage.store_data(&format!("cid:{}", cid.to_hex()), data).await?;
             Ok(())
         } else {
             Err(KotobaError::Storage("Remote node communication not implemented".to_string()))
@@ -718,7 +729,7 @@ impl DistributedStorageManager {
     /// CIDの担当ノードを決定
     pub fn get_responsible_node(&self, cid: &Cid) -> Option<&NodeStorageInfo> {
         // CIDハッシュに基づいて担当ノードを決定
-        let hash = cid.as_str().as_bytes();
+        let hash = cid.to_hex().as_bytes();
         let hash_value = hash.iter().fold(0u64, |acc, &b| acc.wrapping_add(b as u64));
 
         for node_info in self.nodes.values() {
@@ -737,7 +748,7 @@ impl DistributedStorageManager {
     pub async fn verify_consistency(&self, cid: &Cid) -> Result<bool> {
         // 複数のノードから同じCIDのデータを取得して比較
         // 簡易版：ローカルのみチェック
-        match self.local_storage.load_data(&format!("cid:{}", cid.as_str())).await? {
+        match self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await? {
             StorageResult::Success(_) => Ok(true),
             _ => Ok(false),
         }

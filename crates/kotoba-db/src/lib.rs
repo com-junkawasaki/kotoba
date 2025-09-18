@@ -177,17 +177,13 @@ impl DB {
     ///
     /// # Returns
     /// The CID of the created node block
-    pub async fn create_node(&mut self, properties: BTreeMap<String, Value>) -> Result<Cid> {
+    pub async fn create_node(&self, properties: BTreeMap<String, Value>) -> Result<Cid> {
         let node_block = NodeBlock {
             properties,
             edges: Vec::new(), // Start with no edges
         };
         let block = Block::Node(node_block);
-        // This will require a method on StoragePort to store arbitrary blocks
-        // For now, let's assume `store_graph` can be adapted or a new method is added.
-        // This part needs further implementation on the storage port/adapter side.
-        // For example: self.storage.put_block(&block).await
-        unimplemented!("StoragePort does not have put_block method yet")
+        self.storage.put_block(&block).await
     }
 
     /// Creates a new edge in the database.
@@ -201,7 +197,7 @@ impl DB {
     /// # Returns
     /// The CID of the created edge block
     pub async fn create_edge(
-        &mut self,
+        &self,
         label: String,
         from_cid: Cid,
         to_cid: Cid,
@@ -214,14 +210,12 @@ impl DB {
             properties,
         };
         let block = Block::Edge(edge_block);
-        // self.storage.put_block(&block).await
-        unimplemented!("StoragePort does not have put_block method yet")
+        self.storage.put_block(&block).await
     }
 
     /// Retrieves a block by its CID.
     pub async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
-        // self.storage.get_block(cid).await
-        unimplemented!("StoragePort does not have get_block method yet")
+        self.storage.get_block(cid).await
     }
 
     /// Retrieves a node by its CID.

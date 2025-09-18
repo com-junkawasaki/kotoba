@@ -9,40 +9,24 @@ use sha2::{Sha256, Digest};
 use crate::types::Value;
 
 /// Content ID (CIDv1-like)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "schemars", derive(JsonSchema))]
-pub struct Cid(String);
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, Copy, Default)]
+pub struct Cid(pub [u8; 32]);
 
 impl Cid {
-    /// CIDを作成
-    pub fn new(hash: &str) -> Self {
-        Self(hash.to_string())
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0)
     }
 
-    /// CID文字列を取得
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// SHA-256ハッシュからCIDを作成
-    pub fn from_sha256(hash: [u8; 32]) -> Self {
-        use sha2::{Sha256, Digest};
-        let mut hasher = Sha256::new();
-        hasher.update(hash);
-        let result = hasher.finalize();
-        Self(hex::encode(result))
-    }
-
-    /// BLAKE3ハッシュからCIDを作成
-    pub fn from_blake3(hash: [u8; 32]) -> Self {
-        let result = blake3::hash(&hash);
-        Self(result.to_hex().to_string())
+    pub fn from_hex(s: &str) -> Result<Self, hex::FromHexError> {
+        let mut bytes = [0u8; 32];
+        hex::decode_to_slice(s, &mut bytes)?;
+        Ok(Cid(bytes))
     }
 }
 
 impl std::fmt::Display for Cid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.to_hex())
     }
 }
 

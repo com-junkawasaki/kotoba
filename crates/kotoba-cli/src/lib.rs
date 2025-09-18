@@ -178,6 +178,27 @@ pub enum Commands {
         #[command(subcommand)]
         command: DocsCommands,
     },
+
+    /// Manage the Kotoba web server and applications
+    Web {
+        #[command(subcommand)]
+        command: WebCommands,
+    },
+}
+
+/// Web server and application commands
+#[derive(Debug, Subcommand)]
+pub enum WebCommands {
+    /// Start the development server
+    Dev {
+        /// The directory of the application to run
+        #[arg(default_value = ".")]
+        cwd: PathBuf,
+
+        /// Port to listen on
+        #[arg(short, long, default_value = "3000")]
+        port: u16,
+    },
 }
 
 /// ドキュメントコマンド
