@@ -4,7 +4,7 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://github.com/com-junkawasaki/kotoba)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Build Status](https://img.shields.io/github/workflow/status/jun784/kotoba/CI)](https://github.com/com-junkawasaki/kotoba/actions)
 
 ## 📖 Overview
@@ -1445,7 +1445,7 @@ chmod +x .git/hooks/pre-commit
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
