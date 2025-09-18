@@ -23,6 +23,19 @@
       build_order: 1,
     },
 
+    'error_handling': {
+      name: 'error_handling',
+      path: 'crates/kotoba-errors/src/lib.rs',
+      type: 'foundation',
+      description: '統一されたエラーハンドリングシステム (KotobaError, WorkflowError)',
+      dependencies: [],
+      provides: ['KotobaError', 'WorkflowError', 'error_conversion'],
+      status: 'published',
+      published_version: '0.1.2',
+      crate_name: 'kotoba-errors',
+      build_order: 2,
+    },
+
     // IR層
     'ir_catalog': {
       name: 'ir_catalog',
@@ -822,7 +835,7 @@
         'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object',
         'security_core', 'planner_logical', 'planner_physical', 'planner_optimizer',
         'execution_parser', 'execution_engine', 'rewrite_matcher', 'rewrite_applier',
-        'rewrite_engine',
+        'rewrite_engine', 'error_handling',
         // --- 古いHTTP依存を削除 ---
         // 'http_ir', 'http_parser', 'http_handlers', 'http_engine', 'http_server'
         // --- 新しいサーバーを追加 ---
@@ -2340,6 +2353,17 @@
   // ==========================================
 
   edges: [
+    // error_handling -> 主要コンポーネント
+    { from: 'error_handling', to: 'ir_catalog' },
+    { from: 'error_handling', to: 'schema_validator' },
+    { from: 'error_handling', to: 'graph_core' },
+    { from: 'error_handling', to: 'storage_mvcc' },
+    { from: 'error_handling', to: 'storage_merkle' },
+    { from: 'error_handling', to: 'storage_lsm' },
+    { from: 'error_handling', to: 'execution_engine' },
+    { from: 'error_handling', to: 'rewrite_engine' },
+    { from: 'error_handling', to: 'kotoba_server' },
+
     // types -> すべて
     { from: 'types', to: 'ir_catalog' },
     { from: 'types', to: 'schema_validator' },
