@@ -33,6 +33,7 @@ use crate::ir::{ExecutionEventType, ExecutionEvent, WorkflowExecution, WorkflowE
 use crate::store::KotobaStorageBridge;
 use crate::distributed::{LoadBalancer, DistributedExecutionManager, DistributedWorkflowExecutor};
 use kotoba_core::prelude::TxId;
+use kotoba_errors::WorkflowError;
 
 pub mod ir;
 pub mod executor;
@@ -48,7 +49,6 @@ pub mod integrations;
 // Re-export main types
 pub use ir::{WorkflowIR, ActivityIR, ExecutionStatus};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager};
-pub use kotoba_errors::WorkflowError;
 pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
 pub use parser::WorkflowParser;
 pub use activity::prelude::*;

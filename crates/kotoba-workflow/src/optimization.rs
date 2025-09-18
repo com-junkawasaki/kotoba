@@ -270,7 +270,7 @@ impl WorkflowOptimizer {
 
         while !queue.is_empty() {
             let mut current_stage_activities = Vec::new();
-            let mut current_dependencies = HashMap::new();
+            let mut current_dependencies: HashMap<String, Vec<String>> = HashMap::new();
 
             // 現在のステージで実行可能なActivityを収集
             let batch_size = std::cmp::min(queue.len(), max_parallelism);

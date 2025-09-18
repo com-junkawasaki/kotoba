@@ -29,4 +29,11 @@ pub trait StoragePort: Send + Sync {
     async fn put_block(&self, block: &Block) -> Result<Cid>;
     async fn get_block(&self, cid: &Cid) -> Result<Option<Block>>;
     async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
+
+    /// Stores arbitrary key-value data
+    async fn put(&self, key: &[u8], value: &[u8]) -> Result<()>;
+    /// Retrieves arbitrary key-value data
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>>;
+    /// Gets all keys with a given prefix
+    async fn get_keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>>;
 }

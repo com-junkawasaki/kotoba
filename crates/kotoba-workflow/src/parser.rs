@@ -5,9 +5,10 @@
 use serde_json::{Value as JsonValue, Map};
 use std::collections::HashMap;
 use std::time::Duration;
+use std::result::Result as StdResult;
 use kotoba_jsonnet::{Evaluator, JsonnetValue};
 use kotoba_core::types::Value;
-use kotoba_core::prelude::*;
+use kotoba_core::prelude::{StrategyOp, Order, PrioritizedStrategy};
 
 use crate::ir::*;
 use kotoba_errors::WorkflowError;
@@ -26,7 +27,7 @@ impl WorkflowParser {
     }
 
     /// .kotobaファイルからWorkflowIRをパース
-    pub fn parse_file(&mut self, file_path: &str) -> Result<WorkflowIR, WorkflowError> {
+    pub fn parse_file(&mut self, file_path: &str) -> StdResult<WorkflowIR, WorkflowError> {
         // Jsonnetファイルを評価
         let result = self.evaluator.evaluate_file(file_path, file_path)
             .map_err(|e| WorkflowError::InvalidDefinition(format!("Jsonnet evaluation failed: {}", e)))?;
@@ -39,7 +40,7 @@ impl WorkflowParser {
     }
 
     /// JSON文字列からWorkflowIRをパース
-    pub fn parse_string(&mut self, content: &str) -> Result<WorkflowIR, WorkflowError> {
+    pub fn parse_string(&mut self, content: &str) -> StdResult<WorkflowIR, WorkflowError> {
         // Jsonnet文字列を評価
         let result = self.evaluator.evaluate_file(content, "<string>")
             .map_err(|e| WorkflowError::InvalidDefinition(format!("Jsonnet evaluation failed: {}", e)))?;
@@ -52,7 +53,7 @@ impl WorkflowParser {
     }
 
     /// JSON ValueからWorkflowIRを構築
-    fn parse_workflow_definition(&self, value: &JsonValue) -> Result<WorkflowIR, WorkflowError> {
+    fn parse_workflow_definition(&self, value: &JsonValue) -> StdResult<WorkflowIR, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Root must be an object".to_string()))?;
 
@@ -99,18 +100,18 @@ impl WorkflowParser {
     }
 
     /// ワークフローパラメータをパース
-    fn parse_workflow_params(&self, obj: &Map<String, JsonValue>, key: &str) -> Result<Vec<WorkflowParam>, WorkflowError> {
+    fn parse_workflow_params(&self, obj: &Map<String, JsonValue>, key: &str) -> StdResult<Vec<WorkflowParam>, WorkflowError> {
         let params = obj.get(key)
             .and_then(|v| v.as_array())
             .ok_or_else(|| WorkflowError::InvalidDefinition(format!("'{}' must be an array", key)))?;
 
         params.iter()
             .map(|param| self.parse_workflow_param(param))
-            .collect::<Result<Vec<_>>>()
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// 単一のワークフローパラメータをパース
-    fn parse_workflow_param(&self, value: &JsonValue) -> Result<WorkflowParam, WorkflowError> {
+    fn parse_workflow_param(&self, value: &JsonValue) -> StdResult<WorkflowParam, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Parameter must be an object".to_string()))?;
 
@@ -128,7 +129,7 @@ impl WorkflowParser {
     }
 
     /// ワークフロー戦略をパース
-    fn parse_workflow_strategy(&self, obj: &Map<String, JsonValue>) -> Result<WorkflowStrategyOp, WorkflowError> {
+    fn parse_workflow_strategy(&self, obj: &Map<String, JsonValue>) -> StdResult<WorkflowStrategyOp, WorkflowError> {
         let strategy = obj.get("strategy")
             .ok_or_else(|| WorkflowError::InvalidDefinition("Missing 'strategy' field".to_string()))?;
 
@@ -136,7 +137,7 @@ impl WorkflowParser {
     }
 
     /// 戦略演算子をパース
-    fn parse_strategy_op(&self, value: &JsonValue) -> Result<WorkflowStrategyOp, WorkflowError> {
+    fn parse_strategy_op(&self, value: &JsonValue) -> StdResult<WorkflowStrategyOp, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Strategy must be an object".to_string()))?;
 
@@ -215,8 +216,8 @@ impl WorkflowParser {
                     .ok_or_else(|| WorkflowError::InvalidDefinition("'choice' strategy must have 'strategies' array".to_string()))?;
 
                 let strategies = strategies.iter()
-                    .map(|s| self.parse_basic_strategy(s))
-                    .collect::<Result<Vec<_>>>()?;
+                    .map(|s| self.parse_strategy_op(s))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(WorkflowStrategyOp::Basic {
                     strategy: StrategyOp::Choice {
@@ -231,8 +232,19 @@ impl WorkflowParser {
                     .ok_or_else(|| WorkflowError::InvalidDefinition("'priority' strategy must have 'strategies' array".to_string()))?;
 
                 let strategies = strategies.iter()
-                    .map(|s| self.parse_prioritized_strategy(s))
-                    .collect::<Result<Vec<_>>>()?;
+                    .map(|s| {
+                        let obj = s.as_object()
+                            .ok_or_else(|| WorkflowError::InvalidDefinition("Strategy must be an object".to_string()))?;
+                        let strategy = self.parse_strategy_op(s)?;
+                        let priority = obj.get("priority")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
+                        Ok(PrioritizedStrategy {
+                            strategy: Box::new(strategy),
+                            priority,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(WorkflowStrategyOp::Basic {
                     strategy: StrategyOp::Priority { strategies },
@@ -246,7 +258,7 @@ impl WorkflowParser {
 
                 let strategies = strategies.iter()
                     .map(|s| self.parse_strategy_op(s))
-                    .collect::<Result<Vec<_>>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(WorkflowStrategyOp::Seq { strategies: strategies.into_iter().map(Box::new).collect() })
             }
@@ -258,7 +270,7 @@ impl WorkflowParser {
 
                 let branches = branches.iter()
                     .map(|b| self.parse_strategy_op(b))
-                    .collect::<Result<Vec<_>>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 let completion_condition = obj.get("completion_condition")
                     .and_then(|v| self.parse_completion_condition(v))
@@ -277,7 +289,7 @@ impl WorkflowParser {
 
                 let conditions = conditions.iter()
                     .map(|c| self.parse_decision_branch(c))
-                    .collect::<Result<Vec<_>>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 let default_branch = obj.get("default_branch")
                     .and_then(|v| self.parse_strategy_op(v).ok())
@@ -367,7 +379,7 @@ impl WorkflowParser {
     }
 
     /// 決定分岐をパース
-    fn parse_decision_branch(&self, value: &JsonValue) -> Result<DecisionBranch, WorkflowError> {
+    fn parse_decision_branch(&self, value: &JsonValue) -> StdResult<DecisionBranch, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Decision branch must be an object".to_string()))?;
 
@@ -384,7 +396,7 @@ impl WorkflowParser {
     }
 
     /// 待機条件をパース
-    fn parse_wait_condition(&self, value: &JsonValue) -> Result<WaitCondition, WorkflowError> {
+    fn parse_wait_condition(&self, value: &JsonValue) -> StdResult<WaitCondition, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Wait condition must be an object".to_string()))?;
 
@@ -421,7 +433,7 @@ impl WorkflowParser {
     }
 
     /// リトライポリシーをパース
-    fn parse_retry_policy(&self, value: &JsonValue) -> Result<Option<RetryPolicy>, WorkflowError> {
+    fn parse_retry_policy(&self, value: &JsonValue) -> StdResult<Option<RetryPolicy>, WorkflowError> {
         if value.is_null() {
             return Ok(None);
         }
@@ -478,7 +490,7 @@ impl WorkflowParser {
     }
 
     /// 値をパース
-    fn parse_value(&self, value: &JsonValue) -> Result<Value, WorkflowError> {
+    fn parse_value(&self, value: &JsonValue) -> StdResult<Value, WorkflowError> {
         match value {
             JsonValue::Null => Ok(Value::Null),
             JsonValue::Bool(b) => Ok(Value::Bool(*b)),
@@ -495,7 +507,7 @@ impl WorkflowParser {
     }
 
     /// オブジェクトから文字列を抽出
-    fn extract_string(&self, obj: &Map<String, JsonValue>, key: &str) -> Result<String> {
+    fn extract_string(&self, obj: &Map<String, JsonValue>, key: &str) -> StdResult<String, WorkflowError> {
         obj.get(key)
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
@@ -504,7 +516,7 @@ impl WorkflowParser {
 }
 
 /// JsonnetValueをserde_json::Valueに変換
-fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
+fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
     match value {
         JsonnetValue::Null => Ok(JsonValue::Null),
         JsonnetValue::Boolean(b) => Ok(JsonValue::Bool(b)),
@@ -521,7 +533,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
         JsonnetValue::Array(arr) => {
             let values = arr.into_iter()
                 .map(jsonnet_to_json)
-                .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(JsonValue::Array(values))
         }
         JsonnetValue::Object(obj) => {
@@ -536,7 +548,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
 }
 
     /// 基本戦略をパース
-    fn parse_basic_strategy(&self, value: &JsonValue) -> Result<StrategyOp> {
+    fn parse_basic_strategy(&self, value: &JsonValue) -> StdResult<StrategyOp, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Basic strategy must be an object".to_string()))?;
 
@@ -582,7 +594,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
     }
 
     /// 優先順位付き戦略をパース
-    fn parse_prioritized_strategy(&self, value: &JsonValue) -> Result<PrioritizedStrategy> {
+    fn parse_prioritized_strategy(&self, value: &JsonValue) -> StdResult<PrioritizedStrategy, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Prioritized strategy must be an object".to_string()))?;
 
@@ -601,7 +613,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> Result<JsonValue> {
     }
 
 /// ISO 8601 duration文字列をDurationに変換
-fn parse_duration(s: &str) -> Result<Duration> {
+fn parse_duration(s: &str) -> StdResult<Duration, WorkflowError> {
     // 簡易的なISO 8601 durationパーサー
     // PT5M, PT1H30M などの形式をサポート
 

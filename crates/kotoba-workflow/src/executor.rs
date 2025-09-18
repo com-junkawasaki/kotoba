@@ -327,7 +327,7 @@ impl WorkflowExecutor {
                 Ok(body)
             }
             // Other step types would be handled here...
-            _ => Err(WorkflowError::InvalidStepType(step.step_type.clone())),
+            _ => Err(WorkflowError::InvalidStepType(format!("{:?}", step.step_type))),
         }
     }
 
@@ -713,7 +713,7 @@ impl WorkflowExecutor {
             }
             Err(e) => {
                 println!("Activity {} failed: {:?}", activity_ref, e);
-                Err(WorkflowError::ActivityFailed(e))
+                Err(WorkflowError::ActivityFailed(format!("{:?}", e)))
             }
         }
     }
@@ -835,7 +835,7 @@ impl WorkflowStateManager {
     /// 新しいTxIdを生成
     fn next_tx_id(&self) -> TxId {
         let tx_id = self.current_tx_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        TxId(tx_id)
+        TxId(tx_id.to_string())
     }
 
     /// MVCCベースのワークフロー実行作成

@@ -62,12 +62,18 @@ pub trait WorkflowStore: Send + Sync {
 
     /// 実行中のワークフロー一覧を取得
     async fn get_running_executions(&self) -> Result<Vec<WorkflowExecution>, WorkflowError>;
+
+    /// 任意のキーバリューストレージ
+    async fn put(&self, key: String, value: Vec<u8>) -> Result<(), WorkflowError>;
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, WorkflowError>;
+    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>, WorkflowError>;
 }
 
 /// メモリベースのワークフローストア実装
 pub struct MemoryWorkflowStore {
     executions: RwLock<HashMap<String, WorkflowExecution>>,
     events: RwLock<HashMap<String, Vec<ExecutionEvent>>>,
+    kv_store: RwLock<HashMap<String, Vec<u8>>>,
 }
 
 impl MemoryWorkflowStore {
@@ -75,6 +81,7 @@ impl MemoryWorkflowStore {
         Self {
             executions: RwLock::new(HashMap::new()),
             events: RwLock::new(HashMap::new()),
+            kv_store: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -118,6 +125,26 @@ impl WorkflowStore for MemoryWorkflowStore {
             .cloned()
             .collect();
         Ok(running)
+    }
+
+    async fn put(&self, key: String, value: Vec<u8>) -> Result<(), WorkflowError> {
+        let mut kv_store = self.kv_store.write().await;
+        kv_store.insert(key, value);
+        Ok(())
+    }
+
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, WorkflowError> {
+        let kv_store = self.kv_store.read().await;
+        Ok(kv_store.get(key).cloned())
+    }
+
+    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>, WorkflowError> {
+        let kv_store = self.kv_store.read().await;
+        let keys = kv_store.keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
+            .collect();
+        Ok(keys)
     }
 }
 
@@ -688,13 +715,13 @@ impl WorkflowStore for KotobaStorageBridge {
         let key = Self::execution_key(&execution.id);
         let value = serde_json::to_vec(execution)
             .map_err(|e| crate::WorkflowError::SerializationError(e))?;
-        self.kotoba_backend.put(key, value).await
+        self.kotoba_backend.put(key.as_bytes(), &value).await
             .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))
     }
 
     async fn get_execution(&self, id: &crate::ir::WorkflowExecutionId) -> std::result::Result<std::option::Option<crate::ir::WorkflowExecution>, crate::WorkflowError> {
         let key = Self::execution_key(id);
-        match self.kotoba_backend.get(&key).await {
+        match self.kotoba_backend.get(key.as_bytes()).await {
             Ok(Some(data)) => {
                 let execution: crate::ir::WorkflowExecution = serde_json::from_slice(&data)
                     .map_err(|e| crate::WorkflowError::SerializationError(e))?;
@@ -711,7 +738,7 @@ impl WorkflowStore for KotobaStorageBridge {
 
     async fn add_event(&self, execution_id: &crate::ir::WorkflowExecutionId, event: crate::ir::ExecutionEvent) -> std::result::Result<(), crate::WorkflowError> {
         let key = Self::events_key(execution_id);
-        let mut events = match self.kotoba_backend.get(&key).await {
+        let mut events = match self.kotoba_backend.get(key.as_bytes()).await {
             Ok(Some(data)) => serde_json::from_slice::<Vec<crate::ir::ExecutionEvent>>(&data)
                 .map_err(|e| crate::WorkflowError::SerializationError(e))?,
             Ok(None) => Vec::new(),
@@ -720,13 +747,13 @@ impl WorkflowStore for KotobaStorageBridge {
         events.push(event);
         let value = serde_json::to_vec(&events)
             .map_err(|e| crate::WorkflowError::SerializationError(e))?;
-        self.kotoba_backend.put(key, value).await
+        self.kotoba_backend.put(key.as_bytes(), &value).await
             .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))
     }
 
     async fn get_events(&self, execution_id: &crate::ir::WorkflowExecutionId) -> std::result::Result<Vec<crate::ir::ExecutionEvent>, crate::WorkflowError> {
         let key = Self::events_key(execution_id);
-        match self.kotoba_backend.get(&key).await {
+        match self.kotoba_backend.get(key.as_bytes()).await {
             Ok(Some(data)) => {
                 let events: Vec<crate::ir::ExecutionEvent> = serde_json::from_slice(&data)
                     .map_err(|e| crate::WorkflowError::SerializationError(e))?;
@@ -739,11 +766,11 @@ impl WorkflowStore for KotobaStorageBridge {
 
     async fn get_running_executions(&self) -> std::result::Result<Vec<crate::ir::WorkflowExecution>, crate::WorkflowError> {
         let prefix = "workflow:execution:".to_string();
-        let keys = self.kotoba_backend.get_keys_with_prefix(&prefix).await
+        let keys = self.kotoba_backend.get_keys_with_prefix(prefix.as_bytes()).await
             .map_err(|e| crate::WorkflowError::StorageError(format!("Kotoba storage error: {}", e)))?;
         let mut executions = Vec::new();
         for key in keys {
-            if let Ok(Some(data)) = self.kotoba_backend.get(&key).await {
+            if let Ok(Some(data)) = self.kotoba_backend.get(key.as_bytes()).await {
                 if let Ok(execution) = serde_json::from_slice::<crate::ir::WorkflowExecution>(&data) {
                     if matches!(execution.status, crate::ir::ExecutionStatus::Running) {
                         executions.push(execution);

@@ -207,6 +207,7 @@ impl Integration for DatabaseIntegration {
         let pool = self.pool.as_ref().ok_or(IntegrationError::DatabaseError("Not initialized".to_string()))?;
 
         match operation {
+            #[cfg(feature = "activities-db")]
             "query" => {
                 let sql = params.get("sql").and_then(|v| v.as_str()).ok_or(IntegrationError::InvalidParams)?;
                 let rows = sqlx::query(sql).fetch_all(pool).await
@@ -219,6 +220,7 @@ impl Integration for DatabaseIntegration {
 
                 Ok(serde_json::json!(result))
             }
+            #[cfg(feature = "activities-db")]
             "execute" => {
                 let sql = params.get("sql").and_then(|v| v.as_str()).ok_or(IntegrationError::InvalidParams)?;
                 let result = sqlx::query(sql).execute(pool).await
@@ -233,10 +235,13 @@ impl Integration for DatabaseIntegration {
     }
 
     async fn health_check(&self) -> Result<(), IntegrationError> {
-        let pool = self.pool.as_ref().ok_or(IntegrationError::DatabaseError("Not initialized".to_string()))?;
+        #[cfg(feature = "activities-db")]
+        {
+            let pool = self.pool.as_ref().ok_or(IntegrationError::DatabaseError("Not initialized".to_string()))?;
 
-        sqlx::query("SELECT 1").fetch_one(pool).await
-            .map_err(|e| IntegrationError::DatabaseError(e.to_string()))?;
+            sqlx::query("SELECT 1").fetch_one(pool).await
+                .map_err(|e| IntegrationError::DatabaseError(e.to_string()))?;
+        }
 
         Ok(())
     }

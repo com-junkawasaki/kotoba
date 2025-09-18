@@ -78,6 +78,28 @@ impl StoragePort for PersistentStorage {
         }
         Ok(result)
     }
+
+    async fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
+        self.lsm_tree.write().await.put(hex::encode(key), value.to_vec()).await?;
+        Ok(())
+    }
+
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        self.lsm_tree.read().await.get(&hex::encode(key)).await
+    }
+
+    async fn get_keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>> {
+        let prefix_hex = hex::encode(prefix);
+        let kv_pairs = <LSMTree as KeyValuePort>::scan(&*self.lsm_tree.read().await, &prefix_hex).await?;
+
+        let mut result = Vec::new();
+        for (key_hex, _value) in kv_pairs {
+            if let Ok(key_bytes) = hex::decode(&key_hex) {
+                result.push(key_bytes);
+            }
+        }
+        Ok(result)
+    }
 }
 
 /// 永続ストレージ設定
