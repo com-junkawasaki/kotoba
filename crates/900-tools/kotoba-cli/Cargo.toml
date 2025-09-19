@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-cli"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
@@ -12,10 +12,10 @@ documentation = "https://docs.rs/kotoba-cli"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Core dependencies
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-errors = { path = "../../000-core/kotoba-errors" }
-# kotoba-jsonnet removed - functionality moved to kotoba-kotobas
+# Core dependencies - Core and Language layers
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.21" }
+kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.2" }
+kotoba-jsonnet = { path = "../../400-language/kotoba-jsonnet", version = "0.1.17" }
 
 # Optional features (temporarily disabled to focus on core functionality)
 # kotoba-graph = "0.1.21"

@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-memory"
-version = "0.1.16"
+version = "0.1.21"
 edition = "2021"
 description = "Advanced memory management and optimization tools for KotobaDB"
 license = "Apache-2.0"
@@ -11,14 +11,12 @@ categories = ["development-tools", "memory-management"]
 documentation = "https://docs.rs/kotoba-memory"
 
 [dependencies]
-# KotobaDB core crates
-# kotoba-db-core temporarily disabled - will be replaced with kotoba-storage
-kotoba-db-engine-memory = { path = "../../200-application/kotoba-db-engine-memory", version = "0.1.16" }
-kotoba-db-engine-lsm = { path = "../../200-application/kotoba-db-engine-lsm", version = "0.1.16" }
-kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.16" }
+# KotobaDB core crates - Storage layer
+kotoba-storage = { path = "../kotoba-storage", version = "0.1.21" }
+kotoba-graphdb = { path = "../kotoba-graphdb", version = "0.1.21" }
 
-# Profiling integration
-kotoba-profiler = { path = "../../200-application/kotoba-profiler", version = "0.1.16" }
+# Profiling integration - temporarily disabled
+# kotoba-profiler = { path = "../../500-services/kotoba-profiler", version = "0.1.21" }
 
 # Memory management
 tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }

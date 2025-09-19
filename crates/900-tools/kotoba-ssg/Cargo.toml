@@ -11,11 +11,11 @@ documentation = "https://docs.rs/kotoba-ssg"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Kotoba core dependencies
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
-kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.17" }
-kotoba-kotobas = { path = "../../200-application/kotoba-kotobas", version = "0.1.16" }
-kotoba-docs = { path = "../../200-application/kotoba-docs", version = "0.1.16" }
+# Kotoba core dependencies - Core and Language layers
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.21" }
+kotoba-jsonnet = { path = "../../400-language/kotoba-jsonnet", version = "0.1.17" }
+kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.17" }
+kotoba-docs = { path = "../kotoba-docs", version = "0.1.22" }
 
 # External dependencies
 serde = { version = "1.0", features = ["derive"] }

@@ -80,9 +80,9 @@ pub struct DeployController<T: KeyValueStore + 'static> {
 
 /// デプロイメントマネージャー
 #[derive(Debug)]
-pub struct DeploymentManager {
+pub struct DeploymentManager<T: KeyValueStore + 'static> {
     /// コントローラー
-    controller: Arc<DeployController>,
+    controller: Arc<DeployController<T>>,
     /// デプロイメントキュー
     deployment_queue: Arc<RwLock<Vec<DeploymentRequest>>>,
     /// 実行中のデプロイメント
@@ -1284,9 +1284,9 @@ pub enum DeploymentStrategy {
     Canary,
 }
 
-impl DeploymentManager {
+impl<T: KeyValueStore + 'static> DeploymentManager<T> {
     /// 新しいデプロイメントマネージャーを作成
-    pub fn new(controller: Arc<DeployController>) -> Self {
+    pub fn new(controller: Arc<DeployController<T>>) -> Self {
         Self {
             controller,
             deployment_queue: Arc::new(RwLock::new(Vec::new())),

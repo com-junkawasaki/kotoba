@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kotoba-kotobas = { path = "../../200-application/kotoba-kotobas" }
-kotoba-cli = { path = "../../200-application/kotoba-cli" }
-# kotoba-server = { path = "../../200-application/kotoba-server" } # TODO: Add back when deploy issues are fixed
-kotoba2tsx = { path = "../kotoba2tsx" }
+# Kotoba ecosystem - Language and Tools layers
+kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.17" }
+kotoba-cli = { path = "../kotoba-cli", version = "0.1.22" }
+# kotoba-server = { path = "../../500-services/kotoba-server", version = "0.1.21" } # TODO: Add back when deploy issues are fixed
+kotoba2tsx = { path = "../../400-language/kotoba2tsx", version = "0.1.21" }
 
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["full"] }

@@ -35,6 +35,14 @@ members = [
     "crates/600-deployment/kotoba-deploy-scaling",
     "crates/900-tools/kotoba-cli",
     "crates/900-tools/kotoba-build",
+    "crates/900-tools/kotoba-backup",
+    "crates/900-tools/kotoba-bench",
+    "crates/900-tools/kotoba-config",
+    "crates/900-tools/kotoba-docs",
+    "crates/900-tools/kotoba-package-manager",
+    "crates/900-tools/kotoba-runtime",
+    "crates/900-tools/kotoba-ssg",
+    "crates/900-tools/kotoba-tester",
 ]
 resolver = "2"
 
