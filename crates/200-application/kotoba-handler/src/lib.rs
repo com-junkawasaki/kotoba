@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn test_handler_context_creation() {
         let mut headers = HashMap::new();
-        headers.insert("Content-Type".to_string(), r#"application/json"#.to_string());
+        headers.insert("Content-Type ".to_string(), r#"application/json "#.to_string());
 
         let mut query_params = HashMap::new();
         query_params.insert("page".to_string(), "1".to_string());
@@ -176,7 +176,7 @@ mod tests {
 
         assert_eq!(context.method, "GET");
         assert_eq!(context.path, "/api/users");
-        assert_eq!(context.headers.get("Content-Type"), Some(&r#"application/json"#.to_string()));
+        assert_eq!(context.headers.get("Content-Type "), Some(&r#"application/json "#.to_string()));
         assert_eq!(context.query_params.get("page"), Some(&"1".to_string()));
         assert_eq!(context.environment.get("NODE_ENV"), Some(&"development".to_string()));
         assert_eq!(context.body, Some(r#"{"name": "test"}"#.to_string()));
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn test_handler_result_creation() {
         let mut headers = HashMap::new();
-        headers.insert("Content-Type".to_string(), "text/html".to_string());
+        headers.insert("Content-Type ".to_string(), "text/html ".to_string());
 
         let result = HandlerResult {
             status_code: 200,
@@ -256,9 +256,9 @@ mod tests {
             supports_file_upload: true,
             max_payload_size: 10485760, // 10MB
             supported_content_types: vec![
-                r#"application/json"#.to_string(),
-                "text/html".to_string(),
-                "application/xml".to_string(),
+                r#"application/json "#.to_string(),
+                "text/html ".to_string(),
+                "application/xml ".to_string(),
             ],
         };
 
@@ -272,26 +272,26 @@ mod tests {
 
     #[test]
     fn test_handler_error_types() {
-        let io_error = HandlerError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, r#"file not found"#));
-        assert!(format!("{}", io_error).contains(r#"IO error"#));
+        let io_error = HandlerError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, r#"file not found "#));
+        assert!(format!("{}", io_error).contains(r#"IO error "#));
 
-        let parse_error = HandlerError::Parse(r#"invalid syntax"#.to_string());
-        assert!(format!("{}", parse_error).contains(r#"Parse error"#));
+        let parse_error = HandlerError::Parse(r#"invalid syntax "#.to_string());
+        assert!(format!("{}", parse_error).contains(r#"Parse error "#));
 
-        let execution_error = HandlerError::Execution(r#"runtime error"#.to_string());
-        assert!(format!("{}", execution_error).contains(r#"Execution error"#));
+        let execution_error = HandlerError::Execution(r#"runtime error "#.to_string());
+        assert!(format!("{}", execution_error).contains(r#"Execution error "#));
 
-        let network_error = HandlerError::Network(r#"connection failed"#.to_string());
-        assert!(format!("{}", network_error).contains(r#"Network error"#));
+        let network_error = HandlerError::Network(r#"connection failed "#.to_string());
+        assert!(format!("{}", network_error).contains(r#"Network error "#));
 
-        let config_error = HandlerError::Config(r#"invalid config"#.to_string());
-        assert!(format!("{}", config_error).contains(r#"Configuration error"#));
+        let config_error = HandlerError::Config(r#"invalid config "#.to_string());
+        assert!(format!("{}", config_error).contains(r#"Configuration error "#));
 
-        let storage_error = HandlerError::Storage(r#"storage failed"#.to_string());
-        assert!(format!("{}", storage_error).contains(r#"Storage error"#));
+        let storage_error = HandlerError::Storage(r#"storage failed "#.to_string());
+        assert!(format!("{}", storage_error).contains(r#"Storage error "#));
 
-        let unknown_error = HandlerError::Unknown(r#"unexpected error"#.to_string());
-        assert!(format!("{}", unknown_error).contains(r#"Unknown error"#));
+        let unknown_error = HandlerError::Unknown(r#"unexpected error "#.to_string());
+        assert!(format!("{}", unknown_error).contains(r#"Unknown error "#));
     }
 
     #[tokio::test]
@@ -314,7 +314,7 @@ mod tests {
 
         let context = HandlerContext {
             method: "GET".to_string(),
-            path: r#"/test"#.to_string(),
+            path: r#"/test "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
             body: None,
@@ -327,9 +327,9 @@ mod tests {
         assert!(result.is_ok());
 
         let response = result.unwrap();
-        assert!(response.contains(r#"Kotoba Handler Executed"#));
+        assert!(response.contains(r#"Kotoba Handler Executed "#));
         assert!(response.contains("GET"));
-        assert!(response.contains(r#"/test"#));
+        assert!(response.contains(r#"/test "#));
     }
 
     #[tokio::test]
@@ -339,14 +339,14 @@ mod tests {
 
         let context = HandlerContext {
             method: "GET".to_string(),
-            path: r#"/cached"#.to_string(),
+            path: r#"/cached "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
             body: None,
             environment: HashMap::new(),
         };
 
-        let content = r#"cached content"#;
+        let content = r#"cached content "#;
 
         // First execution
         let result1 = handler.execute(content, context.clone()).await;
@@ -367,14 +367,14 @@ mod tests {
 
         let context = HandlerContext {
             method: "GET".to_string(),
-            path: r#"/cache-test"#.to_string(),
+            path: r#"/cache-test "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
             body: None,
             environment: HashMap::new(),
         };
 
-        let content = r#"test content"#;
+        let content = r#"test content "#;
 
         // Execute to populate cache
         let _ = handler.execute(content, context).await;
@@ -421,13 +421,13 @@ mod tests {
 
         // Create a temporary file
         let temp_dir = tempfile::tempdir().unwrap();
-        let file_path = temp_dir.path().join(r#"test.txt"#);
-        let content = r#"file content"#;
+        let file_path = temp_dir.path().join(r#"test.txt "#);
+        let content = r#"file content "#;
         std::fs::write(&file_path, content).unwrap();
 
         let context = HandlerContext {
             method: "GET".to_string(),
-            path: r#"/file-test"#.to_string(),
+            path: r#"/file-test "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
             body: None,
@@ -438,8 +438,8 @@ mod tests {
         assert!(result.is_ok());
 
         let response = result.unwrap();
-        assert!(response.contains(r#"Kotoba Handler Executed"#));
-        assert!(response.contains(r#"file content"#));
+        assert!(response.contains(r#"Kotoba Handler Executed "#));
+        assert!(response.contains(r#"file content "#));
     }
 
     #[test]
@@ -448,10 +448,10 @@ mod tests {
 
         let context = HandlerContext {
             method: "POST".to_string(),
-            path: r#"/simple-test"#.to_string(),
+            path: r#"/simple-test "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
-            body: Some(r#"test body"#.to_string()),
+            body: Some(r#"test body "#.to_string()),
             environment: HashMap::new(),
         };
 
@@ -464,13 +464,13 @@ mod tests {
     fn test_handler_context_serialization() {
         let mut context = HandlerContext {
             method: "POST".to_string(),
-            path: r#"/api/test"#.to_string(),
+            path: r#"/api/test "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
-            body: Some(r#"test data"#.to_string()),
+            body: Some(r#"test data "#.to_string()),
             environment: HashMap::new(),
         };
-        context.headers.insert("Authorization".to_string(), r#"Bearer token"#.to_string());
+        context.headers.insert("Authorization".to_string(), r#"Bearer token "#.to_string());
 
         // Test JSON serialization
         let json_result = serde_json::to_string(&context);
@@ -478,8 +478,8 @@ mod tests {
 
         let json_str = json_result.unwrap();
         assert!(json_str.contains("POST"));
-        assert!(json_str.contains(r#"/api/test"#));
-        assert!(json_str.contains(r#"test data"#));
+        assert!(json_str.contains(r#"/api/test "#));
+        assert!(json_str.contains(r#"test data "#));
 
         // Test JSON deserialization
         let deserialized_result: serde_json::Result<HandlerContext> = serde_json::from_str(&json_str);
@@ -487,8 +487,8 @@ mod tests {
 
         let deserialized = deserialized_result.unwrap();
         assert_eq!(deserialized.method, "POST");
-        assert_eq!(deserialized.path, r#"/api/test"#);
-        assert_eq!(deserialized.body, Some(r#"test data"#.to_string()));
+        assert_eq!(deserialized.path, r#"/api/test "#);
+        assert_eq!(deserialized.body, Some(r#"test data "#.to_string()));
     }
 
     #[test]
@@ -524,7 +524,7 @@ mod tests {
     #[test]
     fn test_handler_result_serialization() {
         let mut headers = HashMap::new();
-        headers.insert("Content-Type".to_string(), r#"application/json"#.to_string());
+        headers.insert("Content-Type ".to_string(), r#"application/json "#.to_string());
 
         let result = HandlerResult {
             status_code: 201,
@@ -540,7 +540,7 @@ mod tests {
 
         let json_str = json_result.unwrap();
         assert!(json_str.contains("201"));
-        assert!(json_str.contains(r#"application/json"#));
+        assert!(json_str.contains(r#"application/json "#));
         assert!(json_str.contains("250"));
         assert!(json_str.contains("15.7"));
 
@@ -558,9 +558,9 @@ mod tests {
     fn test_handler_metadata_serialization() {
         let metadata = HandlerMetadata {
             id: "meta_001".to_string(),
-            name: r#"Test Metadata"#.to_string(),
+            name: r#"Test Metadata "#.to_string(),
             version: "2.1.0".to_string(),
-            description: r#"Metadata for testing"#.to_string(),
+            description: r#"Metadata for testing "#.to_string(),
             capabilities: vec!["read".to_string(), "write".to_string(), "execute".to_string()],
         };
 
@@ -610,7 +610,7 @@ mod tests {
             supports_websocket: true,
             supports_file_upload: false,
             max_payload_size: 5242880, // 5MB
-            supported_content_types: vec![r#"text/plain"#.to_string(), r#"application/octet-stream"#.to_string()],
+            supported_content_types: vec![r#"text/plain "#.to_string(), r#"application/octet-stream "#.to_string()],
         };
 
         // Test JSON serialization
@@ -619,7 +619,7 @@ mod tests {
 
         let json_str = json_result.unwrap();
         assert!(json_str.contains("5242880"));
-        assert!(json_str.contains(r#"text/plain"#));
+        assert!(json_str.contains(r#"text/plain "#));
 
         // Test JSON deserialization
         let deserialized_result: serde_json::Result<HandlerCapabilities> = serde_json::from_str(&json_str);
@@ -627,17 +627,17 @@ mod tests {
 
         let deserialized = deserialized_result.unwrap();
         assert_eq!(deserialized.max_payload_size, 5242880);
-        assert!(deserialized.supported_content_types.contains(&r#"text/plain"#.to_string()));
+        assert!(deserialized.supported_content_types.contains(&r#"text/plain "#.to_string()));
     }
 
     #[test]
     fn test_handler_context_clone() {
         let original = HandlerContext {
             method: "PUT".to_string(),
-            path: r#"/api/update"#.to_string(),
+            path: r#"/api/update "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
-            body: Some(r#"original body"#.to_string()),
+            body: Some(r#"original body "#.to_string()),
             environment: HashMap::new(),
         };
 
@@ -670,7 +670,7 @@ mod tests {
         let original = HandlerResult {
             status_code: 404,
             headers: HashMap::new(),
-            body: r#"Not Found"#.to_string(),
+            body: r#"Not Found "#.to_string(),
             execution_time_ms: 5,
             memory_used_mb: 0.1,
         };
@@ -687,9 +687,9 @@ mod tests {
     fn test_handler_metadata_clone() {
         let original = HandlerMetadata {
             id: "clone_test".to_string(),
-            name: r#"Clone Test"#.to_string(),
+            name: r#"Clone Test "#.to_string(),
             version: "0.1.0".to_string(),
-            description: r#"Testing clone functionality"#.to_string(),
+            description: r#"Testing clone functionality "#.to_string(),
             capabilities: vec!["clone".to_string()],
         };
 
@@ -713,7 +713,7 @@ mod tests {
     fn test_handler_context_debug() {
         let context = HandlerContext {
             method: "DEBUG".to_string(),
-            path: r#"/debug"#.to_string(),
+            path: r#"/debug "#.to_string(),
             headers: HashMap::new(),
             query_params: HashMap::new(),
             body: None,
@@ -722,7 +722,7 @@ mod tests {
 
         let debug_str = format!("{:?}", context);
         assert!(debug_str.contains("DEBUG"));
-        assert!(debug_str.contains(r#"/debug"#));
+        assert!(debug_str.contains(r#"/debug "#));
     }
 
     #[test]
@@ -746,7 +746,7 @@ mod tests {
         let result = HandlerResult {
             status_code: 500,
             headers: HashMap::new(),
-            body: r#"Internal Server Error"#.to_string(),
+            body: r#"Internal Server Error "#.to_string(),
             execution_time_ms: 1000,
             memory_used_mb: 50.0,
         };
@@ -761,9 +761,9 @@ mod tests {
     fn test_handler_metadata_debug() {
         let metadata = HandlerMetadata {
             id: "debug_test".to_string(),
-            name: r#"Debug Test"#.to_string(),
+            name: r#"Debug Test "#.to_string(),
             version: "0.0.1".to_string(),
-            description: r#"Testing debug formatting"#.to_string(),
+            description: r#"Testing debug formatting "#.to_string(),
             capabilities: vec!["debug".to_string()],
         };
 
@@ -781,21 +781,21 @@ mod tests {
             supports_websocket: false,
             supports_file_upload: true,
             max_payload_size: 1024,
-            supported_content_types: vec![r#"debug/type"#.to_string()],
+            supported_content_types: vec![r#"debug/type "#.to_string()],
         };
 
         let debug_str = format!("{:?}", capabilities);
         assert!(debug_str.contains("true"));
         assert!(debug_str.contains("false"));
         assert!(debug_str.contains("1024"));
-        assert!(debug_str.contains(r#"debug/type"#));
+        assert!(debug_str.contains(r#"debug/type "#));
     }
 
     #[test]
     fn test_handler_error_debug() {
-        let error = HandlerError::Config(r#"test config error"#.to_string());
+        let error = HandlerError::Config(r#"test config error "#.to_string());
         let debug_str = format!("{:?}", error);
         assert!(debug_str.contains("Config"));
-        assert!(debug_str.contains(r#"test config error"#));
+        assert!(debug_str.contains(r#"test config error "#));
     }
 }
