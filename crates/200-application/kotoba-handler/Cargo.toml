@@ -12,12 +12,17 @@ documentation = "https://docs.rs/kotoba-handler"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Kotoba ecosystem
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.1" }
-kotoba-server = { path = "../../200-application/kotoba-server", version = "0.1.15" }
-kotoba-cli = { path = "../../200-application/kotoba-cli", version = "0.1.1", optional = true }
-kotoba-kotobas = { path = "../../200-application/kotoba-kotobas", version = "0.1.15" }
-kotoba2tsx = { path = "../kotoba2tsx", version = "0.1.15" }
+# Kotoba ecosystem - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+
+# Application layer dependencies (optional for integration)
+kotoba-server = { path = "../../500-services/kotoba-server", version = "0.1.15", optional = true }
+kotoba-cli = { path = "../../900-tools/kotoba-cli", version = "0.1.1", optional = true }
+kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.15", optional = true }
+# kotoba2tsx path needs to be verified
+# kotoba2tsx = { path = "../../400-language/kotoba2tsx", version = "0.1.15", optional = true }
 # Jsonnet support removed - using kotobas only
 
 # Async runtime
@@ -90,11 +95,15 @@ urlencoding = "2.1.3"
 rand.workspace = true
 
 [features]
-default = ["cli", "server"]
+default = ["server"]
 cli = ["kotoba-cli", "server"]
 server = ["tokio", "futures", "hyper", "tower", "tower-http"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "serde-wasm-bindgen", "web-sys", "js-sys"]
 websocket = ["server", "tokio-tungstenite"]
+
+# Language processing features
+kotobas = ["dep:kotoba-kotobas"]
+tsx = ["dep:kotoba2tsx"]
 
 # Web development features
 web = ["server", "tera", "handlebars", "mime_guess", "url"]
@@ -103,8 +112,8 @@ auth = ["jsonwebtoken", "bcrypt", "base64"]
 dev_server = ["web", "notify"]
 templates = ["tera", "handlebars"]
 
-# Jsonnet support removed - using kotobas only
-full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates"]
+# Full feature set
+full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates", "kotobas", "tsx"]
 chrono = ["dep:chrono"]
 
 [dev-dependencies]

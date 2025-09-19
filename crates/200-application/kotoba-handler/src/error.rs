@@ -20,6 +20,9 @@ pub enum HandlerError {
     #[error("Configuration error: {0}")]
     Config(String),
 
+    #[error("Storage error: {0}")]
+    Storage(String),
+
     #[error("WebSocket error: {0}")]
     WebSocket(String),
 

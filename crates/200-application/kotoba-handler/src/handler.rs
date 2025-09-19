@@ -3,24 +3,33 @@
 use crate::error::{HandlerError, Result};
 use crate::types::{HandlerContext, HandlerResult, HandlerConfig, ExecutionMode};
 use kotoba_core::prelude::*;
-use kotoba_kotobas::prelude::*;
-use kotoba2tsx::prelude::*;
+use kotoba_storage::KeyValueStore;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Unified Handler for Kotoba ecosystem
+// Optional dependencies - will be enabled based on features
+#[cfg(feature = "kotobas")]
+use kotoba_kotobas::prelude::*;
+
+#[cfg(feature = "tsx")]
+use kotoba2tsx::prelude::*;
+
+/// Unified Handler for Kotoba ecosystem with KeyValueStore backend
 #[derive(Clone)]
-pub struct UnifiedHandler {
+pub struct UnifiedHandler<T: KeyValueStore + 'static> {
     config: Arc<RwLock<HandlerConfig>>,
+    storage: Arc<T>,
+    #[cfg(feature = "kotobas")]
     kotobas_compiler: Arc<KotobasCompiler>,
+    #[cfg(feature = "tsx")]
     tsx_converter: Arc<TsxConverter>,
     cache: Arc<RwLock<HashMap<String, HandlerResult>>>,
 }
 
-impl UnifiedHandler {
-    /// Create new unified handler
-    pub fn new() -> Self {
+impl<T: KeyValueStore + 'static> UnifiedHandler<T> {
+    /// Create new unified handler with KeyValueStore backend
+    pub fn new(storage: Arc<T>) -> Self {
         Self {
             config: Arc::new(RwLock::new(HandlerConfig {
                 timeout_ms: 30000,
@@ -28,7 +37,10 @@ impl UnifiedHandler {
                 enable_caching: true,
                 enable_logging: true,
             })),
+            storage,
+            #[cfg(feature = "kotobas")]
             kotobas_compiler: Arc::new(KotobasCompiler::new()),
+            #[cfg(feature = "tsx")]
             tsx_converter: Arc::new(TsxConverter::new()),
             cache: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -48,15 +60,28 @@ impl UnifiedHandler {
         }
 
         // Parse and validate content
+        #[cfg(feature = "kotobas")]
         let parsed = self.kotobas_compiler.compile(content)
             .map_err(|e| HandlerError::Parse(format!("Failed to parse content: {}", e)))?;
 
+        #[cfg(not(feature = "kotobas"))]
+        let parsed = content.to_string(); // Fallback to raw content
+
         // Convert to executable format (TSX/React)
-        let tsx_code = self.tsx_converter.convert(&parsed)
+        #[cfg(feature = "tsx")]
+        let executable_code = self.tsx_converter.convert(&parsed)
             .map_err(|e| HandlerError::Execution(format!("Failed to convert to TSX: {}", e)))?;
 
+        #[cfg(not(feature = "tsx"))]
+        let executable_code = parsed; // Use parsed content directly
+
+        // Store compiled result in KeyValueStore for caching
+        let compile_key = format!("compile:{}", self.generate_cache_key(content, &context));
+        self.storage.put(compile_key.as_bytes(), executable_code.as_bytes()).await
+            .map_err(|e| HandlerError::Storage(format!("Failed to store compiled result: {}", e)))?;
+
         // Execute with context
-        let result = self.execute_with_context(&tsx_code, context).await?;
+        let result = self.execute_with_context(&executable_code, context).await?;
 
         // Cache result
         if self.config.read().await.enable_caching {

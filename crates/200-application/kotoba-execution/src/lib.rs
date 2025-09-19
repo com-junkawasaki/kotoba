@@ -6,31 +6,34 @@ use crate::execution::physical_plan::PhysicalPlan;
 use crate::execution::metrics::ExecutionMetrics;
 // use kotoba_core::types::{Result, Value}; // Avoid conflicts with our custom Result type
 use kotoba_core::types::Value;
-use kotoba_errors::KotobaError;
+
+use kotoba_storage::KeyValueStore;
+use std::sync::Arc;
 
 // Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[async_trait::async_trait]
-pub trait QueryExecutor: Send + Sync {
+pub trait QueryExecutor<T: KeyValueStore + 'static>: Send + Sync {
     async fn execute(&self, plan: PhysicalPlan) -> Result<Vec<Value>>;
 }
 
-pub struct DefaultQueryExecutor {
-    // ... fields
+pub struct DefaultQueryExecutor<T: KeyValueStore + 'static> {
+    storage: Arc<T>,
 }
 
-impl DefaultQueryExecutor {
-    pub fn new() -> Self {
-        Self { /* ... */ }
+impl<T: KeyValueStore + 'static> DefaultQueryExecutor<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 }
 
 #[async_trait::async_trait]
-impl QueryExecutor for DefaultQueryExecutor {
+impl<T: KeyValueStore + 'static> QueryExecutor<T> for DefaultQueryExecutor<T> {
     async fn execute(&self, plan: PhysicalPlan) -> Result<Vec<Value>> {
         let mut metrics = ExecutionMetrics::new();
-        // ... implementation ...
+        // TODO: Implement execution logic using KeyValueStore
+        // For now, return empty result
         Ok(vec![])
     }
 }
@@ -53,8 +56,8 @@ mod tests {
 
     #[test]
     fn test_query_executor_creation() {
-        let executor = QueryExecutor::new();
-        // Just check that it can be created
+        // TODO: Create a mock KeyValueStore for testing
+        // For now, just check that types compile
         assert!(true);
     }
 

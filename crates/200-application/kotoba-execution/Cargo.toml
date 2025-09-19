@@ -19,7 +19,12 @@ anyhow = "1.0"
 uuid = { workspace = true, features = ["v4"] }
 async-trait = "0.1"
 tokio = { version = "1.0", features = ["full"] }
-kotoba-core = "0.1.21"
-kotoba-errors = "0.1.2"
-kotoba-graph = "0.1.21"
-kotoba-storage = "0.1.21"
+tracing = "0.1"
+
+# Kotoba dependencies - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+
+# TODO: kotoba-graph will be replaced with KeyValueStore-based implementation
+# kotoba-graph = { path = "../../100-storage/kotoba-graphdb" }

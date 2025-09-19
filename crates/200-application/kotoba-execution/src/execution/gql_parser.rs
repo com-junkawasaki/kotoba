@@ -5,8 +5,6 @@
 // use crate::graph::*;
 use std::collections::HashMap;
 use kotoba_core::prelude::*;
-use kotoba_graph::prelude::*;
-use kotoba_errors::KotobaError;
 
 // Use std::result::Result instead of kotoba_core::types::Result to avoid conflicts
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -72,7 +70,7 @@ struct AlgorithmCall {
 #[derive(Debug, Clone)]
 enum AlgorithmType {
     ShortestPath { algorithm: ShortestPathAlgorithm },
-    Centrality { algorithm: CentralityAlgorithm },
+    // Centrality { algorithm: CentralityAlgorithm }, // TODO: Re-enable when CentralityAlgorithm is available
     PatternMatching,
 }
 
@@ -529,18 +527,19 @@ impl GqlParser {
             "floyd_warshall" => Some(AlgorithmType::ShortestPath {
                 algorithm: ShortestPathAlgorithm::FloydWarshall,
             }),
-            "degree_centrality" => Some(AlgorithmType::Centrality {
-                algorithm: CentralityAlgorithm::Degree,
-            }),
-            "betweenness_centrality" => Some(AlgorithmType::Centrality {
-                algorithm: CentralityAlgorithm::Betweenness,
-            }),
-            "closeness_centrality" => Some(AlgorithmType::Centrality {
-                algorithm: CentralityAlgorithm::Closeness,
-            }),
-            "pagerank" => Some(AlgorithmType::Centrality {
-                algorithm: CentralityAlgorithm::PageRank,
-            }),
+            // TODO: Re-enable centrality algorithms when CentralityAlgorithm is available
+            // "degree_centrality" => Some(AlgorithmType::Centrality {
+            //     algorithm: CentralityAlgorithm::Degree,
+            // }),
+            // "betweenness_centrality" => Some(AlgorithmType::Centrality {
+            //     algorithm: CentralityAlgorithm::Betweenness,
+            // }),
+            // "closeness_centrality" => Some(AlgorithmType::Centrality {
+            //     algorithm: CentralityAlgorithm::Closeness,
+            // }),
+            // "pagerank" => Some(AlgorithmType::Centrality {
+            //     algorithm: CentralityAlgorithm::PageRank,
+            // }),
             "pattern_match" | "subgraph_isomorphism" => Some(AlgorithmType::PatternMatching),
             _ => None,
         }
@@ -555,13 +554,14 @@ impl GqlParser {
                 ShortestPathAlgorithm::AStar => "astar",
                 ShortestPathAlgorithm::FloydWarshall => "floyd_warshall",
             }.to_string(),
-            AlgorithmType::Centrality { algorithm: c } => match c {
-                CentralityAlgorithm::Degree => "degree_centrality",
-                CentralityAlgorithm::Betweenness => "betweenness_centrality",
-                CentralityAlgorithm::Closeness => "closeness_centrality",
-                CentralityAlgorithm::Eigenvector => "eigenvector_centrality",
-                CentralityAlgorithm::PageRank => "pagerank",
-            }.to_string(),
+            // TODO: Re-enable centrality algorithms when CentralityAlgorithm is available
+            // AlgorithmType::Centrality { algorithm: c } => match c {
+            //     CentralityAlgorithm::Degree => "degree_centrality",
+            //     CentralityAlgorithm::Betweenness => "betweenness_centrality",
+            //     CentralityAlgorithm::Closeness => "closeness_centrality",
+            //     CentralityAlgorithm::Eigenvector => "eigenvector_centrality",
+            //     CentralityAlgorithm::PageRank => "pagerank",
+            // }.to_string(),
             AlgorithmType::PatternMatching => "pattern_matching".to_string(),
         }
     }

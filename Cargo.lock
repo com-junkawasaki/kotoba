@@ -1508,6 +1508,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-execution"
+version = "0.1.22"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "kotoba-core",
+ "kotoba-errors 0.1.2",
+ "kotoba-storage",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-main"
 version = "0.1.22"
 dependencies = [
