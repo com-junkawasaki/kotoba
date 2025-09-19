@@ -12,7 +12,7 @@ documentation = "https://docs.rs/kotoba-memory"
 
 [dependencies]
 # KotobaDB core crates - Storage layer
-kotoba-storage = "0.1.21"
+kotoba-storage = "0.1.22"
 kotoba-graphdb = "0.1.21"
 
 # Profiling integration - temporarily disabled
