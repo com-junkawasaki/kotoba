@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-cache"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2021"
 description = "Redis-based distributed cache layer for KotobaDB"
 license = "MIT OR Apache-2.0"
@@ -43,5 +43,5 @@ metrics = "0.23"
 lz4 = "1.24"
 
 # Kotoba types
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
