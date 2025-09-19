@@ -6,6 +6,7 @@ members = [
     "crates/200-application/kotoba-projection-engine",
     "crates/200-application/kotoba-query-engine",
     "crates/200-application/kotoba-execution",
+    "crates/200-application/kotoba-handler",
 ]
 resolver = "2"
 

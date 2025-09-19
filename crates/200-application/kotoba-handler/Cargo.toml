@@ -21,8 +21,7 @@ kotoba-errors = { path = "../../000-core/kotoba-errors" }
 kotoba-server = { path = "../../500-services/kotoba-server", version = "0.1.15", optional = true }
 kotoba-cli = { path = "../../900-tools/kotoba-cli", version = "0.1.1", optional = true }
 kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.15", optional = true }
-# kotoba2tsx path needs to be verified
-# kotoba2tsx = { path = "../../400-language/kotoba2tsx", version = "0.1.15", optional = true }
+kotoba2tsx = { path = "../../400-language/kotoba2tsx", version = "0.1.15", optional = true }
 # Jsonnet support removed - using kotobas only
 
 # Async runtime

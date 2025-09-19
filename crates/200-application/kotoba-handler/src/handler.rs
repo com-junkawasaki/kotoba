@@ -81,7 +81,7 @@ impl<T: KeyValueStore + 'static> UnifiedHandler<T> {
             .map_err(|e| HandlerError::Storage(format!("Failed to store compiled result: {}", e)))?;
 
         // Execute with context
-        let result = self.execute_with_context(&executable_code, context).await?;
+        let result = self.execute_with_context(&executable_code, context.clone()).await?;
 
         // Cache result
         if self.config.read().await.enable_caching {
@@ -177,8 +177,8 @@ impl<T: KeyValueStore + 'static> UnifiedHandler<T> {
     }
 }
 
-impl Default for UnifiedHandler {
+impl<T: KeyValueStore + 'static> Default for UnifiedHandler<T> {
     fn default() -> Self {
-        Self::new()
+        Self::new(todo!("Default KeyValueStore implementation needed"))
     }
 }

@@ -18,11 +18,9 @@ regex = "1.10"
 uuid = { workspace = true, features = ["v4"] }
 reqwest = { version = "0.11", features = ["json"] }
 
-# Base Jsonnet implementation
-kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.17" }
-
 # Kotoba core dependencies
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+# kotoba-jsonnet removed - functionality integrated into kotoba-kotobas
 
 # Merkle DAG dependencies
 sha2 = "0.10"

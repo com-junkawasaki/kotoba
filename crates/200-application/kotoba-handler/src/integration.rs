@@ -9,6 +9,7 @@ use crate::types::{HandlerContext, HandlerResult};
 // Jsonnet integration removed - using kotobas only
 
 /// Integration with kotoba-kotobas for HTTP configuration
+#[cfg(feature = "kotobas")]
 pub mod kotobas_integration {
     use super::*;
     use kotoba_kotobas::http_parser::{HttpConfig, HttpRouteConfig, HttpMethod};
@@ -52,10 +53,12 @@ pub mod kotobas_integration {
 }
 
 /// Combined handler that integrates Kotobas functionality
+#[cfg(feature = "kotobas")]
 pub struct IntegratedHandler {
     kotobas_handler: kotobas_integration::KotobasHttpHandler,
 }
 
+#[cfg(feature = "kotobas")]
 impl IntegratedHandler {
     /// Create new integrated handler
     pub fn new(kotobas_config: &str) -> Result<Self> {
@@ -85,6 +88,7 @@ impl IntegratedHandler {
 }
 
 /// Factory function to create appropriate handler based on content type
+#[cfg(feature = "kotobas")]
 pub fn create_handler(content: &str, _context: &HandlerContext) -> Result<Box<dyn HandlerTrait>> {
     if serde_json::from_str::<serde_json::Value>(content).is_ok() {
         // JSON content - use Kotobas handler
@@ -101,8 +105,10 @@ pub trait HandlerTrait {
 }
 
 // Wrapper implementations
+#[cfg(feature = "kotobas")]
 struct KotobasWrapper(kotobas_integration::KotobasHttpHandler);
 
+#[cfg(feature = "kotobas")]
 impl HandlerTrait for KotobasWrapper {
     fn process(&mut self, context: HandlerContext) -> Result<String> {
         match self.0.find_route(&context.method, &context.path) {

@@ -6,14 +6,14 @@ use crate::handler::UnifiedHandler;
 use std::sync::Arc;
 
 /// Handler executor that manages execution across different environments
-pub struct HandlerExecutor {
-    handler: Arc<UnifiedHandler>,
+pub struct HandlerExecutor<T: crate::KeyValueStore + 'static> {
+    handler: Arc<UnifiedHandler<T>>,
     execution_mode: ExecutionMode,
 }
 
-impl HandlerExecutor {
+impl<T: crate::KeyValueStore + 'static> HandlerExecutor<T> {
     /// Create new executor
-    pub fn new(handler: Arc<UnifiedHandler>) -> Self {
+    pub fn new(handler: Arc<UnifiedHandler<T>>) -> Self {
         Self {
             handler,
             execution_mode: ExecutionMode::Sync,
@@ -94,20 +94,20 @@ impl HandlerExecutor {
     }
 }
 
-impl Default for HandlerExecutor {
+impl<T: crate::KeyValueStore + 'static> Default for HandlerExecutor<T> {
     fn default() -> Self {
-        let handler = Arc::new(UnifiedHandler::new());
+        let handler = Arc::new(UnifiedHandler::new(todo!("KeyValueStore implementation needed")));
         Self::new(handler)
     }
 }
 
 /// Builder pattern for HandlerExecutor
-pub struct HandlerExecutorBuilder {
-    handler: Option<Arc<UnifiedHandler>>,
+pub struct HandlerExecutorBuilder<T: crate::KeyValueStore + 'static> {
+    handler: Option<Arc<UnifiedHandler<T>>>,
     execution_mode: ExecutionMode,
 }
 
-impl HandlerExecutorBuilder {
+impl<T: crate::KeyValueStore + 'static> HandlerExecutorBuilder<T> {
     pub fn new() -> Self {
         Self {
             handler: None,
@@ -115,7 +115,7 @@ impl HandlerExecutorBuilder {
         }
     }
 
-    pub fn with_handler(mut self, handler: Arc<UnifiedHandler>) -> Self {
+    pub fn with_handler(mut self, handler: Arc<UnifiedHandler<T>>) -> Self {
         self.handler = Some(handler);
         self
     }
@@ -125,13 +125,13 @@ impl HandlerExecutorBuilder {
         self
     }
 
-    pub fn build(self) -> HandlerExecutor {
-        let handler = self.handler.unwrap_or_else(|| Arc::new(UnifiedHandler::new()));
+    pub fn build(self) -> HandlerExecutor<T> {
+        let handler = self.handler.unwrap_or_else(|| Arc::new(UnifiedHandler::new(todo!("KeyValueStore implementation needed"))));
         HandlerExecutor::new(handler).with_mode(self.execution_mode)
     }
 }
 
-impl Default for HandlerExecutorBuilder {
+impl<T: crate::KeyValueStore + 'static> Default for HandlerExecutorBuilder<T> {
     fn default() -> Self {
         Self::new()
     }
