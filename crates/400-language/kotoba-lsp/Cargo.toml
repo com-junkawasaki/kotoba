@@ -13,8 +13,8 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kotoba-kotobas = { path = "../../200-application/kotoba-kotobas", version = "0.1.16" }
-kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.17" }
+kotoba-kotobas = { path = "../kotoba-kotobas", version = "0.1.16" }
+kotoba-jsonnet = { path = "../kotoba-jsonnet", version = "0.1.17" }
 tokio = { version = "1.0", features = ["full"] }
 tower-lsp = "0.20"
 dashmap = "5.5"

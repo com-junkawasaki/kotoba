@@ -10,8 +10,8 @@ description = "Temporal-inspired workflow engine for Kotoba"
 # Kotoba crates - core workflow functionality
 kotoba-core.workspace = true
 kotoba-errors.workspace = true
-kotoba-workflow-core.workspace = true
-kotoba-routing = { version = "0.1.16", optional = true }
+kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.21" }
+kotoba-routing = { path = "../../200-application/kotoba-routing", version = "0.1.16", optional = true }
 
 # Common dependencies
 serde = { version = "1.0", features = ["derive"] }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use clap::Parser;
+use axum::routing::get;
 use kotoba_server_core::{HttpServer, AppRouter, handlers::*};
 #[cfg(feature = "workflow")]
 use kotoba_server_workflow::{WorkflowRouter, WorkflowServerExt};
@@ -30,12 +31,14 @@ struct Args {
 
 // Setup logging
 fn setup_logging() {
+    use tracing_subscriber::{prelude::*, EnvFilter, fmt};
+
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
+            EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "kotoba_server=debug,tower_http=debug".into()),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(fmt::layer())
         .init();
 }
 

@@ -10,10 +10,22 @@ members = [
     "crates/200-application/kotoba-rewrite",
     "crates/200-application/kotoba-routing",
     "crates/200-application/kotoba-state-graph",
+    "crates/300-workflow/kotoba-workflow",
+    "crates/300-workflow/kotoba-workflow-activities",
+    "crates/300-workflow/kotoba-workflow-core",
+    "crates/300-workflow/kotoba-workflow-operator",
+    "crates/400-language/kotoba-jsonnet",
     "crates/400-language/kotoba-kotobas",
     "crates/400-language/kotoba-formatter",
+    "crates/400-language/kotoba-linter",
+    "crates/400-language/kotoba-lsp",
+    "crates/400-language/kotoba-repl",
+    "crates/400-language/kotoba2tsx",
+    "crates/400-language/kotobas-wasm",
+    "crates/500-services/kotoba-server-core",
     "crates/500-services/kotoba-server",
-    "crates/900-tools/kotoba-package-manager",
+    "crates/900-tools/kotoba-cli",
+    "crates/900-tools/kotoba-build",
 ]
 resolver = "2"
 
@@ -57,19 +69,21 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 hyper = { version = "1.0", features = ["full"] }
 
 # Kotoba workspace crates
-kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
-kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
-kotoba-cid = { path = "crates/kotoba-cid", version = "0.1.21" }
+kotoba-core = { path = "crates/000-core/kotoba-core", version = "0.1.21" }
+kotoba-errors = { path = "crates/000-core/kotoba-errors", version = "0.1.2" }
+kotoba-cid = { path = "crates/000-core/kotoba-cid", version = "0.1.21" }
 # kotoba-graph temporarily disabled
-# kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
-kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
+# kotoba-graph = { path = "crates/100-storage/kotoba-graphdb", version = "0.1.21" }
+kotoba-storage = { path = "crates/100-storage/kotoba-storage", version = "0.1.21" }
 # kotoba-execution temporarily disabled
-# kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
-kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
-kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.16" }
-kotoba-routing = { path = "crates/kotoba-routing", version = "0.1.16" }
-kotoba-workflow-core = { path = "crates/kotoba-workflow-core", version = "0.1.21" }
-kotoba-db-core = { path = "crates/kotoba-db-core", version = "0.1.16" }
+# kotoba-execution = { path = "crates/200-application/kotoba-execution", version = "0.1.21" }
+kotoba-rewrite = { path = "crates/200-application/kotoba-rewrite", version = "0.1.21" }
+kotoba-jsonnet = { path = "crates/400-language/kotoba-jsonnet", version = "0.1.16" }
+kotoba-routing = { path = "crates/200-application/kotoba-routing", version = "0.1.16" }
+kotoba-workflow-core = { path = "crates/300-workflow/kotoba-workflow-core", version = "0.1.21" }
+kotoba-workflow = { path = "crates/300-workflow/kotoba-workflow", version = "0.1.21" }
+kotoba-workflow-activities = { path = "crates/300-workflow/kotoba-workflow-activities", version = "0.1.21" }
+kotoba-workflow-operator = { path = "crates/300-workflow/kotoba-workflow-operator", version = "0.1.21" }
 
 # Fix digest version conflict
 digest = "0.10.7"

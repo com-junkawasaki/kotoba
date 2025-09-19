@@ -29,13 +29,14 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # CLI argument parsing
 clap = { version = "4.0", features = ["derive"] }
 
-# Kotoba crates
-kotoba-core = "0.1.21"
-kotoba-routing = "0.1.16"
-kotoba-errors = "0.1.2"
-kotoba-workflow-core = { version = "0.1.21", optional = true }
-kotoba-server-core = "0.1.21"
-kotoba-server-workflow = { version = "0.1.21", optional = true }  # Now available on crates.io
+# Kotoba crates - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-routing = { path = "../../200-application/kotoba-routing" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-workflow-core = { path = "../../300-workflow/kotoba-workflow-core", optional = true }
+kotoba-server-core = { path = "../kotoba-server-core" }
+# kotoba-server-workflow temporarily disabled due to build issues
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # GraphQL support
@@ -46,7 +47,7 @@ graphql-parser = "0.4"
 default = ["std"]
 std = []
 wasm = ["wasm-bindgen", "web-sys", "js-sys"]
-workflow = ["kotoba-workflow-core", "kotoba-server-workflow"]  # Optional workflow features
+workflow = ["kotoba-workflow-core"]  # Optional workflow features
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }

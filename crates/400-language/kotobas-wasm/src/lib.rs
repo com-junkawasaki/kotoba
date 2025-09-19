@@ -1,39 +1,26 @@
 use wasm_bindgen::prelude::*;
-use kotoba_workflow::prelude::*;
+use kotoba_storage::KeyValueStore;
+use std::sync::Arc;
 use std::sync::Mutex;
 use wasm_bindgen_futures::future_to_promise;
+use once_cell::sync::Lazy;
 
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// Use a static Mutex to hold the engine instance.
-// In a real multi-threaded server, we'd need a more robust solution,
-// but for WASM's single-threaded model, this is a simple way to maintain state.
-static WORKFLOW_ENGINE: once_cell::sync::Lazy<Mutex<WorkflowEngine>> = once_cell::sync::Lazy::new(|| {
-    // This is async, but we can't await in a static initializer.
-    // We will initialize it properly via an `init` function.
-    // For now, we create a placeholder. A real implementation would need an async builder.
-    // Let's assume for now the builder can be constructed synchronously for simplicity.
-    // The `build` function is async, so we can't call it here directly.
-    // We will use an `Option` and initialize it on first use.
-    panic!("Engine should be initialized via init function");
-});
+// Use a static Mutex to hold the KeyValueStore instance.
+// In WASM's single-threaded model, this provides a simple way to maintain state.
+static STORAGE_INSTANCE: Lazy<Mutex<Option<Arc<dyn KeyValueStore + Send + Sync>>>> = Lazy::new(|| Mutex::new(None));
 
-// A proper way to handle async initialization.
-static ENGINE_INSTANCE: once_cell::sync::Lazy<Mutex<Option<WorkflowEngine>>> = once_cell::sync::Lazy::new(|| Mutex::new(None));
-
-/// Initializes the workflow engine. This must be called once before any other workflow functions.
+/// Initializes the KeyValueStore. This must be called once before any other functions.
 #[wasm_bindgen]
-pub async fn init_workflow_engine() -> Result<(), JsValue> {
-    let mut engine_guard = ENGINE_INSTANCE.lock().unwrap();
-    if engine_guard.is_none() {
-        let engine = WorkflowEngine::builder()
-            .with_memory_storage()
-            .build()
-            .await
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        *engine_guard = Some(engine);
+pub async fn init_storage() -> Result<(), JsValue> {
+    let mut storage_guard = STORAGE_INSTANCE.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
+    if storage_guard.is_none() {
+        // For WASM, we'll use a simple in-memory KeyValueStore
+        // TODO: Implement a proper WASM-compatible KeyValueStore
+        return Err(JsValue::from_str("KeyValueStore implementation for WASM is not yet available"));
     }
     Ok(())
 }
@@ -47,37 +34,33 @@ pub fn compile(code: &str) -> Result<String, JsValue> {
     Ok(format!("/* Compiled from KotobaScript (length: {}): */", code.len()))
 }
 
-/// Starts a new workflow execution.
-/// Accepts a JSON string representing the WorkflowIR.
-/// Returns a JSON string with the execution_id.
-#[wasm_bindgen(js_name = "startWorkflow")]
-pub async fn start_workflow(workflow_ir_json: &str) -> Result<String, JsValue> {
-    let ir: WorkflowIR = serde_json::from_str(workflow_ir_json)
+/// Stores a workflow in KeyValueStore.
+/// Accepts a JSON string representing the workflow data.
+/// Returns a success message.
+#[wasm_bindgen(js_name = "storeWorkflow")]
+pub async fn store_workflow(workflow_id: &str, workflow_data: &str) -> Result<String, JsValue> {
+    let storage_guard = STORAGE_INSTANCE.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let storage = storage_guard.as_ref().ok_or_else(|| JsValue::from_str("Storage not initialized"))?;
+
+    let key = format!("workflow:{}", workflow_id);
+    storage.put(key.as_bytes(), workflow_data.as_bytes()).await
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let mut engine_guard = ENGINE_INSTANCE.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
-    let engine = engine_guard.as_mut().ok_or_else(|| JsValue::from_str("Engine not initialized"))?;
-
-    let execution_id = engine.start_workflow(&ir, std::collections::HashMap::new())
-        .await
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-    Ok(serde_json::to_string(&serde_json::json!({ "execution_id": execution_id.0 })).unwrap())
+    Ok(format!("Workflow {} stored successfully", workflow_id))
 }
 
-/// Gets the status of a workflow execution.
-/// Accepts the execution_id as a string.
-/// Returns a JSON string of the WorkflowExecution details.
-#[wasm_bindgen(js_name = "getWorkflowStatus")]
-pub async fn get_workflow_status(execution_id: &str) -> Result<String, JsValue> {
-    let exec_id = WorkflowExecutionId(execution_id.to_string());
-    
-    let engine_guard = ENGINE_INSTANCE.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
-    let engine = engine_guard.as_ref().ok_or_else(|| JsValue::from_str("Engine not initialized"))?;
+/// Gets a workflow from KeyValueStore.
+/// Accepts the workflow_id as a string.
+/// Returns the workflow data as a string.
+#[wasm_bindgen(js_name = "getWorkflow")]
+pub async fn get_workflow(workflow_id: &str) -> Result<String, JsValue> {
+    let storage_guard = STORAGE_INSTANCE.lock().map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let storage = storage_guard.as_ref().ok_or_else(|| JsValue::from_str("Storage not initialized"))?;
 
-    let execution = engine.get_execution(&exec_id)
-        .await
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let key = format!("workflow:{}", workflow_id);
+    let data = storage.get(key.as_bytes()).await
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .ok_or_else(|| JsValue::from_str("Workflow not found"))?;
 
-    Ok(serde_json::to_string(&execution).unwrap())
+    String::from_utf8(data).map_err(|e| JsValue::from_str(&e.to_string()))
 }
