@@ -87,6 +87,19 @@ pub enum AllocatorType {
     Custom,
 }
 
+/// Hybrid storage mode
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HybridMode {
+    /// Memory-only storage
+    MemoryOnly,
+    /// Redis-only storage
+    RedisOnly,
+    /// Memory with Redis backup
+    MemoryWithRedisBackup,
+    /// Tiered storage (hot data in memory, cold data in Redis)
+    TieredMemoryRedis,
+}
+
 /// Memory optimization manager
 pub struct MemoryOptimizer {
     config: MemoryConfig,
@@ -95,6 +108,9 @@ pub struct MemoryOptimizer {
     memory_profiler: Option<memory_profiler::MemoryProfiler>,
     gc_optimizer: Option<gc_optimizer::GcOptimizer>,
     allocator: Option<Box<dyn allocators::Allocator>>,
+    #[cfg(feature = "redis")]
+    redis_store: Option<std::sync::Arc<kotoba_storage_redis::RedisStore>>,
+    hybrid_mode: HybridMode,
 }
 
 impl MemoryOptimizer {
@@ -105,6 +121,11 @@ impl MemoryOptimizer {
 
     /// Create a memory optimizer with custom configuration
     pub fn with_config(config: MemoryConfig) -> Self {
+        Self::with_hybrid_config(config, HybridMode::MemoryOnly)
+    }
+
+    /// Create a memory optimizer with hybrid configuration
+    pub fn with_hybrid_config(config: MemoryConfig, hybrid_mode: HybridMode) -> Self {
         let mut optimizer = Self {
             config: config.clone(),
             memory_pool: None,
@@ -112,10 +133,39 @@ impl MemoryOptimizer {
             memory_profiler: None,
             gc_optimizer: None,
             allocator: None,
+            #[cfg(feature = "redis")]
+            redis_store: None,
+            hybrid_mode,
         };
 
         optimizer.initialize_components();
         optimizer
+    }
+
+    /// Create hybrid memory optimizer with Redis
+    #[cfg(feature = "redis")]
+    pub async fn with_redis(
+        config: MemoryConfig,
+        redis_config: kotoba_storage_redis::RedisConfig,
+        hybrid_mode: HybridMode
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let redis_store = std::sync::Arc::new(
+            kotoba_storage_redis::RedisStore::new(redis_config).await?
+        );
+
+        let mut optimizer = Self {
+            config: config.clone(),
+            memory_pool: None,
+            cache_manager: None,
+            memory_profiler: None,
+            gc_optimizer: None,
+            allocator: None,
+            redis_store: Some(redis_store),
+            hybrid_mode,
+        };
+
+        optimizer.initialize_components();
+        Ok(optimizer)
     }
 
     /// Initialize memory optimization components
@@ -312,6 +362,123 @@ impl MemoryOptimizer {
         }
     }
 
+    /// Get hybrid storage mode
+    pub fn hybrid_mode(&self) -> &HybridMode {
+        &self.hybrid_mode
+    }
+
+    /// Check if Redis is available
+    #[cfg(feature = "redis")]
+    pub async fn is_redis_available(&self) -> bool {
+        if let Some(ref redis) = self.redis_store {
+            redis.is_connected().await
+        } else {
+            false
+        }
+    }
+
+    /// Get Redis statistics
+    #[cfg(feature = "redis")]
+    pub async fn redis_stats(&self) -> Option<kotoba_storage_redis::RedisStats> {
+        if let Some(ref redis) = self.redis_store {
+            Some(redis.get_stats().await)
+        } else {
+            None
+        }
+    }
+
+    /// Hybrid put operation (chooses storage based on hybrid mode)
+    #[cfg(feature = "redis")]
+    pub async fn hybrid_put(&self, key: &[u8], value: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+        match self.hybrid_mode {
+            HybridMode::MemoryOnly => {
+                if let Some(ref memory_store) = self.memory_pool {
+                    // This is simplified - in practice you'd need proper memory storage
+                    Ok(())
+                } else {
+                    Err("Memory pool not enabled".into())
+                }
+            }
+            HybridMode::RedisOnly => {
+                if let Some(ref redis) = self.redis_store {
+                    redis.put(key, value).await?;
+                    Ok(())
+                } else {
+                    Err("Redis not configured".into())
+                }
+            }
+            HybridMode::MemoryWithRedisBackup => {
+                // Try memory first, then Redis as backup
+                let memory_result = if let Some(ref memory_store) = self.memory_pool {
+                    Ok(())
+                } else {
+                    Err("Memory pool not enabled")
+                };
+
+                if memory_result.is_err() {
+                    if let Some(ref redis) = self.redis_store {
+                        redis.put(key, value).await?;
+                    }
+                }
+                Ok(())
+            }
+            HybridMode::TieredMemoryRedis => {
+                // Hot data in memory, cold data in Redis
+                // This is a simplified implementation
+                if let Some(ref redis) = self.redis_store {
+                    redis.put(key, value).await?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Hybrid get operation
+    #[cfg(feature = "redis")]
+    pub async fn hybrid_get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
+        match self.hybrid_mode {
+            HybridMode::MemoryOnly => {
+                // Simplified - would need actual memory lookup
+                Ok(None)
+            }
+            HybridMode::RedisOnly => {
+                if let Some(ref redis) = self.redis_store {
+                    redis.get(key).await.map_err(Into::into)
+                } else {
+                    Err("Redis not configured".into())
+                }
+            }
+            HybridMode::MemoryWithRedisBackup => {
+                // Try memory first, then Redis
+                let memory_result = None; // Simplified
+
+                if memory_result.is_none() {
+                    if let Some(ref redis) = self.redis_store {
+                        redis.get(key).await.map_err(Into::into)
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(memory_result)
+                }
+            }
+            HybridMode::TieredMemoryRedis => {
+                // Check memory first, then Redis
+                let memory_result = None; // Simplified
+
+                if memory_result.is_none() {
+                    if let Some(ref redis) = self.redis_store {
+                        redis.get(key).await.map_err(Into::into)
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(memory_result)
+                }
+            }
+        }
+    }
+
     /// Start background monitoring
     async fn start_monitoring(&self) {
         let optimizer = Arc::new(self.clone());
@@ -437,7 +604,16 @@ impl MemoryOptimizer {
 impl Clone for MemoryOptimizer {
     fn clone(&self) -> Self {
         // Note: This is a simplified clone - in practice, you'd need to handle internal state properly
-        Self::with_config(self.config.clone())
+        let mut optimizer = Self::with_hybrid_config(self.config.clone(), self.hybrid_mode.clone());
+
+        // Copy Redis store reference if available
+        #[cfg(feature = "redis")]
+        {
+            optimizer.redis_store = self.redis_store.clone();
+        }
+
+        optimizer.initialize_components();
+        optimizer
     }
 }
 

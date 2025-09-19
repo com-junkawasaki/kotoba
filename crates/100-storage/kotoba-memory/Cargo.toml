@@ -18,6 +18,9 @@ kotoba-graphdb = { path = "../kotoba-graphdb", version = "0.1.21" }
 # Profiling integration - temporarily disabled
 # kotoba-profiler = { path = "../../500-services/kotoba-profiler", version = "0.1.21" }
 
+# Redis integration for hybrid storage
+kotoba-storage-redis = { path = "../kotoba-storage-redis", version = "0.1.21", optional = true }
+
 # Memory management
 tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
 futures = "0.3"
@@ -42,6 +45,7 @@ default = []
 cluster = []
 jemalloc = ["tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
+redis = ["dep:kotoba-storage-redis"]
 
 [dependencies.tikv-jemallocator]
 version = "0.5"

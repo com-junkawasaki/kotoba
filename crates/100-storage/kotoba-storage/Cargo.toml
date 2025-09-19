@@ -23,7 +23,7 @@ hex = { workspace = true }
 rocksdb = { version = "0.21", optional = true }
 tempfile = "3.0"
 async-trait = "0.1"
-redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 tokio = { version = "1.0", features = ["sync", "rt"] }
 # Minimal dependencies for Port/Adapter pattern
 # Temporarily disable all Kotoba dependencies to test basic interface
@@ -34,6 +34,8 @@ tokio = { version = "1.0", features = ["sync", "rt"] }
 default = []
 rocksdb = ["dep:rocksdb"]
 object_storage = []
+memory = []
+redis = ["dep:redis"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

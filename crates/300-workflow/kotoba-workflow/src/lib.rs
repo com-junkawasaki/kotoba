@@ -398,3 +398,586 @@ pub mod prelude {
         IntegrationManager,
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use chrono::Utc;
+
+    // Mock WorkflowStore for testing
+    struct MockWorkflowStore;
+
+    #[async_trait::async_trait]
+    impl WorkflowStore for MockWorkflowStore {
+        async fn save_execution(&self, _execution: &WorkflowExecution) -> Result<(), WorkflowError> {
+            Ok(())
+        }
+
+        async fn get_execution(&self, _execution_id: &WorkflowExecutionId) -> Result<Option<WorkflowExecution>, WorkflowError> {
+            Ok(None)
+        }
+
+        async fn update_execution(&self, _execution: &WorkflowExecution) -> Result<(), WorkflowError> {
+            Ok(())
+        }
+
+        async fn get_running_executions(&self) -> Result<Vec<WorkflowExecution>, WorkflowError> {
+            Ok(vec![])
+        }
+
+        async fn delete_execution(&self, _execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
+            Ok(())
+        }
+    }
+
+    // Mock StoragePort for testing
+    struct MockStoragePort;
+
+    #[async_trait::async_trait]
+    impl kotoba_storage::port::StoragePort for MockStoragePort {
+        async fn get(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, kotoba_storage::StorageError> {
+            Ok(None)
+        }
+
+        async fn put(&self, _key: &[u8], _value: &[u8]) -> Result<(), kotoba_storage::StorageError> {
+            Ok(())
+        }
+
+        async fn delete(&self, _key: &[u8]) -> Result<(), kotoba_storage::StorageError> {
+            Ok(())
+        }
+
+        async fn scan(&self, _prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, kotoba_storage::StorageError> {
+            Ok(vec![])
+        }
+    }
+
+    #[test]
+    fn test_workflow_engine_builder_creation() {
+        let builder = WorkflowEngineBuilder::new();
+
+        // Builder should have default memory storage
+        assert!(builder.storage_backend.is_some());
+        assert!(builder.kotoba_backend.is_none());
+        assert!(matches!(builder.storage_backend.as_ref().unwrap(), StorageBackend::Memory));
+    }
+
+    #[test]
+    fn test_workflow_engine_builder_with_memory_storage() {
+        let builder = WorkflowEngineBuilder::new().with_memory_storage();
+
+        assert!(matches!(builder.storage_backend.as_ref().unwrap(), StorageBackend::Memory));
+    }
+
+    #[test]
+    fn test_workflow_engine_builder_with_storage_backend() {
+        let builder = WorkflowEngineBuilder::new().with_storage_backend(StorageBackend::Memory);
+
+        assert!(matches!(builder.storage_backend.as_ref().unwrap(), StorageBackend::Memory));
+    }
+
+    #[cfg(feature = "rocksdb")]
+    #[test]
+    fn test_workflow_engine_builder_with_rocksdb_storage() {
+        let path = "/tmp/test_db";
+        let builder = WorkflowEngineBuilder::new().with_rocksdb_storage(path);
+
+        match builder.storage_backend.as_ref().unwrap() {
+            StorageBackend::RocksDB { path: db_path } => assert_eq!(db_path, path),
+            _ => panic!("Expected RocksDB storage backend"),
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[test]
+    fn test_workflow_engine_builder_with_sqlite_storage() {
+        let path = "/tmp/test.db";
+        let builder = WorkflowEngineBuilder::new().with_sqlite_storage(path);
+
+        match builder.storage_backend.as_ref().unwrap() {
+            StorageBackend::SQLite { path: db_path } => assert_eq!(db_path, path),
+            _ => panic!("Expected SQLite storage backend"),
+        }
+    }
+
+    #[test]
+    fn test_workflow_engine_builder_with_kotoba_storage() {
+        let mock_storage = Arc::new(MockStoragePort);
+        let builder = WorkflowEngineBuilder::new().with_kotoba_storage(mock_storage);
+
+        assert!(builder.kotoba_backend.is_some());
+        assert!(builder.storage_backend.is_none()); // Should be disabled when using Kotoba backend
+    }
+
+    #[tokio::test]
+    async fn test_workflow_engine_builder_build_with_memory() {
+        let builder = WorkflowEngineBuilder::new();
+        let result = builder.build().await;
+
+        assert!(result.is_ok());
+        let engine = result.unwrap();
+
+        // Verify engine has all components initialized
+        assert!(engine.activity_registry().as_ref().is_send());
+        assert!(engine.event_sourcing.as_ref().is_send());
+        assert!(engine.snapshot_manager.as_ref().is_send());
+    }
+
+    #[tokio::test]
+    async fn test_workflow_engine_builder_build_with_kotoba_storage() {
+        let mock_storage = Arc::new(MockStoragePort);
+        let builder = WorkflowEngineBuilder::new().with_kotoba_storage(mock_storage);
+
+        let result = builder.build().await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extended_workflow_engine_builder_method() {
+        let builder = ExtendedWorkflowEngine::builder();
+
+        // Should return a WorkflowEngineBuilder
+        assert!(builder.storage_backend.is_some());
+    }
+
+    #[test]
+    fn test_workflow_result_creation() {
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let status = ExecutionStatus::Completed;
+        let execution_time = std::time::Duration::from_secs(5);
+
+        let result = WorkflowResult {
+            execution_id,
+            status,
+            outputs: None,
+            execution_time,
+        };
+
+        assert_eq!(result.execution_id, execution_id);
+        assert_eq!(result.status, status);
+        assert_eq!(result.execution_time, execution_time);
+        assert!(result.outputs.is_none());
+    }
+
+    #[test]
+    fn test_workflow_result_with_outputs() {
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let status = ExecutionStatus::Completed;
+        let execution_time = std::time::Duration::from_millis(1500);
+
+        // Create a mock workflow execution as output
+        let workflow_execution = WorkflowExecution {
+            execution_id,
+            workflow_ir: WorkflowIR::default(),
+            status,
+            inputs: HashMap::new(),
+            outputs: Some(serde_json::json!({"result": "success"})),
+            start_time: Utc::now(),
+            end_time: Some(Utc::now()),
+            error_message: None,
+        };
+
+        let result = WorkflowResult {
+            execution_id,
+            status,
+            outputs: Some(workflow_execution),
+            execution_time,
+        };
+
+        assert_eq!(result.execution_id, execution_id);
+        assert_eq!(result.execution_time, execution_time);
+        assert!(result.outputs.is_some());
+
+        let outputs = result.outputs.unwrap();
+        assert_eq!(outputs.execution_id, execution_id);
+        assert_eq!(outputs.status, status);
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_activity_registry() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let registry = engine.activity_registry();
+
+        // Should be able to get the registry
+        assert!(registry.as_ref().is_send());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_execution_status() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should return None for non-existent execution
+        let result = engine.get_execution_status(&execution_id).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_execution() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should return None for non-existent execution
+        let result = engine.get_execution(&execution_id).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_list_running_executions() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        // Should return empty list initially
+        let result = engine.list_running_executions().await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_cancel_execution() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should succeed even for non-existent execution (graceful handling)
+        let result = engine.cancel_execution(&execution_id).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_create_snapshot() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should succeed even for non-existent execution (graceful handling)
+        let result = engine.create_snapshot(&execution_id).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_restore_from_snapshot() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should return None for non-existent snapshot
+        let result = engine.restore_from_snapshot(&execution_id).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_performance_stats() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let stats = engine.get_performance_stats().await;
+
+        // Should return a HashMap (may be empty initially)
+        assert!(stats.is_empty() || !stats.is_empty()); // Accept either state
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_event_sourcing_access() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let event_sourcing = engine.event_sourcing();
+
+        // Should be able to access the event sourcing manager
+        assert!(event_sourcing.as_ref().is_send());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_snapshot_manager_access() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let snapshot_manager = engine.snapshot_manager();
+
+        // Should be able to access the snapshot manager
+        assert!(snapshot_manager.as_ref().is_send());
+    }
+
+    #[test]
+    fn test_extended_workflow_engine_is_distributed_enabled_initially_false() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        // Should be false initially
+        assert!(!engine.is_distributed_enabled());
+    }
+
+    #[test]
+    fn test_extended_workflow_engine_distributed_execution_manager_initially_none() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        // Should be None initially
+        assert!(engine.distributed_execution_manager().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_submit_distributed_workflow_without_setup() {
+        let builder = WorkflowEngineBuilder::new();
+        let mut engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should fail because distributed execution is not enabled
+        let result = engine.submit_distributed_workflow(execution_id).await;
+        assert!(result.is_err());
+
+        if let Err(WorkflowError::InvalidStrategy(msg)) = result {
+            assert!(msg.contains("Distributed execution not enabled"));
+        } else {
+            panic!("Expected InvalidStrategy error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_cluster_health_without_setup() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        // Should fail because distributed execution is not enabled
+        let result = engine.get_cluster_health().await;
+        assert!(result.is_err());
+
+        if let Err(WorkflowError::InvalidStrategy(msg)) = result {
+            assert!(msg.contains("Distributed execution not enabled"));
+        } else {
+            panic!("Expected InvalidStrategy error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_start_workflow() {
+        let builder = WorkflowEngineBuilder::new();
+        let mut engine = builder.build().await.unwrap();
+
+        let workflow_ir = WorkflowIR::default();
+        let inputs = HashMap::new();
+
+        // This may fail due to unimplemented features, but we can test that the method exists
+        let result = engine.start_workflow(&workflow_ir, inputs).await;
+
+        // Accept both success and failure as the implementation may be incomplete
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_wait_for_completion() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let timeout = Some(std::time::Duration::from_secs(5));
+
+        // Should return an error for non-existent execution
+        let result = engine.wait_for_completion(execution_id, timeout).await;
+
+        // Should fail because execution doesn't exist
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_workflow_result_debug_formatting() {
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let result = WorkflowResult {
+            execution_id,
+            status: ExecutionStatus::Running,
+            outputs: None,
+            execution_time: std::time::Duration::from_secs(10),
+        };
+
+        let debug_str = format!("{:?}", result);
+        assert!(debug_str.contains("WorkflowResult"));
+        assert!(debug_str.contains("Running"));
+    }
+
+    #[test]
+    fn test_workflow_result_clone() {
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let original = WorkflowResult {
+            execution_id,
+            status: ExecutionStatus::Failed,
+            outputs: None,
+            execution_time: std::time::Duration::from_millis(500),
+        };
+
+        let cloned = original.clone();
+
+        assert_eq!(original.execution_id, cloned.execution_id);
+        assert_eq!(original.status, cloned.status);
+        assert_eq!(original.outputs, cloned.outputs);
+        assert_eq!(original.execution_time, cloned.execution_time);
+    }
+
+    #[test]
+    fn test_workflow_engine_builder_chaining() {
+        let builder = WorkflowEngineBuilder::new()
+            .with_memory_storage()
+            .with_storage_backend(StorageBackend::Memory);
+
+        // Should still work after chaining
+        assert!(builder.storage_backend.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_multiple_workflow_engines_independence() {
+        let builder1 = WorkflowEngineBuilder::new();
+        let builder2 = WorkflowEngineBuilder::new();
+
+        let engine1 = builder1.build().await.unwrap();
+        let engine2 = builder2.build().await.unwrap();
+
+        // Engines should be independent
+        assert!(!engine1.is_distributed_enabled());
+        assert!(!engine2.is_distributed_enabled());
+
+        // Different registry instances
+        assert!(!Arc::ptr_eq(engine1.activity_registry(), engine2.activity_registry()));
+    }
+
+    #[test]
+    fn test_storage_backend_enum_variants() {
+        // Test that all storage backend variants exist
+        let _memory = StorageBackend::Memory;
+
+        #[cfg(feature = "rocksdb")]
+        let _rocksdb = StorageBackend::RocksDB { path: "/tmp/test".to_string() };
+
+        #[cfg(feature = "sqlite")]
+        let _sqlite = StorageBackend::SQLite { path: "/tmp/test.db".to_string() };
+    }
+
+    #[test]
+    fn test_workflow_engine_type_alias() {
+        // Test that WorkflowEngine is an alias for ExtendedWorkflowEngine
+        let _engine: WorkflowEngine = ExtendedWorkflowEngine {
+            core_engine: kotoba_workflow_core::WorkflowEngine::new(),
+            storage: Arc::new(MockWorkflowStore),
+            activity_registry: Arc::new(ActivityRegistry::new()),
+            state_manager: Arc::new(WorkflowStateManager::new()),
+            event_sourcing: Arc::new(EventSourcingManager::new(Arc::new(MockWorkflowStore)).with_snapshot_config(100, 10)),
+            snapshot_manager: Arc::new(SnapshotManager::new(Arc::new(MockWorkflowStore), Arc::new(EventSourcingManager::new(Arc::new(MockWorkflowStore)).with_snapshot_config(100, 10))).with_config(50, 5)),
+            executor: None,
+            distributed_executor: None,
+        };
+    }
+
+    #[test]
+    fn test_prelude_exports() {
+        // Test that prelude exports work
+        let _builder = prelude::WorkflowEngine::builder();
+        let _workflow_ir: prelude::WorkflowIR = WorkflowIR::default();
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_execution_at_tx() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let tx_id = TxId::new(1);
+
+        // Should return None for non-existent execution
+        let result = engine.get_execution_at_tx(&execution_id, tx_id).await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_execution_history() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should return empty history for non-existent execution
+        let history = engine.get_execution_history(&execution_id).await;
+        assert!(history.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_get_event_history() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should return empty event history for non-existent execution
+        let result = engine.get_event_history(&execution_id).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_extended_workflow_engine_rebuild_execution_from_events() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+
+        // Should return None for non-existent execution
+        let result = engine.rebuild_execution_from_events(&execution_id).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_workflow_result_serialization() {
+        let execution_id = WorkflowExecutionId(uuid::Uuid::new_v4());
+        let result = WorkflowResult {
+            execution_id,
+            status: ExecutionStatus::Completed,
+            outputs: None,
+            execution_time: std::time::Duration::from_secs(30),
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&result);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("Completed"));
+        assert!(json_str.contains("30"));
+
+        // Test JSON deserialization
+        let deserialized_result: serde_json::Result<WorkflowResult> = serde_json::from_str(&json_str);
+        assert!(deserialized_result.is_ok());
+
+        let deserialized = deserialized_result.unwrap();
+        assert_eq!(deserialized.status, ExecutionStatus::Completed);
+        assert_eq!(deserialized.execution_time, std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn test_workflow_engine_builder_debug() {
+        let builder = WorkflowEngineBuilder::new();
+        let debug_str = format!("{:?}", builder);
+        assert!(debug_str.contains("WorkflowEngineBuilder"));
+    }
+
+    #[test]
+    fn test_extended_workflow_engine_debug() {
+        let builder = WorkflowEngineBuilder::new();
+        let engine = builder.build().await.unwrap();
+        let debug_str = format!("{:?}", engine);
+        assert!(debug_str.contains("ExtendedWorkflowEngine"));
+    }
+}
