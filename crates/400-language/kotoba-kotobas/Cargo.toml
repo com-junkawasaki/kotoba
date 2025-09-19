@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-kotobas"
-version = "0.1.17"
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "KotobaScript - Declarative programming language for frontend applications, extending Jsonnet with React component definitions"
 keywords = ["jsonnet", "programming-language", "frontend", "react", "declarative"]
 categories = ["config", "template-engine", "web-programming", "development-tools"]
@@ -15,12 +15,12 @@ thiserror = "2.0"
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["full"], optional = true }
 regex = "1.10"
-uuid = { workspace = true, features = ["v4"] }
+uuid = { version = "1.18", features = ["v4"] }
 reqwest = { version = "0.11", features = ["json"] }
 
 # Kotoba core dependencies
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-jsonnet.workspace = true
+kotoba-core = "0.1.21"
+kotoba-jsonnet = "0.1.21"
 
 # Merkle DAG dependencies
 sha2 = "0.10"

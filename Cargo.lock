@@ -5133,7 +5133,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-jsonnet"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
