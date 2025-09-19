@@ -19,8 +19,8 @@ kotoba-jsonnet = { path = "../../400-language/kotoba-jsonnet", version = "0.1.17
 
 # Optional features (temporarily disabled to focus on core functionality)
 # kotoba-graph = "0.1.21"
-# kotoba-execution = "0.1.21"
-# kotoba-rewrite = "0.1.21"
+# kotoba-execution = "0.1.22"
+# kotoba-rewrite = "0.1.22"
 # kotoba-storage = "0.1.21"
 
 # CLI framework

@@ -38,5 +38,5 @@ metrics = "0.23"
 
 # Kotoba dependencies - Port layer
 kotoba-storage = "0.1.22"
-kotoba-event-stream = "0.1.21"
+kotoba-event-stream = "0.1.22"
 kotoba-ocel = "0.1.22"
