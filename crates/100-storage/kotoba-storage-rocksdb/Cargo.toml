@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-storage-rocksdb"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
@@ -10,7 +10,7 @@ categories = ["database-implementations"]
 
 [dependencies]
 # Port layer
-kotoba-storage = { path = "../kotoba-storage" }
+kotoba-storage = "0.1.22"
 
 # External dependencies
 rocksdb = "0.21"
