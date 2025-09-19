@@ -196,6 +196,7 @@ tempfile.workspace = true
 
 # Core crates
 kotoba-errors = { path = "crates/000-core/kotoba-errors", version = "0.1.2" }
+kotoba-repl = { path = "crates/400-language/kotoba-repl", version = "0.1.22" }
 
 # For binary
 clap = { version = "4.0", features = ["derive"] }

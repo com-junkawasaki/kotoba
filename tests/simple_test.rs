@@ -1,4 +1,8 @@
-use kotoba_repl::{ReplConfig, ReplSession};
+// TODO: Fix import - kotoba_repl module doesn't exist in expected form
+// use kotoba_repl::{ReplConfig, ReplSession};
+
+// Use the repl crate directly
+use kotoba_repl::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

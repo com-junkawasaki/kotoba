@@ -2,15 +2,107 @@
 //!
 //! この例はWeb Frameworkを使ってシンプルなHTTPサーバーを起動する方法を示します。
 
-use kotoba::frontend::WebFramework;
-use kotoba::frontend::api_ir::WebFrameworkConfigIR;
-use kotoba::http::{HttpRequest, HttpResponse, HttpMethod, HttpHeaders};
+// TODO: Replace with actual kotoba framework when available
+// use kotoba::frontend::WebFramework;
+// use kotoba::frontend::api_ir::WebFrameworkConfigIR;
+// use kotoba::http::{HttpRequest, HttpResponse, HttpMethod, HttpHeaders};
+
+// Placeholder types for compilation
+#[derive(Debug)]
+pub struct WebFramework;
+
+#[derive(Debug)]
+pub struct WebFrameworkConfigIR {
+    pub server: ServerConfig,
+    pub database: Option<DatabaseConfig>,
+    pub api_routes: Vec<String>,
+    pub web_sockets: Vec<String>,
+    pub graph_ql: Option<String>,
+    pub middlewares: Vec<String>,
+    pub static_files: Vec<String>,
+    pub authentication: Option<String>,
+    pub session: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ServerConfig {
+    pub host: String,
+    pub port: u16,
+    pub tls: Option<String>,
+    pub workers: usize,
+    pub max_connections: usize,
+}
+
+#[derive(Debug)]
+pub struct DatabaseConfig;
+
+#[derive(Debug)]
+pub struct HttpRequest {
+    pub id: String,
+    pub method: HttpMethod,
+    pub path: String,
+    pub query: std::collections::HashMap<String, String>,
+    pub headers: HttpHeaders,
+    pub body_ref: Option<String>,
+    pub timestamp: i64,
+}
+
+#[derive(Debug)]
+pub struct HttpResponse {
+    pub id: String,
+    pub status: Status,
+    pub headers: HttpHeaders,
+    pub body_ref: Option<String>,
+    pub timestamp: i64,
+}
+
+#[derive(Debug)]
+pub struct Status {
+    pub code: u16,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+    HEAD,
+    OPTIONS,
+}
+
+#[derive(Debug)]
+pub struct HttpHeaders(std::collections::HashMap<String, String>);
+
+impl HttpHeaders {
+    pub fn new() -> Self {
+        Self(std::collections::HashMap::new())
+    }
+}
+
+impl WebFramework {
+    pub fn new(_config: WebFrameworkConfigIR) -> Result<Self, std::io::Error> {
+        Ok(Self)
+    }
+
+    pub async fn handle_request(&self, _request: HttpRequest) -> Result<HttpResponse, std::io::Error> {
+        Ok(HttpResponse {
+            id: "resp_123".to_string(),
+            status: Status { code: 200, reason: "OK".to_string() },
+            headers: HttpHeaders::new(),
+            body_ref: Some("<html><body><h1>Hello from Web Framework!</h1></body></html>".to_string()),
+            timestamp: 1234567890,
+        })
+    }
+}
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::sync::Arc;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), std::io::Error> {
     // ロガーの初期化
     env_logger::init();
 
@@ -18,7 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Web Frameworkの設定を作成
     let config = WebFrameworkConfigIR {
-        server: kotoba::frontend::api_ir::ServerConfig {
+        server: ServerConfig {
             host: "localhost".to_string(),
             port: 3000,
             tls: None,
@@ -104,7 +196,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let _ = socket.write_all(response_str.as_bytes()).await;
                 }
-                Err(_) => {
+                Err(e) => {
+                    println!("Error handling request: {}", e);
                     let error_response = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nInternal Server Error";
                     let _ = socket.write_all(error_response.as_bytes()).await;
                 }

@@ -5124,6 +5124,7 @@ dependencies = [
  "js-sys",
  "jsonschema",
  "kotoba-errors 0.1.2",
+ "kotoba-repl",
  "log",
  "proptest",
  "quickcheck",
