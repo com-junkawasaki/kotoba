@@ -12,12 +12,13 @@ use futures::stream::{self, StreamExt};
 use metrics::{counter, histogram};
 
 use kotoba_ocel::OcelEvent;
+use kotoba_storage::KeyValueStore;
 use crate::materializer::Materializer;
 
 /// Event processor for handling incoming events
-pub struct EventProcessor {
+pub struct EventProcessor<T: KeyValueStore> {
     /// Materializer for processing events
-    materializer: Arc<Materializer>,
+    materializer: Arc<Materializer<T>>,
     /// Registered projections
     projections: Arc<DashMap<String, ProjectionHandler>>,
     /// Event processing queue
@@ -53,9 +54,9 @@ pub struct ProcessorStats {
     pub queue_size: usize,
 }
 
-impl EventProcessor {
+impl<T: KeyValueStore + 'static> EventProcessor<T> {
     /// Create a new event processor
-    pub fn new(materializer: Arc<Materializer>, batch_size: usize) -> Self {
+    pub fn new(materializer: Arc<Materializer<T>>, batch_size: usize) -> Self {
         let (tx, rx) = mpsc::channel(1000); // Event queue
 
         // Clone materializer for the async task
@@ -154,7 +155,7 @@ impl EventProcessor {
     async fn process_events_task(
         stats: Arc<RwLock<ProcessorStats>>,
         mut rx: mpsc::Receiver<Vec<OcelEvent>>,
-        materializer: Arc<Materializer>,
+        materializer: Arc<Materializer<T>>,
     ) {
         info!("Starting OCEL event processing task");
 
@@ -192,30 +193,21 @@ impl EventProcessor {
 
     /// Process a batch of OCEL events
     async fn process_ocel_event_batch(
-        materializer: &Arc<Materializer>,
+        materializer: &Arc<Materializer<T>>,
         events: Vec<OcelEvent>,
     ) -> Result<()> {
-        // Process events in parallel
-        let results = stream::iter(events)
-            .map(|event| async {
-                // Route OCEL event to materializer
-                Self::route_ocel_event(materializer, event).await
-            })
-            .buffer_unordered(10) // Process up to 10 events concurrently
-            .collect::<Vec<Result<()>>>()
-            .await;
-
-        // Check for errors
-        for result in results {
-            result?;
+        // Process events sequentially for now (simplified implementation)
+        for event in events {
+            // Route OCEL event to materializer
+            Self::route_ocel_event(materializer, event).await?;
         }
 
         Ok(())
     }
 
     /// Route an OCEL event to the materializer
-    async fn route_ocel_event(materializer: &Arc<Materializer>, event: OcelEvent) -> Result<()> {
-        // Send OCEL event to materializer for direct GraphDB materialization
+    async fn route_ocel_event(materializer: &Arc<Materializer<T>>, event: OcelEvent) -> Result<()> {
+        // Send OCEL event to materializer for processing
         materializer.process_ocel_event(event).await?;
         Ok(())
     }

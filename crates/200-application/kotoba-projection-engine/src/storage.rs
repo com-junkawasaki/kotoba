@@ -1,86 +1,68 @@
 //! Storage Layer
 //!
-//! Persistent storage for projection states and metadata.
+//! Persistent storage for projection states and metadata using KeyValueStore interface.
 
 use std::sync::Arc;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 use tracing::{info, warn, error, instrument};
 
+use kotoba_storage::KeyValueStore;
 use crate::ProjectionState;
 
-/// Storage interface for projection data
-#[async_trait]
-pub trait ProjectionStorage: Send + Sync {
+/// Generic projection storage using KeyValueStore
+pub struct ProjectionStorage<T: KeyValueStore> {
+    storage: Arc<T>,
+    prefix: String,
+}
+
+impl<T: KeyValueStore + 'static> ProjectionStorage<T> {
+    /// Create new projection storage
+    pub fn new(storage: Arc<T>, prefix: String) -> Self {
+        Self { storage, prefix }
+    }
+
     /// Save projection state
-    async fn save_projection_state(&self, name: &str, state: &ProjectionState) -> Result<()>;
+    pub async fn save_projection_state(&self, name: &str, state: &ProjectionState) -> Result<()> {
+        let key = format!("{}:state:{}", self.prefix, name);
+        let value = bincode::serialize(state)?;
+        self.storage.put(key.as_bytes(), &value).await?;
+        Ok(())
+    }
 
     /// Load projection state
-    async fn load_projection_state(&self, name: &str) -> Result<Option<ProjectionState>>;
-
-    /// List all projection names
-    async fn list_projections(&self) -> Result<Vec<String>>;
-
-    /// Delete projection state
-    async fn delete_projection_state(&self, name: &str) -> Result<()>;
-
-    /// Get storage size
-    async fn get_size(&self) -> Result<u64>;
-}
-
-/// In-memory storage implementation (for development/testing)
-pub struct InMemoryStorage {
-    data: std::sync::RwLock<std::collections::HashMap<String, ProjectionState>>,
-}
-
-impl InMemoryStorage {
-    pub fn new() -> Self {
-        Self {
-            data: std::sync::RwLock::new(std::collections::HashMap::new()),
+    pub async fn load_projection_state(&self, name: &str) -> Result<Option<ProjectionState>> {
+        let key = format!("{}:state:{}", self.prefix, name);
+        match self.storage.get(key.as_bytes()).await? {
+            Some(data) => {
+                let state = bincode::deserialize(&data)?;
+                Ok(Some(state))
+            }
+            None => Ok(None)
         }
     }
-}
 
-#[async_trait]
-impl ProjectionStorage for InMemoryStorage {
-    async fn save_projection_state(&self, name: &str, state: &ProjectionState) -> Result<()> {
-        let mut data = self.data.write().unwrap();
-        data.insert(name.to_string(), state.clone());
+    /// List all projection names
+    pub async fn list_projections(&self) -> Result<Vec<String>> {
+        let prefix = format!("{}:state:", self.prefix);
+        let results = self.storage.scan(prefix.as_bytes()).await?;
+        let mut projections = Vec::new();
+
+        for (key, _) in results {
+            if let Ok(key_str) = std::str::from_utf8(&key) {
+                if let Some(name) = key_str.strip_prefix(&prefix) {
+                    projections.push(name.to_string());
+                }
+            }
+        }
+
+        Ok(projections)
+    }
+
+    /// Delete projection state
+    pub async fn delete_projection_state(&self, name: &str) -> Result<()> {
+        let key = format!("{}:state:{}", self.prefix, name);
+        self.storage.delete(key.as_bytes()).await?;
         Ok(())
     }
-
-    async fn load_projection_state(&self, name: &str) -> Result<Option<ProjectionState>> {
-        let data = self.data.read().unwrap();
-        Ok(data.get(name).cloned())
-    }
-
-    async fn list_projections(&self) -> Result<Vec<String>> {
-        let data = self.data.read().unwrap();
-        Ok(data.keys().cloned().collect())
-    }
-
-    async fn delete_projection_state(&self, name: &str) -> Result<()> {
-        let mut data = self.data.write().unwrap();
-        data.remove(name);
-        Ok(())
-    }
-
-    async fn get_size(&self) -> Result<u64> {
-        // Estimate size
-        let data = self.data.read().unwrap();
-        let size = data.len() as u64 * 1024; // Rough estimate
-        Ok(size)
-    }
-}
-
-impl Default for InMemoryStorage {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Factory function to create storage
-pub fn create_storage() -> Arc<dyn ProjectionStorage> {
-    Arc::new(InMemoryStorage::new())
 }

@@ -10,9 +10,6 @@ license = "MIT OR Apache-2.0"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
-# RocksDB for persistent storage
-rocksdb = { version = "0.21", features = ["multi-threaded-cf"] }
-
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -39,9 +36,7 @@ futures = "0.3"
 # Metrics
 metrics = "0.23"
 
-# Kotoba dependencies
+# Kotoba dependencies - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
 kotoba-event-stream = { path = "../../200-application/kotoba-event-stream" }
-kotoba-cache = { path = "../../200-application/kotoba-cache" }
 kotoba-ocel = { path = "../../000-core/kotoba-ocel" }
-kotoba-graphdb = { path = "../../200-application/kotoba-graphdb" }
-kotoba-query-engine = { path = "../../200-application/kotoba-query-engine" }
