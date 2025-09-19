@@ -301,6 +301,9 @@ impl DistributedCoordinator {
 
                         return Ok(Some(new_node_id));
                     }
+                } else {
+                    // Task not found
+                    return Ok(None);
                 }
             }
         }

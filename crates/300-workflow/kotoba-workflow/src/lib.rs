@@ -1,36 +1,72 @@
-//! # Kotoba Workflow Engine (Itonami)
+//! # Kotoba Workflow Engine - Serverless Workflow Specification Compliant
 //!
-//! Temporal-inspired workflow engine built on top of Kotoba's graph rewriting system.
+//! Serverless Workflow (https://serverlessworkflow.io/) compliant workflow engine
+//! built on top of Kotoba's graph rewriting system.
 //!
 //! ## Features
 //!
-//! - **Temporal Patterns**: Sequence, Parallel, Decision, Wait, Saga, Activity, Sub-workflow
-//! - **MVCC Persistence**: Workflow state management with Merkle DAG
-//! - **Graph-based Execution**: Declarative workflow definition using graph transformations
-//! - **Activity System**: Extensible activity execution framework
-//! - **Event Sourcing**: Complete audit trail of workflow execution
+//! - **Serverless Workflow DSL**: JSON/YAML-based workflow definition compliant with SW specification
+//! - **Event-driven Execution**: Supports event-driven workflows with CRON and time-based triggers
+//! - **Multi-protocol Support**: HTTP, gRPC, OpenAPI, AsyncAPI, custom protocols
+//! - **Fault Tolerance**: Comprehensive error handling with try-catch, raise patterns
+//! - **Platform Agnostic**: Runs across diverse platforms and environments
+//! - **Extensible**: Custom functions, extensions, and integration capabilities
 //!
-//! ## Example
+//! ## Serverless Workflow Example
 //!
 //! ```rust
 //! use kotoba_workflow::prelude::*;
-//! use std::collections::HashMap;
+//! use serde_json::json;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Create activity registry
-//!     let registry = ActivityRegistry::new();
+//!     // Serverless Workflow definition
+//!     let workflow_def = json!({
+//!         "document": {
+//!             "dsl": "1.0.0",
+//!             "namespace": "default",
+//!             "name": "order-processing",
+//!             "version": "1.0.0"
+//!         },
+//!         "do": [
+//!             {
+//!                 "validateOrder": {
+//!                     "call": "http",
+//!                     "with": {
+//!                         "method": "post",
+//!                         "endpoint": "https://api.example.com/validate",
+//!                         "body": "${ .order }"
+//!                     }
+//!                 }
+//!             },
+//!             {
+//!                 "processPayment": {
+//!                     "call": "http",
+//!                     "with": {
+//!                         "method": "post",
+//!                         "endpoint": "https://payment.example.com/process"
+//!                     }
+//!                 }
+//!             }
+//!         ]
+//!     });
 //!
-//!     // Activity system is ready!
-//!     println!("Workflow activity system ready!");
+//!     // Parse and execute
+//!     let workflow = WorkflowEngine::from_json(workflow_def)?;
+//!     let result = workflow.execute(json!({"order": {"id": "123"}})).await?;
+//!
+//!     println!("Workflow completed: {:?}", result);
 //!     Ok(())
 //! }
 //! ```
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::ir::{ExecutionEventType, ExecutionEvent, WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus};
-use crate::store::KotobaStorageBridge;
+use crate::ir::{ExecutionEventType, ExecutionEvent};
+
+// Serverless Workflow specification module
+pub mod spec;
+pub use spec::*;
 use crate::distributed::{LoadBalancer, DistributedExecutionManager, DistributedWorkflowExecutor};
 use kotoba_core::prelude::TxId;
 use kotoba_errors::WorkflowError;
@@ -49,11 +85,10 @@ pub mod integrations;
 
 // Re-export main types - use core types where possible
 // pub use kotoba_workflow_core::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus, WorkflowEngineInterface};
-pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus};
-pub use ir::{ActivityIR};
+pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus, ActivityIR, WorkflowStep, WorkflowStepType};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager};
 pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
-pub use parser::WorkflowParser;
+pub use parser::ServerlessWorkflowParser;
 pub use activity::prelude::*;
 pub use distributed::{
     DistributedCoordinator, RoundRobinBalancer, LeastLoadedBalancer, NodeInfo, ClusterHealth
@@ -71,14 +106,12 @@ pub use integrations::{IntegrationManager, Integration};
 /// Workflow engine builder
 pub struct WorkflowEngineBuilder {
     storage_backend: Option<StorageBackend>,
-    // kotoba_backend: Option<std::sync::Arc<dyn kotoba_storage::port::StoragePort>>,
 }
 
 impl WorkflowEngineBuilder {
     pub fn new() -> Self {
         Self {
             storage_backend: Some(StorageBackend::Memory), // Default to memory
-            kotoba_backend: None,
         }
     }
 
@@ -194,7 +227,7 @@ impl ExtendedWorkflowEngine {
             ))
         });
 
-        executor.start_workflow(workflow_ir, inputs).await
+        executor.as_ref().start_workflow(workflow_ir, inputs).await
     }
 
     /// Wait for workflow completion
@@ -396,7 +429,7 @@ pub mod prelude {
     pub use super::{
         WorkflowEngine, ExtendedWorkflowEngine,
         ActivityRegistry, Activity, WorkflowStore, ExecutionStatus, WorkflowExecutionId,
-        WorkflowParser, EventSourcingManager, SnapshotManager,
+        ServerlessWorkflowParser, EventSourcingManager, SnapshotManager,
         // Phase 2 distributed types
         DistributedCoordinator, RoundRobinBalancer, LeastLoadedBalancer,
         // Phase 3 advanced features

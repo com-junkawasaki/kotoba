@@ -47,13 +47,13 @@ pub enum ActivityError {
     InvalidInput(String),
 }
 
-impl From<ActivityError> for crate::WorkflowError {
+impl From<ActivityError> for kotoba_errors::WorkflowError {
     fn from(err: ActivityError) -> Self {
         match err {
-            ActivityError::NotFound(msg) => crate::WorkflowError::ActivityFailed(format!("Activity not found: {}", msg)),
-            ActivityError::ExecutionFailed(msg) => crate::WorkflowError::ActivityFailed(format!("Activity execution failed: {}", msg)),
-            ActivityError::Timeout => crate::WorkflowError::ActivityFailed("Activity timeout".to_string()),
-            ActivityError::InvalidInput(msg) => crate::WorkflowError::ActivityFailed(format!("Invalid input: {}", msg)),
+            ActivityError::NotFound(msg) => kotoba_errors::WorkflowError::InvalidDefinition(format!("Activity not found: {}", msg)),
+            ActivityError::ExecutionFailed(msg) => kotoba_errors::WorkflowError::InvalidDefinition(format!("Activity execution failed: {}", msg)),
+            ActivityError::Timeout => kotoba_errors::WorkflowError::InvalidDefinition("Activity timeout".to_string()),
+            ActivityError::InvalidInput(msg) => kotoba_errors::WorkflowError::InvalidDefinition(format!("Invalid input: {}", msg)),
         }
     }
 }
@@ -329,13 +329,12 @@ impl WorkflowExecutor {
                 Ok(body)
             }
             // Other step types would be handled here...
-            _ => Err(WorkflowError::InvalidStepType(format!("{:?}", step.step_type))),
+            _ => Err(WorkflowError::InvalidDefinition(format!("Invalid step type: {:?}", step.step_type))),
         }
     }
-    */
 
     /// Resolves parameters that might be context references.
-    fn materialize_params(
+    pub fn materialize_params(
         &self,
         params: &serde_json::Value,
         context: &ExecutionContext,

@@ -468,7 +468,7 @@ impl SagaExecutionEngine {
         self.saga_manager.record_transaction(saga_id, transaction).await?;
 
         if let Some(error) = result.error {
-            return Err(WorkflowError::ActivityFailed(format!("{:?}", crate::executor::ActivityError::ExecutionFailed(error))));
+            return Err(WorkflowError::InvalidDefinition(format!("Activity execution failed: {:?}", crate::executor::ActivityError::ExecutionFailed(error))));
         }
 
         Ok(result.outputs.unwrap_or_default())

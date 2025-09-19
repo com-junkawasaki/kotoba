@@ -34,6 +34,10 @@ pub struct WorkflowIR {
     /// 実行戦略（Temporalパターンをサポート）
     pub strategy: WorkflowStrategyOp,
 
+    /// Serverless Workflow互換のアクティビティリスト
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub activities: Vec<ActivityIR>,
+
     /// タイムアウト設定
     pub timeout: Option<Duration>,
 
@@ -164,6 +168,31 @@ pub struct ActivityIR {
     pub timeout: Option<Duration>,
     pub retry_policy: Option<RetryPolicy>,
     pub implementation: ActivityImplementation,
+}
+
+/// Workflow step definition for execution engine
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowStep {
+    pub id: String,
+    pub step_type: WorkflowStepType,
+    pub body: serde_json::Value,
+}
+
+/// Workflow step types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum WorkflowStepType {
+    /// HTTP call step
+    HttpCall,
+    /// Database query step
+    DbQuery,
+    /// Database rewrite step
+    DbRewrite,
+    /// Return step
+    Return,
+    /// Activity execution step
+    Activity,
+    /// Sub-workflow execution step
+    SubWorkflow,
 }
 
 /// Activityパラメータ

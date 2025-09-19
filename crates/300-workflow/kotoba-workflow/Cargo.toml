@@ -4,7 +4,7 @@ version = "0.1.21"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
-description = "Temporal-inspired workflow engine for Kotoba"
+description = "Serverless Workflow specification compliant workflow engine"
 
 [dependencies]
 # Kotoba crates - core workflow functionality
@@ -16,6 +16,7 @@ kotoba-routing = { version = "0.1.21", optional = true }
 # Common dependencies
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_yaml = "0.9"
 tokio = { version = "1.0", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
