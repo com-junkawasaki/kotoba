@@ -2603,6 +2603,52 @@
       status: 'in_progress',
       build_order: 11,
     },
+
+    // ==========================================
+    // Rust 高速化ワークフロー
+    // ==========================================
+    'rust_workflow_category_compile_avoidance': {
+      name: 'コンパイルしない',
+      type: 'workflow_category',
+      description: '差分だけ＆早い検査系に寄せることで、そもそもコンパイルを実行しない戦略。',
+      dependencies: [],
+      provides: ['workflow_grouping'],
+    },
+    'rust_workflow_check': {
+      name: 'cargo check',
+      type: 'build_step',
+      description: '型検査までで止めるので速い。普段使いに推奨。',
+      command: 'cargo check --workspace --all-targets',
+      dependencies: ['rust_workflow_category_compile_avoidance'],
+      provides: ['fast_type_check'],
+      status: 'recommended_practice',
+    },
+    'rust_workflow_lint_on_save': {
+      name: 'clippy + rustfmt on save',
+      type: 'dev_practice',
+      description: 'IDEやpre-commitフックで保存時に実行。構文/スタイル段階で問題を検出し、ビルド前に修正を促す。',
+      command: 'cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --check',
+      dependencies: ['rust_workflow_category_compile_avoidance'],
+      provides: ['code_quality_gate'],
+      status: 'recommended_practice',
+    },
+    'rust_workflow_warnings_as_errors': {
+      name: 'Warnings as Errors',
+      type: 'build_config',
+      description: '警告をエラーとして扱うことで、潜在的な問題を早期に修正させる。',
+      command: 'RUSTFLAGS="-D warnings" cargo check',
+      dependencies: ['rust_workflow_category_compile_avoidance'],
+      provides: ['strict_compilation'],
+      status: 'recommended_practice',
+    },
+    'rust_workflow_trybuild': {
+      name: 'trybuild for proc-macros',
+      type: 'testing_framework',
+      description: '"コンパイル失敗すべき"コードをテストとして固定化し、回帰を早期検出。proc-macro開発で特に有効。',
+      dependencies: ['rust_workflow_category_compile_avoidance'],
+      provides: ['compile_fail_testing'],
+      status: 'specialized_tool',
+    },
   },
 
   // ==========================================
