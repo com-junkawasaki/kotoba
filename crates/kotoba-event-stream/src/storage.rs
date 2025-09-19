@@ -98,29 +98,35 @@ impl RocksDBStorage {
         let sequence_number = self.get_next_sequence_number(topic).await?;
         let key = self.make_event_key(topic, sequence_number);
 
+        let data_len = event_data.len();
+
         // Store in events column family
-        let cf_events = self.db.cf_handle("events")
-            .context("Events CF not found")?;
+        {
+            let cf_events = self.db.cf_handle("events")
+                .context("Events CF not found")?;
 
-        self.db.put_cf(cf_events, &key, event_data)
-            .context("Failed to store event")?;
+            self.db.put_cf(&cf_events, &key, &event_data)
+                .context("Failed to store event")?;
 
-        // Store event ID mapping for fast lookup
-        let id_key = self.make_event_id_key(&event.id);
-        let id_value = self.make_event_pointer(topic, sequence_number);
-        self.db.put_cf(cf_events, &id_key, id_value)
-            .context("Failed to store event ID mapping")?;
+            // Store event ID mapping for fast lookup
+            let id_key = self.make_event_id_key(&event.id);
+            let id_value = self.make_event_pointer(topic, sequence_number);
+            self.db.put_cf(&cf_events, &id_key, id_value)
+                .context("Failed to store event ID mapping")?;
+        } // cf_events goes out of scope here
 
         // Store aggregate ID mapping
-        let aggregate_key = self.make_aggregate_key(&event.aggregate_id, sequence_number);
-        let aggregate_value = self.make_event_pointer(topic, sequence_number);
-        let cf_metadata = self.db.cf_handle("metadata")
-            .context("Metadata CF not found")?;
-        self.db.put_cf(cf_metadata, &aggregate_key, aggregate_value)
-            .context("Failed to store aggregate mapping")?;
+        {
+            let aggregate_key = self.make_aggregate_key(&event.aggregate_id, sequence_number);
+            let aggregate_value = self.make_event_pointer(topic, sequence_number);
+            let cf_metadata = self.db.cf_handle("metadata")
+                .context("Metadata CF not found")?;
+            self.db.put_cf(&cf_metadata, &aggregate_key, aggregate_value)
+                .context("Failed to store aggregate mapping")?;
+        } // cf_metadata goes out of scope here
 
         // Update topic metadata
-        self.update_topic_metadata(topic, sequence_number, event_data.len() as u64).await?;
+        self.update_topic_metadata(topic, sequence_number, data_len as u64).await?;
 
         info!("Stored event: {} in topic: {} at offset: {}", event.id.0, topic, sequence_number);
         Ok(())
@@ -134,12 +140,12 @@ impl RocksDBStorage {
 
         let id_key = self.make_event_id_key(event_id);
 
-        match self.db.get_cf(cf_events, &id_key)? {
+        match self.db.get_cf(&cf_events, &id_key)? {
             Some(pointer_data) => {
                 let (topic, offset) = self.parse_event_pointer(&pointer_data)?;
                 let event_key = self.make_event_key(&topic, offset);
 
-                match self.db.get_cf(cf_events, &event_key)? {
+                match self.db.get_cf(&cf_events, &event_key)? {
                     Some(event_data) => {
                         let event: EventEnvelope = bincode::deserialize(&event_data)
                             .context("Failed to deserialize event")?;
@@ -155,20 +161,35 @@ impl RocksDBStorage {
     /// Get events by aggregate ID
     #[instrument(skip(self))]
     pub async fn get_events_by_aggregate(&self, aggregate_id: &AggregateId) -> Result<Vec<EventEnvelope>> {
-        let cf_metadata = self.db.cf_handle("metadata")
-            .context("Metadata CF not found")?;
-
-        let mut events = Vec::new();
+        // Collect metadata entries first
         let prefix = format!("aggregate/{}/", aggregate_id.0);
+        let mut metadata_entries = Vec::new();
 
-        let iter = self.db.iterator_cf(cf_metadata, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
-        for item in iter {
-            let (key, value) = item.context("Iterator error")?;
-            if key.starts_with(prefix.as_bytes()) {
-                let (topic, offset) = self.parse_event_pointer(&value)?;
-                if let Some(event) = self.get_event_at_offset(&topic, offset).await? {
-                    events.push(event);
+        {
+            let cf_metadata = self.db.cf_handle("metadata")
+                .context("Metadata CF not found")?;
+
+            let iter = self.db.iterator_cf(&cf_metadata, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
+            for item in iter {
+                let (key, value) = item.context("Iterator error")?;
+                if key.starts_with(prefix.as_bytes()) {
+                    metadata_entries.push(value.to_vec());
                 }
+            }
+        } // cf_metadata goes out of scope here
+
+        // Now parse pointers and get events
+        let mut pointers = Vec::new();
+        for value in metadata_entries {
+            let (topic, offset) = self.parse_event_pointer(&value)?;
+            pointers.push((topic, offset));
+        }
+
+        // Get events using stored pointers
+        let mut events = Vec::new();
+        for (topic, offset) in pointers {
+            if let Some(event) = self.get_event_at_offset(&topic, offset).await? {
+                events.push(event);
             }
         }
 
@@ -209,7 +230,7 @@ impl RocksDBStorage {
         let metadata_data = bincode::serialize(&metadata)
             .context("Failed to serialize topic metadata")?;
 
-        self.db.put_cf(cf_topics, &metadata_key, metadata_data)
+        self.db.put_cf(&cf_topics, &metadata_key, metadata_data)
             .context("Failed to store topic metadata")?;
 
         // Update cache
@@ -229,11 +250,11 @@ impl RocksDBStorage {
         let prefix = format!("{}/", topic);
         let mut batch = WriteBatch::default();
 
-        let iter = self.db.iterator_cf(cf_events, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
+        let iter = self.db.iterator_cf(&cf_events, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
         for item in iter {
             let (key, _) = item.context("Iterator error")?;
             if key.starts_with(prefix.as_bytes()) {
-                batch.delete_cf(cf_events, &key);
+                batch.delete_cf(&cf_events, &key);
             }
         }
 
@@ -244,7 +265,7 @@ impl RocksDBStorage {
             .context("Topics CF not found")?;
 
         let metadata_key = self.make_topic_metadata_key(topic);
-        self.db.delete_cf(cf_topics, &metadata_key)
+        self.db.delete_cf(&cf_topics, &metadata_key)
             .context("Failed to delete topic metadata")?;
 
         // Update cache
@@ -279,13 +300,13 @@ impl RocksDBStorage {
     }
 
     /// Get event at specific offset
-    async fn get_event_at_offset(&self, topic: &str, offset: u64) -> Result<Option<EventEnvelope>> {
+    pub async fn get_event_at_offset(&self, topic: &str, offset: u64) -> Result<Option<EventEnvelope>> {
         let cf_events = self.db.cf_handle("events")
             .context("Events CF not found")?;
 
         let event_key = self.make_event_key(topic, offset);
 
-        match self.db.get_cf(cf_events, &event_key)? {
+        match self.db.get_cf(&cf_events, &event_key)? {
             Some(event_data) => {
                 let event: EventEnvelope = bincode::deserialize(&event_data)
                     .context("Failed to deserialize event")?;
@@ -304,7 +325,7 @@ impl RocksDBStorage {
     }
 
     /// Check if topic exists
-    async fn topic_exists(&self, topic: &str) -> Result<bool> {
+    pub async fn topic_exists(&self, topic: &str) -> Result<bool> {
         Ok(self.topic_metadata.read().unwrap().contains_key(topic))
     }
 
@@ -338,7 +359,7 @@ impl RocksDBStorage {
             let metadata_data = bincode::serialize(meta)
                 .context("Failed to serialize topic metadata")?;
 
-            self.db.put_cf(cf_topics, &metadata_key, metadata_data)
+            self.db.put_cf(&cf_topics, &metadata_key, metadata_data)
                 .context("Failed to update topic metadata")?;
         }
 
@@ -350,7 +371,7 @@ impl RocksDBStorage {
         let cf_topics = self.db.cf_handle("topics")
             .context("Topics CF not found")?;
 
-        let iter = self.db.iterator_cf(cf_topics, IteratorMode::Start);
+        let iter = self.db.iterator_cf(&cf_topics, IteratorMode::Start);
         for item in iter {
             let (_, value) = item.context("Iterator error")?;
             let metadata: TopicMetadata = bincode::deserialize(&value)

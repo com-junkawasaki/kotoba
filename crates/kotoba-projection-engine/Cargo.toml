@@ -44,3 +44,4 @@ kotoba-event-stream = { path = "../kotoba-event-stream" }
 kotoba-cache = { path = "../kotoba-cache" }
 kotoba-ocel = { path = "../kotoba-ocel" }
 kotoba-graphdb = { path = "../kotoba-graphdb" }
+kotoba-query-engine = { path = "../kotoba-query-engine" }

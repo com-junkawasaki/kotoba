@@ -12,14 +12,14 @@ use chrono::Utc;
 
 use kotoba_ocel::{OcelEvent, OcelObject, OcelValue, ValueMap};
 use kotoba_graphdb::{GraphDB, Node, Edge, PropertyValue};
-use crate::cache_integration::CacheIntegration;
+use kotoba_cache::CacheLayer;
 
 /// Materializer for GraphDB projections
 pub struct Materializer {
     /// GraphDB instance
     graphdb: Arc<GraphDB>,
-    /// Cache integration
-    cache: Arc<CacheIntegration>,
+    /// Cache layer
+    cache: Arc<CacheLayer>,
     /// Active materialization tasks
     active_tasks: Arc<DashMap<String, MaterializationTask>>,
     /// Object type mappings
@@ -66,10 +66,16 @@ pub struct MaterializationResult {
 
 impl Default for Materializer {
     fn default() -> Self {
-        // Placeholder default implementation
+        // Placeholder default implementation - use mock implementations for default
         Self {
-            graphdb: Arc::new(GraphDB::new("./data/graphdb").await.unwrap()),
-            cache: Arc::new(CacheIntegration::default()),
+            graphdb: Arc::new(GraphDB::new("./data/graphdb").await.unwrap_or_else(|_| panic!("Failed to create GraphDB"))),
+            cache: Arc::new(CacheLayer::new(CacheConfig::default()).await.unwrap_or_else(|_| {
+                // Create a mock cache if Redis is not available
+                CacheLayer::new(CacheConfig {
+                    redis_url: "redis://mock".to_string(),
+                    ..Default::default()
+                }).await.unwrap()
+            })),
             active_tasks: Arc::new(DashMap::new()),
             object_mappings: Arc::new(DashMap::new()),
             activity_mappings: Arc::new(DashMap::new()),
@@ -81,7 +87,7 @@ impl Materializer {
     /// Create a new materializer
     pub async fn new(
         graphdb_path: &str,
-        cache: Arc<CacheIntegration>,
+        cache: Arc<CacheLayer>,
     ) -> Result<Self> {
         let graphdb = Arc::new(GraphDB::new(graphdb_path).await?);
 

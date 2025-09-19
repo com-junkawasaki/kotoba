@@ -61,7 +61,7 @@ pub struct Edge {
 }
 
 /// Property value types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum PropertyValue {
     /// String value
@@ -362,7 +362,7 @@ impl GraphDB {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("nodes".to_string()))?;
 
         let node_key = format!("node:{}", node_id);
-        self.db.put_cf(cf_nodes, &node_key, node_data)
+        self.db.put_cf(&cf_nodes, &node_key, node_data)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         // Update schema
@@ -392,7 +392,7 @@ impl GraphDB {
 
         let node_key = format!("node:{}", node_id);
 
-        if let Some(node_data) = self.db.get_cf(cf_nodes, &node_key)
+        if let Some(node_data) = self.db.get_cf(&cf_nodes, &node_key)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))? {
 
             let node: Node = bincode::deserialize(&node_data)
@@ -429,7 +429,7 @@ impl GraphDB {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("nodes".to_string()))?;
 
         let node_key = format!("node:{}", node_id);
-        self.db.put_cf(cf_nodes, &node_key, node_data)
+        self.db.put_cf(&cf_nodes, &node_key, node_data)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         // Update indexes
@@ -450,7 +450,7 @@ impl GraphDB {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("nodes".to_string()))?;
 
         let node_key = format!("node:{}", node_id);
-        self.db.delete_cf(cf_nodes, &node_key)
+        self.db.delete_cf(&cf_nodes, &node_key)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         // Delete related edges
@@ -498,7 +498,7 @@ impl GraphDB {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("edges".to_string()))?;
 
         let edge_key = format!("edge:{}", edge_id);
-        self.db.put_cf(cf_edges, &edge_key, edge_data)
+        self.db.put_cf(&cf_edges, &edge_key, edge_data)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         // Store reverse mappings for efficient traversal
@@ -531,7 +531,7 @@ impl GraphDB {
 
         let edge_key = format!("edge:{}", edge_id);
 
-        if let Some(edge_data) = self.db.get_cf(cf_edges, &edge_key)
+        if let Some(edge_data) = self.db.get_cf(&cf_edges, &edge_key)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))? {
 
             let edge: Edge = bincode::deserialize(&edge_data)
@@ -555,7 +555,7 @@ impl GraphDB {
         let prefix = format!("outgoing:{}:", node_id);
         let mut edges = Vec::new();
 
-        let iter = self.db.iterator_cf(cf_edges, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
+        let iter = self.db.iterator_cf(&cf_edges, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
         for item in iter {
             let (key, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
             if key.starts_with(prefix.as_bytes()) {
@@ -582,7 +582,7 @@ impl GraphDB {
         let prefix = format!("incoming:{}:", node_id);
         let mut edges = Vec::new();
 
-        let iter = self.db.iterator_cf(cf_edges, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
+        let iter = self.db.iterator_cf(&cf_edges, IteratorMode::From(prefix.as_bytes(), rocksdb::Direction::Forward));
         for item in iter {
             let (key, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
             if key.starts_with(prefix.as_bytes()) {
@@ -661,14 +661,14 @@ impl GraphDB {
 
         // Count nodes
         let mut node_count = 0u64;
-        let iter = self.db.iterator_cf(cf_nodes, IteratorMode::Start);
+        let iter = self.db.iterator_cf(&cf_nodes, IteratorMode::Start);
         for _ in iter {
             node_count += 1;
         }
 
         // Count edges
         let mut edge_count = 0u64;
-        let iter = self.db.iterator_cf(cf_edges, IteratorMode::Start);
+        let iter = self.db.iterator_cf(&cf_edges, IteratorMode::Start);
         for _ in iter {
             edge_count += 1;
         }
@@ -685,7 +685,7 @@ impl GraphDB {
         let cf_schema = self.db.cf_handle("schema")
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("schema".to_string()))?;
 
-        if let Some(schema_data) = self.db.get_cf(cf_schema, "schema")
+        if let Some(schema_data) = self.db.get_cf(&cf_schema, "schema")
             .map_err(|e| GraphError::RocksDBError(e.to_string()))? {
 
             let schema: Schema = bincode::deserialize(&schema_data)
@@ -760,7 +760,7 @@ impl GraphDB {
         let schema_data = bincode::serialize(schema)
             .map_err(|e| GraphError::SerializationError(e.to_string()))?;
 
-        self.db.put_cf(cf_schema, "schema", schema_data)
+        self.db.put_cf(&cf_schema, "schema", schema_data)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         Ok(())
@@ -772,12 +772,12 @@ impl GraphDB {
 
         // Store outgoing mapping
         let outgoing_key = format!("outgoing:{}:{}", edge.from_node, edge.label);
-        self.db.put_cf(cf_edges, &outgoing_key, edge.id.as_bytes())
+        self.db.put_cf(&cf_edges, &outgoing_key, edge.id.as_bytes())
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         // Store incoming mapping
         let incoming_key = format!("incoming:{}:{}", edge.to_node, edge.label);
-        self.db.put_cf(cf_edges, &incoming_key, edge.id.as_bytes())
+        self.db.put_cf(&cf_edges, &incoming_key, edge.id.as_bytes())
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         Ok(())
@@ -817,7 +817,7 @@ impl GraphDB {
         let cf_indexes = self.db.cf_handle("indexes")
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("indexes".to_string()))?;
 
-        self.db.put_cf(cf_indexes, index_key, entity_id)
+        self.db.put_cf(&cf_indexes, index_key, entity_id)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         Ok(())
@@ -842,7 +842,7 @@ impl GraphDB {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("nodes".to_string()))?;
 
         let mut nodes = Vec::new();
-        let iter = self.db.iterator_cf(cf_nodes, IteratorMode::Start);
+        let iter = self.db.iterator_cf(&cf_nodes, IteratorMode::Start);
 
         for item in iter {
             let (_, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
@@ -912,7 +912,7 @@ impl GraphDB {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("edges".to_string()))?;
 
         let edge_key = format!("edge:{}", edge_id);
-        self.db.delete_cf(cf_edges, &edge_key)
+        self.db.delete_cf(&cf_edges, &edge_key)
             .map_err(|e| GraphError::RocksDBError(e.to_string()))?;
 
         self.edge_cache.remove(edge_id);
@@ -960,11 +960,53 @@ impl<'a> GraphTransaction<'a> {
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("nodes".to_string()))?;
 
         let node_key = format!("node:{}", node_id);
-        self.batch.put_cf(cf_nodes, &node_key, node_data);
+        self.batch.put_cf(&cf_nodes, &node_key, node_data);
 
         self.modified_nodes.insert(node_id.clone());
 
         Ok(node_id)
+    }
+
+    /// Create an edge in the transaction
+    pub async fn create_edge(
+        &mut self,
+        id: Option<String>,
+        from_node: &str,
+        to_node: &str,
+        label: String,
+        properties: BTreeMap<String, PropertyValue>,
+    ) -> Result<String, GraphError> {
+        let edge_id = id.unwrap_or_else(|| Uuid::new_v4().to_string());
+        let now = Utc::now();
+
+        let edge = Edge {
+            id: edge_id.clone(),
+            from_node: from_node.to_string(),
+            to_node: to_node.to_string(),
+            label: label.clone(),
+            properties,
+            created_at: now,
+            updated_at: now,
+        };
+
+        let edge_data = bincode::serialize(&edge)
+            .map_err(|e| GraphError::SerializationError(e.to_string()))?;
+
+        let cf_edges = self.db.db.cf_handle("edges")
+            .ok_or_else(|| GraphError::ColumnFamilyNotFound("edges".to_string()))?;
+
+        let edge_key = format!("edge:{}", edge_id);
+        self.batch.put_cf(&cf_edges, &edge_key, edge_data);
+
+        // Store reverse mappings for efficient traversal
+        let outgoing_key = format!("outgoing:{}:{}", from_node, label);
+        let incoming_key = format!("incoming:{}:{}", to_node, label);
+        self.batch.put_cf(&cf_edges, &outgoing_key, edge_id.as_bytes());
+        self.batch.put_cf(&cf_edges, &incoming_key, edge_id.as_bytes());
+
+        self.modified_edges.insert(edge_id.clone());
+
+        Ok(edge_id)
     }
 
     /// Commit the transaction

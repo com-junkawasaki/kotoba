@@ -174,7 +174,7 @@ impl EventBuilder {
             id,
             aggregate_id: self.aggregate_id,
             aggregate_type: self.aggregate_type,
-            event_type: self.data.event_type,
+            event_type: self.data.event_type.clone(),
             sequence_number: self.sequence_number,
             timestamp: chrono::Utc::now(),
             data: self.data,

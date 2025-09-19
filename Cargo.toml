@@ -25,6 +25,15 @@ members = [
     "crates/kotoba-tester",        # Test runner
     "crates/kotoba-backup",        # Backup & restore tool
 
+    # New architecture components
+    "crates/kotoba-ocel",          # OCEL v2 event format
+    "crates/kotoba-graphdb",       # RocksDB-based GraphDB
+    "crates/kotoba-projection-engine", # Event projection engine
+    "crates/kotoba-cache",         # Redis-based cache
+
+    # Integration tests
+    "tests/integration",           # Comprehensive integration tests
+
     ".",                           # Root package for CLI binary
 ]
 resolver = "2"

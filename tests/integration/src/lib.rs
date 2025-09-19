@@ -14,6 +14,9 @@ pub mod concurrent_access;
 pub mod data_integrity;
 pub mod error_handling;
 
+// New architecture tests
+pub mod ocel_graphdb_tests;
+
 #[cfg(test)]
 mod integration_tests {
     use std::sync::Arc;

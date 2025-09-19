@@ -16,7 +16,7 @@ bincode = "1.3"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Collections and utilities
-indexmap = "2.0"
+indexmap = { version = "2.0", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 regex = "1.0"
 
@@ -28,5 +28,5 @@ thiserror = "1.0"
 tracing = "0.1"
 
 # Kotoba types
-kotoba-types = { path = "../kotoba-core" }
+kotoba-core = { path = "../kotoba-core" }
 kotoba-errors = { path = "../kotoba-errors" }
