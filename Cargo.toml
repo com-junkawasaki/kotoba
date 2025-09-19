@@ -8,7 +8,7 @@ members = [
     "crates/100-storage/kotoba-storage",
     "crates/100-storage/kotoba-storage-rocksdb",
     "crates/100-storage/kotoba-cache",
-    "crates/200-application/kotoba-event-stream",
+    # "crates/200-application/kotoba-event-stream",
     "crates/200-application/kotoba-projection-engine",
     "crates/200-application/kotoba-query-engine",
     "crates/200-application/kotoba-execution",
