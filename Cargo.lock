@@ -5466,6 +5466,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-routing"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0efcb50255582be3568c041e0d3ace0182630842b90ed3b79c020a65736a6de6"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "glob",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "kotoba-runtime"
 version = "0.1.0"
 dependencies = [
@@ -5506,7 +5525,7 @@ dependencies = [
  "js-sys",
  "kotoba-core 0.1.21",
  "kotoba-errors 0.1.2",
- "kotoba-routing",
+ "kotoba-routing 0.1.21",
  "kotoba-server-core",
  "kotoba-storage 0.1.22",
  "kotoba-workflow-core",
@@ -5677,6 +5696,9 @@ dependencies = [
  "futures",
  "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-jsonnet 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-routing 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "lapin",
  "parking_lot",
  "redis 0.23.3",
