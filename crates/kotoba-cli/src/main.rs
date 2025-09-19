@@ -17,8 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Info { verbose } => {
             execute_info(verbose).await
         }
-        Commands::Eval { path } => {
-            execute_eval(&path).await
+        Commands::Eval { path, tla_codes, tla_strs } => {
+            execute_eval(&path, tla_codes, tla_strs).await
         }
         Commands::Docs(command) => match command {
             DocsCommand::Generate { source, output, config, watch } => {
@@ -46,46 +46,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Evalコマンドの実行
-async fn execute_eval(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn execute_eval(path: &str, tla_codes: Vec<(String, String)>, tla_strs: Vec<(String, String)>) -> Result<(), Box<dyn std::error::Error>> {
     use kotoba_jsonnet::Evaluator;
-    use regex::Regex;
-    use std::fs;
     use std::path::Path;
 
-    let base_path = Path::new(path).parent().unwrap();
-    let main_content = fs::read_to_string(path)?;
-
+    let path = Path::new(path);
     let mut evaluator = Evaluator::new();
-    let re = Regex::new(r#"local\s+([\w_]+)\s*=\s*import\s+'([^']+)';"#)?;
 
-    let mut processed_content = main_content.clone();
-
-    for cap in re.captures_iter(&main_content) {
-        let var_name = &cap[1];
-        let file_name = &cap[2];
-        let import_path = base_path.join(file_name);
-
-        let imported_content = fs::read_to_string(&import_path)?;
-        evaluator.add_tla_code(var_name, &imported_content);
-
-        // Remove the import line from the original content
-        processed_content = processed_content.replace(&cap[0], "");
+    // Add the directory containing the file to the import paths
+    if let Some(parent) = path.parent() {
+        evaluator.add_import_path(parent);
     }
-    
-    // The evaluator now prepends the imported files as local bindings
-    // But the placeholder implementation just returns a string, so we can't test the real evaluation yet.
-    // However, let's call it to prove the concept.
-    let result = evaluator.evaluate(&processed_content)?;
 
-    // Since the placeholder returns a string, we print it directly.
-    // If it returned a real JsonnetValue, we'd serialize to JSON.
-    if let kotoba_jsonnet::value::JsonnetValue::String(s) = result {
-        println!("{}", s);
-    } else {
-        // Fallback for non-string results from a real evaluator
-        let json_output = serde_json::to_string_pretty(&result)?;
-        println!("{}", json_output);
+    // Add TLA code arguments
+    for (key, code) in tla_codes {
+        evaluator.add_tla_code(&key, &code);
     }
+
+    // Add TLA string arguments
+    for (key, value) in tla_strs {
+        evaluator.add_tla_str(&key, &value);
+    }
+
+    // Evaluate the file
+    let result = evaluator.evaluate_file_path(path)?;
+
+    // Output the result as JSON
+    let json_output = serde_json::to_string_pretty(&result.to_json_value())?;
+    println!("{}", json_output);
 
     Ok(())
 }

@@ -43,6 +43,14 @@ pub enum Commands {
     Eval {
         /// 評価するファイルのパス
         path: String,
+
+        /// Top-level code arguments (--tla-code key=code)
+        #[arg(long = "tla-code", value_parser = parse_tla_code)]
+        tla_codes: Vec<(String, String)>,
+
+        /// Top-level string arguments (--tla-str key=value)
+        #[arg(long = "tla-str", value_parser = parse_tla_str)]
+        tla_strs: Vec<(String, String)>,
     },
 
     /// ドキュメント生成・管理コマンド
@@ -116,4 +124,28 @@ pub enum DocsCommand {
         #[arg(short, long)]
         force: bool,
     },
+}
+
+/// Parse TLA code argument in the format key=code
+fn parse_tla_code(s: &str) -> Result<(String, String), String> {
+    if let Some((key, value)) = s.split_once('=') {
+        if key.is_empty() {
+            return Err("TLA code key cannot be empty".to_string());
+        }
+        Ok((key.to_string(), value.to_string()))
+    } else {
+        Err("TLA code must be in format key=code".to_string())
+    }
+}
+
+/// Parse TLA string argument in the format key=value
+fn parse_tla_str(s: &str) -> Result<(String, String), String> {
+    if let Some((key, value)) = s.split_once('=') {
+        if key.is_empty() {
+            return Err("TLA string key cannot be empty".to_string());
+        }
+        Ok((key.to_string(), value.to_string()))
+    } else {
+        Err("TLA string must be in format key=value".to_string())
+    }
 }
