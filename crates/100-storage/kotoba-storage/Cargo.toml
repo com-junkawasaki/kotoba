@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-storage"
-version = "0.1.21"
+version = "0.1.22"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -28,7 +28,7 @@ tokio = { version = "1.0", features = ["sync", "rt"] }
 # Minimal dependencies for Port/Adapter pattern
 # Temporarily disable all Kotoba dependencies to test basic interface
 # kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.2" }
-# kotoba-cid = { path = "../../000-core/kotoba-cid", version = "0.1.21" }
+# kotoba-cid = { path = "../../000-core/kotoba-cid", version = "0.1.22" }
 
 [features]
 default = []
