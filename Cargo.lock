@@ -4768,8 +4768,8 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "hex",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "serde",
  "serde_json",
@@ -5389,16 +5389,16 @@ dependencies = [
 
 [[package]]
 name = "kotoba-query-engine"
-version = "0.1.0"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
  "futures",
  "itertools 0.12.1",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-storage 0.1.22",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest",
  "pest_derive",
  "regex",
@@ -5433,13 +5433,13 @@ dependencies = [
 
 [[package]]
 name = "kotoba-rewrite"
-version = "0.1.22"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-storage 0.1.22",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -5450,14 +5450,14 @@ dependencies = [
 
 [[package]]
 name = "kotoba-routing"
-version = "0.1.16"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
  "glob",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-storage 0.1.22",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -5575,13 +5575,13 @@ dependencies = [
 
 [[package]]
 name = "kotoba-state-graph"
-version = "0.1.16"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "chrono",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-storage 0.1.22",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
