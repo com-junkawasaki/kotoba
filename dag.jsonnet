@@ -1,32 +1,102 @@
 {
-  // Kotoba GP2-based Graph Rewriting Language - Process Network DAG
-  // Multi-crate architecture with 95% test coverage
-  // Topological sort: Build order
-  // Reverse topological sort: Problem resolution order
+  // ==========================================
+  // Kotoba - Core Graph Processing System
+  // GP2-based Graph Rewriting + Event Sourcing + ISO GQL
+  // Port/Adapter (Hexagonal) Architecture Implementation
+  // ==========================================
+
+  // Architecture Overview:
+  // - Core Graph Processing: GP2-based graph rewriting with theoretical foundations
+  // - Port/Adapter Pattern: Clean separation of business logic and infrastructure
+  // - Event Sourcing: Complete event-driven architecture
+  // - Graph Database: ISO GQL-compliant query processing
+  // - Layered Architecture: 000-core → 100-storage → 200-application → 300-workflow → 400-language → 500-services → 600-deployment → 900-tools
+  // - Topological sort: Build order (lower numbers first)
+  // - Reverse topological sort: Problem resolution order
 
   // ==========================================
-  // ノード定義 (Components/Processes)
+  // Layer Definitions
+  // ==========================================
+
+  layers: {
+    '000-core': {
+      name: 'Core Layer',
+      description: 'Foundation types, error handling, CID, schema definitions',
+      priority: 1,
+      crates: ['kotoba-core', 'kotoba-errors', 'kotoba-cid', 'kotoba-schema', 'kotoba-ocel']
+    },
+    '100-storage': {
+      name: 'Storage Layer',
+      description: 'Storage adapters and persistence implementations (Port/Adapter pattern)',
+      priority: 2,
+      crates: ['kotoba-storage', 'kotoba-graphdb', 'kotoba-memory', 'kotoba-cache', 'kotoba-db-cluster', 'kotoba-distributed', 'kotoba-storage-rocksdb']
+    },
+    '200-application': {
+      name: 'Application Layer',
+      description: 'Business logic, event sourcing, query processing (Clean Architecture)',
+      priority: 3,
+      crates: ['kotoba-event-stream', 'kotoba-projection-engine', 'kotoba-query-engine', 'kotoba-execution', 'kotoba-handler', 'kotoba-rewrite', 'kotoba-routing', 'kotoba-state-graph']
+    },
+    '300-workflow': {
+      name: 'Workflow Layer',
+      description: 'Workflow orchestration and process management',
+      priority: 4,
+      crates: ['kotoba-workflow-core', 'kotoba-workflow', 'kotoba-workflow-activities', 'kotoba-workflow-operator']
+    },
+    '400-language': {
+      name: 'Language Layer',
+      description: 'Programming language support (Jsonnet, KotobaScript, TSX)',
+      priority: 5,
+      crates: ['kotoba-jsonnet', 'kotoba-kotobas', 'kotoba-formatter', 'kotoba-linter', 'kotoba-lsp', 'kotoba-repl', 'kotoba2tsx', 'kotobas-wasm']
+    },
+    '500-services': {
+      name: 'Services Layer',
+      description: 'HTTP servers, GraphQL APIs, external integrations',
+      priority: 6,
+      crates: ['kotoba-server-core', 'kotoba-server', 'kotoba-network', 'kotoba-security', 'kotoba-monitoring', 'kotoba-profiler', 'kotoba-schema-registry', 'kotoba-cloud-integrations']
+    },
+    '600-deployment': {
+      name: 'Deployment Layer',
+      description: 'Deployment orchestration, scaling, networking',
+      priority: 7,
+      crates: ['kotoba-deploy-core', 'kotoba-deploy', 'kotoba-deploy-cli', 'kotoba-deploy-controller', 'kotoba-deploy-git', 'kotoba-deploy-hosting', 'kotoba-deploy-network', 'kotoba-deploy-runtime', 'kotoba-deploy-scaling']
+    },
+    '900-tools': {
+      name: 'Tools Layer',
+      description: 'Development tools, CLI utilities, testing frameworks',
+      priority: 8,
+      crates: ['kotoba-cli', 'kotoba-build', 'kotoba-bench', 'kotoba-config', 'kotoba-docs', 'kotoba-package-manager', 'kotoba-runtime', 'kotoba-ssg', 'kotoba-tester', 'kotoba-backup']
+    }
+  },
+
+  // ==========================================
+  // Node Definitions (Components/Processes)
   // ==========================================
 
   nodes: {
-    // 基底層
+    // ==========================================
+    // 000-core Layer (Foundation)
+    // ==========================================
+
     'types': {
       name: 'types',
-      path: 'crates/kotoba-core/src/types.rs',
+      path: 'crates/000-core/kotoba-core/src/types.rs',
       type: 'foundation',
-      description: '共通型定義 (Value, VertexId, EdgeId, GraphRef, etc.)',
+      layer: '000-core',
+      description: '共通型定義 (Value, VertexId, EdgeId, GraphRef, TxId, ContentHash)',
       dependencies: [],
       provides: ['Value', 'VertexId', 'EdgeId', 'GraphRef', 'TxId', 'ContentHash'],
       status: 'published',
-      published_version: '0.1.19',
+      published_version: '0.1.21',
       crate_name: 'kotoba-core',
       build_order: 1,
     },
 
     'error_handling': {
       name: 'error_handling',
-      path: 'crates/kotoba-errors/src/lib.rs',
+      path: 'crates/000-core/kotoba-errors/src/lib.rs',
       type: 'foundation',
+      layer: '000-core',
       description: '統一されたエラーハンドリングシステム (KotobaError, WorkflowError)',
       dependencies: [],
       provides: ['KotobaError', 'WorkflowError', 'error_conversion'],
@@ -36,18 +106,50 @@
       build_order: 2,
     },
 
-    // IR層
     'ir_catalog': {
       name: 'ir_catalog',
-      path: 'crates/kotoba-core/src/ir/catalog.rs',
+      path: 'crates/000-core/kotoba-core/src/ir/catalog.rs',
       type: 'ir',
+      layer: '000-core',
       description: 'スキーマ/索引/不変量定義',
       dependencies: ['types'],
       provides: ['Catalog', 'LabelDef', 'IndexDef', 'Invariant'],
       status: 'published',
-      published_version: '0.1.19',
+      published_version: '0.1.21',
       crate_name: 'kotoba-core',
       build_order: 2,
+    },
+
+    // ==========================================
+    // 100-storage Layer (Port/Adapter Pattern)
+    // ==========================================
+
+    'storage_port': {
+      name: 'storage_port',
+      path: 'crates/100-storage/kotoba-storage/src/port.rs',
+      type: 'port',
+      layer: '100-storage',
+      description: 'KeyValueStore trait definition (Port in Port/Adapter pattern)',
+      dependencies: ['types', 'error_handling'],
+      provides: ['KeyValueStore', 'StoragePort'],
+      status: 'published',
+      published_version: '0.1.21',
+      crate_name: 'kotoba-storage',
+      build_order: 3,
+    },
+
+    'rocksdb_adapter': {
+      name: 'rocksdb_adapter',
+      path: 'crates/100-storage/kotoba-storage-rocksdb/src/lib.rs',
+      type: 'adapter',
+      layer: '100-storage',
+      description: 'RocksDB adapter implementation (Adapter in Port/Adapter pattern)',
+      dependencies: ['storage_port'],
+      provides: ['RocksDbAdapter'],
+      status: 'published',
+      published_version: '0.1.21',
+      crate_name: 'kotoba-storage-rocksdb',
+      build_order: 4,
     },
 
     'schema_validator': {

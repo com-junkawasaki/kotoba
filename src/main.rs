@@ -1,17 +1,125 @@
-//! Kotoba CLI - Complete command line interface
+//! Kotoba CLI - Core Graph Processing System
 //!
-//! This binary provides the complete CLI for Kotoba with all core features.
+//! This binary provides the complete CLI for Kotoba's core graph processing system
+//! featuring GP2-based graph rewriting, Event Sourcing, and ISO GQL queries.
+//! Supports multiple storage backends (RocksDB, Redis, In-Memory) through
+//! Port/Adapter architecture with clean separation of business logic and infrastructure.
 
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(name = "kotoba")]
-#[command(about = "Kotoba - GP2-based Graph Rewriting Language")]
+#[command(about = "Kotoba - Core Graph Processing System (GP2 + Event Sourcing + ISO GQL)")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
+#[command(long_about = "
+Kotoba is a core graph processing system featuring GP2-based graph rewriting,
+complete Event Sourcing, and ISO GQL-compliant queries, built with
+Port/Adapter (Hexagonal) Architecture.
+
+Key Features:
+• GP2-based graph rewriting with theoretical foundations
+• Complete Event Sourcing with projections and materialized views
+• ISO GQL-compliant graph queries with pattern matching
+• Port/Adapter pattern for pluggable storage backends
+• Clean Architecture with dependency inversion
+• Multiple storage options: RocksDB, Redis, In-Memory
+
+Examples:
+  kotoba --storage rocksdb event create my_stream
+  kotoba --storage memory query --file my_query.gql
+  kotoba --storage redis rewrite apply rule.jsonnet
+")]
 struct Cli {
+    /// Storage backend to use
+    #[arg(long, default_value = "memory")]
+    #[arg(value_enum)]
+    storage: StorageBackend,
+
+    /// Storage connection URL (for Redis)
+    #[arg(long)]
+    url: Option<String>,
+
+    /// Storage path (for RocksDB)
+    #[arg(long)]
+    path: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Commands,
+}
+
+#[derive(Clone, clap::ValueEnum)]
+enum StorageBackend {
+    /// In-memory storage (development/testing)
+    Memory,
+    /// RocksDB persistent storage
+    Rocksdb,
+    /// Redis in-memory with persistence
+    Redis,
+}
+
+#[derive(Clone, clap::ValueEnum)]
+enum OutputFormat {
+    /// JSON output
+    Json,
+    /// Pretty-printed JSON
+    Pretty,
+    /// Text output
+    Text,
+    /// Table format
+    Table,
+}
+
+#[derive(Subcommand)]
+enum EventCommands {
+    /// Create a new event stream
+    Create {
+        /// Stream name
+        name: String,
+        /// Stream configuration
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+    },
+    /// Add event to stream
+    Add {
+        /// Stream name
+        stream: String,
+        /// Event type
+        event_type: String,
+        /// Event data (JSON)
+        data: String,
+    },
+    /// List events in stream
+    List {
+        /// Stream name
+        stream: String,
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
+}
+
+#[derive(Subcommand)]
+enum RewriteCommands {
+    /// Apply graph rewriting rule
+    Apply {
+        /// Rule file (Jsonnet format)
+        rule: PathBuf,
+        /// Input graph file
+        #[arg(short, long)]
+        input: Option<PathBuf>,
+        /// Output file
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+    /// Validate rewriting rule
+    Validate {
+        /// Rule file to validate
+        rule: PathBuf,
+    },
+    /// List available rules
+    List,
 }
 
 #[derive(Subcommand)]
@@ -26,19 +134,28 @@ enum Commands {
         json: bool,
     },
 
-    /// Execute GQL query
+    /// Execute GQL query (ISO GQL-compliant)
     Query {
-        /// GQL query string
+        /// GQL query string or file path
         query: String,
         /// Output format
-        #[arg(short, long, default_value = "text")]
-        format: String,
-        /// Database file path
+        #[arg(short, long, default_value = "json")]
+        #[arg(value_enum)]
+        format: OutputFormat,
+        /// Read query from file
         #[arg(short, long)]
-        db: Option<PathBuf>,
+        file: bool,
     },
 
-    /// Execute .kotoba file
+    /// Event Sourcing commands
+    #[command(subcommand)]
+    Event(EventCommands),
+
+    /// Graph rewriting commands
+    #[command(subcommand)]
+    Rewrite(RewriteCommands),
+
+    /// Execute .kotoba file (KotobaScript)
     Run {
         /// File to execute
         file: PathBuf,

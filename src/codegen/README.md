@@ -1,6 +1,6 @@
-# Code Generation and DSL Processing
+# Code Generation and DSL Processing - Port/Adapter Architecture
 
-This directory contains code generation utilities and DSL processing tools for the Kotoba project, focusing on converting high-level specifications into executable code.
+This directory contains code generation utilities and DSL processing tools for the Kotoba project, focusing on converting high-level specifications into executable code within the Port/Adapter (Hexagonal) Architecture framework.
 
 ## Directory Structure
 
@@ -64,31 +64,40 @@ src/codegen/
 
 ## Code Generation Architecture
 
+### Port/Adapter Pattern Integration
+
+The code generation system is designed to work seamlessly with Kotoba's Port/Adapter architecture:
+
+```
+🎯 Application Layer DSL → 🔄 Code Generation → 🔧 Infrastructure Adapters
+```
+
 ### DSL Processing Pipeline
 
 ```
-Jsonnet DSL → DSL Parser → Type Analysis → Code Generation → Output Files
+Jsonnet DSL → DSL Parser → Port/Adapter Analysis → Code Generation → Adapter Implementation
 ```
 
 #### 1. DSL Parsing
-- **Input**: Jsonnet DSL files with type definitions
+- **Input**: Jsonnet DSL files with type definitions and business logic
 - **Processing**: AST parsing and semantic analysis
 - **Output**: Structured type definitions and relationships
 
-#### 2. Type Analysis
-- **Field Validation**: Type compatibility and constraints
-- **Relationship Mapping**: Dependencies and associations
-- **Metadata Extraction**: Documentation and attributes
+#### 2. Port/Adapter Analysis
+- **Port Interface Generation**: Automatic trait definition for business logic
+- **Adapter Implementation**: Concrete implementations for storage backends
+- **Dependency Injection**: Clean separation of concerns
 
 #### 3. Code Generation
-- **Template Application**: Rust code templates
-- **Attribute Processing**: Derive macros and annotations
-- **Documentation Generation**: Automatic doc comments
+- **Port Templates**: Business logic interface generation
+- **Adapter Templates**: Storage-specific implementation generation
+- **Cross-cutting Concerns**: Logging, validation, error handling
 
-#### 4. Output Generation
-- **File Creation**: Target source files
-- **Import Management**: Automatic dependency imports
-- **Formatting**: Code formatting and style consistency
+#### 4. Adapter Implementation
+- **RocksDB Adapter**: Persistent storage implementation
+- **Redis Adapter**: In-memory caching implementation
+- **In-Memory Adapter**: Development/testing implementation
+- **Test Doubles**: Mock implementations for testing
 
 ## Usage Examples
 
@@ -215,15 +224,40 @@ pub struct User {
 }
 ```
 
-## Integration with Process Network
+## Integration with Port/Adapter Architecture
 
-This directory is part of the code generation layer in the process network:
+This directory is part of the code generation layer in Kotoba's layered architecture:
 
-- **Node**: `graph_code_generation`
-- **Type**: `code_generation`
-- **Dependencies**: `graph_core`, `jsonnet_core`
-- **Provides**: Graph DSL, code generation, type conversion
-- **Build Order**: 6
+### Layer Integration
+- **Layer**: `400-language` (Code Generation Tools)
+- **Architecture Pattern**: Port/Adapter (Hexagonal Architecture)
+- **Dependencies**: `000-core`, `100-storage`, `200-application`
+- **Provides**: DSL processing, code generation, adapter implementation
+- **Build Order**: 5 (Language Layer)
+
+### Architecture Flow
+```
+┌─────────────────────────────────────────────────────────────┐
+│                🎯 BUSINESS LOGIC LAYER                      │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │           📝 DSL Specifications                     │    │
+│  │  ┌─────────────────────────────────────────────┐   │    │
+│  │  │      🔄 CODE GENERATION ENGINE              │   │    │
+│  │  └─────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│               🔧 INFRASTRUCTURE LAYER                       │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │            🎨 GENERATED ADAPTERS                    │    │
+│  │  ┌─────────────────────────────────────────────┐   │    │
+│  │  │   🗄️  RocksDB   🔴 Redis   🧠 In-Memory     │   │    │
+│  │  └─────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Development Workflow
 
@@ -394,39 +428,116 @@ mod template_tests {
 
 ## Related Components
 
-- **Graph Core**: `src/graph/` (target of code generation)
-- **Jsonnet Core**: `crates/kotoba-jsonnet/` (DSL processing)
-- **Type System**: `crates/kotoba-core/src/types.rs` (type definitions)
-- **Build System**: `scripts/` (integration with build process)
+### Architecture Layers
+- **000-core**: `crates/000-core/kotoba-core/` (foundation types and utilities)
+- **100-storage**: `crates/100-storage/` (storage adapters and implementations)
+- **200-application**: `crates/200-application/` (business logic and domain services)
+- **300-workflow**: `crates/300-workflow/` (workflow orchestration)
+- **400-language**: `crates/400-language/` (DSL processing and code generation)
+
+### Key Components
+- **DSL Processing**: `crates/400-language/kotoba-jsonnet/` (Jsonnet DSL parsing)
+- **Type System**: `crates/000-core/kotoba-core/src/types.rs` (core type definitions)
+- **Storage Ports**: `crates/100-storage/kotoba-storage/` (KeyValueStore trait)
+- **Build Integration**: `scripts/` (code generation pipeline)
+- **Configuration**: `rust_workflow.jsonnet` (build optimization workflows)
 
 ---
 
 ## Quick Start
 
-### Generate Code from DSL
+### Generate Port/Adapter Code from DSL
 
 ```bash
-# Generate Rust code from Jsonnet DSL
-./scripts/generate_code.sh src/codegen/graph_converted.json
+# Generate complete Port/Adapter implementation from Jsonnet DSL
+./scripts/generate_port_adapter.sh src/codegen/graph_converted.json
 
-# Generate with custom options
-./scripts/generate_code.sh --template rust_advanced --output src/generated/
+# Generate with specific storage backend
+./scripts/generate_port_adapter.sh --storage rocksdb --output crates/100-storage/
+
+# Generate business logic interfaces (Ports)
+./scripts/generate_ports.sh --layer application --output crates/200-application/
 
 # Validate generated code
-cargo check
+cargo check --workspace
 ```
 
-### Create New DSL Specification
+### Create New Port/Adapter DSL Specification
 
 ```bash
-# Create template for new type
-./scripts/create_dsl_template.sh MyType > src/codegen/my_type.json
+# Create template for new business logic port
+./scripts/create_port_template.sh EventStorePort > src/codegen/event_store_port.jsonnet
+
+# Create adapter implementation template
+./scripts/create_adapter_template.sh RocksDbEventStore > src/codegen/rocksdb_event_store.jsonnet
 
 # Edit and customize
-vim src/codegen/my_type.json
+vim src/codegen/event_store_port.jsonnet
 
-# Generate code
-./scripts/generate_code.sh src/codegen/my_type.json
+# Generate complete implementation
+./scripts/generate_port_adapter.sh src/codegen/event_store_port.jsonnet
 ```
 
-This code generation system provides a powerful and flexible way to create Rust data structures and implementations from high-level Jsonnet DSL specifications, enabling rapid development and consistent code generation across the Kotoba project.
+### Example: Event Sourcing Port/Adapter Generation
+
+#### 1. Define Business Logic Port (Interface)
+```jsonnet
+{
+  name: "EventStorePort",
+  type: "port",
+  description: "Event storage abstraction for event sourcing",
+  layer: "200-application",
+
+  methods: [
+    {
+      name: "save_events",
+      signature: "async fn save_events(&self, stream_id: &str, events: &[Event]) -> Result<()>",
+      description: "Save events to a stream"
+    },
+    {
+      name: "load_events",
+      signature: "async fn load_events(&self, stream_id: &str, from_version: u64) -> Result<Vec<Event>>",
+      description: "Load events from a stream"
+    }
+  ]
+}
+```
+
+#### 2. Generate Adapter Implementations
+```bash
+# Generate RocksDB adapter
+./scripts/generate_adapter.sh --port EventStorePort --backend rocksdb
+
+# Generate Redis adapter
+./scripts/generate_adapter.sh --port EventStorePort --backend redis
+
+# Generate In-Memory adapter for testing
+./scripts/generate_adapter.sh --port EventStorePort --backend memory
+```
+
+#### 3. Generated Code Structure
+```
+crates/200-application/kotoba-event-store/src/port.rs     # Generated trait
+crates/100-storage/kotoba-event-store-rocksdb/src/lib.rs  # RocksDB implementation
+crates/100-storage/kotoba-event-store-redis/src/lib.rs    # Redis implementation
+crates/100-storage/kotoba-event-store-memory/src/lib.rs   # In-memory implementation
+```
+
+### Architecture Benefits
+
+#### **Clean Separation of Concerns**
+- **Business Logic**: Independent of storage technology
+- **Storage Logic**: Pluggable and interchangeable
+- **Testing**: Easy mock implementations
+
+#### **Rapid Development**
+- **DSL-Driven**: High-level specifications
+- **Auto-Generation**: Consistent implementations
+- **Type Safety**: Compile-time guarantees
+
+#### **Technology Agnostic**
+- **Storage Flexibility**: Switch databases without changing business logic
+- **Performance Optimization**: Choose optimal storage per use case
+- **Scalability**: Horizontal scaling without architecture changes
+
+This code generation system provides a powerful and flexible way to implement the Port/Adapter pattern in Rust, enabling clean architecture, rapid development, and technology-agnostic business logic across the entire Kotoba ecosystem.

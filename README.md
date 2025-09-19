@@ -1,40 +1,120 @@
-# Kotoba : "ことば" - All you need is JSONNET.
+# Kotoba : "ことば" - Core Graph Processing System
 
-**Graph Processing System with Jsonnet Integration** - A comprehensive graph processing platform featuring complete Jsonnet implementation, ISO GQL-compliant queries, and distributed execution.
+**GP2-based Graph Rewriting + Event Sourcing + ISO GQL** - A comprehensive graph processing platform featuring complete Event Sourcing, ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
 
-
-tuling complete - JSON  
-contract - JSON  
-schema - JSON  
-workflow - JSON
-database - JSON  
-routing - JSON  
-ui - JSON 
-package manager - JSON  
-config - JSON  
-  
+```bash
+🌟 Core Graph Processing System
+🔄 GP2-based Graph Rewriting Engine
+📊 Event Sourcing + Materialized Views
+🔍 ISO GQL-compliant Graph Queries
+⚡ MVCC + Merkle DAG Persistence
+🏗️  Hexagonal Architecture (Port/Adapter Pattern)
+🔧 Pluggable Storage Adapters (RocksDB, Redis, In-Memory)
+```
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://github.com/com-junkawasaki/kotoba)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Build Status](https://img.shields.io/github/workflow/status/jun784/kotoba/CI)](https://github.com/com-junkawasaki/kotoba/actions)
+[![Architecture](https://img.shields.io/badge/Architecture-Port%2FAdapter-blue)](https://herbertograca.com/2017/09/14/ports-adapters-architecture/)
 
 ## 📖 Overview
 
-Kotoba is a powerful graph processing system built on graph theory foundations with advanced deployment capabilities. It combines a complete Jsonnet implementation with GP2-based graph rewriting, providing ISO GQL-compliant queries, MVCC+Merkle persistence, distributed execution, and comprehensive deployment management through its modular extension system.
+Kotoba is a **Core Graph Processing System** featuring **GP2-based graph rewriting** with complete Event Sourcing capabilities, ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
+
+### 🎯 **Core Features**
+
+- **🔄 GP2-based Graph Rewriting**: Theoretical foundation for graph transformations
+- **📊 Complete Event Sourcing**: Immutable events, projections, materialized views
+- **🔍 ISO GQL-compliant Queries**: Standardized graph query language
+- **⚡ MVCC + Merkle DAG Persistence**: Consistent distributed data management
+- **🏗️ Hexagonal Architecture**: Clean separation of business logic and infrastructure
+- **🔧 Pluggable Storage**: Choose from RocksDB, Redis, or In-Memory implementations
+- **🌐 Distributed Execution**: Multi-node coordination and consensus
+- **🔒 Type Safety**: Full Rust type system with compile-time guarantees
+
+### 🏗️ Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    🏛️ PRESENTATION LAYER                    │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                🌐 HTTP/GraphQL API                 │    │
+│  │  ┌─────────────────────────────────────────────┐   │    │
+│  │  │            📱 CLI & Web Clients             │   │    │
+│  │  └─────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 🎯 APPLICATION LAYER                         │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │           🔄 CORE GRAPH PROCESSING                 │    │
+│  │  ┌─────────────────────────────────────────────┐   │    │
+│  │  │        ✏️  GRAPH REWRITING ENGINE (GP2)     │   │    │
+│  │  │        📊 EVENT SOURCING ENGINE             │   │    │
+│  │  │        📈 PROJECTION ENGINE                  │   │    │
+│  │  │        🔍 GQL QUERY ENGINE                   │   │    │
+│  │  │        🛣️  ROUTING ENGINE                     │   │    │
+│  │  │        🎭 STATE GRAPH ENGINE                 │   │    │
+│  │  └─────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 🔧 INFRASTRUCTURE LAYER                      │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │              💾 STORAGE ADAPTERS                   │    │
+│  │  ┌─────────────────────────────────────────────┐   │    │
+│  │  │        🗄️  RocksDB Adapter                  │   │    │
+│  │  │        🔴 Redis Adapter                      │   │    │
+│  │  │        🧠 In-Memory Adapter                  │   │    │
+│  │  │        ☁️  Distributed Storage               │   │    │
+│  │  └─────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### 🎯 Key Features
 
-- **Complete Jsonnet Implementation**: Full support for arrays, objects, functions, string interpolation, and local variables
-- **DPO (Double Pushout) Graph Rewriting**: Theoretical foundation for graph transformations
-- **ISO GQL-compliant Queries**: Standardized graph query language
-- **MVCC + Merkle DAG Persistence**: Consistent distributed data management
-- **Redis Integration**: Serverless Redis for caching and real-time features (Upstash, Redis Cloud, etc.)
-- **Hybrid Storage Architecture**: Optimal performance with LSM-Tree + Redis
-- **Multi-format Support**: JSON, YAML output capabilities
-- **Rust Native Architecture**: Memory-safe, high-performance implementation
-- **Modular Crate Design**: kotoba-jsonnet, kotoba-graph, kotoba-core, and more
-- **GraphQL API**: Schema management and graph operations via GraphQL
+#### **🔄 Core Graph Processing Engine**
+- **GP2-based Graph Rewriting**: Theoretical foundation for graph transformations
+- **Graph Pattern Matching**: Complex graph traversal and pattern recognition
+- **Rule-based Transformations**: Declarative graph rewriting rules
+- **Graph Isomorphism**: Advanced graph matching algorithms
+- **Concurrent Processing**: Parallel graph operations and transformations
+
+#### **🎪 Complete Event Sourcing System**
+- **Event Store**: Immutable event storage with versioning
+- **Projection Engine**: Real-time materialized views and read models
+- **Command Processing**: CQRS pattern with command validation
+- **Event Streaming**: Real-time event processing and subscriptions
+
+#### **🔍 Advanced Graph Query Language**
+- **ISO GQL Compliance**: Industry-standard graph query language
+- **Path Queries**: Variable-length path queries with constraints
+- **Aggregation Functions**: Statistical and analytical operations
+- **Graph Analytics**: Built-in graph algorithms and metrics
+
+#### **🏗️ Hexagonal Architecture (Port/Adapter Pattern)**
+- **Clean Architecture**: Business logic independent of infrastructure
+- **Dependency Inversion**: Interfaces define contracts, implementations are pluggable
+- **Testability**: Easy unit testing with mock adapters
+- **Technology Agnostic**: Database/storage technology can be changed without affecting business logic
+
+#### **⚡ High-Performance Storage Options**
+- **RocksDB**: LSM-Tree based persistent storage with high write throughput
+- **Redis**: In-memory caching with persistence options
+- **In-Memory**: Fast development and testing storage
+- **Distributed**: Multi-node storage with consensus
+
+#### **🌐 Distributed & Scalable**
+- **Multi-Node Coordination**: Raft consensus for distributed operations
+- **Horizontal Scaling**: Automatic partitioning and load balancing
+- **High Availability**: Fault-tolerant design with automatic failover
+- **Global Distribution**: Edge computing with CDN integration
 
 #### 🚀 **Advanced Deployment Extensions**
 
@@ -48,32 +128,109 @@ Kotoba is a powerful graph processing system built on graph theory foundations w
 
 ### Prerequisites
 
-- Rust 1.70.0 or later
-- Cargo package manager
+- **Rust 1.70.0 or later**
+- **Cargo package manager**
+- Optional: **RocksDB** or **Redis** for persistent storage
 
-### 🐳 Nix Development Environment (Recommended)
+### 🏗️ Choose Your Storage Backend
 
-For a reproducible and stable development environment, use Nix with flakes:
+Kotoba supports multiple storage backends through its Port/Adapter architecture:
+
+#### **Option 1: RocksDB (Persistent, High-Performance)**
+```bash
+# Install system dependencies (Ubuntu/Debian)
+sudo apt-get install clang llvm-dev libclang-dev
+
+# Install system dependencies (macOS)
+brew install llvm
+
+# RocksDB will be automatically downloaded and built
+```
+
+#### **Option 2: Redis (In-Memory with Persistence)**
+```bash
+# Install Redis
+# Ubuntu/Debian:
+sudo apt-get install redis-server
+
+# macOS:
+brew install redis
+
+# Start Redis server
+redis-server
+```
+
+#### **Option 3: In-Memory (Development/Testing)**
+```bash
+# No additional setup required - default option
+```
+
+### 📦 Installation & Basic Usage
 
 ```bash
-# Install Nix (if not already installed)
-curl -L https://nixos.org/nix/install | sh
-
-# Enable flakes (add to ~/.config/nix/nix.conf)
-experimental-features = nix-command flakes
-
-# Clone and enter the project
+# Clone the repository
 git clone https://github.com/com-junkawasaki/kotoba.git
 cd kotoba
 
-# Run setup script
-./scripts/setup-nix.sh
+# Build the project (includes all crates)
+cargo build --release
 
-# Enter development environment
-nix develop
+# Run the CLI
+./target/release/kotoba --help
 
-# Or use direnv for automatic activation
-direnv allow  # (if direnv is installed)
+# Or run with cargo
+cargo run -- --help
+```
+
+### 🎯 Basic Examples
+
+#### **1. Execute a GQL Query**
+```bash
+# Create a simple graph and query it
+echo 'CREATE GRAPH test;
+INSERT (:Person {name: "Alice"})-[:KNOWS]->(:Person {name: "Bob"});
+MATCH (p:Person) RETURN p.name;' > query.gql
+
+cargo run -- query --file query.gql
+```
+
+#### **2. Event Sourcing Example**
+```bash
+# Start event sourcing with in-memory storage
+cargo run -- event-stream --create example_stream
+
+# Add events
+cargo run -- event-stream --stream example_stream --add "UserCreated" '{"id": 1, "name": "Alice"}'
+
+# Create projection
+cargo run -- projection --create user_count --query "MATCH (u:User) RETURN count(u) as total"
+```
+
+#### **3. Graph Rewriting Example**
+```bash
+# Define a graph rewriting rule
+echo 'rule: {
+  left: (:A)-[:edge]->(:B)
+  right: (:A)-[:edge]->(:C)-[:edge]->(:B)
+  conditions: []
+}' > rewrite_rule.jsonnet
+
+cargo run -- rewrite --rule rewrite_rule.jsonnet --apply
+```
+
+### 🐳 Docker Development (Alternative)
+
+```bash
+# Build Docker image
+docker build -t kotoba .
+
+# Run with RocksDB storage
+docker run -v $(pwd)/data:/data kotoba --storage rocksdb --path /data
+
+# Run with Redis storage
+docker run -p 6379:6379 -d redis
+docker run --network host kotoba --storage redis --url redis://localhost:6379
+```
 ```
 
 The Nix environment provides:
