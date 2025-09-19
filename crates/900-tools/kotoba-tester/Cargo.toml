@@ -35,7 +35,7 @@ num_cpus = "1.16"
 clap = { version = "4.0", features = ["derive"] }
 
 # Kotoba ecosystem - Core and Language layers
-kotoba-core = "0.1.22"
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
 kotoba-jsonnet = { path = "../../400-language/kotoba-jsonnet", version = "0.1.17" }
 
 [dev-dependencies]

@@ -39,5 +39,5 @@ futures = "0.3"
 metrics = "0.23"
 
 # Kotoba types
-kotoba-core = "0.1.22"
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
 kotoba-errors = "0.1.2"
