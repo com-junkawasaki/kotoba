@@ -5123,6 +5123,7 @@ dependencies = [
  "hmac 0.12.1",
  "js-sys",
  "jsonschema",
+ "kotoba-errors 0.1.2",
  "log",
  "proptest",
  "quickcheck",
@@ -5330,6 +5331,22 @@ dependencies = [
  "kotoba-kotobas",
  "kotoba2tsx",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "kotoba-schema"
+version = "0.1.22"
+dependencies = [
+ "anyhow",
+ "jsonschema",
+ "kotoba-core",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.16",
  "tokio",
 ]
 

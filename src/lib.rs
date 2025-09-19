@@ -51,6 +51,9 @@
 // Note: These re-exports are optional and will only work if the corresponding crates are available
 // and properly implemented in the current build configuration.
 
+// Core error type
+pub use kotoba_errors::KotobaError;
+
 // pub use kotoba_core as core; // Temporarily disabled - may not be available
 // pub use kotoba_storage as storage; // Temporarily disabled - may not be available
 // pub use kotoba_event_stream as event_stream; // Temporarily disabled - may not be available
@@ -66,3 +69,6 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const NAME: &str = "Kotoba";
 pub const DESCRIPTION: &str = "Core Graph Processing System (GP2 + Event Sourcing + ISO GQL) - Port/Adapter Architecture";
+
+// Public modules
+pub mod topology;

@@ -1,5 +1,10 @@
 [workspace]
 members = [
+    "crates/000-core/kotoba-core",
+    "crates/000-core/kotoba-errors",
+    "crates/000-core/kotoba-cid",
+    "crates/000-core/kotoba-ocel",
+    "crates/000-core/kotoba-schema",
     "crates/100-storage/kotoba-storage",
     "crates/100-storage/kotoba-storage-rocksdb",
     "crates/200-application/kotoba-event-stream",
@@ -188,6 +193,9 @@ hmac = "0.12"
 regex.workspace = true
 thiserror.workspace = true
 tempfile.workspace = true
+
+# Core crates
+kotoba-errors = { path = "crates/000-core/kotoba-errors", version = "0.1.2" }
 
 # For binary
 clap = { version = "4.0", features = ["derive"] }

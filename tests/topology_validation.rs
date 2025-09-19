@@ -3,40 +3,39 @@
 //! dag.jsonnetからトポロジーデータを読み込み、
 //! Rustの検証関数でトポロジーの整合性をチェックする
 
-use kotoba::topology::{TopologyValidator, TopologyGraph, ValidationResult};
-use kotoba::Result;
+use kotoba_main::topology::{TopologyValidator, TopologyGraph, Node, Edge};
+use kotoba_main::KotobaError;
 use std::process::Command;
-use std::fs;
 use std::path::Path;
 
 /// jsonnetスクリプトを実行してトポロジーデータを生成
-fn generate_topology_data() -> Result<TopologyGraph> {
+fn generate_topology_data() -> Result<TopologyGraph, KotobaError> {
     // jsonnetコマンドを実行してJSONデータを生成
     let output = Command::new("jsonnet")
         .arg("validate_topology.jsonnet")
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .map_err(|e| kotoba::KotobaError::Io(std::io::Error::new(
+        .map_err(|e| KotobaError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("Failed to execute jsonnet: {}", e)
         )))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(kotoba::KotobaError::Validation(
+        return Err(KotobaError::Validation(
             format!("jsonnet execution failed: {}", stderr)
         ));
     }
 
     // JSONデータをパース
     let json_str = String::from_utf8(output.stdout)
-        .map_err(|e| kotoba::KotobaError::Validation(
+        .map_err(|e| KotobaError::Validation(
             format!("Invalid UTF-8 output from jsonnet: {}", e)
         ))?;
 
     // JSONからTopologyGraphを構築
     let data: serde_json::Value = serde_json::from_str(&json_str)
-        .map_err(|e| kotoba::KotobaError::Validation(
+        .map_err(|e| KotobaError::Validation(
             format!("Failed to parse jsonnet output as JSON: {}", e)
         ))?;
 
@@ -46,7 +45,7 @@ fn generate_topology_data() -> Result<TopologyGraph> {
     let mut nodes = std::collections::HashMap::new();
     if let Some(nodes_obj) = topology_graph["nodes"].as_object() {
         for (node_name, node_data) in nodes_obj {
-            let node = kotoba::topology::Node {
+            let node = Node {
                 name: node_data["name"].as_str().unwrap_or(node_name).to_string(),
                 path: node_data["path"].as_str().unwrap_or("").to_string(),
                 node_type: node_data["node_type"].as_str().unwrap_or("").to_string(),
@@ -80,7 +79,7 @@ fn generate_topology_data() -> Result<TopologyGraph> {
                 edge_data["from"].as_str(),
                 edge_data["to"].as_str()
             ) {
-                edges.push(kotoba::topology::Edge {
+                edges.push(Edge {
                     from: from.to_string(),
                     to: to.to_string(),
                 });
