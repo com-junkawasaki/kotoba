@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-query-engine"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2021"
 description = "ISO GQL query engine for KotobaDB"
 license = "MIT OR Apache-2.0"
@@ -38,7 +38,7 @@ chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
 
 # Kotoba dependencies - Port layer
-kotoba-storage = { path = "../../100-storage/kotoba-storage" }
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-storage = "0.1.22"
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
 # kotoba-event-stream = { path = "../../200-application/kotoba-event-stream" }

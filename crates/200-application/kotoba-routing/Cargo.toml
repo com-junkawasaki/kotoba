@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-routing"
-version = "0.1.16"
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Declarative, graph-based HTTP routing engine for the Kotoba ecosystem."
 keywords = ["routing", "http", "graph", "web", "middleware"]
 categories = ["web-programming", "data-structures"]
@@ -20,9 +20,9 @@ tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Kotoba dependencies - Port layer
-kotoba-storage = { path = "../../100-storage/kotoba-storage" }
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-storage = "0.1.22"
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
 
 # TODO: These will be replaced with KeyValueStore-based implementations
 # kotoba-workflow = { path = "../../200-application/kotoba-workflow" }
