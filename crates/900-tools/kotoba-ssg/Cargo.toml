@@ -12,7 +12,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba core dependencies - Core and Language layers
-kotoba-core = "0.1.22" }
+kotoba-core = "0.1.22"
 kotoba-jsonnet = { path = "../../400-language/kotoba-jsonnet", version = "0.1.17" }
 kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.17" }
 kotoba-docs = { path = "../kotoba-docs", version = "0.1.22" }
