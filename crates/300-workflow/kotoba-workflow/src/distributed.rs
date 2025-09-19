@@ -304,8 +304,6 @@ impl DistributedCoordinator {
                 }
             }
         }
-
-        Ok(None)
     }
 
 /// 分散実行マネージャー

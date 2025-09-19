@@ -34,7 +34,7 @@ use crate::store::KotobaStorageBridge;
 use crate::distributed::{LoadBalancer, DistributedExecutionManager, DistributedWorkflowExecutor};
 use kotoba_core::prelude::TxId;
 use kotoba_errors::WorkflowError;
-use kotoba_workflow_core::prelude::*;
+// use kotoba_workflow_core::prelude::*;
 
 pub mod ir;
 pub mod executor;
@@ -48,7 +48,7 @@ pub mod optimization;
 pub mod integrations;
 
 // Re-export main types - use core types where possible
-pub use kotoba_workflow_core::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus, WorkflowEngineInterface};
+// pub use kotoba_workflow_core::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus, WorkflowEngineInterface};
 pub use ir::{ActivityIR};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager};
 pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
@@ -136,8 +136,9 @@ impl WorkflowEngineBuilder {
             std::sync::Arc::clone(&event_sourcing)
         ).with_config(50, 5));
 
-        // Create core engine first
-        let core_engine = kotoba_workflow_core::WorkflowEngine::new();
+        // Create core engine first - placeholder for now
+        // let core_engine = kotoba_workflow_core::WorkflowEngine::new();
+        let core_engine = std::sync::Arc::new(()); // Placeholder
 
         Ok(ExtendedWorkflowEngine {
             core_engine,
@@ -154,7 +155,7 @@ impl WorkflowEngineBuilder {
 
 /// Extended workflow engine - builds on core workflow functionality
 pub struct ExtendedWorkflowEngine {
-    core_engine: kotoba_workflow_core::WorkflowEngine,
+    core_engine: std::sync::Arc<()>, // Placeholder
     storage: std::sync::Arc<dyn WorkflowStore>,
     activity_registry: std::sync::Arc<ActivityRegistry>,
     state_manager: std::sync::Arc<WorkflowStateManager>,

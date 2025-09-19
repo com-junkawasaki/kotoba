@@ -11,7 +11,7 @@ description = "Temporal-inspired workflow engine for Kotoba"
 kotoba-core = "0.1.21"
 kotoba-errors = "0.1.2"
 # kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.21" }
-# kotoba-routing = { path = "../../200-application/kotoba-routing", version = "0.1.16", optional = true }
+kotoba-routing = "0.1.21"
 
 # Common dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -40,11 +40,11 @@ rocksdb = { version = "0.21", optional = true }
 rusqlite = { version = "0.29", features = ["bundled"], optional = true }
 
 # Kotoba dependencies for integration
-# kotoba-jsonnet = { workspace = true, optional = true }
-# kotoba-storage = { workspace = true, optional = true }
+kotoba-jsonnet = "0.1.21"
+kotoba-storage = "0.1.22"
 
 [features]
-default = ["memory"]
+default = ["memory", "kotoba-storage", "kotoba-jsonnet", "kotoba-routing"]
 memory = []
 rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite"]

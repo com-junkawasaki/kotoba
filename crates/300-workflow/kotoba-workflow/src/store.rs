@@ -689,6 +689,7 @@ impl WorkflowStore for SQLiteWorkflowStore {
     }
 }
 /// Bridge to Kotoba storage backend
+/*
 pub struct KotobaStorageBridge {
     kotoba_backend: std::sync::Arc<dyn kotoba_storage::port::StoragePort>,
 }
@@ -708,7 +709,9 @@ impl KotobaStorageBridge {
         format!("workflow:events:{}", execution_id.0)
     }
 }
+*/
 
+/*
 #[async_trait::async_trait]
 impl WorkflowStore for KotobaStorageBridge {
     async fn save_execution(&self, execution: &crate::ir::WorkflowExecution) -> std::result::Result<(), crate::WorkflowError> {

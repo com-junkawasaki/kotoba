@@ -6,7 +6,7 @@ use serde_json::{Value as JsonValue, Map};
 use std::collections::HashMap;
 use std::time::Duration;
 use std::result::Result as StdResult;
-use kotoba_jsonnet::{Evaluator, JsonnetValue};
+// use kotoba_jsonnet::{Evaluator, JsonnetValue};
 use kotoba_core::types::Value;
 use kotoba_core::prelude::{StrategyOp, Order, PrioritizedStrategy};
 
@@ -548,7 +548,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
 }
 
     /// 基本戦略をパース
-    fn parse_basic_strategy(&self, value: &JsonValue) -> StdResult<StrategyOp, WorkflowError> {
+    fn parse_basic_strategy(value: &JsonValue) -> StdResult<StrategyOp, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Basic strategy must be an object".to_string()))?;
 
@@ -594,7 +594,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
     }
 
     /// 優先順位付き戦略をパース
-    fn parse_prioritized_strategy(&self, value: &JsonValue) -> StdResult<PrioritizedStrategy, WorkflowError> {
+    fn parse_prioritized_strategy(value: &JsonValue) -> StdResult<PrioritizedStrategy, WorkflowError> {
         let obj = value.as_object()
             .ok_or_else(|| WorkflowError::InvalidDefinition("Prioritized strategy must be an object".to_string()))?;
 
