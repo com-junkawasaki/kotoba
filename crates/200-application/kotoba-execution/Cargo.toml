@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-execution"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Complete query execution and planning engine for Kotoba graph database"
 keywords = ["query", "execution", "planner", "gql", "graph-database"]
 categories = ["algorithms", "database-implementations"]
@@ -16,15 +16,15 @@ serde = { version = "1.0", features = ['derive'] }
 serde_json = "1.0"
 thiserror = "2.0"
 anyhow = "1.0"
-uuid = { workspace = true, features = ["v4"] }
+uuid = { version = "1.18", features = ["v4"] }
 async-trait = "0.1"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 
 # Kotoba dependencies - Port layer
-kotoba-storage = { path = "../../100-storage/kotoba-storage" }
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-storage = "0.1.22"
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
 
 # TODO: kotoba-graph will be replaced with KeyValueStore-based implementation
 # kotoba-graph = { path = "../../100-storage/kotoba-graphdb" }
