@@ -4980,6 +4980,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-event-stream"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fa47fc22124bc350053a66d1eb4225e580304775d85b76cebf3b753e55173c4"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "chrono",
+ "dashmap 5.5.3",
+ "futures",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "metrics",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-execution"
 version = "0.1.21"
 dependencies = [
@@ -5318,7 +5342,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-projection-engine"
-version = "0.1.0"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5327,9 +5351,9 @@ dependencies = [
  "dashmap 5.5.3",
  "futures",
  "itertools 0.12.1",
- "kotoba-event-stream",
- "kotoba-ocel 0.1.21",
- "kotoba-storage 0.1.22",
+ "kotoba-event-stream 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-ocel 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics",
  "serde",
  "serde_json",

@@ -8,10 +8,10 @@ description = "Temporal-inspired workflow engine for Kotoba"
 
 [dependencies]
 # Kotoba crates - core workflow functionality
-kotoba-core.workspace = true
-kotoba-errors.workspace = true
-kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.21" }
-kotoba-routing = { path = "../../200-application/kotoba-routing", version = "0.1.16", optional = true }
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
+# kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.21" }
+# kotoba-routing = { path = "../../200-application/kotoba-routing", version = "0.1.16", optional = true }
 
 # Common dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -40,11 +40,11 @@ rocksdb = { version = "0.21", optional = true }
 rusqlite = { version = "0.29", features = ["bundled"], optional = true }
 
 # Kotoba dependencies for integration
-kotoba-jsonnet = { workspace = true, optional = true }
-kotoba-storage = { workspace = true, optional = true }
+# kotoba-jsonnet = { workspace = true, optional = true }
+# kotoba-storage = { workspace = true, optional = true }
 
 [features]
-default = ["memory", "kotoba-storage", "kotoba-jsonnet", "kotoba-routing"]
+default = ["memory"]
 memory = []
 rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite"]
@@ -54,12 +54,12 @@ activities-db = ["dep:sqlx", "dep:lapin", "dep:redis"]
 # Feature for WASM builds
 wasm-bindgen = ["uuid/js"]
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-tokio = { version = "1.0", default-features = false, features = ["rt", "macros", "sync", "time"] }
-# Disable storage for wasm
-kotoba-storage = { workspace = true, optional = true, default-features = false }
-kotoba-jsonnet = { workspace = true, optional = true, default-features = false }
+# [target.'cfg(target_arch = "wasm32")'.dependencies]
+# tokio = { version = "1.0", default-features = false, features = ["rt", "macros", "sync", "time"] }
+# # Disable storage for wasm
+# kotoba-storage = { workspace = true, optional = true, default-features = false }
+# kotoba-jsonnet = { workspace = true, optional = true, default-features = false }
 
 
 [dev-dependencies]
-tempfile.workspace = true
+tempfile = "3.0"
