@@ -4,6 +4,7 @@ version = "0.1.21"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
+description = "Schema registry for managing and evolving JSON schemas in Kotoba ecosystem"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
