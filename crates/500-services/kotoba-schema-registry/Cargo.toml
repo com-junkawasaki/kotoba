@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-schema-registry"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -14,4 +14,4 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 url = { version = "2.2", features = ["serde"] }
 
-kotoba-schema = { path = "../../200-application/kotoba-schema" }
+kotoba-schema = "0.1.21"
