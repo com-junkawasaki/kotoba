@@ -415,7 +415,7 @@ impl ExtendedWorkflowEngine {
 pub struct WorkflowResult {
     pub execution_id: WorkflowExecutionId,
     pub status: ExecutionStatus,
-    pub outputs: Option<WorkflowExecution>,
+    pub outputs: Option<std::collections::HashMap<String, serde_json::Value>>,
     pub execution_time: std::time::Duration,
 }
 

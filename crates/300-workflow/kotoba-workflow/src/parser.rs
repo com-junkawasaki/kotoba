@@ -7,8 +7,8 @@ use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::result::Result as StdResult;
 
-use crate::spec::{WorkflowStep, CallDefinition, EmitDefinition, ListenDefinition, WaitDefinition, RunDefinition, SwitchCase, ForDefinition, ForkDefinition, TryDefinition, RaiseDefinition};
-use crate::ir::{ActivityIR};
+use crate::spec::{WorkflowStep, CallDefinition, EmitDefinition, ListenDefinition, WaitDefinition, RunDefinition, SwitchCase, ForDefinition, ForkDefinition, TryDefinition, RaiseDefinition, ServerlessWorkflow};
+use crate::ir::{ActivityIR, WorkflowIR, ActivityImplementation};
 use kotoba_errors::WorkflowError;
 
 /// Serverless Workflow Parser
@@ -39,8 +39,12 @@ impl ServerlessWorkflowParser {
             name: sw.document.name,
             version: sw.document.version,
             description: sw.document.description,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            strategy: crate::ir::WorkflowStrategyOp::Seq { strategies: Vec::new() },
             activities: Vec::new(),
-            strategy: crate::ir::WorkflowStrategyOp::Sequence(Vec::new()),
+            timeout: None,
+            retry_policy: None,
             metadata: HashMap::new(),
         };
 

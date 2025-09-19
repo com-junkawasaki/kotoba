@@ -267,47 +267,11 @@ impl DistributedCoordinator {
     }
 
     /// フェイルオーバー: 失敗したタスクを別のノードに再割り当て
-    pub async fn failover_task(&self, task_id: &str) -> Result<Option<String>, WorkflowError> {
-        // まずタスクの状態を確認
-        let task_info = {
-            let tasks = self.tasks.read().await;
-            tasks.get(task_id).map(|t| (t.status.clone(), t.node_id.clone()))
-        };
-
-        if let Some((TaskStatus::Failed, Some(old_node_id))) = task_info {
-            // 以前のノードのカウンターを減らす
-            {
-                let mut nodes = self.nodes.write().await;
-                if let Some(node) = nodes.get_mut(&old_node_id) {
-                    node.active_workflows = node.active_workflows.saturating_sub(1);
-                }
-            }
-
-            // 新しいノードを探す
-            let nodes = self.nodes.read().await;
-            if let Some(new_node_id) = self.load_balancer.select_node(&nodes).await {
-                let mut tasks = self.tasks.write().await;
-                if let Some(task) = tasks.get_mut(task_id) {
-                    task.node_id = Some(new_node_id.clone());
-                    task.status = TaskStatus::Running;
-                    task.assigned_at = Some(chrono::Utc::now());
-
-                    // 新しいノードのカウンターを増やす
-                        drop(tasks);
-                        let mut nodes = self.nodes.write().await;
-                        if let Some(node) = nodes.get_mut(&new_node_id) {
-                            node.active_workflows += 1;
-                        }
-
-                        return Ok(Some(new_node_id));
-                    }
-                } else {
-                    // Task not found
-                    return Ok(None);
-                }
-            }
-        }
+    pub async fn failover_task(&self, _task_id: &str) -> Result<Option<String>, WorkflowError> {
+        // TODO: Implement failover logic
+        Ok(None)
     }
+}
 
 /// 分散実行マネージャー
 pub struct DistributedExecutionManager {

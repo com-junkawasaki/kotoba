@@ -307,19 +307,20 @@ impl WorkflowExecutor {
         match step.step_type {
             WorkflowStepType::DbQuery => {
                 // Mock implementation
-                println!("Executing DB Query: {}", step.query);
+                println!("Executing DB Query: {}", step.body);
                 Ok(serde_json::json!({ "result": "mock_db_query_result" }))
                 // Real implementation:
-                // let params = self.materialize_params(&step.params, context)?;
-                // let result = self.db_handler.query(&step.query, params).await?;
+                // let params = self.materialize_params(&step.body, context)?;
+                // let query = step.body.as_str().unwrap_or("");
+                // let result = self.db_handler.query(query, params).await?;
                 // Ok(serde_json::to_value(result)?)
             }
             WorkflowStepType::DbRewrite => {
                 // Mock implementation
-                println!("Executing DB Rewrite Rule: {}", step.rule);
+                println!("Executing DB Rewrite Rule: {}", step.body);
                 Ok(serde_json::json!({ "result": "mock_db_rewrite_result" }))
                 // Real implementation:
-                // let params = self.materialize_params(&step.params, context)?;
+                // let params = self.materialize_params(&step.body, context)?;
                 // let result = self.db_handler.rewrite(&step.rule, params).await?;
                 // Ok(serde_json::to_value(result)?)
             }
@@ -715,7 +716,7 @@ impl WorkflowExecutor {
             }
             Err(e) => {
                 println!("Activity {} failed: {:?}", activity_ref, e);
-                Err(WorkflowError::ActivityFailed(format!("{:?}", e)))
+                Err(WorkflowError::InvalidDefinition(format!("Activity failed: {:?}", e)))
             }
         }
     }
@@ -884,8 +885,8 @@ impl WorkflowStateManager {
             Some(tx_id) => {
                 // 指定TxId以前の最新バージョンを取得
                 versions.iter()
-                    .filter(|(v_tx_id, _)| *v_tx_id <= tx_id)
-                    .max_by_key(|(v_tx_id, _)| v_tx_id)
+                    .filter(|(v_tx_id, _)| v_tx_id.0 <= tx_id.0)
+                    .max_by_key(|(v_tx_id, _)| &v_tx_id.0)
                     .map(|(_, execution)| execution.clone())
             }
             None => {

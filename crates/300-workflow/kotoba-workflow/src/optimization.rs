@@ -526,7 +526,7 @@ impl ParallelExecutionRule {
                             completion_condition: crate::ir::CompletionCondition::All,
                         });
                     } else {
-                        optimized_strategies.extend(parallel_group.into_iter().map(Box::new));
+                        optimized_strategies.extend(parallel_group);
                     }
                 }
 
