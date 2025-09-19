@@ -28,6 +28,26 @@ pub struct Schema {
     compiled_schema: Option<Box<JSONSchema>>,
 }
 
+impl Clone for Schema {
+    fn clone(&self) -> Self {
+        let mut cloned = Self {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            version: self.version,
+            description: self.description.clone(),
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            body: self.body.clone(),
+            compiled_schema: None, // Don't clone the compiled schema
+        };
+        // Recompile if needed
+        if self.compiled_schema.is_some() {
+            let _ = cloned.compile();
+        }
+        cloned
+    }
+}
+
 impl Schema {
     /// Compiles the JSON schema body for validation.
     pub fn compile(&mut self) -> Result<()> {
