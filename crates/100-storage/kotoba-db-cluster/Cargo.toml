@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-db-cluster"
-version = "0.1.16"
+version = "0.1.21"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
@@ -30,7 +30,7 @@ tonic-build = "0.9"
 
 # KotobaDB dependencies
 # kotoba-db-core temporarily disabled - will be replaced with kotoba-storage
-kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.16", optional = true }
+# kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.21", optional = true }
 
 [features]
 default = []

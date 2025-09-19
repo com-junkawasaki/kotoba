@@ -5584,11 +5584,11 @@ dependencies = [
 
 [[package]]
 name = "kotoba-storage-rocksdb"
-version = "0.1.0"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
- "kotoba-storage 0.1.22",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocksdb",
  "tempfile",
  "tokio",
