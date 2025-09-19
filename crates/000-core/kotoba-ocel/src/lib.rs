@@ -54,7 +54,7 @@ pub struct OcelObject {
 pub type ValueMap = IndexMap<String, OcelValue>;
 
 /// OCEL value types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum OcelValue {
     /// String value
@@ -141,13 +141,21 @@ impl OcelLog {
     }
 
     /// Add an event to the log
-    pub fn add_event(&mut self, event: OcelEvent) {
+    pub fn add_event(&mut self, event: OcelEvent) -> Result<(), OcelError> {
+        if self.events.contains_key(&event.id) {
+            return Err(OcelError::DuplicateEventId(event.id));
+        }
         self.events.insert(event.id.clone(), event);
+        Ok(())
     }
 
     /// Add an object to the log
-    pub fn add_object(&mut self, object: OcelObject) {
+    pub fn add_object(&mut self, object: OcelObject) -> Result<(), OcelError> {
+        if self.objects.contains_key(&object.id) {
+            return Err(OcelError::DuplicateObjectId(object.id));
+        }
         self.objects.insert(object.id.clone(), object);
+        Ok(())
     }
 
     /// Get events for a specific object
@@ -330,13 +338,13 @@ impl OcelLogBuilder {
 
     /// Add an event
     pub fn event(mut self, event: OcelEvent) -> Self {
-        self.log.add_event(event);
+        self.log.add_event(event).unwrap(); // Builder assumes valid input
         self
     }
 
     /// Add an object
     pub fn object(mut self, object: OcelObject) -> Self {
-        self.log.add_object(object);
+        self.log.add_object(object).unwrap(); // Builder assumes valid input
         self
     }
 
@@ -485,13 +493,13 @@ mod tests {
         // Add an object
         let object = OcelObject::new("obj1".to_string(), "Order".to_string())
             .with_attribute("amount".to_string(), OcelValue::Float(100.0));
-        log.add_object(object);
+        log.add_object(object).unwrap();
 
         // Add an event
-        let timestamp = Utc.ymd(2023, 1, 1).and_hms(12, 0, 0);
+        let timestamp = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
         let mut event = OcelEvent::new("evt1".to_string(), "create_order".to_string(), timestamp);
         event.omap.push("obj1".to_string());
-        log.add_event(event);
+        log.add_event(event).unwrap();
 
         // Validate log
         assert!(log.validate().is_ok());
@@ -535,7 +543,7 @@ mod tests {
         });
 
         let ocel_value = json_to_ocel_value(&json);
-        if let OcelValue::Map(map) = ocel_value {
+        if let OcelValue::Map(ref map) = ocel_value {
             assert_eq!(map.get("name"), Some(&OcelValue::String("test".to_string())));
             assert_eq!(map.get("count"), Some(&OcelValue::Integer(42)));
             assert_eq!(map.get("price"), Some(&OcelValue::Float(99.99)));
@@ -556,9 +564,414 @@ mod tests {
         // Add event with non-existent object
         let mut event = OcelEvent::new("evt1".to_string(), "test".to_string(), Utc::now());
         event.omap.push("non_existent_obj".to_string());
-        log.add_event(event);
+        log.add_event(event).unwrap();
 
         // Validation should fail
         assert!(log.validate().is_err());
+    }
+
+    #[test]
+    fn test_ocel_event_creation() {
+        let timestamp = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
+        let event = OcelEvent::new("evt1".to_string(), "create_order".to_string(), timestamp);
+
+        assert_eq!(event.id, "evt1");
+        assert_eq!(event.activity, "create_order");
+        assert_eq!(event.timestamp, timestamp);
+        assert!(event.vmap.is_empty());
+        assert!(event.omap.is_empty());
+    }
+
+    #[test]
+    fn test_ocel_event_with_attributes() {
+        let timestamp = Utc::now();
+        let event = OcelEvent::new("evt1".to_string(), "create_order".to_string(), timestamp)
+            .with_attribute("amount".to_string(), OcelValue::Float(100.0))
+            .with_attribute("currency".to_string(), OcelValue::String("USD".to_string()))
+            .with_object("obj1".to_string())
+            .with_object("obj2".to_string());
+
+        assert_eq!(event.vmap.len(), 2);
+        assert_eq!(event.vmap.get("amount"), Some(&OcelValue::Float(100.0)));
+        assert_eq!(event.omap.len(), 2);
+        assert!(event.omap.contains(&"obj1".to_string()));
+        assert!(event.omap.contains(&"obj2".to_string()));
+    }
+
+    #[test]
+    fn test_ocel_object_creation() {
+        let object = OcelObject::new("obj1".to_string(), "Order".to_string());
+
+        assert_eq!(object.id, "obj1");
+        assert_eq!(object.object_type, "Order");
+        assert!(object.vmap.is_empty());
+    }
+
+    #[test]
+    fn test_ocel_object_with_attributes() {
+        let object = OcelObject::new("obj1".to_string(), "Order".to_string())
+            .with_attribute("amount".to_string(), OcelValue::Float(100.0))
+            .with_attribute("status".to_string(), OcelValue::String("pending".to_string()));
+
+        assert_eq!(object.vmap.len(), 2);
+        assert_eq!(object.vmap.get("amount"), Some(&OcelValue::Float(100.0)));
+        assert_eq!(object.vmap.get("status"), Some(&OcelValue::String("pending".to_string())));
+    }
+
+    #[test]
+    fn test_ocel_value_types() {
+        // Test all OCEL value types
+        assert_eq!(OcelValue::String("hello".to_string()), OcelValue::String("hello".to_string()));
+        assert_eq!(OcelValue::Integer(42), OcelValue::Integer(42));
+        assert_eq!(OcelValue::Float(3.14), OcelValue::Float(3.14));
+        assert_eq!(OcelValue::Boolean(true), OcelValue::Boolean(true));
+
+        let timestamp = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
+        assert_eq!(OcelValue::Date(timestamp), OcelValue::Date(timestamp));
+
+        let list = vec![OcelValue::Integer(1), OcelValue::Integer(2)];
+        assert_eq!(OcelValue::List(list.clone()), OcelValue::List(list));
+
+        let mut map = ValueMap::new();
+        map.insert("key".to_string(), OcelValue::String("value".to_string()));
+        assert_eq!(OcelValue::Map(map.clone()), OcelValue::Map(map));
+    }
+
+    #[test]
+    fn test_ocel_log_queries() {
+        let mut log = OcelLog::new();
+
+        // Create objects
+        let order = OcelObject::new("order1".to_string(), "Order".to_string())
+            .with_attribute("amount".to_string(), OcelValue::Float(100.0));
+        log.add_object(order).unwrap();
+
+        let customer = OcelObject::new("customer1".to_string(), "Customer".to_string())
+            .with_attribute("name".to_string(), OcelValue::String("Alice".to_string()));
+        log.add_object(customer).unwrap();
+
+        // Create events
+        let timestamp1 = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
+        let event1 = OcelEvent::new("evt1".to_string(), "create_order".to_string(), timestamp1)
+            .with_object("order1".to_string())
+            .with_object("customer1".to_string());
+        log.add_event(event1).unwrap();
+
+        let timestamp2 = Utc.with_ymd_and_hms(2023, 1, 1, 11, 0, 0).unwrap();
+        let event2 = OcelEvent::new("evt2".to_string(), "process_payment".to_string(), timestamp2)
+            .with_object("order1".to_string());
+        log.add_event(event2).unwrap();
+
+        let timestamp3 = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
+        let event3 = OcelEvent::new("evt3".to_string(), "create_order".to_string(), timestamp3)
+            .with_object("customer1".to_string());
+        log.add_event(event3).unwrap();
+
+        // Test queries
+        let events_for_order = log.get_events_for_object("order1");
+        assert_eq!(events_for_order.len(), 2);
+
+        let events_for_customer = log.get_events_for_object("customer1");
+        assert_eq!(events_for_customer.len(), 2);
+
+        let objects_for_evt1 = log.get_objects_for_event("evt1");
+        assert_eq!(objects_for_evt1.len(), 2);
+
+        let create_order_events = log.get_events_by_activity("create_order");
+        assert_eq!(create_order_events.len(), 2);
+
+        let process_payment_events = log.get_events_by_activity("process_payment");
+        assert_eq!(process_payment_events.len(), 1);
+
+        let order_objects = log.get_objects_by_type("Order");
+        assert_eq!(order_objects.len(), 1);
+
+        let customer_objects = log.get_objects_by_type("Customer");
+        assert_eq!(customer_objects.len(), 1);
+
+        let activities = log.get_activities();
+        assert_eq!(activities.len(), 2);
+        assert!(activities.contains("create_order"));
+        assert!(activities.contains("process_payment"));
+
+        let object_types = log.get_object_types();
+        assert_eq!(object_types.len(), 2);
+        assert!(object_types.contains("Order"));
+        assert!(object_types.contains("Customer"));
+    }
+
+    #[test]
+    fn test_ocel_log_validation() {
+        // Test valid log
+        let mut log = OcelLog::new();
+
+        let object = OcelObject::new("obj1".to_string(), "Test".to_string());
+        log.add_object(object).unwrap();
+
+        let event = OcelEvent::new("evt1".to_string(), "test".to_string(), Utc::now())
+            .with_object("obj1".to_string());
+        log.add_event(event).unwrap();
+
+        assert!(log.validate().is_ok());
+    }
+
+    #[test]
+    fn test_ocel_log_validation_missing_object() {
+        let mut log = OcelLog::new();
+
+        let event = OcelEvent::new("evt1".to_string(), "test".to_string(), Utc::now())
+            .with_object("non_existent".to_string());
+        log.add_event(event);
+
+        let result = log.validate();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            OcelError::MissingObject(_) => {},
+            _ => panic!("Expected MissingObject error"),
+        }
+    }
+
+    #[test]
+    fn test_ocel_log_validation_duplicate_ids() {
+        let mut log = OcelLog::new();
+
+        let obj1 = OcelObject::new("obj1".to_string(), "Test".to_string());
+        let obj2 = OcelObject::new("obj1".to_string(), "Test".to_string()); // Same ID
+
+        // First addition should succeed
+        assert!(log.add_object(obj1).is_ok());
+
+        // Second addition with same ID should fail
+        let result = log.add_object(obj2);
+        assert!(result.is_err(), "Expected duplicate object ID error");
+        match result.unwrap_err() {
+            OcelError::DuplicateObjectId(_) => {},
+            err => panic!("Expected DuplicateObjectId error, got: {:?}", err),
+        }
+    }
+
+    #[test]
+    fn test_ocel_log_builder_comprehensive() {
+        let timestamp = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
+
+        let log = OcelLogBuilder::new()
+            .global_log_attribute("version".to_string(), OcelValue::String("1.0".to_string()))
+            .global_event_attribute("source".to_string(), OcelValue::String("test".to_string()))
+            .global_object_attribute("system".to_string(), OcelValue::String("test".to_string()))
+            .object(
+                OcelObject::new("obj1".to_string(), "Order".to_string())
+                    .with_attribute("amount".to_string(), OcelValue::Float(100.0))
+            )
+            .event(
+                OcelEvent::new("evt1".to_string(), "create_order".to_string(), timestamp)
+                    .with_attribute("urgent".to_string(), OcelValue::Boolean(true))
+                    .with_object("obj1".to_string())
+            )
+            .build();
+
+        assert!(log.is_ok());
+        let log = log.unwrap();
+
+        assert_eq!(log.global_log.len(), 1);
+        assert_eq!(log.global_event.len(), 1);
+        assert_eq!(log.global_object.len(), 1);
+        assert_eq!(log.events.len(), 1);
+        assert_eq!(log.objects.len(), 1);
+
+        let event = log.events.get("evt1").unwrap();
+        assert_eq!(event.activity, "create_order");
+        assert_eq!(event.omap, vec!["obj1"]);
+
+        let object = log.objects.get("obj1").unwrap();
+        assert_eq!(object.object_type, "Order");
+    }
+
+    #[test]
+    fn test_json_conversion_roundtrip() {
+        use utils::*;
+
+        // Create a complex OCEL value
+        let mut map = ValueMap::new();
+        map.insert("name".to_string(), OcelValue::String("test".to_string()));
+        map.insert("count".to_string(), OcelValue::Integer(42));
+        map.insert("items".to_string(), OcelValue::List(vec![
+            OcelValue::String("a".to_string()),
+            OcelValue::String("b".to_string()),
+        ]));
+
+        let mut nested_map = ValueMap::new();
+        nested_map.insert("nested".to_string(), OcelValue::Boolean(true));
+        map.insert("metadata".to_string(), OcelValue::Map(nested_map));
+
+        let ocel_value = OcelValue::Map(map);
+
+        // Convert to JSON and back
+        let json_value = ocel_to_json_value(&ocel_value);
+        let ocel_value2 = json_to_ocel_value(&json_value);
+
+        // They should be equal
+        assert_eq!(ocel_value, ocel_value2);
+    }
+
+    #[test]
+    fn test_event_from_json() {
+        use utils::*;
+
+        let json = serde_json::json!({
+            "id": "evt1",
+            "activity": "create_order",
+            "timestamp": "2023-01-01T12:00:00Z",
+            "vmap": {
+                "amount": 100.0,
+                "urgent": true
+            },
+            "omap": ["obj1", "obj2"]
+        });
+
+        let result = event_from_json(&json);
+        assert!(result.is_ok());
+
+        let event = result.unwrap();
+        assert_eq!(event.id, "evt1");
+        assert_eq!(event.activity, "create_order");
+        assert_eq!(event.omap, vec!["obj1", "obj2"]);
+        assert_eq!(event.vmap.get("amount"), Some(&OcelValue::Float(100.0)));
+        assert_eq!(event.vmap.get("urgent"), Some(&OcelValue::Boolean(true)));
+    }
+
+    #[test]
+    fn test_object_from_json() {
+        use utils::*;
+
+        let json = serde_json::json!({
+            "id": "obj1",
+            "type": "Order",
+            "vmap": {
+                "amount": 100.0,
+                "status": "pending"
+            }
+        });
+
+        let result = object_from_json(&json);
+        assert!(result.is_ok());
+
+        let object = result.unwrap();
+        assert_eq!(object.id, "obj1");
+        assert_eq!(object.object_type, "Order");
+        assert_eq!(object.vmap.get("amount"), Some(&OcelValue::Float(100.0)));
+        assert_eq!(object.vmap.get("status"), Some(&OcelValue::String("pending".to_string())));
+    }
+
+    #[test]
+    fn test_utils_generate_id() {
+        use utils::*;
+
+        let id1 = generate_id();
+        let id2 = generate_id();
+
+        // IDs should be different
+        assert_ne!(id1, id2);
+
+        // IDs should be valid UUIDs
+        assert!(uuid::Uuid::parse_str(&id1).is_ok());
+        assert!(uuid::Uuid::parse_str(&id2).is_ok());
+    }
+
+    #[test]
+    fn test_ocel_error_types() {
+        let missing_obj = OcelError::MissingObject("obj1".to_string());
+        assert!(format!("{}", missing_obj).contains("obj1"));
+
+        let duplicate_event = OcelError::DuplicateEventId("evt1".to_string());
+        assert!(format!("{}", duplicate_event).contains("evt1"));
+
+        let duplicate_obj = OcelError::DuplicateObjectId("obj1".to_string());
+        assert!(format!("{}", duplicate_obj).contains("obj1"));
+
+        let validation_err = OcelError::ValidationError("test error".to_string());
+        assert!(format!("{}", validation_err).contains("test error"));
+    }
+
+    #[test]
+    fn test_complex_ocel_log() {
+        // Create a more complex log representing a business process
+        let mut log = OcelLog::new();
+
+        // Add global attributes
+        log.global_log.insert("process_name".to_string(), OcelValue::String("Order Fulfillment".to_string()));
+        log.global_log.insert("version".to_string(), OcelValue::String("1.0".to_string()));
+
+        // Create objects
+        let order = OcelObject::new("order_001".to_string(), "Order".to_string())
+            .with_attribute("customer_id".to_string(), OcelValue::String("cust_123".to_string()))
+            .with_attribute("total_amount".to_string(), OcelValue::Float(299.99))
+            .with_attribute("items".to_string(), OcelValue::List(vec![
+                OcelValue::String("item_001".to_string()),
+                OcelValue::String("item_002".to_string()),
+            ]));
+        log.add_object(order).unwrap();
+
+        let customer = OcelObject::new("cust_123".to_string(), "Customer".to_string())
+            .with_attribute("name".to_string(), OcelValue::String("Alice Johnson".to_string()))
+            .with_attribute("email".to_string(), OcelValue::String("alice@example.com".to_string()));
+        log.add_object(customer).unwrap();
+
+        let item1 = OcelObject::new("item_001".to_string(), "Item".to_string())
+            .with_attribute("name".to_string(), OcelValue::String("Laptop".to_string()))
+            .with_attribute("price".to_string(), OcelValue::Float(999.99));
+        log.add_object(item1).unwrap();
+
+        let item2 = OcelObject::new("item_002".to_string(), "Item".to_string())
+            .with_attribute("name".to_string(), OcelValue::String("Mouse".to_string()))
+            .with_attribute("price".to_string(), OcelValue::Float(29.99));
+        log.add_object(item2).unwrap();
+
+        // Create events representing the process
+        let timestamp1 = Utc.with_ymd_and_hms(2023, 1, 1, 10, 0, 0).unwrap();
+        let create_order = OcelEvent::new("evt_001".to_string(), "create_order".to_string(), timestamp1)
+            .with_attribute("channel".to_string(), OcelValue::String("web".to_string()))
+            .with_object("order_001".to_string())
+            .with_object("cust_123".to_string());
+        log.add_event(create_order).unwrap();
+
+        let timestamp2 = Utc.with_ymd_and_hms(2023, 1, 1, 10, 15, 0).unwrap();
+        let process_payment = OcelEvent::new("evt_002".to_string(), "process_payment".to_string(), timestamp2)
+            .with_attribute("payment_method".to_string(), OcelValue::String("credit_card".to_string()))
+            .with_attribute("amount".to_string(), OcelValue::Float(299.99))
+            .with_object("order_001".to_string());
+        log.add_event(process_payment).unwrap();
+
+        let timestamp3 = Utc.with_ymd_and_hms(2023, 1, 1, 11, 0, 0).unwrap();
+        let ship_order = OcelEvent::new("evt_003".to_string(), "ship_order".to_string(), timestamp3)
+            .with_attribute("carrier".to_string(), OcelValue::String("UPS".to_string()))
+            .with_attribute("tracking_number".to_string(), OcelValue::String("1Z999AA1234567890".to_string()))
+            .with_object("order_001".to_string())
+            .with_object("item_001".to_string())
+            .with_object("item_002".to_string());
+        log.add_event(ship_order).unwrap();
+
+        // Validate the log
+        assert!(log.validate().is_ok());
+
+        // Test comprehensive queries
+        assert_eq!(log.events.len(), 3);
+        assert_eq!(log.objects.len(), 4);
+        assert_eq!(log.get_activities().len(), 3);
+        assert_eq!(log.get_object_types().len(), 3);
+
+        let order_events = log.get_events_for_object("order_001");
+        assert_eq!(order_events.len(), 3);
+
+        let customer_events = log.get_events_for_object("cust_123");
+        assert_eq!(customer_events.len(), 1);
+
+        let create_events = log.get_events_by_activity("create_order");
+        assert_eq!(create_events.len(), 1);
+
+        let order_objects = log.get_objects_by_type("Order");
+        assert_eq!(order_objects.len(), 1);
+
+        let item_objects = log.get_objects_by_type("Item");
+        assert_eq!(item_objects.len(), 2);
     }
 }

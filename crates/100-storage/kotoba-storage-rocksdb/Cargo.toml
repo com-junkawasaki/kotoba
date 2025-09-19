@@ -16,3 +16,6 @@ kotoba-storage = { path = "../kotoba-storage" }
 rocksdb = "0.21"
 anyhow = "1.0"
 async-trait = "0.1"
+
+[dev-dependencies]
+tempfile = "3.0"

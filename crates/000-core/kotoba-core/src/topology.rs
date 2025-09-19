@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::KotobaError;
+use kotoba_errors::KotobaError;
 
 /// Represents a node in the topology graph
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

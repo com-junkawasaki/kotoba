@@ -2126,6 +2126,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19d374276b40fb8bbdee95aef7c7fa6b5316ec764510eb64b8dd0e2ed0d7e7f5"
 
 [[package]]
+name = "crc16"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "338089f42c427b86394a5ee60ff321da23a5c89c9d89514c829687b26359fcff"
+
+[[package]]
 name = "crc32c"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4543,6 +4549,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-cache"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "chrono",
+ "dashmap 5.5.3",
+ "futures",
+ "itertools 0.12.1",
+ "kotoba-core",
+ "kotoba-errors 0.1.2",
+ "lz4",
+ "metrics",
+ "redis 0.24.0",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-cid"
 version = "0.1.21"
 dependencies = [
@@ -4620,6 +4650,7 @@ dependencies = [
  "js-sys",
  "jsonschema",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot",
  "regex",
  "schemars",
  "serde",
@@ -5012,7 +5043,7 @@ dependencies = [
  "mime_guess",
  "notify",
  "rand 0.8.5",
- "redis",
+ "redis 0.23.3",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -5453,7 +5484,7 @@ dependencies = [
  "async-trait",
  "hex",
  "parking_lot",
- "redis",
+ "redis 0.23.3",
  "rocksdb",
  "serde",
  "serde_json",
@@ -5472,6 +5503,7 @@ dependencies = [
  "async-trait",
  "kotoba-storage",
  "rocksdb",
+ "tempfile",
 ]
 
 [[package]]
@@ -5519,7 +5551,7 @@ dependencies = [
  "kotoba-workflow-core",
  "lapin",
  "parking_lot",
- "redis",
+ "redis 0.23.3",
  "reqwest",
  "rocksdb",
  "rusqlite",
@@ -5546,7 +5578,7 @@ dependencies = [
  "lapin",
  "lettre",
  "mime_guess",
- "redis",
+ "redis 0.23.3",
  "regex",
  "reqwest",
  "serde",
@@ -6124,6 +6156,15 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "url",
+]
+
+[[package]]
+name = "lz4"
+version = "1.28.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a20b523e860d03443e98350ceaac5e71c6ba89aea7d960769ec3ce37f4de5af4"
+dependencies = [
+ "lz4-sys",
 ]
 
 [[package]]
@@ -7849,6 +7890,32 @@ dependencies = [
  "itoa",
  "percent-encoding",
  "pin-project-lite",
+ "ryu",
+ "sha1_smol",
+ "socket2 0.4.10",
+ "tokio",
+ "tokio-retry",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "redis"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c580d9cbbe1d1b479e8d67cf9daf6a62c957e6846048408b80b43ac3f6af84cd"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "bytes",
+ "combine",
+ "crc16",
+ "futures",
+ "futures-util",
+ "itoa",
+ "percent-encoding",
+ "pin-project-lite",
+ "rand 0.8.5",
  "ryu",
  "sha1_smol",
  "socket2 0.4.10",

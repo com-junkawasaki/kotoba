@@ -71,4 +71,3 @@ pub const NAME: &str = "Kotoba";
 pub const DESCRIPTION: &str = "Core Graph Processing System (GP2 + Event Sourcing + ISO GQL) - Port/Adapter Architecture";
 
 // Public modules
-pub mod topology;

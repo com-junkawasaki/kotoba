@@ -5,6 +5,8 @@ pub mod schema;
 pub mod schema_validator;
 // pub mod pgview; // Temporarily disabled due to Value type conflicts
 pub mod ir;
+pub mod topology;
+pub mod graph;
 pub mod prelude {
     // Re-export commonly used items
     pub use crate::types::*;

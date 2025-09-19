@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use parking_lot::RwLock;
+use sha2::{Sha256, Digest};
 use crate::types::*;
 use crate::schema::*;
-use crate::cid::*;
+use kotoba_errors::KotobaError;
 
 /// 頂点データ
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,7 +199,7 @@ impl Graph {
     }
 
     /// GraphInstanceからGraphに変換
-    pub fn from_graph_instance(graph_instance: &GraphInstance, cid_manager: &mut CidManager) -> Result<Self> {
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> Result<Self> {
         let mut graph = Graph::empty();
         let mut vertex_id_map = HashMap::new();
 
@@ -208,8 +209,9 @@ impl Graph {
 
             // 属性をValueに変換
             let props = if let Some(attrs) = &node.attrs {
+                // TODO: AttrsからValueへの変換を実装
                 attrs.iter()
-                    .map(|(k, v)| (k.clone(), json_value_to_value(v)))
+                    .map(|(k, v)| (k.clone(), v.clone()))
                     .collect()
             } else {
                 HashMap::new()
@@ -238,8 +240,9 @@ impl Graph {
 
             // 属性をValueに変換
             let props = if let Some(attrs) = &edge.attrs {
+                // TODO: AttrsからValueへの変換を実装
                 attrs.iter()
-                    .map(|(k, v)| (k.clone(), json_value_to_value(v)))
+                    .map(|(k, v)| (k.clone(), v.clone()))
                     .collect()
             } else {
                 HashMap::new()
@@ -267,7 +270,7 @@ impl Graph {
         // Vertex -> Node変換
         for (vertex_id, vertex_data) in &self.vertices {
             let node = Node {
-                cid: Cid::new(&format!("node_{}", vertex_id)), // 実際の実装では決定論的に生成
+                cid: generate_cid(&format!("node_{}", vertex_id)), // 実際の実装では決定論的に生成
                 labels: vertex_data.labels.clone(),
                 r#type: vertex_data.labels.first()
                     .cloned()
@@ -277,8 +280,8 @@ impl Graph {
                     None
                 } else {
                     Some(vertex_data.props.iter()
-                        .map(|(k, v)| (k.clone(), value_to_json_value(v)))
-                        .collect())
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<_, _>>())
                 },
                 component_ref: None,
             };
@@ -288,7 +291,7 @@ impl Graph {
         // Edge -> Edge変換
         for (edge_id, edge_data) in &self.edges {
             let edge = Edge {
-                cid: Cid::new(&format!("edge_{}", edge_id)), // 実際の実装では決定論的に生成
+                cid: generate_cid(&format!("edge_{}", edge_id)), // 実際の実装では決定論的に生成
                 label: Some(edge_data.label.clone()),
                 r#type: edge_data.label.clone(),
                 src: format!("#{}", edge_data.src),
@@ -297,8 +300,8 @@ impl Graph {
                     None
                 } else {
                     Some(edge_data.props.iter()
-                        .map(|(k, v)| (k.clone(), value_to_json_value(v)))
-                        .collect())
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<_, _>>())
                 },
             };
             edges.push(edge);
@@ -313,18 +316,18 @@ impl Graph {
 
         GraphInstance {
             core: graph_core,
-            kind: GraphKind::Instance,
+            kind: GraphKind::Graph,
             cid: graph_cid,
             typing: None,
         }
     }
 
     /// CIDを計算してGraphInstanceに変換
-    pub fn to_graph_instance_with_cid(&self, cid_manager: &mut CidManager) -> Result<GraphInstance> {
-        let graph_instance = self.to_graph_instance(Cid::new("temp"));
-        let computed_cid = cid_manager.compute_graph_cid(&graph_instance.core)?;
+    pub fn to_graph_instance_with_cid(&self) -> Result<GraphInstance> {
+        let graph_instance = self.to_graph_instance(generate_cid("temp"));
+        // TODO: CIDマネージャーが実装されたら、ここで計算する
         Ok(GraphInstance {
-            cid: computed_cid,
+            cid: generate_cid("graph"),
             ..graph_instance
         })
     }
@@ -352,8 +355,8 @@ impl GraphRef {
     }
 
     /// GraphInstanceからGraphRefに変換
-    pub fn from_graph_instance(graph_instance: &GraphInstance, cid_manager: &mut CidManager) -> Result<Self> {
-        let graph = Graph::from_graph_instance(graph_instance, cid_manager)?;
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> Result<Self> {
+        let graph = Graph::from_graph_instance(graph_instance)?;
         Ok(Self::new(graph))
     }
 
@@ -364,14 +367,24 @@ impl GraphRef {
     }
 
     /// CIDを計算してGraphInstanceに変換
-    pub fn to_graph_instance_with_cid(&self, cid_manager: &mut CidManager) -> Result<GraphInstance> {
+    pub fn to_graph_instance_with_cid(&self) -> Result<GraphInstance> {
         let graph = self.read();
-        graph.to_graph_instance_with_cid(cid_manager)
+        graph.to_graph_instance_with_cid()
     }
 }
 
-/// JSON ValueとValueの相互変換ヘルパー
-fn json_value_to_value(json_value: &serde_json::Value) -> Value {
+/// CIDを生成するヘルパー関数
+fn generate_cid(data: &str) -> Cid {
+    let mut hasher = Sha256::new();
+    hasher.update(data.as_bytes());
+    let result = hasher.finalize();
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(&result[..32]);
+    Cid(bytes)
+}
+
+/// serde_json::ValueをValueに変換するヘルパー
+fn serde_json_value_to_value(json_value: &serde_json::Value) -> Value {
     match json_value {
         serde_json::Value::Null => Value::Null,
         serde_json::Value::Bool(b) => Value::Bool(*b),
@@ -386,7 +399,13 @@ fn json_value_to_value(json_value: &serde_json::Value) -> Value {
             }
         }
         serde_json::Value::String(s) => Value::String(s.clone()),
-        serde_json::Value::Array(_) => Value::String("Array".to_string()), // 簡易版
+        serde_json::Value::Array(arr) => {
+            let strings: Vec<String> = arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| s.to_string())
+                .collect();
+            Value::Array(strings)
+        },
         serde_json::Value::Object(_) => Value::String("Object".to_string()), // 簡易版
     }
 }
@@ -398,5 +417,9 @@ fn value_to_json_value(value: &Value) -> serde_json::Value {
         Value::Int(i) => serde_json::json!(i),
         Value::Integer(i) => serde_json::json!(i),
         Value::String(s) => serde_json::json!(s),
+        Value::Array(arr) => serde_json::Value::Array(
+            arr.iter().map(|s| serde_json::Value::String(s.clone())).collect()
+        ),
     }
 }
+
