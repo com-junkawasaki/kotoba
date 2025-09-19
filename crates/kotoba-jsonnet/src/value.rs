@@ -2,6 +2,7 @@
 
 use crate::ast::Expr;
 use crate::error::{JsonnetError, Result};
+use crate::eval::Context;
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, ser::{SerializeSeq, SerializeMap}};
@@ -394,7 +395,7 @@ impl JsonnetBuiltin {
 pub struct JsonnetFunction {
     pub parameters: Vec<String>,
     pub body: Box<Expr>,
-    pub environment: HashMap<String, JsonnetValue>,
+    pub captured_context: Context,
 }
 
 impl PartialEq for JsonnetFunction {
@@ -406,11 +407,11 @@ impl PartialEq for JsonnetFunction {
 
 impl JsonnetFunction {
     /// Create a new function
-    pub fn new(parameters: Vec<String>, body: Box<Expr>, environment: HashMap<String, JsonnetValue>) -> Self {
+    pub fn new(parameters: Vec<String>, body: Box<Expr>, captured_context: Context) -> Self {
         JsonnetFunction {
             parameters,
             body,
-            environment,
+            captured_context,
         }
     }
 }
