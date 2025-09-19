@@ -138,7 +138,7 @@ authors = ["Jun Kawasaki <jun784@example.com>"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba"
 homepage = "https://github.com/com-junkawasaki/kotoba"
-exclude = ["examples/**/*", "src/topology.rs"]
+exclude = ["examples/**/*"]
 
 [[bin]]
 name = "kotoba"
