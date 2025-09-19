@@ -17,11 +17,17 @@ serde_json = "1.0"
 thiserror = "2.0"
 anyhow = "1.0"
 uuid = { workspace = true, features = ["v4"] }
-kotoba-core = "0.1.21"
-kotoba-errors = "0.1.2"
-kotoba-graph = "0.1.21"
-kotoba-storage = "0.1.21"
-kotoba-cid = "0.1.21"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Kotoba dependencies - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+# kotoba-cid temporarily disabled due to version conflicts
+
+# TODO: kotoba-graph will be replaced with KeyValueStore-based implementation
+# kotoba-graph = { path = "../../100-storage/kotoba-graphdb" }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

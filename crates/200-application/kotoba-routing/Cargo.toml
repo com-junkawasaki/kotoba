@@ -11,13 +11,22 @@ documentation = "https://docs.rs/kotoba-routing"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Simplified dependencies - removed problematic workflow/jsonnet deps
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 glob = "0.3"
-kotoba-workflow = { path = "../../200-application/kotoba-workflow" }
-kotoba-ssg = { path = "../../200-application/kotoba-ssg" }
-kotoba-cid = { path = "../../000-core/kotoba-cid" }
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Kotoba dependencies - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+
+# TODO: These will be replaced with KeyValueStore-based implementations
+# kotoba-workflow = { path = "../../200-application/kotoba-workflow" }
+# kotoba-ssg = { path = "../../200-application/kotoba-ssg" }
+# kotoba-cid = { path = "../../000-core/kotoba-cid" }
+
 tokio = { version = "1.0", features = ["sync"] } # For Mutex

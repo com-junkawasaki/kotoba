@@ -7,6 +7,13 @@ members = [
     "crates/200-application/kotoba-query-engine",
     "crates/200-application/kotoba-execution",
     "crates/200-application/kotoba-handler",
+    "crates/200-application/kotoba-rewrite",
+    "crates/200-application/kotoba-routing",
+    "crates/200-application/kotoba-state-graph",
+    "crates/400-language/kotoba-kotobas",
+    "crates/400-language/kotoba-formatter",
+    "crates/500-services/kotoba-server",
+    "crates/900-tools/kotoba-package-manager",
 ]
 resolver = "2"
 

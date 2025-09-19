@@ -11,8 +11,14 @@ documentation = "https://docs.rs/kotoba-state-graph"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Dependencies will be added from the main kotoba crate
-# kotoba-core = { path = "../../" } # This will be tricky, need to figure out deps
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Kotoba dependencies - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }

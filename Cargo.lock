@@ -2299,6 +2299,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-cid"
+version = "0.1.21"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "blake3",
+ "hex",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
 name = "kotoba-cli"
 version = "0.1.21"
 dependencies = [
@@ -2423,6 +2441,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-formatter"
+version = "0.1.22"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "dirs",
+ "futures",
+ "kotoba-core 0.1.21",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-test",
+ "toml",
+]
+
+[[package]]
 name = "kotoba-handler"
 version = "0.1.22"
 dependencies = [
@@ -2538,6 +2575,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-package-manager"
+version = "0.1.22"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "dirs",
+ "flate2",
+ "futures",
+ "hex",
+ "kotoba-cid",
+ "kotoba-core 0.1.21",
+ "parking_lot",
+ "reqwest",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "tokio-test",
+ "toml",
+ "url",
+ "urlencoding",
+ "uuid",
+ "walkdir",
+]
+
+[[package]]
 name = "kotoba-projection-engine"
 version = "0.1.0"
 dependencies = [
@@ -2583,6 +2651,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-rewrite"
+version = "0.1.22"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.2",
+ "kotoba-storage",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "kotoba-routing"
+version = "0.1.16"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "glob",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.2",
+ "kotoba-storage",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "kotoba-routing"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2606,7 +2708,7 @@ dependencies = [
  "js-sys",
  "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-routing",
+ "kotoba-routing 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-server-core",
  "kotoba-server-workflow",
  "kotoba-workflow-core",
@@ -2664,6 +2766,21 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "kotoba-state-graph"
+version = "0.1.16"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "kotoba-core 0.1.21",
+ "kotoba-errors 0.1.2",
+ "kotoba-storage",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
  "tracing",
 ]
 
@@ -3878,6 +3995,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "once_cell",
  "percent-encoding",
@@ -4743,6 +4861,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tar"
+version = "0.4.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d863878d212c87a19c1a610eb53bb01fe12951c0501cf5a0d65f724914a667a"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4952,6 +5081,19 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
+dependencies = [
+ "async-stream",
+ "bytes",
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -6041,6 +6183,16 @@ name = "writeable"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea2f10b9bb0928dfb1b42b65e1f9e36f7f54dbdf08457afefb38afcdec4fa2bb"
+
+[[package]]
+name = "xattr"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af3a19837351dc82ba89f8a125e22a3c475f05aba604acc023d62b2739ae2909"
+dependencies = [
+ "libc",
+ "rustix",
+]
 
 [[package]]
 name = "yoke"
