@@ -361,3 +361,802 @@ pub use rules::*;
 pub use diagnostics::*;
 pub use analyzer::*;
 pub use reporter::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_diagnostic_level_display() {
+        assert_eq!(format!("{}", DiagnosticLevel::Error), "error");
+        assert_eq!(format!("{}", DiagnosticLevel::Warning), "warning");
+        assert_eq!(format!("{}", DiagnosticLevel::Info), "info");
+        assert_eq!(format!("{}", DiagnosticLevel::Hint), "hint");
+    }
+
+    #[test]
+    fn test_diagnostic_level_debug() {
+        let error = DiagnosticLevel::Error;
+        let warning = DiagnosticLevel::Warning;
+        let info = DiagnosticLevel::Info;
+        let hint = DiagnosticLevel::Hint;
+
+        let error_debug = format!("{:?}", error);
+        let warning_debug = format!("{:?}", warning);
+        let info_debug = format!("{:?}", info);
+        let hint_debug = format!("{:?}", hint);
+
+        assert!(error_debug.contains("Error"));
+        assert!(warning_debug.contains("Warning"));
+        assert!(info_debug.contains("Info"));
+        assert!(hint_debug.contains("Hint"));
+    }
+
+    #[test]
+    fn test_diagnostic_level_partial_eq() {
+        assert_eq!(DiagnosticLevel::Error, DiagnosticLevel::Error);
+        assert_ne!(DiagnosticLevel::Error, DiagnosticLevel::Warning);
+        assert_ne!(DiagnosticLevel::Warning, DiagnosticLevel::Info);
+        assert_ne!(DiagnosticLevel::Info, DiagnosticLevel::Hint);
+    }
+
+    #[test]
+    fn test_diagnostic_level_hash() {
+        use std::collections::HashSet;
+
+        let mut levels = HashSet::new();
+        levels.insert(DiagnosticLevel::Error);
+        levels.insert(DiagnosticLevel::Warning);
+        levels.insert(DiagnosticLevel::Info);
+        levels.insert(DiagnosticLevel::Hint);
+
+        assert_eq!(levels.len(), 4);
+
+        // Inserting the same level should not increase the count
+        levels.insert(DiagnosticLevel::Error);
+        assert_eq!(levels.len(), 4);
+    }
+
+    #[test]
+    fn test_diagnostic_creation() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Test error message".to_string(),
+            file_path.clone(),
+            10,
+            5,
+            8,
+        );
+
+        assert_eq!(diagnostic.level, DiagnosticLevel::Error);
+        assert_eq!(diagnostic.code, "E001");
+        assert_eq!(diagnostic.message, "Test error message");
+        assert_eq!(diagnostic.file_path, file_path);
+        assert_eq!(diagnostic.line, 10);
+        assert_eq!(diagnostic.column, 5);
+        assert_eq!(diagnostic.length, 8);
+        assert!(diagnostic.suggestion.is_none());
+        assert!(diagnostic.help.is_none());
+    }
+
+    #[test]
+    fn test_diagnostic_with_suggestion() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Warning,
+            "W001".to_string(),
+            "Test warning".to_string(),
+            file_path,
+            1,
+            1,
+            10,
+        ).with_suggestion("Add semicolon".to_string());
+
+        assert_eq!(diagnostic.level, DiagnosticLevel::Warning);
+        assert_eq!(diagnostic.suggestion, Some("Add semicolon".to_string()));
+    }
+
+    #[test]
+    fn test_diagnostic_with_help() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Info,
+            "I001".to_string(),
+            "Test info".to_string(),
+            file_path,
+            5,
+            3,
+            6,
+        ).with_help("This is additional help information".to_string());
+
+        assert_eq!(diagnostic.level, DiagnosticLevel::Info);
+        assert_eq!(diagnostic.help, Some("This is additional help information".to_string()));
+    }
+
+    #[test]
+    fn test_diagnostic_chaining() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Hint,
+            "H001".to_string(),
+            "Test hint".to_string(),
+            file_path,
+            2,
+            8,
+            4,
+        ).with_suggestion("Consider using const".to_string())
+         .with_help("This improves performance".to_string());
+
+        assert_eq!(diagnostic.level, DiagnosticLevel::Hint);
+        assert_eq!(diagnostic.suggestion, Some("Consider using const".to_string()));
+        assert_eq!(diagnostic.help, Some("This improves performance".to_string()));
+    }
+
+    #[test]
+    fn test_diagnostic_debug() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Test error".to_string(),
+            file_path,
+            1,
+            1,
+            5,
+        );
+
+        let debug_str = format!("{:?}", diagnostic);
+        assert!(debug_str.contains("Diagnostic"));
+        assert!(debug_str.contains("E001"));
+        assert!(debug_str.contains("Test error"));
+    }
+
+    #[test]
+    fn test_diagnostic_clone() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let original = Diagnostic::new(
+            DiagnosticLevel::Warning,
+            "W001".to_string(),
+            "Original warning".to_string(),
+            file_path,
+            3,
+            2,
+            7,
+        ).with_suggestion("Fix this".to_string());
+
+        let cloned = original.clone();
+
+        assert_eq!(original.level, cloned.level);
+        assert_eq!(original.code, cloned.code);
+        assert_eq!(original.message, cloned.message);
+        assert_eq!(original.file_path, cloned.file_path);
+        assert_eq!(original.line, cloned.line);
+        assert_eq!(original.column, cloned.column);
+        assert_eq!(original.length, cloned.length);
+        assert_eq!(original.suggestion, cloned.suggestion);
+        assert_eq!(original.help, cloned.help);
+    }
+
+    #[test]
+    fn test_diagnostic_serialization() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Serialization test".to_string(),
+            file_path,
+            1,
+            1,
+            10,
+        ).with_suggestion("Fix it".to_string())
+         .with_help("Help text".to_string());
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&diagnostic);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("E001"));
+        assert!(json_str.contains("Serialization test"));
+        assert!(json_str.contains("Fix it"));
+        assert!(json_str.contains("Help text"));
+
+        // Test JSON deserialization
+        let deserialized_result: serde_json::Result<Diagnostic> = serde_json::from_str(&json_str);
+        assert!(deserialized_result.is_ok());
+
+        let deserialized = deserialized_result.unwrap();
+        assert_eq!(deserialized.level, DiagnosticLevel::Error);
+        assert_eq!(deserialized.code, "E001");
+        assert_eq!(deserialized.message, "Serialization test");
+        assert_eq!(deserialized.line, 1);
+        assert_eq!(deserialized.column, 1);
+        assert_eq!(deserialized.length, 10);
+        assert_eq!(deserialized.suggestion, Some("Fix it".to_string()));
+        assert_eq!(deserialized.help, Some("Help text".to_string()));
+    }
+
+    #[test]
+    fn test_linter_config_creation() {
+        let mut rule_config = HashMap::new();
+        rule_config.insert("max-complexity".to_string(), serde_json::json!(10));
+
+        let config = LinterConfig {
+            enabled_rules: vec!["no-unused-vars".to_string(), "no-shadowing".to_string()],
+            disabled_rules: vec!["trailing-whitespace".to_string()],
+            rule_config,
+            exclude_patterns: vec!["*.tmp".to_string(), "*.bak".to_string()],
+            output_format: OutputFormat::Json,
+        };
+
+        assert_eq!(config.enabled_rules.len(), 2);
+        assert_eq!(config.disabled_rules.len(), 1);
+        assert_eq!(config.exclude_patterns.len(), 2);
+        assert!(matches!(config.output_format, OutputFormat::Json));
+        assert_eq!(config.rule_config.get("max-complexity"), Some(&serde_json::json!(10)));
+    }
+
+    #[test]
+    fn test_linter_config_default() {
+        let config = LinterConfig::default();
+
+        assert!(!config.enabled_rules.is_empty());
+        assert!(config.disabled_rules.is_empty());
+        assert!(config.rule_config.is_empty());
+        assert!(!config.exclude_patterns.is_empty());
+        assert!(matches!(config.output_format, OutputFormat::Pretty));
+
+        // Check default enabled rules
+        assert!(config.enabled_rules.contains(&"no-unused-vars".to_string()));
+        assert!(config.enabled_rules.contains(&"no-shadowing".to_string()));
+        assert!(config.enabled_rules.contains(&"consistent-indentation".to_string()));
+
+        // Check default exclude patterns
+        assert!(config.exclude_patterns.contains(&"node_modules".to_string()));
+        assert!(config.exclude_patterns.contains(&".git".to_string()));
+        assert!(config.exclude_patterns.contains(&"target".to_string()));
+    }
+
+    #[test]
+    fn test_linter_config_clone() {
+        let original = LinterConfig::default();
+        let cloned = original.clone();
+
+        assert_eq!(original.enabled_rules, cloned.enabled_rules);
+        assert_eq!(original.disabled_rules, cloned.disabled_rules);
+        assert_eq!(original.exclude_patterns, cloned.exclude_patterns);
+        assert_eq!(original.output_format, cloned.output_format);
+    }
+
+    #[test]
+    fn test_linter_config_debug() {
+        let config = LinterConfig::default();
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("LinterConfig"));
+        assert!(debug_str.contains("Pretty"));
+    }
+
+    #[test]
+    fn test_linter_config_serialization() {
+        let mut rule_config = HashMap::new();
+        rule_config.insert("complexity-threshold".to_string(), serde_json::json!(15));
+
+        let config = LinterConfig {
+            enabled_rules: vec!["test-rule".to_string()],
+            disabled_rules: vec!["disabled-rule".to_string()],
+            rule_config,
+            exclude_patterns: vec!["*.log".to_string()],
+            output_format: OutputFormat::Compact,
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&config);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("test-rule"));
+        assert!(json_str.contains("disabled-rule"));
+        assert!(json_str.contains("Compact"));
+        assert!(json_str.contains("15"));
+
+        // Test JSON deserialization
+        let deserialized_result: serde_json::Result<LinterConfig> = serde_json::from_str(&json_str);
+        assert!(deserialized_result.is_ok());
+
+        let deserialized = deserialized_result.unwrap();
+        assert_eq!(deserialized.enabled_rules, vec!["test-rule".to_string()]);
+        assert_eq!(deserialized.disabled_rules, vec!["disabled-rule".to_string()]);
+        assert_eq!(deserialized.exclude_patterns, vec!["*.log".to_string()]);
+        assert!(matches!(deserialized.output_format, OutputFormat::Compact));
+    }
+
+    #[test]
+    fn test_output_format_enum() {
+        let pretty = OutputFormat::Pretty;
+        let json = OutputFormat::Json;
+        let compact = OutputFormat::Compact;
+
+        assert!(matches!(pretty, OutputFormat::Pretty));
+        assert!(matches!(json, OutputFormat::Json));
+        assert!(matches!(compact, OutputFormat::Compact));
+
+        let pretty_debug = format!("{:?}", pretty);
+        let json_debug = format!("{:?}", json);
+        let compact_debug = format!("{:?}", compact);
+
+        assert!(pretty_debug.contains("Pretty"));
+        assert!(json_debug.contains("Json"));
+        assert!(compact_debug.contains("Compact"));
+    }
+
+    #[test]
+    fn test_output_format_partial_eq() {
+        assert_eq!(OutputFormat::Pretty, OutputFormat::Pretty);
+        assert_ne!(OutputFormat::Pretty, OutputFormat::Json);
+        assert_ne!(OutputFormat::Json, OutputFormat::Compact);
+    }
+
+    #[test]
+    fn test_output_format_serialization() {
+        // Test Pretty
+        let pretty_json = serde_json::to_string(&OutputFormat::Pretty).unwrap();
+        assert_eq!(pretty_json, "\"Pretty\"");
+
+        let pretty: OutputFormat = serde_json::from_str("\"Pretty\"").unwrap();
+        assert!(matches!(pretty, OutputFormat::Pretty));
+
+        // Test Json
+        let json_json = serde_json::to_string(&OutputFormat::Json).unwrap();
+        assert_eq!(json_json, "\"Json\"");
+
+        let json_format: OutputFormat = serde_json::from_str("\"Json\"").unwrap();
+        assert!(matches!(json_format, OutputFormat::Json));
+
+        // Test Compact
+        let compact_json = serde_json::to_string(&OutputFormat::Compact).unwrap();
+        assert_eq!(compact_json, "\"Compact\"");
+
+        let compact: OutputFormat = serde_json::from_str("\"Compact\"").unwrap();
+        assert!(matches!(compact, OutputFormat::Compact));
+    }
+
+    #[test]
+    fn test_lint_result_creation() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let result = LintResult::new(file_path.clone());
+
+        assert_eq!(result.file_path, file_path);
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.error_count, 0);
+        assert_eq!(result.warning_count, 0);
+        assert_eq!(result.duration_ms, 0);
+    }
+
+    #[test]
+    fn test_lint_result_add_diagnostic() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut result = LintResult::new(file_path.clone());
+
+        // Add error diagnostic
+        let error_diag = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Error message".to_string(),
+            file_path.clone(),
+            1,
+            1,
+            5,
+        );
+        result.add_diagnostic(error_diag);
+
+        // Add warning diagnostic
+        let warning_diag = Diagnostic::new(
+            DiagnosticLevel::Warning,
+            "W001".to_string(),
+            "Warning message".to_string(),
+            file_path.clone(),
+            2,
+            1,
+            8,
+        );
+        result.add_diagnostic(warning_diag);
+
+        // Add info diagnostic (should not affect counts)
+        let info_diag = Diagnostic::new(
+            DiagnosticLevel::Info,
+            "I001".to_string(),
+            "Info message".to_string(),
+            file_path,
+            3,
+            1,
+            6,
+        );
+        result.add_diagnostic(info_diag);
+
+        assert_eq!(result.diagnostics.len(), 3);
+        assert_eq!(result.error_count, 1);
+        assert_eq!(result.warning_count, 1);
+        assert!(result.has_diagnostics());
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn test_lint_result_has_diagnostics() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut result = LintResult::new(file_path.clone());
+
+        assert!(!result.has_diagnostics());
+
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Info,
+            "I001".to_string(),
+            "Test".to_string(),
+            file_path,
+            1,
+            1,
+            4,
+        );
+        result.add_diagnostic(diagnostic);
+
+        assert!(result.has_diagnostics());
+    }
+
+    #[test]
+    fn test_lint_result_has_errors() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut result = LintResult::new(file_path.clone());
+
+        // Add warning (not error)
+        let warning_diag = Diagnostic::new(
+            DiagnosticLevel::Warning,
+            "W001".to_string(),
+            "Warning".to_string(),
+            file_path.clone(),
+            1,
+            1,
+            5,
+        );
+        result.add_diagnostic(warning_diag);
+
+        assert!(!result.has_errors());
+
+        // Add error
+        let error_diag = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Error".to_string(),
+            file_path,
+            2,
+            1,
+            5,
+        );
+        result.add_diagnostic(error_diag);
+
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn test_lint_result_debug() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let result = LintResult::new(file_path);
+
+        let debug_str = format!("{:?}", result);
+        assert!(debug_str.contains("LintResult"));
+        assert!(debug_str.contains("0"));
+    }
+
+    #[test]
+    fn test_lint_result_clone() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut original = LintResult::new(file_path.clone());
+        original.duration_ms = 100;
+
+        let cloned = original.clone();
+
+        assert_eq!(original.file_path, cloned.file_path);
+        assert_eq!(original.diagnostics, cloned.diagnostics);
+        assert_eq!(original.error_count, cloned.error_count);
+        assert_eq!(original.warning_count, cloned.warning_count);
+        assert_eq!(original.duration_ms, cloned.duration_ms);
+    }
+
+    #[test]
+    fn test_lint_result_serialization() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut result = LintResult::new(file_path.clone());
+        result.duration_ms = 500;
+
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Test error".to_string(),
+            file_path,
+            1,
+            1,
+            10,
+        );
+        result.add_diagnostic(diagnostic);
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&result);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("500"));
+        assert!(json_str.contains("1"));
+        assert!(json_str.contains("1"));
+        assert!(json_str.contains("E001"));
+
+        // Test JSON deserialization
+        let deserialized_result: serde_json::Result<LintResult> = serde_json::from_str(&json_str);
+        assert!(deserialized_result.is_ok());
+
+        let deserialized = deserialized_result.unwrap();
+        assert_eq!(deserialized.duration_ms, 500);
+        assert_eq!(deserialized.error_count, 1);
+        assert_eq!(deserialized.warning_count, 0);
+        assert_eq!(deserialized.diagnostics.len(), 1);
+    }
+
+    #[test]
+    fn test_linter_creation() {
+        let config = LinterConfig::default();
+        let linter = Linter::new(config.clone());
+
+        assert_eq!(linter.config.enabled_rules, config.enabled_rules);
+        // Should have created rules for enabled rule names
+        assert!(!linter.rules.is_empty());
+    }
+
+    #[test]
+    fn test_linter_default() {
+        let linter = Linter::default();
+
+        assert!(!linter.rules.is_empty());
+        // Should have default configuration
+        assert!(!linter.config.enabled_rules.is_empty());
+    }
+
+    #[test]
+    fn test_linter_debug() {
+        let linter = Linter::default();
+        let debug_str = format!("{:?}", linter);
+        assert!(debug_str.contains("Linter"));
+    }
+
+    #[test]
+    fn test_create_rule_known_rules() {
+        let config = LinterConfig::default();
+
+        // Test creating known rules
+        let no_unused_vars = Linter::create_rule("no-unused-vars", &config);
+        assert!(no_unused_vars.is_some());
+
+        let no_shadowing = Linter::create_rule("no-shadowing", &config);
+        assert!(no_shadowing.is_some());
+
+        let consistent_indentation = Linter::create_rule("consistent-indentation", &config);
+        assert!(consistent_indentation.is_some());
+
+        let trailing_whitespace = Linter::create_rule("trailing-whitespace", &config);
+        assert!(trailing_whitespace.is_some());
+
+        let missing_semicolons = Linter::create_rule("missing-semicolons", &config);
+        assert!(missing_semicolons.is_some());
+
+        let naming_convention = Linter::create_rule("naming-convention", &config);
+        assert!(naming_convention.is_some());
+
+        let complexity = Linter::create_rule("complexity", &config);
+        assert!(complexity.is_some());
+    }
+
+    #[test]
+    fn test_create_rule_unknown_rule() {
+        let config = LinterConfig::default();
+
+        // Test creating unknown rule
+        let unknown = Linter::create_rule("unknown-rule", &config);
+        assert!(unknown.is_none());
+    }
+
+    #[test]
+    fn test_create_rule_with_config() {
+        let mut config = LinterConfig::default();
+        let mut rule_config = HashMap::new();
+        rule_config.insert("threshold".to_string(), serde_json::json!(20));
+        config.rule_config.insert("complexity".to_string(), serde_json::json!(rule_config));
+
+        let rule = Linter::create_rule("complexity", &config);
+        assert!(rule.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_lint_files_empty_list() {
+        let result = lint_files(vec![]).await;
+        assert!(result.is_ok());
+
+        let results = result.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_find_kotoba_files_empty_directory() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dir_path = temp_dir.path().to_path_buf();
+        let mut files = Vec::new();
+
+        let result = find_kotoba_files(dir_path, &mut files).await;
+        assert!(result.is_ok());
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_print_stats_empty_results() {
+        let results: Vec<LintResult> = vec![];
+        // This should not panic
+        print_stats(&results);
+    }
+
+    #[test]
+    fn test_print_stats_with_results() {
+        let file_path1 = PathBuf::from("/tmp/file1.kotoba");
+        let file_path2 = PathBuf::from("/tmp/file2.kotoba");
+
+        let mut result1 = LintResult::new(file_path1);
+        let mut result2 = LintResult::new(file_path2);
+
+        // Add diagnostics to result1
+        let error_diag = Diagnostic::new(
+            DiagnosticLevel::Error,
+            "E001".to_string(),
+            "Error".to_string(),
+            result1.file_path.clone(),
+            1,
+            1,
+            5,
+        );
+        result1.add_diagnostic(error_diag);
+
+        let warning_diag = Diagnostic::new(
+            DiagnosticLevel::Warning,
+            "W001".to_string(),
+            "Warning".to_string(),
+            result1.file_path.clone(),
+            2,
+            1,
+            5,
+        );
+        result1.add_diagnostic(warning_diag);
+
+        // result2 has no diagnostics
+
+        let results = vec![result1, result2];
+
+        // This should not panic
+        print_stats(&results);
+    }
+
+    #[test]
+    fn test_diagnostic_level_copy() {
+        let error = DiagnosticLevel::Error;
+        let copied = error;
+
+        assert_eq!(error, copied);
+        assert!(matches!(copied, DiagnosticLevel::Error));
+    }
+
+    #[test]
+    fn test_output_format_copy() {
+        let pretty = OutputFormat::Pretty;
+        let copied = pretty;
+
+        assert_eq!(pretty, copied);
+        assert!(matches!(copied, OutputFormat::Pretty));
+    }
+
+    #[test]
+    fn test_linter_config_empty_rules() {
+        let config = LinterConfig {
+            enabled_rules: vec![],
+            disabled_rules: vec![],
+            rule_config: HashMap::new(),
+            exclude_patterns: vec![],
+            output_format: OutputFormat::Pretty,
+        };
+
+        let linter = Linter::new(config);
+        assert!(linter.rules.is_empty());
+    }
+
+    #[test]
+    fn test_lint_result_with_duration() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut result = LintResult::new(file_path);
+        result.duration_ms = 1500;
+
+        assert_eq!(result.duration_ms, 1500);
+    }
+
+    #[test]
+    fn test_diagnostic_edge_cases() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+
+        // Test with line 0 (should be allowed)
+        let diagnostic = Diagnostic::new(
+            DiagnosticLevel::Info,
+            "I001".to_string(),
+            "Line 0".to_string(),
+            file_path.clone(),
+            0,
+            0,
+            0,
+        );
+
+        assert_eq!(diagnostic.line, 0);
+        assert_eq!(diagnostic.column, 0);
+        assert_eq!(diagnostic.length, 0);
+
+        // Test with very long message
+        let long_message = "a".repeat(1000);
+        let diagnostic2 = Diagnostic::new(
+            DiagnosticLevel::Hint,
+            "H001".to_string(),
+            long_message.clone(),
+            file_path,
+            1,
+            1,
+            10,
+        );
+
+        assert_eq!(diagnostic2.message, long_message);
+    }
+
+    #[test]
+    fn test_linter_config_edge_cases() {
+        // Test with many rules
+        let enabled_rules = (0..100).map(|i| format!("rule-{}", i)).collect::<Vec<_>>();
+        let config = LinterConfig {
+            enabled_rules,
+            disabled_rules: vec![],
+            rule_config: HashMap::new(),
+            exclude_patterns: vec![],
+            output_format: OutputFormat::Json,
+        };
+
+        let linter = Linter::new(config);
+        assert_eq!(linter.rules.len(), 100); // Should have 100 rules (though most will be None)
+    }
+
+    #[test]
+    fn test_lint_result_max_values() {
+        let file_path = PathBuf::from("/tmp/test.kotoba");
+        let mut result = LintResult::new(file_path);
+
+        // Test with maximum duration
+        result.duration_ms = u64::MAX;
+        assert_eq!(result.duration_ms, u64::MAX);
+
+        // Test with many diagnostics
+        for i in 0..1000 {
+            let diagnostic = Diagnostic::new(
+                if i % 2 == 0 { DiagnosticLevel::Error } else { DiagnosticLevel::Warning },
+                format!("CODE{}", i),
+                format!("Message {}", i),
+                result.file_path.clone(),
+                i + 1,
+                1,
+                10,
+            );
+            result.add_diagnostic(diagnostic);
+        }
+
+        assert_eq!(result.diagnostics.len(), 1000);
+        assert_eq!(result.error_count, 500); // Half are errors
+        assert_eq!(result.warning_count, 500); // Half are warnings
+    }
+}

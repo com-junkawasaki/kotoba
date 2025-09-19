@@ -257,4 +257,285 @@ mod tests {
         assert_eq!(failure_result.output, Some("error".to_string()));
         assert_eq!(failure_result.execution_time_ms, 50);
     }
+
+    #[test]
+    fn test_repl_config_creation() {
+        let config = ReplConfig {
+            timeout: 60,
+            max_history: 500,
+            syntax_highlighting: false,
+            auto_completion: false,
+            show_line_numbers: true,
+        };
+
+        assert_eq!(config.timeout, 60);
+        assert_eq!(config.max_history, 500);
+        assert!(!config.syntax_highlighting);
+        assert!(!config.auto_completion);
+        assert!(config.show_line_numbers);
+    }
+
+    #[test]
+    fn test_repl_config_clone() {
+        let original = ReplConfig::default();
+        let cloned = original.clone();
+
+        assert_eq!(original.timeout, cloned.timeout);
+        assert_eq!(original.max_history, cloned.max_history);
+        assert_eq!(original.syntax_highlighting, cloned.syntax_highlighting);
+        assert_eq!(original.auto_completion, cloned.auto_completion);
+        assert_eq!(original.show_line_numbers, cloned.show_line_numbers);
+    }
+
+    #[test]
+    fn test_repl_config_debug() {
+        let config = ReplConfig::default();
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("ReplConfig"));
+        assert!(debug_str.contains("30"));
+        assert!(debug_str.contains("1000"));
+    }
+
+    #[test]
+    fn test_repl_config_serialization() {
+        let config = ReplConfig {
+            timeout: 45,
+            max_history: 2000,
+            syntax_highlighting: true,
+            auto_completion: false,
+            show_line_numbers: true,
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&config);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("45"));
+        assert!(json_str.contains("2000"));
+        assert!(json_str.contains("true"));
+        assert!(json_str.contains("false"));
+
+        // Test JSON deserialization
+        let deserialized_result: serde_json::Result<ReplConfig> = serde_json::from_str(&json_str);
+        assert!(deserialized_result.is_ok());
+
+        let deserialized = deserialized_result.unwrap();
+        assert_eq!(deserialized.timeout, 45);
+        assert_eq!(deserialized.max_history, 2000);
+        assert!(deserialized.syntax_highlighting);
+        assert!(!deserialized.auto_completion);
+        assert!(deserialized.show_line_numbers);
+    }
+
+    #[test]
+    fn test_repl_session_info_creation() {
+        let start_time = std::time::Instant::now();
+        let info = ReplSessionInfo {
+            command_count: 10,
+            variable_count: 5,
+            start_time,
+        };
+
+        assert_eq!(info.command_count, 10);
+        assert_eq!(info.variable_count, 5);
+    }
+
+    #[test]
+    fn test_repl_session_info_debug() {
+        let info = ReplSessionInfo {
+            command_count: 25,
+            variable_count: 8,
+            start_time: std::time::Instant::now(),
+        };
+
+        let debug_str = format!("{:?}", info);
+        assert!(debug_str.contains("ReplSessionInfo"));
+        assert!(debug_str.contains("25"));
+        assert!(debug_str.contains("8"));
+    }
+
+    #[test]
+    fn test_command_result_creation() {
+        let result = CommandResult {
+            success: true,
+            output: Some("test output".to_string()),
+            execution_time_ms: 200,
+        };
+
+        assert!(result.is_success());
+        assert_eq!(result.output, Some("test output".to_string()));
+        assert_eq!(result.execution_time_ms, 200);
+    }
+
+    #[test]
+    fn test_command_result_debug() {
+        let result = CommandResult::success("debug test".to_string(), 100);
+        let debug_str = format!("{:?}", result);
+        assert!(debug_str.contains("CommandResult"));
+        assert!(debug_str.contains("debug test"));
+        assert!(debug_str.contains("100"));
+    }
+
+    #[test]
+    fn test_command_result_clone() {
+        let original = CommandResult::failure("clone test".to_string(), 50);
+        let cloned = original.clone();
+
+        assert_eq!(original.success, cloned.success);
+        assert_eq!(original.output, cloned.output);
+        assert_eq!(original.execution_time_ms, cloned.execution_time_ms);
+    }
+
+    #[test]
+    fn test_repl_session_creation() {
+        let config = ReplConfig::default();
+        let session = ReplSession::new(config.clone());
+
+        assert_eq!(session.config.timeout, config.timeout);
+        assert_eq!(session.command_count, 0);
+        assert!(session.variables.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_get_info() {
+        let config = ReplConfig::default();
+        let session = ReplSession::new(config);
+
+        let info = session.get_info();
+        assert_eq!(info.command_count, 0);
+        assert_eq!(info.variable_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_clear_command() {
+        let config = ReplConfig::default();
+        let mut session = ReplSession::new(config);
+
+        // Add some variables
+        session.variables.insert("test".to_string(), "value".to_string());
+        assert_eq!(session.variables.len(), 1);
+
+        let result = session.execute(".clear").await.unwrap();
+        assert!(result.is_success());
+        assert!(result.output.is_some());
+        assert!(result.output.unwrap().contains("All variables cleared"));
+        assert_eq!(session.variables.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_let_command_valid() {
+        let config = ReplConfig::default();
+        let mut session = ReplSession::new(config);
+
+        let result = session.execute("let x = 42").await.unwrap();
+        assert!(result.is_success());
+        assert!(result.output.is_some());
+        assert!(result.output.unwrap().contains("Variable 'x' set to '42'"));
+        assert_eq!(session.variables.get("x"), Some(&"42".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_let_command_invalid_syntax() {
+        let config = ReplConfig::default();
+        let mut session = ReplSession::new(config);
+
+        let result = session.execute("let invalid").await.unwrap();
+        assert!(!result.is_success());
+        assert!(result.output.is_some());
+        assert!(result.output.unwrap().contains("Invalid variable assignment syntax"));
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_unknown_command() {
+        let config = ReplConfig::default();
+        let mut session = ReplSession::new(config);
+
+        let result = session.execute("unknown_command").await.unwrap();
+        assert!(result.is_success());
+        assert!(result.output.is_some());
+        assert!(result.output.unwrap().contains("Executed: unknown_command"));
+        assert!(result.output.unwrap().contains("evaluation not implemented yet"));
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_command_count_increment() {
+        let config = ReplConfig::default();
+        let mut session = ReplSession::new(config);
+
+        assert_eq!(session.get_info().command_count, 0);
+
+        session.execute("let x = 1").await.unwrap();
+        assert_eq!(session.get_info().command_count, 1);
+
+        session.execute("let y = 2").await.unwrap();
+        assert_eq!(session.get_info().command_count, 2);
+
+        session.execute(".help").await.unwrap();
+        assert_eq!(session.get_info().command_count, 3);
+    }
+
+    #[tokio::test]
+    async fn test_repl_session_variable_overwrite() {
+        let config = ReplConfig::default();
+        let mut session = ReplSession::new(config);
+
+        // Set initial value
+        session.execute("let x = 1").await.unwrap();
+        assert_eq!(session.variables.get("x"), Some(&"1".to_string()));
+
+        // Overwrite value
+        session.execute("let x = 2").await.unwrap();
+        assert_eq!(session.variables.get("x"), Some(&"2".to_string()));
+    }
+
+    #[test]
+    fn test_repl_session_debug() {
+        let config = ReplConfig::default();
+        let session = ReplSession::new(config);
+
+        let debug_str = format!("{:?}", session);
+        assert!(debug_str.contains("ReplSession"));
+    }
+
+    #[test]
+    fn test_repl_config_edge_cases() {
+        // Test with zero values
+        let config1 = ReplConfig {
+            timeout: 0,
+            max_history: 0,
+            syntax_highlighting: false,
+            auto_completion: false,
+            show_line_numbers: false,
+        };
+
+        assert_eq!(config1.timeout, 0);
+        assert_eq!(config1.max_history, 0);
+
+        // Test with very large values
+        let config2 = ReplConfig {
+            timeout: u64::MAX,
+            max_history: usize::MAX,
+            syntax_highlighting: true,
+            auto_completion: true,
+            show_line_numbers: true,
+        };
+
+        assert_eq!(config2.timeout, u64::MAX);
+        assert_eq!(config2.max_history, usize::MAX);
+    }
+
+    #[test]
+    fn test_command_result_edge_cases() {
+        // Test with empty output
+        let result1 = CommandResult::success("".to_string(), 0);
+        assert!(result1.is_success());
+        assert_eq!(result1.output, Some("".to_string()));
+        assert_eq!(result1.execution_time_ms, 0);
+
+        // Test with very large execution time
+        let result2 = CommandResult::success("done".to_string(), u64::MAX);
+        assert!(result2.is_success());
+        assert_eq!(result2.execution_time_ms, u64::MAX);
+    }
 }

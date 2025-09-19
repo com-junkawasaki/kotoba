@@ -12,14 +12,14 @@ documentation = "https://docs.rs/kotoba-memory"
 
 [dependencies]
 # KotobaDB core crates - Storage layer
-kotoba-storage = { path = "../kotoba-storage", version = "0.1.21" }
-kotoba-graphdb = { path = "../kotoba-graphdb", version = "0.1.21" }
+kotoba-storage = "0.1.21"
+kotoba-graphdb = "0.1.21"
 
 # Profiling integration - temporarily disabled
 # kotoba-profiler = { path = "../../500-services/kotoba-profiler", version = "0.1.21" }
 
 # Redis integration for hybrid storage
-kotoba-storage-redis = { path = "../kotoba-storage-redis", version = "0.1.21", optional = true }
+# kotoba-storage-redis = { path = "../kotoba-storage-redis", version = "0.1.21", optional = true }
 
 # Memory management
 tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
