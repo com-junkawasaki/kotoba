@@ -34,9 +34,9 @@ tonic-build = "0.9"
 
 [features]
 default = []
-full = ["kotoba-db"]
+# full = ["kotoba-db"]
 
-[[bin]]
-name = "kotoba-cluster"
-path = "src/bin/main.rs"
-required-features = ["full"]
+# [[bin]]
+# name = "kotoba-cluster"
+# path = "src/bin/main.rs"
+# required-features = ["full"]
