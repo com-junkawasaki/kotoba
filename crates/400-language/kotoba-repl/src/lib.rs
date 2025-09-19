@@ -79,6 +79,7 @@ impl CommandResult {
 
 /// REPL session
 pub struct ReplSession {
+    #[allow(dead_code)]
     config: ReplConfig,
     variables: HashMap<String, String>,
     command_count: usize,

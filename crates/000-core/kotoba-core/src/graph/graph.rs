@@ -384,7 +384,7 @@ fn generate_cid(data: &str) -> Cid {
 }
 
 /// serde_json::ValueをValueに変換するヘルパー
-fn serde_json_value_to_value(json_value: &serde_json::Value) -> Value {
+pub fn serde_json_value_to_value(json_value: &serde_json::Value) -> Value {
     match json_value {
         serde_json::Value::Null => Value::Null,
         serde_json::Value::Bool(b) => Value::Bool(*b),
@@ -410,7 +410,7 @@ fn serde_json_value_to_value(json_value: &serde_json::Value) -> Value {
     }
 }
 
-fn value_to_json_value(value: &Value) -> serde_json::Value {
+pub fn value_to_json_value(value: &Value) -> serde_json::Value {
     match value {
         Value::Null => serde_json::Value::Null,
         Value::Bool(b) => serde_json::json!(b),

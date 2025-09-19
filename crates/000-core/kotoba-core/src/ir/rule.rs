@@ -38,9 +38,9 @@ pub struct GraphPattern {
     pub edges: Vec<EdgeDef>,
 }
 
-/// 負の条件（NAC: Negative Application Condition）
+/// 負の条件（NAC: Negative Application Condition）- ルール用
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Nac {
+pub struct RuleNac {
     pub nodes: Vec<GraphElement>,
     pub edges: Vec<EdgeDef>,
 }
