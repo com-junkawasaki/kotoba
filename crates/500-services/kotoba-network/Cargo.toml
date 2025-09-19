@@ -30,6 +30,9 @@ tracing = "0.1"
 thiserror = "2.0"
 anyhow = "1.0"
 
+# SHA256 for CID generation
+sha2 = "0.10"
+
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
 tokio-test = "0.4"

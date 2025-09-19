@@ -22,6 +22,11 @@ impl TcpConnectionManager {
         }
     }
 
+    /// リッスンアドレスを取得
+    pub fn listen_addr(&self) -> &str {
+        &self.listen_addr
+    }
+
     /// 接続を開始
     pub async fn start(&mut self) -> kotoba_core::types::Result<()> {
         let listener = TcpListener::bind(&self.listen_addr).await

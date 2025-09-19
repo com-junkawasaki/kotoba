@@ -1,6 +1,17 @@
 //! NetworkMessage と関連構造体の実装
 
 use super::*;
+use sha2::{Sha256, Digest};
+
+/// CIDを生成するヘルパー関数
+fn generate_cid(data: &str) -> Cid {
+    let mut hasher = Sha256::new();
+    hasher.update(data.as_bytes());
+    let result = hasher.finalize();
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(&result[..32]);
+    Cid(bytes)
+}
 
 /// ネットワークマネージャー
 #[derive(Debug)]
@@ -51,6 +62,13 @@ pub struct MessageHandler {
     network_manager: std::sync::Arc<tokio::sync::Mutex<NetworkManager>>,
     /// 分散実行エンジン
     distributed_engine: std::sync::Arc<DistributedEngine>,
+}
+
+impl MessageHandler {
+    /// ネットワークマネージャーを取得
+    pub fn network_manager(&self) -> std::sync::Arc<tokio::sync::Mutex<NetworkManager>> {
+        self.network_manager.clone()
+    }
 }
 
 impl NetworkManager {
@@ -161,8 +179,8 @@ impl MessageHandler {
                         boundary: None,
                         attrs: None,
                     },
-                    kind: GraphKind::Instance,
-                    cid: Cid::new("result"),
+                    kind: GraphKind::Graph,
+                    cid: generate_cid("result"),
                     typing: None,
                 })
             }
@@ -174,8 +192,8 @@ impl MessageHandler {
                         boundary: None,
                         attrs: None,
                     },
-                    kind: GraphKind::Instance,
-                    cid: Cid::new("query_result"),
+                    kind: GraphKind::Graph,
+                    cid: generate_cid("query_result"),
                     typing: None,
                 })
             }

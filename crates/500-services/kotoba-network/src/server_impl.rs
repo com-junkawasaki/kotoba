@@ -36,7 +36,7 @@ impl NetworkServer {
 
     /// サーバーを起動
     pub async fn run(&mut self) -> kotoba_core::types::Result<()> {
-        println!("Network server started on {}", self.connection_manager.listen_addr);
+        println!("Network server started on {}", self.connection_manager.listen_addr());
 
         loop {
             match self.listener.accept().await {
@@ -44,7 +44,7 @@ impl NetworkServer {
                     println!("Accepted connection from {}", addr);
 
                     // 新しい接続を処理
-                    let handler = self.message_handler.network_manager.clone();
+                    let handler = self.message_handler.network_manager();
 
                     tokio::spawn(async move {
                         let mut buffer = [0u8; 1024];

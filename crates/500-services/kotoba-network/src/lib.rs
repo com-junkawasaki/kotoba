@@ -3,7 +3,7 @@
 //! このモジュールは、分散実行におけるノード間通信を担当します。
 
 use kotoba_core::prelude::*;
-use kotoba_distributed::*;
+// use kotoba_distributed::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::{mpsc, oneshot};
