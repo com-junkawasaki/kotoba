@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-handler"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Unified Web Handler for Kotoba ecosystem - integrates server, CLI, and WASM execution"
 keywords = ["handler", "web", "http", "wasm", "server", "cli", "integration"]
 categories = ["web-programming", "api-bindings", "wasm"]
@@ -13,15 +13,15 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem - Port layer
-kotoba-storage = { path = "../../100-storage/kotoba-storage" }
-kotoba-core = { path = "../../000-core/kotoba-core" }
-kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-storage = "0.1.22"
+kotoba-core = "0.1.21"
+kotoba-errors = "0.1.2"
 
 # Application layer dependencies (optional for integration)
-kotoba-server = { path = "../../500-services/kotoba-server", version = "0.1.15", optional = true }
-kotoba-cli = { path = "../../900-tools/kotoba-cli", version = "0.1.1", optional = true }
-kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.15", optional = true }
-kotoba2tsx = { path = "../../400-language/kotoba2tsx", version = "0.1.15", optional = true }
+# kotoba-server = { path = "../../500-services/kotoba-server", version = "0.1.15", optional = true }
+# kotoba-cli = { path = "../../900-tools/kotoba-cli", version = "0.1.1", optional = true }
+# kotoba-kotobas = { path = "../../400-language/kotoba-kotobas", version = "0.1.15", optional = true }
+# kotoba2tsx = { path = "../../400-language/kotoba2tsx", version = "0.1.15", optional = true }
 # Jsonnet support removed - using kotobas only
 
 # Async runtime
@@ -68,7 +68,7 @@ anyhow = "1.0"
 
 # Logging
 tracing = "0.1"
-uuid = { workspace = true, features = ["v4"] }
+uuid = { version = "1.18", features = ["v4"] }
 
 # Template engines
 tera = { version = "1.19", optional = true }
@@ -91,7 +91,7 @@ base64 = { version = "0.21", optional = true }
 url = { version = "2.4", optional = true }
 chrono = { version = "0.4", features = ["serde"], optional = true }
 urlencoding = "2.1.3"
-rand.workspace = true
+rand = "0.8"
 
 [features]
 default = ["server"]
