@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-jsonnet"
-version = "0.1.17"
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Kotoba-specific Jsonnet implementation compatible with Jsonnet 0.21.0"
 keywords = ["jsonnet", "template", "configuration", "json", "yaml"]
 
@@ -14,11 +14,11 @@ serde_yaml = { version = "0.9", optional = true }
 thiserror = "2.0"
 anyhow = "1.0"
 regex = "1.10"
-uuid = { workspace = true, features = ["v4"] }
+uuid = { version = "1.18", features = ["v4"] }
 parking_lot = "0.12"
-hex = { workspace = true }
+hex = "0.4"
 sha1 = "0.10"
-sha2 = { workspace = true }
+sha2 = "0.10"
 sha3 = "0.10"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
