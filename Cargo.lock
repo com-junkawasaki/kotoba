@@ -5026,9 +5026,9 @@ dependencies = [
  "dashmap 5.5.3",
  "futures",
  "itertools 0.12.1",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-ocel",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-ocel 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics 0.23.1",
  "regex",
  "rocksdb",
@@ -5243,6 +5243,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-ocel"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebd2a03c47369560a5ebc423233dc18618ac125718d652b70e3faee4f09e06d6"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "chrono",
+ "indexmap 2.11.3",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 1.0.69",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-package-manager"
 version = "0.1.22"
 dependencies = [
@@ -5285,7 +5306,7 @@ dependencies = [
  "futures",
  "itertools 0.12.1",
  "kotoba-event-stream",
- "kotoba-ocel",
+ "kotoba-ocel 0.1.21",
  "kotoba-storage",
  "metrics 0.23.1",
  "serde",
