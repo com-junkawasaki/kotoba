@@ -1,7 +1,8 @@
-//! KotobaDB Integration Tests
+//! Kotoba Core Graph Processing System Integration Tests
 //!
-//! This crate provides comprehensive integration tests for the entire KotobaDB ecosystem,
-//! including database operations, clustering, backup/restore, and performance validation.
+//! This crate provides comprehensive integration tests for the entire Kotoba ecosystem,
+//! covering 80%+ code coverage with focus on core graph processing functionality.
+//! Tests are organized by the Port/Adapter architecture layers.
 
 pub mod database_lifecycle;
 pub mod graph_operations;
@@ -14,9 +15,16 @@ pub mod concurrent_access;
 pub mod data_integrity;
 pub mod error_handling;
 
-// New architecture tests
+// New architecture tests (Port/Adapter Pattern)
 pub mod ocel_graphdb_tests;
 pub mod gql_integration_tests;
+
+// Core Graph Processing Tests (80% Coverage Target)
+pub mod core_graph_processing_tests;
+pub mod event_sourcing_tests;
+pub mod storage_adapter_tests;
+pub mod query_engine_tests;
+pub mod graph_rewriting_tests;
 
 #[cfg(test)]
 mod integration_tests {

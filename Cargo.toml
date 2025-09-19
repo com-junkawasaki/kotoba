@@ -132,7 +132,7 @@ authors = ["Jun Kawasaki <jun784@example.com>"]
 readme = "README.md"
 documentation = "https://docs.rs/kotoba"
 homepage = "https://github.com/com-junkawasaki/kotoba"
-exclude = ["examples/**/*", "tests/**/*", "src/topology.rs"]
+exclude = ["examples/**/*", "src/topology.rs"]
 
 [[bin]]
 name = "kotoba"
@@ -192,6 +192,7 @@ tempfile.workspace = true
 # For binary
 clap = { version = "4.0", features = ["derive"] }
 rustc_version = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 # colored = "2.0" # サブプロセス経由で実行するため不要
 # indicatif = "0.17" # サブプロセス経由で実行するため不要
 # serde_yaml = "0.9" # サブプロセス経由で実行するため不要
@@ -239,6 +240,8 @@ web-sys = "0.3"
 js-sys = "0.3"
 
 [dev-dependencies]
+# Coverage and testing tools
+cargo-tarpaulin = "0.29"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 quickcheck = "1.0"

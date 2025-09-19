@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
-use sysinfo::{Pid, ProcessExt, System, SystemExt};
+use chrono::{DateTime, Utc};
+use sysinfo::{Pid, Process, System};
 
 /// Memory profiler for detailed memory analysis
 pub struct MemoryProfiler {
@@ -28,16 +29,16 @@ pub struct AllocationRecord {
     pub id: usize,
     pub size: usize,
     pub allocation_site: String,
-    pub timestamp: Instant,
+    pub timestamp: DateTime<Utc>,
     pub thread_id: u64,
     pub stack_trace: Vec<String>,
     pub freed: bool,
-    pub freed_timestamp: Option<Instant>,
+    pub freed_timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemorySnapshot {
-    pub timestamp: Instant,
+    pub timestamp: DateTime<Utc>,
     pub heap_used: u64,
     pub heap_total: u64,
     pub virtual_memory: u64,
@@ -102,8 +103,8 @@ pub struct TemporalPatterns {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeRange {
-    pub start: Instant,
-    pub end: Instant,
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
     pub duration_seconds: f64,
 }
 
@@ -181,8 +182,8 @@ impl MemoryProfiler {
             id,
             size,
             allocation_site: site.to_string(),
-            timestamp: Instant::now(),
-            thread_id: std::thread::current().id().as_u64(),
+            timestamp: Utc::now(),
+            thread_id: format!("{:?}", std::thread::current().id()).parse::<u64>().unwrap_or(0),
             stack_trace,
             freed: false,
             freed_timestamp: None,
@@ -195,7 +196,7 @@ impl MemoryProfiler {
     pub fn record_deallocation(&self, id: usize) {
         if let Some(record) = self.allocations.lock().unwrap().get_mut(&id) {
             record.freed = true;
-            record.freed_timestamp = Some(Instant::now());
+            record.freed_timestamp = Some(Utc::now());
         }
     }
 
@@ -230,7 +231,7 @@ impl MemoryProfiler {
         let memory_growth_rate = if snapshots.len() >= 2 {
             let first = snapshots.first().unwrap().resident_memory as f64;
             let last = snapshots.last().unwrap().resident_memory as f64;
-            let time_diff = snapshots.last().unwrap().timestamp.elapsed().as_secs_f64();
+            let time_diff = Utc::now().signed_duration_since(snapshots.last().unwrap().timestamp).num_seconds() as f64;
             if time_diff > 0.0 {
                 (last - first) / time_diff / (1024.0 * 1024.0) // MB per second
             } else {
@@ -241,7 +242,7 @@ impl MemoryProfiler {
         };
 
         let total_allocations: usize = snapshots.iter().map(|s| s.allocation_count).sum();
-        let total_time = snapshots.last().unwrap().timestamp.elapsed().as_secs_f64();
+        let total_time = Utc::now().signed_duration_since(snapshots.last().unwrap().timestamp).num_seconds() as f64;
         let allocation_rate = total_allocations as f64 / total_time;
 
         let total_deallocations: usize = snapshots.iter().map(|s| s.deallocation_count).sum();
@@ -266,7 +267,7 @@ impl MemoryProfiler {
         let allocations = self.allocations.lock().unwrap();
 
         let profiling_duration = if !snapshots.is_empty() {
-            snapshots.last().unwrap().timestamp.elapsed()
+            Utc::now().signed_duration_since(snapshots.last().unwrap().timestamp).to_std().unwrap_or(Duration::from_secs(0))
         } else {
             Duration::from_secs(0)
         };
@@ -335,11 +336,11 @@ impl MemoryProfiler {
         };
 
         MemorySnapshot {
-            timestamp: Instant::now(),
-            heap_used: process.memory() * 1024, // Convert to bytes
+            timestamp: Utc::now(),
+            heap_used: process.memory() as u64 * 1024, // Convert to bytes
             heap_total: 0, // Not available from sysinfo
-            virtual_memory: process.virtual_memory() * 1024,
-            resident_memory: process.memory() * 1024,
+            virtual_memory: process.virtual_memory() as u64 * 1024,
+            resident_memory: process.memory() as u64 * 1024,
             allocation_count,
             deallocation_count,
             active_allocations,
@@ -351,10 +352,10 @@ impl MemoryProfiler {
     /// Detect potential memory leaks
     fn detect_memory_leaks(&self, allocations: &HashMap<usize, AllocationRecord>) -> Vec<MemoryLeak> {
         let mut potential_leaks = Vec::new();
-        let now = Instant::now();
+        let now = Utc::now();
 
         for record in allocations.values().filter(|a| !a.freed) {
-            let age_seconds = (now - record.timestamp).as_secs_f64();
+            let age_seconds = (now - record.timestamp).num_seconds() as f64;
 
             // Consider allocations older than 30 seconds as potential leaks
             if age_seconds > 30.0 {
@@ -440,7 +441,7 @@ impl MemoryProfiler {
                 allocation_burst_periods.push(TimeRange {
                     start: snapshots[start].timestamp,
                     end: snapshot.timestamp,
-                    duration_seconds: (snapshot.timestamp - snapshots[start].timestamp).as_secs_f64(),
+                    duration_seconds: (snapshot.timestamp - snapshots[start].timestamp).num_seconds() as f64,
                 });
                 current_burst_start = None;
             }
@@ -452,7 +453,7 @@ impl MemoryProfiler {
 
         for (i, (current, next)) in snapshots.iter().zip(snapshots.iter().skip(1)).enumerate() {
             let growth_rate = (next.resident_memory as f64 - current.resident_memory as f64) /
-                             (next.timestamp - current.timestamp).as_secs_f64();
+                             (next.timestamp - current.timestamp).as_seconds_f64();
 
             if growth_rate > 1024.0 * 1024.0 { // 1MB/s growth threshold
                 if current_growth_start.is_none() {
@@ -462,7 +463,7 @@ impl MemoryProfiler {
                 memory_growth_periods.push(TimeRange {
                     start: snapshots[start].timestamp,
                     end: next.timestamp,
-                    duration_seconds: (next.timestamp - snapshots[start].timestamp).as_secs_f64(),
+                    duration_seconds: (next.timestamp - snapshots[start].timestamp).num_seconds() as f64,
                 });
                 current_growth_start = None;
             }
@@ -485,7 +486,7 @@ impl MemoryProfiler {
                     stable_periods.push(TimeRange {
                         start: snapshots[start].timestamp,
                         end: snapshot.timestamp,
-                        duration_seconds: (snapshot.timestamp - snapshots[start].timestamp).as_secs_f64(),
+                        duration_seconds: (snapshot.timestamp - snapshots[start].timestamp).num_seconds() as f64,
                     });
                 }
                 current_stable_start = None;
@@ -533,8 +534,8 @@ impl MemoryProfiler {
             }
 
             let average_correlation = correlation_sum / count as f64;
-            let amplitude = memory_values.iter().fold(0.0, |acc, &x| acc.max(x)) -
-                           memory_values.iter().fold(f64::INFINITY, |acc, &x| acc.min(x));
+            let amplitude = memory_values.iter().fold(0.0f64, |acc, &x| acc.max(*x)) -
+                           memory_values.iter().fold(f64::INFINITY, |acc, &x| acc.min(*x));
 
             if average_correlation < amplitude * 0.1 { // Low variation indicates pattern
                 patterns.push(PeriodicPattern {
@@ -628,7 +629,7 @@ pub fn create_memory_profiler() -> MemoryProfiler {
     MemoryProfiler::new()
 }
 
-pub fn start_memory_profiling(profiler: &mut MemoryProfiler) -> impl std::future::Future<Output = Result<(), Box<dyn std::error::Error>>> {
+pub fn start_memory_profiling(profiler: &mut MemoryProfiler) -> impl std::future::Future<Output = Result<(), Box<dyn std::error::Error>>> + '_ {
     profiler.start()
 }
 

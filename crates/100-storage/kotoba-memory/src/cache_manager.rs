@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use lru::LruCache;
+use chrono::{DateTime, Utc};
 
 /// Cache manager for intelligent data caching
 pub struct CacheManager {
@@ -36,8 +37,8 @@ pub struct CachedValue {
     pub data: Vec<u8>,
     pub metadata: CacheMetadata,
     pub access_count: u64,
-    pub last_access: Instant,
-    pub created_at: Instant,
+    pub last_access: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
     pub ttl: Option<Duration>,
 }
 
@@ -119,7 +120,7 @@ impl CacheManager {
         let start_time = Instant::now();
 
         let mut cache = self.memory_cache.lock().unwrap();
-        let result = cache.get_mut(key).cloned();
+        let mut result = cache.get_mut(key).cloned();
 
         let access_time = start_time.elapsed();
         let mut stats = self.stats.lock().unwrap();
@@ -127,7 +128,7 @@ impl CacheManager {
         if let Some(ref mut value) = result {
             // Update access statistics
             value.access_count += 1;
-            value.last_access = Instant::now();
+            value.last_access = Utc::now();
 
             stats.hits += 1;
             stats.average_access_time = (stats.average_access_time + access_time) / 2;
@@ -227,14 +228,14 @@ impl CacheManager {
 
     /// Evict old entries to free up space
     pub fn evict_old_entries(&self) {
-        let cache = self.memory_cache.lock().unwrap();
+        let mut cache = self.memory_cache.lock().unwrap();
         let mut stats = self.stats.lock().unwrap();
 
         // Simple eviction: remove expired entries first
         let mut to_remove = Vec::new();
         for (key, value) in cache.iter() {
             if let Some(ttl) = value.ttl {
-                if value.created_at.elapsed() > ttl {
+                if Utc::now().signed_duration_since(value.created_at) > chrono::Duration::from_std(ttl).unwrap() {
                     to_remove.push(key.clone());
                 }
             }
@@ -267,8 +268,8 @@ impl CacheManager {
             *size_distribution.entry(size_bucket).or_insert(0) += 1;
 
             // Age distribution (in minutes)
-            let age_minutes = value.created_at.elapsed().as_secs() / 60;
-            let age_bucket = (age_minutes / 5) * 5; // Group by 5-minute intervals
+            let age_minutes = Utc::now().signed_duration_since(value.created_at).num_seconds() / 60;
+            let age_bucket = ((age_minutes / 5) * 5) as u64; // Group by 5-minute intervals
             *age_distribution.entry(age_bucket).or_insert(0) += 1;
         }
 
@@ -360,9 +361,9 @@ impl CacheManager {
 
     /// Calculate adaptive score for cache eviction
     fn calculate_adaptive_score(&self, value: &CachedValue) -> f64 {
-        let age_hours = value.created_at.elapsed().as_secs_f64() / 3600.0;
+        let age_hours = Utc::now().signed_duration_since(value.created_at).num_seconds() as f64 / 3600.0;
         let access_frequency = value.access_count as f64 / (age_hours + 1.0); // Avoid division by zero
-        let recency = 1.0 / (value.last_access.elapsed().as_secs_f64() + 1.0);
+        let recency = 1.0 / (Utc::now().signed_duration_since(value.last_access).num_seconds() as f64 + 1.0);
 
         // Score = frequency * recency / size
         let size_penalty = (value.data.len() as f64).sqrt();
@@ -391,10 +392,11 @@ impl CacheManager {
         adaptive_stats.current_window.total_accesses += 1;
 
         // Rotate time windows every 5 minutes
-        if adaptive_stats.current_window.start_time.elapsed() > Duration::from_secs(300) {
-            adaptive_stats.time_windows.push(adaptive_stats.current_window.clone());
+        if Utc::now().signed_duration_since(adaptive_stats.current_window.start_time).num_seconds() > 300 {
+            let current_window = adaptive_stats.current_window.clone();
+            adaptive_stats.time_windows.push(current_window);
             adaptive_stats.current_window = TimeWindow {
-                start_time: Instant::now(),
+                start_time: Utc::now(),
                 accesses: HashMap::new(),
                 total_accesses: 0,
             };

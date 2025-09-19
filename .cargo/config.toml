@@ -1,17 +1,9 @@
-[build]
-target-dir = ".target"
-rustflags = [
-  "-C", "target-cpu=native"
-]
+[alias]
+# Coverage alias for 80% target
+coverage = "tarpaulin --out Html --output-dir ./target/coverage --exclude-files **/tests/** --exclude-files **/benches/** --exclude-files **/examples/** --line --branch --fail-under 80"
 
-[target.x86_64-unknown-linux-gnu]
-linker = "clang"
+# Coverage with detailed report
+coverage-detailed = "tarpaulin --out Html --output-dir ./target/coverage --exclude-files **/tests/** --exclude-files **/benches/** --exclude-files **/examples/** --line --branch --fail-under 80 --verbose"
 
-[profile.dev]
-incremental = true
-codegen-units = 16
-
-[profile.release]
-incremental = false
-lto = "thin"
-codegen-units = 8
+# Coverage for CI
+coverage-ci = "tarpaulin --out Lcov --output-dir ./target/coverage --exclude-files **/tests/** --exclude-files **/benches/** --exclude-files **/examples/** --line --branch --fail-under 80"

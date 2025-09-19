@@ -130,7 +130,11 @@ impl MemoryOptimizer {
         if self.config.enable_caching {
             self.cache_manager = Some(cache_manager::CacheManager::new(
                 self.config.cache_size_mb * 1024 * 1024,
-                self.config.cache_policy.clone(),
+                match self.config.cache_policy {
+                    CachePolicy::Lru => cache_manager::CachePolicy::Lru,
+                    CachePolicy::Lfu => cache_manager::CachePolicy::Lfu,
+                    CachePolicy::Adaptive => cache_manager::CachePolicy::Adaptive,
+                },
             ));
         }
 
@@ -422,7 +426,7 @@ impl MemoryOptimizer {
             }
         }
 
-        score.max(0.0).min(1.0)
+        score.max(0.0f32).min(1.0f32)
     }
 }
 

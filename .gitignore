@@ -2,6 +2,7 @@
 /target-runtime
 /target-test
 /.target
+target/
 
 # Nix
 result

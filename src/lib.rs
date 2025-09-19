@@ -47,17 +47,20 @@
 //! - **600-deployment**: Deployment and scaling
 //! - **900-tools**: Development tools and CLI
 
-// Re-export main components for convenience
-pub use kotoba_core as core;
-pub use kotoba_storage as storage;
-pub use kotoba_event_stream as event_stream;
-pub use kotoba_query_engine as query_engine;
-pub use kotoba_execution as execution;
-pub use kotoba_rewrite as rewrite;
-pub use kotoba_routing as routing;
-pub use kotoba_state_graph as state_graph;
-pub use kotoba_jsonnet as jsonnet;
-pub use kotoba_kotobas as kotobas;
+// Re-export main components for convenience (when available)
+// Note: These re-exports are optional and will only work if the corresponding crates are available
+// and properly implemented in the current build configuration.
+
+// pub use kotoba_core as core; // Temporarily disabled - may not be available
+// pub use kotoba_storage as storage; // Temporarily disabled - may not be available
+// pub use kotoba_event_stream as event_stream; // Temporarily disabled - may not be available
+// pub use kotoba_query_engine as query_engine; // Temporarily disabled - may not be available
+// pub use kotoba_execution as execution; // Temporarily disabled - may not be available
+// pub use kotoba_rewrite as rewrite; // Temporarily disabled - may not be available
+// pub use kotoba_routing as routing; // Temporarily disabled - may not be available
+// pub use kotoba_state_graph as state_graph; // Temporarily disabled - may not be available
+// pub use kotoba_jsonnet as jsonnet; // Temporarily disabled - may not be available
+// pub use kotoba_kotobas as kotobas; // Temporarily disabled - may not be available
 
 // Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

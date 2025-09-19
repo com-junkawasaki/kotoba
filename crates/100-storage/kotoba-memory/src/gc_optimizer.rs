@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
 
 /// Garbage collection optimizer
 pub struct GcOptimizer {
@@ -28,7 +29,7 @@ pub struct GcStatistics {
     pub collections_by_generation: HashMap<u32, u64>,
     pub memory_reclaimed: u64,
     pub gc_efficiency: f64,
-    pub last_collection: Option<Instant>,
+    pub last_collection: Option<DateTime<Utc>>,
     pub collection_frequency: f64, // Collections per second
 }
 
@@ -85,6 +86,18 @@ pub enum GcBottleneckType {
     LowEfficiency,
     MemoryPressure,
     Fragmentation,
+}
+
+impl std::fmt::Display for GcBottleneckType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GcBottleneckType::LongPauses => write!(f, "Long Pauses"),
+            GcBottleneckType::HighFrequency => write!(f, "High Frequency"),
+            GcBottleneckType::LowEfficiency => write!(f, "Low Efficiency"),
+            GcBottleneckType::MemoryPressure => write!(f, "Memory Pressure"),
+            GcBottleneckType::Fragmentation => write!(f, "Fragmentation"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -191,7 +204,7 @@ impl GcOptimizer {
         stats.total_pause_time += pause_time;
         stats.memory_reclaimed += memory_reclaimed;
         stats.max_pause_time = stats.max_pause_time.max(pause_time);
-        stats.last_collection = Some(Instant::now());
+        stats.last_collection = Some(Utc::now());
 
         *stats.collections_by_generation.entry(generation).or_insert(0) += 1;
 
@@ -267,7 +280,7 @@ impl GcOptimizer {
             stats.total_pause_time += pause_time;
             stats.memory_reclaimed += memory_reclaimed;
             stats.max_pause_time = stats.max_pause_time.max(pause_time);
-            stats.last_collection = Some(Instant::now());
+            stats.last_collection = Some(Utc::now());
 
             *stats.collections_by_generation.entry(generation).or_insert(0) += 1;
             stats.average_pause_time = stats.total_pause_time / stats.total_collections as u32;

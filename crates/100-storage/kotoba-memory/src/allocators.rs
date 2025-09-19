@@ -61,11 +61,7 @@ pub enum AllocError {
     InvalidSize,
 }
 
-impl From<std::alloc::AllocError> for AllocError {
-    fn from(_: std::alloc::AllocError) -> Self {
-        AllocError::OutOfMemory
-    }
-}
+// Removed unstable AllocError implementation - using stable error handling instead
 
 /// Allocator statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]

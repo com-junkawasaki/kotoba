@@ -258,8 +258,15 @@ impl SlabAllocator {
         }
 
         // Allocate new slab
-        self.allocate_new_slab()?;
-        self.slabs.last_mut()?.allocate()
+        if self.allocate_new_slab().is_ok() {
+            if let Some(slab) = self.slabs.last_mut() {
+                slab.allocate()
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     fn deallocate(&mut self, ptr: NonNull<u8>) {
