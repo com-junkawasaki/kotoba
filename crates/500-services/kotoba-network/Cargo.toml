@@ -1,9 +1,9 @@
 [package]
 name = "kotoba-network"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.1.21"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
 description = "Network protocol implementation for Kotoba distributed system"
 keywords = ["network", "protocol", "distributed", "tokio", "async"]
 categories = ["network-programming", "asynchronous", "concurrency"]
@@ -13,8 +13,8 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
-kotoba-distributed = { path = "../../200-application/kotoba-distributed", version = "0.1.16" }
+kotoba-core = "0.1.21"
+# kotoba-distributed = { path = "../../200-application/kotoba-distributed", version = "0.1.16" }
 
 # Async runtime and networking
 tokio = { version = "1.0", features = ["net", "sync", "macros", "rt", "io-util"] }
