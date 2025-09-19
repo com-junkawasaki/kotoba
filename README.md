@@ -1,6 +1,18 @@
-# Kotoba - ことば
+# Kotoba : "ことば" - All you need is JSONNET.
 
 **Graph Processing System with Jsonnet Integration** - A comprehensive graph processing platform featuring complete Jsonnet implementation, ISO GQL-compliant queries, and distributed execution.
+
+
+tuling complete - JSON  
+contract - JSON  
+schema - JSON  
+workflow - JSON
+database - JSON  
+routing - JSON  
+ui - JSON 
+package manager - JSON  
+config - JSON  
+  
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://github.com/com-junkawasaki/kotoba)

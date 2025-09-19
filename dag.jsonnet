@@ -171,36 +171,209 @@
       build_order: 3,
     },
 
-    // ストレージ層
+    // ==========================================
+    // イベントソーシング基盤層 (Event Sourcing Foundation)
+    // ==========================================
+
+    'event_stream': {
+      name: 'event_stream',
+      path: 'crates/kotoba-event-stream/src/lib.rs',
+      type: 'event_stream',
+      description: 'Kafkaベースのイベントストリーム処理 - イベントの発行・消費',
+      dependencies: ['types', 'event_schema_registry'],
+      provides: ['EventStream', 'EventPublisher', 'EventConsumer', 'KafkaIntegration'],
+      status: 'planned',
+      build_order: 3,
+    },
+
+    'event_store': {
+      name: 'event_store',
+      path: 'crates/kotoba-event-store/src/lib.rs',
+      type: 'event_store',
+      description: 'イベントストア - Kafkaトピックへのイベント永続化とリプレイ',
+      dependencies: ['types', 'event_stream', 'storage_lsm'],
+      provides: ['EventStore', 'EventReplay', 'EventPersistence', 'KafkaStorage'],
+      status: 'planned',
+      build_order: 4,
+    },
+
+    'event_schema_registry': {
+      name: 'event_schema_registry',
+      path: 'crates/kotoba-schema-registry/src/lib.rs',
+      type: 'schema_registry',
+      description: 'Schema Registry統合 - Avroスキーマ管理と互換性チェック',
+      dependencies: ['types'],
+      provides: ['SchemaRegistry', 'AvroSchema', 'SchemaValidation', 'SchemaEvolution'],
+      status: 'planned',
+      build_order: 3,
+    },
+
+    'event_processor': {
+      name: 'event_processor',
+      path: 'crates/kotoba-event-processor/src/lib.rs',
+      type: 'event_processor',
+      description: 'イベント処理エンジン - ストリーム処理とイベント変換',
+      dependencies: ['types', 'event_stream', 'event_store', 'cache_layer'],
+      provides: ['EventProcessor', 'StreamProcessor', 'EventTransformer', 'ProcessingPipeline'],
+      status: 'planned',
+      build_order: 5,
+    },
+
+    'event_sourcing_coordinator': {
+      name: 'event_sourcing_coordinator',
+      path: 'crates/kotoba-event-sourcing/src/lib.rs',
+      type: 'event_coordinator',
+      description: 'イベントソーシング全体の調整 - コマンド側(CQRS Write Model)',
+      dependencies: ['types', 'event_stream', 'event_store', 'event_processor'],
+      provides: ['EventSourcingCoordinator', 'CommandSideCoordinator', 'EventPublisher', 'EventHandler'],
+      status: 'planned',
+      build_order: 6,
+    },
+
+    // ==========================================
+    // プロジェクション層 (Projection Layer)
+    // ==========================================
+
+    'graph_projection': {
+      name: 'graph_projection',
+      path: 'crates/kotoba-graph-projection/src/lib.rs',
+      type: 'projection',
+      description: 'GraphDBへのマテリアライズドビュー - Neo4j/TigerGraph風グラフプロジェクション',
+      dependencies: ['types', 'event_processor', 'graph_core', 'storage_lsm'],
+      provides: ['GraphProjection', 'MaterializedGraph', 'GraphView', 'ProjectionUpdater'],
+      status: 'planned',
+      build_order: 7,
+    },
+
+    'materialized_view_manager': {
+      name: 'materialized_view_manager',
+      path: 'crates/kotoba-materialized-views/src/lib.rs',
+      type: 'projection',
+      description: 'マテリアライズドビュー管理 - さまざまなビューの作成・更新・同期',
+      dependencies: ['types', 'graph_projection', 'projection_engine'],
+      provides: ['MaterializedViewManager', 'ViewDefinition', 'ViewUpdater', 'ViewSynchronizer'],
+      status: 'planned',
+      build_order: 8,
+    },
+
+    'projection_engine': {
+      name: 'projection_engine',
+      path: 'crates/kotoba-projection-engine/src/lib.rs',
+      type: 'projection',
+      description: 'プロジェクション更新エンジン - イベントからのビュー更新処理',
+      dependencies: ['types', 'event_processor', 'graph_projection', 'cache_layer'],
+      provides: ['ProjectionEngine', 'IncrementalUpdater', 'BatchUpdater', 'ProjectionPipeline'],
+      status: 'planned',
+      build_order: 7,
+    },
+
+    'projection_coordinator': {
+      name: 'projection_coordinator',
+      path: 'crates/kotoba-projection-coordinator/src/lib.rs',
+      type: 'projection',
+      description: 'プロジェクション全体の調整 - 複数のプロジェクション管理',
+      dependencies: ['types', 'projection_engine', 'materialized_view_manager'],
+      provides: ['ProjectionCoordinator', 'ProjectionManager', 'ConsistencyManager'],
+      status: 'planned',
+      build_order: 9,
+    },
+
+    // ==========================================
+    // クエリ層 (Query Layer)
+    // ==========================================
+
+    'query_engine': {
+      name: 'query_engine',
+      path: 'crates/kotoba-query-engine/src/lib.rs',
+      type: 'query',
+      description: 'GraphDBベースのクエリエンジン - Cypher/GQLクエリ処理',
+      dependencies: ['types', 'graph_projection', 'graph_index', 'cache_layer'],
+      provides: ['QueryEngine', 'CypherExecutor', 'GQLEngine', 'QueryPlanner'],
+      status: 'planned',
+      build_order: 10,
+    },
+
+    'graph_index': {
+      name: 'graph_index',
+      path: 'crates/kotoba-graph-index/src/lib.rs',
+      type: 'index',
+      description: 'グラフインデックス - 高速なグラフクエリのためのインデックス管理',
+      dependencies: ['types', 'graph_projection', 'storage_lsm'],
+      provides: ['GraphIndex', 'NodeIndex', 'EdgeIndex', 'PathIndex', 'FullTextIndex'],
+      status: 'planned',
+      build_order: 8,
+    },
+
+    'query_optimizer': {
+      name: 'query_optimizer',
+      path: 'crates/kotoba-query-optimizer/src/lib.rs',
+      type: 'query',
+      description: 'クエリ最適化器 - コストベースのクエリ最適化',
+      dependencies: ['types', 'query_engine', 'graph_index'],
+      provides: ['QueryOptimizer', 'CostEstimator', 'PlanOptimizer', 'StatisticsManager'],
+      status: 'planned',
+      build_order: 11,
+    },
+
+    // ==========================================
+    // キャッシュ層 (Cache Layer)
+    // ==========================================
+
+    'cache_layer': {
+      name: 'cache_layer',
+      path: 'crates/kotoba-cache/src/lib.rs',
+      type: 'cache',
+      description: 'Redisベースの分散キャッシュ層 - クエリ結果とプロジェクションのキャッシュ',
+      dependencies: ['types'],
+      provides: ['CacheLayer', 'RedisCache', 'CacheManager', 'CacheInvalidator'],
+      status: 'planned',
+      build_order: 5,
+    },
+
+    'cache_manager': {
+      name: 'cache_manager',
+      path: 'crates/kotoba-cache-manager/src/lib.rs',
+      type: 'cache',
+      description: 'キャッシュ管理と無効化 - イベント駆動キャッシュ更新',
+      dependencies: ['types', 'cache_layer', 'event_processor'],
+      provides: ['CacheManager', 'InvalidationStrategy', 'CacheSynchronization', 'TTLManager'],
+      status: 'planned',
+      build_order: 6,
+    },
+
+    // ==========================================
+    // 既存ストレージ層 (Legacy Storage - 移行用)
+    // ==========================================
+
     'storage_mvcc': {
       name: 'storage_mvcc',
       path: 'crates/kotoba-storage/src/storage/mvcc.rs',
-      type: 'storage',
-      description: 'MVCCマネージャー',
+      type: 'legacy_storage',
+      description: 'MVCCマネージャー (レガシー - イベントソーシング移行用)',
       dependencies: ['types', 'graph_core'],
       provides: ['MVCCManager', 'Transaction', 'TxState'],
-      status: 'planned',
-      build_order: 4,
+      status: 'deprecated',
+      build_order: 12,
     },
 
     'storage_merkle': {
       name: 'storage_merkle',
       path: 'crates/kotoba-storage/src/storage/merkle.rs',
-      type: 'storage',
-      description: 'Merkle DAG永続化',
+      type: 'legacy_storage',
+      description: 'Merkle DAG永続化 (レガシー - イベントソーシング移行用)',
       dependencies: ['types', 'graph_core'],
       provides: ['MerkleDAG', 'MerkleNode', 'GraphVersion'],
-      status: 'planned',
-      build_order: 4,
+      status: 'deprecated',
+      build_order: 12,
     },
 
     'storage_lsm': {
       name: 'storage_lsm',
       path: 'crates/kotoba-storage/src/storage/lsm.rs',
-      type: 'storage',
-      description: 'RocksDB-based high-performance storage (95% test coverage)',
+      type: 'storage_engine',
+      description: 'RocksDB-based high-performance storage - イベントログ永続化用',
       dependencies: ['types'],
-      provides: ['LSMTree', 'RocksDB'],
+      provides: ['LSMTree', 'RocksDB', 'EventLogStorage'],
       status: 'published',
       published_version: '0.1.16',
       crate_name: 'kotoba-storage',
@@ -210,23 +383,12 @@
     'storage_object': {
       name: 'storage_object',
       path: 'crates/kotoba-storage/src/storage/object.rs',
-      type: 'storage',
+      type: 'storage_engine',
       description: 'Object storage backend (AWS S3, GCP Cloud Storage, Azure Blob Storage)',
       dependencies: ['types'],
       provides: ['ObjectStorageBackend', 'ObjectStorageProvider'],
       status: 'planned',
       build_order: 4,
-    },
-
-    'storage_main': {
-      name: 'storage_main',
-      path: 'crates/kotoba-storage/',
-      type: 'storage_api',
-      description: 'Main storage crate providing unified backend interface for KotobaDB',
-      dependencies: ['types', 'errors', 'graph', 'cid'],
-      provides: ['StorageBackend', 'StorageBackendFactory', 'KotobaDBBackend'],
-      status: 'in_progress',
-      build_order: 5,
     },
 
     // プランナー層
@@ -873,9 +1035,7 @@
       type: 'library',
       description: 'メインライブラリインターフェース - コア機能のみ',
       dependencies: [
-        'types', 'error_handling', 'ir_catalog', 'ir_rule', 'ir_query', 'ir_patch', 'ir_strategy',
-        'graph_core', 'storage_mvcc', 'storage_merkle', 'storage_lsm', 'storage_object',
-        'execution_engine', 'rewrite_engine'
+        'error_handling', 'cid_system'
       ],
       provides: ['kotoba'],
       status: 'planned',
@@ -1955,62 +2115,101 @@
     },
 
     // ==========================================
-    // KotobaDB 層
     // ==========================================
+    // KotobaDB 層 (Event-Sourcing + GraphDB)
+    // ==========================================
+
     'db_core': {
       name: 'db_core',
       path: 'crates/kotoba-db-core/',
-      type: 'db',
-      description: 'Core traits, data structures, and transaction logic for KotobaDB.',
-      dependencies: ['types', 'cid_system'],
-      provides: ['StorageEngine', 'Transaction', 'ACID'],
+      type: 'db_core',
+      description: 'Core traits, data structures, and transaction logic for event-sourced KotobaDB.',
+      dependencies: ['types', 'cid_system', 'event_sourcing_coordinator'],
+      provides: ['StorageEngine', 'EventSourcedTransaction', 'ACID', 'CQRS'],
       status: 'in_progress',
-      build_order: 4,
+      build_order: 7,
     },
 
     'db_engine_memory': {
       name: 'db_engine_memory',
       path: 'crates/kotoba-db-engine-memory/',
       type: 'db_engine',
-      description: 'Default in-memory storage engine for KotobaDB.',
-      dependencies: ['db_core'],
-      provides: ['MemoryStorageEngine'],
+      description: 'In-memory event store for development and testing.',
+      dependencies: ['db_core', 'event_store'],
+      provides: ['MemoryEventStore', 'InMemoryProjection'],
       status: 'planned',
-      build_order: 5,
+      build_order: 8,
     },
 
     'db_engine_lsm': {
       name: 'db_engine_lsm',
       path: 'crates/kotoba-db-engine-lsm/',
       type: 'db_engine',
-      description: 'LSM-Tree based high-performance storage engine for KotobaDB.',
-      dependencies: ['db_core'],
-      provides: ['LSMStorageEngine', 'WALManager', 'SSTableManager'],
+      description: 'LSM-Tree based event store and projection storage.',
+      dependencies: ['db_core', 'event_store', 'graph_projection'],
+      provides: ['LSMEventStore', 'LSMProjectionStorage', 'WALManager', 'SSTableManager'],
       status: 'in_progress',
-      build_order: 5,
+      build_order: 8,
     },
 
     'db': {
       name: 'db',
       path: 'crates/kotoba-db/',
       type: 'db_api',
-      description: 'User-facing API for KotobaDB, a graph-native, version-controlled database.',
-      dependencies: ['db_core', 'db_engine_memory', 'db_engine_lsm', 'storage_main'],
-      provides: ['KotobaDB', 'DBSnapshot'],
+      description: 'Event-sourced KotobaDB API with GraphDB projections and CQRS.',
+      dependencies: ['db_core', 'db_engine_memory', 'db_engine_lsm', 'event_sourcing_coordinator', 'projection_coordinator'],
+      provides: ['KotobaDB', 'EventSourcedDB', 'GraphDB', 'CQRSAPI'],
       status: 'planned',
-      build_order: 6,
+      build_order: 9,
     },
 
-    // 分散システム層
+    // 分散システム層 (Event-Sourcing対応)
     'db_cluster': {
       name: 'db_cluster',
       path: 'crates/kotoba-db-cluster/',
       type: 'db_cluster',
-      description: 'Distributed clustering and consensus for KotobaDB with Raft algorithm.',
-      dependencies: ['db_core', 'db'],
-      provides: ['KotobaCluster', 'RaftConsensus', 'PartitionManager', 'ReplicationManager'],
+      description: 'Distributed event-sourcing cluster with Kafka-based event replication.',
+      dependencies: ['db_core', 'db', 'event_stream', 'event_store'],
+      provides: ['EventSourcingCluster', 'KafkaReplication', 'PartitionManager', 'EventReplicationManager'],
       status: 'planned',
-      build_order: 8,
+      build_order: 10,
+    },
+
+    // ==========================================
+    // コマンド・クエリ分離層 (CQRS Layer)
+    // ==========================================
+
+    'command_handler': {
+      name: 'command_handler',
+      path: 'crates/kotoba-command-handler/src/lib.rs',
+      type: 'cqrs',
+      description: 'コマンドハンドラー - 書き込み操作の処理とイベント生成',
+      dependencies: ['types', 'event_sourcing_coordinator', 'event_schema_registry'],
+      provides: ['CommandHandler', 'CommandProcessor', 'ValidationEngine', 'BusinessLogic'],
+      status: 'planned',
+      build_order: 7,
+    },
+
+    'query_handler': {
+      name: 'query_handler',
+      path: 'crates/kotoba-query-handler/src/lib.rs',
+      type: 'cqrs',
+      description: 'クエリハンドラー - 読み取り操作の処理とプロジェクション利用',
+      dependencies: ['types', 'query_engine', 'cache_layer'],
+      provides: ['QueryHandler', 'QueryProcessor', 'ReadModel', 'QueryOptimization'],
+      status: 'planned',
+      build_order: 12,
+    },
+
+    'cqrs_coordinator': {
+      name: 'cqrs_coordinator',
+      path: 'crates/kotoba-cqrs/src/lib.rs',
+      type: 'cqrs',
+      description: 'CQRS全体の調整 - コマンド・クエリの統合管理',
+      dependencies: ['types', 'command_handler', 'query_handler'],
+      provides: ['CQ RSCoordinator', 'CommandQuerySeparation', 'SagaManager', 'EventualConsistency'],
+      status: 'planned',
+      build_order: 13,
     },
 
     // ==========================================
@@ -2276,7 +2475,7 @@
       path: 'crates/kotoba-cloud/',
       type: 'cloud',
       description: 'Cloud platform integrations (AWS, GCP, Azure).',
-      dependencies: ['db_cluster', 'backup_restore'],
+      dependencies: ['db_cluster'],
       provides: ['AWSIntegration', 'GCPIntegration', 'AzureIntegration', 'CloudFormation'],
       status: 'planned',
       build_order: 21,
@@ -2441,7 +2640,6 @@
     { from: 'types', to: 'rewrite_matcher' },
     { from: 'types', to: 'rewrite_applier' },
     { from: 'types', to: 'rewrite_engine' },
-    { from: 'types', to: 'lib' },
     { from: 'ir_catalog', to: 'lib' },
     { from: 'schema_validator', to: 'lib' },
     { from: 'ir_rule', to: 'lib' },
@@ -2503,16 +2701,101 @@
     { from: 'graph_core', to: 'rewrite_engine' },
     { from: 'graph_core', to: 'lib' },
 
+    // ==========================================
+    // イベントソーシング基盤依存関係
+    // ==========================================
+
+    // Event stream dependencies
+    { from: 'types', to: 'event_stream' },
+    { from: 'event_schema_registry', to: 'event_stream' },
+
+    // Event store dependencies
+    { from: 'types', to: 'event_store' },
+    { from: 'event_stream', to: 'event_store' },
+    { from: 'storage_lsm', to: 'event_store' },
+
+    // Event schema registry dependencies
+    { from: 'types', to: 'event_schema_registry' },
+
+    // Event processor dependencies
+    { from: 'types', to: 'event_processor' },
+    { from: 'event_stream', to: 'event_processor' },
+    { from: 'event_store', to: 'event_processor' },
+    { from: 'cache_layer', to: 'event_processor' },
+
+    // Event sourcing coordinator dependencies
+    { from: 'types', to: 'event_sourcing_coordinator' },
+    { from: 'event_stream', to: 'event_sourcing_coordinator' },
+    { from: 'event_store', to: 'event_sourcing_coordinator' },
+    { from: 'event_processor', to: 'event_sourcing_coordinator' },
+
+    // ==========================================
+    // プロジェクション層依存関係
+    // ==========================================
+
+    // Graph projection dependencies
+    { from: 'types', to: 'graph_projection' },
+    { from: 'event_processor', to: 'graph_projection' },
+    { from: 'graph_core', to: 'graph_projection' },
+    { from: 'storage_lsm', to: 'graph_projection' },
+
+    // Materialized view manager dependencies
+    { from: 'types', to: 'materialized_view_manager' },
+    { from: 'graph_projection', to: 'materialized_view_manager' },
+    { from: 'projection_engine', to: 'materialized_view_manager' },
+
+    // Projection engine dependencies
+    { from: 'types', to: 'projection_engine' },
+    { from: 'event_processor', to: 'projection_engine' },
+    { from: 'graph_projection', to: 'projection_engine' },
+    { from: 'cache_layer', to: 'projection_engine' },
+
+    // Projection coordinator dependencies
+    { from: 'types', to: 'projection_coordinator' },
+    { from: 'projection_engine', to: 'projection_coordinator' },
+    { from: 'materialized_view_manager', to: 'projection_coordinator' },
+
+    // ==========================================
+    // クエリ層依存関係
+    // ==========================================
+
+    // Query engine dependencies
+    { from: 'types', to: 'query_engine' },
+    { from: 'graph_projection', to: 'query_engine' },
+    { from: 'graph_index', to: 'query_engine' },
+    { from: 'cache_layer', to: 'query_engine' },
+
+    // Graph index dependencies
+    { from: 'types', to: 'graph_index' },
+    { from: 'graph_projection', to: 'graph_index' },
+    { from: 'storage_lsm', to: 'graph_index' },
+
+    // Query optimizer dependencies
+    { from: 'types', to: 'query_optimizer' },
+    { from: 'query_engine', to: 'query_optimizer' },
+    { from: 'graph_index', to: 'query_optimizer' },
+
+    // ==========================================
+    // キャッシュ層依存関係
+    // ==========================================
+
+    // Cache layer dependencies
+    { from: 'types', to: 'cache_layer' },
+
+    // Cache manager dependencies
+    { from: 'types', to: 'cache_manager' },
+    { from: 'cache_layer', to: 'cache_manager' },
+    { from: 'event_processor', to: 'cache_manager' },
+
+    // ==========================================
+    // レガシーストレージ層依存関係 (移行用)
+    // ==========================================
+
     // ストレージ層依存
     { from: 'storage_mvcc', to: 'execution_engine' },
     { from: 'storage_mvcc', to: 'rewrite_engine' },
-    { from: 'storage_mvcc', to: 'lib' },
     { from: 'storage_merkle', to: 'execution_engine' },
     { from: 'storage_merkle', to: 'rewrite_engine' },
-    { from: 'storage_merkle', to: 'lib' },
-    { from: 'storage_lsm', to: 'lib' },
-    { from: 'storage_object', to: 'lib' },
-    { from: 'security_core', to: 'lib' },
 
     // プランナー層依存
     { from: 'ir_query', to: 'planner_logical' },
@@ -2530,15 +2813,10 @@
     { from: 'planner_optimizer', to: 'execution_engine' },
     { from: 'ir_query', to: 'execution_engine' },
     { from: 'ir_catalog', to: 'execution_engine' },
-    { from: 'planner_logical', to: 'lib' },
-    { from: 'planner_physical', to: 'lib' },
-    { from: 'planner_optimizer', to: 'lib' },
 
     // 実行層依存
     { from: 'ir_query', to: 'execution_parser' },
     { from: 'execution_parser', to: 'execution_engine' },
-    { from: 'execution_parser', to: 'lib' },
-    { from: 'execution_engine', to: 'lib' },
 
     // 書換え層依存
     { from: 'ir_rule', to: 'rewrite_matcher' },
@@ -2548,9 +2826,6 @@
     { from: 'ir_rule', to: 'rewrite_engine' },
     { from: 'rewrite_matcher', to: 'rewrite_engine' },
     { from: 'rewrite_applier', to: 'rewrite_engine' },
-    { from: 'rewrite_matcher', to: 'lib' },
-    { from: 'rewrite_applier', to: 'lib' },
-    { from: 'rewrite_engine', to: 'lib' },
 
     // セキュリティ層依存
     { from: 'types', to: 'security_jwt' },
@@ -2598,7 +2873,6 @@
     { from: 'jsonnet_stdlib', to: 'jsonnet_core' },
 
     // Integration with main library
-    { from: 'jsonnet_core', to: 'lib' },
     { from: 'jsonnet_core', to: 'http_parser' },  // Jsonnet parser integration
 
     // ==========================================
@@ -2993,18 +3267,53 @@
     { from: 'cli_interface', to: 'docs_cli' },
     { from: 'docs_cli', to: 'lib' },
 
-    // KotobaDB dependencies
+    // ==========================================
+    // KotobaDB (Event-Sourcing) 依存関係
+    // ==========================================
+
+    // DB Core dependencies
     { from: 'types', to: 'db_core' },
     { from: 'cid_system', to: 'db_core' },
+    { from: 'event_sourcing_coordinator', to: 'db_core' },
+
+    // DB Engine dependencies
     { from: 'db_core', to: 'db_engine_memory' },
     { from: 'db_core', to: 'db_engine_lsm' },
+    { from: 'event_store', to: 'db_engine_memory' },
+    { from: 'event_store', to: 'db_engine_lsm' },
+    { from: 'graph_projection', to: 'db_engine_lsm' },
+
+    // DB API dependencies
     { from: 'db_core', to: 'db' },
     { from: 'db_engine_memory', to: 'db' },
     { from: 'db_engine_lsm', to: 'db' },
+    { from: 'event_sourcing_coordinator', to: 'db' },
+    { from: 'projection_coordinator', to: 'db' },
 
     // Distributed cluster dependencies
     { from: 'db_core', to: 'db_cluster' },
     { from: 'db', to: 'db_cluster' },
+    { from: 'event_stream', to: 'db_cluster' },
+    { from: 'event_store', to: 'db_cluster' },
+
+    // ==========================================
+    // CQRS 依存関係
+    // ==========================================
+
+    // Command handler dependencies
+    { from: 'types', to: 'command_handler' },
+    { from: 'event_sourcing_coordinator', to: 'command_handler' },
+    { from: 'event_schema_registry', to: 'command_handler' },
+
+    // Query handler dependencies
+    { from: 'types', to: 'query_handler' },
+    { from: 'query_engine', to: 'query_handler' },
+    { from: 'cache_layer', to: 'query_handler' },
+
+    // CQRS coordinator dependencies
+    { from: 'types', to: 'cqrs_coordinator' },
+    { from: 'command_handler', to: 'cqrs_coordinator' },
+    { from: 'query_handler', to: 'cqrs_coordinator' },
 
     // Storage integration
     { from: 'types', to: 'storage_main' },
@@ -3239,7 +3548,7 @@
 
   topological_order: [
     // ==========================================
-    // Core Dependencies (必須)
+    // Foundation Layer (基盤層)
     // ==========================================
     'types',
     'error_handling',
@@ -3255,10 +3564,24 @@
     'schema_validator',
     'ir_strategy',
     'graph_core',
-    'storage_mvcc',
-    'storage_merkle',
+
+    // ==========================================
+    // Event Sourcing Foundation (イベントソーシング基盤)
+    // ==========================================
+    'event_schema_registry',
+    'event_stream',
+    'event_store',
+    'cache_layer',
+    'event_processor',
+    'event_sourcing_coordinator',
+
+    // ==========================================
+    // Storage & Security (ストレージ・セキュリティ)
+    // ==========================================
     'storage_lsm',
     'storage_object',
+    'storage_mvcc',
+    'storage_merkle',
     'security_jwt',
     'security_mfa',
     'security_password',
@@ -3266,6 +3589,42 @@
     'security_capabilities',
     'security_oauth2',
     'security_core',
+
+    // ==========================================
+    // Graph Projections (グラフプロジェクション)
+    // ==========================================
+    'graph_projection',
+    'projection_engine',
+    'materialized_view_manager',
+    'projection_coordinator',
+    'graph_index',
+
+    // ==========================================
+    // Query & Cache Layer (クエリ・キャッシュ層)
+    // ==========================================
+    'cache_manager',
+    'query_engine',
+    'query_optimizer',
+
+    // ==========================================
+    // CQRS Layer (CQRS層)
+    // ==========================================
+    'command_handler',
+    'query_handler',
+    'cqrs_coordinator',
+
+    // ==========================================
+    // Database Layer (データベース層)
+    // ==========================================
+    'db_core',
+    'db_engine_memory',
+    'db_engine_lsm',
+    'db',
+    'db_cluster',
+
+    // ==========================================
+    // Legacy & Planning (レガシー・計画)
+    // ==========================================
     'planner_logical',
     'planner_physical',
     'execution_parser',
@@ -3416,6 +3775,9 @@
   // ==========================================
 
   reverse_topological_order: [
+    // ==========================================
+    // Top Level Applications (トップレベルアプリケーション)
+    // ==========================================
     'site_index_html',
     'site_build_output',
     'documentation_builder',
@@ -3426,6 +3788,44 @@
     'ssg_examples',
     'project_documentation',
     'ssg_assets',
+
+    // ==========================================
+    // CQRS & Database Layer (CQRS・データベース層)
+    // ==========================================
+    'cqrs_coordinator',
+    'query_handler',
+    'command_handler',
+    'db_cluster',
+    'db',
+    'db_engine_lsm',
+    'db_engine_memory',
+    'db_core',
+
+    // ==========================================
+    // Query & Cache Layer (クエリ・キャッシュ層)
+    // ==========================================
+    'query_optimizer',
+    'query_engine',
+    'cache_manager',
+    'graph_index',
+
+    // ==========================================
+    // Projection Layer (プロジェクション層)
+    // ==========================================
+    'projection_coordinator',
+    'materialized_view_manager',
+    'projection_engine',
+    'graph_projection',
+
+    // ==========================================
+    // Event Sourcing Layer (イベントソーシング層)
+    // ==========================================
+    'event_sourcing_coordinator',
+    'event_processor',
+    'cache_layer',
+    'event_store',
+    'event_stream',
+    'event_schema_registry',
 
     // Test layer (reverse order)
     'cluster_tests',
@@ -3740,12 +4140,35 @@
 
   metadata: {
     project_name: 'Kotoba',
-    description: 'GP2系グラフ書換え言語 - ISO GQL準拠クエリ、MVCC+Merkle永続、分散実行まで一貫させたグラフ処理システム + 高度なデプロイ拡張機能 + ドキュメントジェネレータ',
-    version: '0.1.0',
-    architecture: 'Process Network Graph Model',
+    description: 'イベントソーシング + GraphDB + CQRS アーキテクチャ - Kafka + Schema Registryベースのイベントストリーム、GraphDBへのリアルタイムプロジェクション、分散キャッシュによる高性能クエリ処理',
+    version: '0.2.0',
+    architecture: 'Event-Sourcing Graph Database',
     created_at: '2025-01-12',
-    last_updated: '2025-09-17',
+    last_updated: '2025-09-19',
     author: 'jun784',
+
+    // ==========================================
+    // 新アーキテクチャの概要
+    // ==========================================
+    architecture_overview: {
+      paradigm: 'Event-Sourcing + CQRS + GraphDB',
+      foundation: 'Kafka + Schema Registry + Redis/RocksDB',
+      key_features: [
+        'イベント駆動アーキテクチャ',
+        'リアルタイムプロジェクション',
+        '分散キャッシュ',
+        'GraphDBベースのクエリ',
+        'CQRSパターン',
+        'スキーマ進化管理'
+      ],
+      storage_backends: [
+        'Kafka (イベントストリーム)',
+        'Schema Registry (スキーマ管理)',
+        'RocksDB (永続化ストレージ)',
+        'Redis (分散キャッシュ)',
+        'GraphDB (プロジェクションデータ)'
+      ]
+    },
 
     deploy_extensions: {
       description: '高度なデプロイメント拡張機能群',

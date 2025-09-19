@@ -1,0 +1,45 @@
+[package]
+name = "kotoba-query-engine"
+version = "0.1.0"
+edition = "2021"
+description = "ISO GQL query engine for KotobaDB"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# Parser
+pest = "2.0"
+pest_derive = "2.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Collections
+itertools = "0.12"
+
+# Regex for pattern matching
+regex = "1.0"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Futures for async streams
+futures = "0.3"
+
+# Kotoba dependencies (placeholder - will be replaced with actual crates)
+# kotoba-types = { path = "../kotoba-core" }
+# kotoba-errors = { path = "../kotoba-errors" }
+# kotoba-graph-projection = { path = "../kotoba-graph-projection" }
+# kotoba-graph-index = { path = "../kotoba-graph-index" }
+# kotoba-cache = { path = "../kotoba-cache" }
