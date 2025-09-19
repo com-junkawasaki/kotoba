@@ -116,7 +116,6 @@ pub fn init_template_engine(template_dir: &str) -> Result<templates::TemplateEng
     templates::TemplateEngine::new(template_dir)
 }
 
-#[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
@@ -158,7 +157,7 @@ mod tests {
     #[test]
     fn test_handler_context_creation() {
         let mut headers = HashMap::new();
-        headers.insert(r#"Content-Type"#.to_string(), r#"application/json"#.to_string());
+        headers.insert("Content-Type".to_string(), r#"application/json"#.to_string());
 
         let mut query_params = HashMap::new();
         query_params.insert("page".to_string(), "1".to_string());
@@ -177,7 +176,7 @@ mod tests {
 
         assert_eq!(context.method, "GET");
         assert_eq!(context.path, "/api/users");
-        assert_eq!(context.headers.get(r#"Content-Type"#), Some(&r#"application/json"#.to_string()));
+        assert_eq!(context.headers.get("Content-Type"), Some(&r#"application/json"#.to_string()));
         assert_eq!(context.query_params.get("page"), Some(&"1".to_string()));
         assert_eq!(context.environment.get("NODE_ENV"), Some(&"development".to_string()));
         assert_eq!(context.body, Some(r#"{"name": "test"}"#.to_string()));
@@ -201,7 +200,7 @@ mod tests {
     #[test]
     fn test_handler_result_creation() {
         let mut headers = HashMap::new();
-        headers.insert(r#"Content-Type"#.to_string(), r#"text/html"#.to_string());
+        headers.insert("Content-Type".to_string(), "text/html".to_string());
 
         let result = HandlerResult {
             status_code: 200,
@@ -258,8 +257,8 @@ mod tests {
             max_payload_size: 10485760, // 10MB
             supported_content_types: vec![
                 r#"application/json"#.to_string(),
-                r#"text/html"#.to_string(),
-                r#"application/xml"#.to_string(),
+                "text/html".to_string(),
+                "application/xml".to_string(),
             ],
         };
 
@@ -525,7 +524,7 @@ mod tests {
     #[test]
     fn test_handler_result_serialization() {
         let mut headers = HashMap::new();
-        headers.insert(r#"Content-Type"#.to_string(), r#"application/json"#.to_string());
+        headers.insert("Content-Type".to_string(), r#"application/json"#.to_string());
 
         let result = HandlerResult {
             status_code: 201,
