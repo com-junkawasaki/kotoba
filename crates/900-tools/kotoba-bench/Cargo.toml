@@ -11,12 +11,12 @@ documentation = "https://docs.rs/kotoba-bench"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# KotobaDB core crates
-# kotoba-db-core temporarily disabled - will be replaced with kotoba-storage
-kotoba-db-engine-memory = { path = "../../200-application/kotoba-db-engine-memory", version = "0.1.16" }
-kotoba-db-engine-lsm = { path = "../../200-application/kotoba-db-engine-lsm", version = "0.1.16" }
-kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.16" }
-# kotoba-db-cluster = { path = "../../200-application/kotoba-db-cluster", version = "0.1.16", optional = true }  # Temporarily disabled
+# KotobaDB core crates - Storage layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
+kotoba-db-engine-memory = { path = "../../100-storage/kotoba-db-engine-memory", version = "0.1.21" }
+kotoba-db-engine-lsm = { path = "../../100-storage/kotoba-db-engine-lsm", version = "0.1.21" }
+kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.21" }
+# kotoba-db-cluster = { path = "../../100-storage/kotoba-db-cluster", version = "0.1.21", optional = true }  # Temporarily disabled
 
 # Benchmarking utilities
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }

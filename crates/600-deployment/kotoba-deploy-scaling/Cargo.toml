@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-deploy-scaling"
-version.workspace = true
+version = "0.1.21"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -14,7 +14,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 [dependencies]
 # Kotoba dependencies
 kotoba-core = { workspace = true }
-kotoba-deploy-core = { path = "../../200-application/kotoba-deploy-core", version = "0.1.15" }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.21" }
 
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }

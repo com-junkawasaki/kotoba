@@ -29,9 +29,9 @@ lazy_static = "1.4"
 notify = "6.0"  # For file watching
 dotenvy = "0.15" # For environment variables
 
-# KotobaDB dependencies
-kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.0" }
-kotoba-storage = { path = "../../200-application/kotoba-storage", version = "0.1.16" }
+# KotobaDB dependencies - Storage layer
+kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.21" }
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
 
 [dev-dependencies]
 tokio-test = "0.4"

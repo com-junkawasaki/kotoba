@@ -33,9 +33,9 @@ walkdir = "2.0" # For directory traversal
 parking_lot = "0.12"
 clap = { version = "4.0", features = ["derive"] }
 
-# KotobaDB dependencies
-kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.0" }
-kotoba-storage = { path = "../../200-application/kotoba-storage", version = "0.1.16" }
+# KotobaDB dependencies - Storage layer
+kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.21" }
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
 
 # Optional cloud storage support
 rusoto_core = { version = "0.48", optional = true }

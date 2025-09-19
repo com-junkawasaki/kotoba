@@ -465,7 +465,7 @@ impl ConfigParser {
             for (name, config) in queues_obj {
                 if let JsonnetValue::Object(config_obj) = config {
                     let queue_config = Self::parse_queue_config(name, config_obj)?;
-                    queues.insert(name.clone(), queue_config);
+                    queues.insert(name.to_string(), queue_config);
                 }
             }
         }
@@ -495,7 +495,7 @@ impl ConfigParser {
             for (name, config) in topics_obj {
                 if let JsonnetValue::Object(config_obj) = config {
                     let topic_config = Self::parse_topic_config(name, config_obj)?;
-                    topics.insert(name.clone(), topic_config);
+                    topics.insert(name.to_string(), topic_config);
                 }
             }
         }
@@ -536,7 +536,7 @@ impl ConfigParser {
             for (name, config) in apis_obj {
                 if let JsonnetValue::Object(config_obj) = config {
                     let api_config = Self::parse_api_config(name, config_obj)?;
-                    apis.insert(name.clone(), api_config);
+                    apis.insert(name.to_string(), api_config);
                 }
             }
         }
@@ -601,7 +601,7 @@ impl ConfigParser {
             for (name, config) in int_obj {
                 if let JsonnetValue::Object(config_obj) = config {
                     let integration_config = Self::parse_integration_config(name, config_obj)?;
-                    integrations.insert(name.clone(), integration_config);
+                    integrations.insert(name.to_string(), integration_config);
                 }
             }
         }

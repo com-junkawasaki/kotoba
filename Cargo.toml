@@ -24,6 +24,15 @@ members = [
     "crates/400-language/kotobas-wasm",
     "crates/500-services/kotoba-server-core",
     "crates/500-services/kotoba-server",
+    "crates/600-deployment/kotoba-deploy",
+    "crates/600-deployment/kotoba-deploy-cli",
+    "crates/600-deployment/kotoba-deploy-controller",
+    "crates/600-deployment/kotoba-deploy-core",
+    "crates/600-deployment/kotoba-deploy-git",
+    "crates/600-deployment/kotoba-deploy-hosting",
+    "crates/600-deployment/kotoba-deploy-network",
+    "crates/600-deployment/kotoba-deploy-runtime",
+    "crates/600-deployment/kotoba-deploy-scaling",
     "crates/900-tools/kotoba-cli",
     "crates/900-tools/kotoba-build",
 ]
@@ -75,15 +84,19 @@ kotoba-cid = { path = "crates/000-core/kotoba-cid", version = "0.1.21" }
 # kotoba-graph temporarily disabled
 # kotoba-graph = { path = "crates/100-storage/kotoba-graphdb", version = "0.1.21" }
 kotoba-storage = { path = "crates/100-storage/kotoba-storage", version = "0.1.21" }
-# kotoba-execution temporarily disabled
-# kotoba-execution = { path = "crates/200-application/kotoba-execution", version = "0.1.21" }
+kotoba-execution = { path = "crates/200-application/kotoba-execution", version = "0.1.21" }
 kotoba-rewrite = { path = "crates/200-application/kotoba-rewrite", version = "0.1.21" }
-kotoba-jsonnet = { path = "crates/400-language/kotoba-jsonnet", version = "0.1.16" }
+kotoba-jsonnet = { path = "crates/400-language/kotoba-jsonnet", version = "0.1.17" }
 kotoba-routing = { path = "crates/200-application/kotoba-routing", version = "0.1.16" }
 kotoba-workflow-core = { path = "crates/300-workflow/kotoba-workflow-core", version = "0.1.21" }
 kotoba-workflow = { path = "crates/300-workflow/kotoba-workflow", version = "0.1.21" }
 kotoba-workflow-activities = { path = "crates/300-workflow/kotoba-workflow-activities", version = "0.1.21" }
 kotoba-workflow-operator = { path = "crates/300-workflow/kotoba-workflow-operator", version = "0.1.21" }
+kotoba-deploy-core = { path = "crates/600-deployment/kotoba-deploy-core", version = "0.1.21" }
+kotoba-deploy-controller = { path = "crates/600-deployment/kotoba-deploy-controller", version = "0.1.21" }
+kotoba-deploy-runtime = { path = "crates/600-deployment/kotoba-deploy-runtime", version = "0.1.21" }
+kotoba-deploy-scaling = { path = "crates/600-deployment/kotoba-deploy-scaling", version = "0.1.21" }
+kotoba-deploy-network = { path = "crates/600-deployment/kotoba-deploy-network", version = "0.1.21" }
 
 # Fix digest version conflict
 digest = "0.10.7"

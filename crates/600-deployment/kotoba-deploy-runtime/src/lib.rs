@@ -3,7 +3,7 @@
 //! Runtime management for the Kotoba deployment system.
 //! Provides process execution, container management, and resource monitoring.
 
-use kotoba_core::types::{Result, KotobaError};
+use kotoba_core::prelude::KotobaError;
 use kotoba_deploy_core::*;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

@@ -20,7 +20,7 @@ reqwest = { version = "0.11", features = ["json"] }
 
 # Kotoba core dependencies
 kotoba-core = { path = "../../000-core/kotoba-core" }
-# kotoba-jsonnet removed - functionality integrated into kotoba-kotobas
+kotoba-jsonnet.workspace = true
 
 # Merkle DAG dependencies
 sha2 = "0.10"

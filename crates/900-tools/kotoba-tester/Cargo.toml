@@ -34,9 +34,9 @@ glob = "0.3"
 num_cpus = "1.16"
 clap = { version = "4.0", features = ["derive"] }
 
-# Kotoba ecosystem
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
-# kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
+# Kotoba ecosystem - Core and Language layers
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.21" }
+kotoba-jsonnet = { path = "../../400-language/kotoba-jsonnet", version = "0.1.17" }
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -73,8 +73,8 @@ reqwest = { version = "0.11", features = ["json"] }
 # HTML escaping
 html-escape = "0.2"
 
-# Kotoba ecosystem
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
+# Kotoba ecosystem - Core layer
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.21" }
 
 [dev-dependencies]
 tokio-test = "0.4"

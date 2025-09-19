@@ -152,7 +152,7 @@ impl FrontendParser {
             for (name, comp_value) in comp_obj {
                 if let JsonnetValue::Object(comp_def) = comp_value {
                     let component = Self::parse_component(name, comp_def)?;
-                    components.insert(name.clone(), component);
+                    components.insert(name.to_string(), component);
                 }
             }
         }

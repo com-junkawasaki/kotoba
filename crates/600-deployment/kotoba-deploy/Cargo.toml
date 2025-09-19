@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-deploy"
-version = "0.1.16"
+version = "0.1.21"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
@@ -15,13 +15,13 @@ name = "kotoba_deploy"
 path = "src/lib.rs"
 
 [dependencies]
-# Kotoba internal crates
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
-kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.1" }
-kotoba-graph = { path = "../../200-application/kotoba-graph", version = "0.1.17" }
-kotoba-storage = { path = "../../200-application/kotoba-storage", version = "0.1.16" }
-kotoba-execution = { path = "../../200-application/kotoba-execution", version = "0.1.16" }
-kotoba-rewrite = { path = "../../200-application/kotoba-rewrite", version = "0.1.16" }
+# Kotoba internal crates - Port layer
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.21" }
+kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.2" }
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
+kotoba-execution = { path = "../../200-application/kotoba-execution", version = "0.1.21" }
+kotoba-rewrite = { path = "../../200-application/kotoba-rewrite", version = "0.1.21" }
+# kotoba-graph temporarily disabled - will be replaced with KeyValueStore
 # kotoba-kotobas.workspace = true  # Optional for now due to stability
 
 # External dependencies

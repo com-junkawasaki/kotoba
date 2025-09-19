@@ -3,9 +3,12 @@
 //! Deployment controller for the Kotoba deployment system.
 //! Provides orchestration, state management, and GQL-based deployment operations.
 
-use kotoba_core::types::{Result, Value, KotobaError};
-use kotoba_graph::prelude::Graph;
+use kotoba_core::prelude::{KotobaError, Value};
 use kotoba_rewrite::prelude::RewriteEngine;
+use kotoba_storage::KeyValueStore;
+
+// Type alias for Result
+type Result<T> = std::result::Result<T, KotobaError>;
 use kotoba_deploy_core::*;
 use kotoba_deploy_scaling::*;
 use kotoba_deploy_network::*;
@@ -42,17 +45,17 @@ pub enum DeploymentStatus {
 
 /// デプロイコントローラー
 #[derive(Debug)]
-pub struct DeployController {
+pub struct DeployController<T: KeyValueStore + 'static> {
     /// 書換えエンジン
-    rewrite_engine: Arc<RewriteEngine>,
+    rewrite_engine: Arc<RewriteEngine<T>>,
     /// スケーリングエンジン
     scaling_engine: Arc<ScalingEngine>,
     /// ネットワークマネージャー
     network_manager: Arc<NetworkMgr>,
     /// Git統合
     git_integration: Option<Arc<GitIntegration>>,
-    /// デプロイメントグラフ
-    deployment_graph: Arc<RwLock<Graph>>,
+    /// ストレージ (Graphの代わり)
+    storage: Arc<T>,
     /// デプロイメント状態
     deployment_states: Arc<RwLock<HashMap<Uuid, DeploymentState>>>,
 
@@ -781,17 +784,19 @@ pub struct GqlDeploymentResponse {
     pub execution_time_ms: u64,
 }
 
-impl DeployController {
+impl<T: KeyValueStore + 'static> DeployController<T> {
     /// 新しいデプロイコントローラーを作成
     pub fn new(
-        rewrite_engine: Arc<RewriteEngine>,
+        rewrite_engine: Arc<RewriteEngine<T>>,
         scaling_engine: Arc<ScalingEngine>,
         network_manager: Arc<NetworkMgr>,
+        storage: Arc<T>,
     ) -> Self {
         Self::new_with_configs(
             rewrite_engine,
             scaling_engine,
             network_manager,
+            Arc::clone(&storage),
             RollbackConfig::default(),
             BlueGreenConfig::default(),
             CanaryConfig::default(),
@@ -800,9 +805,10 @@ impl DeployController {
 
     /// 設定付きで新しいデプロイコントローラーを作成
     pub fn new_with_configs(
-        rewrite_engine: Arc<RewriteEngine>,
+        rewrite_engine: Arc<RewriteEngine<T>>,
         scaling_engine: Arc<ScalingEngine>,
         network_manager: Arc<NetworkMgr>,
+        storage: Arc<T>,
         rollback_config: RollbackConfig,
         blue_green_config: BlueGreenConfig,
         canary_config: CanaryConfig,
@@ -827,7 +833,7 @@ impl DeployController {
             scaling_engine,
             network_manager,
             git_integration: None,
-            deployment_graph: Arc::new(RwLock::new(Graph::empty())),
+            storage,
             deployment_states: Arc::new(RwLock::new(HashMap::<Uuid, DeploymentState>::new())),
 
             history_manager,
@@ -1075,10 +1081,6 @@ impl DeployController {
         Err(KotobaError::InvalidArgument("GQL parsing not implemented".to_string()))
     }
 
-    /// デプロイメントグラフを取得
-    pub fn deployment_graph(&self) -> Arc<RwLock<Graph>> {
-        Arc::clone(&self.deployment_graph)
-    }
 
     /// デプロイメント状態を取得
     pub fn deployment_states(&self) -> Arc<RwLock<HashMap<Uuid, DeploymentState>>> {
