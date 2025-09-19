@@ -67,7 +67,7 @@ kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
 kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
 kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
 kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
-kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
+# kotoba-execution moved to optional dependencies
 kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.16" }
 kotoba-routing = { path = "crates/kotoba-routing", version = "0.1.16" }
@@ -80,9 +80,9 @@ digest = "0.10.7"
 # These are workspace members, not external dependencies
 # kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
 # kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
-# kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
+# kotoba-graph moved to optional dependencies
 # kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
-# kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
+# kotoba-execution moved to optional dependencies below
 # kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
 
 # Root crate configuration
@@ -117,10 +117,10 @@ panic = "abort"
 [dependencies]
 # Core crates - workspace versions
 # kotoba-core = { path = "crates/kotoba-core" } # Temporarily disabled to avoid confusion
-kotoba-graph = { path = "crates/kotoba-graph" }
+# kotoba-graph moved to optional dependencies
 kotoba-storage = { path = "crates/kotoba-storage" }
 kotoba-schema = { path = "crates/kotoba-schema" }
-kotoba-execution = { path = "crates/kotoba-execution" }
+# kotoba-execution moved to optional dependencies
 kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-security.workspace = true
 kotoba-server = { path = "crates/kotoba-server", optional = true }
@@ -128,6 +128,11 @@ kotoba-server = { path = "crates/kotoba-server", optional = true }
 # Core crates only (published versions)
 # Optional crates are disabled for stable core focus
 kotoba-package-manager = { path = "crates/kotoba-package-manager", optional = true }
+kotoba-execution = { path = "crates/kotoba-execution", optional = true }
+kotoba-graph = { path = "crates/kotoba-graph", optional = true }
+kotoba-kotobas = { path = "crates/kotoba-kotobas", optional = true }
+kotoba-repl = { path = "crates/kotoba-repl", optional = true }
+kotoba-formatter = { path = "crates/kotoba-formatter", optional = true }
 
 # Schema and CID dependencies
 schemars.workspace = true
@@ -158,14 +163,14 @@ reqwest = { version = "0.11", features = ["json"], optional = true }
 
 [features]
 default = ["full"]
-full = ["tokio", "log", "env_logger", "examples", "binary", "server", "package-manager"]
+full = ["tokio", "log", "env_logger", "examples", "binary", "server", "package-manager", "execution", "graph", "kotobas", "repl", "formatter"]
 binary = ["clap"]
 examples = []
 types = []
 ir = []
-graph = []
+# graph moved to line 183
 storage = []
-execution = []
+# execution moved to line 182
 planner = []
 rewrite = []
 http = []
@@ -174,6 +179,11 @@ wasm = []
 deploy = []
 server = ["kotoba-server"]
 package-manager = ["kotoba-package-manager"]
+execution = ["kotoba-execution"]
+graph = ["kotoba-graph"]
+kotobas = ["kotoba-kotobas"]
+repl = ["kotoba-repl"]
+formatter = ["kotoba-formatter"]
 vercel = ["vercel_runtime", "reqwest"]
 lsm = []
 
