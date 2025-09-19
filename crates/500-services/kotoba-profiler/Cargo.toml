@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-profiler"
-version = "0.1.16"
+version = "0.1.21"
 edition = "2021"
 description = "Advanced profiling and performance analysis tools for KotobaDB"
 license = "Apache-2.0"
@@ -12,13 +12,11 @@ documentation = "https://docs.rs/kotoba-profiler"
 
 [dependencies]
 # KotobaDB core crates
-# kotoba-db-core temporarily disabled - will be replaced with kotoba-storage
-kotoba-db-engine-memory = { path = "../../200-application/kotoba-db-engine-memory", version = "0.1.16" }
-kotoba-db-engine-lsm = { path = "../../200-application/kotoba-db-engine-lsm", version = "0.1.16" }
-kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.16" }
+kotoba-storage = "0.1.22"
+kotoba-graphdb = "0.1.21"
 
 # Benchmarking integration
-kotoba-bench = { path = "../../200-application/kotoba-bench", version = "0.1.16" }
+# kotoba-bench temporarily disabled - will be re-enabled when available
 
 # Profiling and monitoring
 tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }
