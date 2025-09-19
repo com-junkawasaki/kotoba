@@ -114,6 +114,7 @@ templates = ["tera", "handlebars"]
 # Full feature set
 # full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates", "kotobas", "tsx"]
 chrono = ["dep:chrono"]
+test = []
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

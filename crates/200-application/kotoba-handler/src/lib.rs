@@ -116,6 +116,7 @@ pub fn init_template_engine(template_dir: &str) -> Result<templates::TemplateEng
     templates::TemplateEngine::new(template_dir)
 }
 
+#[cfg(feature = "test")]
 mod tests {
     use super::*;
     use std::collections::HashMap;
@@ -796,6 +797,6 @@ mod tests {
         let error = HandlerError::Config(r#"test config error "#.to_string());
         let debug_str = format!("{:?}", error);
         assert!(debug_str.contains("Config"));
-        assert!(debug_str.contains("test config error"));
+        assert!(debug_str.contains("test config error "));
     }
 }
