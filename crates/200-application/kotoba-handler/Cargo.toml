@@ -95,14 +95,14 @@ rand = "0.8"
 
 [features]
 default = ["server"]
-cli = ["kotoba-cli", "server"]
+# cli = ["kotoba-cli", "server"]
 server = ["tokio", "futures", "hyper", "tower", "tower-http"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "serde-wasm-bindgen", "web-sys", "js-sys"]
 websocket = ["server", "tokio-tungstenite"]
 
 # Language processing features
-kotobas = ["dep:kotoba-kotobas"]
-tsx = ["dep:kotoba2tsx"]
+# kotobas = ["dep:kotoba-kotobas"]
+# tsx = ["dep:kotoba2tsx"]
 
 # Web development features
 web = ["server", "tera", "handlebars", "mime_guess", "url"]
@@ -112,7 +112,7 @@ dev_server = ["web", "notify"]
 templates = ["tera", "handlebars"]
 
 # Full feature set
-full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates", "kotobas", "tsx"]
+# full = ["cli", "server", "wasm", "websocket", "web", "database", "auth", "dev_server", "templates", "kotobas", "tsx"]
 chrono = ["dep:chrono"]
 
 [dev-dependencies]
