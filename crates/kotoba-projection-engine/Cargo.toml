@@ -39,7 +39,8 @@ futures = "0.3"
 # Metrics
 metrics = "0.23"
 
-# Placeholder for Kotoba dependencies
-# kotoba-event-stream = { path = "../kotoba-event-stream" }
-# kotoba-cache = { path = "../kotoba-cache" }
-# kotoba-graph-projection = { path = "../kotoba-graph-projection" }
+# Kotoba dependencies
+kotoba-event-stream = { path = "../kotoba-event-stream" }
+kotoba-cache = { path = "../kotoba-cache" }
+kotoba-ocel = { path = "../kotoba-ocel" }
+kotoba-graphdb = { path = "../kotoba-graphdb" }

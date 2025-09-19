@@ -12,6 +12,9 @@ use tracing::{info, warn, error, instrument};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
+use kotoba_ocel::OcelEvent;
+use kotoba_graphdb::GraphDB;
+
 pub mod event_processor;
 pub mod materializer;
 pub mod view_manager;
@@ -29,14 +32,12 @@ pub use metrics::*;
 
 /// Main projection engine
 pub struct ProjectionEngine {
-    /// Event processor for handling incoming events
+    /// Event processor for handling OCEL events
     event_processor: Arc<EventProcessor>,
-    /// Materializer for GraphDB projections
+    /// Materializer for direct GraphDB projections
     materializer: Arc<Materializer>,
-    /// View manager for materialized views
-    view_manager: Arc<ViewManager>,
-    /// Storage layer using RocksDB
-    storage: Arc<StorageLayer>,
+    /// GraphDB instance
+    graphdb: Arc<GraphDB>,
     /// Cache integration
     cache_integration: Arc<CacheIntegration>,
     /// Engine configuration
@@ -160,21 +161,18 @@ impl ProjectionEngine {
     pub async fn new(config: ProjectionConfig) -> Result<Self> {
         info!("Initializing Projection Engine with config: {:?}", config);
 
-        // Initialize RocksDB storage
-        let storage = Arc::new(StorageLayer::new(&config.rocksdb_path)?);
+        // Initialize GraphDB
+        let graphdb_path = format!("{}/graphdb", config.rocksdb_path);
+        let graphdb = Arc::new(GraphDB::new(&graphdb_path).await?);
 
         // Initialize cache integration
         let cache_integration = Arc::new(CacheIntegration::new(config.cache_config.clone()));
 
-        // Initialize view manager
-        let view_manager = Arc::new(ViewManager::new(storage.clone()));
-
         // Initialize materializer
         let materializer = Arc::new(Materializer::new(
-            storage.clone(),
+            &graphdb_path,
             cache_integration.clone(),
-            view_manager.clone(),
-        ));
+        ).await?);
 
         // Initialize event processor
         let event_processor = Arc::new(EventProcessor::new(
@@ -188,8 +186,7 @@ impl ProjectionEngine {
         let engine = Self {
             event_processor,
             materializer,
-            view_manager,
-            storage,
+            graphdb,
             cache_integration,
             config,
             active_projections: Arc::new(DashMap::new()),
@@ -300,22 +297,30 @@ impl ProjectionEngine {
         self.active_projections.iter().map(|p| p.key().clone()).collect()
     }
 
-    /// Process a batch of events
+    /// Process a batch of OCEL events
     #[instrument(skip(self, events))]
-    pub async fn process_events(&self, events: Vec<EventEnvelope>) -> Result<()> {
+    pub async fn process_ocel_events(&self, events: Vec<OcelEvent>) -> Result<()> {
         if self.config.enable_metrics {
             counter!("projection_engine.events_received", events.len() as u64);
         }
 
-        // Process events through the event processor
+        // Process OCEL events through the event processor
         self.event_processor.process_batch(events).await
     }
 
-    /// Query a materialized view
+    /// Process a batch of events (legacy method)
+    #[instrument(skip(self, events))]
+    pub async fn process_events(&self, events: Vec<EventEnvelope>) -> Result<()> {
+        warn!("Legacy event processing is deprecated. Use process_ocel_events instead.");
+        Ok(())
+    }
+
+    /// Query the GraphDB directly
     #[instrument(skip(self, query))]
-    pub async fn query_view(&self, projection_name: &str, query: ViewQuery) -> Result<ViewResult> {
+    pub async fn query_graph(&self, query: GraphQuery) -> Result<QueryResult> {
         // Check cache first
-        if let Some(cached_result) = self.cache_integration.get_cached_result(projection_name, &query).await? {
+        let cache_key = format!("graph_query:{:?}", query);
+        if let Some(cached_result) = self.cache_integration.get_cached_result("graphdb", &serde_json::json!(query)).await? {
             if self.config.enable_metrics {
                 counter!("projection_engine.cache_hits");
             }
@@ -326,13 +331,20 @@ impl ProjectionEngine {
             counter!("projection_engine.cache_misses");
         }
 
-        // Query the materialized view
-        let result = self.view_manager.query_view(projection_name, query.clone()).await?;
+        // Query the GraphDB directly
+        let result = self.graphdb.execute_query(query.clone()).await?;
 
         // Cache the result
-        self.cache_integration.cache_result(projection_name, &query, &result).await?;
+        self.cache_integration.cache_result("graphdb", &serde_json::json!(query), &serde_json::json!(result)).await?;
 
         Ok(result)
+    }
+
+    /// Query a materialized view (legacy method)
+    #[instrument(skip(self, query))]
+    pub async fn query_view(&self, projection_name: &str, query: ViewQuery) -> Result<ViewResult> {
+        warn!("Legacy view querying is deprecated. Use query_graph instead.");
+        Err(anyhow::anyhow!("Legacy view querying not supported"))
     }
 
     /// Get engine statistics
@@ -405,6 +417,13 @@ pub type EventEnvelope = serde_json::Value;
 pub type ProjectionDefinition = serde_json::Value;
 pub type ViewQuery = serde_json::Value;
 pub type ViewResult = serde_json::Value;
+
+// Placeholder types - these will be replaced with actual implementations
+pub type GraphQuery = kotoba_graphdb::GraphQuery;
+pub type QueryResult = kotoba_graphdb::QueryResult;
+pub type ViewQuery = serde_json::Value;
+pub type ViewResult = serde_json::Value;
+pub type EventEnvelope = serde_json::Value;
 
 impl Default for ProjectionStats {
     fn default() -> Self {

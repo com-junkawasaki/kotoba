@@ -1,58 +1,59 @@
 //! `kotoba-event-stream`
 //!
-//! Kafka-based event streaming component for KotobaDB.
-//! Provides publish/subscribe functionality for event sourcing.
+//! RocksDB-based event streaming component for KotobaDB.
+//! Provides publish/subscribe functionality for event sourcing using RocksDB.
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 use async_trait::async_trait;
-use rdkafka::config::ClientConfig;
-use rdkafka::producer::{FutureProducer, FutureRecord};
-use rdkafka::consumer::{Consumer, StreamConsumer};
-use rdkafka::message::Message;
+use rocksdb::{DB, ColumnFamilyDescriptor, Options, WriteBatch};
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
-use tracing::{info, warn, error};
+use tracing::{info, warn, error, instrument};
+use dashmap::DashMap;
+use bincode;
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 /// Core event types for the event sourcing system
 pub mod event;
 pub use event::*;
 
-/// Event producer for publishing events to Kafka
-pub mod producer;
-pub use producer::*;
+/// RocksDB-based event stream implementation
+pub mod rocksdb_stream;
+pub use rocksdb_stream::*;
 
-/// Event consumer for subscribing to events from Kafka
-pub mod consumer;
-pub use consumer::*;
+/// Event storage and retrieval
+pub mod storage;
+pub use storage::*;
 
 /// Configuration for the event stream
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventStreamConfig {
-    pub bootstrap_servers: String,
-    pub group_id: String,
-    pub topic_prefix: String,
-    pub producer_config: HashMap<String, String>,
-    pub consumer_config: HashMap<String, String>,
+    /// RocksDB data directory
+    pub rocksdb_path: String,
+    /// Maximum number of topics (column families)
+    pub max_topics: usize,
+    /// Maximum events per batch
+    pub max_batch_size: usize,
+    /// Retention period for events (in hours)
+    pub retention_hours: u64,
+    /// Enable compression
+    pub enable_compression: bool,
+    /// Enable metrics collection
+    pub enable_metrics: bool,
 }
 
 impl Default for EventStreamConfig {
     fn default() -> Self {
-        let mut producer_config = HashMap::new();
-        producer_config.insert("compression.type".to_string(), "gzip".to_string());
-        producer_config.insert("acks".to_string(), "all".to_string());
-
-        let mut consumer_config = HashMap::new();
-        consumer_config.insert("enable.auto.commit".to_string(), "false".to_string());
-        consumer_config.insert("auto.offset.reset".to_string(), "earliest".to_string());
-
         Self {
-            bootstrap_servers: "localhost:9092".to_string(),
-            group_id: "kotoba-event-stream".to_string(),
-            topic_prefix: "kotoba.events".to_string(),
-            producer_config,
-            consumer_config,
+            rocksdb_path: "./data/event-stream".to_string(),
+            max_topics: 100,
+            max_batch_size: 1000,
+            retention_hours: 168, // 7 days
+            enable_compression: true,
+            enable_metrics: true,
         }
     }
 }
@@ -71,153 +72,143 @@ pub trait EventStreamPort {
 
     /// Get events by aggregate ID
     async fn get_events_by_aggregate(&self, aggregate_id: &AggregateId) -> Result<Vec<EventEnvelope>>;
+
+    /// Create a new topic
+    async fn create_topic(&self, topic: &str) -> Result<()>;
+
+    /// Delete a topic
+    async fn delete_topic(&self, topic: &str) -> Result<()>;
+
+    /// Get topic statistics
+    async fn get_topic_stats(&self, topic: &str) -> Result<TopicStats>;
+
+    /// List all topics
+    async fn list_topics(&self) -> Result<Vec<String>>;
 }
 
 /// Event handler function type
 pub type EventHandler = Box<dyn Fn(EventEnvelope) -> Result<()> + Send + Sync>;
 
-/// Main event stream implementation using Kafka
-pub struct KafkaEventStream {
-    config: EventStreamConfig,
-    producer: FutureProducer,
-    consumers: Arc<Mutex<HashMap<String, StreamConsumer>>>,
+/// Topic statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TopicStats {
+    pub topic_name: String,
+    pub event_count: u64,
+    pub first_offset: u64,
+    pub last_offset: u64,
+    pub created_at: DateTime<Utc>,
+    pub size_bytes: u64,
 }
 
-impl KafkaEventStream {
-    /// Create a new Kafka event stream
-    pub fn new(config: EventStreamConfig) -> Result<Self> {
-        let mut producer_config = ClientConfig::new();
-        producer_config
-            .set("bootstrap.servers", &config.bootstrap_servers)
-            .set("message.timeout.ms", "5000");
+/// Consumer offset information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsumerOffset {
+    pub consumer_group: String,
+    pub topic: String,
+    pub partition: u32,
+    pub offset: u64,
+    pub last_updated: DateTime<Utc>,
+}
 
-        for (key, value) in &config.producer_config {
-            producer_config.set(key, value);
-        }
+/// Main event stream implementation using RocksDB
+pub struct RocksDBEventStream {
+    config: EventStreamConfig,
+    storage: Arc<RocksDBStorage>,
+    subscribers: Arc<DashMap<String, Vec<EventHandler>>>,
+    consumer_offsets: Arc<DashMap<String, ConsumerOffset>>,
+}
 
-        let producer: FutureProducer = producer_config
-            .create()
-            .context("Failed to create Kafka producer")?;
+impl RocksDBEventStream {
+    /// Create a new RocksDB event stream
+    pub async fn new(config: EventStreamConfig) -> Result<Self> {
+        let storage = Arc::new(RocksDBStorage::new(&config.rocksdb_path, config.max_topics).await?);
 
-        info!("Created Kafka event stream with brokers: {}", config.bootstrap_servers);
+        info!("Created RocksDB event stream at: {}", config.rocksdb_path);
 
         Ok(Self {
             config,
-            producer,
-            consumers: Arc::new(Mutex::new(HashMap::new())),
+            storage,
+            subscribers: Arc::new(DashMap::new()),
+            consumer_offsets: Arc::new(DashMap::new()),
         })
     }
 
-    /// Create topic name with prefix
-    fn topic_name(&self, topic: &str) -> String {
-        format!("{}.{}", self.config.topic_prefix, topic)
+    /// Create topic name with validation
+    fn validate_topic_name(&self, topic: &str) -> Result<String> {
+        if topic.is_empty() {
+            return Err(anyhow::anyhow!("Topic name cannot be empty"));
+        }
+        if topic.len() > 255 {
+            return Err(anyhow::anyhow!("Topic name too long"));
+        }
+        Ok(topic.to_string())
     }
 }
 
 #[async_trait]
-impl EventStreamPort for KafkaEventStream {
+impl EventStreamPort for RocksDBEventStream {
     async fn publish(&self, event: EventEnvelope) -> Result<EventId> {
-        let topic = self.topic_name("all");
-        let payload = serde_json::to_string(&event)
-            .context("Failed to serialize event")?;
+        // Default topic if none specified
+        let topic = "all".to_string();
 
-        let record = FutureRecord::to(&topic)
-            .key(&event.aggregate_id.0)
-            .payload(&payload);
+        // Store event in RocksDB
+        self.storage.store_event(&topic, &event).await?;
 
-        let delivery_status = self.producer.send(record, Duration::from_secs(5)).await;
-        match delivery_status {
-            Ok(_) => {
-                info!("Published event: {} to topic: {}", event.id.0, topic);
-                Ok(event.id)
-            }
-            Err((err, _)) => {
-                error!("Failed to publish event: {}", err);
-                Err(anyhow::anyhow!("Failed to publish event: {}", err))
+        // Notify subscribers
+        if let Some(handlers) = self.subscribers.get(&topic) {
+            for handler in handlers.iter() {
+                if let Err(e) = handler(event.clone()) {
+                    error!("Event handler error: {}", e);
+                }
             }
         }
+
+        info!("Published event: {} to topic: {}", event.id.0, topic);
+        Ok(event.id)
     }
 
     async fn subscribe(&self, topic: &str, handler: EventHandler) -> Result<()> {
-        let topic_name = self.topic_name(topic);
+        let topic_name = self.validate_topic_name(topic)?;
 
-        let mut consumer_config = ClientConfig::new();
-        consumer_config
-            .set("bootstrap.servers", &self.config.bootstrap_servers)
-            .set("group.id", &self.config.group_id)
-            .set("enable.auto.commit", "false");
-
-        for (key, value) in &self.config.consumer_config {
-            consumer_config.set(key, value);
-        }
-
-        let consumer: StreamConsumer = consumer_config
-            .create()
-            .context("Failed to create Kafka consumer")?;
-
-        consumer
-            .subscribe(&[&topic_name])
-            .context("Failed to subscribe to topic")?;
-
-        let mut consumers = self.consumers.lock().await;
-        consumers.insert(topic_name.clone(), consumer);
+        // Add handler to subscribers
+        self.subscribers
+            .entry(topic_name.clone())
+            .or_insert_with(Vec::new)
+            .push(handler);
 
         info!("Subscribed to topic: {}", topic_name);
-
-        // Start consumer loop
-        tokio::spawn(async move {
-            if let Some(consumer) = consumers.get(&topic_name) {
-                loop {
-                    match consumer.recv().await {
-                        Ok(message) => {
-                            match message.payload_view::<str>() {
-                                Some(Ok(payload)) => {
-                                    match serde_json::from_str::<EventEnvelope>(payload) {
-                                        Ok(event) => {
-                                            if let Err(e) = handler(event) {
-                                                error!("Event handler error: {}", e);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            error!("Failed to deserialize event: {}", e);
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    warn!("Received message without payload");
-                                }
-                            }
-
-                            // Manual commit
-                            if let Err(e) = consumer.commit_message(&message, rdkafka::consumer::CommitMode::Async) {
-                                error!("Failed to commit message: {}", e);
-                            }
-                        }
-                        Err(e) => {
-                            error!("Consumer error: {}", e);
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
         Ok(())
     }
 
     async fn get_event(&self, event_id: &EventId) -> Result<Option<EventEnvelope>> {
-        // In a real implementation, this would query from event store
-        // For now, return None
-        warn!("get_event not implemented yet");
-        Ok(None)
+        self.storage.get_event(&event_id).await
     }
 
     async fn get_events_by_aggregate(&self, aggregate_id: &AggregateId) -> Result<Vec<EventEnvelope>> {
-        // In a real implementation, this would query from event store
-        // For now, return empty vector
-        warn!("get_events_by_aggregate not implemented yet");
-        Ok(Vec::new())
+        self.storage.get_events_by_aggregate(&aggregate_id).await
+    }
+
+    async fn create_topic(&self, topic: &str) -> Result<()> {
+        let topic_name = self.validate_topic_name(topic)?;
+        self.storage.create_topic(&topic_name).await?;
+        info!("Created topic: {}", topic_name);
+        Ok(())
+    }
+
+    async fn delete_topic(&self, topic: &str) -> Result<()> {
+        let topic_name = self.validate_topic_name(topic)?;
+        self.storage.delete_topic(&topic_name).await?;
+        self.subscribers.remove(&topic_name);
+        info!("Deleted topic: {}", topic_name);
+        Ok(())
+    }
+
+    async fn get_topic_stats(&self, topic: &str) -> Result<TopicStats> {
+        let topic_name = self.validate_topic_name(topic)?;
+        self.storage.get_topic_stats(&topic_name).await
+    }
+
+    async fn list_topics(&self) -> Result<Vec<String>> {
+        self.storage.list_topics().await
     }
 }
-
-use std::time::Duration;

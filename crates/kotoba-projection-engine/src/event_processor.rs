@@ -1,6 +1,6 @@
 //! Event Processor
 //!
-//! Processes events from the event stream and coordinates projection updates.
+//! Processes OCEL v2 events from the event stream and coordinates projection updates.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,6 +11,7 @@ use tracing::{info, warn, error, instrument};
 use futures::stream::{self, StreamExt};
 use metrics::{counter, histogram};
 
+use kotoba_ocel::OcelEvent;
 use crate::materializer::Materializer;
 
 /// Event processor for handling incoming events
@@ -20,7 +21,7 @@ pub struct EventProcessor {
     /// Registered projections
     projections: Arc<DashMap<String, ProjectionHandler>>,
     /// Event processing queue
-    event_queue: mpsc::Sender<Vec<EventEnvelope>>,
+    event_queue: mpsc::Sender<Vec<OcelEvent>>,
     /// Batch size for processing
     batch_size: usize,
     /// Processing statistics
@@ -122,9 +123,9 @@ impl EventProcessor {
         Ok(())
     }
 
-    /// Process a batch of events
+    /// Process a batch of OCEL events
     #[instrument(skip(self, events))]
-    pub async fn process_batch(&self, events: Vec<EventEnvelope>) -> Result<()> {
+    pub async fn process_batch(&self, events: Vec<OcelEvent>) -> Result<()> {
         // Update statistics
         {
             let mut stats = self.stats.write().await;
@@ -146,20 +147,20 @@ impl EventProcessor {
         self.stats.read().await.clone()
     }
 
-    /// Background task for processing events
+    /// Background task for processing OCEL events
     async fn process_events_task(
         stats: Arc<RwLock<ProcessorStats>>,
-        mut rx: mpsc::Receiver<Vec<EventEnvelope>>,
+        mut rx: mpsc::Receiver<Vec<OcelEvent>>,
         materializer: Arc<Materializer>,
     ) {
-        info!("Starting event processing task");
+        info!("Starting OCEL event processing task");
 
         while let Some(events) = rx.recv().await {
             let start_time = std::time::Instant::now();
 
             // Process events in batches
             let batch_size = events.len();
-            let result = Self::process_event_batch(&materializer, events).await;
+            let result = Self::process_ocel_event_batch(&materializer, events).await;
 
             let processing_time = start_time.elapsed();
 
@@ -170,7 +171,7 @@ impl EventProcessor {
 
             if let Err(e) = result {
                 stats.processing_errors += 1;
-                error!("Error processing event batch: {}", e);
+                error!("Error processing OCEL event batch: {}", e);
             } else {
                 // Update average processing time
                 let total_time_ms = processing_time.as_millis() as f64;
@@ -183,19 +184,19 @@ impl EventProcessor {
             }
         }
 
-        info!("Event processing task stopped");
+        info!("OCEL event processing task stopped");
     }
 
-    /// Process a batch of events
-    async fn process_event_batch(
+    /// Process a batch of OCEL events
+    async fn process_ocel_event_batch(
         materializer: &Arc<Materializer>,
-        events: Vec<EventEnvelope>,
+        events: Vec<OcelEvent>,
     ) -> Result<()> {
         // Process events in parallel
         let results = stream::iter(events)
             .map(|event| async {
-                // Determine event type and route to appropriate projections
-                Self::route_event(materializer, event).await
+                // Route OCEL event to materializer
+                Self::route_ocel_event(materializer, event).await
             })
             .buffer_unordered(10) // Process up to 10 events concurrently
             .collect::<Vec<Result<()>>>()
@@ -209,31 +210,11 @@ impl EventProcessor {
         Ok(())
     }
 
-    /// Route an event to appropriate projections
-    async fn route_event(materializer: &Arc<Materializer>, event: EventEnvelope) -> Result<()> {
-        // Extract event type from the event
-        let event_type = Self::extract_event_type(&event)?;
-
-        // Find projections that handle this event type
-        // For now, send to all projections (can be optimized later)
-        materializer.process_event(event_type, event).await?;
-
+    /// Route an OCEL event to the materializer
+    async fn route_ocel_event(materializer: &Arc<Materializer>, event: OcelEvent) -> Result<()> {
+        // Send OCEL event to materializer for direct GraphDB materialization
+        materializer.process_ocel_event(event).await?;
         Ok(())
-    }
-
-    /// Extract event type from event envelope
-    fn extract_event_type(event: &EventEnvelope) -> Result<String> {
-        // Extract event type from the event JSON
-        // This is a placeholder implementation
-        if let Some(event_type) = event.get("event_type") {
-            if let Some(type_str) = event_type.as_str() {
-                Ok(type_str.to_string())
-            } else {
-                Err(anyhow::anyhow!("Invalid event type format"))
-            }
-        } else {
-            Err(anyhow::anyhow!("Missing event_type in event"))
-        }
     }
 }
 

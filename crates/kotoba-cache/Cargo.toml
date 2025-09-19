@@ -1,8 +1,8 @@
 [package]
-name = "kotoba-event-stream"
+name = "kotoba-cache"
 version = "0.1.0"
 edition = "2021"
-description = "RocksDB-based event streaming for KotobaDB"
+description = "Redis-based distributed cache layer for KotobaDB"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
@@ -10,8 +10,8 @@ license = "MIT OR Apache-2.0"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
-# RocksDB for persistent storage
-rocksdb = { version = "0.21", features = ["multi-threaded-cf"] }
+# Redis client
+redis = { version = "0.24", features = ["tokio-comp", "cluster", "connection-manager"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -27,6 +27,7 @@ tracing = "0.1"
 
 # Collections and utilities
 dashmap = "5.5"
+itertools = "0.12"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # Time handling
@@ -37,6 +38,9 @@ futures = "0.3"
 
 # Metrics
 metrics = "0.23"
+
+# Compression
+lz4 = "1.24"
 
 # Kotoba types
 kotoba-types = { path = "../kotoba-core" }
