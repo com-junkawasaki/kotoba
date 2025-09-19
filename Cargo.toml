@@ -54,6 +54,8 @@ exclude = [
     "crates/100-storage/kotoba-db-cluster",
     "crates/100-storage/kotoba-distributed",
     "crates/100-storage/kotoba-storage-redis",
+    "crates/500-services/kotoba-security",
+    "crates/500-services/kotoba-network",
 ]
 resolver = "2"
 
