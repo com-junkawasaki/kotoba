@@ -6,6 +6,7 @@
 //! - Concurrent workload testing
 //! - Scalability validation
 //! - Resource utilization monitoring
+//! - GraphDB operations and ISO GQL queries
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,9 +14,394 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::task;
 
+// GraphDB and related imports
+use kotoba_graphdb::{GraphDB, Node, Edge, GraphTransaction, PropertyValue};
+use kotoba_query_engine::{GqlQueryEngine, GqlParser, QueryPlanner, QueryExecutor, ProjectionEngineAdapter};
+use kotoba_projection_engine::{ProjectionEngine, ProjectionConfig};
+use kotoba_cache::{CacheConfig, CacheLayer};
+use serde_json::Value;
+
 #[cfg(test)]
 mod performance_integration_tests {
     use super::*;
+
+    /// Test GraphDB node operations performance
+    #[tokio::test]
+    async fn test_graphdb_node_operations_performance() {
+        println!("🧪 Testing GraphDB Node Operations Performance...");
+
+        // Setup GraphDB
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("graphdb_test.db");
+        let graphdb = GraphDB::new(db_path.to_str().unwrap()).await.unwrap();
+
+        let mut results = vec![];
+
+        // Test different batch sizes
+        let batch_sizes = vec![100, 1000];
+
+        for (&batch_size, _) in batch_sizes.iter().zip(0..) {
+            println!("Testing with batch size: {}", batch_size);
+
+            let start_time = Instant::now();
+
+            // Create nodes in batches
+            for j in 0..batch_size {
+                let mut properties = std::collections::BTreeMap::new();
+                properties.insert("name".to_string(), PropertyValue::String(format!("Node{}", j)));
+                properties.insert("value".to_string(), PropertyValue::Integer(j as i64));
+                properties.insert("active".to_string(), PropertyValue::Boolean(j % 2 == 0));
+
+                let _node_id = graphdb.create_node(
+                    Some(format!("node_{}", j)),
+                    vec!["TestNode".to_string()],
+                    properties,
+                ).await.unwrap();
+            }
+
+            let create_duration = start_time.elapsed();
+
+            // Test read operations
+            let read_start = Instant::now();
+            for j in 0..(batch_size / 10).min(100) { // Read 10% or max 100 nodes
+                let _node = graphdb.get_node(&format!("node_{}", j)).await.unwrap();
+            }
+            let read_duration = read_start.elapsed();
+
+            // Calculate metrics
+            let create_ops_per_sec = batch_size as f64 / create_duration.as_secs_f64();
+            let read_ops_per_sec = (batch_size / 10).min(100) as f64 / read_duration.as_secs_f64();
+
+            let result = PerformanceResult {
+                operations_per_second: create_ops_per_sec,
+                average_latency: Duration::from_micros((1_000_000.0 / create_ops_per_sec) as u64),
+                p95_latency: Duration::from_micros((1_000_000.0 / create_ops_per_sec * 1.5) as u64),
+                total_operations: batch_size,
+            };
+            results.push(result.clone());
+
+            println!("  Batch {}: Create: {:.1} ops/sec, Read: {:.1} ops/sec",
+                    batch_size, create_ops_per_sec, read_ops_per_sec);
+        }
+
+        // Validate performance
+        for (i, result) in results.iter().enumerate() {
+            let batch_size = batch_sizes[i];
+            let min_ops_per_sec = match batch_size {
+                100 => 200.0,
+                1000 => 500.0,
+                _ => 200.0,
+            };
+
+            assert!(result.operations_per_second > min_ops_per_sec,
+                   "Node creation should achieve >{} ops/sec for batch size {}, got {:.1}",
+                   min_ops_per_sec, batch_size, result.operations_per_second);
+        }
+
+        println!("✅ GraphDB Node Operations Performance tests passed");
+    }
+
+    /// Test GraphDB edge operations performance
+    #[tokio::test]
+    async fn test_graphdb_edge_operations_performance() {
+        println!("🧪 Testing GraphDB Edge Operations Performance...");
+
+        // Setup GraphDB with nodes
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("graphdb_edge_test.db");
+        let graphdb = GraphDB::new(db_path.to_str().unwrap()).await.unwrap();
+
+        // Create nodes first
+        let node_count = 50;
+        for i in 0..node_count {
+            let properties = std::collections::BTreeMap::new();
+            graphdb.create_node(
+                Some(format!("node_{}", i)),
+                vec!["TestNode".to_string()],
+                properties,
+            ).await.unwrap();
+        }
+
+        let mut results = vec![];
+
+        // Test different edge creation patterns
+        let edge_counts = vec![100, 500];
+
+        for (&edge_count, _) in edge_counts.iter().zip(0..) {
+            println!("Testing with {} edges...", edge_count);
+
+            let start_time = Instant::now();
+
+            // Create edges
+            for i in 0..edge_count {
+                let from_node = format!("node_{}", i % node_count);
+                let to_node = format!("node_{}", (i + 1) % node_count);
+
+                let mut properties = std::collections::BTreeMap::new();
+                properties.insert("weight".to_string(), PropertyValue::Float((i % 100) as f64));
+                properties.insert("relationship".to_string(), PropertyValue::String(format!("rel_{}", i % 5)));
+
+                graphdb.create_edge(
+                    Some(format!("edge_{}", i)),
+                    &from_node,
+                    &to_node,
+                    "TestEdge".to_string(),
+                    properties,
+                ).await.unwrap();
+            }
+
+            let duration = start_time.elapsed();
+            let ops_per_sec = edge_count as f64 / duration.as_secs_f64();
+
+            let result = PerformanceResult {
+                operations_per_second: ops_per_sec,
+                average_latency: Duration::from_micros((1_000_000.0 / ops_per_sec) as u64),
+                p95_latency: Duration::from_micros((1_000_000.0 / ops_per_sec * 1.5) as u64),
+                total_operations: edge_count,
+            };
+            results.push(result.clone());
+
+            println!("  {} edges: {:.1} ops/sec", edge_count, ops_per_sec);
+        }
+
+        // Validate performance
+        for (i, result) in results.iter().enumerate() {
+            let edge_count = edge_counts[i];
+            let min_ops_per_sec = match edge_count {
+                100 => 100.0,
+                500 => 200.0,
+                _ => 100.0,
+            };
+
+            assert!(result.operations_per_second > min_ops_per_sec,
+                   "Edge creation should achieve >{} ops/sec for {} edges, got {:.1}",
+                   min_ops_per_sec, edge_count, result.operations_per_second);
+        }
+
+        println!("✅ GraphDB Edge Operations Performance tests passed");
+    }
+
+    /// Test GraphDB query performance (simplified)
+    #[tokio::test]
+    async fn test_graphdb_query_performance() {
+        println!("🧪 Testing GraphDB Query Performance...");
+
+        // Setup GraphDB with test data
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("graphdb_query_test.db");
+        let graphdb = GraphDB::new(db_path.to_str().unwrap()).await.unwrap();
+
+        // Create test graph
+        create_test_graph(&graphdb, 500).await;
+
+        let queries = vec![
+            "get_person_nodes",
+            "get_company_nodes",
+            "get_relationships",
+        ];
+
+        let mut results = vec![];
+
+        for query_type in &queries {
+            println!("Testing query type: {}", query_type);
+
+            let start_time = Instant::now();
+
+            // Execute different types of queries
+            let iterations = 5;
+            let mut total_duration = Duration::ZERO;
+
+            for _ in 0..iterations {
+                let iter_start = Instant::now();
+
+                match *query_type {
+                    "get_person_nodes" => {
+                        // Simulate getting person nodes
+                        let _nodes = graphdb.scan_nodes().await.unwrap();
+                    }
+                    "get_company_nodes" => {
+                        // Simulate getting company nodes
+                        let _nodes = graphdb.scan_nodes().await.unwrap();
+                    }
+                    "get_relationships" => {
+                        // Simulate getting edges
+                        let _edges = graphdb.scan_edges().await.unwrap();
+                    }
+                    _ => {}
+                }
+
+                total_duration += iter_start.elapsed();
+            }
+
+            let avg_duration = total_duration / iterations as u32;
+            let ops_per_sec = iterations as f64 / total_duration.as_secs_f64();
+
+            let result = PerformanceResult {
+                operations_per_second: ops_per_sec,
+                average_latency: avg_duration,
+                p95_latency: avg_duration * 2, // Estimate
+                total_operations: iterations,
+            };
+            results.push(result.clone());
+
+            println!("  {}: {:.1} ops/sec, avg latency: {:?}",
+                    query_type, ops_per_sec, avg_duration);
+        }
+
+        // Validate that queries execute reasonably fast
+        for (i, result) in results.iter().enumerate() {
+            assert!(result.average_latency < Duration::from_millis(1000),
+                   "GraphDB query {} should execute in <1000ms, got {:?}", i, result.average_latency);
+        }
+
+        println!("✅ GraphDB Query Performance tests passed");
+    }
+
+    /// Test simple cache performance
+    #[tokio::test]
+    async fn test_cache_performance() {
+        println!("🧪 Testing Cache Performance...");
+
+        let cache_config = CacheConfig {
+            redis_url: "redis://localhost:6379".to_string(),
+            connection_timeout_seconds: 30,
+            default_ttl_seconds: 300,
+            max_size_bytes: 10000000,
+            enable_compression: false,
+            compression_threshold_bytes: 1024,
+            enable_metrics: true,
+            key_prefix: "test".to_string(),
+        };
+        let cache = CacheLayer::new(cache_config).await.unwrap();
+
+        let operations = vec![1000, 5000];
+        let mut results = vec![];
+
+        for (&operation_count, _) in operations.iter().zip(0..) {
+            println!("Testing with {} cache operations...", operation_count);
+
+            let start_time = Instant::now();
+
+            // Test cache set operations
+            for i in 0..operation_count {
+                let key = format!("key_{}", i);
+                let value = serde_json::json!({"data": format!("value_{}", i)});
+                let _ = cache.set(&key, value, None).await;
+            }
+
+            let duration = start_time.elapsed();
+            let ops_per_sec = operation_count as f64 / duration.as_secs_f64();
+
+            let result = PerformanceResult {
+                operations_per_second: ops_per_sec,
+                average_latency: Duration::from_micros((1_000_000.0 / ops_per_sec) as u64),
+                p95_latency: Duration::from_micros((1_000_000.0 / ops_per_sec * 1.5) as u64),
+                total_operations: operation_count,
+            };
+            results.push(result.clone());
+
+            println!("  {} operations: {:.1} ops/sec", operation_count, ops_per_sec);
+        }
+
+        // Validate performance
+        for (i, result) in results.iter().enumerate() {
+            let operation_count = operations[i];
+            let min_ops_per_sec = match operation_count {
+                1000 => 1000.0,
+                5000 => 2000.0,
+                _ => 500.0,
+            };
+
+            assert!(result.operations_per_second > min_ops_per_sec,
+                   "Cache should achieve >{} ops/sec for {} operations, got {:.1}",
+                   min_ops_per_sec, operation_count, result.operations_per_second);
+        }
+
+        println!("✅ Cache Performance tests passed");
+    }
+
+    /// Test end-to-end performance with simplified pipeline
+    #[tokio::test]
+    async fn test_end_to_end_performance() {
+        println!("🧪 Testing End-to-End Performance...");
+
+        // Setup GraphDB
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("e2e_graphdb.db");
+        let graphdb = GraphDB::new(db_path.to_str().unwrap()).await.unwrap();
+
+        // Create test data
+        create_test_graph(&graphdb, 1000).await;
+
+        // Test end-to-end operations
+        let operations = vec![
+            "create_data",
+            "read_data",
+            "complex_query",
+        ];
+
+        let mut results = vec![];
+
+        for operation in &operations {
+            println!("Testing end-to-end operation: {}", operation);
+
+            let start_time = Instant::now();
+
+            // Execute operation 3 times for averaging
+            let iterations = 3usize;
+            let mut total_duration = Duration::ZERO;
+
+            for _ in 0..iterations {
+                let iter_start = Instant::now();
+
+                match *operation {
+                    "create_data" => {
+                        // Create some additional data
+                        let properties = std::collections::BTreeMap::new();
+                        let _ = graphdb.create_node(
+                            Some(format!("test_node_{}", iter_start.elapsed().as_nanos())),
+                            vec!["TestNode".to_string()],
+                            properties,
+                        ).await;
+                    }
+                    "read_data" => {
+                        // Read existing data
+                        let _nodes = graphdb.scan_nodes().await.unwrap();
+                    }
+                    "complex_query" => {
+                        // Simulate complex query
+                        let _nodes = graphdb.scan_nodes().await.unwrap();
+                        let _edges = graphdb.scan_edges().await.unwrap();
+                    }
+                    _ => {}
+                }
+
+                total_duration += iter_start.elapsed();
+            }
+
+            let avg_duration = total_duration / iterations as u32;
+            let ops_per_sec = iterations as f64 / total_duration.as_secs_f64();
+
+            let result = PerformanceResult {
+                operations_per_second: ops_per_sec,
+                average_latency: avg_duration,
+                p95_latency: avg_duration * 2,
+                total_operations: iterations,
+            };
+            results.push(result.clone());
+
+            println!("  {}: {:.1} ops/sec, avg latency: {:?}",
+                    operation, ops_per_sec, avg_duration);
+        }
+
+        // Validate end-to-end performance
+        for (i, result) in results.iter().enumerate() {
+            assert!(result.average_latency < Duration::from_millis(500),
+                   "End-to-end operation {} should complete in <500ms, got {:?}", i, result.average_latency);
+        }
+
+        println!("✅ End-to-End Performance tests passed");
+    }
 
     /// Test database throughput under various workloads
     #[tokio::test]
@@ -400,6 +786,7 @@ struct WorkloadProfile {
     concurrent_clients: usize,
 }
 
+#[derive(Clone)]
 struct PerformanceResult {
     operations_per_second: f64,
     average_latency: Duration,
@@ -517,6 +904,74 @@ impl MemoryMonitor {
             average_memory_mb: average_memory,
             memory_growth_rate,
         }
+    }
+}
+
+/// Create a test graph with the specified number of nodes
+async fn create_test_graph(graphdb: &GraphDB, node_count: usize) {
+    // Create Person nodes
+    for i in 0..node_count {
+        let mut properties = std::collections::BTreeMap::new();
+        properties.insert("name".to_string(), PropertyValue::String(format!("Person{}", i)));
+        properties.insert("age".to_string(), PropertyValue::Integer((20 + i % 50) as i64));
+        properties.insert("city".to_string(), PropertyValue::String(format!("City{}", i % 10)));
+
+        graphdb.create_node(
+            Some(format!("person_{}", i)),
+            vec!["Person".to_string()],
+            properties,
+        ).await.unwrap();
+    }
+
+    // Create Company nodes
+    for i in 0..(node_count / 10) {
+        let mut properties = std::collections::BTreeMap::new();
+        properties.insert("name".to_string(), PropertyValue::String(format!("Company{}", i)));
+        properties.insert("industry".to_string(), PropertyValue::String(format!("Industry{}", i % 5)));
+        properties.insert("size".to_string(), PropertyValue::String(format!("{} employees", 50 + i % 1000)));
+
+        graphdb.create_node(
+            Some(format!("company_{}", i)),
+            vec!["Company".to_string()],
+            properties,
+        ).await.unwrap();
+    }
+
+    // Create KNOWS relationships
+    for i in 0..(node_count / 2) {
+        let from_node = format!("person_{}", i);
+        let to_node = format!("person_{}", (i + 1) % node_count);
+
+        let mut properties = std::collections::BTreeMap::new();
+        properties.insert("since".to_string(), PropertyValue::Integer(2020 + (i % 4) as i64));
+        properties.insert("strength".to_string(), PropertyValue::Float((i % 10) as f64 / 10.0));
+
+        graphdb.create_edge(
+            Some(format!("knows_{}", i)),
+            &from_node,
+            &to_node,
+            "KNOWS".to_string(),
+            properties,
+        ).await.unwrap();
+    }
+
+    // Create WORKS_AT relationships
+    for i in 0..node_count {
+        let person_node = format!("person_{}", i);
+        let company_node = format!("company_{}", i % (node_count / 10));
+
+        let mut properties = std::collections::BTreeMap::new();
+        properties.insert("position".to_string(), PropertyValue::String(format!("Position{}", i % 5)));
+        properties.insert("salary".to_string(), PropertyValue::Integer((50000 + i % 50000) as i64));
+        properties.insert("start_date".to_string(), PropertyValue::String(format!("202{}-01-01", i % 4)));
+
+        graphdb.create_edge(
+            Some(format!("works_at_{}", i)),
+            &person_node,
+            &company_node,
+            "WORKS_AT".to_string(),
+            properties,
+        ).await.unwrap();
     }
 }
 

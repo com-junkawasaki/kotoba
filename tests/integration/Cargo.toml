@@ -21,6 +21,8 @@ kotoba-ocel = { path = "../../crates/kotoba-ocel", version = "0.1.0" }
 kotoba-graphdb = { path = "../../crates/kotoba-graphdb", version = "0.1.0" }
 kotoba-projection-engine = { path = "../../crates/kotoba-projection-engine", version = "0.1.0" }
 kotoba-cache = { path = "../../crates/kotoba-cache", version = "0.1.0" }
+kotoba-query-engine = { path = "../../crates/kotoba-query-engine", version = "0.1.0" }
+kotoba-event-stream = { path = "../../crates/kotoba-event-stream", version = "0.1.0" }
 
 # Testing utilities
 tokio = { version = "1.0", features = ["full", "test-util"] }
@@ -33,7 +35,7 @@ serde_json = "1.0"
 tempfile = "3.0"
 uuid = { version = "1.18", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-rand = "0.8"
+rand = { version = "0.8", features = ["small_rng"] }
 
 # Testing frameworks
 criterion = { version = "0.5", features = ["async_tokio"] }
