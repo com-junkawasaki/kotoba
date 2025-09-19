@@ -3,8 +3,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use parking_lot::RwLock;
-use kotoba_core::prelude::*;
-use kotoba_core::schema::{TxId, ContentHash, Cid};
 use anyhow::{anyhow, Error};
 use kotoba_graph::graph::GraphRef;
 
@@ -19,14 +17,14 @@ pub enum TxState {
 /// トランザクション
 #[derive(Debug, Clone)]
 pub struct Transaction {
-    pub id: TxId,
+    pub id: String,
     pub state: TxState,
     pub start_time: u64,
     pub writes: HashMap<String, Vec<u8>>,  // キーバリュー書き込み
 }
 
 impl Transaction {
-    pub fn new(id: TxId) -> Self {
+    pub fn new(id: String) -> Self {
         Self {
             id,
             state: TxState::Active,
@@ -52,7 +50,7 @@ impl Transaction {
 /// MVCCマネージャー
 #[derive(Debug)]
 pub struct MVCCManager {
-    transactions: RwLock<HashMap<TxId, Transaction>>,
+    transactions: RwLock<HashMap<String, Transaction>>,
     snapshots: RwLock<HashMap<u64, GraphRef>>,  // timestamp -> snapshot
 }
 
@@ -65,37 +63,37 @@ impl MVCCManager {
     }
 
     /// 新しいトランザクションを開始
-    pub fn begin_tx(&self) -> TxId {
-        let tx_id = TxId(uuid::Uuid::new_v4().to_string());
+    pub fn begin_tx(&self) -> String {
+        let tx_id = uuid::Uuid::new_v4().to_string();
         let tx = Transaction::new(tx_id.clone());
         self.transactions.write().insert(tx_id.clone(), tx);
         tx_id
     }
 
     /// トランザクションを取得
-    pub fn get_tx(&self, tx_id: &TxId) -> Option<Transaction> {
+    pub fn get_tx(&self, tx_id: &str) -> Option<Transaction> {
         self.transactions.read().get(tx_id).cloned()
     }
 
     /// トランザクションをコミット
-    pub fn commit_tx(pub fn commit_tx(pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {self, tx_id: pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {TxId) -> Result<(), Error> {self, tx_id: &TxId) -> Result<(), Error> {
+    pub fn commit_tx(&self, tx_id: &str) -> Result<(), Error> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().commit();
             Ok(())
         } else {
-            Err(KotobaError::Execution(format!("Transaction {} not found", tx_id.0)))
+            Err(anyhow!(format!("Transaction {} not found", tx_id)))
         }
     }
 
     /// トランザクションをアボート
-    pub fn abort_tx(pub fn abort_tx(pub fn abort_tx(&self, tx_id: &TxId) -> Result<()> {self, tx_id: pub fn abort_tx(&self, tx_id: &TxId) -> Result<()> {TxId) -> Result<(), Error> {self, tx_id: &TxId) -> Result<(), Error> {
+    pub fn abort_tx(&self, tx_id: &str) -> Result<(), Error> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().abort();
             Ok(())
         } else {
-            Err(KotobaError::Execution(format!("Transaction {} not found", tx_id.0)))
+            Err(anyhow!(format!("Transaction {} not found", tx_id)))
         }
     }
 

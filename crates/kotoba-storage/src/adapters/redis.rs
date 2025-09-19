@@ -4,7 +4,6 @@ use crate::domain::kv::KeyValuePort;
 use crate::domain::models::{StorageConfig, BackendStats};
 use anyhow::{anyhow, Error};
 use async_trait::async_trait;
-use kotoba_core::prelude::*;
 use redis::{aio::ConnectionManager, AsyncCommands, Client};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -21,22 +20,22 @@ impl RedisBackend {
     /// Create a new Redis backend
     pub async fn new(config: &StorageConfig) -> Result<Self, Error> {
         let url = config.redis_url.as_ref()
-            .ok_or_else(|| KotobaError::Storage("Redis URL not configured".to_string()))?
+            .ok_or_else(|| anyhow!("Redis URL not configured".to_string()))?
             .clone();
 
         let client = Client::open(url.clone())
-            .map_err(|e| KotobaError::Storage(format!("Failed to create Redis client: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to create Redis client: {}", e)))?;
 
         let connection_manager = client.get_tokio_connection_manager()
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to create Redis connection manager: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to create Redis connection manager: {}", e)))?;
 
         // Test connection
         let mut conn = connection_manager.clone();
         redis::cmd("PING")
             .query_async(&mut conn)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to connect to Redis: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to connect to Redis: {}", e)))?;
 
         Ok(Self {
             client,
@@ -52,7 +51,7 @@ impl KeyValuePort for RedisBackend {
         let mut conn = self.connection_manager.lock().await;
         conn.set::<_, _, ()>(key, value)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to put data in Redis: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to put data in Redis: {}", e)))?;
         Ok(())
     }
 
@@ -60,14 +59,14 @@ impl KeyValuePort for RedisBackend {
         let mut conn = self.connection_manager.lock().await;
         conn.get::<_, Option<Vec<u8>>>(key)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to get data from Redis: {}", e)))
+            .map_err(|e| anyhow!(format!("Failed to get data from Redis: {}", e)))
     }
 
     async fn delete(&self, key: String) -> Result<(), Error> {
         let mut conn = self.connection_manager.lock().await;
         conn.del::<_, ()>(key)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to delete data from Redis: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to delete data from Redis: {}", e)))?;
         Ok(())
     }
 
@@ -76,14 +75,14 @@ impl KeyValuePort for RedisBackend {
         let pattern = format!("{}*", prefix);
         
         let keys: Vec<String> = conn.keys(pattern).await
-            .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to scan keys in Redis: {}", e)))?;
 
         if keys.is_empty() {
             return Ok(Vec::new());
         }
 
         let values: Vec<Vec<u8>> = conn.mget(keys.clone()).await
-            .map_err(|e| KotobaError::Storage(format!("Failed to MGET values in Redis: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to MGET values in Redis: {}", e)))?;
 
         let results = keys.into_iter()
             .map(|k| k.into_bytes())
@@ -98,7 +97,7 @@ impl KeyValuePort for RedisBackend {
         let pattern = format!("{}*", prefix);
         conn.keys::<_, Vec<String>>(pattern)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))
+            .map_err(|e| anyhow!(format!("Failed to scan keys in Redis: {}", e)))
     }
 
     async fn clear(&self) -> Result<(), Error> {
@@ -106,7 +105,7 @@ impl KeyValuePort for RedisBackend {
         redis::cmd("FLUSHDB")
             .query_async(&mut *conn)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to clear Redis database: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to clear Redis database: {}", e)))?;
         Ok(())
     }
 
@@ -115,7 +114,7 @@ impl KeyValuePort for RedisBackend {
         let info: String = redis::cmd("INFO")
             .query_async(&mut *conn)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to get Redis info: {}", e)))?;
+            .map_err(|e| anyhow!(format!("Failed to get Redis info: {}", e)))?;
 
         // Parse some basic stats from INFO command
         let total_keys = parse_redis_info(&info, "db0:keys");
@@ -134,7 +133,7 @@ impl KeyValuePort for RedisBackend {
         let mut conn = self.connection_manager.lock().await;
         conn.exists(key)
             .await
-            .map_err(|e| KotobaError::Storage(format!("Failed to check key existence in Redis: {}", e)))
+            .map_err(|e| anyhow!(format!("Failed to check key existence in Redis: {}", e)))
     }
 }
 

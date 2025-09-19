@@ -1,7 +1,7 @@
 //! Defines the `KeyValuePort` for low-level storage backends.
 
 use async_trait::async_trait;
-use kotoba_core::prelude::Result;
+use anyhow::Result;
 use crate::domain::models::BackendStats;
 
 #[async_trait]

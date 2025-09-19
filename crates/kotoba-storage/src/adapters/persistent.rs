@@ -8,9 +8,10 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use kotoba_core::prelude::*;
 use kotoba_cid::*;
 use kotoba_graph::prelude::*;
+use anyhow::{anyhow, Error};
+use kotoba_db_core::Cid;
 use sha2::{Sha256, Digest};
 use hex;
 use crate::domain::merkle::{MerkleDAG, MerkleNode};
@@ -22,19 +23,18 @@ use crate::domain::kv::KeyValuePort;
 use crate::port::StoragePort;
 use async_trait::async_trait;
 use kotoba_db_core::types::Block;
-use kotoba_core::prelude::Cid;
 
 #[async_trait]
 impl StoragePort for PersistentStorage {
-    async fn store_graph(&self, graph: &Graph) -> Result<Cid> {
+    async fn store_graph(&self, graph: &Graph) -> Result<Cid, Error> {
         PersistentStorage::store_graph(self, graph).await
     }
 
-    async fn load_graph(&self, cid: &Cid) -> Result<Graph> {
+    async fn load_graph(&self, cid: &Cid) -> Result<Graph, Error> {
         PersistentStorage::load_graph(self, cid).await
     }
 
-    async fn get_stats(&self) -> Result<StorageStats> {
+    async fn get_stats(&self) -> Result<StorageStats, Error> {
         PersistentStorage::get_stats(self).await
     }
 
@@ -46,24 +46,24 @@ impl StoragePort for PersistentStorage {
         self.mvcc_manager.clone()
     }
 
-    async fn put_block(&self, block: &Block) -> Result<Cid> {
-        let cid = block.cid().map_err(|e| KotobaError::Anyhow(e))?; // Merkle DAG: Generate content identifier for the block
-        let bytes = block.to_bytes().map_err(|e| KotobaError::Anyhow(e))?; // Merkle DAG: Serialize block to bytes for storage
+    async fn put_block(&self, block: &Block) -> Result<Cid, Error> {
+        let cid = block.cid().map_err(|e| anyhow!(e))?; // Merkle DAG: Generate content identifier for the block
+        let bytes = block.to_bytes().map_err(|e| anyhow!(e))?; // Merkle DAG: Serialize block to bytes for storage
         self.lsm_tree.write().await.put(hex::encode(cid), bytes).await?; // Merkle DAG: Store block with hex-encoded CID as key
         Ok(Cid(cid))
     }
 
-    async fn get_block(&self, cid: &Cid) -> Result<Option<Block>> {
+    async fn get_block(&self, cid: &Cid) -> Result<Option<Block>, Error> {
         let bytes_opt = self.lsm_tree.read().await.get(&hex::encode(cid.0)).await?; // Merkle DAG: Retrieve block using hex-encoded CID
         if let Some(bytes) = bytes_opt {
-            let block = Block::from_bytes(&bytes).map_err(|e| KotobaError::Anyhow(e))?; // Merkle DAG: Deserialize bytes back to block structure
+            let block = Block::from_bytes(&bytes).map_err(|e| anyhow!(e))?; // Merkle DAG: Deserialize bytes back to block structure
             Ok(Some(block))
         } else {
             Ok(None) // Merkle DAG: Block not found in the content-addressed storage
         }
     }
 
-    async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, Error> {
         let prefix_hex = hex::encode(prefix); // Merkle DAG: Convert prefix to hex for LSM tree lookup
         // Note: This scan is on hex keys, so it's a prefix scan on the hex representation.
         let lsm_tree = self.lsm_tree.read().await;
@@ -79,16 +79,16 @@ impl StoragePort for PersistentStorage {
         Ok(result)
     }
 
-    async fn put(&self, key: &[u8], value: &[u8]) -> Result<()> {
+    async fn put(&self, key: &[u8], value: &[u8]) -> Result<(), Error> {
         self.lsm_tree.write().await.put(hex::encode(key), value.to_vec()).await?;
         Ok(())
     }
 
-    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
         self.lsm_tree.read().await.get(&hex::encode(key)).await
     }
 
-    async fn get_keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>> {
+    async fn get_keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, Error> {
         let prefix_hex = hex::encode(prefix);
         let kv_pairs = <LSMTree as KeyValuePort>::scan(&*self.lsm_tree.read().await, &prefix_hex).await?;
 
@@ -146,7 +146,7 @@ pub struct PersistentStorage {
 
 /// ストレージ操作結果
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StorageResult<T> {
+pub enum StorageResult<T: ?Sized> {
     Success(T),
     NotFound,
     VersionConflict,
@@ -171,7 +171,7 @@ pub struct PersistedGraph {
 
 impl PersistentStorage {
     /// 新しい永続ストレージを作成
-    pub fn new(config: PersistentStorageConfig) -> Result<Self> {
+    pub fn new(config: PersistentStorageConfig) -> Result<Self, Error> {
         // データディレクトリ作成
         std::fs::create_dir_all(&config.data_dir)?;
 
@@ -194,12 +194,12 @@ impl PersistentStorage {
     }
 
     /// グラフを永続化
-    pub async fn store_graph(&self, graph: &Graph) -> Result<Cid> {
+    pub async fn store_graph(&self, graph: &Graph) -> Result<Cid, Error> {
         let mut cid_manager = self.cid_manager.write().await;
         let mut merkle_dag = self.merkle_dag.write().await;
 
         // グラフのCIDを計算（簡易版）
-        let graph_data = serde_json::to_string(graph).map_err(|e| KotobaError::Json(e))?;
+        let graph_data = serde_json::to_string(graph).map_err(|e| anyhow!(e))?;
         let graph_cid = cid_manager.calculator().compute_cid(&graph_data)?;
 
         // 頂点を個別に格納
@@ -208,7 +208,7 @@ impl PersistentStorage {
             let vertex_cid = cid_manager.calculator().compute_cid(vertex)?;
             let vertex_key = format!("vertex:{}", vertex_cid.to_hex());
 
-            let vertex_data = serde_json::to_vec(vertex).map_err(|e| KotobaError::Json(e))?;
+            let vertex_data = serde_json::to_vec(vertex).map_err(|e| anyhow!(e))?;
             self.store_data(&vertex_key, &vertex_data).await?;
 
             vertex_cids.push(vertex_cid);
@@ -220,7 +220,7 @@ impl PersistentStorage {
             let edge_cid = cid_manager.calculator().compute_cid(edge)?;
             let edge_key = format!("edge:{}", edge_cid.to_hex());
 
-            let edge_data = serde_json::to_vec(edge).map_err(|e| KotobaError::Json(e))?;
+            let edge_data = serde_json::to_vec(edge).map_err(|e| anyhow!(e))?;
             self.store_data(&edge_key, &edge_data).await?;
 
             edge_cids.push(edge_cid);
@@ -240,24 +240,24 @@ impl PersistentStorage {
 
         // メタデータを格納
         let metadata_key = format!("graph:{}", graph_cid.to_hex());
-        let metadata_data = serde_json::to_vec(&persisted_graph).map_err(|e| KotobaError::Json(e))?;
+        let metadata_data = serde_json::to_vec(&persisted_graph).map_err(|e| anyhow!(e))?;
         self.store_data(&metadata_key, &metadata_data).await?;
 
         Ok(graph_cid)
     }
 
     /// CIDからグラフを復元
-    pub async fn load_graph(&self, cid: &Cid) -> Result<Graph> {
+    pub async fn load_graph(&self, cid: &Cid) -> Result<Graph, Error> {
         let metadata_key = format!("graph:{}", cid.to_hex());
 
         // メタデータを取得
         let metadata_data = match self.load_data(&metadata_key).await? {
             StorageResult::Success(data) => data,
-            StorageResult::NotFound => return Err(KotobaError::Storage("Graph not found".to_string())),
-            _ => return Err(KotobaError::Storage("Failed to load graph metadata".to_string())),
+            StorageResult::NotFound => return Err(anyhow!("Graph not found".to_string())),
+            _ => return Err(anyhow!("Failed to load graph metadata".to_string())),
         };
 
-        let persisted_graph: PersistedGraph = serde_json::from_slice(&metadata_data).map_err(|e| KotobaError::Json(e))?;
+        let persisted_graph: PersistedGraph = serde_json::from_slice(&metadata_data).map_err(|e| anyhow!(e))?;
 
         // 頂点を復元
         let mut vertices = HashMap::new();
@@ -268,7 +268,7 @@ impl PersistentStorage {
                 _ => continue, // 頂点が見つからない場合はスキップ
             };
 
-            let vertex: VertexData = serde_json::from_slice(&vertex_data).map_err(|e| KotobaError::Json(e))?;
+            let vertex: VertexData = serde_json::from_slice(&vertex_data).map_err(|e| anyhow!(e))?;
             vertices.insert(vertex.id, vertex);
         }
 
@@ -281,7 +281,7 @@ impl PersistentStorage {
                 _ => continue, // エッジが見つからない場合はスキップ
             };
 
-            let edge: EdgeData = serde_json::from_slice(&edge_data).map_err(|e| KotobaError::Json(e))?;
+            let edge: EdgeData = serde_json::from_slice(&edge_data).map_err(|e| anyhow!(e))?;
             edges.insert(edge.id, edge);
         }
 
@@ -302,14 +302,14 @@ impl PersistentStorage {
     }
 
     /// データを格納（CIDアドレス指定）
-    pub async fn store_data(&self, key: &str, data: &[u8]) -> Result<()> {
+    pub async fn store_data(&self, key: &str, data: &[u8]) -> Result<(), Error> {
         let mut lsm_tree = self.lsm_tree.write().await;
         lsm_tree.put(key.to_string(), data.to_vec()).await?;
         Ok(())
     }
 
     /// データを読み込み（CIDアドレス指定）
-    pub async fn load_data(&self, key: &str) -> Result<StorageResult<Vec<u8>>> {
+    pub async fn load_data(&self, key: &str) -> Result<StorageResult<Vec<u8>>, Error> {
         let lsm_tree = self.lsm_tree.read().await;
 
         match lsm_tree.get(key).await? {
@@ -319,14 +319,14 @@ impl PersistentStorage {
     }
 
     /// データを削除
-    pub async fn delete_data(&self, key: &str) -> Result<()> {
+    pub async fn delete_data(&self, key: &str) -> Result<(), Error> {
         let mut lsm_tree = self.lsm_tree.write().await;
         lsm_tree.delete(key.to_string()).await?;
         Ok(())
     }
 
     /// Merkleルートを取得
-    pub fn get_merkle_root(&self) -> ContentHash {
+    pub fn get_merkle_root(&self) -> String {
         let merkle_dag = self.merkle_dag.blocking_read();
         // 簡易版：全ノードのハッシュをまとめて計算
         let mut hasher = sha2::Sha256::new();
@@ -337,11 +337,11 @@ impl PersistentStorage {
             hasher.update(hash.0.as_bytes());
         }
 
-        ContentHash(format!("{:x}", hasher.finalize()))
+        format!("{:x}", hasher.finalize())
     }
 
     /// データ整合性を検証
-    pub fn verify_integrity(&self) -> Result<bool> {
+    pub fn verify_integrity(&self) -> Result<bool, Error> {
         let merkle_dag = self.merkle_dag.blocking_read();
 
         // Merkle DAGの整合性を検証
@@ -362,7 +362,7 @@ impl PersistentStorage {
     }
 
     /// スナップショットを作成
-    pub fn create_snapshot(&self) -> Result<String> {
+    pub fn create_snapshot(&self) -> Result<String, Error> {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -377,14 +377,14 @@ impl PersistentStorage {
         // Merkle DAGのスナップショット
         let merkle_dag = self.merkle_dag.blocking_read();
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
-        let merkle_data = serde_json::to_vec(merkle_dag.nodes()).map_err(|e| KotobaError::Json(e))?;
+        let merkle_data = serde_json::to_vec(merkle_dag.nodes()).map_err(|e| anyhow!(e))?;
         std::fs::write(merkle_snapshot_path, merkle_data)?;
 
         Ok(snapshot_id)
     }
 
     /// スナップショットから復元
-    pub async fn restore_from_snapshot(&self, snapshot_id: &str) -> Result<()> {
+    pub async fn restore_from_snapshot(&self, snapshot_id: &str) -> Result<(), Error> {
         // LSMツリーの復元
         let mut lsm_tree = self.lsm_tree.blocking_write();
         lsm_tree.restore_from_snapshot(snapshot_id)?;
@@ -393,7 +393,7 @@ impl PersistentStorage {
         let merkle_snapshot_path = self.config.data_dir.join(format!("merkle_{}", snapshot_id));
         if merkle_snapshot_path.exists() {
             let merkle_data = std::fs::read(merkle_snapshot_path)?;
-            let nodes: HashMap<ContentHash, crate::domain::merkle::MerkleNode> = serde_json::from_slice(&merkle_data).map_err(|e| KotobaError::Json(e))?;
+            let nodes: HashMap<String, crate::domain::merkle::MerkleNode> = serde_json::from_slice(&merkle_data).map_err(|e| anyhow!(e))?;
             let mut merkle_dag = self.merkle_dag.blocking_write();
             merkle_dag.set_nodes(nodes);
         }
@@ -402,14 +402,14 @@ impl PersistentStorage {
     }
 
     /// 圧縮を実行
-    pub async fn compact(&self) -> Result<()> {
+    pub async fn compact(&self) -> Result<(), Error> {
         let mut lsm_tree = self.lsm_tree.blocking_write();
         lsm_tree.compact()?;
         Ok(())
     }
 
     /// 統計情報を取得
-    pub async fn get_stats(&self) -> Result<StorageStats> {
+    pub async fn get_stats(&self) -> Result<StorageStats, Error> {
         let lsm_tree = self.lsm_tree.read().await;
         let merkle_dag = self.merkle_dag.read().await;
         let mvcc_manager = self.mvcc_manager.read().await;
@@ -423,7 +423,7 @@ impl PersistentStorage {
     }
 
     /// クリーンアップ（古いデータを削除）
-    pub async fn cleanup(&self, max_age_days: u64) -> Result<()> {
+    pub async fn cleanup(&self, max_age_days: u64) -> Result<(), Error> {
         let cutoff_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -443,7 +443,7 @@ pub struct DistributedStorageManager {
     /// ローカルストレージ
     local_storage: Arc<PersistentStorage>,
     /// 分散ノード情報
-    nodes: HashMap<VertexId, NodeStorageInfo>,
+    nodes: HashMap<String, NodeStorageInfo>,
     /// 整合性チェック設定
     consistency_config: ConsistencyConfig,
 }
@@ -484,9 +484,9 @@ pub struct ConsistencyCheck {
     /// 整合性があるかどうか
     pub is_consistent: bool,
     /// 欠損しているノード
-    pub missing_nodes: Vec<VertexId>,
+    pub missing_nodes: Vec<String>,
     /// 破損しているノード
-    pub corrupted_nodes: Vec<VertexId>,
+    pub corrupted_nodes: Vec<String>,
 }
 
 /// 競合解決結果
@@ -519,7 +519,7 @@ pub enum ConflictResolutionMethod {
 #[derive(Debug, Clone)]
 pub struct NodeStorageInfo {
     /// ノードID
-    pub node_id: VertexId,
+    pub node_id: String,
     /// アドレス
     pub address: String,
     /// 保持するCID範囲
@@ -550,7 +550,7 @@ impl DistributedStorageManager {
     }
 
     /// CIDの整合性をチェック
-    pub async fn check_consistency(&self, cid: &Cid) -> Result<ConsistencyCheck> {
+    pub async fn check_consistency(&self, cid: &Cid) -> Result<ConsistencyCheck, Error> {
         let responsible_nodes = self.get_responsible_nodes(cid).await;
         let mut available_nodes = 0;
         let mut missing_nodes = Vec::new();
@@ -597,7 +597,7 @@ impl DistributedStorageManager {
     }
 
     /// データをレプリケート
-    pub async fn replicate_data(&self, cid: &Cid, data: &[u8], replication_factor: usize) -> Result<()> {
+    pub async fn replicate_data(&self, cid: &Cid, data: &[u8], replication_factor: usize) -> Result<(), Error> {
         let responsible_nodes = self.get_responsible_nodes(cid).await;
 
         for node_info in responsible_nodes.iter().take(replication_factor) {
@@ -608,9 +608,9 @@ impl DistributedStorageManager {
     }
 
     /// 競合を解決
-    pub async fn resolve_conflicts(&self, cid: &Cid, versions: &[Cid]) -> Result<ConflictResolution> {
+    pub async fn resolve_conflicts(&self, cid: &Cid, versions: &[Cid]) -> Result<ConflictResolution, Error> {
         if versions.is_empty() {
-            return Err(KotobaError::Storage("No versions provided".to_string()));
+            return Err(anyhow!("No versions provided".to_string()));
         }
 
         if versions.len() == 1 {
@@ -649,7 +649,7 @@ impl DistributedStorageManager {
     }
 
     /// 読み取り操作の整合性を確保
-    pub async fn ensure_read_consistency(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
+    pub async fn ensure_read_consistency(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Error> {
         match self.consistency_config.read_consistency {
             ConsistencyLevel::One => {
                 // 1つのノードから読み取り
@@ -692,7 +692,7 @@ impl DistributedStorageManager {
     }
 
     /// 書き込み操作の整合性を確保
-    pub async fn ensure_write_consistency(&self, cid: &Cid, data: &[u8]) -> Result<()> {
+    pub async fn ensure_write_consistency(&self, cid: &Cid, data: &[u8]) -> Result<(), Error> {
         // データをローカルに書き込み
         self.local_storage.store_data(&format!("cid:{}", cid.to_hex()), data).await?;
 
@@ -736,28 +736,28 @@ impl DistributedStorageManager {
     }
 
     /// ヘルパーメソッド：ノードからデータを取得（簡易版）
-    pub async fn fetch_data_from_node(&self, node_info: &NodeStorageInfo, cid: &Cid) -> Result<Vec<u8>> {
+    pub async fn fetch_data_from_node(&self, node_info: &NodeStorageInfo, cid: &Cid) -> Result<Vec<u8>, Error> {
         // 実際の実装ではネットワーク通信を行う
         // ここではローカルノードのみをチェック
         if node_info.node_id.to_string() == "local" {
             match self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await? {
                 StorageResult::Success(data) => Ok(data),
-                _ => Err(KotobaError::Storage("Data not found".to_string())),
+                _ => Err(anyhow!("Data not found".to_string())),
             }
         } else {
-            Err(KotobaError::Storage("Remote node communication not implemented".to_string()))
+            Err(anyhow!("Remote node communication not implemented".to_string()))
         }
     }
 
     /// ヘルパーメソッド：ノードにデータを送信（簡易版）
-    pub async fn send_data_to_node(&self, node_info: &NodeStorageInfo, cid: &Cid, data: &[u8]) -> Result<()> {
+    pub async fn send_data_to_node(&self, node_info: &NodeStorageInfo, cid: &Cid, data: &[u8]) -> Result<(), Error> {
         // 実際の実装ではネットワーク通信を行う
         // ここではローカルノードのみをサポート
         if node_info.node_id.to_string() == "local" {
             self.local_storage.store_data(&format!("cid:{}", cid.to_hex()), data).await?;
             Ok(())
         } else {
-            Err(KotobaError::Storage("Remote node communication not implemented".to_string()))
+            Err(anyhow!("Remote node communication not implemented".to_string()))
         }
     }
 
@@ -781,7 +781,7 @@ impl DistributedStorageManager {
 
 
     /// データの整合性を検証
-    pub async fn verify_consistency(&self, cid: &Cid) -> Result<bool> {
+    pub async fn verify_consistency(&self, cid: &Cid) -> Result<bool, Error> {
         // 複数のノードから同じCIDのデータを取得して比較
         // 簡易版：ローカルのみチェック
         match self.local_storage.load_data(&format!("cid:{}", cid.to_hex())).await? {
@@ -811,13 +811,13 @@ mod tests {
         let mut graph = Graph::empty();
 
         let v1 = graph.add_vertex(VertexData {
-            id: VertexId::new("v1").unwrap(),
+            id: String::new("v1").unwrap(),
             labels: vec!["Person".to_string()],
             props: HashMap::new(),
         });
 
         let v2 = graph.add_vertex(VertexData {
-            id: VertexId::new("v2").unwrap(),
+            id: String::new("v2").unwrap(),
             labels: vec!["Person".to_string()],
             props: HashMap::new(),
         });

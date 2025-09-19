@@ -121,7 +121,7 @@ impl LSMTree {
 
 #[async_trait]
 impl KeyValuePort for LSMTree {
-    async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
+    async fn put(&self, key: String, value: Vec<u8>) -> Result<(), Error> {
         #[cfg(feature = "rocksdb")]
         {
             self.db.put(key, value).map_err(|e| anyhow!("RocksDB put error: {}", e))
