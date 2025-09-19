@@ -1,40 +1,34 @@
 [workspace]
 members = [
-    # Core crates only (published and stable)
-    "crates/kotoba-core",          # v0.1.21 ✅
-    "crates/kotoba-errors",        # v0.1.2 ✅
-    "crates/kotoba-graph",         # v0.1.21 ✅
-    "crates/kotoba-storage",       # v0.1.21 ✅
-    "crates/kotoba-execution",     # v0.1.21 ✅
-    "crates/kotoba-rewrite",       # v0.1.21 ✅
-    "crates/kotoba-cli",           # v0.1.21 (core functionality only)
+    # 000-core: Base types and core functionality
+    "crates/000-core/*",
 
-    # Server crates (modular architecture)
-    "crates/kotoba-server-core",   # Core HTTP server functionality
-    "crates/kotoba-server-workflow", # Workflow integration for server
-    "crates/kotoba-server",        # Main server binary
+    # 100-storage: Port & Adapter pattern for storage
+    "crates/100-storage/*",
 
-    # Workflow core (minimal interface)
-    "crates/kotoba-workflow-core", # Core workflow engine interface
+    # 200-application: Business logic layer
+    "crates/200-application/*",
 
-    # Legacy workflow engine (being refactored)
-    "crates/kotoba-workflow",      # Full workflow engine (legacy)
+    # 300-workflow: Workflow engine components
+    "crates/300-workflow/*",
 
-    # CLI tools (standalone binaries)
-    "crates/kotoba-linter",        # Code linter
-    "crates/kotoba-tester",        # Test runner
-    "crates/kotoba-backup",        # Backup & restore tool
+    # 400-language: Language features (LSP, compiler, etc.)
+    "crates/400-language/*",
 
-    # New architecture components
-    "crates/kotoba-ocel",          # OCEL v2 event format
-    "crates/kotoba-graphdb",       # RocksDB-based GraphDB
-    "crates/kotoba-projection-engine", # Event projection engine
-    "crates/kotoba-cache",         # Redis-based cache
+    # 500-services: Server and service components
+    "crates/500-services/*",
+
+    # 600-deployment: Deployment and orchestration
+    "crates/600-deployment/*",
+
+    # 900-tools: CLI tools and utilities
+    "crates/900-tools/*",
 
     # Integration tests
-    "tests/integration",           # Comprehensive integration tests
+    "tests/integration",
 
-    ".",                           # Root package for CLI binary
+    # Root package for CLI binary
+    ".",
 ]
 resolver = "2"
 
