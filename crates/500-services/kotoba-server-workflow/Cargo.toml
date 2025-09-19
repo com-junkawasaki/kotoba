@@ -31,14 +31,14 @@ anyhow = "1.0"
 async-trait = "0.1"
 
 # Logging
-tracing.workspace = true
+tracing = "0.1"
 
 # Date/time handling
-chrono.workspace = true
+chrono = { version = "0.4", features = ["serde"] }
 
 # Kotoba crates
-kotoba-errors.workspace = true
+kotoba-errors = "0.1.2"
 
 [features]
-default = ["workflow"]
+default = []
 workflow = ["dep:kotoba-workflow-core"]
