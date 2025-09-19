@@ -223,9 +223,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.99"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
+checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "approx"
@@ -358,7 +358,7 @@ dependencies = [
  "futures-util",
  "handlebars",
  "http 0.2.12",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "mime",
  "multer 2.1.0",
  "num-traits",
@@ -409,7 +409,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "323a5143f5bdd2030f45e3f2e0c821c9b1d36e79cf382129c64299c50a7f3750"
 dependencies = [
  "bytes",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "serde",
  "serde_json",
 ]
@@ -1669,9 +1669,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.37"
+version = "1.2.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65193589c6404eb80b450d618eaf9a2cafaaafd57ecce47370519ef674a7bd44"
+checksum = "80f41ae168f955c12fb8960b057d70d0ca153fb83182b57d86380443527be7e9"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -2902,9 +2902,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fd99930f64d146689264c637b5af2f0233a933bef0d8570e2526bf9e083192d"
+checksum = "1ced73b1dacfc750a6db6c0a0c3a3853c8b41997e2e2c563dc90804ae6867959"
 
 [[package]]
 name = "flate2"
@@ -3272,7 +3272,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
 dependencies = [
  "fallible-iterator 0.3.0",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "stable_deref_trait",
 ]
 
@@ -3415,7 +3415,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "slab",
  "tokio",
  "tokio-util",
@@ -3434,7 +3434,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http 1.3.1",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "slab",
  "tokio",
  "tokio-util",
@@ -3500,6 +3500,12 @@ dependencies = [
  "equivalent",
  "foldhash",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
 
 [[package]]
 name = "hashlink"
@@ -4116,12 +4122,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.11.3"
+version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92119844f513ffa41556430369ab02c295a3578af21cf945caa3e9e0c2481ac3"
+checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.5",
+ "hashbrown 0.16.0",
  "serde",
  "serde_core",
 ]
@@ -4642,26 +4648,6 @@ dependencies = [
 
 [[package]]
 name = "kotoba-core"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e09f6e0521d5054217a73be2f3f2d8ab978f77a2eb4922b9bbec0c393fc94e44"
-dependencies = [
- "anyhow",
- "blake3",
- "hex",
- "jsonschema",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "regex",
- "schemars",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.16",
- "uuid",
-]
-
-[[package]]
-name = "kotoba-core"
 version = "0.1.22"
 dependencies = [
  "anyhow",
@@ -4681,6 +4667,27 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "kotoba-core"
+version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b645d940bfe8c89790c30254b1eec70c69205cf305d9b15f619c4da41dd6ac1f"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "hex",
+ "jsonschema",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot",
+ "regex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.16",
+ "uuid",
 ]
 
 [[package]]
@@ -4959,30 +4966,6 @@ dependencies = [
 
 [[package]]
 name = "kotoba-event-stream"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa47fc22124bc350053a66d1eb4225e580304775d85b76cebf3b753e55173c4"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "chrono",
- "dashmap 5.5.3",
- "futures",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "kotoba-event-stream"
 version = "0.1.22"
 dependencies = [
  "anyhow",
@@ -5052,9 +5035,9 @@ dependencies = [
  "dashmap 5.5.3",
  "futures",
  "itertools 0.12.1",
- "kotoba-core 0.1.21",
+ "kotoba-core 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-ocel 0.1.21",
+ "kotoba-ocel 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics",
  "regex",
  "rocksdb",
@@ -5079,7 +5062,7 @@ dependencies = [
  "itertools 0.12.1",
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-ocel 0.1.21",
+ "kotoba-ocel 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics",
  "regex",
  "rocksdb",
@@ -5133,30 +5116,6 @@ dependencies = [
 
 [[package]]
 name = "kotoba-jsonnet"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1a9bbcd10d2723e6835def20c9473609624a7dd621efe73fdf4d1daded3a44"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "hex",
- "md-5 0.10.6",
- "parking_lot",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.10.9",
- "sha3",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "kotoba-jsonnet"
 version = "0.1.22"
 dependencies = [
  "anyhow",
@@ -5179,6 +5138,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-jsonnet"
+version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "213854b057ef614f771956a922ee9c0c1083e27f0645dc05e08f5c2a306ccff9"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "hex",
+ "md-5 0.10.6",
+ "parking_lot",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.10.9",
+ "sha3",
+ "thiserror 2.0.16",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-kotobas"
 version = "0.1.22"
 dependencies = [
@@ -5186,7 +5169,7 @@ dependencies = [
  "base64 0.21.7",
  "chrono",
  "kotoba-core 0.1.22",
- "kotoba-jsonnet 0.1.21",
+ "kotoba-jsonnet 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "reqwest",
  "serde",
@@ -5295,15 +5278,13 @@ dependencies = [
 
 [[package]]
 name = "kotoba-ocel"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebd2a03c47369560a5ebc423233dc18618ac125718d652b70e3faee4f09e06d6"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "bincode",
  "chrono",
- "indexmap 2.11.3",
- "kotoba-core 0.1.21",
+ "indexmap 2.11.4",
+ "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "serde",
@@ -5317,12 +5298,14 @@ dependencies = [
 [[package]]
 name = "kotoba-ocel"
 version = "0.1.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b8124845b5bbbe9e494126ac67c7b0f968570837b529c8af68291d01c81fa1f"
 dependencies = [
  "anyhow",
  "bincode",
  "chrono",
- "indexmap 2.11.3",
- "kotoba-core 0.1.22",
+ "indexmap 2.11.4",
+ "kotoba-core 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "serde",
@@ -5375,8 +5358,7 @@ dependencies = [
  "dashmap 5.5.3",
  "futures",
  "itertools 0.12.1",
- "kotoba-event-stream 0.1.21",
- "kotoba-ocel 0.1.21",
+ "kotoba-ocel 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "metrics",
  "serde",
@@ -5450,25 +5432,6 @@ dependencies = [
 
 [[package]]
 name = "kotoba-routing"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0efcb50255582be3568c041e0d3ace0182630842b90ed3b79c020a65736a6de6"
-dependencies = [
- "anyhow",
- "chrono",
- "glob",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "thiserror 2.0.16",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "kotoba-routing"
 version = "0.1.22"
 dependencies = [
  "anyhow",
@@ -5525,7 +5488,6 @@ dependencies = [
  "js-sys",
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-routing 0.1.21",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",
@@ -5694,6 +5656,7 @@ dependencies = [
  "futures",
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-jsonnet 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "lapin",
  "parking_lot",
@@ -5785,7 +5748,7 @@ dependencies = [
  "anyhow",
  "clap 4.5.47",
  "hex",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "js-sys",
  "jsonnet-rs",
  "kotoba-core 0.1.22",
@@ -6436,7 +6399,7 @@ dependencies = [
  "hyper 1.7.0",
  "hyper-tls 0.6.0",
  "hyper-util",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "ipnet",
  "metrics",
  "metrics-util",
@@ -7389,7 +7352,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "740ebea15c5d1428f910cd1a5f52cebf8d25006245ed8ade92702f4943d91e07"
 dependencies = [
  "base64 0.22.1",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "quick-xml 0.38.3",
  "serde",
  "time",
@@ -8825,7 +8788,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "itoa",
  "ryu",
  "serde",
@@ -9107,7 +9070,7 @@ dependencies = [
  "futures-util",
  "hashlink",
  "hex",
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "log",
  "memchr",
  "once_cell",
@@ -9671,11 +9634,12 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.43"
+version = "0.3.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83bde6f1ec10e72d583d91623c939f623002284ef622b87de38cfd546cbf2031"
+checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
 dependencies = [
  "deranged",
+ "itoa",
  "num-conv",
  "powerfmt",
  "serde",
@@ -9903,7 +9867,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -9914,7 +9878,7 @@ version = "0.22.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
 dependencies = [
- "indexmap 2.11.3",
+ "indexmap 2.11.4",
  "serde",
  "serde_spanned",
  "toml_datetime",
