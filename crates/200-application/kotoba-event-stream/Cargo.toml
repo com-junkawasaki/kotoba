@@ -11,7 +11,7 @@ tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 
 # Storage layer - uses Port from storage crate
-kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-storage = "0.1.22"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
