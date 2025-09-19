@@ -212,8 +212,8 @@ mod tests {
         };
 
         assert_eq!(result.status_code, 200);
-        assert_eq!(result.headers.get(r#r#"Content-Type"##), Some(&r#r#"text/html"##.to_string()));
-        assert!(result.body.contains(r#"Hello World"#));
+        assert_eq!(result.headers.get("Content-Type "), Some(&"text/html ".to_string()));
+        assert!(result.body.contains("Hello World "));
         assert_eq!(result.execution_time_ms, 150);
         assert_eq!(result.memory_used_mb, 25.5);
     }
@@ -222,19 +222,19 @@ mod tests {
     fn test_handler_metadata_creation() {
         let metadata = HandlerMetadata {
             id: r#"handler_001"#.to_string(),
-            name: r#"Test Handler"#.to_string(),
-            version: r#"1.0.0"#.to_string(),
-            description: r#"A test handler for unit testing"#.to_string(),
-            capabilities: vec![r#"GET"#.to_string(), r#"POST"#.to_string()],
+            name: "Test Handler ".to_string(),
+            version: "1.0.0".to_string(),
+            description: "A test handler for unit testing ".to_string(),
+            capabilities: vec!["GET".to_string(), "POST".to_string()],
         };
 
-        assert_eq!(metadata.id, r#"handler_001"#);
-        assert_eq!(metadata.name, r#"Test Handler"#);
-        assert_eq!(metadata.version, r#"1.0.0"#);
-        assert!(metadata.description.contains(r#"test handler"#));
+        assert_eq!(metadata.id, "handler_001");
+        assert_eq!(metadata.name, "Test Handler ");
+        assert_eq!(metadata.version, "1.0.0");
+        assert!(metadata.description.contains("test handler "));
         assert_eq!(metadata.capabilities.len(), 2);
-        assert!(metadata.capabilities.contains(&r#"GET"#.to_string()));
-        assert!(metadata.capabilities.contains(&r#"POST"#.to_string()));
+        assert!(metadata.capabilities.contains(&"GET".to_string()));
+        assert!(metadata.capabilities.contains(&"POST".to_string()));
     }
 
     #[test]
