@@ -5,10 +5,10 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
+
+use kotoba_storage::KeyValueStore;
 
 pub mod parser;
 pub mod ast;
@@ -42,28 +42,20 @@ pub struct QueryContext {
     pub parameters: HashMap<String, serde_json::Value>,
 }
 
-/// Main GQL query engine
-pub struct GqlQueryEngine {
-    projection: Arc<dyn ProjectionPort>,
-    index_manager: Arc<dyn IndexManagerPort>,
-    cache: Arc<dyn CachePort>,
-    optimizer: QueryOptimizer,
-    planner: QueryPlanner,
+/// Main GQL query engine with generic KeyValueStore backend
+pub struct GqlQueryEngine<T: KeyValueStore> {
+    storage: Arc<T>,
+    optimizer: QueryOptimizer<T>,
+    planner: QueryPlanner<T>,
 }
 
-impl GqlQueryEngine {
-    pub fn new(
-        projection: Arc<dyn ProjectionPort>,
-        index_manager: Arc<dyn IndexManagerPort>,
-        cache: Arc<dyn CachePort>,
-    ) -> Self {
-        let optimizer = QueryOptimizer::new(index_manager.clone());
-        let planner = QueryPlanner::new(projection.clone(), index_manager.clone());
+impl<T: KeyValueStore + 'static> GqlQueryEngine<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        let optimizer = QueryOptimizer::new(storage.clone());
+        let planner = QueryPlanner::new(storage.clone());
 
         Self {
-            projection,
-            index_manager,
-            cache,
+            storage,
             optimizer,
             planner,
         }
@@ -85,11 +77,7 @@ impl GqlQueryEngine {
         let execution_plan = self.planner.plan(optimized_query).await?;
 
         // Execute plan
-        let executor = QueryExecutor::new(
-            self.projection.clone(),
-            self.index_manager.clone(),
-            self.cache.clone(),
-        );
+        let executor = QueryExecutor::new(self.storage.clone());
 
         executor.execute(execution_plan, context).await
     }
@@ -104,10 +92,7 @@ impl GqlQueryEngine {
         let parsed_statement = GqlParser::parse_statement(statement)?;
 
         // Execute statement
-        let executor = StatementExecutor::new(
-            self.projection.clone(),
-            self.index_manager.clone(),
-        );
+        let executor = StatementExecutor::new(self.storage.clone());
 
         executor.execute(parsed_statement, context).await
     }

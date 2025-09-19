@@ -10,22 +10,16 @@ use anyhow::Result;
 use crate::ast::*;
 use crate::types::*;
 use crate::{ProjectionPort, IndexManagerPort};
+use kotoba_storage::KeyValueStore;
 
-/// Query planner
-pub struct QueryPlanner {
-    projection: Arc<dyn ProjectionPort>,
-    index_manager: Arc<dyn IndexManagerPort>,
+/// Query planner with KeyValueStore backend
+pub struct QueryPlanner<T: KeyValueStore> {
+    storage: Arc<T>,
 }
 
-impl QueryPlanner {
-    pub fn new(
-        projection: Arc<dyn ProjectionPort>,
-        index_manager: Arc<dyn IndexManagerPort>,
-    ) -> Self {
-        Self {
-            projection,
-            index_manager,
-        }
+impl<T: KeyValueStore + 'static> QueryPlanner<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 
     /// Create execution plan for a query
@@ -88,15 +82,16 @@ impl QueryPlanner {
 
     async fn plan_vertex_scan(&self, vertex_pattern: &VertexPattern) -> Result<VertexScanPlan> {
         // Analyze vertex pattern for index usage
-        let mut index_candidates = Vec::new();
+        let mut index_candidates: Vec<String> = Vec::new();
 
         for (property, _) in &vertex_pattern.properties {
-            // Check if there's an index for this property
-            if let Ok(index_exists) = self.index_manager.has_vertex_index(property).await {
-                if index_exists {
-                    index_candidates.push(property.clone());
-                }
-            }
+            // TODO: Check if there's an index for this property using KeyValueStore
+            // For now, assume no indices exist
+            // if let Ok(index_exists) = self.check_vertex_index_exists(property).await {
+            //     if index_exists {
+            //         index_candidates.push(property.clone());
+            //     }
+            // }
         }
 
         // Choose the best index or fallback to scan
@@ -115,14 +110,16 @@ impl QueryPlanner {
 
     async fn plan_edge_scan(&self, edge_pattern: &EdgePattern) -> Result<EdgeScanPlan> {
         // Similar logic for edge scanning
-        let mut index_candidates = Vec::new();
+        let mut index_candidates: Vec<String> = Vec::new();
 
         for (property, _) in &edge_pattern.properties {
-            if let Ok(index_exists) = self.index_manager.has_edge_index(property).await {
-                if index_exists {
-                    index_candidates.push(property.clone());
-                }
-            }
+            // TODO: Check if there's an index for this property using KeyValueStore
+            // For now, assume no indices exist
+            // if let Ok(index_exists) = self.check_edge_index_exists(property).await {
+            //     if index_exists {
+            //         index_candidates.push(property.clone());
+            //     }
+            // }
         }
 
         let scan_type = if !index_candidates.is_empty() {
@@ -272,31 +269,6 @@ pub struct ReturnPlan {
     pub distinct: bool,
 }
 
-// Placeholder trait implementations for index manager
-#[async_trait]
-impl IndexManagerPort for std::sync::Arc<dyn IndexManagerPort> {
-    async fn lookup_vertices(&self, property: &str, value: &crate::Value) -> Result<Vec<crate::VertexId>> {
-        self.as_ref().lookup_vertices(property, value).await
-    }
-
-    async fn lookup_edges(&self, property: &str, value: &crate::Value) -> Result<Vec<crate::EdgeId>> {
-        self.as_ref().lookup_edges(property, value).await
-    }
-
-    async fn range_scan(&self, property: &str, start: &crate::Value, end: &crate::Value) -> Result<Vec<crate::VertexId>> {
-        self.as_ref().range_scan(property, start, end).await
-    }
-
-    async fn has_vertex_index(&self, _property: &str) -> Result<bool> {
-        // Placeholder implementation
-        Ok(false)
-    }
-
-    async fn has_edge_index(&self, _property: &str) -> Result<bool> {
-        // Placeholder implementation
-        Ok(false)
-    }
-}
 
 #[cfg(test)]
 mod tests {

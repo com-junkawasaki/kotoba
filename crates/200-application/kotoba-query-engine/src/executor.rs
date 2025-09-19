@@ -12,16 +12,15 @@ use futures::stream::{self, StreamExt};
 use crate::ast::*;
 use crate::types::*;
 use crate::planner::*;
-use crate::{ProjectionPort, IndexManagerPort, CachePort};
+use crate::{ProjectionPort, IndexManagerPort};
+use kotoba_storage::KeyValueStore;
 
-/// Query executor
-pub struct QueryExecutor {
-    projection: Arc<dyn ProjectionPort>,
-    index_manager: Arc<dyn IndexManagerPort>,
-    cache: Arc<dyn CachePort>,
+/// Query executor with KeyValueStore backend
+pub struct QueryExecutor<T: KeyValueStore> {
+    storage: Arc<T>,
 }
 
-impl QueryExecutor {
+impl<T: KeyValueStore + 'static> QueryExecutor<T> {
     /// Convert Vertex to serde_json::Value
     fn vertex_to_json_value(&self, vertex: Vertex) -> serde_json::Value {
         serde_json::json!({
@@ -41,16 +40,9 @@ impl QueryExecutor {
             "properties": edge.properties
         })
     }
-    pub fn new(
-        projection: Arc<dyn ProjectionPort>,
-        index_manager: Arc<dyn IndexManagerPort>,
-        cache: Arc<dyn CachePort>,
-    ) -> Self {
-        Self {
-            projection,
-            index_manager,
-            cache,
-        }
+
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 
     /// Execute a query plan
@@ -115,28 +107,20 @@ impl QueryExecutor {
     async fn execute_vertex_scan(&self, scan_plan: VertexScanPlan) -> Result<Vec<Vec<Value>>> {
         let mut results = Vec::new();
 
-        match scan_plan.scan_type {
-            ScanType::IndexScan(property) => {
-                // Use index for efficient lookup
-                if let Some(value_expr) = scan_plan.properties.get(&property) {
-                    if let ValueExpression::Literal(crate::ast::AstValue::String(value)) = value_expr {
-                        let vertex_ids = self.index_manager.lookup_vertices(&property, &serde_json::Value::String(value.clone())).await?;
-                        for vertex_id in vertex_ids {
-                            if let Some(vertex) = self.projection.get_vertex(&vertex_id).await? {
-                                let json_value = self.vertex_to_json_value(vertex);
-                                results.push(vec![json_value]);
-                            }
+        // For now, implement basic vertex scanning using KeyValueStore
+        // TODO: Implement more sophisticated scanning with filters and indices
+
+        let prefix = "vertex:".to_string();
+        let vertex_keys = self.storage.scan(prefix.as_bytes()).await?;
+
+        for key_bytes in vertex_keys {
+            if let Ok(key_str) = std::str::from_utf8(&key_bytes.0) {
+                if key_str.starts_with("vertex:") {
+                    if let Some(vertex_data) = self.storage.get(&key_bytes.0).await? {
+                        if let Ok(vertex_json) = serde_json::from_slice::<Value>(&vertex_data) {
+                            results.push(vec![vertex_json]);
                         }
                     }
-                }
-            }
-            _ => {
-                // Full scan
-                let vertices = self.projection.scan_vertices(None).await?;
-                for vertex in vertices {
-                    // TODO: Apply filters
-                    let json_value = self.vertex_to_json_value(vertex);
-                    results.push(vec![json_value]);
                 }
             }
         }
@@ -147,28 +131,20 @@ impl QueryExecutor {
     async fn execute_edge_scan(&self, scan_plan: EdgeScanPlan) -> Result<Vec<Value>> {
         let mut results = Vec::new();
 
-        match scan_plan.scan_type {
-            ScanType::IndexScan(property) => {
-                // Use index for efficient lookup
-                if let Some(value_expr) = scan_plan.properties.get(&property) {
-                    if let ValueExpression::Literal(crate::ast::AstValue::String(value)) = value_expr {
-                        let edge_ids = self.index_manager.lookup_edges(&property, &serde_json::Value::String(value.clone())).await?;
-                        for edge_id in edge_ids {
-                            if let Some(edge) = self.projection.get_edge(&edge_id).await? {
-                                let json_value = self.edge_to_json_value(edge);
-                                results.push(json_value);
-                            }
+        // For now, implement basic edge scanning using KeyValueStore
+        // TODO: Implement more sophisticated scanning with filters and indices
+
+        let prefix = "edge:".to_string();
+        let edge_keys = self.storage.scan(prefix.as_bytes()).await?;
+
+        for key_bytes in edge_keys {
+            if let Ok(key_str) = std::str::from_utf8(&key_bytes.0) {
+                if key_str.starts_with("edge:") {
+                    if let Some(edge_data) = self.storage.get(&key_bytes.0).await? {
+                        if let Ok(edge_json) = serde_json::from_slice::<Value>(&edge_data) {
+                            results.push(edge_json);
                         }
                     }
-                }
-            }
-            _ => {
-                // Full scan
-                let edges = self.projection.scan_edges(None).await?;
-                for edge in edges {
-                    // TODO: Apply filters
-                    let json_value = self.edge_to_json_value(edge);
-                    results.push(json_value);
                 }
             }
         }
@@ -330,20 +306,13 @@ impl QueryExecutor {
 }
 
 /// Statement executor for DDL/DML operations
-pub struct StatementExecutor {
-    projection: Arc<dyn ProjectionPort>,
-    index_manager: Arc<dyn IndexManagerPort>,
+pub struct StatementExecutor<T: KeyValueStore> {
+    storage: Arc<T>,
 }
 
-impl StatementExecutor {
-    pub fn new(
-        projection: Arc<dyn ProjectionPort>,
-        index_manager: Arc<dyn IndexManagerPort>,
-    ) -> Self {
-        Self {
-            projection,
-            index_manager,
-        }
+impl<T: KeyValueStore + 'static> StatementExecutor<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 
     pub async fn execute(

@@ -9,15 +9,16 @@ use anyhow::Result;
 use crate::ast::*;
 use crate::types::*;
 use crate::IndexManagerPort;
+use kotoba_storage::KeyValueStore;
 
-/// Query optimizer
-pub struct QueryOptimizer {
-    index_manager: Arc<dyn IndexManagerPort>,
+/// Query optimizer with KeyValueStore backend
+pub struct QueryOptimizer<T: KeyValueStore> {
+    storage: Arc<T>,
 }
 
-impl QueryOptimizer {
-    pub fn new(index_manager: Arc<dyn IndexManagerPort>) -> Self {
-        Self { index_manager }
+impl<T: KeyValueStore + 'static> QueryOptimizer<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 
     /// Optimize a parsed query
@@ -116,18 +117,18 @@ impl QueryOptimizer {
 }
 
 /// Cost estimation for query optimization
-pub struct CostEstimator {
-    index_manager: Arc<dyn IndexManagerPort>,
+pub struct CostEstimator<T: KeyValueStore> {
+    storage: Arc<T>,
 }
 
-impl CostEstimator {
-    pub fn new(index_manager: Arc<dyn IndexManagerPort>) -> Self {
-        Self { index_manager }
+impl<T: KeyValueStore + 'static> CostEstimator<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 
     /// Estimate the cost of executing a query plan
     pub async fn estimate_cost(&self, _plan: &crate::planner::ExecutionPlan) -> Result<QueryCost> {
-        // TODO: Implement cost estimation
+        // TODO: Implement cost estimation based on storage characteristics
         Ok(QueryCost {
             cpu_cost: 1.0,
             io_cost: 1.0,
@@ -194,31 +195,31 @@ pub trait StatisticsProvider: Send + Sync {
     async fn get_edge_cardinality(&self, pattern: &EdgePattern) -> Result<u64>;
 }
 
-/// Statistics implementation
-pub struct StatisticsManager {
-    index_manager: Arc<dyn IndexManagerPort>,
+/// Statistics implementation with KeyValueStore backend
+pub struct StatisticsManager<T: KeyValueStore> {
+    storage: Arc<T>,
 }
 
-impl StatisticsManager {
-    pub fn new(index_manager: Arc<dyn IndexManagerPort>) -> Self {
-        Self { index_manager }
+impl<T: KeyValueStore + 'static> StatisticsManager<T> {
+    pub fn new(storage: Arc<T>) -> Self {
+        Self { storage }
     }
 }
 
 #[async_trait]
-impl StatisticsProvider for StatisticsManager {
+impl<T: KeyValueStore + 'static> StatisticsProvider for StatisticsManager<T> {
     async fn get_selectivity(&self, _filter: &BooleanExpression) -> Result<f64> {
-        // TODO: Implement selectivity estimation
+        // TODO: Implement selectivity estimation based on storage statistics
         Ok(0.1) // Placeholder: assume 10% selectivity
     }
 
     async fn get_vertex_cardinality(&self, _pattern: &VertexPattern) -> Result<u64> {
-        // TODO: Implement cardinality estimation
+        // TODO: Implement cardinality estimation based on storage data
         Ok(1000) // Placeholder
     }
 
     async fn get_edge_cardinality(&self, _pattern: &EdgePattern) -> Result<u64> {
-        // TODO: Implement cardinality estimation
+        // TODO: Implement cardinality estimation based on storage data
         Ok(5000) // Placeholder
     }
 }

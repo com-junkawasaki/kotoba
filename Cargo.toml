@@ -4,6 +4,7 @@ members = [
     "crates/100-storage/kotoba-storage-rocksdb",
     "crates/200-application/kotoba-event-stream",
     "crates/200-application/kotoba-projection-engine",
+    "crates/200-application/kotoba-query-engine",
 ]
 resolver = "2"
 

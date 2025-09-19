@@ -37,9 +37,8 @@ chrono = { version = "0.4", features = ["serde"] }
 # Futures for async streams
 futures = "0.3"
 
-# Kotoba dependencies (placeholder - will be replaced with actual crates)
-# kotoba-types = { path = "../../000-core/kotoba-core" }
-# kotoba-errors = { path = "../../000-core/kotoba-errors" }
-# kotoba-graph-projection = { path = "../../200-application/kotoba-graph-projection" }
-# kotoba-graph-index = { path = "../../200-application/kotoba-graph-index" }
-# kotoba-cache = { path = "../../200-application/kotoba-cache" }
+# Kotoba dependencies - Port layer
+kotoba-storage = { path = "../../100-storage/kotoba-storage" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+# kotoba-event-stream = { path = "../../200-application/kotoba-event-stream" }
