@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-schema"
-version.workspace = true
+version = "0.1.21"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -19,7 +19,7 @@ anyhow = "1.0"
 regex = "1.0"
 
 # Kotoba ecosystem
-kotoba-core = { path = "./../kotoba-core", version = "0.1.19" }
+kotoba-core = "0.1.21"
 # kotoba-errors removed - use through kotoba-core
 # kotoba-graph temporarily disabled - will be re-enabled after graphdb refactoring
 # kotoba-graph = { path = "../../100-storage/kotoba-graphdb", version = "0.1.17", optional = true }

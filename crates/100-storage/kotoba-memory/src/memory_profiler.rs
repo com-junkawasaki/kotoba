@@ -50,7 +50,17 @@ pub struct MemorySnapshot {
     pub average_allocation_size: f64,
 }
 
-// MemoryStats is now defined in lib.rs to avoid duplication
+/// Memory statistics from profiler
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MemoryStats {
+    pub current_memory_mb: f64,
+    pub peak_memory_mb: f64,
+    pub average_memory_mb: f64,
+    pub memory_growth_rate: f64,
+    pub allocation_rate: f64,
+    pub deallocation_rate: f64,
+    pub fragmentation_estimate: f64,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MemoryAnalysis {
@@ -199,7 +209,7 @@ impl MemoryProfiler {
             return crate::MemoryStats {
                 pool_stats: None,
                 cache_stats: None,
-                profiler_stats: crate::MemoryStats {
+                profiler_stats: MemoryStats {
                     current_memory_mb: 0.0,
                     peak_memory_mb: 0.0,
                     average_memory_mb: 0.0,
@@ -251,7 +261,7 @@ impl MemoryProfiler {
         crate::MemoryStats {
             pool_stats: None,
             cache_stats: None,
-            profiler_stats: crate::memory_profiler::MemoryStats {
+            profiler_stats: MemoryStats {
                 current_memory_mb,
                 peak_memory_mb,
                 average_memory_mb,

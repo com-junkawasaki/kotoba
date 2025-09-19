@@ -284,15 +284,15 @@ impl MemoryOptimizer {
         let pool_stats = self.memory_pool.as_ref().map(|p| p.stats());
         let cache_stats = self.cache_manager.as_ref().map(|c| c.stats());
         let profiler_stats = if let Some(ref profiler) = self.memory_profiler {
-            profiler.current_stats().await
+            profiler.current_stats().await.profiler_stats
         } else {
-            MemoryStats::default()
+            memory_profiler::MemoryStats::default()
         };
 
         MemoryStats {
             pool_stats,
             cache_stats,
-            profiler_stats: profiler_stats.await,
+            profiler_stats,
             total_memory_mb: self.get_total_memory_mb(),
             available_memory_mb: self.get_available_memory_mb(),
             memory_efficiency: self.calculate_memory_efficiency(),
@@ -565,7 +565,7 @@ impl MemoryOptimizer {
     }
 
     fn calculate_optimization_score(&self, stats: &MemoryStats, recommendations: &[MemoryRecommendation]) -> f64 {
-        let mut score = 1.0;
+        let mut score = 1.0f64;
 
         // Deduct points for high memory usage
         if stats.profiler_stats.current_memory_mb > 0.8 * stats.total_memory_mb {
@@ -587,7 +587,7 @@ impl MemoryOptimizer {
             }
         }
 
-        score.max(0.0_f32).min(1.0_f32)
+        score.max(0.0).min(1.0)
     }
 }
 
@@ -612,7 +612,7 @@ impl Clone for MemoryOptimizer {
 pub struct MemoryStats {
     pub pool_stats: Option<memory_pool::PoolStats>,
     pub cache_stats: Option<cache_manager::CacheStats>,
-    pub profiler_stats: crate::memory_profiler::MemoryStats,
+    pub profiler_stats: memory_profiler::MemoryStats,
     pub total_memory_mb: f64,
     pub available_memory_mb: f64,
     pub memory_efficiency: f64,
