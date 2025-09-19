@@ -1,0 +1,75 @@
+{
+  "app": {
+    "title": "Densha TODO App",
+    "description": "Manage your tasks efficiently with graph-based relationships"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "welcome": "Welcome, %s!",
+    "login_required": "Please log in to continue"
+  },
+  "todos": {
+    "title": "My Tasks",
+    "add_new": "Add New Task",
+    "no_tasks": "No tasks yet. Create your first task!",
+    "search": "Search tasks...",
+    "filter": "Filter",
+    "sort": "Sort by"
+  },
+  "todo": {
+    "title_placeholder": "What needs to be done?",
+    "description_placeholder": "Add a description (optional)",
+    "due_date": "Due date",
+    "priority": "Priority",
+    "category": "Category",
+    "tags": "Tags",
+    "completed": "Completed",
+    "pending": "Pending",
+    "overdue": "Overdue"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "actions": {
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "complete": "Mark Complete",
+    "undo": "Undo",
+    "retry": "Retry"
+  },
+  "messages": {
+    "task_created": "Task created successfully",
+    "task_updated": "Task updated successfully",
+    "task_deleted": "Task deleted successfully",
+    "error_generic": "An error occurred. Please try again.",
+    "confirm_delete": "Are you sure you want to delete this task?",
+    "loading": "Loading...",
+    "saving": "Saving..."
+  },
+  "graph": {
+    "title": "Task Relationships",
+    "show_graph": "Show Graph View",
+    "hide_graph": "Hide Graph View",
+    "dependencies": "Dependencies",
+    "blocks": "Blocks",
+    "related": "Related Tasks"
+  },
+  "validation": {
+    "title_required": "Title is required",
+    "title_too_long": "Title must be less than 200 characters",
+    "description_too_long": "Description must be less than 1000 characters",
+    "invalid_date": "Please enter a valid date",
+    "invalid_email": "Please enter a valid email address"
+  }
+}

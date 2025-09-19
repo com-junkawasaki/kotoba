@@ -1,0 +1,75 @@
+{
+  "app": {
+    "title": "Aplicación TODO Densha",
+    "description": "Gestiona tus tareas eficientemente con relaciones basadas en grafos"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "register": "Registrarse",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "name": "Nombre",
+    "welcome": "¡Bienvenido, %s!",
+    "login_required": "Por favor inicia sesión para continuar"
+  },
+  "todos": {
+    "title": "Mis tareas",
+    "add_new": "Agregar nueva tarea",
+    "no_tasks": "¡Aún no hay tareas. Crea tu primera tarea!",
+    "search": "Buscar tareas...",
+    "filter": "Filtrar",
+    "sort": "Ordenar por"
+  },
+  "todo": {
+    "title_placeholder": "¿Qué necesita hacerse?",
+    "description_placeholder": "Agregar una descripción (opcional)",
+    "due_date": "Fecha límite",
+    "priority": "Prioridad",
+    "category": "Categoría",
+    "tags": "Etiquetas",
+    "completed": "Completada",
+    "pending": "Pendiente",
+    "overdue": "Vencida"
+  },
+  "priority": {
+    "low": "Baja",
+    "medium": "Media",
+    "high": "Alta",
+    "urgent": "Urgente"
+  },
+  "actions": {
+    "add": "Agregar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "complete": "Marcar como completada",
+    "undo": "Deshacer",
+    "retry": "Reintentar"
+  },
+  "messages": {
+    "task_created": "Tarea creada exitosamente",
+    "task_updated": "Tarea actualizada exitosamente",
+    "task_deleted": "Tarea eliminada exitosamente",
+    "error_generic": "Ocurrió un error. Por favor inténtalo de nuevo.",
+    "confirm_delete": "¿Estás seguro de que quieres eliminar esta tarea?",
+    "loading": "Cargando...",
+    "saving": "Guardando..."
+  },
+  "graph": {
+    "title": "Relaciones de tareas",
+    "show_graph": "Mostrar vista de grafo",
+    "hide_graph": "Ocultar vista de grafo",
+    "dependencies": "Dependencias",
+    "blocks": "Bloquea",
+    "related": "Tareas relacionadas"
+  },
+  "validation": {
+    "title_required": "El título es obligatorio",
+    "title_too_long": "El título debe tener menos de 200 caracteres",
+    "description_too_long": "La descripción debe tener menos de 1000 caracteres",
+    "invalid_date": "Por favor ingresa una fecha válida",
+    "invalid_email": "Por favor ingresa un correo electrónico válido"
+  }
+}

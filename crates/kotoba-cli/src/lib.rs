@@ -39,6 +39,12 @@ pub enum Commands {
         verbose: bool,
     },
 
+    /// 指定されたKotobaファイルを評価
+    Eval {
+        /// 評価するファイルのパス
+        path: String,
+    },
+
     /// ドキュメント生成・管理コマンド
     #[command(subcommand)]
     Docs(DocsCommand),

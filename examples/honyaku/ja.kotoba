@@ -1,0 +1,24 @@
+// ja.kotoba - Target Language: Japanese
+{
+  'app.greeting': {
+    content: 'こんにちは、世界！',
+    status: 'reviewed',
+    translator_id: 'user_bob',
+    reviewer_id: 'user_alice',
+    version: 2,
+  },
+  'common.buttons.save': {
+    content: '保存',
+    status: 'approved',
+    translator_id: 'user_bob',
+    reviewer_id: 'user_alice',
+    version: 1,
+  },
+  'common.buttons.cancel': {
+    content: 'キャンセル',
+    status: 'translating',
+    translator_id: 'user_bob',
+    reviewer_id: null,
+    version: 1,
+  },
+}

@@ -1,0 +1,854 @@
+{
+  // ==========================================
+  // Densha Example Web Service
+  // TODO List + Multi-language + Graph Database
+  // ==========================================
+
+  name: "densha-todo-app",
+  version: "1.0.0",
+  description: "A comprehensive web service demonstrating TODO list, i18n, and graph database features using KotobaScript",
+
+  // ==========================================
+  // CONFIGURATION MANAGEMENT
+  // ==========================================
+
+  config: {
+    app: {
+      name: "Densha TODO App",
+      version: "1.0.0",
+      environment: std.extVar("ENV") ?? "development",
+      port: std.extVar("PORT") ?? 8080,
+      host: std.extVar("HOST") ?? "localhost",
+
+      // Feature flags
+      features: {
+        todo_management: true,
+        multi_language: true,
+        graph_database: true,
+        realtime_updates: true,
+        user_authentication: true,
+        file_uploads: true
+      }
+    },
+
+    // Database configuration
+    database: {
+      type: "graph", // Using graph database for relationships
+      url: std.extVar("DATABASE_URL") ?? "postgresql://user:pass@localhost:5432/densha_todo",
+
+      // Graph database specific config
+      graph: {
+        enable_relationships: true,
+        enable_fulltext_search: true,
+        enable_temporal_queries: true,
+        schema_validation: true
+      },
+
+      // Connection pool
+      pool: {
+        min_connections: 5,
+        max_connections: 20,
+        acquire_timeout: "30s",
+        idle_timeout: "10m"
+      }
+    },
+
+    // Multi-language configuration
+    i18n: {
+      default_locale: "en",
+      supported_locales: ["en", "ja", "es", "fr", "de"],
+      fallback_locale: "en",
+
+      // Translation files location
+      translations_path: "./locales",
+
+      // Date/time formatting per locale
+      date_formats: {
+        en: "MM/dd/yyyy",
+        ja: "yyyy年MM月dd日",
+        es: "dd/MM/yyyy",
+        fr: "dd/MM/yyyy",
+        de: "dd.MM.yyyy"
+      }
+    },
+
+    // Cache configuration
+    cache: {
+      redis: {
+        url: std.extVar("REDIS_URL") ?? "redis://localhost:6379",
+        ttl: {
+          translations: "1h",
+          user_sessions: "24h",
+          todo_items: "10m"
+        }
+      }
+    }
+  },
+
+  // ==========================================
+  // HTTP API CONFIGURATION
+  // ==========================================
+
+  api: {
+    base_path: "/api/v1",
+
+    // Authentication middleware
+    middleware: {
+      auth: {
+        type: "jwt",
+        secret: std.extVar("JWT_SECRET") ?? "your-jwt-secret",
+        algorithm: "HS256",
+        expiration: "24h"
+      },
+
+      cors: {
+        allowed_origins: ["http://localhost:3000", "https://app.densha.dev"],
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowed_headers: ["Authorization", "Content-Type", "Accept-Language"],
+        credentials: true
+      },
+
+      rate_limit: {
+        global_limit: "1000/minute",
+        endpoint_limits: {
+          "/api/v1/auth/login": "5/minute",
+          "/api/v1/todos": "100/minute"
+        }
+      },
+
+      i18n: {
+        type: "locale_detector",
+        query_param: "lang",
+        header: "Accept-Language",
+        cookie: "locale"
+      }
+    },
+
+    // API Routes
+    routes: [
+      // ==========================================
+      // AUTHENTICATION ROUTES
+      // ==========================================
+      {
+        path: "/auth/register",
+        method: "POST",
+        handler: "auth_register",
+        middleware: ["cors"],
+        request_body: {
+          type: "object",
+          required: ["email", "password", "name"],
+          properties: {
+            email: { type: "string", format: "email" },
+            password: { type: "string", minLength: 8 },
+            name: { type: "string", minLength: 2 },
+            locale: { type: "string", enum: ["en", "ja", "es", "fr", "de"] }
+          }
+        },
+        responses: {
+          "201": {
+            description: "User created successfully",
+            schema: {
+              type: "object",
+              properties: {
+                user: { $ref: "#/components/schemas/User" },
+                token: { type: "string" }
+              }
+            }
+          }
+        }
+      },
+
+      {
+        path: "/auth/login",
+        method: "POST",
+        handler: "auth_login",
+        middleware: ["cors", "rate_limit"],
+        request_body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string", format: "email" },
+            password: { type: "string" }
+          }
+        }
+      },
+
+      // ==========================================
+      // TODO LIST ROUTES
+      // ==========================================
+      {
+        path: "/todos",
+        method: "GET",
+        handler: "get_todos",
+        middleware: ["auth", "cors", "i18n"],
+        parameters: [
+          {
+            name: "status",
+            in: "query",
+            schema: { type: "string", enum: ["pending", "completed", "all"] },
+            default: "all"
+          },
+          {
+            name: "priority",
+            in: "query",
+            schema: { type: "string", enum: ["low", "medium", "high", "urgent"] }
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100 },
+            default: 20
+          },
+          {
+            name: "offset",
+            in: "query",
+            schema: { type: "integer", minimum: 0 },
+            default: 0
+          }
+        ]
+      },
+
+      {
+        path: "/todos",
+        method: "POST",
+        handler: "create_todo",
+        middleware: ["auth", "cors", "i18n"],
+        request_body: {
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: { type: "string", minLength: 1, maxLength: 200 },
+            description: { type: "string", maxLength: 1000 },
+            priority: { type: "string", enum: ["low", "medium", "high", "urgent"], default: "medium" },
+            due_date: { type: "string", format: "date-time" },
+            tags: { type: "array", items: { type: "string" }, maxItems: 10 },
+            category: { type: "string" }
+          }
+        }
+      },
+
+      {
+        path: "/todos/{id}",
+        method: "GET",
+        handler: "get_todo",
+        middleware: ["auth", "cors", "i18n"],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ]
+      },
+
+      {
+        path: "/todos/{id}",
+        method: "PUT",
+        handler: "update_todo",
+        middleware: ["auth", "cors", "i18n"],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ]
+      },
+
+      {
+        path: "/todos/{id}",
+        method: "DELETE",
+        handler: "delete_todo",
+        middleware: ["auth", "cors", "i18n"],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" }
+          }
+        ]
+      },
+
+      // ==========================================
+      // GRAPH DATABASE QUERIES
+      // ==========================================
+      {
+        path: "/graph/query",
+        method: "POST",
+        handler: "graph_query",
+        middleware: ["auth", "cors"],
+        request_body: {
+          type: "object",
+          required: ["query"],
+          properties: {
+            query: { type: "string" },
+            parameters: { type: "object" }
+          }
+        }
+      },
+
+      {
+        path: "/graph/relationships",
+        method: "GET",
+        handler: "get_relationships",
+        middleware: ["auth", "cors"],
+        parameters: [
+          {
+            name: "type",
+            in: "query",
+            schema: { type: "string", enum: ["depends_on", "blocks", "related_to", "parent_of"] }
+          },
+          {
+            name: "node_id",
+            in: "query",
+            schema: { type: "string" }
+          }
+        ]
+      },
+
+      // ==========================================
+      // MULTI-LANGUAGE ROUTES
+      // ==========================================
+      {
+        path: "/locales",
+        method: "GET",
+        handler: "get_supported_locales",
+        middleware: ["cors"]
+      },
+
+      {
+        path: "/locales/{locale}",
+        method: "GET",
+        handler: "get_translations",
+        middleware: ["cors"],
+        parameters: [
+          {
+            name: "locale",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["en", "ja", "es", "fr", "de"] }
+          }
+        ]
+      }
+    ]
+  },
+
+  // ==========================================
+  // FRONTEND COMPONENTS
+  // ==========================================
+
+  components: {
+    // Main App Component
+    TodoApp: {
+      type: "div",
+      className: "todo-app",
+      state: {
+        todos: [],
+        currentUser: null,
+        locale: "en",
+        loading: false,
+        error: null
+      },
+      props: {
+        initialLocale: { type: "string", default: "en" }
+      },
+      lifecycle: {
+        componentDidMount: "loadUserData()",
+        componentDidUpdate: "handleLocaleChange()"
+      },
+      render: {
+        type: "div",
+        className: "app-container",
+        children: [
+          // Header with user info and language selector
+          {
+            type: "TodoHeader",
+            props: {
+              user: state.currentUser,
+              locale: state.locale,
+              onLocaleChange: "handleLocaleChange"
+            }
+          },
+
+          // Main content area
+          {
+            condition: "!state.loading",
+            type: "div",
+            className: "main-content",
+            children: [
+              // Todo creation form
+              {
+                type: "TodoForm",
+                props: {
+                  onSubmit: "createTodo",
+                  locale: state.locale
+                }
+              },
+
+              // Todo list
+              {
+                type: "TodoList",
+                props: {
+                  todos: state.todos,
+                  onToggle: "toggleTodo",
+                  onDelete: "deleteTodo",
+                  onEdit: "editTodo",
+                  locale: state.locale
+                }
+              },
+
+              // Graph visualization (optional feature)
+              {
+                condition: "config.features.graph_database",
+                type: "TodoGraph",
+                props: {
+                  todos: state.todos,
+                  relationships: state.relationships,
+                  locale: state.locale
+                }
+              }
+            ]
+          },
+
+          // Loading spinner
+          {
+            condition: "state.loading",
+            type: "div",
+            className: "loading",
+            children: [{
+              type: "Spinner",
+              props: { size: "large" }
+            }]
+          },
+
+          // Error display
+          {
+            condition: "state.error",
+            type: "ErrorMessage",
+            props: {
+              error: state.error,
+              onRetry: "retryLastAction",
+              locale: state.locale
+            }
+          }
+        ]
+      },
+
+      handlers: {
+        loadUserData: "fetchCurrentUser()",
+        handleLocaleChange: "updateLocale(newLocale)",
+        createTodo: "submitNewTodo(todoData)",
+        toggleTodo: "updateTodoStatus(todoId, completed)",
+        deleteTodo: "removeTodo(todoId)",
+        editTodo: "modifyTodo(todoId, updates)",
+        retryLastAction: "retryFailedOperation()"
+      }
+    },
+
+    // Todo Item Component
+    TodoItem: {
+      props: {
+        todo: { type: "object", required: true },
+        onToggle: { type: "function" },
+        onDelete: { type: "function" },
+        onEdit: { type: "function" },
+        locale: { type: "string", default: "en" }
+      },
+      render: {
+        type: "div",
+        className: std.format("todo-item %s %s",
+                             props.todo.completed ? "completed" : "pending",
+                             props.todo.priority),
+        children: [
+          // Checkbox
+          {
+            type: "input",
+            props: {
+              type: "checkbox",
+              checked: props.todo.completed,
+              onChange: std.format("props.onToggle('%s')", props.todo.id)
+            }
+          },
+
+          // Todo content
+          {
+            type: "div",
+            className: "todo-content",
+            children: [
+              {
+                type: "h3",
+                className: "todo-title",
+                children: [props.todo.title]
+              },
+              {
+                condition: "props.todo.description",
+                type: "p",
+                className: "todo-description",
+                children: [props.todo.description]
+              }
+            ]
+          },
+
+          // Priority indicator
+          {
+            type: "span",
+            className: std.format("priority-badge %s", props.todo.priority),
+            children: [getTranslation("priority." + props.todo.priority, props.locale)]
+          },
+
+          // Due date
+          {
+            condition: "props.todo.due_date",
+            type: "span",
+            className: "due-date",
+            children: [formatDate(props.todo.due_date, props.locale)]
+          },
+
+          // Action buttons
+          {
+            type: "div",
+            className: "todo-actions",
+            children: [
+              {
+                type: "button",
+                className: "btn-edit",
+                onClick: std.format("props.onEdit('%s')", props.todo.id),
+                children: [getTranslation("actions.edit", props.locale)]
+              },
+              {
+                type: "button",
+                className: "btn-delete",
+                onClick: std.format("props.onDelete('%s')", props.todo.id),
+                children: [getTranslation("actions.delete", props.locale)]
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    // Multi-language Header Component
+    TodoHeader: {
+      props: {
+        user: { type: "object" },
+        locale: { type: "string", default: "en" },
+        onLocaleChange: { type: "function" }
+      },
+      render: {
+        type: "header",
+        className: "app-header",
+        children: [
+          {
+            type: "h1",
+            children: [getTranslation("app.title", props.locale)]
+          },
+
+          // Language selector
+          {
+            type: "select",
+            className: "locale-selector",
+            value: props.locale,
+            onChange: "props.onLocaleChange(event.target.value)",
+            children: [
+              { type: "option", value: "en", children: ["English"] },
+              { type: "option", value: "ja", children: ["日本語"] },
+              { type: "option", value: "es", children: ["Español"] },
+              { type: "option", value: "fr", children: ["Français"] },
+              { type: "option", value: "de", children: ["Deutsch"] }
+            ]
+          },
+
+          // User info
+          {
+            condition: "props.user",
+            type: "div",
+            className: "user-info",
+            children: [
+              {
+                type: "span",
+                children: [std.format(getTranslation("welcome", props.locale), props.user.name)]
+              },
+              {
+                type: "button",
+                className: "btn-logout",
+                onClick: "logout()",
+                children: [getTranslation("auth.logout", props.locale)]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+
+  // ==========================================
+  // GRAPH DATABASE SCHEMA
+  // ==========================================
+
+  graph_schema: {
+    // Node types
+    nodes: {
+      Todo: {
+        properties: {
+          id: { type: "uuid", primary_key: true },
+          title: { type: "string", required: true, indexed: true },
+          description: { type: "text", indexed: true },
+          completed: { type: "boolean", default: false, indexed: true },
+          priority: { type: "enum", values: ["low", "medium", "high", "urgent"] },
+          due_date: { type: "datetime" },
+          created_at: { type: "datetime", default: "now()" },
+          updated_at: { type: "datetime", default: "now()" },
+          user_id: { type: "uuid", required: true, indexed: true }
+        }
+      },
+
+      User: {
+        properties: {
+          id: { type: "uuid", primary_key: true },
+          email: { type: "string", required: true, unique: true },
+          name: { type: "string", required: true },
+          locale: { type: "enum", values: ["en", "ja", "es", "fr", "de"], default: "en" },
+          created_at: { type: "datetime", default: "now()" },
+          last_login: { type: "datetime" }
+        }
+      },
+
+      Category: {
+        properties: {
+          id: { type: "uuid", primary_key: true },
+          name: { type: "string", required: true },
+          color: { type: "string", default: "#3498db" },
+          user_id: { type: "uuid", required: true }
+        }
+      },
+
+      Tag: {
+        properties: {
+          id: { type: "uuid", primary_key: true },
+          name: { type: "string", required: true, unique: true },
+          color: { type: "string", default: "#95a5a6" }
+        }
+      }
+    },
+
+    // Relationship types
+    relationships: {
+      BELONGS_TO: {
+        from: "Todo",
+        to: "User",
+        properties: {
+          created_at: { type: "datetime", default: "now()" }
+        }
+      },
+
+      DEPENDS_ON: {
+        from: "Todo",
+        to: "Todo",
+        properties: {
+          strength: { type: "float", default: 1.0 },
+          created_at: { type: "datetime", default: "now()" }
+        }
+      },
+
+      BLOCKS: {
+        from: "Todo",
+        to: "Todo",
+        direction: "directed",
+        properties: {
+          reason: { type: "text" },
+          created_at: { type: "datetime", default: "now()" }
+        }
+      },
+
+      HAS_TAG: {
+        from: "Todo",
+        to: "Tag",
+        properties: {
+          added_at: { type: "datetime", default: "now()" }
+        }
+      },
+
+      IN_CATEGORY: {
+        from: "Todo",
+        to: "Category",
+        properties: {
+          added_at: { type: "datetime", default: "now()" }
+        }
+      }
+    },
+
+    // Indexes for performance
+    indexes: [
+      { type: "btree", on: "Todo", fields: ["user_id", "completed"] },
+      { type: "btree", on: "Todo", fields: ["priority", "due_date"] },
+      { type: "fulltext", on: "Todo", fields: ["title", "description"] },
+      { type: "btree", on: "User", fields: ["email"] },
+      { type: "btree", on: "Category", fields: ["user_id"] }
+    ]
+  },
+
+  // ==========================================
+  // DEPLOYMENT CONFIGURATION
+  // ==========================================
+
+  deployment: {
+    name: "densha-todo-service",
+    version: "1.0.0",
+    environment: std.extVar("ENV") ?? "production",
+
+    services: {
+      api: {
+        image: "densha/todo-api:v1.0.0",
+        ports: [8080, 8443],
+        environment: {
+          DATABASE_URL: std.extVar("DATABASE_URL"),
+          REDIS_URL: std.extVar("REDIS_URL"),
+          JWT_SECRET: std.extVar("JWT_SECRET"),
+          ENVIRONMENT: std.extVar("ENV") ?? "production"
+        },
+        resources: {
+          cpu: "500m",
+          memory: "1Gi",
+          storage: "10Gi"
+        },
+        healthCheck: {
+          path: "/api/v1/health",
+          interval: "30s",
+          timeout: "5s",
+          retries: 3
+        },
+        scaling: {
+          minReplicas: 2,
+          maxReplicas: 10,
+          targetCPUUtilization: 70
+        }
+      },
+
+      database: {
+        image: "postgres:15-alpine",
+        ports: [5432],
+        environment: {
+          POSTGRES_DB: "densha_todo",
+          POSTGRES_USER: std.extVar("DB_USER"),
+          POSTGRES_PASSWORD: std.extVar("DB_PASSWORD")
+        },
+        volumes: [
+          "postgres_data:/var/lib/postgresql/data"
+        ],
+        resources: {
+          cpu: "250m",
+          memory: "512Mi",
+          storage: "20Gi"
+        }
+      },
+
+      cache: {
+        image: "redis:7-alpine",
+        ports: [6379],
+        volumes: [
+          "redis_data:/data"
+        ],
+        resources: {
+          cpu: "100m",
+          memory: "256Mi",
+          storage: "5Gi"
+        }
+      },
+
+      web: {
+        image: "densha/todo-web:v1.0.0",
+        ports: [3000],
+        environment: {
+          API_URL: "http://api:8080/api/v1",
+          ENVIRONMENT: std.extVar("ENV") ?? "production"
+        },
+        depends_on: ["api"],
+        resources: {
+          cpu: "200m",
+          memory: "256Mi"
+        }
+      }
+    },
+
+    networks: {
+      frontend: {
+        services: ["web", "api"],
+        ingress: {
+          domain: "todo.densha.dev",
+          tls: true,
+          certificate: "letsencrypt",
+          rules: [
+            { path: "/", service: "web", port: 3000 },
+            { path: "/api", service: "api", port: 8080 }
+          ]
+        }
+      },
+      backend: {
+        services: ["api", "database", "cache"],
+        internal: true
+      }
+    },
+
+    volumes: {
+      postgres_data: {
+        driver: "local",
+        size: "20Gi"
+      },
+      redis_data: {
+        driver: "local",
+        size: "5Gi"
+      }
+    },
+
+    policies: {
+      security: {
+        networkPolicy: "deny-all",
+        allowIngress: [
+          { from: "web", to: "api", ports: [8080] },
+          { from: "api", to: "database", ports: [5432] },
+          { from: "api", to: "cache", ports: [6379] }
+        ]
+      },
+
+      backup: {
+        schedule: "0 2 * * *",
+        retention: "30d",
+        databases: ["postgres"],
+        volumes: ["postgres_data"]
+      }
+    }
+  },
+
+  // ==========================================
+  // UTILITY FUNCTIONS
+  // ==========================================
+
+  utils: {
+    // Translation helper
+    getTranslation: function(key, locale) {
+      local translations = import std.format("./locales/%s.json", locale);
+      std.get(translations, key, key)
+    },
+
+    // Date formatting helper
+    formatDate: function(date, locale) {
+      local format = config.i18n.date_formats[locale] ?? config.i18n.date_formats.en;
+      // Implementation would use a date formatting library
+      date
+    },
+
+    // Graph query helpers
+    findRelatedTodos: function(todoId) {
+      // Find todos that depend on this one or are blocked by it
+      std.format("MATCH (t:Todo)-[r:DEPENDS_ON|BLOCKS]-(related:Todo) WHERE t.id = '%s' RETURN related", todoId)
+    },
+
+    findTodoPath: function(startId, endId) {
+      // Find shortest path between todos in dependency graph
+      std.format("MATCH path = shortestPath((start:Todo {id: '%s'})-[:DEPENDS_ON*]-(end:Todo {id: '%s'})) RETURN path", startId, endId)
+    }
+  }
+}

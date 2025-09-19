@@ -1,0 +1,417 @@
+{
+  // Densha TODO App Deployment Configuration
+  // Demonstrates microservices deployment with graph database
+
+  name: "densha-todo-app",
+  version: "1.0.0",
+  environment: std.extVar("ENV") ?? "production",
+
+  // ==========================================
+  // SERVICES CONFIGURATION
+  // ==========================================
+
+  services: {
+    // API Gateway/Service
+    api: {
+      name: "densha-api",
+      image: "densha/todo-api:latest",
+      replicas: 3,
+      ports: [
+        { name: "http", port: 8080, targetPort: 8080 },
+        { name: "https", port: 8443, targetPort: 8443 }
+      ],
+      env: {
+        DATABASE_URL: std.extVar("DATABASE_URL"),
+        REDIS_URL: std.extVar("REDIS_URL"),
+        JWT_SECRET: std.extVar("JWT_SECRET"),
+        GRAPH_DB_URL: std.extVar("GRAPH_DB_URL"),
+        ENVIRONMENT: std.extVar("ENV") ?? "production",
+        LOG_LEVEL: "info"
+      },
+      resources: {
+        requests: { cpu: "500m", memory: "1Gi" },
+        limits: { cpu: "1000m", memory: "2Gi" }
+      },
+      healthCheck: {
+        httpGet: { path: "/health", port: 8080 },
+        initialDelaySeconds: 30,
+        periodSeconds: 10,
+        timeoutSeconds: 5,
+        failureThreshold: 3
+      },
+      readinessProbe: {
+        httpGet: { path: "/ready", port: 8080 },
+        initialDelaySeconds: 5,
+        periodSeconds: 5
+      },
+      lifecycle: {
+        preStop: {
+          exec: { command: ["sh", "-c", "sleep 15"] }
+        }
+      }
+    },
+
+    // Graph Database (Neo4j)
+    graphdb: {
+      name: "densha-graphdb",
+      image: "neo4j:5.15-enterprise",
+      replicas: 1,
+      ports: [
+        { name: "bolt", port: 7687, targetPort: 7687 },
+        { name: "http", port: 7474, targetPort: 7474 },
+        { name: "https", port: 7473, targetPort: 7473 }
+      ],
+      env: {
+        NEO4J_AUTH: std.format("neo4j/%s", std.extVar("NEO4J_PASSWORD")),
+        NEO4J_PLUGINS: '["graph-data-science"]',
+        NEO4J_dbms_security_procedures_unrestricted: "gds.*,apoc.*",
+        NEO4J_dbms_memory_heap_initial__size: "2G",
+        NEO4J_dbms_memory_heap_max__size: "4G",
+        NEO4J_dbms_memory_pagecache_size: "2G"
+      },
+      volumes: [
+        {
+          name: "neo4j-data",
+          mountPath: "/data",
+          persistentVolumeClaim: { claimName: "neo4j-pvc" }
+        },
+        {
+          name: "neo4j-logs",
+          mountPath: "/logs",
+          persistentVolumeClaim: { claimName: "neo4j-logs-pvc" }
+        }
+      ],
+      resources: {
+        requests: { cpu: "1000m", memory: "4Gi" },
+        limits: { cpu: "2000m", memory: "8Gi" }
+      }
+    },
+
+    // PostgreSQL Database
+    postgres: {
+      name: "densha-postgres",
+      image: "postgres:15-alpine",
+      replicas: 1,
+      ports: [{ name: "postgres", port: 5432, targetPort: 5432 }],
+      env: {
+        POSTGRES_DB: "densha_todo",
+        POSTGRES_USER: std.extVar("POSTGRES_USER"),
+        POSTGRES_PASSWORD: std.extVar("POSTGRES_PASSWORD"),
+        POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      },
+      volumes: [{
+        name: "postgres-data",
+        mountPath: "/var/lib/postgresql/data",
+        persistentVolumeClaim: { claimName: "postgres-pvc" }
+      }],
+      resources: {
+        requests: { cpu: "250m", memory: "512Mi" },
+        limits: { cpu: "500m", memory: "1Gi" }
+      }
+    },
+
+    // Redis Cache
+    redis: {
+      name: "densha-redis",
+      image: "redis:7-alpine",
+      replicas: 1,
+      ports: [{ name: "redis", port: 6379, targetPort: 6379 }],
+      command: ["redis-server", "--appendonly", "yes"],
+      volumes: [{
+        name: "redis-data",
+        mountPath: "/data",
+        persistentVolumeClaim: { claimName: "redis-pvc" }
+      }],
+      resources: {
+        requests: { cpu: "100m", memory: "128Mi" },
+        limits: { cpu: "200m", memory: "256Mi" }
+      }
+    },
+
+    // Web Frontend
+    web: {
+      name: "densha-web",
+      image: "densha/todo-web:latest",
+      replicas: 2,
+      ports: [{ name: "http", port: 3000, targetPort: 80 }],
+      env: {
+        API_URL: "http://api.densha-todo.svc.cluster.local:8080",
+        GRAPHQL_URL: "http://api.densha-todo.svc.cluster.local:8080/graphql",
+        ENVIRONMENT: std.extVar("ENV") ?? "production"
+      },
+      resources: {
+        requests: { cpu: "100m", memory: "128Mi" },
+        limits: { cpu: "200m", memory: "256Mi" }
+      }
+    },
+
+    // Background Job Processor
+    worker: {
+      name: "densha-worker",
+      image: "densha/todo-worker:latest",
+      replicas: 2,
+      env: {
+        DATABASE_URL: std.extVar("DATABASE_URL"),
+        REDIS_URL: std.extVar("REDIS_URL"),
+        GRAPH_DB_URL: std.extVar("GRAPH_DB_URL"),
+        QUEUE_NAME: "todo-jobs"
+      },
+      resources: {
+        requests: { cpu: "200m", memory: "256Mi" },
+        limits: { cpu: "500m", memory: "512Mi" }
+      }
+    }
+  },
+
+  // ==========================================
+  // NETWORKING CONFIGURATION
+  // ==========================================
+
+  networking: {
+    ingress: {
+      name: "densha-todo-ingress",
+      className: "nginx",
+      tls: [{
+        secretName: "densha-tls",
+        hosts: ["todo.densha.dev", "api.todo.densha.dev"]
+      }],
+      rules: [
+        {
+          host: "todo.densha.dev",
+          http: {
+            paths: [{
+              path: "/",
+              pathType: "Prefix",
+              backend: { service: { name: "web", port: { number: 3000 } } }
+            }]
+          }
+        },
+        {
+          host: "api.todo.densha.dev",
+          http: {
+            paths: [{
+              path: "/",
+              pathType: "Prefix",
+              backend: { service: { name: "api", port: { number: 8080 } } }
+            }]
+          }
+        }
+      ]
+    },
+
+    networkPolicies: [
+      {
+        name: "api-access",
+        podSelector: { matchLabels: { app: "api" } },
+        policyTypes: ["Ingress", "Egress"],
+        ingress: [
+          { from: [{ podSelector: { matchLabels: { app: "web" } } }] },
+          { from: [{ podSelector: { matchLabels: { app: "worker" } } }] }
+        ],
+        egress: [
+          { to: [{ podSelector: { matchLabels: { app: "postgres" } } }] },
+          { to: [{ podSelector: { matchLabels: { app: "redis" } } }] },
+          { to: [{ podSelector: { matchLabels: { app: "graphdb" } } }] }
+        ]
+      }
+    ]
+  },
+
+  // ==========================================
+  // STORAGE CONFIGURATION
+  // ==========================================
+
+  storage: {
+    persistentVolumeClaims: [
+      {
+        name: "postgres-pvc",
+        accessModes: ["ReadWriteOnce"],
+        resources: { requests: { storage: "50Gi" } },
+        storageClassName: "fast-ssd"
+      },
+      {
+        name: "redis-pvc",
+        accessModes: ["ReadWriteOnce"],
+        resources: { requests: { storage: "10Gi" } },
+        storageClassName: "fast-ssd"
+      },
+      {
+        name: "neo4j-pvc",
+        accessModes: ["ReadWriteOnce"],
+        resources: { requests: { storage: "100Gi" } },
+        storageClassName: "fast-ssd"
+      },
+      {
+        name: "neo4j-logs-pvc",
+        accessModes: ["ReadWriteOnce"],
+        resources: { requests: { storage: "20Gi" } },
+        storageClassName: "standard"
+      }
+    ]
+  },
+
+  // ==========================================
+  // MONITORING & LOGGING
+  // ==========================================
+
+  monitoring: {
+    prometheus: {
+      enabled: true,
+      scrapeConfigs: [
+        {
+          job_name: "densha-api",
+          static_configs: [{ targets: ["api:8080"] }],
+          metrics_path: "/metrics"
+        },
+        {
+          job_name: "densha-graphdb",
+          static_configs: [{ targets: ["graphdb:7474"] }],
+          metrics_path: "/metrics"
+        }
+      ]
+    },
+
+    grafana: {
+      enabled: true,
+      dashboards: [
+        {
+          name: "todo-app-overview",
+          configMap: "todo-dashboards"
+        }
+      ]
+    },
+
+    logging: {
+      fluentd: {
+        enabled: true,
+        configMap: "fluentd-config"
+      },
+      elasticsearch: {
+        enabled: true,
+        replicas: 1,
+        resources: { requests: { cpu: "500m", memory: "2Gi" } }
+      }
+    }
+  },
+
+  // ==========================================
+  // BACKUP & DISASTER RECOVERY
+  // ==========================================
+
+  backup: {
+    schedule: "0 2 * * *",  // Daily at 2 AM
+    retention: "30d",
+    databases: ["postgres", "neo4j"],
+    volumes: ["postgres-pvc", "neo4j-pvc"],
+    destinations: {
+      s3: {
+        bucket: std.extVar("BACKUP_BUCKET"),
+        region: std.extVar("AWS_REGION"),
+        accessKey: std.extVar("AWS_ACCESS_KEY"),
+        secretKey: std.extVar("AWS_SECRET_KEY")
+      }
+    }
+  },
+
+  // ==========================================
+  // CONFIGMAPS & SECRETS
+  // ==========================================
+
+  configMaps: {
+    "todo-config": {
+      data: {
+        "app-config.yaml": std.toString({
+          features: {
+            todo_management: true,
+            multi_language: true,
+            graph_database: true,
+            realtime_updates: true
+          },
+          i18n: {
+            default_locale: "en",
+            supported_locales: ["en", "ja", "es", "fr", "de"]
+          }
+        })
+      }
+    }
+  },
+
+  secrets: {
+    "todo-secrets": {
+      data: {
+        jwt_secret: std.base64(std.extVar("JWT_SECRET")),
+        db_password: std.base64(std.extVar("POSTGRES_PASSWORD")),
+        redis_password: std.base64(std.extVar("REDIS_PASSWORD")),
+        neo4j_password: std.base64(std.extVar("NEO4J_PASSWORD"))
+      }
+    }
+  },
+
+  // ==========================================
+  // SCALING POLICIES
+  // ==========================================
+
+  scaling: {
+    horizontalPodAutoscaler: [
+      {
+        name: "api-hpa",
+        scaleTargetRef: {
+          apiVersion: "apps/v1",
+          kind: "Deployment",
+          name: "api"
+        },
+        minReplicas: 3,
+        maxReplicas: 10,
+        targetCPUUtilizationPercentage: 70
+      },
+      {
+        name: "web-hpa",
+        scaleTargetRef: {
+          apiVersion: "apps/v1",
+          kind: "Deployment",
+          name: "web"
+        },
+        minReplicas: 2,
+        maxReplicas: 8,
+        targetCPUUtilizationPercentage: 60
+      }
+    ]
+  },
+
+  // ==========================================
+  // SECURITY POLICIES
+  // ==========================================
+
+  security: {
+    podSecurityStandards: {
+      enforced: "restricted"
+    },
+
+    networkPolicies: [
+      {
+        name: "default-deny-all",
+        podSelector: {},
+        policyTypes: ["Ingress", "Egress"]
+      },
+      {
+        name: "allow-internal",
+        podSelector: {},
+        ingress: [
+          { from: [{ namespaceSelector: { matchLabels: { name: "densha-todo" } } }] }
+        ],
+        egress: [
+          { to: [{ namespaceSelector: { matchLabels: { name: "densha-todo" } } }] }
+        ]
+      }
+    ],
+
+    secretsManagement: {
+      sealedSecrets: {
+        enabled: true,
+        controller: {
+          replicas: 1
+        }
+      }
+    }
+  }
+}

@@ -2499,6 +2499,8 @@ dependencies = [
  "dirs",
  "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-jsonnet",
+ "regex",
  "serde",
  "serde_json",
  "serde_yaml",

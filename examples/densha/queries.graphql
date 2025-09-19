@@ -1,0 +1,278 @@
+# Example GraphQL Queries for Densha TODO App
+# Demonstrating graph database relationships and complex queries
+
+# Get todos with their relationships
+query GetTodosWithRelationships($status: TodoStatus = ALL) {
+  todos(status: $status) {
+    id
+    title
+    completed
+    priority
+    dueDate
+    dependencies {
+      type
+      to {
+        id
+        title
+        completed
+      }
+    }
+    dependents {
+      type
+      from {
+        id
+        title
+        completed
+      }
+    }
+  }
+}
+
+# Find critical path for a project
+query GetCriticalPath($projectId: ID!) {
+  criticalPath(projectId: $projectId) {
+    length
+    nodes {
+      id
+      title
+      dueDate
+      priority
+    }
+    relationships {
+      type
+      strength
+    }
+  }
+}
+
+# Get todos that are blocked by a specific task
+query GetBlockedTodos($todoId: ID!) {
+  todo(id: $todoId) {
+    title
+    blocking {
+      to {
+        id
+        title
+        priority
+        dueDate
+      }
+    }
+  }
+}
+
+# Search todos with full-text search
+query SearchTodos($query: String!) {
+  searchTodos(query: $query) {
+    id
+    title
+    description
+    priority
+    category {
+      name
+      color
+    }
+    tags {
+      name
+      color
+    }
+  }
+}
+
+# Get todo dependency chain
+query GetTodoDependencyChain($rootId: ID!) {
+  todosByPriorityChain(rootId: $rootId, maxDepth: 3) {
+    id
+    title
+    priority
+    dueDate
+    dependencies {
+      type
+      strength
+      to {
+        id
+        title
+      }
+    }
+  }
+}
+
+# Check for circular dependencies
+query CheckCircularDependencies {
+  circularDependencies {
+    todos {
+      id
+      title
+    }
+    relationships {
+      type
+      from {
+        title
+      }
+      to {
+        title
+      }
+    }
+  }
+}
+
+# Get user's productivity analytics
+query GetUserAnalytics($userId: ID!) {
+  user(id: $userId) {
+    name
+    todos {
+      completed
+      priority
+      createdAt
+      completedAt
+    }
+    categories {
+      name
+      todos {
+        completed
+      }
+    }
+  }
+}
+
+# ==========================================
+# MUTATIONS
+# ==========================================
+
+# Create a new todo
+mutation CreateTodo($input: CreateTodoInput!) {
+  createTodo(input: $input) {
+    id
+    title
+    priority
+    dueDate
+  }
+}
+
+# Create a dependency relationship
+mutation AddDependency($fromId: ID!, $toId: ID!) {
+  addDependency(fromId: $fromId, toId: $toId, relationshipType: DEPENDS_ON) {
+    id
+    type
+    from {
+      title
+    }
+    to {
+      title
+    }
+  }
+}
+
+# Bulk update todos
+mutation BulkUpdateTodos($ids: [ID!]!, $input: UpdateTodoInput!) {
+  bulkUpdateTodos(ids: $ids, input: $input) {
+    id
+    title
+    completed
+  }
+}
+
+# ==========================================
+# SUBSCRIPTIONS
+# ==========================================
+
+# Subscribe to todo changes
+subscription OnTodoChanged {
+  todoUpdated {
+    id
+    title
+    completed
+    updatedAt
+  }
+}
+
+# Subscribe to specific todo toggles
+subscription OnTodoToggled($id: ID!) {
+  todoToggled(id: $id) {
+    id
+    title
+    completed
+    updatedAt
+  }
+}
+
+# ==========================================
+# COMPLEX GRAPH QUERIES
+# ==========================================
+
+# Find todos that might be delayed due to dependencies
+query FindAtRiskTodos {
+  todos(status: PENDING) {
+    id
+    title
+    dueDate
+    priority
+    dependencies {
+      to {
+        completed
+        dueDate
+      }
+    }
+    dependents {
+      from {
+        dueDate
+      }
+    }
+  }
+}
+
+# Get todo relationship network
+query GetTodoNetwork($todoId: ID!) {
+  todo(id: $todoId) {
+    title
+    dependencies {
+      type
+      strength
+      to {
+        title
+        completed
+        dueDate
+      }
+    }
+    dependents {
+      type
+      strength
+      from {
+        title
+        completed
+        dueDate
+      }
+    }
+    blocking {
+      to {
+        title
+        priority
+      }
+    }
+    blockedBy {
+      from {
+        title
+        priority
+      }
+    }
+  }
+}
+
+# Find related todos by tags and categories
+query FindRelatedTodos($todoId: ID!) {
+  todo(id: $todoId) {
+    tags {
+      todos {
+        id
+        title
+        completed
+      }
+    }
+    category {
+      todos {
+        id
+        title
+        completed
+      }
+    }
+  }
+}
