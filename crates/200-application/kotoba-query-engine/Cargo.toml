@@ -39,6 +39,6 @@ futures = "0.3"
 
 # Kotoba dependencies - Port layer
 kotoba-storage = "0.1.22"
-kotoba-core = "0.1.21"
+kotoba-core = "0.1.22"
 kotoba-errors = "0.1.2"
 # kotoba-event-stream = { path = "../../200-application/kotoba-event-stream" }

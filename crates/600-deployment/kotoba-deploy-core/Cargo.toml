@@ -12,7 +12,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba core dependencies
-kotoba-core = "0.1.21"
+kotoba-core = "0.1.22"
 kotoba-errors = "0.1.2"
 
 # Common dependencies

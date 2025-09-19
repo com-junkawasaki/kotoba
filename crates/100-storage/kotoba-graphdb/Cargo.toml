@@ -39,6 +39,6 @@ tracing = "0.1"
 metrics = "0.23"
 
 # Kotoba dependencies
-kotoba-core = "0.1.21"
+kotoba-core = "0.1.22"
 kotoba-errors = "0.1.2"
 kotoba-ocel = "0.1.21"

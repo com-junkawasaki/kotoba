@@ -13,7 +13,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = "0.1.21"
+kotoba-core = "0.1.22"
 # kotoba-distributed = { path = "../../200-application/kotoba-distributed", version = "0.1.16" }
 
 # Async runtime and networking

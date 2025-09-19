@@ -22,7 +22,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Kotoba dependencies - Port layer
 kotoba-storage = "0.1.22"
-kotoba-core = "0.1.21"
+kotoba-core = "0.1.22"
 kotoba-errors = "0.1.2"
 # kotoba-cid temporarily disabled due to version conflicts
 

@@ -8,7 +8,7 @@ description = "Serverless Workflow specification compliant workflow engine"
 
 [dependencies]
 # Kotoba crates - core workflow functionality
-kotoba-core = "0.1.21"
+kotoba-core = "0.1.22"
 kotoba-errors = "0.1.2"
 # kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.21" }
 kotoba-routing = { version = "0.1.21", optional = true }
