@@ -9,7 +9,7 @@ use tokio::sync::{RwLock, mpsc};
 use dashmap::DashMap;
 use anyhow::{Result, Context};
 use tracing::{info, warn, error, instrument};
-use metrics::counter;
+// use metrics::macros::counter; // Temporarily disabled due to version issues
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
@@ -90,37 +90,8 @@ impl Default for ProjectionConfig {
     }
 }
 
-/// Cache configuration
-#[derive(Debug, Clone)]
-pub struct CacheConfig {
-    /// Cache TTL for projection results
-    pub ttl_seconds: u64,
-    /// Maximum cache size
-    pub max_size: usize,
-    /// Cache invalidation strategy
-    pub invalidation_strategy: InvalidationStrategy,
-}
 
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self {
-            ttl_seconds: 3600, // 1 hour
-            max_size: 10000,
-            invalidation_strategy: InvalidationStrategy::TimeBased,
-        }
-    }
-}
 
-/// Cache invalidation strategy
-#[derive(Debug, Clone)]
-pub enum InvalidationStrategy {
-    /// Time-based invalidation
-    TimeBased,
-    /// Event-based invalidation
-    EventBased,
-    /// Hybrid approach
-    Hybrid,
-}
 
 /// Projection state
 #[derive(Debug, Clone)]
@@ -308,7 +279,7 @@ impl ProjectionEngine {
             stats: ProjectionStats::default(),
         };
 
-        self.active_projections.insert(name, state);
+        self.active_projections.insert(name.clone(), state);
 
         // Register with event processor
         self.event_processor.register_projection(&name).await?;
@@ -349,7 +320,7 @@ impl ProjectionEngine {
     #[instrument(skip(self, events))]
     pub async fn process_ocel_events(&self, events: Vec<OcelEvent>) -> Result<()> {
         if self.config.enable_metrics {
-            counter!("projection_engine.events_received", events.len() as u64);
+            // counter!("projection_engine.events_received", events.len() as u64);
         }
 
         // Process OCEL events through the event processor
@@ -370,22 +341,27 @@ impl ProjectionEngine {
         let cache_key = format!("graph_query:{:?}", query);
         if let Some(cached_result) = self.cache_integration.get_cached_result("graphdb", &serde_json::json!(query)).await? {
             if self.config.enable_metrics {
-                counter!("projection_engine.cache_hits");
+                // counter!("projection_engine.cache_hits");
             }
             return Ok(cached_result);
         }
 
         if self.config.enable_metrics {
-            counter!("projection_engine.cache_misses");
+            // counter!("projection_engine.cache_misses");
         }
 
         // Query the GraphDB directly
         let result = self.graphdb.execute_query(query.clone()).await?;
 
         // Cache the result
-        self.cache_integration.cache_result("graphdb", &serde_json::json!(query), &serde_json::json!(result)).await?;
+        let result_json = serde_json::json!({
+            "columns": result.columns,
+            "rows": result.rows,
+            "statistics": result.statistics
+        });
+        self.cache_integration.cache_result("graphdb", &serde_json::json!(query), &result_json).await?;
 
-        Ok(result)
+        Ok(result_json)
     }
 
     /// Query a materialized view (legacy method)
@@ -435,7 +411,16 @@ impl ProjectionEngine {
         };
 
         let adapter = ProjectionEngineAdapter::new(Arc::new(self.clone()));
-        adapter.execute_gql_query(query, context).await
+        let gql_result = adapter.execute_gql_query(query, context).await?;
+
+        // Convert GQL QueryResult to JSON
+        let result_json = serde_json::json!({
+            "columns": gql_result.columns,
+            "rows": gql_result.rows,
+            "statistics": gql_result.statistics
+        });
+
+        Ok(result_json)
     }
 
     /// Execute GQL statement (DDL/DML)
@@ -509,10 +494,9 @@ pub type EventEnvelope = serde_json::Value;
 pub type ProjectionDefinition = serde_json::Value;
 // Placeholder types - these will be replaced with actual implementations
 pub type GraphQuery = kotoba_graphdb::GraphQuery;
-pub type QueryResult = kotoba_graphdb::QueryResult;
+pub type QueryResult = serde_json::Value; // Use JSON for now to handle type conversion
 pub type ViewQuery = serde_json::Value;
 pub type ViewResult = serde_json::Value;
-pub type EventEnvelope = serde_json::Value;
 
 impl Default for ProjectionStats {
     fn default() -> Self {

@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use kotoba_core::prelude::*;
-use kotoba_errors::KotobaError;
+use kotoba_core::schema::{ContentHash, Cid};
+use anyhow::{anyhow, Error};
 use kotoba_graph::graph::Graph;
 
 /// Merkleノード
@@ -93,7 +94,7 @@ impl MerkleDAG {
     }
 
     /// データ整合性を検証
-    pub fn verify_integrity(&self) -> Result<bool> {
+    pub fn verify_integrity(pub fn verify_integrity(pub fn verify_integrity(&self) -> Result<bool> {self) -> Result<bool, Error> {self) -> Result<bool, Error> {
         for (hash, node) in &self.nodes {
             // ハッシュの正しさを検証
             let mut hasher = sha2::Sha256::new();
@@ -182,7 +183,7 @@ impl MerkleDAG {
     }
 
     /// サブツリーのMerkleルートを計算
-    pub fn compute_subtree_root(&self, root_hash: &ContentHash) -> Result<ContentHash> {
+    pub fn compute_subtree_root(pub fn compute_subtree_root(pub fn compute_subtree_root(&self, root_hash: &ContentHash) -> Result<ContentHash> {self, root_hash: pub fn compute_subtree_root(&self, root_hash: &ContentHash) -> Result<ContentHash> {ContentHash) -> Result<ContentHash, Error> {self, root_hash: &ContentHash) -> Result<ContentHash, Error> {
         if !self.nodes.contains_key(root_hash) {
             return Err(KotobaError::Storage("Root hash not found".to_string()));
         }
@@ -192,7 +193,7 @@ impl MerkleDAG {
     }
 
     /// 再帰的にMerkleルートを計算
-    fn compute_merkle_root_recursive(&self, hash: &ContentHash) -> Result<ContentHash> {
+    fn compute_merkle_root_recursive(fn compute_merkle_root_recursive(fn compute_merkle_root_recursive(&self, hash: &ContentHash) -> Result<ContentHash> {self, hash: fn compute_merkle_root_recursive(&self, hash: &ContentHash) -> Result<ContentHash> {ContentHash) -> Result<ContentHash, Error> {self, hash: &ContentHash) -> Result<ContentHash, Error> {
         let node = self.nodes.get(hash)
             .ok_or_else(|| KotobaError::Storage("Node not found".to_string()))?;
 
@@ -260,7 +261,7 @@ impl MerkleDAG {
     }
 
     /// 破損したデータを検出
-    pub fn detect_corruption(&self) -> Result<Vec<ContentHash>> {
+    pub fn detect_corruption(pub fn detect_corruption(pub fn detect_corruption(&self) -> Result<Vec<ContentHash>> {self) -> Result<Vec<ContentHash>, Error> {self) -> Result<Vec<ContentHash>, Error> {
         let mut corrupted = Vec::new();
 
         for (hash, node) in &self.nodes {
@@ -300,7 +301,7 @@ impl MerkleDAG {
     }
 
     /// 正規化されたJSONをハッシュ化
-    pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash> {
+    pub fn hash_json<T: serde::Serialize>(pub fn hash_json<T: serde::Serialize>(pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash> {mut self, value: pub fn hash_json<T: serde::Serialize>(&mut self, value: &T) -> Result<ContentHash> {T) -> Result<ContentHash, Error> {mut self, value: &T) -> Result<ContentHash, Error> {
         let json = serde_json::to_string(value)
             .map_err(|e| KotobaError::Storage(format!("JSON serialization error: {}", e)))?;
 
@@ -315,7 +316,7 @@ impl MerkleDAG {
     }
 
     /// グラフのMerkleハッシュを計算
-    pub fn hash_graph(&mut self, graph: &Graph) -> Result<ContentHash> {
+    pub fn hash_graph(pub fn hash_graph(pub fn hash_graph(&mut self, graph: &Graph) -> Result<ContentHash> {mut self, graph: pub fn hash_graph(&mut self, graph: &Graph) -> Result<ContentHash> {Graph) -> Result<ContentHash, Error> {mut self, graph: &Graph) -> Result<ContentHash, Error> {
         let mut children = Vec::new();
 
         // 頂点をハッシュ化
@@ -358,7 +359,7 @@ impl GraphVersion {
     }
 
     /// 新しいバージョンをコミット
-    pub fn commit(&mut self, graph: &Graph) -> Result<ContentHash> {
+    pub fn commit(pub fn commit(pub fn commit(&mut self, graph: &Graph) -> Result<ContentHash> {mut self, graph: pub fn commit(&mut self, graph: &Graph) -> Result<ContentHash> {Graph) -> Result<ContentHash, Error> {mut self, graph: &Graph) -> Result<ContentHash, Error> {
         let hash = self.dag.hash_graph(graph)?;
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

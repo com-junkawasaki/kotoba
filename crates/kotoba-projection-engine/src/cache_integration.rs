@@ -110,16 +110,17 @@ pub struct CacheStats {
     pub total_size_bytes: u64,
 }
 
-impl Default for CacheIntegration {
-    fn default() -> Self {
-        // Create a mock cache for default
-        let cache_config = kotoba_cache::CacheConfig::default();
-        let cache = Arc::new(tokio::sync::Mutex::new(
-            futures::executor::block_on(async {
-                CacheLayer::new(cache_config).await.unwrap()
-            })
-        ));
-
-        Self { cache }
-    }
-}
+// Remove Default implementation - CacheIntegration should be created explicitly
+// impl Default for CacheIntegration {
+//     fn default() -> Self {
+//         // Create a mock cache for default
+//         let cache_config = kotoba_cache::CacheConfig::default();
+//         let cache = Arc::new(tokio::sync::Mutex::new(
+//             futures::executor::block_on(async {
+//                 CacheLayer::new(cache_config).await.unwrap()
+//             })
+//         ));
+//
+//         Self { cache }
+//     }
+// }

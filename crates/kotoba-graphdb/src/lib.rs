@@ -651,6 +651,48 @@ impl GraphDB {
         }
     }
 
+    /// Scan all nodes
+    #[instrument(skip(self))]
+    pub async fn scan_nodes(&self) -> Result<Vec<Node>, GraphError> {
+        let cf_nodes = self.db.cf_handle("nodes")
+            .ok_or_else(|| GraphError::ColumnFamilyNotFound("nodes".to_string()))?;
+
+        let mut nodes = Vec::new();
+        let iter = self.db.iterator_cf(&cf_nodes, IteratorMode::Start);
+
+        for item in iter {
+            let (key, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
+            let node_id = String::from_utf8(key.to_vec())
+                .map_err(|e| GraphError::SerializationError(e.to_string()))?;
+            let node: Node = bincode::deserialize(&value)
+                .map_err(|e| GraphError::SerializationError(e.to_string()))?;
+            nodes.push(node);
+        }
+
+        Ok(nodes)
+    }
+
+    /// Scan all edges
+    #[instrument(skip(self))]
+    pub async fn scan_edges(&self) -> Result<Vec<Edge>, GraphError> {
+        let cf_edges = self.db.cf_handle("edges")
+            .ok_or_else(|| GraphError::ColumnFamilyNotFound("edges".to_string()))?;
+
+        let mut edges = Vec::new();
+        let iter = self.db.iterator_cf(&cf_edges, IteratorMode::Start);
+
+        for item in iter {
+            let (key, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
+            let edge_id = String::from_utf8(key.to_vec())
+                .map_err(|e| GraphError::SerializationError(e.to_string()))?;
+            let edge: Edge = bincode::deserialize(&value)
+                .map_err(|e| GraphError::SerializationError(e.to_string()))?;
+            edges.push(edge);
+        }
+
+        Ok(edges)
+    }
+
     /// Get database statistics
     #[instrument(skip(self))]
     pub async fn get_statistics(&self) -> Result<GraphStatistics, GraphError> {

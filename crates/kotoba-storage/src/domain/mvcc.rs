@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use parking_lot::RwLock;
-use kotoba_core::types::*;
+use kotoba_core::prelude::*;
+use kotoba_core::schema::{TxId, ContentHash, Cid};
+use anyhow::{anyhow, Error};
 use kotoba_graph::graph::GraphRef;
-use kotoba_errors::KotobaError;
 
 /// トランザクション状態
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,7 +78,7 @@ impl MVCCManager {
     }
 
     /// トランザクションをコミット
-    pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {
+    pub fn commit_tx(pub fn commit_tx(pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {self, tx_id: pub fn commit_tx(&self, tx_id: &TxId) -> Result<()> {TxId) -> Result<(), Error> {self, tx_id: &TxId) -> Result<(), Error> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().commit();
@@ -88,7 +89,7 @@ impl MVCCManager {
     }
 
     /// トランザクションをアボート
-    pub fn abort_tx(&self, tx_id: &TxId) -> Result<()> {
+    pub fn abort_tx(pub fn abort_tx(pub fn abort_tx(&self, tx_id: &TxId) -> Result<()> {self, tx_id: pub fn abort_tx(&self, tx_id: &TxId) -> Result<()> {TxId) -> Result<(), Error> {self, tx_id: &TxId) -> Result<(), Error> {
         let mut txs = self.transactions.write();
         if let Some(tx) = txs.get_mut(tx_id) {
             *tx = tx.clone().abort();

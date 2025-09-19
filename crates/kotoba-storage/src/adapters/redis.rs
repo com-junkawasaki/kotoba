@@ -2,9 +2,9 @@
 
 use crate::domain::kv::KeyValuePort;
 use crate::domain::models::{StorageConfig, BackendStats};
+use anyhow::{anyhow, Error};
 use async_trait::async_trait;
-use kotoba_core::prelude::Result;
-use kotoba_errors::KotobaError;
+use kotoba_core::prelude::*;
 use redis::{aio::ConnectionManager, AsyncCommands, Client};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -19,7 +19,7 @@ pub struct RedisBackend {
 
 impl RedisBackend {
     /// Create a new Redis backend
-    pub async fn new(config: &StorageConfig) -> Result<Self> {
+    pub async fn new(config: &StorageConfig) -> Result<Self, Error> {
         let url = config.redis_url.as_ref()
             .ok_or_else(|| KotobaError::Storage("Redis URL not configured".to_string()))?
             .clone();
@@ -48,7 +48,7 @@ impl RedisBackend {
 
 #[async_trait]
 impl KeyValuePort for RedisBackend {
-    async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
+    async fn put(&self, key: String, value: Vec<u8>) -> Result<(), Error> {
         let mut conn = self.connection_manager.lock().await;
         conn.set::<_, _, ()>(key, value)
             .await
@@ -56,14 +56,14 @@ impl KeyValuePort for RedisBackend {
         Ok(())
     }
 
-    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         let mut conn = self.connection_manager.lock().await;
         conn.get::<_, Option<Vec<u8>>>(key)
             .await
             .map_err(|e| KotobaError::Storage(format!("Failed to get data from Redis: {}", e)))
     }
 
-    async fn delete(&self, key: String) -> Result<()> {
+    async fn delete(&self, key: String) -> Result<(), Error> {
         let mut conn = self.connection_manager.lock().await;
         conn.del::<_, ()>(key)
             .await
@@ -71,7 +71,7 @@ impl KeyValuePort for RedisBackend {
         Ok(())
     }
 
-    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>, Error> {
         let mut conn = self.connection_manager.lock().await;
         let pattern = format!("{}*", prefix);
         
@@ -93,7 +93,7 @@ impl KeyValuePort for RedisBackend {
         Ok(results)
     }
 
-    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
+    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>, Error> {
         let mut conn = self.connection_manager.lock().await;
         let pattern = format!("{}*", prefix);
         conn.keys::<_, Vec<String>>(pattern)
@@ -101,7 +101,7 @@ impl KeyValuePort for RedisBackend {
             .map_err(|e| KotobaError::Storage(format!("Failed to scan keys in Redis: {}", e)))
     }
 
-    async fn clear(&self) -> Result<()> {
+    async fn clear(&self) -> Result<(), Error> {
         let mut conn = self.connection_manager.lock().await;
         redis::cmd("FLUSHDB")
             .query_async(&mut *conn)
@@ -110,7 +110,7 @@ impl KeyValuePort for RedisBackend {
         Ok(())
     }
 
-    async fn stats(&self) -> Result<BackendStats> {
+    async fn stats(&self) -> Result<BackendStats, Error> {
         let mut conn = self.connection_manager.lock().await;
         let info: String = redis::cmd("INFO")
             .query_async(&mut *conn)
@@ -130,7 +130,7 @@ impl KeyValuePort for RedisBackend {
         })
     }
 
-    async fn exists(&self, key: &str) -> Result<bool> {
+    async fn exists(&self, key: &str) -> Result<bool, Error> {
         let mut conn = self.connection_manager.lock().await;
         conn.exists(key)
             .await

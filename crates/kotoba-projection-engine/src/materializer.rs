@@ -14,6 +14,8 @@ use kotoba_ocel::{OcelEvent, OcelObject, OcelValue, ValueMap};
 use kotoba_graphdb::{GraphDB, Node, Edge, PropertyValue};
 use kotoba_cache::CacheLayer;
 
+use crate::EventEnvelope;
+
 /// Materializer for GraphDB projections
 pub struct Materializer {
     /// GraphDB instance
@@ -29,7 +31,7 @@ pub struct Materializer {
 }
 
 /// Materialization task
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MaterializationTask {
     /// Task ID
     id: String,
@@ -64,24 +66,25 @@ pub struct MaterializationResult {
     pub errors: Vec<String>,
 }
 
-impl Default for Materializer {
-    fn default() -> Self {
-        // Placeholder default implementation - use mock implementations for default
-        Self {
-            graphdb: Arc::new(GraphDB::new("./data/graphdb").await.unwrap_or_else(|_| panic!("Failed to create GraphDB"))),
-            cache: Arc::new(CacheLayer::new(CacheConfig::default()).await.unwrap_or_else(|_| {
-                // Create a mock cache if Redis is not available
-                CacheLayer::new(CacheConfig {
-                    redis_url: "redis://mock".to_string(),
-                    ..Default::default()
-                }).await.unwrap()
-            })),
-            active_tasks: Arc::new(DashMap::new()),
-            object_mappings: Arc::new(DashMap::new()),
-            activity_mappings: Arc::new(DashMap::new()),
-        }
-    }
-}
+// Remove Default implementation - Materializer should be created explicitly
+// impl Default for Materializer {
+//     fn default() -> Self {
+//         // Placeholder default implementation - use mock implementations for default
+//         Self {
+//             graphdb: Arc::new(GraphDB::new("./data/graphdb").await.unwrap_or_else(|_| panic!("Failed to create GraphDB"))),
+//             cache: Arc::new(CacheLayer::new(CacheConfig::default()).await.unwrap_or_else(|_| {
+//                 // Create a mock cache if Redis is not available
+//                 CacheLayer::new(CacheConfig {
+//                     redis_url: "redis://mock".to_string(),
+//                     ..Default::default()
+//                 }).await.unwrap()
+//             })),
+//             active_tasks: Arc::new(DashMap::new()),
+//             object_mappings: Arc::new(DashMap::new()),
+//             activity_mappings: Arc::new(DashMap::new()),
+//         }
+//     }
+// }
 
 impl Materializer {
     /// Create a new materializer
@@ -285,20 +288,23 @@ impl Materializer {
     }
 
     /// Invalidate cache entries related to the event
-    async fn invalidate_event_cache(&self, ocel_event: &OcelEvent) -> Result<()> {
+    async fn invalidate_event_cache(&self, _ocel_event: &OcelEvent) -> Result<()> {
+        // TODO: Implement cache invalidation when CacheLayer supports it
+        // For now, cache invalidation is disabled
+
         // Invalidate cache for the event
-        let event_cache_key = format!("event:{}", ocel_event.id);
-        self.cache.invalidate_node_cache(&event_cache_key).await?;
+        // let event_cache_key = format!("event:{}", ocel_event.id);
+        // self.cache.invalidate_node_cache(&event_cache_key).await?;
 
         // Invalidate cache for related objects
-        for object_id in &ocel_event.omap {
-            let object_cache_key = format!("object:{}", object_id);
-            self.cache.invalidate_node_cache(&object_cache_key).await?;
-        }
+        // for object_id in &ocel_event.omap {
+        //     let object_cache_key = format!("object:{}", object_id);
+        //     self.cache.invalidate_node_cache(&object_cache_key).await?;
+        // }
 
         // Invalidate activity-based cache
-        let activity_cache_key = format!("activity:{}", ocel_event.activity);
-        self.cache.invalidate_node_cache(&activity_cache_key).await?;
+        // let activity_cache_key = format!("activity:{}", ocel_event.activity);
+        // self.cache.invalidate_node_cache(&activity_cache_key).await?;
 
         Ok(())
     }
@@ -306,12 +312,12 @@ impl Materializer {
 
     /// Get active tasks
     pub fn get_active_tasks(&self) -> Vec<MaterializationTask> {
-        self.active_tasks.iter().map(|t| t.clone()).collect()
+        self.active_tasks.iter().map(|t| (*t).clone()).collect()
     }
 
     /// Get task status
     pub fn get_task_status(&self, task_id: &str) -> Option<MaterializationTask> {
-        self.active_tasks.get(task_id).map(|t| t.clone())
+        self.active_tasks.get(task_id).map(|t| (*t).clone())
     }
 }
 

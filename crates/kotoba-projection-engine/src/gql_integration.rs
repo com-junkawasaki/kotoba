@@ -9,11 +9,11 @@ use serde_json;
 
 use crate::{ProjectionEngine, ProjectionDefinition, EventEnvelope};
 use kotoba_ocel::OcelEvent;
-use kotoba_graphdb::{GraphDB, GraphQuery, QueryResult};
+use kotoba_graphdb::{GraphDB, GraphQuery};
 use kotoba_cache::CacheLayer;
 use kotoba_query_engine::{
     GqlQueryEngine, QueryContext, ProjectionPort, IndexManagerPort, CachePort,
-    Vertex, Edge, VertexId, EdgeId, VertexFilter, EdgeFilter, Path, PathPattern
+    Vertex, Edge, VertexId, EdgeId, VertexFilter, EdgeFilter, Path, PathPattern, QueryResult
 };
 
 /// Projection Engine adapter for GQL engine
@@ -78,13 +78,10 @@ impl Clone for ProjectionEngineAdapter {
 #[async_trait]
 impl ProjectionPort for ProjectionEngineAdapter {
     async fn get_vertex(&self, id: &VertexId) -> Result<Option<Vertex>> {
-        // Convert VertexId to GraphDB format
-        let graphdb_id = id.0.clone();
-
-        // Query GraphDB
-        if let Some(node) = self.projection_engine.graphdb.get_node(&graphdb_id).await? {
+        // Query GraphDB directly with string ID
+        if let Some(node) = self.projection_engine.graphdb.get_node(id).await? {
             Ok(Some(Vertex {
-                id: VertexId(node.id),
+                id: node.id.clone(),
                 labels: node.labels,
                 properties: node.properties.into_iter()
                     .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
@@ -96,15 +93,12 @@ impl ProjectionPort for ProjectionEngineAdapter {
     }
 
     async fn get_edge(&self, id: &EdgeId) -> Result<Option<Edge>> {
-        // Convert EdgeId to GraphDB format
-        let graphdb_id = id.0.clone();
-
-        // Query GraphDB
-        if let Some(edge) = self.projection_engine.graphdb.get_edge(&graphdb_id).await? {
+        // Query GraphDB directly with string ID
+        if let Some(edge) = self.projection_engine.graphdb.get_edge(id).await? {
             Ok(Some(Edge {
-                id: EdgeId(edge.id),
-                from_vertex: VertexId(edge.from_node),
-                to_vertex: VertexId(edge.to_node),
+                id: edge.id.clone(),
+                from_vertex: edge.from_node.clone(),
+                to_vertex: edge.to_node.clone(),
                 label: edge.label,
                 properties: edge.properties.into_iter()
                     .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
@@ -152,7 +146,7 @@ impl ProjectionPort for ProjectionEngineAdapter {
 
             // Convert to Vertex
             let vertex = Vertex {
-                id: VertexId(node.id),
+                id: node.id.clone(),
                 labels: node.labels,
                 properties: node.properties.into_iter()
                     .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
@@ -181,14 +175,14 @@ impl ProjectionPort for ProjectionEngineAdapter {
 
                 // Check from_vertex filter
                 if let Some(ref from_vertex) = filter.from_vertex {
-                    if edge.from_node != from_vertex.0 {
+                    if edge.from_node != *from_vertex {
                         continue;
                     }
                 }
 
                 // Check to_vertex filter
                 if let Some(ref to_vertex) = filter.to_vertex {
-                    if edge.to_node != to_vertex.0 {
+                    if edge.to_node != *to_vertex {
                         continue;
                     }
                 }
@@ -215,9 +209,9 @@ impl ProjectionPort for ProjectionEngineAdapter {
 
             // Convert to Edge
             let gql_edge = Edge {
-                id: EdgeId(edge.id),
-                from_vertex: VertexId(edge.from_node),
-                to_vertex: VertexId(edge.to_node),
+                id: edge.id.clone(),
+                from_vertex: edge.from_node.clone(),
+                to_vertex: edge.to_node.clone(),
                 label: edge.label,
                 properties: edge.properties.into_iter()
                     .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
@@ -247,7 +241,7 @@ impl IndexManagerPort for ProjectionEngineAdapter {
             if let Some(node_value) = node.properties.get(property) {
                 let node_json = serde_json::to_value(node_value).unwrap_or(serde_json::Value::Null);
                 if node_json == *value {
-                    vertex_ids.push(VertexId(node.id));
+                    vertex_ids.push(node.id.clone());
                 }
             }
         }
@@ -265,7 +259,7 @@ impl IndexManagerPort for ProjectionEngineAdapter {
             if let Some(edge_value) = edge.properties.get(property) {
                 let edge_json = serde_json::to_value(edge_value).unwrap_or(serde_json::Value::Null);
                 if edge_json == *value {
-                    edge_ids.push(EdgeId(edge.id));
+                    edge_ids.push(edge.id.clone());
                 }
             }
         }
@@ -283,52 +277,54 @@ impl IndexManagerPort for ProjectionEngineAdapter {
             if let Some(node_value) = node.properties.get(property) {
                 let node_json = serde_json::to_value(node_value).unwrap_or(serde_json::Value::Null);
                 // Simple range check for numbers (implement proper range logic later)
-                if node_json >= *start && node_json <= *end {
-                    vertex_ids.push(VertexId(node.id));
+                // For now, only check numeric values
+                match (&node_json, start, end) {
+                    (serde_json::Value::Number(n), serde_json::Value::Number(s), serde_json::Value::Number(e)) => {
+                        if n.as_f64() >= s.as_f64() && n.as_f64() <= e.as_f64() {
+                            vertex_ids.push(node.id.clone());
+                        }
+                    }
+                    _ => {
+                        // For non-numeric values, skip (implement proper comparison later)
+                    }
                 }
             }
         }
 
         Ok(vertex_ids)
     }
+
+    async fn has_vertex_index(&self, property: &str) -> Result<bool> {
+        // For now, assume no indexes exist (implement proper index checking later)
+        // TODO: Check if vertex index exists for the property
+        Ok(false)
+    }
+
+    async fn has_edge_index(&self, property: &str) -> Result<bool> {
+        // For now, assume no indexes exist (implement proper index checking later)
+        // TODO: Check if edge index exists for the property
+        Ok(false)
+    }
 }
 
 #[async_trait]
 impl CachePort for ProjectionEngineAdapter {
     async fn get(&self, key: &str) -> Result<Option<serde_json::Value>> {
+        // Convert CacheError to anyhow::Error
         self.projection_engine.cache_layer.get(key).await
+            .map_err(|e| anyhow::anyhow!("Cache error: {}", e))
     }
 
     async fn set(&self, key: &str, value: serde_json::Value, ttl: Option<std::time::Duration>) -> Result<()> {
         let ttl_seconds = ttl.map(|d| d.as_secs() as u64);
         self.projection_engine.cache_layer.set(key, value, ttl_seconds).await
+            .map_err(|e| anyhow::anyhow!("Cache error: {}", e))
     }
 
     async fn delete(&self, key: &str) -> Result<()> {
-        let _ = self.projection_engine.cache_layer.delete(key).await?;
+        self.projection_engine.cache_layer.delete(key).await
+            .map_err(|e| anyhow::anyhow!("Cache error: {}", e))?;
         Ok(())
     }
 }
 
-impl ProjectionEngine {
-    /// Execute GQL query
-    pub async fn execute_gql_query(
-        &self,
-        query: &str,
-        context: QueryContext,
-    ) -> Result<QueryResult> {
-        let adapter = ProjectionEngineAdapter::new(Arc::new(self.clone()));
-        adapter.execute_gql_query(query, context).await
-    }
-
-    /// Execute GQL statement
-    pub async fn execute_gql_statement(
-        &self,
-        statement: &str,
-        context: QueryContext,
-    ) -> Result<serde_json::Value> {
-        let adapter = ProjectionEngineAdapter::new(Arc::new(self.clone()));
-        adapter.execute_gql_statement(statement, context).await
-    }
-
-}

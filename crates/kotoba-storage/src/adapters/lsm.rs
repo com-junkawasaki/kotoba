@@ -9,8 +9,8 @@ use rocksdb::{DB, Options, WriteBatch, IteratorMode};
 #[cfg(not(feature = "rocksdb"))]
 use std::collections::HashMap;
 use std::path::PathBuf;
-use kotoba_core::prelude::*;
-use kotoba_errors::KotobaError;
+// use kotoba_core::prelude::*; // Removed to avoid version conflicts
+use anyhow::{anyhow, Error};
 
 // Stub implementations for when rocksdb feature is not enabled
 #[cfg(not(feature = "rocksdb"))]
@@ -48,7 +48,7 @@ impl LSMTree {
         opts.set_max_background_flushes(2);
 
         let db = DB::open(&opts, &data_dir)
-            .map_err(|e| KotobaError::Storage(format!("Failed to open RocksDB: {}", e)))?;
+            .map_err(|e| anyhow!("Failed to open RocksDB: {}", e))?;
 
         Ok(Self { db, data_dir })
     }
@@ -66,7 +66,7 @@ impl LSMTree {
         for (key, value) in iter {
             batch.put(key, value);
         }
-        snapshot_db.write(batch).map_err(|e| KotobaError::Storage(e.to_string()))?;
+        snapshot_db.write(batch).map_err(|e| anyhow!("RocksDB write error: {}", e))?;
         Ok(())
     }
 
@@ -109,13 +109,13 @@ impl LSMTree {
 
 #[cfg(not(feature = "rocksdb"))]
 impl LSMTree {
-    pub fn new(data_dir: PathBuf, _memtable_size: usize, _sstable_max_size: usize) -> Result<Self> {
+    pub fn new(data_dir: PathBuf, _memtable_size: usize, _sstable_max_size: usize) -> Result<Self, Error> {
         Ok(Self { db: std::sync::RwLock::new(HashMap::new()), data_dir })
     }
-    pub fn create_snapshot(&self, _snapshot_id: &str) -> Result<()> { Ok(()) }
-    pub fn restore_from_snapshot(&mut self, _snapshot_id: &str) -> Result<()> { Ok(()) }
-    pub fn compact(&mut self) -> Result<()> { Ok(()) }
-    pub fn cleanup(&mut self, _cutoff_timestamp: u64) -> Result<()> { Ok(()) }
+    pub fn create_snapshot(&self, _snapshot_id: &str) -> Result<(), Error> { Ok(()) }
+    pub fn restore_from_snapshot(&mut self, _snapshot_id: &str) -> Result<(), Error> { Ok(()) }
+    pub fn compact(&mut self) -> Result<(), Error> { Ok(()) }
+    pub fn cleanup(&mut self, _cutoff_timestamp: u64) -> Result<(), Error> { Ok(()) }
     pub fn stats(&self) -> BackendStats { BackendStats::default() }
 }
 
@@ -124,7 +124,7 @@ impl KeyValuePort for LSMTree {
     async fn put(&self, key: String, value: Vec<u8>) -> Result<()> {
         #[cfg(feature = "rocksdb")]
         {
-            self.db.put(key, value).map_err(|e| KotobaError::Storage(e.to_string()))
+            self.db.put(key, value).map_err(|e| anyhow!("RocksDB put error: {}", e))
         }
         #[cfg(not(feature = "rocksdb"))]
         {
@@ -133,10 +133,10 @@ impl KeyValuePort for LSMTree {
         }
     }
 
-    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         #[cfg(feature = "rocksdb")]
         {
-            self.db.get(key).map_err(|e| KotobaError::Storage(e.to_string()))
+            self.db.get(key).map_err(|e| anyhow!("RocksDB get error: {}", e))
         }
         #[cfg(not(feature = "rocksdb"))]
         {
@@ -144,10 +144,10 @@ impl KeyValuePort for LSMTree {
         }
     }
 
-    async fn delete(&self, key: String) -> Result<()> {
+    async fn delete(&self, key: String) -> Result<(), Error> {
         #[cfg(feature = "rocksdb")]
         {
-            self.db.delete(key).map_err(|e| KotobaError::Storage(e.to_string()))
+            self.db.delete(key).map_err(|e| anyhow!("RocksDB delete error: {}", e))
         }
         #[cfg(not(feature = "rocksdb"))]
         {
@@ -156,7 +156,7 @@ impl KeyValuePort for LSMTree {
         }
     }
 
-    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    async fn scan(&self, prefix: &str) -> Result<Vec<(Vec<u8>, Vec<u8>)>, Error> {
         #[cfg(feature = "rocksdb")]
         {
             let iter = self.db.prefix_iterator(prefix.as_bytes());
@@ -172,7 +172,7 @@ impl KeyValuePort for LSMTree {
         }
     }
 
-    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
+    async fn get_keys_with_prefix(&self, prefix: &str) -> Result<Vec<String>, Error> {
         #[cfg(feature = "rocksdb")]
         {
             let iter = self.db.prefix_iterator(prefix.as_bytes());
@@ -184,7 +184,7 @@ impl KeyValuePort for LSMTree {
         }
     }
 
-    async fn clear(&self) -> Result<()> {
+    async fn clear(&self) -> Result<(), Error> {
         #[cfg(feature = "rocksdb")]
         {
              let iter = self.db.iterator(IteratorMode::Start);
@@ -200,11 +200,11 @@ impl KeyValuePort for LSMTree {
         }
     }
     
-    async fn stats(&self) -> Result<BackendStats> {
+    async fn stats(&self) -> Result<BackendStats, Error> {
         Ok(self.stats())
     }
 
-    async fn exists(&self, key: &str) -> Result<bool> {
+    async fn exists(&self, key: &str) -> Result<bool, Error> {
         #[cfg(feature = "rocksdb")]
         {
             Ok(self.db.get(key)?.is_some())

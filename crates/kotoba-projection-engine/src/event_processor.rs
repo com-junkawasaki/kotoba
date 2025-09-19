@@ -58,6 +58,9 @@ impl EventProcessor {
     pub fn new(materializer: Arc<Materializer>, batch_size: usize) -> Self {
         let (tx, rx) = mpsc::channel(1000); // Event queue
 
+        // Clone materializer for the async task
+        let materializer_clone = materializer.clone();
+
         let processor = Self {
             materializer,
             projections: Arc::new(DashMap::new()),
@@ -67,7 +70,7 @@ impl EventProcessor {
         };
 
         // Start event processing task
-        tokio::spawn(Self::process_events_task(processor.stats.clone(), rx, materializer.clone()));
+        tokio::spawn(Self::process_events_task(processor.stats.clone(), rx, materializer_clone));
 
         processor
     }
@@ -179,7 +182,7 @@ impl EventProcessor {
                 stats.avg_processing_time_ms = avg_time;
 
                 if batch_size > 0 {
-                    histogram!("projection_engine.event_processing_time", total_time_ms / batch_size as f64);
+                    // histogram!("projection_engine.event_processing_time", total_time_ms / batch_size as f64);
                 }
             }
         }

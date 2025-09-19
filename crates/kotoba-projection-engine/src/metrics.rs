@@ -27,8 +27,8 @@ impl MetricsCollector {
         stats.total_processing_time_ms += processing_time_ms;
 
         // Update metrics
-        counter!("projection_engine.events_processed", 1);
-        histogram!("projection_engine.processing_time", processing_time_ms);
+        // counter!("projection_engine.events_processed", 1);
+        // histogram!("projection_engine.processing_time", processing_time_ms);
 
         // Update average
         if stats.total_events_processed > 0 {
@@ -40,22 +40,22 @@ impl MetricsCollector {
     pub async fn record_cache_hit(&self) {
         let mut stats = self.stats.write().await;
         stats.cache_hits += 1;
-        counter!("projection_engine.cache_hits", 1);
+        // counter!("projection_engine.cache_hits", 1);
     }
 
     /// Record cache miss
     pub async fn record_cache_miss(&self) {
         let mut stats = self.stats.write().await;
-        stats.cache_misses += 1;
-        counter!("projection_engine.cache_misses", 1);
+        stats.cache_misses += 1.0;
+        // counter!("projection_engine.cache_misses", 1);
     }
 
     /// Record projection creation
     pub async fn record_projection_created(&self) {
         let mut stats = self.stats.write().await;
         stats.active_projections += 1;
-        gauge!("projection_engine.active_projections", stats.active_projections as f64);
-        counter!("projection_engine.projections_created", 1);
+        // gauge!("projection_engine.active_projections", stats.active_projections as f64);
+        // counter!("projection_engine.projections_created", 1);
     }
 
     /// Record projection deletion
@@ -64,8 +64,8 @@ impl MetricsCollector {
         if stats.active_projections > 0 {
             stats.active_projections -= 1;
         }
-        gauge!("projection_engine.active_projections", stats.active_projections as f64);
-        counter!("projection_engine.projections_deleted", 1);
+        // gauge!("projection_engine.active_projections", stats.active_projections as f64);
+        // counter!("projection_engine.projections_deleted", 1);
     }
 
     /// Get current metrics
