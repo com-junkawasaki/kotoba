@@ -6,11 +6,8 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use hyper::server::conn::http1;
-use hyper_util::rt::TokioIo;
+// Simplified server implementation using axum
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tower::Service;
 use tower_http::cors::{CorsLayer, Any};
 use tower_http::trace::TraceLayer;
 
@@ -123,24 +120,16 @@ impl HttpServer {
             .parse::<SocketAddr>()
             .map_err(|e| ServerError::Config(format!("Invalid address: {}", e)))?;
 
-        let listener = TcpListener::bind(&addr).await?;
-        tracing::info!("🌐 Kotoba HTTP Server listening on {}", listener.local_addr()?);
+        tracing::info!("🌐 Kotoba HTTP Server listening on {}", addr);
 
-        loop {
-            let (stream, _) = listener.accept().await?;
-            let io = TokioIo::new(stream);
-            let router = self.router.clone();
+        axum::serve(
+            tokio::net::TcpListener::bind(&addr).await?,
+            self.router,
+        )
+        .await
+        .map_err(|e| ServerError::Io(e))?;
 
-            let tower_service = hyper_util::service::TowerToHyperService::new(router);
-            tokio::task::spawn(async move {
-                if let Err(err) = http1::Builder::new()
-                    .serve_connection(io, tower_service)
-                    .await
-                {
-                    tracing::error!("Error serving connection: {:?}", err);
-                }
-            });
-        }
+        Ok(())
     }
 
     pub fn router(&self) -> &Router {

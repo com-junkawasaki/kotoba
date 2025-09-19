@@ -9,7 +9,10 @@ pub mod router;
 #[cfg(feature = "workflow")]
 pub mod workflow;
 
-pub use handlers::{WorkflowApiHandler, WorkflowStatusHandler};
+pub use handlers::WorkflowStatusHandler;
+
+#[cfg(feature = "workflow")]
+pub use handlers::WorkflowApiHandler;
 pub use router::WorkflowRouter;
 
 use kotoba_server_core::AppRouter;
