@@ -193,7 +193,7 @@ pub struct Morphisms {
 /// NAC（Negative Application Condition）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
-pub struct Nac {
+pub struct SchemaNac {
     pub id: Id,
     pub graph: GraphInstance,
     pub morphism_from_l: Morphisms,
@@ -246,7 +246,7 @@ pub struct RuleDPO {
     pub m_l: Morphisms,   // K -> L
     pub m_r: Morphisms,   // K -> R
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub nacs: Vec<Nac>,
+    pub nacs: Vec<SchemaNac>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_cond: Option<ApplicationCondition>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -308,7 +308,7 @@ pub struct Query {
     pub id: Id,
     pub pattern: GraphInstance,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub nacs: Vec<Nac>,
+    pub nacs: Vec<SchemaNac>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cost: Option<QueryCost>,
     #[serde(skip_serializing_if = "Option::is_none")]

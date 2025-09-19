@@ -53,7 +53,7 @@ pub struct RuleIR {
     pub lhs: GraphPattern,                   // Left-hand side (L)
     pub context: GraphPattern,               // Context (K)
     pub rhs: GraphPattern,                   // Right-hand side (R)
-    pub nacs: Vec<Nac>,                      // Negative conditions
+    pub nacs: Vec<RuleNac>,                   // Negative conditions
     pub guards: Vec<Guard>,                  // ガード条件
 }
 
