@@ -43,6 +43,14 @@ pub enum Commands {
     Eval {
         /// 評価するファイルのパス
         path: String,
+
+        /// Top-level argument (code) - can be specified multiple times
+        #[arg(long = "tla-code", value_names = ["KEY", "CODE"])]
+        tla_code: Vec<String>,
+
+        /// Top-level argument (string) - can be specified multiple times
+        #[arg(long = "tla-str", value_names = ["KEY", "STRING"])]
+        tla_str: Vec<String>,
     },
 
     /// ドキュメント生成・管理コマンド

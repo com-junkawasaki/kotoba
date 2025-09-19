@@ -55,6 +55,10 @@ impl Parser {
             self.parse_local_statement()
         } else if self.match_token(Token::Assert) {
             self.parse_assert_statement()
+        } else if self.match_token(Token::Import) {
+            self.parse_import_statement()
+        } else if self.match_token(Token::ImportStr) {
+            self.parse_importstr_statement()
         } else {
             Ok(Stmt::Expr(self.parse_conditional()?))
         }
@@ -125,6 +129,20 @@ impl Parser {
         Ok(Stmt::Assert { cond, message })
     }
 
+    /// Parse an import statement
+    fn parse_import_statement(&mut self) -> Result<Stmt> {
+        let path = self.consume_string("Expected string after import")?;
+        self.consume_token(Token::Semicolon, "Expected ';' after import")?;
+        Ok(Stmt::Expr(Expr::Import(path)))
+    }
+
+    /// Parse an importstr statement
+    fn parse_importstr_statement(&mut self) -> Result<Stmt> {
+        let path = self.consume_string("Expected string after importstr")?;
+        self.consume_token(Token::Semicolon, "Expected ';' after importstr")?;
+        Ok(Stmt::Expr(Expr::ImportStr(path)))
+    }
+
     /// Parse conditional expression (if-then-else)
     fn parse_conditional(&mut self) -> Result<Expr> {
         if self.match_token(Token::If) {
@@ -142,6 +160,14 @@ impl Parser {
                 then_branch: Box::new(then_branch),
                 else_branch: else_branch.map(Box::new),
             })
+        } else if self.match_token(Token::Local) {
+            self.parse_local_expression()
+        } else if self.match_token(Token::Import) {
+            let path = self.consume_string("Expected string after import")?;
+            Ok(Expr::Import(path))
+        } else if self.match_token(Token::ImportStr) {
+            let path = self.consume_string("Expected string after importstr")?;
+            Ok(Expr::ImportStr(path))
         } else {
             self.parse_binary(0)
         }
@@ -494,6 +520,20 @@ impl Parser {
                 Token::Identifier(id) => {
                     self.advance();
                     Ok(id)
+                }
+                _ => Err(self.error(message)),
+            }
+        } else {
+            Err(self.error(message))
+        }
+    }
+
+    fn consume_string(&mut self, message: &str) -> Result<String> {
+        if let Some(token) = self.peek_token().cloned() {
+            match token {
+                Token::String(s) => {
+                    self.advance();
+                    Ok(s)
                 }
                 _ => Err(self.error(message)),
             }
