@@ -796,6 +796,6 @@ mod tests {
         let error = HandlerError::Config(r#"test config error "#.to_string());
         let debug_str = format!("{:?}", error);
         assert!(debug_str.contains("Config"));
-        assert!(debug_str.contains(r#"test config error "#));
+        assert!(debug_str.contains("test config error "));
     }
 }
