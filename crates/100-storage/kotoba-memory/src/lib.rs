@@ -1,6 +1,7 @@
-//! KotobaDB Memory Optimization
+//! KotobaDB Memory Storage and Optimization
 //!
-//! Advanced memory management and optimization features including:
+//! Provides in-memory storage implementations and advanced memory management:
+//! - In-memory KeyValueStore implementation
 //! - Memory pooling for reduced allocation overhead
 //! - Intelligent caching with multiple strategies
 //! - Memory profiling and leak detection
@@ -526,4 +527,322 @@ pub fn init_global_optimizer(config: MemoryConfig) {
 /// Get global memory optimizer instance
 pub fn global_optimizer() -> Option<&'static MemoryOptimizer> {
     unsafe { GLOBAL_OPTIMIZER.as_ref() }
+}
+
+/// In-memory KeyValueStore implementation
+#[derive(Debug, Clone)]
+pub struct MemoryKeyValueStore {
+    data: Arc<std::sync::RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
+}
+
+impl MemoryKeyValueStore {
+    /// Create a new empty in-memory key-value store
+    pub fn new() -> Self {
+        Self {
+            data: Arc::new(std::sync::RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Create a new in-memory key-value store with initial data
+    pub fn with_data(data: HashMap<Vec<u8>, Vec<u8>>) -> Self {
+        Self {
+            data: Arc::new(std::sync::RwLock::new(data)),
+        }
+    }
+
+    /// Get the number of entries in the store
+    pub fn len(&self) -> usize {
+        self.data.read().unwrap().len()
+    }
+
+    /// Check if the store is empty
+    pub fn is_empty(&self) -> bool {
+        self.data.read().unwrap().is_empty()
+    }
+
+    /// Clear all data from the store
+    pub fn clear(&self) {
+        self.data.write().unwrap().clear();
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_storage::KeyValueStore for MemoryKeyValueStore {
+    async fn put(&self, key: &[u8], value: &[u8]) -> anyhow::Result<()> {
+        let mut data = self.data.write().unwrap();
+        data.insert(key.to_vec(), value.to_vec());
+        Ok(())
+    }
+
+    async fn get(&self, key: &[u8]) -> anyhow::Result<Option<Vec<u8>>> {
+        let data = self.data.read().unwrap();
+        Ok(data.get(key).cloned())
+    }
+
+    async fn delete(&self, key: &[u8]) -> anyhow::Result<()> {
+        let mut data = self.data.write().unwrap();
+        data.remove(key);
+        Ok(())
+    }
+
+    async fn scan(&self, prefix: &[u8]) -> anyhow::Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let data = self.data.read().unwrap();
+        let mut results = Vec::new();
+
+        for (key, value) in data.iter() {
+            if key.starts_with(prefix) {
+                results.push((key.clone(), value.clone()));
+            }
+        }
+
+        // Sort results by key for consistent ordering
+        results.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kotoba_storage::KeyValueStore;
+
+    #[tokio::test]
+    async fn test_memory_kv_store_basic_operations() {
+        let store = MemoryKeyValueStore::new();
+
+        // Test put and get
+        store.put(b"key1", b"value1").await.unwrap();
+        let value = store.get(b"key1").await.unwrap();
+        assert_eq!(value, Some(b"value1".to_vec()));
+
+        // Test get non-existent key
+        let value = store.get(b"nonexistent").await.unwrap();
+        assert_eq!(value, None);
+
+        // Test delete
+        store.delete(b"key1").await.unwrap();
+        let value = store.get(b"key1").await.unwrap();
+        assert_eq!(value, None);
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_multiple_keys() {
+        let store = MemoryKeyValueStore::new();
+
+        // Put multiple key-value pairs
+        store.put(b"key1", b"value1").await.unwrap();
+        store.put(b"key2", b"value2").await.unwrap();
+        store.put(b"key3", b"value3").await.unwrap();
+
+        // Verify all keys exist
+        assert_eq!(store.get(b"key1").await.unwrap(), Some(b"value1".to_vec()));
+        assert_eq!(store.get(b"key2").await.unwrap(), Some(b"value2".to_vec()));
+        assert_eq!(store.get(b"key3").await.unwrap(), Some(b"value3".to_vec()));
+
+        // Check length
+        assert_eq!(store.len(), 3);
+        assert!(!store.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_scan() {
+        let store = MemoryKeyValueStore::new();
+
+        // Put keys with common prefix
+        store.put(b"prefix_key1", b"value1").await.unwrap();
+        store.put(b"prefix_key2", b"value2").await.unwrap();
+        store.put(b"prefix_key3", b"value3").await.unwrap();
+        store.put(b"other_key", b"other_value").await.unwrap();
+
+        // Scan with prefix
+        let results = store.scan(b"prefix_").await.unwrap();
+        assert_eq!(results.len(), 3);
+
+        // Verify results are sorted
+        assert_eq!(results[0], (b"prefix_key1".to_vec(), b"value1".to_vec()));
+        assert_eq!(results[1], (b"prefix_key2".to_vec(), b"value2".to_vec()));
+        assert_eq!(results[2], (b"prefix_key3".to_vec(), b"value3".to_vec()));
+
+        // Scan with empty prefix (should return all)
+        let all_results = store.scan(b"").await.unwrap();
+        assert_eq!(all_results.len(), 4);
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_overwrite() {
+        let store = MemoryKeyValueStore::new();
+
+        // Put initial value
+        store.put(b"key", b"initial").await.unwrap();
+        assert_eq!(store.get(b"key").await.unwrap(), Some(b"initial".to_vec()));
+
+        // Overwrite with new value
+        store.put(b"key", b"updated").await.unwrap();
+        assert_eq!(store.get(b"key").await.unwrap(), Some(b"updated".to_vec()));
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_empty_keys_values() {
+        let store = MemoryKeyValueStore::new();
+
+        // Test empty key
+        store.put(b"", b"empty_key_value").await.unwrap();
+        assert_eq!(store.get(b"").await.unwrap(), Some(b"empty_key_value".to_vec()));
+
+        // Test empty value
+        store.put(b"empty_value_key", b"").await.unwrap();
+        assert_eq!(store.get(b"empty_value_key").await.unwrap(), Some(b"".to_vec()));
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_clear() {
+        let store = MemoryKeyValueStore::new();
+
+        // Add some data
+        store.put(b"key1", b"value1").await.unwrap();
+        store.put(b"key2", b"value2").await.unwrap();
+        assert_eq!(store.len(), 2);
+
+        // Clear all data
+        store.clear();
+        assert_eq!(store.len(), 0);
+        assert!(store.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_with_initial_data() {
+        let mut initial_data = HashMap::new();
+        initial_data.insert(b"key1".to_vec(), b"value1".to_vec());
+        initial_data.insert(b"key2".to_vec(), b"value2".to_vec());
+
+        let store = MemoryKeyValueStore::with_data(initial_data);
+        assert_eq!(store.len(), 2);
+
+        // Verify initial data
+        assert_eq!(store.get(b"key1").await.unwrap(), Some(b"value1".to_vec()));
+        assert_eq!(store.get(b"key2").await.unwrap(), Some(b"value2".to_vec()));
+
+        // Add more data
+        store.put(b"key3", b"value3").await.unwrap();
+        assert_eq!(store.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_large_data() {
+        let store = MemoryKeyValueStore::new();
+
+        // Test with large key and value
+        let large_key = vec![42u8; 1024]; // 1KB key
+        let large_value = vec![255u8; 1024 * 1024]; // 1MB value
+
+        store.put(&large_key, &large_value).await.unwrap();
+        let retrieved = store.get(&large_key).await.unwrap();
+
+        assert_eq!(retrieved, Some(large_value));
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_unicode_keys_values() {
+        let store = MemoryKeyValueStore::new();
+
+        // Test Unicode keys and values
+        let unicode_key = "🚀 котоба 🔥".as_bytes();
+        let unicode_value = "Hello 世界 🌍".as_bytes();
+
+        store.put(unicode_key, unicode_value).await.unwrap();
+        let retrieved = store.get(unicode_key).await.unwrap();
+
+        assert_eq!(retrieved, Some(unicode_value.to_vec()));
+    }
+
+    #[tokio::test]
+    async fn test_memory_kv_store_concurrent_access() {
+        let store = Arc::new(MemoryKeyValueStore::new());
+
+        let mut handles = vec![];
+
+        // Spawn multiple tasks to test concurrent access
+        for i in 0..10 {
+            let store_clone = Arc::clone(&store);
+            let handle = tokio::spawn(async move {
+                let key = format!("key{}", i).into_bytes();
+                let value = format!("value{}", i).into_bytes();
+
+                // Put operation
+                store_clone.put(&key, &value).await.unwrap();
+
+                // Get operation
+                let retrieved = store_clone.get(&key).await.unwrap();
+                assert_eq!(retrieved, Some(value));
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks to complete
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Verify all data was stored
+        assert_eq!(store.len(), 10);
+    }
+
+    #[test]
+    fn test_memory_config_default() {
+        let config = MemoryConfig::default();
+
+        assert!(config.enable_pooling);
+        assert_eq!(config.pool_size_mb, 256);
+        assert!(config.enable_caching);
+        assert_eq!(config.cache_size_mb, 512);
+        assert_eq!(config.cache_policy, CachePolicy::Lru);
+        assert!(!config.enable_custom_allocators);
+        assert_eq!(config.allocator_type, AllocatorType::System);
+        assert!(config.enable_gc_optimization);
+        assert_eq!(config.target_memory_usage_percent, 75.0);
+        assert_eq!(config.monitoring_interval_ms, 1000);
+    }
+
+    #[test]
+    fn test_memory_optimizer_creation() {
+        let optimizer = MemoryOptimizer::new();
+
+        // Check that components are initialized based on default config
+        assert!(optimizer.memory_profiler.is_some());
+        assert!(optimizer.gc_optimizer.is_some());
+        assert!(optimizer.memory_pool.is_some());
+        assert!(optimizer.cache_manager.is_some());
+        assert!(optimizer.allocator.is_none()); // Custom allocators disabled by default
+    }
+
+    #[test]
+    fn test_memory_optimizer_with_custom_config() {
+        let config = MemoryConfig {
+            enable_pooling: false,
+            enable_caching: false,
+            enable_custom_allocators: true,
+            allocator_type: AllocatorType::Custom,
+            ..Default::default()
+        };
+
+        let optimizer = MemoryOptimizer::with_config(config);
+
+        // Check that components are initialized based on custom config
+        assert!(optimizer.memory_profiler.is_some());
+        assert!(optimizer.gc_optimizer.is_some());
+        assert!(optimizer.memory_pool.is_none()); // Pooling disabled
+        assert!(optimizer.cache_manager.is_none()); // Caching disabled
+        assert!(optimizer.allocator.is_some()); // Custom allocator enabled
+    }
+
+    #[tokio::test]
+    async fn test_memory_optimizer_stats() {
+        let optimizer = MemoryOptimizer::new();
+        let stats = optimizer.memory_stats().await;
+
+        // Verify basic stats structure
+        assert!(stats.total_memory_mb > 0.0);
+        assert!(stats.available_memory_mb > 0.0);
+        assert!(stats.memory_efficiency >= 0.0 && stats.memory_efficiency <= 1.0);
+    }
 }
