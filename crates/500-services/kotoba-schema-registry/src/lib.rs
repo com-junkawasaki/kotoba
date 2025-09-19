@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use url::Url;
 use jsonschema::JSONSchema;
 use thiserror::Error;
 use anyhow::Result;
@@ -16,7 +15,7 @@ pub use compatibility::CompatibilityMode;
 
 
 /// Represents a schema in the registry.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Schema {
     pub id: String,
     pub name: String,
@@ -24,10 +23,9 @@ pub struct Schema {
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    #[serde(with = "serde_json::value")]
     pub body: serde_json::Value,
     #[serde(skip)]
-    compiled_schema: Option<JSONSchema>,
+    compiled_schema: Option<Box<JSONSchema>>,
 }
 
 impl Schema {
@@ -35,14 +33,14 @@ impl Schema {
     pub fn compile(&mut self) -> Result<()> {
         let compiled = JSONSchema::compile(&self.body)
             .map_err(|e| SchemaError::CompilationError(e.to_string()))?;
-        self.compiled_schema = Some(compiled);
+        self.compiled_schema = Some(Box::new(compiled));
         Ok(())
     }
 
     /// Validates a JSON value against the schema.
     pub fn validate(&self, instance: &serde_json::Value) -> Result<(), Vec<String>> {
         if let Some(ref compiled) = self.compiled_schema {
-            compiled.validate(instance)
+            compiled.as_ref().validate(instance)
                 .map_err(|errors| errors.map(|e| e.to_string()).collect())
         } else {
             Err(vec!["Schema is not compiled".to_string()])
