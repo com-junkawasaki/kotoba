@@ -570,4 +570,313 @@ mod tests {
         // let service = SecurityService::new(config);
         // assert!(service.is_ok());
     }
+
+    #[test]
+    fn test_user_creation() {
+        let created_at = chrono::Utc::now();
+        let updated_at = chrono::Utc::now();
+
+        let user = User {
+            id: "user123".to_string(),
+            email: "test@example.com".to_string(),
+            username: Some("testuser".to_string()),
+            roles: vec!["user".to_string(), "editor".to_string()],
+            mfa_enabled: true,
+            email_verified: false,
+            created_at,
+            updated_at,
+        };
+
+        assert_eq!(user.id, "user123");
+        assert_eq!(user.email, "test@example.com");
+        assert_eq!(user.username, Some("testuser".to_string()));
+        assert_eq!(user.roles.len(), 2);
+        assert!(user.mfa_enabled);
+        assert!(!user.email_verified);
+    }
+
+    #[test]
+    fn test_auth_result_creation() {
+        let user = User {
+            id: "user123".to_string(),
+            email: "test@example.com".to_string(),
+            username: None,
+            roles: vec![],
+            mfa_enabled: false,
+            email_verified: false,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        let auth_result = AuthResult {
+            user: user.clone(),
+            token_pair: None,
+            mfa_required: false,
+            redirect_url: None,
+        };
+
+        assert_eq!(auth_result.user.id, "user123");
+        assert!(auth_result.token_pair.is_none());
+        assert!(!auth_result.mfa_required);
+        assert!(auth_result.redirect_url.is_none());
+    }
+
+    #[test]
+    fn test_authz_result_creation() {
+        let allowed_result = AuthzResult {
+            allowed: true,
+            reason: None,
+        };
+
+        let denied_result = AuthzResult {
+            allowed: false,
+            reason: Some("Insufficient permissions".to_string()),
+        };
+
+        assert!(allowed_result.allowed);
+        assert!(allowed_result.reason.is_none());
+
+        assert!(!denied_result.allowed);
+        assert_eq!(denied_result.reason, Some("Insufficient permissions".to_string()));
+    }
+
+    #[test]
+    fn test_principal_creation() {
+        use std::collections::HashMap;
+
+        let mut attributes = HashMap::new();
+        attributes.insert("department".to_string(), serde_json::json!("engineering"));
+
+        let principal = Principal {
+            user_id: "user123".to_string(),
+            roles: vec!["user".to_string()],
+            permissions: vec!["read".to_string()],
+            capabilities: CapabilitySet::new(vec![]),
+            attributes,
+        };
+
+        assert_eq!(principal.user_id, "user123");
+        assert_eq!(principal.roles.len(), 1);
+        assert_eq!(principal.permissions.len(), 1);
+        assert_eq!(principal.attributes.get("department"), Some(&serde_json::json!("engineering")));
+    }
+
+    #[test]
+    fn test_resource_creation() {
+        use std::collections::HashMap;
+
+        let mut attributes = HashMap::new();
+        attributes.insert("owner".to_string(), serde_json::json!("user123"));
+
+        let resource = Resource {
+            resource_type: ResourceType::Graph,
+            resource_id: Some("graph123".to_string()),
+            action: Action::Read,
+            attributes,
+        };
+
+        assert!(matches!(resource.resource_type, ResourceType::Graph));
+        assert_eq!(resource.resource_id, Some("graph123".to_string()));
+        assert!(matches!(resource.action, Action::Read));
+        assert_eq!(resource.attributes.get("owner"), Some(&serde_json::json!("user123")));
+    }
+
+    #[test]
+    fn test_resource_helper_methods() {
+        let resource = Resource {
+            resource_type: ResourceType::Graph,
+            resource_id: None,
+            action: Action::Read,
+            attributes: std::collections::HashMap::new(),
+        };
+
+        assert_eq!(resource.resource_type_as_str(), "graph");
+        assert_eq!(resource.action_as_str(), "read");
+    }
+
+    #[test]
+    fn test_user_serialization() {
+        let user = User {
+            id: "user123".to_string(),
+            email: "test@example.com".to_string(),
+            username: Some("testuser".to_string()),
+            roles: vec!["user".to_string()],
+            mfa_enabled: true,
+            email_verified: true,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&user);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("user123"));
+        assert!(json_str.contains("test@example.com"));
+        assert!(json_str.contains("testuser"));
+        assert!(json_str.contains("user"));
+        assert!(json_str.contains("true"));
+    }
+
+    #[test]
+    fn test_auth_result_serialization() {
+        let user = User {
+            id: "user123".to_string(),
+            email: "test@example.com".to_string(),
+            username: None,
+            roles: vec![],
+            mfa_enabled: false,
+            email_verified: false,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        let auth_result = AuthResult {
+            user: user.clone(),
+            token_pair: None,
+            mfa_required: true,
+            redirect_url: None,
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&auth_result);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("user123"));
+        assert!(json_str.contains("true"));
+        assert!(json_str.contains("null"));
+    }
+
+    #[test]
+    fn test_principal_serialization() {
+        use std::collections::HashMap;
+
+        let principal = Principal {
+            user_id: "user123".to_string(),
+            roles: vec!["user".to_string()],
+            permissions: vec!["read".to_string()],
+            capabilities: CapabilitySet::new(vec![]),
+            attributes: HashMap::new(),
+        };
+
+        // Test JSON serialization
+        let json_result = serde_json::to_string(&principal);
+        assert!(json_result.is_ok());
+
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("user123"));
+        assert!(json_str.contains("user"));
+        assert!(json_str.contains("read"));
+    }
+
+    #[test]
+    fn test_user_clone() {
+        let user = User {
+            id: "user123".to_string(),
+            email: "test@example.com".to_string(),
+            username: None,
+            roles: vec![],
+            mfa_enabled: false,
+            email_verified: false,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        let cloned = user.clone();
+
+        assert_eq!(user.id, cloned.id);
+        assert_eq!(user.email, cloned.email);
+        assert_eq!(user.username, cloned.username);
+        assert_eq!(user.roles, cloned.roles);
+        assert_eq!(user.mfa_enabled, cloned.mfa_enabled);
+        assert_eq!(user.email_verified, cloned.email_verified);
+    }
+
+    #[test]
+    fn test_resource_type_variants() {
+        let resource = Resource {
+            resource_type: ResourceType::Graph,
+            resource_id: None,
+            action: Action::Read,
+            attributes: std::collections::HashMap::new(),
+        };
+        assert_eq!(resource.resource_type_as_str(), "graph");
+
+        let resource = Resource {
+            resource_type: ResourceType::FileSystem,
+            resource_id: None,
+            action: Action::Write,
+            attributes: std::collections::HashMap::new(),
+        };
+        assert_eq!(resource.resource_type_as_str(), "filesystem");
+
+        let resource = Resource {
+            resource_type: ResourceType::Custom("custom_type".to_string()),
+            resource_id: None,
+            action: Action::Read,
+            attributes: std::collections::HashMap::new(),
+        };
+        assert_eq!(resource.resource_type_as_str(), "custom_type");
+    }
+
+    #[test]
+    fn test_action_variants() {
+        let actions = vec![
+            (Action::Read, "read"),
+            (Action::Write, "write"),
+            (Action::Execute, "execute"),
+            (Action::Delete, "delete"),
+            (Action::Create, "create"),
+            (Action::Update, "update"),
+            (Action::Admin, "admin"),
+            (Action::Custom("custom_action".to_string()), "custom_action"),
+        ];
+
+        for (action, expected_str) in actions {
+            let resource = Resource {
+                resource_type: ResourceType::Graph,
+                resource_id: None,
+                action,
+                attributes: std::collections::HashMap::new(),
+            };
+            assert_eq!(resource.action_as_str(), expected_str);
+        }
+    }
+
+    #[test]
+    fn test_capability_creation() {
+        let capability = Capability {
+            resource_type: ResourceType::Graph,
+            action: Action::Read,
+            scope: Some("graph123".to_string()),
+        };
+
+        assert!(matches!(capability.resource_type, ResourceType::Graph));
+        assert!(matches!(capability.action, Action::Read));
+        assert_eq!(capability.scope, Some("graph123".to_string()));
+    }
+
+    #[test]
+    fn test_capability_set_creation() {
+        let capabilities = vec![
+            Capability {
+                resource_type: ResourceType::Graph,
+                action: Action::Read,
+                scope: None,
+            },
+            Capability {
+                resource_type: ResourceType::FileSystem,
+                action: Action::Write,
+                scope: Some("*.txt".to_string()),
+            },
+        ];
+
+        let capability_set = CapabilitySet::new(capabilities);
+
+        assert_eq!(capability_set.capabilities.len(), 2);
+        assert!(matches!(capability_set.capabilities[0].resource_type, ResourceType::Graph));
+        assert!(matches!(capability_set.capabilities[1].action, Action::Write));
+    }
 }

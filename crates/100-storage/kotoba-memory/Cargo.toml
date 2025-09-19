@@ -45,7 +45,7 @@ default = []
 cluster = []
 jemalloc = ["tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
-redis = ["dep:kotoba-storage-redis"]
+# redis = ["dep:kotoba-storage-redis"]
 
 [dependencies.tikv-jemallocator]
 version = "0.5"
