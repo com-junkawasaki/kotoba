@@ -8,10 +8,10 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use kotoba_cid::*;
-use kotoba_graph::prelude::*;
+use kotoba_graph::graph::{Graph, VertexData, EdgeData};
 use anyhow::{anyhow, Error};
 use kotoba_db_core::Cid;
+use kotoba_cid::CidManager;
 use sha2::{Sha256, Digest};
 use hex;
 use crate::domain::merkle::{MerkleDAG, MerkleNode};
@@ -27,11 +27,14 @@ use kotoba_db_core::types::Block;
 #[async_trait]
 impl StoragePort for PersistentStorage {
     async fn store_graph(&self, graph: &Graph) -> Result<Cid, Error> {
-        PersistentStorage::store_graph(self, graph).await
+        let cid_str = PersistentStorage::store_graph(self, graph).await?;
+        // CID文字列をバイトに変換
+        let cid_bytes = hex::decode(cid_str).map_err(|e| anyhow!("Failed to decode CID: {}", e))?;
+        Ok(Cid(cid_bytes.try_into().map_err(|_| anyhow!("Invalid CID length"))?))
     }
 
     async fn load_graph(&self, cid: &Cid) -> Result<Graph, Error> {
-        PersistentStorage::load_graph(self, cid).await
+        PersistentStorage::load_graph(self, &cid.to_hex()).await
     }
 
     async fn get_stats(&self) -> Result<StorageStats, Error> {
@@ -146,7 +149,7 @@ pub struct PersistentStorage {
 
 /// ストレージ操作結果
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StorageResult<T: ?Sized> {
+pub enum StorageResult<T> {
     Success(T),
     NotFound,
     VersionConflict,
@@ -158,13 +161,13 @@ pub enum StorageResult<T: ?Sized> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedGraph {
     /// グラフCID
-    pub cid: Cid,
+    pub cid: String,
     /// 頂点CIDのリスト
-    pub vertex_cids: Vec<Cid>,
+    pub vertex_cids: Vec<String>,
     /// エッジCIDのリスト
-    pub edge_cids: Vec<Cid>,
+    pub edge_cids: Vec<String>,
     /// メタデータCID
-    pub metadata_cid: Option<Cid>,
+    pub metadata_cid: Option<String>,
     /// タイムスタンプ
     pub timestamp: u64,
 }
@@ -194,7 +197,7 @@ impl PersistentStorage {
     }
 
     /// グラフを永続化
-    pub async fn store_graph(&self, graph: &Graph) -> Result<Cid, Error> {
+    pub async fn store_graph(&self, graph: &Graph) -> Result<String, Error> {
         let mut cid_manager = self.cid_manager.write().await;
         let mut merkle_dag = self.merkle_dag.write().await;
 
@@ -206,29 +209,32 @@ impl PersistentStorage {
         let mut vertex_cids = Vec::new();
         for vertex in graph.vertices.values() {
             let vertex_cid = cid_manager.calculator().compute_cid(vertex)?;
-            let vertex_key = format!("vertex:{}", vertex_cid.to_hex());
+            let vertex_cid_str = vertex_cid.to_hex();
+            let vertex_key = format!("vertex:{}", vertex_cid_str);
 
             let vertex_data = serde_json::to_vec(vertex).map_err(|e| anyhow!(e))?;
             self.store_data(&vertex_key, &vertex_data).await?;
 
-            vertex_cids.push(vertex_cid);
+            vertex_cids.push(vertex_cid_str);
         }
 
         // エッジを個別に格納
         let mut edge_cids = Vec::new();
         for edge in graph.edges.values() {
             let edge_cid = cid_manager.calculator().compute_cid(edge)?;
-            let edge_key = format!("edge:{}", edge_cid.to_hex());
+            let edge_cid_str = edge_cid.to_hex();
+            let edge_key = format!("edge:{}", edge_cid_str);
 
             let edge_data = serde_json::to_vec(edge).map_err(|e| anyhow!(e))?;
             self.store_data(&edge_key, &edge_data).await?;
 
-            edge_cids.push(edge_cid);
+            edge_cids.push(edge_cid_str);
         }
 
         // 永続化メタデータを作成
+        let graph_cid_str = graph_cid.to_hex();
         let persisted_graph = PersistedGraph {
-            cid: graph_cid.clone(),
+            cid: graph_cid_str.clone(),
             vertex_cids,
             edge_cids,
             metadata_cid: None,
@@ -239,16 +245,16 @@ impl PersistentStorage {
         };
 
         // メタデータを格納
-        let metadata_key = format!("graph:{}", graph_cid.to_hex());
+        let metadata_key = format!("graph:{}", graph_cid_str);
         let metadata_data = serde_json::to_vec(&persisted_graph).map_err(|e| anyhow!(e))?;
         self.store_data(&metadata_key, &metadata_data).await?;
 
-        Ok(graph_cid)
+        Ok(graph_cid_str)
     }
 
     /// CIDからグラフを復元
-    pub async fn load_graph(&self, cid: &Cid) -> Result<Graph, Error> {
-        let metadata_key = format!("graph:{}", cid.to_hex());
+    pub async fn load_graph(&self, cid: &str) -> Result<Graph, Error> {
+        let metadata_key = format!("graph:{}", cid);
 
         // メタデータを取得
         let metadata_data = match self.load_data(&metadata_key).await? {
@@ -262,7 +268,7 @@ impl PersistentStorage {
         // 頂点を復元
         let mut vertices = HashMap::new();
         for vertex_cid in &persisted_graph.vertex_cids {
-            let vertex_key = format!("vertex:{}", vertex_cid.to_hex());
+            let vertex_key = format!("vertex:{}", vertex_cid);
             let vertex_data = match self.load_data(&vertex_key).await? {
                 StorageResult::Success(data) => data,
                 _ => continue, // 頂点が見つからない場合はスキップ
@@ -275,7 +281,7 @@ impl PersistentStorage {
         // エッジを復元
         let mut edges = HashMap::new();
         for edge_cid in &persisted_graph.edge_cids {
-            let edge_key = format!("edge:{}", edge_cid.to_hex());
+            let edge_key = format!("edge:{}", edge_cid);
             let edge_data = match self.load_data(&edge_key).await? {
                 StorageResult::Success(data) => data,
                 _ => continue, // エッジが見つからない場合はスキップ
@@ -334,7 +340,7 @@ impl PersistentStorage {
         sorted_hashes.sort();
 
         for hash in sorted_hashes {
-            hasher.update(hash.0.as_bytes());
+            hasher.update(hash.as_bytes());
         }
 
         format!("{:x}", hasher.finalize())
@@ -349,11 +355,11 @@ impl PersistentStorage {
             let mut hasher = sha2::Sha256::new();
             hasher.update(&node.data);
             for child in &node.children {
-                hasher.update(child.0.as_bytes());
+                hasher.update(child.as_bytes());
             }
 
             let computed_hash = format!("{:x}", hasher.finalize());
-            if computed_hash != node.hash.0 {
+            if computed_hash != node.hash {
                 return Ok(false);
             }
         }

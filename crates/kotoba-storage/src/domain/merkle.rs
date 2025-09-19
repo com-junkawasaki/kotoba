@@ -102,7 +102,7 @@ impl MerkleDAG {
             }
 
             let computed_hash = format!("{:x}", hasher.finalize());
-            if computed_hash != hash {
+            if computed_hash != *hash {
                 return Ok(false);
             }
 
@@ -197,7 +197,7 @@ impl MerkleDAG {
 
         if node.children.is_empty() {
             // 葉ノード
-            return Ok(hash.clone());
+            return Ok(hash.to_string());
         }
 
         // 子ノードのハッシュを集める

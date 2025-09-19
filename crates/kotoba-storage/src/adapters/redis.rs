@@ -33,7 +33,7 @@ impl RedisBackend {
         // Test connection
         let mut conn = connection_manager.clone();
         redis::cmd("PING")
-            .query_async(&mut conn)
+            .query_async::<_, ()>(&mut conn)
             .await
             .map_err(|e| anyhow!(format!("Failed to connect to Redis: {}", e)))?;
 
@@ -103,7 +103,7 @@ impl KeyValuePort for RedisBackend {
     async fn clear(&self) -> Result<(), Error> {
         let mut conn = self.connection_manager.lock().await;
         redis::cmd("FLUSHDB")
-            .query_async(&mut *conn)
+            .query_async::<_, ()>(&mut *conn)
             .await
             .map_err(|e| anyhow!(format!("Failed to clear Redis database: {}", e)))?;
         Ok(())
@@ -112,7 +112,7 @@ impl KeyValuePort for RedisBackend {
     async fn stats(&self) -> Result<BackendStats, Error> {
         let mut conn = self.connection_manager.lock().await;
         let info: String = redis::cmd("INFO")
-            .query_async(&mut *conn)
+            .query_async::<_, String>(&mut *conn)
             .await
             .map_err(|e| anyhow!(format!("Failed to get Redis info: {}", e)))?;
 
