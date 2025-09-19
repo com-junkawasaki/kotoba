@@ -116,20 +116,116 @@ impl ProjectionPort for ProjectionEngineAdapter {
     }
 
     async fn scan_vertices(&self, filter: Option<VertexFilter>) -> Result<Vec<Vertex>> {
-        // For now, return all vertices (implement filtering later)
-        // This is a simplified implementation
-        let mut vertices = Vec::new();
+        // Get all vertices from GraphDB
+        let nodes = self.projection_engine.graphdb.scan_nodes().await?;
 
-        // TODO: Implement proper vertex scanning with filters
-        // For now, return empty list
+        let mut vertices = Vec::new();
+        for node in nodes {
+            // Apply filter if provided
+            if let Some(ref filter) = filter {
+                // Check labels filter
+                if let Some(ref required_labels) = filter.labels {
+                    if !required_labels.iter().any(|label| node.labels.contains(label)) {
+                        continue;
+                    }
+                }
+
+                // Check property filters
+                let mut matches = true;
+                for (prop_key, filter_value) in &filter.property_filters {
+                    if let Some(node_value) = node.properties.get(prop_key) {
+                        // Simple equality check for now
+                        let node_json = serde_json::to_value(node_value).unwrap_or(serde_json::Value::Null);
+                        if node_json != serde_json::to_value(filter_value.value.clone()).unwrap_or(serde_json::Value::Null) {
+                            matches = false;
+                            break;
+                        }
+                    } else {
+                        matches = false;
+                        break;
+                    }
+                }
+                if !matches {
+                    continue;
+                }
+            }
+
+            // Convert to Vertex
+            let vertex = Vertex {
+                id: VertexId(node.id),
+                labels: node.labels,
+                properties: node.properties.into_iter()
+                    .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
+                    .collect(),
+            };
+            vertices.push(vertex);
+        }
+
         Ok(vertices)
     }
 
     async fn scan_edges(&self, filter: Option<EdgeFilter>) -> Result<Vec<Edge>> {
-        // For now, return all edges (implement filtering later)
-        let mut edges = Vec::new();
+        // Get all edges from GraphDB
+        let graph_edges = self.projection_engine.graphdb.scan_edges().await?;
 
-        // TODO: Implement proper edge scanning with filters
+        let mut edges = Vec::new();
+        for edge in graph_edges {
+            // Apply filter if provided
+            if let Some(ref filter) = filter {
+                // Check labels filter
+                if let Some(ref required_labels) = filter.labels {
+                    if !required_labels.contains(&edge.label) {
+                        continue;
+                    }
+                }
+
+                // Check from_vertex filter
+                if let Some(ref from_vertex) = filter.from_vertex {
+                    if edge.from_node != from_vertex.0 {
+                        continue;
+                    }
+                }
+
+                // Check to_vertex filter
+                if let Some(ref to_vertex) = filter.to_vertex {
+                    if edge.to_node != to_vertex.0 {
+                        continue;
+                    }
+                }
+
+                // Check property filters
+                let mut matches = true;
+                for (prop_key, filter_value) in &filter.property_filters {
+                    if let Some(edge_value) = edge.properties.get(prop_key) {
+                        // Simple equality check for now
+                        let edge_json = serde_json::to_value(edge_value).unwrap_or(serde_json::Value::Null);
+                        if edge_json != serde_json::to_value(filter_value.value.clone()).unwrap_or(serde_json::Value::Null) {
+                            matches = false;
+                            break;
+                        }
+                    } else {
+                        matches = false;
+                        break;
+                    }
+                }
+                if !matches {
+                    continue;
+                }
+            }
+
+            // Convert to Edge
+            let gql_edge = Edge {
+                id: EdgeId(edge.id),
+                from_vertex: VertexId(edge.from_node),
+                to_vertex: VertexId(edge.to_node),
+                label: edge.label,
+                properties: edge.properties.into_iter()
+                    .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
+                    .collect(),
+            };
+            edges.push(gql_edge);
+        }
+
         Ok(edges)
     }
 
@@ -142,18 +238,58 @@ impl ProjectionPort for ProjectionEngineAdapter {
 #[async_trait]
 impl IndexManagerPort for ProjectionEngineAdapter {
     async fn lookup_vertices(&self, property: &str, value: &serde_json::Value) -> Result<Vec<VertexId>> {
-        // TODO: Implement property-based vertex lookup
-        Ok(Vec::new())
+        // Use GraphDB's property index to lookup vertices
+        // For now, scan all vertices and filter (implement proper indexing later)
+        let nodes = self.projection_engine.graphdb.scan_nodes().await?;
+
+        let mut vertex_ids = Vec::new();
+        for node in nodes {
+            if let Some(node_value) = node.properties.get(property) {
+                let node_json = serde_json::to_value(node_value).unwrap_or(serde_json::Value::Null);
+                if node_json == *value {
+                    vertex_ids.push(VertexId(node.id));
+                }
+            }
+        }
+
+        Ok(vertex_ids)
     }
 
     async fn lookup_edges(&self, property: &str, value: &serde_json::Value) -> Result<Vec<EdgeId>> {
-        // TODO: Implement property-based edge lookup
-        Ok(Vec::new())
+        // Use GraphDB's property index to lookup edges
+        // For now, scan all edges and filter (implement proper indexing later)
+        let edges = self.projection_engine.graphdb.scan_edges().await?;
+
+        let mut edge_ids = Vec::new();
+        for edge in edges {
+            if let Some(edge_value) = edge.properties.get(property) {
+                let edge_json = serde_json::to_value(edge_value).unwrap_or(serde_json::Value::Null);
+                if edge_json == *value {
+                    edge_ids.push(EdgeId(edge.id));
+                }
+            }
+        }
+
+        Ok(edge_ids)
     }
 
     async fn range_scan(&self, property: &str, start: &serde_json::Value, end: &serde_json::Value) -> Result<Vec<VertexId>> {
-        // TODO: Implement range scan
-        Ok(Vec::new())
+        // Implement range scan for vertices
+        // For now, scan all vertices and filter by range
+        let nodes = self.projection_engine.graphdb.scan_nodes().await?;
+
+        let mut vertex_ids = Vec::new();
+        for node in nodes {
+            if let Some(node_value) = node.properties.get(property) {
+                let node_json = serde_json::to_value(node_value).unwrap_or(serde_json::Value::Null);
+                // Simple range check for numbers (implement proper range logic later)
+                if node_json >= *start && node_json <= *end {
+                    vertex_ids.push(VertexId(node.id));
+                }
+            }
+        }
+
+        Ok(vertex_ids)
     }
 }
 
@@ -195,22 +331,4 @@ impl ProjectionEngine {
         adapter.execute_gql_statement(statement, context).await
     }
 
-    /// Clone for adapter
-    fn clone(&self) -> Self {
-        // This is a simplified clone - in practice, you'd need to properly clone all fields
-        Self {
-            event_processor: self.event_processor.clone(),
-            materializer: self.materializer.clone(),
-            graphdb: self.graphdb.clone(),
-            cache_layer: self.cache_layer.clone(),
-            view_manager: self.view_manager.clone(),
-            storage: Arc::new(crate::storage::InMemoryStorage::new()), // Simplified
-            cache_integration: self.cache_integration.clone(),
-            metrics: self.metrics.clone(),
-            config: self.config.clone(),
-            active_projections: self.active_projections.clone(),
-            shutdown_tx: tokio::sync::mpsc::channel(1).0, // New channel
-            shutdown_rx: Arc::new(tokio::sync::RwLock::new(tokio::sync::mpsc::channel(1).1)),
-        }
-    }
 }

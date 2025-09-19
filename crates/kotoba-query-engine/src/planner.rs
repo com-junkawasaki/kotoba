@@ -9,6 +9,7 @@ use anyhow::Result;
 
 use crate::ast::*;
 use crate::types::*;
+use crate::{ProjectionPort, IndexManagerPort};
 
 /// Query planner
 pub struct QueryPlanner {
@@ -28,14 +29,14 @@ impl QueryPlanner {
     }
 
     /// Create execution plan for a query
-    pub fn plan(&self, query: GqlQuery) -> Result<ExecutionPlan> {
+    pub async fn plan(&self, query: GqlQuery) -> Result<ExecutionPlan> {
         let mut plan = ExecutionPlan::default();
 
         // Process each clause
         for clause in query.clauses {
             match clause {
                 QueryClause::Match(match_clause) => {
-                    plan.steps.push(ExecutionStep::Match(self.plan_match(match_clause)?));
+                    plan.steps.push(ExecutionStep::Match(self.plan_match(match_clause).await?));
                 }
                 QueryClause::Where(where_clause) => {
                     plan.steps.push(ExecutionStep::Filter(self.plan_where(where_clause)?));
@@ -61,7 +62,7 @@ impl QueryPlanner {
         Ok(plan)
     }
 
-    fn plan_match(&self, match_clause: MatchClause) -> Result<MatchPlan> {
+    async fn plan_match(&self, match_clause: MatchClause) -> Result<MatchPlan> {
         let mut vertex_scans = Vec::new();
         let mut edge_scans = Vec::new();
 
@@ -69,11 +70,11 @@ impl QueryPlanner {
         for path_pattern in match_clause.pattern.path_patterns {
             if let PathTerm::PathElement(path_element) = path_pattern.path_term {
                 // Plan vertex scans
-                vertex_scans.push(self.plan_vertex_scan(&path_element.vertex_pattern)?);
+                vertex_scans.push(self.plan_vertex_scan(&path_element.vertex_pattern).await?);
 
                 // Plan edge scans
                 for edge_pattern in path_element.edge_patterns {
-                    edge_scans.push(self.plan_edge_scan(&edge_pattern)?);
+                    edge_scans.push(self.plan_edge_scan(&edge_pattern).await?);
                 }
             }
         }
@@ -85,13 +86,13 @@ impl QueryPlanner {
         })
     }
 
-    fn plan_vertex_scan(&self, vertex_pattern: &VertexPattern) -> Result<VertexScanPlan> {
+    async fn plan_vertex_scan(&self, vertex_pattern: &VertexPattern) -> Result<VertexScanPlan> {
         // Analyze vertex pattern for index usage
         let mut index_candidates = Vec::new();
 
         for (property, _) in &vertex_pattern.properties {
             // Check if there's an index for this property
-            if let Ok(index_exists) = self.index_manager.has_vertex_index(property) {
+            if let Ok(index_exists) = self.index_manager.has_vertex_index(property).await {
                 if index_exists {
                     index_candidates.push(property.clone());
                 }
@@ -112,12 +113,12 @@ impl QueryPlanner {
         })
     }
 
-    fn plan_edge_scan(&self, edge_pattern: &EdgePattern) -> Result<EdgeScanPlan> {
+    async fn plan_edge_scan(&self, edge_pattern: &EdgePattern) -> Result<EdgeScanPlan> {
         // Similar logic for edge scanning
         let mut index_candidates = Vec::new();
 
         for (property, _) in &edge_pattern.properties {
-            if let Ok(index_exists) = self.index_manager.has_edge_index(property) {
+            if let Ok(index_exists) = self.index_manager.has_edge_index(property).await {
                 if index_exists {
                     index_candidates.push(property.clone());
                 }
@@ -145,7 +146,7 @@ impl QueryPlanner {
                 FilterType::Comparison(comp)
             }
             BooleanExpression::Exists(pattern) => {
-                FilterType::Exists(pattern)
+                FilterType::Exists(*pattern)
             }
             _ => FilterType::Generic(where_clause.expression),
         };
@@ -274,12 +275,24 @@ pub struct ReturnPlan {
 // Placeholder trait implementations for index manager
 #[async_trait]
 impl IndexManagerPort for std::sync::Arc<dyn IndexManagerPort> {
-    async fn has_vertex_index(&self, property: &str) -> Result<bool> {
+    async fn lookup_vertices(&self, property: &str, value: &crate::Value) -> Result<Vec<crate::VertexId>> {
+        self.as_ref().lookup_vertices(property, value).await
+    }
+
+    async fn lookup_edges(&self, property: &str, value: &crate::Value) -> Result<Vec<crate::EdgeId>> {
+        self.as_ref().lookup_edges(property, value).await
+    }
+
+    async fn range_scan(&self, property: &str, start: &crate::Value, end: &crate::Value) -> Result<Vec<crate::VertexId>> {
+        self.as_ref().range_scan(property, start, end).await
+    }
+
+    async fn has_vertex_index(&self, _property: &str) -> Result<bool> {
         // Placeholder implementation
         Ok(false)
     }
 
-    async fn has_edge_index(&self, property: &str) -> Result<bool> {
+    async fn has_edge_index(&self, _property: &str) -> Result<bool> {
         // Placeholder implementation
         Ok(false)
     }

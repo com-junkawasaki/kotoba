@@ -224,7 +224,28 @@ impl ProjectionEngine {
         info!("Projection Engine initialized successfully");
         Ok(engine)
     }
+}
 
+impl Clone for ProjectionEngine {
+    fn clone(&self) -> Self {
+        Self {
+            event_processor: self.event_processor.clone(),
+            materializer: self.materializer.clone(),
+            graphdb: self.graphdb.clone(),
+            cache_layer: self.cache_layer.clone(),
+            view_manager: self.view_manager.clone(),
+            storage: self.storage.clone(),
+            cache_integration: self.cache_integration.clone(),
+            metrics: self.metrics.clone(),
+            config: self.config.clone(),
+            active_projections: self.active_projections.clone(),
+            shutdown_tx: self.shutdown_tx.clone(),
+            shutdown_rx: self.shutdown_rx.clone(),
+        }
+    }
+}
+
+impl ProjectionEngine {
     /// Start the projection engine
     #[instrument(skip(self))]
     pub async fn start(&self) -> Result<()> {

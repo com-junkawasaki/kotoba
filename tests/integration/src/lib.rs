@@ -16,6 +16,7 @@ pub mod error_handling;
 
 // New architecture tests
 pub mod ocel_graphdb_tests;
+pub mod gql_integration_tests;
 
 #[cfg(test)]
 mod integration_tests {

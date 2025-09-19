@@ -11,14 +11,14 @@ use crate::ast::*;
 
 /// Pest parser for GQL
 #[derive(Parser)]
-#[grammar = "gql.pest"] // We'll create this grammar file
+#[grammar = "gql.pest"]
 pub struct GqlParser;
 
 /// Main parser interface
 impl GqlParser {
     /// Parse a GQL query
     pub fn parse(input: &str) -> Result<GqlQuery> {
-        let pairs = Self::parse(Rule::query, input)
+        let pairs = <GqlParser as pest::Parser<Rule>>::parse(Rule::query, input)
             .context("Failed to parse GQL query")?;
 
         Self::build_query(pairs)
@@ -26,7 +26,7 @@ impl GqlParser {
 
     /// Parse a GQL statement
     pub fn parse_statement(input: &str) -> Result<GqlStatement> {
-        let pairs = Self::parse(Rule::statement, input)
+        let pairs = <GqlParser as pest::Parser<Rule>>::parse(Rule::statement, input)
             .context("Failed to parse GQL statement")?;
 
         Self::build_statement(pairs)
@@ -47,8 +47,9 @@ impl GqlParser {
                 Rule::return_clause => {
                     returning = Some(Self::build_return_clause(pair)?);
                 }
-                Rule::EOI => break,
-                _ => {} // Ignore other rules
+                _ => {
+                    // Skip other rules
+                }
             }
         }
 
@@ -169,9 +170,9 @@ impl GqlParser {
                 Rule::variable => {
                     variable = Some(inner_pair.as_str().to_string());
                 }
-                Rule::LEFT_ARROW => direction = EdgeDirection::Left,
-                Rule::RIGHT_ARROW => direction = EdgeDirection::Right,
-                Rule::UNDIRECTED => direction = EdgeDirection::Both,
+                Rule::left_arrow => direction = EdgeDirection::Left,
+                Rule::right_arrow => direction = EdgeDirection::Right,
+                Rule::undirected => direction = EdgeDirection::Both,
                 Rule::label => {
                     labels.push(inner_pair.as_str().to_string());
                 }
@@ -199,9 +200,9 @@ impl GqlParser {
     fn build_boolean_expression(pair: pest::iterators::Pair<Rule>) -> Result<BooleanExpression> {
         // Simplified implementation - expand as needed
         Ok(BooleanExpression::Comparison(ComparisonExpression {
-            left: Box::new(ValueExpression::Literal(Value::Boolean(true))),
+            left: Box::new(ValueExpression::Literal(AstValue::Boolean(true))),
             operator: ComparisonOperator::Equal,
-            right: Box::new(ValueExpression::Literal(Value::Boolean(true))),
+            right: Box::new(ValueExpression::Literal(AstValue::Boolean(true))),
         }))
     }
 
@@ -242,14 +243,14 @@ impl GqlParser {
         }
 
         Ok(ReturnItem {
-            expression: expression.unwrap_or(ValueExpression::Literal(Value::Null)),
+            expression: expression.unwrap_or(ValueExpression::Literal(AstValue::Null)),
             alias,
         })
     }
 
     fn build_value_expression(pair: pest::iterators::Pair<Rule>) -> Result<ValueExpression> {
         // Simplified implementation
-        Ok(ValueExpression::Literal(Value::String(pair.as_str().to_string())))
+        Ok(ValueExpression::Literal(AstValue::String(pair.as_str().to_string())))
     }
 
     fn build_properties(pair: pest::iterators::Pair<Rule>) -> Result<HashMap<String, ValueExpression>> {

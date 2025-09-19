@@ -25,7 +25,13 @@ pub use optimizer::*;
 
 /// Query result types
 pub mod types;
-pub use types::*;
+
+// Import specific types to avoid conflicts
+pub use types::{QueryResult, StatementResult, VertexId, EdgeId, Vertex, Edge, VertexFilter, EdgeFilter, Path};
+pub use serde_json::Value;
+
+// Import PathPattern from types only to avoid conflict with ast::PathPattern
+pub use types::PathPattern;
 
 /// Query execution context
 #[derive(Debug, Clone)]
@@ -73,10 +79,10 @@ impl GqlQueryEngine {
         let parsed_query = GqlParser::parse(query)?;
 
         // Optimize query
-        let optimized_query = self.optimizer.optimize(parsed_query)?;
+        let optimized_query = self.optimizer.optimize(parsed_query).await?;
 
         // Plan execution
-        let execution_plan = self.planner.plan(optimized_query)?;
+        let execution_plan = self.planner.plan(optimized_query).await?;
 
         // Execute plan
         let executor = QueryExecutor::new(
@@ -123,6 +129,8 @@ pub trait IndexManagerPort: Send + Sync {
     async fn lookup_vertices(&self, property: &str, value: &Value) -> Result<Vec<VertexId>>;
     async fn lookup_edges(&self, property: &str, value: &Value) -> Result<Vec<EdgeId>>;
     async fn range_scan(&self, property: &str, start: &Value, end: &Value) -> Result<Vec<VertexId>>;
+    async fn has_vertex_index(&self, property: &str) -> Result<bool>;
+    async fn has_edge_index(&self, property: &str) -> Result<bool>;
 }
 
 /// Cache interface

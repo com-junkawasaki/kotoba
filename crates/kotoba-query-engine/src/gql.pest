@@ -2,8 +2,8 @@
 // ISO GQL (ISO/IEC 9075-16:2023) subset
 
 // Main rules
-query = { SOI ~ (match_clause | where_clause | return_clause)* ~ EOI }
-statement = { SOI ~ (create_statement | drop_statement | insert_statement) ~ EOI }
+query = { (match_clause | where_clause | return_clause)* }
+statement = { (create_statement | delete_statement | insert_statement) }
 
 // Keywords
 MATCH = { "MATCH" }
@@ -13,7 +13,7 @@ RETURN = { "RETURN" }
 DISTINCT = { "DISTINCT" }
 AS = { "AS" }
 CREATE = { "CREATE" }
-DROP = { "DROP" }
+DELETE = { "DELETE" }
 INSERT = { "INSERT" }
 GRAPH = { "GRAPH" }
 VERTEX = { "VERTEX" }
@@ -58,17 +58,19 @@ variable = { identifier }
 // WHERE clause
 where_clause = { WHERE ~ boolean_expression }
 
-// Boolean expressions
-boolean_expression = { comparison_expression | exists_expression | logical_expression }
-comparison_expression = { expression ~ comparison_operator ~ expression }
-exists_expression = { EXISTS ~ "(" ~ graph_pattern ~ ")" }
-logical_expression = { boolean_expression ~ logical_operator ~ boolean_expression }
+// Boolean expressions (using precedence climbing)
+boolean_expression = { or_expression }
+or_expression = { and_expression ~ ("OR" ~ and_expression)* }
+and_expression = { not_expression ~ ("AND" ~ not_expression)* }
+not_expression = { ("NOT")? ~ comparison_expression }
+comparison_expression = { primary_expression ~ comparison_operator ~ primary_expression }
+primary_expression = { literal | variable | "(" ~ boolean_expression ~ ")" | exists_expression | function_call }
 
 // Comparison operators
 comparison_operator = { "=" | "!=" | "<" | "<=" | ">" | ">=" | "=~" }
 
-// Logical operators
-logical_operator = { "AND" | "OR" }
+// Exists expression
+exists_expression = { EXISTS ~ "(" ~ graph_pattern ~ ")" }
 
 // RETURN clause
 return_clause = { RETURN ~ (DISTINCT)? ~ return_item ~ ("," ~ return_item)* }
@@ -76,11 +78,12 @@ return_clause = { RETURN ~ (DISTINCT)? ~ return_item ~ ("," ~ return_item)* }
 // Return item
 return_item = { expression ~ (AS ~ identifier)? }
 
-// Expressions
-expression = { value_expression | function_call | property_access }
+// Expressions (using precedence climbing)
+expression = { additive_expression }
+additive_expression = { multiplicative_expression ~ (("+" | "-") ~ multiplicative_expression)* }
+multiplicative_expression = { unary_expression ~ (("*" | "/") ~ unary_expression)* }
+unary_expression = { ("-" | "+")? ~ primary_expression }
 
-// Value expressions
-value_expression = { literal | variable | "(" ~ expression ~ ")" }
 
 // Literals
 literal = { string | number | boolean | NULL }
@@ -89,7 +92,7 @@ literal = { string | number | boolean | NULL }
 function_call = { identifier ~ "(" ~ (expression ~ ("," ~ expression)*)? ~ ")" }
 
 // Property access
-property_access = { expression ~ "." ~ identifier }
+property_access = { variable ~ ("." ~ identifier)+ }
 
 // Basic tokens
 identifier = { (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
@@ -100,11 +103,11 @@ NULL = { "NULL" }
 
 // Statements
 create_statement = { CREATE ~ (create_graph | create_vertex | create_edge) }
-drop_statement = { DROP ~ (drop_graph) }
+delete_statement = { DELETE ~ (delete_graph) }
 insert_statement = { INSERT ~ insert_clause }
 
 create_graph = { GRAPH ~ (IF ~ NOT ~ EXISTS)? ~ identifier }
-drop_graph = { GRAPH ~ (IF ~ EXISTS)? ~ identifier }
+delete_graph = { GRAPH ~ (IF ~ EXISTS)? ~ identifier }
 create_vertex = { VERTEX ~ vertex_pattern }
 create_edge = { EDGE ~ edge_pattern }
 

@@ -130,6 +130,15 @@ pub struct QueryStatistics {
     pub indices_used: Vec<String>,
 }
 
+/// Statement execution result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatementResult {
+    pub success: bool,
+    pub message: String,
+    pub affected_rows: Option<u64>,
+    pub execution_time_ms: u64,
+}
+
 /// Index lookup result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexLookupResult {

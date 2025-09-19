@@ -8,6 +8,7 @@ use anyhow::Result;
 
 use crate::ast::*;
 use crate::types::*;
+use crate::IndexManagerPort;
 
 /// Query optimizer
 pub struct QueryOptimizer {

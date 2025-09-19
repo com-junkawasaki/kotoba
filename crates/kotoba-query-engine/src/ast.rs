@@ -130,7 +130,7 @@ pub enum ComparisonOperator {
 /// Value expression
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ValueExpression {
-    Literal(Value),
+    Literal(AstValue),
     Variable(String),
     PropertyAccess(Box<ValueExpression>, String),
     FunctionCall(FunctionCall),
@@ -164,14 +164,14 @@ pub struct FunctionCall {
 
 /// Value types for literals
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Value {
+pub enum AstValue {
     Null,
     Boolean(bool),
     Integer(i64),
     Float(f64),
     String(String),
-    List(Vec<Value>),
-    Map(HashMap<String, Value>),
+    List(Vec<AstValue>),
+    Map(HashMap<String, AstValue>),
 }
 
 /// RETURN clause

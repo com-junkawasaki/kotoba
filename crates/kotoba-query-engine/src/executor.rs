@@ -12,6 +12,7 @@ use futures::stream::{self, StreamExt};
 use crate::ast::*;
 use crate::types::*;
 use crate::planner::*;
+use crate::{ProjectionPort, IndexManagerPort, CachePort};
 
 /// Query executor
 pub struct QueryExecutor {
@@ -21,6 +22,25 @@ pub struct QueryExecutor {
 }
 
 impl QueryExecutor {
+    /// Convert Vertex to serde_json::Value
+    fn vertex_to_json_value(&self, vertex: Vertex) -> serde_json::Value {
+        serde_json::json!({
+            "id": vertex.id,
+            "labels": vertex.labels,
+            "properties": vertex.properties
+        })
+    }
+
+    /// Convert Edge to serde_json::Value
+    fn edge_to_json_value(&self, edge: Edge) -> serde_json::Value {
+        serde_json::json!({
+            "id": edge.id,
+            "label": edge.label,
+            "from_vertex": edge.from_vertex,
+            "to_vertex": edge.to_vertex,
+            "properties": edge.properties
+        })
+    }
     pub fn new(
         projection: Arc<dyn ProjectionPort>,
         index_manager: Arc<dyn IndexManagerPort>,
@@ -99,11 +119,12 @@ impl QueryExecutor {
             ScanType::IndexScan(property) => {
                 // Use index for efficient lookup
                 if let Some(value_expr) = scan_plan.properties.get(&property) {
-                    if let ValueExpression::Literal(Value::String(value)) = value_expr {
-                        let vertex_ids = self.index_manager.lookup_vertices(&property, &Value::String(value.clone())).await?;
+                    if let ValueExpression::Literal(crate::ast::AstValue::String(value)) = value_expr {
+                        let vertex_ids = self.index_manager.lookup_vertices(&property, &serde_json::Value::String(value.clone())).await?;
                         for vertex_id in vertex_ids {
                             if let Some(vertex) = self.projection.get_vertex(&vertex_id).await? {
-                                results.push(vec![vertex]);
+                                let json_value = self.vertex_to_json_value(vertex);
+                                results.push(vec![json_value]);
                             }
                         }
                     }
@@ -114,7 +135,8 @@ impl QueryExecutor {
                 let vertices = self.projection.scan_vertices(None).await?;
                 for vertex in vertices {
                     // TODO: Apply filters
-                    results.push(vec![vertex]);
+                    let json_value = self.vertex_to_json_value(vertex);
+                    results.push(vec![json_value]);
                 }
             }
         }
@@ -129,11 +151,12 @@ impl QueryExecutor {
             ScanType::IndexScan(property) => {
                 // Use index for efficient lookup
                 if let Some(value_expr) = scan_plan.properties.get(&property) {
-                    if let ValueExpression::Literal(Value::String(value)) = value_expr {
-                        let edge_ids = self.index_manager.lookup_edges(&property, &Value::String(value.clone())).await?;
+                    if let ValueExpression::Literal(crate::ast::AstValue::String(value)) = value_expr {
+                        let edge_ids = self.index_manager.lookup_edges(&property, &serde_json::Value::String(value.clone())).await?;
                         for edge_id in edge_ids {
                             if let Some(edge) = self.projection.get_edge(&edge_id).await? {
-                                results.push(edge);
+                                let json_value = self.edge_to_json_value(edge);
+                                results.push(json_value);
                             }
                         }
                     }
@@ -144,7 +167,8 @@ impl QueryExecutor {
                 let edges = self.projection.scan_edges(None).await?;
                 for edge in edges {
                     // TODO: Apply filters
-                    results.push(edge);
+                    let json_value = self.edge_to_json_value(edge);
+                    results.push(json_value);
                 }
             }
         }
@@ -281,18 +305,27 @@ impl QueryExecutor {
             // TODO: Implement distinct logic
         }
 
+        let rows_returned = results.len() as u64;
         Ok(QueryResult {
             columns: return_plan.items.iter()
                 .map(|item| item.alias.clone().unwrap_or_else(|| "column".to_string()))
                 .collect(),
             rows: results,
+            statistics: crate::QueryStatistics {
+                total_time_ms: 0,
+                planning_time_ms: 0,
+                execution_time_ms: 0,
+                rows_scanned: 0,
+                rows_returned,
+                indices_used: vec![],
+            },
         })
     }
 
-    async fn evaluate_expression(&self, _expression: &ValueExpression, _row: &[Value]) -> Result<Value> {
+    async fn evaluate_expression(&self, _expression: &ValueExpression, _row: &[serde_json::Value]) -> Result<serde_json::Value> {
         // TODO: Implement expression evaluation
         // For now, return a placeholder
-        Ok(Value::String("placeholder".to_string()))
+        Ok(serde_json::Value::String("placeholder".to_string()))
     }
 }
 
@@ -319,7 +352,12 @@ impl StatementExecutor {
         _context: crate::QueryContext,
     ) -> Result<StatementResult> {
         // TODO: Implement statement execution
-        Ok(StatementResult::Success)
+        Ok(StatementResult {
+            success: true,
+            message: "Statement executed successfully".to_string(),
+            affected_rows: None,
+            execution_time_ms: 0,
+        })
     }
 }
 
@@ -327,39 +365,43 @@ impl StatementExecutor {
 #[derive(Debug, Clone)]
 pub enum ExecutionResult {
     Empty,
-    Rows(Vec<Vec<Value>>),
-    Grouped(std::collections::HashMap<String, Vec<Vec<Value>>>),
+    Rows(Vec<Vec<serde_json::Value>>),
+    Grouped(std::collections::HashMap<String, Vec<Vec<serde_json::Value>>>),
 }
 
-/// Query result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueryResult {
-    pub columns: Vec<String>,
-    pub rows: Vec<Vec<Value>>,
-}
 
 impl From<ExecutionResult> for QueryResult {
     fn from(result: ExecutionResult) -> Self {
         match result {
-            ExecutionResult::Rows(rows) => QueryResult {
-                columns: vec!["result".to_string()], // Placeholder
-                rows,
+            ExecutionResult::Rows(rows) => {
+                let rows_returned = rows.len() as u64;
+                QueryResult {
+                    columns: vec!["result".to_string()], // Placeholder
+                    rows,
+                    statistics: crate::QueryStatistics {
+                        total_time_ms: 0,
+                        planning_time_ms: 0,
+                        execution_time_ms: 0,
+                        rows_scanned: 0,
+                        rows_returned,
+                        indices_used: vec![],
+                    },
+                }
             },
             _ => QueryResult {
                 columns: Vec::new(),
                 rows: Vec::new(),
+                statistics: crate::QueryStatistics {
+                    total_time_ms: 0,
+                    planning_time_ms: 0,
+                    execution_time_ms: 0,
+                    rows_scanned: 0,
+                    rows_returned: 0u64,
+                    indices_used: vec![],
+                },
             },
         }
     }
-}
-
-/// Statement result types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StatementResult {
-    Success,
-    Created { count: usize },
-    Updated { count: usize },
-    Deleted { count: usize },
 }
 
 #[cfg(test)]
