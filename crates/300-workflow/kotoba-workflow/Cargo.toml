@@ -11,7 +11,7 @@ description = "Temporal-inspired workflow engine for Kotoba"
 kotoba-core = "0.1.21"
 kotoba-errors = "0.1.2"
 # kotoba-workflow-core = { path = "../kotoba-workflow-core", version = "0.1.21" }
-kotoba-routing = "0.1.21"
+kotoba-routing = { version = "0.1.21", optional = true }
 
 # Common dependencies
 serde = { version = "1.0", features = ["derive"] }
@@ -40,8 +40,8 @@ rocksdb = { version = "0.21", optional = true }
 rusqlite = { version = "0.29", features = ["bundled"], optional = true }
 
 # Kotoba dependencies for integration
-kotoba-jsonnet = "0.1.21"
-kotoba-storage = "0.1.22"
+kotoba-jsonnet = { version = "0.1.21", optional = true }
+kotoba-storage = { version = "0.1.22", optional = true }
 
 [features]
 default = ["memory", "kotoba-storage", "kotoba-jsonnet", "kotoba-routing"]
@@ -50,6 +50,9 @@ rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite"]
 activities-http = ["dep:reqwest"]
 activities-db = ["dep:sqlx", "dep:lapin", "dep:redis"]
+kotoba-storage = ["dep:kotoba-storage"]
+kotoba-jsonnet = ["dep:kotoba-jsonnet"]
+kotoba-routing = ["dep:kotoba-routing"]
 
 # Feature for WASM builds
 wasm-bindgen = ["uuid/js"]
