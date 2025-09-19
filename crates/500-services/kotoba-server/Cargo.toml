@@ -47,7 +47,7 @@ graphql-parser = "0.4"
 default = ["std"]
 std = []
 wasm = ["wasm-bindgen", "web-sys", "js-sys"]
-workflow = ["kotoba-workflow-core"]  # Optional workflow features
+# workflow = ["kotoba-workflow-core"]  # Optional workflow features
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
