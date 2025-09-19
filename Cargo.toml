@@ -60,6 +60,8 @@ exclude = [
     "crates/500-services/kotoba-monitoring",
     "crates/500-services/kotoba-server-core",
     "crates/500-services/kotoba-server-workflow",
+    "crates/500-services/kotoba-cloud-integrations",
+    "crates/500-services/kotoba-profiler",
 ]
 resolver = "2"
 
