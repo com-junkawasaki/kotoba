@@ -40,8 +40,8 @@ futures = "0.3"
 metrics = "0.23"
 
 # Kotoba dependencies
-kotoba-event-stream = { path = "../kotoba-event-stream" }
-kotoba-cache = { path = "../kotoba-cache" }
-kotoba-ocel = { path = "../kotoba-ocel" }
-kotoba-graphdb = { path = "../kotoba-graphdb" }
-kotoba-query-engine = { path = "../kotoba-query-engine" }
+kotoba-event-stream = { path = "../../200-application/kotoba-event-stream" }
+kotoba-cache = { path = "../../200-application/kotoba-cache" }
+kotoba-ocel = { path = "../../000-core/kotoba-ocel" }
+kotoba-graphdb = { path = "../../200-application/kotoba-graphdb" }
+kotoba-query-engine = { path = "../../200-application/kotoba-query-engine" }

@@ -1,34 +1,7 @@
 [workspace]
 members = [
-    # 000-core: Base types and core functionality
-    "crates/000-core/*",
-
-    # 100-storage: Port & Adapter pattern for storage
-    "crates/100-storage/*",
-
-    # 200-application: Business logic layer
-    "crates/200-application/*",
-
-    # 300-workflow: Workflow engine components
-    "crates/300-workflow/*",
-
-    # 400-language: Language features (LSP, compiler, etc.)
-    "crates/400-language/*",
-
-    # 500-services: Server and service components
-    "crates/500-services/*",
-
-    # 600-deployment: Deployment and orchestration
-    "crates/600-deployment/*",
-
-    # 900-tools: CLI tools and utilities
-    "crates/900-tools/*",
-
-    # Integration tests
-    "tests/integration",
-
-    # Root package for CLI binary
-    ".",
+    "crates/100-storage/kotoba-storage",
+    "crates/100-storage/kotoba-storage-rocksdb",
 ]
 resolver = "2"
 

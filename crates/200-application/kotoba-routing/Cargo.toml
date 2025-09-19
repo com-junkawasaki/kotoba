@@ -17,7 +17,7 @@ serde_json = "1.0"
 thiserror = "1.0"
 anyhow = "1.0"
 glob = "0.3"
-kotoba-workflow = { path = "../kotoba-workflow" }
-kotoba-ssg = { path = "../kotoba-ssg" }
-kotoba-cid = { path = "../kotoba-cid" }
+kotoba-workflow = { path = "../../200-application/kotoba-workflow" }
+kotoba-ssg = { path = "../../200-application/kotoba-ssg" }
+kotoba-cid = { path = "../../000-core/kotoba-cid" }
 tokio = { version = "1.0", features = ["sync"] } # For Mutex

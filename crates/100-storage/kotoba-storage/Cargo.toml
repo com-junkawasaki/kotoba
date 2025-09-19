@@ -25,12 +25,10 @@ tempfile = "3.0"
 async-trait = "0.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 tokio = { version = "1.0", features = ["sync", "rt"] }
-# kotoba-core removed to avoid version conflicts - use through kotoba-cid
-# Use workspace dependencies to avoid version conflicts
-kotoba-errors = { path = "../kotoba-errors", version = "0.1.2" }
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.21" }
-kotoba-cid = { path = "../kotoba-cid", version = "0.1.21" }
-kotoba-db-core = { path = "../kotoba-db-core", version = "0.1.16" }
+# Minimal dependencies for Port/Adapter pattern
+# Temporarily disable all Kotoba dependencies to test basic interface
+# kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.2" }
+# kotoba-cid = { path = "../../000-core/kotoba-cid", version = "0.1.21" }
 
 [features]
 default = []

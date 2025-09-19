@@ -14,4 +14,4 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 url = { version = "2.2", features = ["serde"] }
 
-kotoba-schema = { path = "../kotoba-schema" }
+kotoba-schema = { path = "../../200-application/kotoba-schema" }

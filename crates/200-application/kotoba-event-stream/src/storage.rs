@@ -1,23 +1,24 @@
-//! RocksDB-based storage for event streaming
+//! Storage layer for event streaming
 //!
 //! Provides persistent storage for events with topic-based organization
-//! and efficient retrieval capabilities.
+//! and efficient retrieval capabilities. Uses KeyValueStore trait for storage backend abstraction.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use anyhow::{Result, Context};
-use rocksdb::{DB, ColumnFamilyDescriptor, Options, WriteBatch, IteratorMode};
+use async_trait::async_trait;
 use tracing::{info, warn, error, instrument};
 use bincode;
 use chrono::{DateTime, Utc};
 
+use kotoba_storage::KeyValueStore;
 use crate::event::*;
 use crate::{TopicStats, EventStreamConfig};
 
-/// RocksDB-based event storage
-pub struct RocksDBStorage {
-    /// RocksDB instance
-    db: Arc<DB>,
+/// Generic event storage that works with any KeyValueStore implementation
+pub struct EventStorage<T: KeyValueStore> {
+    /// Storage backend
+    storage: Arc<T>,
     /// Maximum number of topics
     max_topics: usize,
     /// Topic metadata cache
@@ -35,19 +36,17 @@ struct TopicMetadata {
     size_bytes: u64,
 }
 
-impl RocksDBStorage {
-    /// Create a new RocksDB storage
-    pub async fn new(path: &str, max_topics: usize) -> Result<Self> {
-        info!("Initializing RocksDB storage at: {}", path);
+impl<T: KeyValueStore> EventStorage<T> {
+    /// Create a new event storage with the given KeyValueStore backend
+    pub fn new(storage: Arc<T>, max_topics: usize) -> Self {
+        info!("Initializing event storage with backend");
 
-        // Configure RocksDB options
-        let mut db_opts = Options::default();
-        db_opts.create_if_missing(true);
-        db_opts.create_missing_column_families(true);
-        db_opts.set_max_background_jobs(4);
-        db_opts.set_compaction_style(rocksdb::DBCompactionStyle::Level);
-        db_opts.set_target_file_size_base(64 * 1024 * 1024); // 64MB
-        db_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        Self {
+            storage,
+            max_topics,
+            topic_metadata: Arc::new(std::sync::RwLock::new(HashMap::new())),
+        }
+    }
 
         // Define column families
         let cf_names = vec![

@@ -30,8 +30,8 @@ notify = "6.0"  # For file watching
 dotenvy = "0.15" # For environment variables
 
 # KotobaDB dependencies
-kotoba-db = { path = "../kotoba-db", version = "0.1.0" }
-kotoba-storage = { path = "../kotoba-storage", version = "0.1.16" }
+kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.0" }
+kotoba-storage = { path = "../../200-application/kotoba-storage", version = "0.1.16" }
 
 [dev-dependencies]
 tokio-test = "0.4"

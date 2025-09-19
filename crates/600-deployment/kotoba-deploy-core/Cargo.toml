@@ -12,8 +12,8 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba core dependencies
-kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
-kotoba-errors = { path = "../kotoba-errors", version = "0.1.1" }
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
+kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.1" }
 
 # Common dependencies
 serde = { version = "1.0", features = ["derive"] }

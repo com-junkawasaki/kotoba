@@ -13,10 +13,10 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../kotoba-core", version = "0.1.1" }
-kotoba-server = { path = "../kotoba-server", version = "0.1.15" }
-kotoba-cli = { path = "../kotoba-cli", version = "0.1.1", optional = true }
-kotoba-kotobas = { path = "../kotoba-kotobas", version = "0.1.15" }
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.1" }
+kotoba-server = { path = "../../200-application/kotoba-server", version = "0.1.15" }
+kotoba-cli = { path = "../../200-application/kotoba-cli", version = "0.1.1", optional = true }
+kotoba-kotobas = { path = "../../200-application/kotoba-kotobas", version = "0.1.15" }
 kotoba2tsx = { path = "../kotoba2tsx", version = "0.1.15" }
 # Jsonnet support removed - using kotobas only
 

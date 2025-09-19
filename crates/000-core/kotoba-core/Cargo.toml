@@ -23,7 +23,7 @@ hex = "0.4"
 
 # Kotoba ecosystem
 # kotoba-graph = "0.1.16" # Temporarily removed to break circular dependency
-# kotoba-security = { path = "../kotoba-security", optional = true } # Temporarily disabled due to circular dependency
+# kotoba-security = { path = "../../200-application/kotoba-security", optional = true } # Temporarily disabled due to circular dependency
 
 # Schema validation
 schemars = { version = "0.8", optional = true }

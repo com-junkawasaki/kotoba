@@ -14,11 +14,11 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 [dependencies]
 # Kotoba dependencies
 kotoba-core = { workspace = true }
-kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.15" }
-kotoba-deploy-controller = { path = "../kotoba-deploy-controller", version = "0.1.15" }
-kotoba-deploy-runtime = { path = "../kotoba-deploy-runtime", version = "0.1.15" }
-kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.15" }
-kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.15" }
+kotoba-deploy-core = { path = "../../200-application/kotoba-deploy-core", version = "0.1.15" }
+kotoba-deploy-controller = { path = "../../200-application/kotoba-deploy-controller", version = "0.1.15" }
+kotoba-deploy-runtime = { path = "../../200-application/kotoba-deploy-runtime", version = "0.1.15" }
+kotoba-deploy-scaling = { path = "../../200-application/kotoba-deploy-scaling", version = "0.1.15" }
+kotoba-deploy-network = { path = "../../200-application/kotoba-deploy-network", version = "0.1.15" }
 
 # CLI framework
 clap = { version = "4.0", features = ["derive"] }

@@ -12,13 +12,13 @@ documentation = "https://docs.rs/kotoba-profiler"
 
 [dependencies]
 # KotobaDB core crates
-kotoba-db-core = { path = "../kotoba-db-core", version = "0.1.16" }
-kotoba-db-engine-memory = { path = "../kotoba-db-engine-memory", version = "0.1.16" }
-kotoba-db-engine-lsm = { path = "../kotoba-db-engine-lsm", version = "0.1.16" }
-kotoba-db = { path = "../kotoba-db", version = "0.1.16" }
+# kotoba-db-core temporarily disabled - will be replaced with kotoba-storage
+kotoba-db-engine-memory = { path = "../../200-application/kotoba-db-engine-memory", version = "0.1.16" }
+kotoba-db-engine-lsm = { path = "../../200-application/kotoba-db-engine-lsm", version = "0.1.16" }
+kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.16" }
 
 # Benchmarking integration
-kotoba-bench = { path = "../kotoba-bench", version = "0.1.16" }
+kotoba-bench = { path = "../../200-application/kotoba-bench", version = "0.1.16" }
 
 # Profiling and monitoring
 tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }

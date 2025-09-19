@@ -15,7 +15,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 # Core dependencies (published crates only)
 kotoba-core = "0.1.21"
 kotoba-errors = "0.1.2"
-kotoba-jsonnet = { path = "../kotoba-jsonnet" }
+kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet" }
 
 # Optional features (temporarily disabled to focus on core functionality)
 # kotoba-graph = "0.1.21"

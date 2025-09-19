@@ -22,7 +22,7 @@ futures = "0.3"
 parking_lot = "0.12"
 
 # KotobaDB dependencies
-kotoba-db = { path = "../kotoba-db", version = "0.1.16" }
+kotoba-db = { path = "../../200-application/kotoba-graphdb", version = "0.1.16" }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

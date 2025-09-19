@@ -38,8 +38,8 @@ chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
 
 # Kotoba dependencies (placeholder - will be replaced with actual crates)
-# kotoba-types = { path = "../kotoba-core" }
-# kotoba-errors = { path = "../kotoba-errors" }
-# kotoba-graph-projection = { path = "../kotoba-graph-projection" }
-# kotoba-graph-index = { path = "../kotoba-graph-index" }
-# kotoba-cache = { path = "../kotoba-cache" }
+# kotoba-types = { path = "../../000-core/kotoba-core" }
+# kotoba-errors = { path = "../../000-core/kotoba-errors" }
+# kotoba-graph-projection = { path = "../../200-application/kotoba-graph-projection" }
+# kotoba-graph-index = { path = "../../200-application/kotoba-graph-index" }
+# kotoba-cache = { path = "../../200-application/kotoba-cache" }

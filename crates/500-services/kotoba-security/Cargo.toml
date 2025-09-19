@@ -59,8 +59,8 @@ digest = "0.10.7"
 regex = "1.10"
 
 # Kotoba dependencies
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
-kotoba-storage = { path = "../kotoba-storage", version = "0.1.16" }
+kotoba-graph = { path = "../../200-application/kotoba-graph", version = "0.1.17" }
+kotoba-storage = { path = "../../200-application/kotoba-storage", version = "0.1.16" }
 
 [dev-dependencies]
 tokio-test = "0.4"

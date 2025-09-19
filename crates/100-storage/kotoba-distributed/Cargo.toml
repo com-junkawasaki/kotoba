@@ -13,11 +13,11 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../kotoba-core", version = "0.1.19" }
-kotoba-graph = { path = "../kotoba-graph", version = "0.1.17" }
-kotoba-execution = { path = "../kotoba-execution", version = "0.1.16" }
-kotoba-rewrite = { path = "../kotoba-rewrite", version = "0.1.16" }
-kotoba-cid = { path = "../kotoba-cid", version = "0.1.16" }
+kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.19" }
+kotoba-graph = { path = "../../200-application/kotoba-graph", version = "0.1.17" }
+kotoba-execution = { path = "../../200-application/kotoba-execution", version = "0.1.16" }
+kotoba-rewrite = { path = "../../200-application/kotoba-rewrite", version = "0.1.16" }
+kotoba-cid = { path = "../../000-core/kotoba-cid", version = "0.1.16" }
 
 # Async runtime
 tokio = { version = "1.0", features = ["sync", "rt", "macros"] }

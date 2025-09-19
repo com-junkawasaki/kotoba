@@ -39,6 +39,6 @@ tracing = "0.1"
 metrics = "0.23"
 
 # Kotoba dependencies
-kotoba-core = { path = "../kotoba-core" }
-kotoba-errors = { path = "../kotoba-errors" }
-kotoba-ocel = { path = "../kotoba-ocel" }
+kotoba-core = { path = "../../000-core/kotoba-core" }
+kotoba-errors = { path = "../../000-core/kotoba-errors" }
+kotoba-ocel = { path = "../../000-core/kotoba-ocel" }
