@@ -4601,7 +4601,7 @@ dependencies = [
  "dirs 5.0.1",
  "kotoba-core 0.1.21",
  "kotoba-errors 0.1.2",
- "kotoba-jsonnet",
+ "kotoba-jsonnet 0.1.21",
  "regex",
  "serde",
  "serde_json",
@@ -5155,14 +5155,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-jsonnet"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc1a9bbcd10d2723e6835def20c9473609624a7dd621efe73fdf4d1daded3a44"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "hex",
+ "md-5 0.10.6",
+ "parking_lot",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.10.9",
+ "sha3",
+ "thiserror 2.0.16",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "kotoba-kotobas"
-version = "0.1.17"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
  "chrono",
- "kotoba-core 0.1.21",
- "kotoba-jsonnet",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-jsonnet 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "reqwest",
  "serde",
@@ -5201,7 +5225,7 @@ name = "kotoba-lsp"
 version = "0.1.16"
 dependencies = [
  "dashmap 5.5.3",
- "kotoba-jsonnet",
+ "kotoba-jsonnet 0.1.21",
  "kotoba-kotobas",
  "tokio",
  "tower-lsp",
@@ -5533,7 +5557,7 @@ dependencies = [
  "git2",
  "kotoba-core 0.1.21",
  "kotoba-docs",
- "kotoba-jsonnet",
+ "kotoba-jsonnet 0.1.21",
  "kotoba-kotobas",
  "mime_guess",
  "pulldown-cmark",
@@ -5630,7 +5654,7 @@ dependencies = [
  "glob",
  "indicatif",
  "kotoba-core 0.1.21",
- "kotoba-jsonnet",
+ "kotoba-jsonnet 0.1.21",
  "num_cpus",
  "parking_lot",
  "regex",
