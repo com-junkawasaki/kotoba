@@ -3,7 +3,7 @@
 //! This binary provides the complete CLI for Kotoba with all core features.
 
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(name = "kotoba")]
@@ -123,6 +123,102 @@ enum Commands {
 
     /// Show version information
     Version,
+
+    /// Build the project
+    #[command(subcommand)]
+    Build(BuildCommands),
+
+    /// Lint files
+    Lint {
+        /// Files or directories to lint
+        #[arg(default_value = ".")]
+        paths: Vec<PathBuf>,
+    },
+
+    /// Run tests
+    Test {
+        /// Test filter
+        filter: Option<String>,
+    },
+
+    /// Deploy the project
+    Deploy {
+        /// Deployment target
+        target: String,
+    },
+
+    /// Backup data
+    Backup {
+        /// Backup destination
+        destination: PathBuf,
+    },
+
+    /// Restore data
+    Restore {
+        /// Backup source
+        source: PathBuf,
+    },
+
+    /// Profile code execution
+    Profile {
+        /// File to profile
+        file: PathBuf,
+    },
+
+    /// Manage workflows
+    #[command(subcommand)]
+    Workflow(WorkflowCommands),
+
+    /// Manage packages
+    #[command(subcommand)]
+    Package(PackageCommands),
+
+    /// Convert .kotoba to .tsx
+    K2tsx {
+        /// Input .kotoba file
+        input: PathBuf,
+        /// Output .tsx file
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum BuildCommands {
+    /// Run the default build
+    Default,
+    /// Run a specific task
+    Task {
+        /// Task name to run
+        name: String,
+    },
+    /// List available tasks
+    Tasks,
+}
+
+#[derive(Subcommand)]
+enum WorkflowCommands {
+    /// Run a workflow
+    Run {
+        /// Workflow file
+        file: PathBuf,
+    },
+    /// List workflows
+    List,
+}
+
+#[derive(Subcommand)]
+enum PackageCommands {
+    /// Install a package
+    Install {
+        /// Package name
+        name: String,
+    },
+    /// Publish a package
+    Publish {
+        /// Path to package
+        path: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -161,6 +257,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Version => {
             execute_version().await
+        }
+        Commands::Build(build_command) => {
+            execute_build(build_command).await
+        }
+        Commands::Lint { paths } => {
+            execute_lint(&paths).await
+        }
+        Commands::Test { filter } => {
+            execute_test(filter.as_deref()).await
+        }
+        Commands::Deploy { target } => {
+            execute_deploy(&target).await
+        }
+        Commands::Backup { destination } => {
+            execute_backup(&destination).await
+        }
+        Commands::Restore { source } => {
+            execute_restore(&source).await
+        }
+        Commands::Profile { file } => {
+            execute_profile(&file).await
+        }
+        Commands::Workflow(workflow_command) => {
+            execute_workflow(workflow_command).await
+        }
+        Commands::Package(package_command) => {
+            execute_package(package_command).await
+        }
+        Commands::K2tsx { input, output } => {
+            execute_k2tsx(&input, output.as_deref()).await
         }
     };
 
@@ -209,9 +335,6 @@ async fn execute_info(verbose: bool, json: bool) -> Result<(), Box<dyn std::erro
         } else {
             println!("  ✅ Core crates published to crates.io");
         }
-
-        println!("\n🚀 Workflow and server features are optional and disabled for core stability.");
-        println!("🔄 Use published crates directly for advanced features.");
     }
 
     Ok(())
@@ -222,34 +345,25 @@ async fn execute_query(query: &str, format: &str, _db: Option<&std::path::Path>)
     println!("🔍 Executing GQL query: {}", query);
     println!("📄 Output format: {}", format);
 
-    #[cfg(feature = "execution")]
-    {
-        use kotoba_execution::execution::gql_parser::GqlParser;
+    use kotoba_execution::execution::gql_parser::GqlParser;
 
-        // GQLパーサーを作成
-        let mut parser = GqlParser::new();
+    // GQLパーサーを作成
+    let parser = GqlParser::new();
 
-        // クエリを解析
-        match parser.parse(query) {
-            Ok(parsed_query) => {
-                println!("✅ Query parsed successfully");
-                println!("📊 Parsed query: {:?}", parsed_query);
+    // クエリを解析
+    match parser.parse(query) {
+        Ok(parsed_query) => {
+            println!("✅ Query parsed successfully");
+            println!("📊 Parsed query: {:?}", parsed_query);
 
-                // クエリ実行（簡易実装）
-                println!("⚠️  Full query execution not yet implemented");
-                println!("💡 Query structure parsed, but execution requires storage backend");
-            }
-            Err(e) => {
-                println!("❌ Failed to parse query: {}", e);
-                return Err(format!("Failed to parse query: {}", e).into());
-            }
+            // クエリ実行（簡易実装）
+            println!("⚠️  Full query execution not yet implemented");
+            println!("💡 Query structure parsed, but execution requires storage backend");
         }
-    }
-
-    #[cfg(not(feature = "execution"))]
-    {
-        println!("⚠️  Query execution not available - build with --features execution");
-        println!("💡 Use published kotoba-execution crate for query functionality");
+        Err(e) => {
+            println!("❌ Failed to parse query: {}", e);
+            return Err(format!("Failed to parse query: {}", e).into());
+        }
     }
 
     Ok(())
@@ -271,33 +385,24 @@ async fn execute_run(file: &std::path::Path, args: &[String], watch: bool) -> Re
         return Err(format!("File not found: {}", file.display()).into());
     }
 
-    #[cfg(feature = "kotobas")]
-    {
-        use kotoba_kotobas::evaluate_kotoba;
+    use kotoba_kotobas::evaluate_kotoba;
 
-        // ファイルを読み込み
-        let content = tokio::fs::read_to_string(file).await?;
+    // ファイルを読み込み
+    let content = tokio::fs::read_to_string(file).await?;
 
-        // Jsonnet/Jsonnet拡張として評価
-        match evaluate_kotoba(&content) {
-            Ok(result) => {
-                println!("✅ File executed successfully");
-                println!("📄 Result: {:?}", result);
+    // Jsonnet/Jsonnet拡張として評価
+    match evaluate_kotoba(&content) {
+        Ok(result) => {
+            println!("✅ File executed successfully");
+            println!("📄 Result: {:?}", result);
 
-                // TODO: より詳細な実行結果の処理
-                println!("⚠️  Full execution pipeline not yet implemented");
-            }
-            Err(e) => {
-                println!("❌ Failed to execute file: {}", e);
-                return Err(format!("Failed to execute file: {}", e).into());
-            }
+            // TODO: より詳細な実行結果の処理
+            println!("⚠️  Full execution pipeline not yet implemented");
         }
-    }
-
-    #[cfg(not(feature = "kotobas"))]
-    {
-        println!("⚠️  File execution not available - build with --features kotobas");
-        println!("💡 Use published kotoba-kotobas crate for .kotoba file execution");
+        Err(e) => {
+            println!("❌ Failed to execute file: {}", e);
+            return Err(format!("Failed to execute file: {}", e).into());
+        }
     }
 
     Ok(())
@@ -307,75 +412,66 @@ async fn execute_run(file: &std::path::Path, args: &[String], watch: bool) -> Re
 async fn execute_check(paths: &[std::path::PathBuf], all: bool) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔍 Checking files...");
 
-    #[cfg(feature = "formatter")]
-    {
-        use kotoba_formatter::format_files;
+    use kotoba_formatter::format_files;
 
-        let mut files_to_check = Vec::new();
+    let mut files_to_check = Vec::new();
 
-        for path in paths {
-            if path.is_file() {
-                // 単一ファイルの場合
-                if path.extension().map_or(false, |ext| ext == "kotoba") {
-                    files_to_check.push(path.clone());
-                } else {
-                    println!("⚠️  Skipping non-.kotoba file: {}", path.display());
-                }
-            } else if path.is_dir() {
-                // ディレクトリの場合
-                if all {
-                    println!("  🔄 Checking all .kotoba files in: {}", path.display());
-                    use kotoba_formatter::format_directory;
-                    let results = format_directory(path.clone(), true).await?;
-                    for result in results {
-                        if result.has_changes {
-                            println!("❌ File needs formatting: {}", result.file_path.display());
-                        } else if result.error.is_some() {
-                            println!("❌ File has syntax errors: {} ({})",
+    for path in paths {
+        if path.is_file() {
+            // 単一ファイルの場合
+            if path.extension().map_or(false, |ext| ext == "kotoba") {
+                files_to_check.push(path.clone());
+            } else {
+                println!("⚠️  Skipping non-.kotoba file: {}", path.display());
+            }
+        } else if path.is_dir() {
+            // ディレクトリの場合
+            if all {
+                println!("  🔄 Checking all .kotoba files in: {}", path.display());
+                use kotoba_formatter::format_directory;
+                let results = format_directory(path.clone(), true).await?;
+                for result in results {
+                    if result.has_changes {
+                        println!("❌ File needs formatting: {}", result.file_path.display());
+                    } else if result.error.is_some() {
+                        println!("❌ File has syntax errors: {} ({})",
                                    result.file_path.display(),
                                    result.error.as_ref().unwrap());
-                        } else {
-                            println!("✅ File is valid: {}", result.file_path.display());
-                        }
+                    } else {
+                        println!("✅ File is valid: {}", result.file_path.display());
                     }
-                    return Ok(());
-                } else {
-                    println!("⚠️  Directory checking requires --all flag: {}", path.display());
                 }
-            }
-        }
-
-        if !files_to_check.is_empty() {
-            println!("  📋 Checking {} file(s)...", files_to_check.len());
-
-            let results = format_files(files_to_check, true).await?;
-            let mut has_errors = false;
-
-            for result in results {
-                if result.error.is_some() {
-                    println!("❌ Syntax error in {}: {}",
-                           result.file_path.display(),
-                           result.error.as_ref().unwrap());
-                    has_errors = true;
-                } else if result.has_changes {
-                    println!("❌ File needs formatting: {}", result.file_path.display());
-                    has_errors = true;
-                } else {
-                    println!("✅ File is valid: {}", result.file_path.display());
-                }
-            }
-
-            if has_errors {
-                println!("💡 Run 'kotoba fmt' to fix formatting issues");
-                return Err("Files have validation errors".into());
+                return Ok(());
+            } else {
+                println!("⚠️  Directory checking requires --all flag: {}", path.display());
             }
         }
     }
 
-    #[cfg(not(feature = "formatter"))]
-    {
-        println!("⚠️  File checking not available - build with --features formatter");
-        println!("💡 Use published kotoba-formatter crate for file validation");
+    if !files_to_check.is_empty() {
+        println!("  📋 Checking {} file(s)...", files_to_check.len());
+
+        let results = format_files(files_to_check, true).await?;
+        let mut has_errors = false;
+
+        for result in results {
+            if result.error.is_some() {
+                println!("❌ Syntax error in {}: {}",
+                       result.file_path.display(),
+                       result.error.as_ref().unwrap());
+                has_errors = true;
+            } else if result.has_changes {
+                println!("❌ File needs formatting: {}", result.file_path.display());
+                has_errors = true;
+            } else {
+                println!("✅ File is valid: {}", result.file_path.display());
+            }
+        }
+
+        if has_errors {
+            println!("💡 Run 'kotoba fmt' to fix formatting issues");
+            return Err("Files have validation errors".into());
+        }
     }
 
     Ok(())
@@ -391,96 +487,85 @@ async fn execute_fmt(paths: &[std::path::PathBuf], check: bool, all: bool) -> Re
         println!("🔄 Formatting all files recursively");
     }
 
-    #[cfg(feature = "formatter")]
-    {
-        use kotoba_formatter::{format_files, format_directory};
-        use tokio::fs;
+    use kotoba_formatter::{format_files, format_directory};
 
-        let mut total_files = 0;
-        let mut formatted_files = 0;
-        let mut error_files = 0;
+    let mut total_files = 0;
+    let mut formatted_files = 0;
+    let mut error_files = 0;
 
-        for path in paths {
-            if path.is_file() {
-                // 単一ファイルの場合
-                if path.extension().map_or(false, |ext| ext == "kotoba") {
-                    let results = format_files(vec![path.clone()], check).await?;
-                    total_files += 1;
+    for path in paths {
+        if path.is_file() {
+            // 単一ファイルの場合
+            if path.extension().map_or(false, |ext| ext == "kotoba") {
+                let results = format_files(vec![path.clone()], check).await?;
+                total_files += 1;
 
-                    for result in results {
-                        if result.error.is_some() {
-                            println!("❌ Failed to format {}: {}",
-                                   result.file_path.display(),
-                                   result.error.as_ref().unwrap());
-                            error_files += 1;
-                        } else if result.has_changes && !check {
-                            println!("✅ Formatted: {}", result.file_path.display());
-                            formatted_files += 1;
-                        } else if result.has_changes && check {
-                            println!("⚠️  Needs formatting: {}", result.file_path.display());
-                        } else {
-                            println!("📋 Already formatted: {}", result.file_path.display());
-                        }
+                for result in results {
+                    if result.error.is_some() {
+                        println!("❌ Failed to format {}: {}",
+                               result.file_path.display(),
+                               result.error.as_ref().unwrap());
+                        error_files += 1;
+                    } else if result.has_changes && !check {
+                        println!("✅ Formatted: {}", result.file_path.display());
+                        formatted_files += 1;
+                    } else if result.has_changes && check {
+                        println!("⚠️  Needs formatting: {}", result.file_path.display());
+                    } else {
+                        println!("📋 Already formatted: {}", result.file_path.display());
                     }
-                } else {
-                    println!("⚠️  Skipping non-.kotoba file: {}", path.display());
                 }
-            } else if path.is_dir() {
-                // ディレクトリの場合
-                if all {
-                    println!("📁 Formatting directory: {}", path.display());
-                    let results = format_directory(path.clone(), check).await?;
-                    total_files += results.len();
+            } else {
+                println!("⚠️  Skipping non-.kotoba file: {}", path.display());
+            }
+        } else if path.is_dir() {
+            // ディレクトリの場合
+            if all {
+                println!("📁 Formatting directory: {}", path.display());
+                let results = format_directory(path.clone(), check).await?;
+                total_files += results.len();
 
-                    for result in results {
-                        if result.error.is_some() {
-                            println!("❌ Failed to format {}: {}",
-                                   result.file_path.display(),
-                                   result.error.as_ref().unwrap());
-                            error_files += 1;
-                        } else if result.has_changes && !check {
-                            println!("✅ Formatted: {}", result.file_path.display());
-                            formatted_files += 1;
-                        } else if result.has_changes && check {
-                            println!("⚠️  Needs formatting: {}", result.file_path.display());
-                        } else if !check {
-                            println!("📋 Already formatted: {}", result.file_path.display());
-                        }
+                for result in results {
+                    if result.error.is_some() {
+                        println!("❌ Failed to format {}: {}",
+                               result.file_path.display(),
+                               result.error.as_ref().unwrap());
+                        error_files += 1;
+                    } else if result.has_changes && !check {
+                        println!("✅ Formatted: {}", result.file_path.display());
+                        formatted_files += 1;
+                    } else if result.has_changes && check {
+                        println!("⚠️  Needs formatting: {}", result.file_path.display());
+                    } else if !check {
+                        println!("📋 Already formatted: {}", result.file_path.display());
                     }
-                } else {
-                    println!("⚠️  Directory formatting requires --all flag: {}", path.display());
                 }
+            } else {
+                println!("⚠️  Directory formatting requires --all flag: {}", path.display());
             }
         }
-
-        // サマリー出力
-        println!("\n📊 Formatting Summary:");
-        println!("   Total files: {}", total_files);
-        if !check {
-            println!("   Formatted files: {}", formatted_files);
-        } else {
-            println!("   Files needing formatting: {}", formatted_files);
-        }
-        if error_files > 0 {
-            println!("   Files with errors: {}", error_files);
-        }
-
-        if check && formatted_files > 0 {
-            println!("💡 Run 'kotoba fmt' without --check to apply formatting");
-            return Err("Some files need formatting".into());
-        }
-
-        if error_files > 0 {
-            return Err("Some files had formatting errors".into());
-        }
     }
 
-    #[cfg(not(feature = "formatter"))]
-    {
-        println!("⚠️  Code formatting not available - build with --features formatter");
-        println!("💡 Use published kotoba-formatter crate for code formatting");
+    // サマリー出力
+    println!("\n📊 Formatting Summary:");
+    println!("   Total files: {}", total_files);
+    if !check {
+        println!("   Formatted files: {}", formatted_files);
+    } else {
+        println!("   Files needing formatting: {}", formatted_files);
+    }
+    if error_files > 0 {
+        println!("   Files with errors: {}", error_files);
     }
 
+    if check && formatted_files > 0 {
+        println!("💡 Run 'kotoba fmt' without --check to apply formatting");
+        return Err("Some files need formatting".into());
+    }
+
+    if error_files > 0 {
+        return Err("Some files had formatting errors".into());
+    }
     Ok(())
 }
 
@@ -492,16 +577,7 @@ async fn execute_server(port: u16, host: &str, config: Option<&std::path::Path>)
         println!("⚙️  Config: {}", config_path.display());
     }
 
-    #[cfg(feature = "server")]
-    {
-        kotoba_server::start_server(host, port).await?;
-    }
-
-    #[cfg(not(feature = "server"))]
-    {
-        println!("⚠️  Server feature not enabled");
-        println!("💡 Build with --features server or use published kotoba-server crate");
-    }
+    kotoba_server::start_server(host, port).await?;
 
     Ok(())
 }
@@ -517,16 +593,7 @@ async fn execute_init(name: Option<&str>, template: &str, force: bool) -> Result
         println!("💪 Force mode enabled");
     }
 
-    #[cfg(feature = "package-manager")]
-    {
-        kotoba_package_manager::init_project(name.map(|s| s.to_string())).await?;
-    }
-
-    #[cfg(not(feature = "package-manager"))]
-    {
-        println!("⚠️  Package manager feature not enabled");
-        println!("💡 Build with --features package-manager or use published kotoba-package-manager crate");
-    }
+    kotoba_package_manager::init_project(name.map(|s| s.to_string())).await?;
 
     Ok(())
 }
@@ -538,24 +605,15 @@ async fn execute_doc(output: &std::path::Path, format: &str, source: &std::path:
     println!("📁 Output: {}", output.display());
     println!("📄 Format: {}", format);
 
-    #[cfg(feature = "kotobas")]
-    {
-        // kotoba-kotobas crateを使ってドキュメント生成
-        // 簡易実装として、ソースファイルの解析とHTML生成を行う
-        println!("⚠️  Full documentation generation not yet implemented");
-        println!("💡 Documentation will be generated using kotoba-kotobas parsing capabilities");
+    // kotoba-kotobas crateを使ってドキュメント生成
+    // 簡易実装として、ソースファイルの解析とHTML生成を行う
+    println!("⚠️  Full documentation generation not yet implemented");
+    println!("💡 Documentation will be generated using kotoba-kotobas parsing capabilities");
 
-        // TODO: 実際のドキュメント生成を実装
-        // - ソースファイルの解析
-        // - マークダウン/HTML生成
-        // - インデックス作成
-    }
-
-    #[cfg(not(feature = "kotobas"))]
-    {
-        println!("⚠️  Documentation generation not available - build with --features kotobas");
-        println!("💡 Use published documentation tools for full documentation generation");
-    }
+    // TODO: 実際のドキュメント生成を実装
+    // - ソースファイルの解析
+    // - マークダウン/HTML生成
+    // - インデックス作成
 
     Ok(())
 }
@@ -570,23 +628,14 @@ async fn execute_repl(script: Option<&std::path::Path>, history: Option<&std::pa
         println!("📝 History file: {}", history_path.display());
     }
 
-    #[cfg(feature = "repl")]
-    {
-        println!("⚠️  Full REPL implementation not yet complete");
-        println!("💡 REPL will be available with kotoba-repl crate integration");
+    println!("⚠️  Full REPL implementation not yet complete");
+    println!("💡 REPL will be available with kotoba-repl crate integration");
 
-        // TODO: 実際のREPL実装
-        // - コマンドライン入力の読み取り
-        // - kotoba-repl crateの使用
-        // - 履歴管理
-        // - スクリプト実行
-    }
-
-    #[cfg(not(feature = "repl"))]
-    {
-        println!("⚠️  REPL not available - build with --features repl");
-        println!("💡 Use published kotoba-repl crate for interactive development");
-    }
+    // TODO: 実際のREPL実装
+    // - コマンドライン入力の読み取り
+    // - kotoba-repl crateの使用
+    // - 履歴管理
+    // - スクリプト実行
 
     Ok(())
 }
@@ -596,5 +645,211 @@ async fn execute_version() -> Result<(), Box<dyn std::error::Error>> {
     println!("Kotoba {}", env!("CARGO_PKG_VERSION"));
     println!("GP2-based Graph Rewriting Language");
     println!("Built with Rust {}", rustc_version::version()?);
+    Ok(())
+}
+
+async fn execute_build(command: BuildCommands) -> Result<(), Box<dyn std::error::Error>> {
+    println!("🏗️  Running build command...");
+
+    match command {
+        BuildCommands::Default => {
+            // Execute kotoba-build binary with default build
+            let status = std::process::Command::new("cargo")
+                .args(&["run", "-p", "kotoba-build", "--bin", "kotoba-build", "--"])
+                .status()?;
+
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
+        }
+        BuildCommands::Task { name } => {
+            // Execute kotoba-build binary with specific task
+            let status = std::process::Command::new("cargo")
+                .args(&["run", "-p", "kotoba-build", "--bin", "kotoba-build", "--", &name])
+                .status()?;
+
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
+        }
+        BuildCommands::Tasks => {
+            // Execute kotoba-build binary with --list flag
+            let status = std::process::Command::new("cargo")
+                .args(&["run", "-p", "kotoba-build", "--bin", "kotoba-build", "--", "--list"])
+                .status()?;
+
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(1));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn execute_lint(paths: &[PathBuf]) -> Result<(), Box<dyn std::error::Error>> {
+    println!("🔍 Running linter on paths: {:?}", paths);
+
+    // Prepare command arguments
+    let mut args = vec![];
+    for path in paths {
+        args.push(path.to_str().unwrap_or("."));
+    }
+
+    // Execute kotoba-lint binary from kotoba-linter package
+    let status = std::process::Command::new("cargo")
+        .args(&["run", "-p", "kotoba-linter", "--bin", "kotoba-lint", "--"])
+        .args(&args)
+        .status()?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+async fn execute_test(filter: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+    println!("🧪 Running tests... Filter: {}", filter.unwrap_or("none"));
+
+    // Prepare command arguments
+    let mut args = vec![];
+    if let Some(f) = filter {
+        args.push("--filter");
+        args.push(f);
+    }
+
+    // Execute kotoba-test binary from kotoba-tester package
+    let status = std::process::Command::new("cargo")
+        .args(&["run", "-p", "kotoba-tester", "--bin", "kotoba-test", "--"])
+        .args(&args)
+        .status()?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+async fn execute_deploy(target: &str) -> Result<(), Box<dyn std::error::Error>> {
+    println!("🚀 Deploying to target: {}", target);
+
+    // Execute kotoba-deploy-cli binary with deploy subcommand
+    let status = std::process::Command::new("cargo")
+        .args(&["run", "-p", "kotoba-deploy-cli", "--bin", "kotoba-deploy", "--", "deploy", "--name", target])
+        .status()?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+async fn execute_backup(destination: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    println!("💾 Creating backup to: {}", destination.display());
+
+    // Execute kotoba-backup binary with backup subcommand
+    let status = std::process::Command::new("cargo")
+        .args(&[
+            "run",
+            "-p",
+            "kotoba-backup",
+            "--bin",
+            "kotoba-backup",
+            "--",
+            "backup",
+            &destination.to_string_lossy(),
+        ])
+        .status()?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+async fn execute_restore(source: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    println!("🔄 Restoring from: {}", source.display());
+
+    // Execute kotoba-backup binary with restore subcommand
+    let status = std::process::Command::new("cargo")
+        .args(&[
+            "run",
+            "-p",
+            "kotoba-backup",
+            "--bin",
+            "kotoba-backup",
+            "--",
+            "restore",
+            &source.to_string_lossy(),
+        ])
+        .status()?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+async fn execute_profile(file: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    println!("📊 Profiling file: {}", file.display());
+
+    // Execute kotoba-profiler binary with profile subcommand
+    let status = std::process::Command::new("cargo")
+        .args(&[
+            "run",
+            "-p",
+            "kotoba-profiler",
+            "--bin",
+            "kotoba-profiler",
+            "--",
+            "profile",
+            "--db-path",
+            &file.to_string_lossy(),
+        ])
+        .status()?;
+
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
+    Ok(())
+}
+
+async fn execute_workflow(command: WorkflowCommands) -> Result<(), Box<dyn std::error::Error>> {
+    match command {
+        WorkflowCommands::Run { file } => {
+            println!("Running workflow: {}", file.display());
+            // TODO: Implement using kotoba-workflow
+        }
+        WorkflowCommands::List => {
+            println!("Listing workflows...");
+            // TODO: Implement using kotoba-workflow
+        }
+    }
+    Ok(())
+}
+
+async fn execute_package(command: PackageCommands) -> Result<(), Box<dyn std::error::Error>> {
+    match command {
+        PackageCommands::Install { name } => {
+            println!("Installing package: {}", name);
+            // TODO: Implement using kotoba-package-manager
+        }
+        PackageCommands::Publish { path } => {
+            println!("Publishing package at: {:?}", path);
+            // TODO: Implement using kotoba-package-manager
+        }
+    }
+    Ok(())
+}
+
+async fn execute_k2tsx(input: &PathBuf, _output: Option<&Path>) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Converting {} to tsx...", input.display());
+    // TODO: Implement using kotoba2tsx
     Ok(())
 }

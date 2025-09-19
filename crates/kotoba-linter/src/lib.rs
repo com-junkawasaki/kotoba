@@ -300,7 +300,7 @@ impl Linter {
 }
 
 /// .kotoba ファイルを再帰的に検索
-async fn find_kotoba_files(dir: PathBuf, files: &mut Vec<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn find_kotoba_files(dir: PathBuf, files: &mut Vec<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     let mut entries = tokio::fs::read_dir(&dir).await?;
 
     while let Some(entry) = entries.next_entry().await? {

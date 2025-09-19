@@ -20,6 +20,11 @@ members = [
     # Legacy workflow engine (being refactored)
     "crates/kotoba-workflow",      # Full workflow engine (legacy)
 
+    # CLI tools (standalone binaries)
+    "crates/kotoba-linter",        # Code linter
+    "crates/kotoba-tester",        # Test runner
+    "crates/kotoba-backup",        # Backup & restore tool
+
     ".",                           # Root package for CLI binary
 ]
 resolver = "2"
@@ -67,7 +72,7 @@ kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
 kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
 kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
 kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
-# kotoba-execution moved to optional dependencies
+kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
 kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
 kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.16" }
 kotoba-routing = { path = "crates/kotoba-routing", version = "0.1.16" }
@@ -123,16 +128,21 @@ kotoba-schema = { path = "crates/kotoba-schema" }
 # kotoba-execution moved to optional dependencies
 kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-security.workspace = true
-kotoba-server = { path = "crates/kotoba-server", optional = true }
+kotoba-server = { path = "crates/kotoba-server" }
 
 # Core crates only (published versions)
 # Optional crates are disabled for stable core focus
-kotoba-package-manager = { path = "crates/kotoba-package-manager", optional = true }
-kotoba-execution = { path = "crates/kotoba-execution", optional = true }
-kotoba-graph = { path = "crates/kotoba-graph", optional = true }
-kotoba-kotobas = { path = "crates/kotoba-kotobas", optional = true }
-kotoba-repl = { path = "crates/kotoba-repl", optional = true }
-kotoba-formatter = { path = "crates/kotoba-formatter", optional = true }
+kotoba-package-manager = { path = "crates/kotoba-package-manager" }
+kotoba-execution = { path = "crates/kotoba-execution" }
+kotoba-graph = { path = "crates/kotoba-graph" }
+kotoba-kotobas = { path = "crates/kotoba-kotobas" }
+kotoba-repl = { path = "crates/kotoba-repl" }
+kotoba-formatter = { path = "crates/kotoba-formatter" }
+# kotoba-linter = { path = "crates/kotoba-linter" } # CLIバイナリとして独立実行
+# kotoba-tester = { path = "crates/kotoba-tester" } # CLIバイナリとして独立実行
+# kotoba-build = { path = "crates/kotoba-build" } # CLIバイナリとして独立実行
+# kotoba-deploy-cli = { path = "crates/kotoba-deploy-cli" }  # 依存関係の問題があるため一時的に無効化
+# kotoba-backup = { path = "crates/kotoba-backup" }  # 動作確認のため一時的に無効化
 
 # Schema and CID dependencies
 schemars.workspace = true
@@ -148,13 +158,16 @@ thiserror.workspace = true
 tempfile.workspace = true
 
 # For binary
-clap = { version = "4.0", features = ["derive"], optional = true }
+clap = { version = "4.0", features = ["derive"] }
 rustc_version = "0.4"
+# colored = "2.0" # サブプロセス経由で実行するため不要
+# indicatif = "0.17" # サブプロセス経由で実行するため不要
+# serde_yaml = "0.9" # サブプロセス経由で実行するため不要
 
 # Optional crates for different use cases
-tokio = { version = "1.0", features = ["full"], optional = true }
-log = { version = "0.4", optional = true }
-env_logger = { version = "0.11", optional = true }
+tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+env_logger = "0.11"
 uuid = { version = "1.0", features = ["v4"] }
 
 # Vercel deployment
@@ -162,9 +175,9 @@ vercel_runtime = { version = "1.0", optional = true }
 reqwest = { version = "0.11", features = ["json"], optional = true }
 
 [features]
-default = ["full"]
-full = ["tokio", "log", "env_logger", "examples", "binary", "server", "package-manager", "execution", "graph", "kotobas", "repl", "formatter"]
-binary = ["clap"]
+default = []
+# full = ["tokio", "log", "env_logger", "examples", "binary", "server", "package-manager", "execution", "graph", "kotobas", "repl", "formatter"]
+# binary = ["clap"]
 examples = []
 types = []
 ir = []
@@ -177,13 +190,13 @@ http = []
 frontend = []
 wasm = []
 deploy = []
-server = ["kotoba-server"]
-package-manager = ["kotoba-package-manager"]
-execution = ["kotoba-execution"]
-graph = ["kotoba-graph"]
-kotobas = ["kotoba-kotobas"]
-repl = ["kotoba-repl"]
-formatter = ["kotoba-formatter"]
+# server = ["kotoba-server"]
+# package-manager = ["kotoba-package-manager"]
+# execution = ["kotoba-execution"]
+# graph = ["kotoba-graph"]
+# kotobas = ["kotoba-kotobas"]
+# repl = ["kotoba-repl"]
+# formatter = ["kotoba-formatter"]
 vercel = ["vercel_runtime", "reqwest"]
 lsm = []
 
