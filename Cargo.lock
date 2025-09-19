@@ -4981,13 +4981,13 @@ dependencies = [
 
 [[package]]
 name = "kotoba-execution"
-version = "0.1.22"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "async-trait",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-storage 0.1.22",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -5069,7 +5069,7 @@ dependencies = [
 
 [[package]]
 name = "kotoba-handler"
-version = "0.1.22"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -5080,13 +5080,9 @@ dependencies = [
  "hyper 0.14.32",
  "js-sys",
  "jsonwebtoken",
- "kotoba-cli",
- "kotoba-core 0.1.21",
- "kotoba-errors 0.1.2",
- "kotoba-kotobas",
- "kotoba-server",
- "kotoba-storage 0.1.22",
- "kotoba2tsx",
+ "kotoba-core 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "mime_guess",
  "notify",
  "rand 0.8.5",

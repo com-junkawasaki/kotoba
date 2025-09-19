@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-projection-engine"
-version = "0.1.0"
+version = "0.1.21"
 edition = "2021"
 description = "Real-time projection engine for GraphDB materialization using RocksDB"
 license = "MIT OR Apache-2.0"
@@ -37,6 +37,6 @@ futures = "0.3"
 metrics = "0.23"
 
 # Kotoba dependencies - Port layer
-kotoba-storage = { path = "../../100-storage/kotoba-storage" }
-kotoba-event-stream = { path = "../../200-application/kotoba-event-stream" }
-kotoba-ocel = { path = "../../000-core/kotoba-ocel" }
+kotoba-storage = "0.1.22"
+kotoba-event-stream = "0.1.21"
+kotoba-ocel = "0.1.21"
