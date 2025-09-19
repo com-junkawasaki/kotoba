@@ -507,7 +507,7 @@ impl WorkflowParser {
     }
 
     /// オブジェクトから文字列を抽出
-    fn extract_string(&self, obj: &Map<String, JsonValue>, key: &str) -> StdResult<String, WorkflowError> {
+    fn extract_string(obj: &Map<String, JsonValue>, key: &str) -> StdResult<String, WorkflowError> {
         obj.get(key)
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
@@ -516,6 +516,7 @@ impl WorkflowParser {
 }
 
 /// JsonnetValueをserde_json::Valueに変換
+/*
 fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
     match value {
         JsonnetValue::Null => Ok(JsonValue::Null),
@@ -546,6 +547,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
         _ => Err(WorkflowError::InvalidDefinition("Unsupported Jsonnet value type".to_string())),
     }
 }
+*/
 
     /// 基本戦略をパース
     fn parse_basic_strategy(value: &JsonValue) -> StdResult<StrategyOp, WorkflowError> {
@@ -558,11 +560,11 @@ fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
 
         match op {
             "once" => {
-                let rule = self.extract_string(obj, "rule")?;
+                let rule = Self::extract_string(obj, "rule")?;
                 Ok(StrategyOp::Once { rule })
             }
             "exhaust" => {
-                let rule = self.extract_string(obj, "rule")?;
+                let rule = Self::extract_string(obj, "rule")?;
                 let order = obj.get("order")
                     .and_then(|v| v.as_str())
                     .and_then(|s| match s {
@@ -601,7 +603,7 @@ fn jsonnet_to_json(value: JsonnetValue) -> StdResult<JsonValue, WorkflowError> {
         let strategy = obj.get("strategy")
             .ok_or_else(|| WorkflowError::InvalidDefinition("Prioritized strategy must have 'strategy' field".to_string()))?;
 
-        let strategy = self.parse_basic_strategy(strategy)?;
+        let strategy = Self::parse_basic_strategy(strategy)?;
         let priority = obj.get("priority")
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;

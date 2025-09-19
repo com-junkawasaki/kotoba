@@ -275,6 +275,7 @@ impl WorkflowExecutor {
     }
 
     /// Executes a declarative workflow, like one from an HTTP route.
+    /*
     pub async fn execute_declarative_workflow(
         &self,
         steps: &[WorkflowStep],
@@ -295,6 +296,7 @@ impl WorkflowExecutor {
 
         Err(WorkflowError::InvalidDefinition("Workflow did not end with a 'return' step.".to_string()))
     }
+    */
 
     /// Executes a single step from a declarative workflow.
     async fn execute_step(
@@ -330,6 +332,7 @@ impl WorkflowExecutor {
             _ => Err(WorkflowError::InvalidStepType(format!("{:?}", step.step_type))),
         }
     }
+    */
 
     /// Resolves parameters that might be context references.
     fn materialize_params(

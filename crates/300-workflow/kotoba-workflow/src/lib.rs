@@ -29,7 +29,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::ir::{ExecutionEventType, ExecutionEvent};
+use crate::ir::{ExecutionEventType, ExecutionEvent, WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus};
 use crate::store::KotobaStorageBridge;
 use crate::distributed::{LoadBalancer, DistributedExecutionManager, DistributedWorkflowExecutor};
 use kotoba_core::prelude::TxId;
@@ -49,6 +49,7 @@ pub mod integrations;
 
 // Re-export main types - use core types where possible
 // pub use kotoba_workflow_core::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus, WorkflowEngineInterface};
+pub use ir::{WorkflowIR, WorkflowExecution, WorkflowExecutionId, ExecutionStatus};
 pub use ir::{ActivityIR};
 pub use executor::{ActivityRegistry, Activity, WorkflowExecutor, WorkflowStateManager};
 pub use store::{WorkflowStore, StorageBackend, StorageFactory, EventSourcingManager, SnapshotManager};
@@ -70,7 +71,7 @@ pub use integrations::{IntegrationManager, Integration};
 /// Workflow engine builder
 pub struct WorkflowEngineBuilder {
     storage_backend: Option<StorageBackend>,
-    kotoba_backend: Option<std::sync::Arc<dyn kotoba_storage::port::StoragePort>>,
+    // kotoba_backend: Option<std::sync::Arc<dyn kotoba_storage::port::StoragePort>>,
 }
 
 impl WorkflowEngineBuilder {
@@ -108,19 +109,23 @@ impl WorkflowEngineBuilder {
     }
 
     /// Use Kotoba storage backend for full integration
+    /*
     pub fn with_kotoba_storage(mut self, backend: std::sync::Arc<dyn kotoba_storage::port::StoragePort>) -> Self {
         self.kotoba_backend = Some(backend);
         // When using Kotoba backend, disable internal storage
         self.storage_backend = None;
         self
     }
+    */
 
     pub async fn build(self) -> Result<ExtendedWorkflowEngine, WorkflowError> {
         let storage = if let Some(backend) = self.storage_backend {
             StorageFactory::create(backend).await?
+        /*
         } else if let Some(kotoba_backend) = self.kotoba_backend {
             // Create a bridge to Kotoba storage
             std::sync::Arc::new(KotobaStorageBridge::new(kotoba_backend))
+        */
         } else {
             return Err(WorkflowError::StorageError("No storage backend configured".to_string()));
         };
@@ -389,8 +394,8 @@ pub type WorkflowEngine = ExtendedWorkflowEngine;
 /// Prelude for convenient imports
 pub mod prelude {
     pub use super::{
-        WorkflowEngine, ExtendedWorkflowEngine, WorkflowIR,
-        ActivityRegistry, Activity, WorkflowStore, ExecutionStatus,
+        WorkflowEngine, ExtendedWorkflowEngine,
+        ActivityRegistry, Activity, WorkflowStore, ExecutionStatus, WorkflowExecutionId,
         WorkflowParser, EventSourcingManager, SnapshotManager,
         // Phase 2 distributed types
         DistributedCoordinator, RoundRobinBalancer, LeastLoadedBalancer,

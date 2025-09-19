@@ -688,7 +688,6 @@ impl WorkflowStore for SQLiteWorkflowStore {
         Ok(executions)
     }
 }
-/// Bridge to Kotoba storage backend
 /*
 pub struct KotobaStorageBridge {
     kotoba_backend: std::sync::Arc<dyn kotoba_storage::port::StoragePort>,
