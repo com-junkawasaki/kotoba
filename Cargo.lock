@@ -5504,6 +5504,7 @@ dependencies = [
  "kotoba-storage",
  "rocksdb",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

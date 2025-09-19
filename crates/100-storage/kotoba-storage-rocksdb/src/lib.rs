@@ -59,12 +59,19 @@ impl KeyValueStore for RocksDbStore {
         let iter = self.db.iterator(IteratorMode::Start);
         for item in iter {
             let (key, value) = item?;
+
+            // Check if key starts with prefix
             if key.len() >= prefix_len && &key[..prefix_len] == prefix {
                 results.push((key.to_vec(), value.to_vec()));
-            } else if &key[..prefix_len] > prefix {
+            } else if key.len() >= prefix_len && &key[..prefix_len] > prefix {
                 break; // No more matching keys
+            } else if key.len() < prefix_len && key.as_ref() > prefix {
+                break; // Key is shorter than prefix but lexicographically greater
             }
         }
+
+        // Sort results by key for consistent ordering (RocksDB returns sorted results)
+        results.sort_by(|a, b| a.0.cmp(&b.0));
 
         Ok(results)
     }
@@ -79,8 +86,7 @@ impl Drop for RocksDbStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::path::PathBuf;
+    use std::sync::Arc;
     use tempfile::TempDir;
     use kotoba_storage::KeyValueStore;
 
@@ -242,22 +248,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_rocksdb_concurrent_access() {
-        let (store, _temp_dir) = create_temp_db();
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("concurrent_test.db");
+        let store = Arc::new(RocksDbStore::new(&db_path).unwrap());
 
         let mut handles = vec![];
 
         // Spawn multiple tasks to test concurrent access
         for i in 0..10 {
-            let store_clone = Arc::new(store.db.clone());
+            let store_clone = Arc::clone(&store);
             let handle = tokio::spawn(async move {
                 let key = format!("concurrent_key_{}", i).into_bytes();
                 let value = format!("concurrent_value_{}", i).into_bytes();
 
                 // Put operation
-                store_clone.put(&key, &value).unwrap();
+                store_clone.put(&key, &value).await.unwrap();
 
                 // Get operation
-                let retrieved = store_clone.get(&key).unwrap();
+                let retrieved = store_clone.get(&key).await.unwrap();
                 assert_eq!(retrieved, Some(value));
             });
             handles.push(handle);
@@ -266,6 +274,14 @@ mod tests {
         // Wait for all tasks to complete
         for handle in handles {
             handle.await.unwrap();
+        }
+
+        // Verify all keys were stored
+        for i in 0..10 {
+            let key = format!("concurrent_key_{}", i).into_bytes();
+            let expected_value = format!("concurrent_value_{}", i).into_bytes();
+            let retrieved = store.get(&key).await.unwrap();
+            assert_eq!(retrieved, Some(expected_value));
         }
     }
 
@@ -310,16 +326,18 @@ mod tests {
 
     #[test]
     fn test_rocksdb_error_handling() {
-        // Test with invalid path (should still work as RocksDB creates directories)
-        let result = RocksDbStore::new("/dev/null/invalid/path");
-        assert!(result.is_ok()); // RocksDB should handle this gracefully
-
-        // Test opening non-existent database
+        // Test opening non-existent database without create_if_missing
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("nonexistent.db");
         let result = RocksDbStore::open(&db_path);
         // This should fail as we're trying to open a non-existent database without create_if_missing
         assert!(result.is_err());
+
+        // Test with valid path should work
+        let temp_dir2 = TempDir::new().unwrap();
+        let db_path2 = temp_dir2.path().join("valid.db");
+        let result2 = RocksDbStore::new(&db_path2);
+        assert!(result2.is_ok());
     }
 
     #[tokio::test]
