@@ -372,6 +372,9 @@ impl MemoryOptimizer {
             None
         };
 
+        let stats_clone = stats.clone();
+        let recommendations_clone = recommendations.clone();
+
         Ok(MemoryReport {
             generated_at: chrono::Utc::now(),
             config: self.config.clone(),
@@ -380,7 +383,7 @@ impl MemoryOptimizer {
             cache_analysis,
             gc_analysis,
             recommendations,
-            optimization_score: self.calculate_optimization_score(&stats, &recommendations),
+            optimization_score: self.calculate_optimization_score(&stats_clone, &recommendations_clone),
         })
     }
 
