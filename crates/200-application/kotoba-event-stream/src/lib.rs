@@ -1,13 +1,12 @@
 //! `kotoba-event-stream`
 //!
-//! RocksDB-based event streaming component for KotobaDB.
-//! Provides publish/subscribe functionality for event sourcing using RocksDB.
+//! Event streaming component for KotobaDB.
+//! Provides publish/subscribe functionality for event sourcing using KeyValueStore interface.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
 use async_trait::async_trait;
-use rocksdb::{DB, ColumnFamilyDescriptor, Options, WriteBatch};
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
 use tracing::{info, warn, error, instrument};
@@ -16,23 +15,24 @@ use bincode;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
+use kotoba_storage::KeyValueStore;
+
 /// Core event types for the event sourcing system
 pub mod event;
 pub use event::*;
-
-/// RocksDB-based event stream implementation
-pub mod rocksdb_stream;
-pub use rocksdb_stream::*;
 
 /// Event storage and retrieval
 pub mod storage;
 pub use storage::*;
 
+// Re-export EventStorage and TopicMetadata for convenience
+pub use storage::{EventStorage, TopicMetadata};
+
 /// Configuration for the event stream
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventStreamConfig {
-    /// RocksDB data directory
-    pub rocksdb_path: String,
+    /// Storage prefix for event keys
+    pub storage_prefix: String,
     /// Maximum number of topics (column families)
     pub max_topics: usize,
     /// Maximum events per batch
@@ -48,7 +48,7 @@ pub struct EventStreamConfig {
 impl Default for EventStreamConfig {
     fn default() -> Self {
         Self {
-            rocksdb_path: "./data/event-stream".to_string(),
+            storage_prefix: "events".to_string(),
             max_topics: 100,
             max_batch_size: 1000,
             retention_hours: 168, // 7 days
@@ -110,27 +110,29 @@ pub struct ConsumerOffset {
     pub last_updated: DateTime<Utc>,
 }
 
-/// Main event stream implementation using RocksDB
-pub struct RocksDBEventStream {
+/// Main event stream implementation using KeyValueStore
+pub struct EventStream<T: KeyValueStore> {
     config: EventStreamConfig,
-    storage: Arc<RocksDBStorage>,
+    storage: Arc<EventStorage<T>>,
     subscribers: Arc<DashMap<String, Vec<EventHandler>>>,
     consumer_offsets: Arc<DashMap<String, ConsumerOffset>>,
 }
 
-impl RocksDBEventStream {
-    /// Create a new RocksDB event stream
-    pub async fn new(config: EventStreamConfig) -> Result<Self> {
-        let storage = Arc::new(RocksDBStorage::new(&config.rocksdb_path, config.max_topics).await?);
+impl<T: KeyValueStore> EventStream<T> {
+    /// Create a new event stream with the given KeyValueStore backend
+    pub fn new(config: EventStreamConfig, storage: Arc<T>) -> Self {
+        info!("Created event stream with storage backend");
 
-        info!("Created RocksDB event stream at: {}", config.rocksdb_path);
-
-        Ok(Self {
-            config,
-            storage,
+        Self {
+            config: config.clone(),
+            storage: Arc::new(EventStorage::new(
+                storage,
+                config.storage_prefix,
+                config.max_topics
+            )),
             subscribers: Arc::new(DashMap::new()),
             consumer_offsets: Arc::new(DashMap::new()),
-        })
+        }
     }
 
     /// Create topic name with validation
@@ -146,12 +148,12 @@ impl RocksDBEventStream {
 }
 
 #[async_trait]
-impl EventStreamPort for RocksDBEventStream {
+impl<T: KeyValueStore> EventStreamPort for EventStream<T> {
     async fn publish(&self, event: EventEnvelope) -> Result<EventId> {
         // Default topic if none specified
         let topic = "all".to_string();
 
-        // Store event in RocksDB
+        // Store event using EventStorage
         self.storage.store_event(&topic, &event).await?;
 
         // Notify subscribers
@@ -181,11 +183,14 @@ impl EventStreamPort for RocksDBEventStream {
     }
 
     async fn get_event(&self, event_id: &EventId) -> Result<Option<EventEnvelope>> {
-        self.storage.get_event(&event_id).await
+        self.storage.get_event(event_id).await
     }
 
     async fn get_events_by_aggregate(&self, aggregate_id: &AggregateId) -> Result<Vec<EventEnvelope>> {
-        self.storage.get_events_by_aggregate(&aggregate_id).await
+        // For now, return empty vec - need to implement aggregate-based querying
+        // This would require scanning keys with the aggregate prefix
+        warn!("get_events_by_aggregate not fully implemented yet");
+        Ok(Vec::new())
     }
 
     async fn create_topic(&self, topic: &str) -> Result<()> {

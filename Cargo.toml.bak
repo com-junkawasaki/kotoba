@@ -2,7 +2,6 @@
 members = [
     "crates/100-storage/kotoba-storage",
     "crates/100-storage/kotoba-storage-rocksdb",
-    "crates/200-application/kotoba-event-stream",
 ]
 resolver = "2"
 
@@ -105,23 +104,23 @@ panic = "abort"
 # Core crates - workspace versions
 # kotoba-core = { path = "crates/kotoba-core" } # Temporarily disabled to avoid confusion
 # kotoba-graph moved to optional dependencies
-# kotoba-storage = { path = "crates/kotoba-storage" }
-# kotoba-schema = { path = "crates/kotoba-schema" }
+kotoba-storage = { path = "crates/kotoba-storage" }
+kotoba-schema = { path = "crates/kotoba-schema" }
 # kotoba-execution moved to optional dependencies
-# kotoba-rewrite = { path = "crates/kotoba-rewrite" }
+kotoba-rewrite = { path = "crates/kotoba-rewrite" }
 # kotoba-security.workspace = true
-# kotoba-server = { path = "crates/kotoba-server" }
+kotoba-server = { path = "crates/kotoba-server" }
 
 # Core crates only (published versions)
 # Optional crates are disabled for stable core focus
-# kotoba-package-manager = { path = "crates/kotoba-package-manager" }
+kotoba-package-manager = { path = "crates/kotoba-package-manager" }
 # kotoba-execution temporarily disabled
 # kotoba-execution = { path = "crates/kotoba-execution" }
 # kotoba-graph temporarily disabled
 # kotoba-graph = { path = "crates/kotoba-graph" }
 # kotoba-kotobas temporarily disabled
 # kotoba-kotobas = { path = "crates/kotoba-kotobas" }
-# kotoba-repl = { path = "crates/kotoba-repl" }
+kotoba-repl = { path = "crates/kotoba-repl" }
 # kotoba-formatter temporarily disabled
 # kotoba-formatter = { path = "crates/kotoba-formatter" }
 # kotoba-linter = { path = "crates/kotoba-linter" } # CLIバイナリとして独立実行
@@ -200,41 +199,40 @@ rand = "0.8"
 uuid = { version = "1.0", features = ["v4"] }
 rayon = "1.7"
 
-# Benchmarks temporarily disabled
-# [[bench]]
-# name = "graph_operations"
-# path = "benches/graph_operations.rs"
-# harness = false
+[[bench]]
+name = "graph_operations"
+path = "benches/graph_operations.rs"
+harness = false
 
-# [[bench]]
-# name = "query_execution"
-# path = "benches/query_execution.rs"
-# harness = false
+[[bench]]
+name = "query_execution"
+path = "benches/query_execution.rs"
+harness = false
 
-# [[bench]]
-# name = "rewrite_operations"
-# path = "benches/rewrite_operations.rs"
-# harness = false
+[[bench]]
+name = "rewrite_operations"
+path = "benches/rewrite_operations.rs"
+harness = false
 
-# [[bench]]
-# name = "storage_operations"
-# path = "benches/storage_operations.rs"
-# harness = false
+[[bench]]
+name = "storage_operations"
+path = "benches/storage_operations.rs"
+harness = false
 
-# [[bench]]
-# name = "jsonnet_benchmark"
-# path = "benches/jsonnet_benchmark.rs"
-# harness = false
+[[bench]]
+name = "jsonnet_benchmark"
+path = "benches/jsonnet_benchmark.rs"
+harness = false
 
-# [[bench]]
-# name = "parallel_processing"
-# path = "benches/parallel_processing.rs"
-# harness = false
+[[bench]]
+name = "parallel_processing"
+path = "benches/parallel_processing.rs"
+harness = false
 
-# [[bench]]
-# name = "advanced_algorithms"
-# path = "benches/advanced_algorithms.rs"
-# harness = false
+[[bench]]
+name = "advanced_algorithms"
+path = "benches/advanced_algorithms.rs"
+harness = false
 
 # Examples are excluded from publish to avoid dependency issues
 # [[example]]

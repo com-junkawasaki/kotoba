@@ -1,6 +1,7 @@
 /target
 /target-runtime
 /target-test
+/.target
 
 # Nix
 result
