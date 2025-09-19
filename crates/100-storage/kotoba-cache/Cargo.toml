@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-cache"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 description = "Redis-based distributed cache layer for KotobaDB"
 license = "MIT OR Apache-2.0"

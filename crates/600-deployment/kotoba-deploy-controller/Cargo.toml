@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-deploy-controller"
-version = "0.1.21"
+version = "0.1.22"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -17,10 +17,10 @@ kotoba-core = { workspace = true }
 kotoba-storage = { workspace = true }
 kotoba-execution = { workspace = true }
 kotoba-rewrite = { workspace = true }
-kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.21" }
-kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.21" }
-kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.21" }
-kotoba-deploy-git = { path = "../kotoba-deploy-git", version = "0.1.21" }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.22" }
+kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.22" }
+kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.22" }
+kotoba-deploy-git = { path = "../kotoba-deploy-git", version = "0.1.22" }
 
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }

@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-deploy-network"
-version = "0.1.21"
+version = "0.1.22"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -14,7 +14,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 [dependencies]
 # Kotoba dependencies
 kotoba-core = { workspace = true }
-kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.21" }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.22" }
 
 # Common dependencies
 serde = { workspace = true, features = ["derive"] }

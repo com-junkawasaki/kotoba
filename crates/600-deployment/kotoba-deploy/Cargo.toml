@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-deploy"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/com-junkawasaki/kotoba"
@@ -18,9 +18,9 @@ path = "src/lib.rs"
 # Kotoba internal crates - Port layer
 kotoba-core = "0.1.22"
 kotoba-errors = { path = "../../000-core/kotoba-errors", version = "0.1.2" }
-kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
-kotoba-execution = { path = "../../200-application/kotoba-execution", version = "0.1.21" }
-kotoba-rewrite = { path = "../../200-application/kotoba-rewrite", version = "0.1.21" }
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.22" }
+kotoba-execution = { path = "../../200-application/kotoba-execution", version = "0.1.22" }
+kotoba-rewrite = { path = "../../200-application/kotoba-rewrite", version = "0.1.22" }
 # kotoba-graph temporarily disabled - will be replaced with KeyValueStore
 # kotoba-kotobas.workspace = true  # Optional for now due to stability
 

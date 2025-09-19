@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-memory"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 description = "Advanced memory management and optimization tools for KotobaDB"
 license = "Apache-2.0"
@@ -16,10 +16,10 @@ kotoba-storage = "0.1.22"
 kotoba-graphdb = "0.1.21"
 
 # Profiling integration - temporarily disabled
-# kotoba-profiler = { path = "../../500-services/kotoba-profiler", version = "0.1.21" }
+# kotoba-profiler = { path = "../../500-services/kotoba-profiler", version = "0.1.22" }
 
 # Redis integration for hybrid storage
-# kotoba-storage-redis = { path = "../kotoba-storage-redis", version = "0.1.21", optional = true }
+# kotoba-storage-redis = { path = "../kotoba-storage-redis", version = "0.1.22", optional = true }
 
 # Memory management
 tokio = { version = "1.0", features = ["full", "rt-multi-thread"] }

@@ -12,10 +12,10 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # KotobaDB core crates - Storage layer
-kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
-kotoba-memory = { path = "../../100-storage/kotoba-memory", version = "0.1.21" }
-kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.21" }
-# kotoba-db-cluster = { path = "../../100-storage/kotoba-db-cluster", version = "0.1.21", optional = true }  # Temporarily disabled
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.22" }
+kotoba-memory = { path = "../../100-storage/kotoba-memory", version = "0.1.22" }
+kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.22" }
+# kotoba-db-cluster = { path = "../../100-storage/kotoba-db-cluster", version = "0.1.22", optional = true }  # Temporarily disabled
 
 # Benchmarking utilities
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }

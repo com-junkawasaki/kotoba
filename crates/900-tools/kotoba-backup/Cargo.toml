@@ -34,8 +34,8 @@ parking_lot = "0.12"
 clap = { version = "4.0", features = ["derive"] }
 
 # KotobaDB dependencies - Storage layer
-kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.21" }
-kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.21" }
+kotoba-graphdb = { path = "../../100-storage/kotoba-graphdb", version = "0.1.22" }
+kotoba-storage = { path = "../../100-storage/kotoba-storage", version = "0.1.22" }
 
 # Optional cloud storage support
 rusoto_core = { version = "0.48", optional = true }

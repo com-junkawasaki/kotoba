@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-ocel"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 description = "OCEL v2 (Object-Centric Event Log) implementation for KotobaDB"
 license = "MIT OR Apache-2.0"

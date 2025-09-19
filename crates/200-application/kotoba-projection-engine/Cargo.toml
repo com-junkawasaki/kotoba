@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-projection-engine"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 description = "Real-time projection engine for GraphDB materialization using RocksDB"
 license = "MIT OR Apache-2.0"

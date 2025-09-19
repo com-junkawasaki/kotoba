@@ -1,6 +1,6 @@
 [package]
 name = "kotoba-deploy-cli"
-version = "0.1.21"
+version = "0.1.22"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -14,11 +14,11 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 [dependencies]
 # Kotoba dependencies
 kotoba-core = { workspace = true }
-kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.21" }
-kotoba-deploy-controller = { path = "../kotoba-deploy-controller", version = "0.1.21" }
-kotoba-deploy-runtime = { path = "../kotoba-deploy-runtime", version = "0.1.21" }
-kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.21" }
-kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.21" }
+kotoba-deploy-core = { path = "../kotoba-deploy-core", version = "0.1.22" }
+kotoba-deploy-controller = { path = "../kotoba-deploy-controller", version = "0.1.22" }
+kotoba-deploy-runtime = { path = "../kotoba-deploy-runtime", version = "0.1.22" }
+kotoba-deploy-scaling = { path = "../kotoba-deploy-scaling", version = "0.1.22" }
+kotoba-deploy-network = { path = "../kotoba-deploy-network", version = "0.1.22" }
 
 # CLI framework
 clap = { version = "4.0", features = ["derive"] }
