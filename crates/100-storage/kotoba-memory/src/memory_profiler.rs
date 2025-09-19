@@ -50,16 +50,7 @@ pub struct MemorySnapshot {
     pub average_allocation_size: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MemoryStats {
-    pub current_memory_mb: f64,
-    pub peak_memory_mb: f64,
-    pub average_memory_mb: f64,
-    pub memory_growth_rate: f64,
-    pub allocation_rate: f64,
-    pub deallocation_rate: f64,
-    pub fragmentation_estimate: f64,
-}
+// MemoryStats is now defined in lib.rs to avoid duplication
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MemoryAnalysis {
@@ -201,18 +192,25 @@ impl MemoryProfiler {
     }
 
     /// Get current memory statistics
-    pub async fn current_stats(&self) -> MemoryStats {
+    pub async fn current_stats(&self) -> crate::MemoryStats {
         let snapshots = self.snapshots.lock().unwrap();
 
         if snapshots.is_empty() {
-            return MemoryStats {
-                current_memory_mb: 0.0,
-                peak_memory_mb: 0.0,
-                average_memory_mb: 0.0,
-                memory_growth_rate: 0.0,
-                allocation_rate: 0.0,
-                deallocation_rate: 0.0,
-                fragmentation_estimate: 0.0,
+            return crate::MemoryStats {
+                pool_stats: None,
+                cache_stats: None,
+                profiler_stats: crate::MemoryStats {
+                    current_memory_mb: 0.0,
+                    peak_memory_mb: 0.0,
+                    average_memory_mb: 0.0,
+                    memory_growth_rate: 0.0,
+                    allocation_rate: 0.0,
+                    deallocation_rate: 0.0,
+                    fragmentation_estimate: 0.0,
+                },
+                total_memory_mb: 0.0,
+                available_memory_mb: 0.0,
+                memory_efficiency: 0.0,
             };
         }
 
@@ -250,14 +248,21 @@ impl MemoryProfiler {
 
         let fragmentation_estimate = self.estimate_fragmentation(&snapshots);
 
-        MemoryStats {
-            current_memory_mb,
-            peak_memory_mb,
-            average_memory_mb,
-            memory_growth_rate,
-            allocation_rate,
-            deallocation_rate,
-            fragmentation_estimate,
+        crate::MemoryStats {
+            pool_stats: None,
+            cache_stats: None,
+            profiler_stats: crate::memory_profiler::MemoryStats {
+                current_memory_mb,
+                peak_memory_mb,
+                average_memory_mb,
+                memory_growth_rate,
+                allocation_rate,
+                deallocation_rate,
+                fragmentation_estimate,
+            },
+            total_memory_mb: current_memory_mb,
+            available_memory_mb: 0.0, // Not available in profiler
+            memory_efficiency: 0.0, // Not calculated in profiler
         }
     }
 
@@ -534,8 +539,8 @@ impl MemoryProfiler {
             }
 
             let average_correlation = correlation_sum / count as f64;
-            let amplitude = memory_values.iter().fold(0.0f64, |acc, &x| acc.max(*x)) -
-                           memory_values.iter().fold(f64::INFINITY, |acc, &x| acc.min(*x));
+            let amplitude = memory_values.iter().fold(0.0f64, |acc, &x| acc.max(x)) -
+                           memory_values.iter().fold(f64::INFINITY, |acc, &x| acc.min(x));
 
             if average_correlation < amplitude * 0.1 { // Low variation indicates pattern
                 patterns.push(PeriodicPattern {
@@ -610,19 +615,7 @@ impl MemoryProfiler {
     }
 }
 
-impl Default for MemoryStats {
-    fn default() -> Self {
-        Self {
-            current_memory_mb: 0.0,
-            peak_memory_mb: 0.0,
-            average_memory_mb: 0.0,
-            memory_growth_rate: 0.0,
-            allocation_rate: 0.0,
-            deallocation_rate: 0.0,
-            fragmentation_estimate: 0.0,
-        }
-    }
-}
+// Default implementation moved to lib.rs
 
 /// Convenience functions for memory profiling
 pub fn create_memory_profiler() -> MemoryProfiler {

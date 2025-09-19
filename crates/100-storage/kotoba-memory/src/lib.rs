@@ -587,7 +587,7 @@ impl MemoryOptimizer {
             }
         }
 
-        score.max(0.0).min(1.0)
+        score.max(0.0_f32).min(1.0_f32)
     }
 }
 
@@ -612,7 +612,7 @@ impl Clone for MemoryOptimizer {
 pub struct MemoryStats {
     pub pool_stats: Option<memory_pool::PoolStats>,
     pub cache_stats: Option<cache_manager::CacheStats>,
-    pub profiler_stats: memory_profiler::MemoryStats,
+    pub profiler_stats: crate::memory_profiler::MemoryStats,
     pub total_memory_mb: f64,
     pub available_memory_mb: f64,
     pub memory_efficiency: f64,

@@ -392,11 +392,11 @@ impl CacheManager {
         adaptive_stats.current_window.total_accesses += 1;
 
         // Rotate time windows every 5 minutes
-        if Utc::now().signed_duration_since(adaptive_stats.current_window.start_time).num_seconds() > 300 {
+        if std::time::Instant::now().duration_since(adaptive_stats.current_window.start_time).as_secs() > 300 {
             let current_window = adaptive_stats.current_window.clone();
             adaptive_stats.time_windows.push(current_window);
             adaptive_stats.current_window = TimeWindow {
-                start_time: Utc::now(),
+                start_time: std::time::Instant::now(),
                 accesses: HashMap::new(),
                 total_accesses: 0,
             };
