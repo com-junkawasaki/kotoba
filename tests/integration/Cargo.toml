@@ -7,8 +7,11 @@ edition = "2021"
 
 [dependencies]
 # Core crates
-kotoba-core = { path = "../../crates/000-core/kotoba-core", version = "0.1.21" }
+kotoba-core = { path = "../../crates/000-core/kotoba-core", version = "0.1.22" }
 kotoba-errors = { path = "../../crates/000-core/kotoba-errors", version = "0.1.2" }
+kotoba-cid = { path = "../../crates/000-core/kotoba-cid", version = "0.1.22" }
+kotoba-ocel = { path = "../../crates/000-core/kotoba-ocel", version = "0.1.22" }
+
 
 # Storage layer
 kotoba-storage = { path = "../../crates/100-storage/kotoba-storage", version = "0.1.21" }
