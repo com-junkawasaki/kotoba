@@ -2,6 +2,42 @@
    "topology_graph": {
       "edges": [
          {
+            "from": "error_handling",
+            "to": "ir_catalog"
+         },
+         {
+            "from": "error_handling",
+            "to": "schema_validator"
+         },
+         {
+            "from": "error_handling",
+            "to": "graph_core"
+         },
+         {
+            "from": "error_handling",
+            "to": "storage_mvcc"
+         },
+         {
+            "from": "error_handling",
+            "to": "storage_merkle"
+         },
+         {
+            "from": "error_handling",
+            "to": "storage_lsm"
+         },
+         {
+            "from": "error_handling",
+            "to": "execution_engine"
+         },
+         {
+            "from": "error_handling",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "error_handling",
+            "to": "kotoba_server"
+         },
+         {
             "from": "types",
             "to": "ir_catalog"
          },
@@ -75,7 +111,39 @@
          },
          {
             "from": "types",
-            "to": "lib"
+            "to": "auth"
+         },
+         {
+            "from": "error_handling",
+            "to": "auth"
+         },
+         {
+            "from": "types",
+            "to": "crypto"
+         },
+         {
+            "from": "error_handling",
+            "to": "crypto"
+         },
+         {
+            "from": "auth",
+            "to": "crypto"
+         },
+         {
+            "from": "types",
+            "to": "storage_port"
+         },
+         {
+            "from": "error_handling",
+            "to": "storage_port"
+         },
+         {
+            "from": "auth",
+            "to": "storage_port"
+         },
+         {
+            "from": "crypto",
+            "to": "storage_port"
          },
          {
             "from": "ir_catalog",
@@ -119,6 +187,18 @@
          },
          {
             "from": "types",
+            "to": "workflow_core"
+         },
+         {
+            "from": "error_handling",
+            "to": "workflow_core"
+         },
+         {
+            "from": "ir_workflow",
+            "to": "workflow_core"
+         },
+         {
+            "from": "types",
             "to": "ir_workflow"
          },
          {
@@ -134,11 +214,11 @@
             "to": "workflow_store"
          },
          {
-            "from": "ir_workflow",
+            "from": "workflow_core",
             "to": "workflow_executor"
          },
          {
-            "from": "ir_workflow",
+            "from": "workflow_core",
             "to": "workflow_store"
          },
          {
@@ -171,10 +251,18 @@
          },
          {
             "from": "types",
+            "to": "activity_libraries_core"
+         },
+         {
+            "from": "workflow_core",
+            "to": "activity_libraries_core"
+         },
+         {
+            "from": "types",
             "to": "activity_libraries"
          },
          {
-            "from": "ir_workflow",
+            "from": "activity_libraries_core",
             "to": "activity_libraries"
          },
          {
@@ -183,10 +271,18 @@
          },
          {
             "from": "types",
+            "to": "kubernetes_operator_core"
+         },
+         {
+            "from": "workflow_core",
+            "to": "kubernetes_operator_core"
+         },
+         {
+            "from": "types",
             "to": "kubernetes_operator"
          },
          {
-            "from": "ir_workflow",
+            "from": "kubernetes_operator_core",
             "to": "kubernetes_operator"
          },
          {
@@ -250,40 +346,188 @@
             "to": "lib"
          },
          {
-            "from": "storage_mvcc",
-            "to": "execution_engine"
+            "from": "types",
+            "to": "event_stream"
          },
          {
-            "from": "storage_mvcc",
-            "to": "rewrite_engine"
+            "from": "event_schema_registry",
+            "to": "event_stream"
          },
          {
-            "from": "storage_mvcc",
-            "to": "lib"
+            "from": "types",
+            "to": "event_store"
          },
          {
-            "from": "storage_merkle",
-            "to": "execution_engine"
-         },
-         {
-            "from": "storage_merkle",
-            "to": "rewrite_engine"
-         },
-         {
-            "from": "storage_merkle",
-            "to": "lib"
+            "from": "event_stream",
+            "to": "event_store"
          },
          {
             "from": "storage_lsm",
-            "to": "lib"
+            "to": "event_store"
          },
          {
-            "from": "storage_object",
-            "to": "lib"
+            "from": "types",
+            "to": "event_schema_registry"
          },
          {
-            "from": "security_core",
-            "to": "lib"
+            "from": "types",
+            "to": "event_processor"
+         },
+         {
+            "from": "event_stream",
+            "to": "event_processor"
+         },
+         {
+            "from": "event_store",
+            "to": "event_processor"
+         },
+         {
+            "from": "cache_layer",
+            "to": "event_processor"
+         },
+         {
+            "from": "types",
+            "to": "event_sourcing_coordinator"
+         },
+         {
+            "from": "event_stream",
+            "to": "event_sourcing_coordinator"
+         },
+         {
+            "from": "event_store",
+            "to": "event_sourcing_coordinator"
+         },
+         {
+            "from": "event_processor",
+            "to": "event_sourcing_coordinator"
+         },
+         {
+            "from": "types",
+            "to": "graph_projection"
+         },
+         {
+            "from": "event_processor",
+            "to": "graph_projection"
+         },
+         {
+            "from": "graph_core",
+            "to": "graph_projection"
+         },
+         {
+            "from": "storage_lsm",
+            "to": "graph_projection"
+         },
+         {
+            "from": "types",
+            "to": "materialized_view_manager"
+         },
+         {
+            "from": "graph_projection",
+            "to": "materialized_view_manager"
+         },
+         {
+            "from": "projection_engine",
+            "to": "materialized_view_manager"
+         },
+         {
+            "from": "types",
+            "to": "projection_engine"
+         },
+         {
+            "from": "event_processor",
+            "to": "projection_engine"
+         },
+         {
+            "from": "graph_projection",
+            "to": "projection_engine"
+         },
+         {
+            "from": "cache_layer",
+            "to": "projection_engine"
+         },
+         {
+            "from": "types",
+            "to": "projection_coordinator"
+         },
+         {
+            "from": "projection_engine",
+            "to": "projection_coordinator"
+         },
+         {
+            "from": "materialized_view_manager",
+            "to": "projection_coordinator"
+         },
+         {
+            "from": "types",
+            "to": "query_engine"
+         },
+         {
+            "from": "graph_projection",
+            "to": "query_engine"
+         },
+         {
+            "from": "graph_index",
+            "to": "query_engine"
+         },
+         {
+            "from": "cache_layer",
+            "to": "query_engine"
+         },
+         {
+            "from": "types",
+            "to": "graph_index"
+         },
+         {
+            "from": "graph_projection",
+            "to": "graph_index"
+         },
+         {
+            "from": "storage_lsm",
+            "to": "graph_index"
+         },
+         {
+            "from": "types",
+            "to": "query_optimizer"
+         },
+         {
+            "from": "query_engine",
+            "to": "query_optimizer"
+         },
+         {
+            "from": "graph_index",
+            "to": "query_optimizer"
+         },
+         {
+            "from": "types",
+            "to": "cache_layer"
+         },
+         {
+            "from": "types",
+            "to": "cache_manager"
+         },
+         {
+            "from": "cache_layer",
+            "to": "cache_manager"
+         },
+         {
+            "from": "event_processor",
+            "to": "cache_manager"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "execution_engine"
+         },
+         {
+            "from": "storage_mvcc",
+            "to": "rewrite_engine"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "execution_engine"
+         },
+         {
+            "from": "storage_merkle",
+            "to": "rewrite_engine"
          },
          {
             "from": "ir_query",
@@ -346,32 +590,12 @@
             "to": "execution_engine"
          },
          {
-            "from": "planner_logical",
-            "to": "lib"
-         },
-         {
-            "from": "planner_physical",
-            "to": "lib"
-         },
-         {
-            "from": "planner_optimizer",
-            "to": "lib"
-         },
-         {
             "from": "ir_query",
             "to": "execution_parser"
          },
          {
             "from": "execution_parser",
             "to": "execution_engine"
-         },
-         {
-            "from": "execution_parser",
-            "to": "lib"
-         },
-         {
-            "from": "execution_engine",
-            "to": "lib"
          },
          {
             "from": "ir_rule",
@@ -400,18 +624,6 @@
          {
             "from": "rewrite_applier",
             "to": "rewrite_engine"
-         },
-         {
-            "from": "rewrite_matcher",
-            "to": "lib"
-         },
-         {
-            "from": "rewrite_applier",
-            "to": "lib"
-         },
-         {
-            "from": "rewrite_engine",
-            "to": "lib"
          },
          {
             "from": "types",
@@ -512,10 +724,6 @@
          {
             "from": "jsonnet_stdlib",
             "to": "jsonnet_core"
-         },
-         {
-            "from": "jsonnet_core",
-            "to": "lib"
          },
          {
             "from": "jsonnet_core",
@@ -683,6 +891,54 @@
          },
          {
             "from": "types",
+            "to": "kotoba_server_core"
+         },
+         {
+            "from": "error_handling",
+            "to": "kotoba_server_core"
+         },
+         {
+            "from": "graphql_schema",
+            "to": "kotoba_server_core"
+         },
+         {
+            "from": "graphql_handler",
+            "to": "kotoba_server_core"
+         },
+         {
+            "from": "types",
+            "to": "kotoba_server_workflow"
+         },
+         {
+            "from": "error_handling",
+            "to": "kotoba_server_workflow"
+         },
+         {
+            "from": "kotoba_server_core",
+            "to": "kotoba_server_workflow"
+         },
+         {
+            "from": "workflow_core",
+            "to": "kotoba_server_workflow"
+         },
+         {
+            "from": "types",
+            "to": "kotoba_server"
+         },
+         {
+            "from": "error_handling",
+            "to": "kotoba_server"
+         },
+         {
+            "from": "kotoba_server_core",
+            "to": "kotoba_server"
+         },
+         {
+            "from": "kotoba_server_workflow",
+            "to": "kotoba_server"
+         },
+         {
+            "from": "types",
             "to": "graphql_schema"
          },
          {
@@ -699,11 +955,11 @@
          },
          {
             "from": "graphql_schema",
-            "to": "kotoba_server"
+            "to": "kotoba_server_core"
          },
          {
             "from": "graphql_handler",
-            "to": "kotoba_server"
+            "to": "kotoba_server_core"
          },
          {
             "from": "http_ir",
@@ -1522,11 +1778,27 @@
             "to": "db_core"
          },
          {
+            "from": "event_sourcing_coordinator",
+            "to": "db_core"
+         },
+         {
             "from": "db_core",
             "to": "db_engine_memory"
          },
          {
             "from": "db_core",
+            "to": "db_engine_lsm"
+         },
+         {
+            "from": "event_store",
+            "to": "db_engine_memory"
+         },
+         {
+            "from": "event_store",
+            "to": "db_engine_lsm"
+         },
+         {
+            "from": "graph_projection",
             "to": "db_engine_lsm"
          },
          {
@@ -1542,12 +1814,64 @@
             "to": "db"
          },
          {
+            "from": "event_sourcing_coordinator",
+            "to": "db"
+         },
+         {
+            "from": "projection_coordinator",
+            "to": "db"
+         },
+         {
             "from": "db_core",
             "to": "db_cluster"
          },
          {
             "from": "db",
             "to": "db_cluster"
+         },
+         {
+            "from": "event_stream",
+            "to": "db_cluster"
+         },
+         {
+            "from": "event_store",
+            "to": "db_cluster"
+         },
+         {
+            "from": "types",
+            "to": "command_handler"
+         },
+         {
+            "from": "event_sourcing_coordinator",
+            "to": "command_handler"
+         },
+         {
+            "from": "event_schema_registry",
+            "to": "command_handler"
+         },
+         {
+            "from": "types",
+            "to": "query_handler"
+         },
+         {
+            "from": "query_engine",
+            "to": "query_handler"
+         },
+         {
+            "from": "cache_layer",
+            "to": "query_handler"
+         },
+         {
+            "from": "types",
+            "to": "cqrs_coordinator"
+         },
+         {
+            "from": "command_handler",
+            "to": "cqrs_coordinator"
+         },
+         {
+            "from": "query_handler",
+            "to": "cqrs_coordinator"
          },
          {
             "from": "types",
@@ -2096,10 +2420,10 @@
       ],
       "nodes": {
          "activity_libraries": {
-            "build_order": 10,
+            "build_order": 11,
             "dependencies": [
                "types",
-               "ir_workflow",
+               "activity_libraries_core",
                "workflow_executor"
             ],
             "description": "Pre-built activity libraries (HTTP, Database, Cloud, etc.)",
@@ -2111,6 +2435,22 @@
                "HttpActivities",
                "DatabaseActivities",
                "CloudActivities"
+            ],
+            "status": "planned"
+         },
+         "activity_libraries_core": {
+            "build_order": 10,
+            "dependencies": [
+               "types",
+               "workflow_core"
+            ],
+            "description": "コアアクティビティライブラリ - 基本的なアクティビティ機能",
+            "name": "activity_libraries_core",
+            "node_type": "ecosystem",
+            "path": "crates/kotoba-workflow-activities-core/src/lib.rs",
+            "provides": [
+               "ActivityLibraryCore",
+               "BasicActivities"
             ],
             "status": "planned"
          },
@@ -2304,6 +2644,25 @@
             ],
             "status": "completed"
          },
+         "auth": {
+            "build_order": 2,
+            "dependencies": [
+               "types",
+               "error_handling"
+            ],
+            "description": "認証・認可エンジン (ReBAC + ABAC hybrid model)",
+            "name": "auth",
+            "node_type": "security",
+            "path": "crates/000-core/kotoba-core/src/auth.rs",
+            "provides": [
+               "Principal",
+               "PolicyEngine",
+               "Decision",
+               "AuthContext",
+               "SecureResource"
+            ],
+            "status": "active"
+         },
          "backup_restore": {
             "build_order": 9,
             "dependencies": [
@@ -2352,6 +2711,42 @@
                "DevelopmentTools"
             ],
             "status": "completed"
+         },
+         "cache_layer": {
+            "build_order": 5,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Redisベースの分散キャッシュ層 - クエリ結果とプロジェクションのキャッシュ",
+            "name": "cache_layer",
+            "node_type": "cache",
+            "path": "crates/kotoba-cache/src/lib.rs",
+            "provides": [
+               "CacheLayer",
+               "RedisCache",
+               "CacheManager",
+               "CacheInvalidator"
+            ],
+            "status": "planned"
+         },
+         "cache_manager": {
+            "build_order": 6,
+            "dependencies": [
+               "types",
+               "cache_layer",
+               "event_processor"
+            ],
+            "description": "キャッシュ管理と無効化 - イベント駆動キャッシュ更新",
+            "name": "cache_manager",
+            "node_type": "cache",
+            "path": "crates/kotoba-cache-manager/src/lib.rs",
+            "provides": [
+               "CacheManager",
+               "InvalidationStrategy",
+               "CacheSynchronization",
+               "TTLManager"
+            ],
+            "status": "planned"
          },
          "capabilities_documentation": {
             "build_order": 1,
@@ -2460,8 +2855,7 @@
          "cloud_integrations_alt": {
             "build_order": 21,
             "dependencies": [
-               "db_cluster",
-               "backup_restore"
+               "db_cluster"
             ],
             "description": "Cloud platform integrations (AWS, GCP, Azure).",
             "name": "cloud_integrations_alt",
@@ -2507,6 +2901,25 @@
                "CodeQualityAssessment"
             ],
             "status": "completed"
+         },
+         "command_handler": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "event_sourcing_coordinator",
+               "event_schema_registry"
+            ],
+            "description": "コマンドハンドラー - 書き込み操作の処理とイベント生成",
+            "name": "command_handler",
+            "node_type": "cqrs",
+            "path": "crates/kotoba-command-handler/src/lib.rs",
+            "provides": [
+               "CommandHandler",
+               "CommandProcessor",
+               "ValidationEngine",
+               "BusinessLogic"
+            ],
+            "status": "planned"
          },
          "compatibility_analysis": {
             "build_order": 13,
@@ -2604,6 +3017,43 @@
             ],
             "status": "completed"
          },
+         "cqrs_coordinator": {
+            "build_order": 13,
+            "dependencies": [
+               "types",
+               "command_handler",
+               "query_handler"
+            ],
+            "description": "CQRS全体の調整 - コマンド・クエリの統合管理",
+            "name": "cqrs_coordinator",
+            "node_type": "cqrs",
+            "path": "crates/kotoba-cqrs/src/lib.rs",
+            "provides": [
+               "CQ RSCoordinator",
+               "CommandQuerySeparation",
+               "SagaManager",
+               "EventualConsistency"
+            ],
+            "status": "planned"
+         },
+         "crypto": {
+            "build_order": 2,
+            "dependencies": [
+               "types",
+               "error_handling",
+               "auth"
+            ],
+            "description": "暗号化エンジン (envelope encryption + DEK management)",
+            "name": "crypto",
+            "node_type": "security",
+            "path": "crates/000-core/kotoba-core/src/crypto.rs",
+            "provides": [
+               "CryptoEngine",
+               "EncryptionInfo",
+               "SecureEnvelope"
+            ],
+            "status": "active"
+         },
          "data_schemas": {
             "build_order": 1,
             "dependencies": [ ],
@@ -2619,85 +3069,97 @@
             "status": "completed"
          },
          "db": {
-            "build_order": 6,
+            "build_order": 9,
             "dependencies": [
                "db_core",
                "db_engine_memory",
                "db_engine_lsm",
-               "storage_main"
+               "event_sourcing_coordinator",
+               "projection_coordinator"
             ],
-            "description": "User-facing API for KotobaDB, a graph-native, version-controlled database.",
+            "description": "Event-sourced KotobaDB API with GraphDB projections and CQRS.",
             "name": "db",
             "node_type": "db_api",
             "path": "crates/kotoba-db/",
             "provides": [
                "KotobaDB",
-               "DBSnapshot"
+               "EventSourcedDB",
+               "GraphDB",
+               "CQRSAPI"
             ],
             "status": "planned"
          },
          "db_cluster": {
-            "build_order": 8,
+            "build_order": 10,
             "dependencies": [
                "db_core",
-               "db"
+               "db",
+               "event_stream",
+               "event_store"
             ],
-            "description": "Distributed clustering and consensus for KotobaDB with Raft algorithm.",
+            "description": "Distributed event-sourcing cluster with Kafka-based event replication.",
             "name": "db_cluster",
             "node_type": "db_cluster",
             "path": "crates/kotoba-db-cluster/",
             "provides": [
-               "KotobaCluster",
-               "RaftConsensus",
+               "EventSourcingCluster",
+               "KafkaReplication",
                "PartitionManager",
-               "ReplicationManager"
+               "EventReplicationManager"
             ],
             "status": "planned"
          },
          "db_core": {
-            "build_order": 4,
+            "build_order": 7,
             "dependencies": [
                "types",
-               "cid_system"
+               "cid_system",
+               "event_sourcing_coordinator"
             ],
-            "description": "Core traits, data structures, and transaction logic for KotobaDB.",
+            "description": "Core traits, data structures, and transaction logic for event-sourced KotobaDB.",
             "name": "db_core",
-            "node_type": "db",
+            "node_type": "db_core",
             "path": "crates/kotoba-db-core/",
             "provides": [
                "StorageEngine",
-               "Transaction",
-               "ACID"
+               "EventSourcedTransaction",
+               "ACID",
+               "CQRS"
             ],
             "status": "in_progress"
          },
          "db_engine_lsm": {
-            "build_order": 5,
+            "build_order": 8,
             "dependencies": [
-               "db_core"
+               "db_core",
+               "event_store",
+               "graph_projection"
             ],
-            "description": "LSM-Tree based high-performance storage engine for KotobaDB.",
+            "description": "LSM-Tree based event store and projection storage.",
             "name": "db_engine_lsm",
             "node_type": "db_engine",
             "path": "crates/kotoba-db-engine-lsm/",
             "provides": [
-               "LSMStorageEngine",
+               "LSMEventStore",
+               "LSMProjectionStorage",
                "WALManager",
                "SSTableManager"
             ],
             "status": "in_progress"
          },
          "db_engine_memory": {
-            "build_order": 5,
+            "build_order": 8,
             "dependencies": [
-               "db_core"
+               "db_core",
+               "event_store"
             ],
-            "description": "Default in-memory storage engine for KotobaDB.",
+            "description": "In-memory event store for development and testing.",
             "name": "db_engine_memory",
             "node_type": "db_engine",
             "path": "crates/kotoba-db-engine-memory/",
             "provides": [
-               "MemoryStorageEngine"
+               "MemoryEventStore",
+               "InMemoryProjection"
             ],
             "status": "planned"
          },
@@ -3287,6 +3749,114 @@
             ],
             "status": "planned"
          },
+         "error_handling": {
+            "build_order": 2,
+            "dependencies": [ ],
+            "description": "統一されたエラーハンドリングシステム (KotobaError, WorkflowError)",
+            "name": "error_handling",
+            "node_type": "foundation",
+            "path": "crates/000-core/kotoba-errors/src/lib.rs",
+            "provides": [
+               "KotobaError",
+               "WorkflowError",
+               "error_conversion"
+            ],
+            "status": "published"
+         },
+         "event_processor": {
+            "build_order": 5,
+            "dependencies": [
+               "types",
+               "event_stream",
+               "event_store",
+               "cache_layer"
+            ],
+            "description": "イベント処理エンジン - ストリーム処理とイベント変換",
+            "name": "event_processor",
+            "node_type": "event_processor",
+            "path": "crates/kotoba-event-processor/src/lib.rs",
+            "provides": [
+               "EventProcessor",
+               "StreamProcessor",
+               "EventTransformer",
+               "ProcessingPipeline"
+            ],
+            "status": "planned"
+         },
+         "event_schema_registry": {
+            "build_order": 3,
+            "dependencies": [
+               "types"
+            ],
+            "description": "Schema Registry統合 - Avroスキーマ管理と互換性チェック",
+            "name": "event_schema_registry",
+            "node_type": "schema_registry",
+            "path": "crates/kotoba-schema-registry/src/lib.rs",
+            "provides": [
+               "SchemaRegistry",
+               "AvroSchema",
+               "SchemaValidation",
+               "SchemaEvolution"
+            ],
+            "status": "planned"
+         },
+         "event_sourcing_coordinator": {
+            "build_order": 6,
+            "dependencies": [
+               "types",
+               "event_stream",
+               "event_store",
+               "event_processor"
+            ],
+            "description": "イベントソーシング全体の調整 - コマンド側(CQRS Write Model)",
+            "name": "event_sourcing_coordinator",
+            "node_type": "event_coordinator",
+            "path": "crates/kotoba-event-sourcing/src/lib.rs",
+            "provides": [
+               "EventSourcingCoordinator",
+               "CommandSideCoordinator",
+               "EventPublisher",
+               "EventHandler"
+            ],
+            "status": "planned"
+         },
+         "event_store": {
+            "build_order": 4,
+            "dependencies": [
+               "types",
+               "event_stream",
+               "storage_lsm"
+            ],
+            "description": "イベントストア - Kafkaトピックへのイベント永続化とリプレイ",
+            "name": "event_store",
+            "node_type": "event_store",
+            "path": "crates/kotoba-event-store/src/lib.rs",
+            "provides": [
+               "EventStore",
+               "EventReplay",
+               "EventPersistence",
+               "KafkaStorage"
+            ],
+            "status": "planned"
+         },
+         "event_stream": {
+            "build_order": 3,
+            "dependencies": [
+               "types",
+               "event_schema_registry"
+            ],
+            "description": "Kafkaベースのイベントストリーム処理 - イベントの発行・消費",
+            "name": "event_stream",
+            "node_type": "event_stream",
+            "path": "crates/kotoba-event-stream/src/lib.rs",
+            "provides": [
+               "EventStream",
+               "EventPublisher",
+               "EventConsumer",
+               "KafkaIntegration"
+            ],
+            "status": "planned"
+         },
          "example_frontend_app": {
             "build_order": 12,
             "dependencies": [
@@ -3623,12 +4193,14 @@
             "description": "列指向グラフ表現とGraphRef",
             "name": "graph_core",
             "node_type": "graph",
-            "path": "src/graph/graph.rs",
+            "path": "crates/000-core/kotoba-core/src/graph/graph.rs",
             "provides": [
                "Graph",
-               "GraphRef"
+               "GraphRef",
+               "GraphTraversal",
+               "GraphAlgorithms"
             ],
-            "status": "planned"
+            "status": "active"
          },
          "graph_edge": {
             "build_order": 2,
@@ -3638,10 +4210,50 @@
             "description": "エッジ関連構造体とビルダー",
             "name": "graph_edge",
             "node_type": "graph",
-            "path": "src/graph/edge.rs",
+            "path": "crates/000-core/kotoba-core/src/graph/edge.rs",
             "provides": [
                "EdgeBuilder",
                "EdgeData"
+            ],
+            "status": "active"
+         },
+         "graph_index": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "graph_projection",
+               "storage_lsm"
+            ],
+            "description": "グラフインデックス - 高速なグラフクエリのためのインデックス管理",
+            "name": "graph_index",
+            "node_type": "index",
+            "path": "crates/kotoba-graph-index/src/lib.rs",
+            "provides": [
+               "GraphIndex",
+               "NodeIndex",
+               "EdgeIndex",
+               "PathIndex",
+               "FullTextIndex"
+            ],
+            "status": "planned"
+         },
+         "graph_projection": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "event_processor",
+               "graph_core",
+               "storage_lsm"
+            ],
+            "description": "GraphDBへのマテリアライズドビュー - Neo4j/TigerGraph風グラフプロジェクション",
+            "name": "graph_projection",
+            "node_type": "projection",
+            "path": "crates/kotoba-graph-projection/src/lib.rs",
+            "provides": [
+               "GraphProjection",
+               "MaterializedGraph",
+               "GraphView",
+               "ProjectionUpdater"
             ],
             "status": "planned"
          },
@@ -3653,12 +4265,12 @@
             "description": "頂点関連構造体とビルダー",
             "name": "graph_vertex",
             "node_type": "graph",
-            "path": "src/graph/vertex.rs",
+            "path": "crates/000-core/kotoba-core/src/graph/vertex.rs",
             "provides": [
                "VertexBuilder",
                "VertexData"
             ],
-            "status": "planned"
+            "status": "active"
          },
          "graphql_handler": {
             "build_order": 9,
@@ -3839,7 +4451,7 @@
             "description": "スキーマ/索引/不変量定義",
             "name": "ir_catalog",
             "node_type": "ir",
-            "path": "crates/kotoba-core/src/ir/catalog.rs",
+            "path": "crates/000-core/kotoba-core/src/ir/catalog.rs",
             "provides": [
                "Catalog",
                "LabelDef",
@@ -3922,7 +4534,7 @@
                "types",
                "ir_strategy"
             ],
-            "description": "TemporalベースワークフローIR (WorkflowIR, Activity, Saga)",
+            "description": "TemporalベースワークフローIR (WorkflowIR, Activity, Saga) - オプション機能",
             "name": "ir_workflow",
             "node_type": "workflow",
             "path": "crates/kotoba-workflow/src/ir.rs",
@@ -3932,7 +4544,7 @@
                "WorkflowExecution",
                "SagaPattern"
             ],
-            "status": "planned"
+            "status": "optional"
          },
          "jsonnet_ast": {
             "build_order": 3,
@@ -4187,23 +4799,60 @@
             "status": "in_progress"
          },
          "kotoba_server": {
-            "build_order": 12,
+            "build_order": 14,
             "dependencies": [
                "types",
-               "workflow_executor",
-               "graphql_schema",
-               "kotoba_routing"
+               "error_handling",
+               "kotoba_server_core",
+               "kotoba_server_workflow"
             ],
-            "description": "axumベースのメインHTTPサーバー",
+            "description": "メインHTTPサーバーバイナリ - コア + ワークフロー統合",
             "name": "kotoba_server",
             "node_type": "http",
             "path": "crates/kotoba-server/src/main.rs",
             "provides": [
-               "HttpServer",
-               "GraphQLApi",
-               "WorkflowApi"
+               "HttpServerBinary",
+               "FullServer"
             ],
             "status": "in_progress"
+         },
+         "kotoba_server_core": {
+            "build_order": 12,
+            "dependencies": [
+               "types",
+               "error_handling",
+               "graphql_schema",
+               "graphql_handler"
+            ],
+            "description": "コアHTTPサーバーライブラリ - 基本的なHTTP/GraphQLサーバー機能のみ",
+            "name": "kotoba_server_core",
+            "node_type": "http",
+            "path": "crates/kotoba-server-core/src/lib.rs",
+            "provides": [
+               "HttpServerCore",
+               "GraphQLApi",
+               "BasicApi"
+            ],
+            "status": "planned"
+         },
+         "kotoba_server_workflow": {
+            "build_order": 13,
+            "dependencies": [
+               "types",
+               "error_handling",
+               "kotoba_server_core",
+               "workflow_core"
+            ],
+            "description": "ワークフロー統合HTTPサーバー機能",
+            "name": "kotoba_server_workflow",
+            "node_type": "http",
+            "path": "crates/kotoba-server-workflow/src/lib.rs",
+            "provides": [
+               "WorkflowHttpServer",
+               "WorkflowApi",
+               "WorkflowIntegration"
+            ],
+            "status": "planned"
          },
          "kotoba_web": {
             "build_order": 13,
@@ -4379,10 +5028,10 @@
             "status": "completed"
          },
          "kubernetes_operator": {
-            "build_order": 11,
+            "build_order": 12,
             "dependencies": [
                "types",
-               "ir_workflow",
+               "kubernetes_operator_core",
                "workflow_executor",
                "workflow_store"
             ],
@@ -4397,32 +5046,29 @@
             ],
             "status": "planned"
          },
-         "lib": {
+         "kubernetes_operator_core": {
             "build_order": 11,
             "dependencies": [
                "types",
-               "ir_catalog",
-               "ir_rule",
-               "ir_query",
-               "ir_patch",
-               "ir_strategy",
-               "graph_core",
-               "storage_mvcc",
-               "storage_merkle",
-               "storage_lsm",
-               "storage_object",
-               "security_core",
-               "planner_logical",
-               "planner_physical",
-               "planner_optimizer",
-               "execution_parser",
-               "execution_engine",
-               "rewrite_matcher",
-               "rewrite_applier",
-               "rewrite_engine",
-               "kotoba_server"
+               "workflow_core"
             ],
-            "description": "メインライブラリインターフェース",
+            "description": "Kubernetes operatorコア - 基本的なoperator機能",
+            "name": "kubernetes_operator_core",
+            "node_type": "ecosystem",
+            "path": "crates/kotoba-workflow-operator-core/src/lib.rs",
+            "provides": [
+               "WorkflowOperatorCore",
+               "BasicOperator"
+            ],
+            "status": "planned"
+         },
+         "lib": {
+            "build_order": 11,
+            "dependencies": [
+               "error_handling",
+               "cid_system"
+            ],
+            "description": "メインライブラリインターフェース - コア機能のみ",
             "name": "lib",
             "node_type": "library",
             "path": "src/lib.rs",
@@ -4511,6 +5157,25 @@
                "HtmlRenderer",
                "CodeHighlighter",
                "TableRenderer"
+            ],
+            "status": "planned"
+         },
+         "materialized_view_manager": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "graph_projection",
+               "projection_engine"
+            ],
+            "description": "マテリアライズドビュー管理 - さまざまなビューの作成・更新・同期",
+            "name": "materialized_view_manager",
+            "node_type": "projection",
+            "path": "crates/kotoba-materialized-views/src/lib.rs",
+            "provides": [
+               "MaterializedViewManager",
+               "ViewDefinition",
+               "ViewUpdater",
+               "ViewSynchronizer"
             ],
             "status": "planned"
          },
@@ -4787,6 +5452,44 @@
             ],
             "status": "completed"
          },
+         "projection_coordinator": {
+            "build_order": 9,
+            "dependencies": [
+               "types",
+               "projection_engine",
+               "materialized_view_manager"
+            ],
+            "description": "プロジェクション全体の調整 - 複数のプロジェクション管理",
+            "name": "projection_coordinator",
+            "node_type": "projection",
+            "path": "crates/kotoba-projection-coordinator/src/lib.rs",
+            "provides": [
+               "ProjectionCoordinator",
+               "ProjectionManager",
+               "ConsistencyManager"
+            ],
+            "status": "planned"
+         },
+         "projection_engine": {
+            "build_order": 7,
+            "dependencies": [
+               "types",
+               "event_processor",
+               "graph_projection",
+               "cache_layer"
+            ],
+            "description": "プロジェクション更新エンジン - イベントからのビュー更新処理",
+            "name": "projection_engine",
+            "node_type": "projection",
+            "path": "crates/kotoba-projection-engine/src/lib.rs",
+            "provides": [
+               "ProjectionEngine",
+               "IncrementalUpdater",
+               "BatchUpdater",
+               "ProjectionPipeline"
+            ],
+            "status": "planned"
+         },
          "publishing_guide": {
             "build_order": 1,
             "dependencies": [ ],
@@ -4800,6 +5503,64 @@
                "DistributionGuide"
             ],
             "status": "completed"
+         },
+         "query_engine": {
+            "build_order": 10,
+            "dependencies": [
+               "types",
+               "graph_projection",
+               "graph_index",
+               "cache_layer"
+            ],
+            "description": "GraphDBベースのクエリエンジン - Cypher/GQLクエリ処理",
+            "name": "query_engine",
+            "node_type": "query",
+            "path": "crates/kotoba-query-engine/src/lib.rs",
+            "provides": [
+               "QueryEngine",
+               "CypherExecutor",
+               "GQLEngine",
+               "QueryPlanner"
+            ],
+            "status": "planned"
+         },
+         "query_handler": {
+            "build_order": 12,
+            "dependencies": [
+               "types",
+               "query_engine",
+               "cache_layer"
+            ],
+            "description": "クエリハンドラー - 読み取り操作の処理とプロジェクション利用",
+            "name": "query_handler",
+            "node_type": "cqrs",
+            "path": "crates/kotoba-query-handler/src/lib.rs",
+            "provides": [
+               "QueryHandler",
+               "QueryProcessor",
+               "ReadModel",
+               "QueryOptimization"
+            ],
+            "status": "planned"
+         },
+         "query_optimizer": {
+            "build_order": 11,
+            "dependencies": [
+               "types",
+               "query_engine",
+               "graph_index"
+            ],
+            "description": "クエリ最適化器 - コストベースのクエリ最適化",
+            "name": "query_optimizer",
+            "node_type": "query",
+            "path": "crates/kotoba-query-optimizer/src/lib.rs",
+            "provides": [
+               "QueryOptimizer",
+               "CostEstimator",
+               "PlanOptimizer",
+               "StatisticsManager"
+            ],
+            "status": "planned"
          },
          "release_artifacts": {
             "build_order": 25,
@@ -4931,6 +5692,20 @@
             ],
             "status": "completed"
          },
+         "rocksdb_adapter": {
+            "build_order": 4,
+            "dependencies": [
+               "storage_port"
+            ],
+            "description": "RocksDB adapter implementation (Adapter in Port/Adapter pattern)",
+            "name": "rocksdb_adapter",
+            "node_type": "adapter",
+            "path": "crates/100-storage/kotoba-storage-rocksdb/src/lib.rs",
+            "provides": [
+               "RocksDbAdapter"
+            ],
+            "status": "published"
+         },
          "rust_project_config": {
             "build_order": 1,
             "dependencies": [ ],
@@ -4944,6 +5719,74 @@
                "BuildConfiguration"
             ],
             "status": "completed"
+         },
+         "rust_workflow_category_compile_avoidance": {
+            "build_order": 999,
+            "dependencies": [ ],
+            "description": "差分だけ＆早い検査系に寄せることで、そもそもコンパイルを実行しない戦略。",
+            "name": "コンパイルしない",
+            "node_type": "workflow_category",
+            "path": "",
+            "provides": [
+               "workflow_grouping"
+            ],
+            "status": "unknown"
+         },
+         "rust_workflow_check": {
+            "build_order": 999,
+            "dependencies": [
+               "rust_workflow_category_compile_avoidance"
+            ],
+            "description": "型検査までで止めるので速い。普段使いに推奨。",
+            "name": "cargo check",
+            "node_type": "build_step",
+            "path": "",
+            "provides": [
+               "fast_type_check"
+            ],
+            "status": "recommended_practice"
+         },
+         "rust_workflow_lint_on_save": {
+            "build_order": 999,
+            "dependencies": [
+               "rust_workflow_category_compile_avoidance"
+            ],
+            "description": "IDEやpre-commitフックで保存時に実行。構文/スタイル段階で問題を検出し、ビルド前に修正を促す。",
+            "name": "clippy + rustfmt on save",
+            "node_type": "dev_practice",
+            "path": "",
+            "provides": [
+               "code_quality_gate"
+            ],
+            "status": "recommended_practice"
+         },
+         "rust_workflow_trybuild": {
+            "build_order": 999,
+            "dependencies": [
+               "rust_workflow_category_compile_avoidance"
+            ],
+            "description": "\"コンパイル失敗すべき\"コードをテストとして固定化し、回帰を早期検出。proc-macro開発で特に有効。",
+            "name": "trybuild for proc-macros",
+            "node_type": "testing_framework",
+            "path": "",
+            "provides": [
+               "compile_fail_testing"
+            ],
+            "status": "specialized_tool"
+         },
+         "rust_workflow_warnings_as_errors": {
+            "build_order": 999,
+            "dependencies": [
+               "rust_workflow_category_compile_avoidance"
+            ],
+            "description": "警告をエラーとして扱うことで、潜在的な問題を早期に修正させる。",
+            "name": "Warnings as Errors",
+            "node_type": "build_config",
+            "path": "",
+            "provides": [
+               "strict_compilation"
+            ],
+            "status": "recommended_practice"
          },
          "sample_applications": {
             "build_order": 16,
@@ -5280,68 +6123,50 @@
             "dependencies": [
                "types"
             ],
-            "description": "RocksDB-based high-performance storage (95% test coverage)",
+            "description": "RocksDB-based high-performance storage - イベントログ永続化用",
             "name": "storage_lsm",
-            "node_type": "storage",
+            "node_type": "storage_engine",
             "path": "crates/kotoba-storage/src/storage/lsm.rs",
             "provides": [
                "LSMTree",
-               "RocksDB"
+               "RocksDB",
+               "EventLogStorage"
             ],
             "status": "published"
          },
-         "storage_main": {
-            "build_order": 5,
-            "dependencies": [
-               "types",
-               "errors",
-               "graph",
-               "cid"
-            ],
-            "description": "Main storage crate providing unified backend interface for KotobaDB",
-            "name": "storage_main",
-            "node_type": "storage_api",
-            "path": "crates/kotoba-storage/",
-            "provides": [
-               "StorageBackend",
-               "StorageBackendFactory",
-               "KotobaDBBackend"
-            ],
-            "status": "in_progress"
-         },
          "storage_merkle": {
-            "build_order": 4,
+            "build_order": 12,
             "dependencies": [
                "types",
                "graph_core"
             ],
-            "description": "Merkle DAG永続化",
+            "description": "Merkle DAG永続化 (レガシー - イベントソーシング移行用)",
             "name": "storage_merkle",
-            "node_type": "storage",
+            "node_type": "legacy_storage",
             "path": "crates/kotoba-storage/src/storage/merkle.rs",
             "provides": [
                "MerkleDAG",
                "MerkleNode",
                "GraphVersion"
             ],
-            "status": "planned"
+            "status": "deprecated"
          },
          "storage_mvcc": {
-            "build_order": 4,
+            "build_order": 12,
             "dependencies": [
                "types",
                "graph_core"
             ],
-            "description": "MVCCマネージャー",
+            "description": "MVCCマネージャー (レガシー - イベントソーシング移行用)",
             "name": "storage_mvcc",
-            "node_type": "storage",
+            "node_type": "legacy_storage",
             "path": "crates/kotoba-storage/src/storage/mvcc.rs",
             "provides": [
                "MVCCManager",
                "Transaction",
                "TxState"
             ],
-            "status": "planned"
+            "status": "deprecated"
          },
          "storage_object": {
             "build_order": 4,
@@ -5350,13 +6175,32 @@
             ],
             "description": "Object storage backend (AWS S3, GCP Cloud Storage, Azure Blob Storage)",
             "name": "storage_object",
-            "node_type": "storage",
+            "node_type": "storage_engine",
             "path": "crates/kotoba-storage/src/storage/object.rs",
             "provides": [
                "ObjectStorageBackend",
                "ObjectStorageProvider"
             ],
             "status": "planned"
+         },
+         "storage_port": {
+            "build_order": 3,
+            "dependencies": [
+               "types",
+               "error_handling",
+               "auth",
+               "crypto"
+            ],
+            "description": "KeyValueStore trait definition (Port in Port/Adapter pattern)",
+            "name": "storage_port",
+            "node_type": "port",
+            "path": "crates/100-storage/kotoba-storage/src/port.rs",
+            "provides": [
+               "KeyValueStore",
+               "StoragePort",
+               "AuthStorage"
+            ],
+            "status": "published"
          },
          "streaming_processing": {
             "build_order": 20,
@@ -5375,6 +6219,24 @@
                "CDC"
             ],
             "status": "planned"
+         },
+         "topology": {
+            "build_order": 2,
+            "dependencies": [
+               "types"
+            ],
+            "description": "プロセスネットワークトポロジー検証と処理 (TopologyGraph, Node, Edge, Validation)",
+            "name": "topology",
+            "node_type": "foundation",
+            "path": "crates/000-core/kotoba-core/src/topology.rs",
+            "provides": [
+               "TopologyGraph",
+               "Node",
+               "Edge",
+               "ValidationCheck",
+               "topological_sort"
+            ],
+            "status": "active"
          },
          "topology_data": {
             "build_order": 1,
@@ -5427,10 +6289,10 @@
          "types": {
             "build_order": 1,
             "dependencies": [ ],
-            "description": "共通型定義 (Value, VertexId, EdgeId, GraphRef, etc.)",
+            "description": "共通型定義 (Value, VertexId, EdgeId, GraphRef, TxId, ContentHash)",
             "name": "types",
             "node_type": "foundation",
-            "path": "crates/kotoba-core/src/types.rs",
+            "path": "crates/000-core/kotoba-core/src/types.rs",
             "provides": [
                "Value",
                "VertexId",
@@ -5457,6 +6319,25 @@
             ],
             "status": "completed"
          },
+         "workflow_core": {
+            "build_order": 8,
+            "dependencies": [
+               "types",
+               "error_handling",
+               "ir_workflow"
+            ],
+            "description": "ワークフローエンジンコア - 基本的なワークフロー実行機能",
+            "name": "workflow_core",
+            "node_type": "workflow",
+            "path": "crates/kotoba-workflow-core/src/lib.rs",
+            "provides": [
+               "WorkflowEngine",
+               "WorkflowIR",
+               "Activity",
+               "WorkflowExecution"
+            ],
+            "status": "planned"
+         },
          "workflow_designer": {
             "build_order": 9,
             "dependencies": [
@@ -5475,16 +6356,16 @@
             "status": "planned"
          },
          "workflow_executor": {
-            "build_order": 8,
+            "build_order": 9,
             "dependencies": [
                "types",
-               "ir_workflow",
+               "workflow_core",
                "graph_core",
                "storage_mvcc",
                "storage_merkle",
                "execution_engine"
             ],
-            "description": "Temporalベースワークフロー実行器 (MVCC + Event Sourcing)",
+            "description": "Temporalベースワークフロー実行器 (MVCC + Event Sourcing) - オプション機能",
             "name": "workflow_executor",
             "node_type": "workflow",
             "path": "crates/kotoba-workflow/src/executor.rs",
@@ -5495,17 +6376,17 @@
                "WorkflowStateManager",
                "EventSourcingManager"
             ],
-            "status": "planned"
+            "status": "optional"
          },
          "workflow_store": {
-            "build_order": 7,
+            "build_order": 9,
             "dependencies": [
                "types",
-               "ir_workflow",
+               "workflow_core",
                "storage_mvcc",
                "storage_merkle"
             ],
-            "description": "ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots)",
+            "description": "ワークフロー状態永続化 (MVCC + Event Sourcing + Snapshots) - オプション機能",
             "name": "workflow_store",
             "node_type": "workflow",
             "path": "crates/kotoba-workflow/src/store.rs",
@@ -5516,7 +6397,7 @@
                "SnapshotManager",
                "EventSourcingManager"
             ],
-            "status": "planned"
+            "status": "optional"
          }
       },
       "reverse_topological_order": [
@@ -5530,6 +6411,28 @@
          "ssg_examples",
          "project_documentation",
          "ssg_assets",
+         "cqrs_coordinator",
+         "query_handler",
+         "command_handler",
+         "db_cluster",
+         "db",
+         "db_engine_lsm",
+         "db_engine_memory",
+         "db_core",
+         "query_optimizer",
+         "query_engine",
+         "cache_manager",
+         "graph_index",
+         "projection_coordinator",
+         "materialized_view_manager",
+         "projection_engine",
+         "graph_projection",
+         "event_sourcing_coordinator",
+         "event_processor",
+         "cache_layer",
+         "event_store",
+         "event_stream",
+         "event_schema_registry",
          "cluster_tests",
          "general_tests",
          "repl_tests",
@@ -5658,9 +6561,12 @@
          "kotoba_lsp",
          "deploy_runtime",
          "deploy_cli",
-         "http_server",
+         "kotoba_server",
+         "kotoba_server_workflow",
+         "kotoba_server_core",
          "graphql_handler",
          "graphql_schema",
+         "http_server",
          "deploy_controller",
          "frontend_framework",
          "deploy_git_integration",
@@ -5725,6 +6631,7 @@
       ],
       "topological_order": [
          "types",
+         "error_handling",
          "jsonnet_error",
          "ir_catalog",
          "ir_rule",
@@ -5736,40 +6643,17 @@
          "cid_system",
          "schema_validator",
          "ir_strategy",
-         "frontend_component_ir",
-         "docs_parser",
-         "docs_config",
-         "jsonnet_ast",
-         "jsonnet_lexer",
          "graph_core",
-         "storage_main",
-         "db_core",
-         "db_engine_memory",
-         "db_engine_lsm",
-         "db_cluster",
-         "backup_restore",
-         "monitoring_metrics",
-         "config_management",
-         "benchmarking_suite",
-         "profiling_tools",
-         "memory_optimization",
-         "integration_tests",
-         "load_testing",
-         "ci_cd_pipeline",
-         "api_reference",
-         "deployment_guides",
-         "tutorials",
-         "sample_applications",
-         "contribution_guidelines",
-         "open_source_release",
-         "multi_model_support",
-         "machine_learning_integration",
-         "streaming_processing",
-         "advanced_query_language",
-         "cloud_integrations",
-         "serverless_deployment",
-         "package_manager",
+         "event_schema_registry",
+         "event_stream",
+         "event_store",
+         "cache_layer",
+         "event_processor",
+         "event_sourcing_coordinator",
+         "storage_lsm",
+         "storage_object",
          "storage_mvcc",
+         "storage_merkle",
          "security_jwt",
          "security_mfa",
          "security_password",
@@ -5777,6 +6661,22 @@
          "security_capabilities",
          "security_oauth2",
          "security_core",
+         "graph_projection",
+         "projection_engine",
+         "materialized_view_manager",
+         "projection_coordinator",
+         "graph_index",
+         "cache_manager",
+         "query_engine",
+         "query_optimizer",
+         "command_handler",
+         "query_handler",
+         "cqrs_coordinator",
+         "db_core",
+         "db_engine_memory",
+         "db_engine_lsm",
+         "db",
+         "db_cluster",
          "planner_logical",
          "planner_physical",
          "execution_parser",
@@ -5785,8 +6685,14 @@
          "planner_optimizer",
          "rewrite_engine",
          "execution_engine",
+         "ir_workflow",
+         "workflow_core",
+         "workflow_executor",
+         "workflow_store",
          "workflow_designer",
+         "activity_libraries_core",
          "activity_libraries",
+         "kubernetes_operator_core",
          "kubernetes_operator",
          "cloud_integrations",
          "distributed_engine",
@@ -5797,7 +6703,11 @@
          "http_parser",
          "http_handlers",
          "http_engine",
-         "http_server",
+         "graphql_schema",
+         "graphql_handler",
+         "kotoba_server_core",
+         "kotoba_server_workflow",
+         "kotoba_server",
          "deploy_config",
          "deploy_parser",
          "deploy_scaling",
@@ -5805,8 +6715,6 @@
          "deploy_git_integration",
          "frontend_framework",
          "deploy_controller",
-         "graphql_schema",
-         "graphql_handler",
          "deploy_cli",
          "deploy_runtime",
          "deploy_example_simple",
@@ -5816,7 +6724,6 @@
          "deploy_controller_core",
          "deploy_network_core",
          "deploy_scaling_core",
-         "deploy_cli_binary",
          "deploy_hosting_server",
          "deploy_hosting_manager",
          "deploy_hosting_example",
@@ -5828,66 +6735,77 @@
          "ai_memory",
          "ai_chains",
          "ai_examples",
-         "state_graph_lib",
+         "docs_parser",
+         "docs_config",
          "docs_generator",
+         "docs_template",
          "docs_search",
+         "docs_server",
+         "docs_core",
+         "docs_cli",
          "storage_main",
+         "db_core",
+         "db_engine_memory",
+         "db_engine_lsm",
+         "db",
+         "db_cluster",
+         "package_manager",
+         "state_graph_lib",
          "kotobajs",
          "kotoba_web",
-         "serverless_deployment",
-         "cloud_integrations",
-         "advanced_query_language",
-         "streaming_processing",
-         "machine_learning_integration",
-         "multi_model_support",
-         "open_source_release",
-         "contribution_guidelines",
-         "sample_applications",
-         "tutorials",
-         "deployment_guides",
-         "api_reference",
-         "ci_cd_pipeline",
-         "load_testing",
-         "integration_tests",
-         "memory_optimization",
-         "profiling_tools",
-         "benchmarking_suite",
-         "config_management",
-         "monitoring_metrics",
-         "backup_restore",
-         "db_cluster",
-         "db_engine_lsm",
-         "db_engine_memory",
-         "planner_logical",
-         "planner_physical",
+         "jsonnet_ast",
+         "jsonnet_lexer",
          "jsonnet_parser",
+         "jsonnet_stdlib",
+         "jsonnet_evaluator",
+         "jsonnet_core",
+         "kotobanet_error",
+         "kotobanet_http_parser",
+         "kotobanet_frontend",
+         "kotobanet_deploy",
+         "kotobanet_config",
+         "kotobanet_core",
+         "frontend_component_ir",
          "frontend_route_ir",
          "frontend_render_ir",
          "frontend_build_ir",
          "frontend_api_ir",
-         "docs_template",
-         "db",
-         "docs_server",
-         "docs_core",
-         "docs_cli",
-         "kotoba_web",
-         "kotobajs"
+         "backup_restore",
+         "monitoring_metrics",
+         "config_management",
+         "benchmarking_suite",
+         "profiling_tools",
+         "memory_optimization",
+         "integration_tests",
+         "load_testing",
+         "ci_cd_pipeline",
+         "api_reference",
+         "deployment_guides",
+         "tutorials",
+         "sample_applications",
+         "contribution_guidelines",
+         "open_source_release",
+         "multi_model_support",
+         "machine_learning_integration",
+         "streaming_processing",
+         "advanced_query_language",
+         "serverless_deployment"
       ]
    },
    "validation_metadata": {
       "metadata": {
-         "architecture": "Process Network Graph Model",
+         "architecture": "Event-Sourcing Graph Database",
          "project_name": "Kotoba",
          "validation_timestamp": "2025-01-12T00:00:00Z",
          "validator_version": "1.0.0",
-         "version": "0.1.0"
+         "version": "0.2.0"
       },
       "statistics": {
-         "edge_count": 523,
+         "edge_count": 604,
          "has_cycles": false,
          "is_valid_topology": false,
-         "max_build_order": 193,
-         "node_count": 193
+         "max_build_order": 225,
+         "node_count": 225
       }
    },
    "validation_rules": {
