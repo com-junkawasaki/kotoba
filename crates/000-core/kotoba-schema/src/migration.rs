@@ -116,7 +116,7 @@ impl SchemaMigration {
         &self,
         graph_data: &mut serde_json::Value,
         rule: &MigrationRule,
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         match rule.rule_type {
             MigrationRuleType::RenameProperty => {
                 self.rename_property(graph_data, &rule.source_path, &rule.target_path)
