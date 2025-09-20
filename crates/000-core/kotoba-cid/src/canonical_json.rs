@@ -17,21 +17,21 @@ impl JsonCanonicalizer {
     }
 
     /// JSON文字列を正規化
-    pub fn canonicalize(&self, json_str: &str) -> kotoba_core::types::Result<String> {
+    pub fn canonicalize(&self, json_str: &str) -> std::result::Result<String, kotoba_errors::KotobaError> {
         match self.mode {
             CanonicalJsonMode::JCS => self.canonicalize_jcs(json_str),
         }
     }
 
     /// JSON値を正規化
-    pub fn canonicalize_value(&self, value: &Value) -> kotoba_core::types::Result<String> {
+    pub fn canonicalize_value(&self, value: &Value) -> std::result::Result<String, kotoba_errors::KotobaError> {
         match self.mode {
             CanonicalJsonMode::JCS => self.canonicalize_value_jcs(value),
         }
     }
 
     /// JCS (RFC 8785) に準拠した正規化
-    fn canonicalize_jcs(&self, json_str: &str) -> kotoba_core::types::Result<String> {
+    fn canonicalize_jcs(&self, json_str: &str) -> std::result::Result<String, kotoba_errors::KotobaError> {
         // JSONをパース
         let value: Value = serde_json::from_str(json_str)
             .map_err(|e| KotobaError::Parse(format!("JSON parse error: {}", e)))?;
@@ -40,7 +40,7 @@ impl JsonCanonicalizer {
     }
 
     /// JCSによる値の正規化
-    fn canonicalize_value_jcs(&self, value: &Value) -> kotoba_core::types::Result<String> {
+    fn canonicalize_value_jcs(&self, value: &Value) -> std::result::Result<String, kotoba_errors::KotobaError> {
         match value {
             Value::Object(obj) => {
                 // オブジェクトのキーをソート
@@ -71,7 +71,7 @@ impl JsonCanonicalizer {
     }
 
     /// JSONの差分を計算
-    pub fn compute_diff(&self, json1: &str, json2: &str) -> kotoba_core::types::Result<JsonDiff> {
+    pub fn compute_diff(&self, json1: &str, json2: &str) -> std::result::Result<JsonDiff, kotoba_errors::KotobaError> {
         let val1: Value = serde_json::from_str(json1)
             .map_err(|e| KotobaError::Parse(format!("JSON1 parse error: {}", e)))?;
 
@@ -82,7 +82,7 @@ impl JsonCanonicalizer {
     }
 
     /// 値の差分を計算
-    fn compute_value_diff(&self, val1: &Value, val2: &Value) -> kotoba_core::types::Result<JsonDiff> {
+    fn compute_value_diff(&self, val1: &Value, val2: &Value) -> std::result::Result<JsonDiff, kotoba_errors::KotobaError> {
         match (val1, val2) {
             (Value::Object(obj1), Value::Object(obj2)) => {
                 let mut added = Vec::new();
@@ -147,7 +147,7 @@ impl JsonCanonicalizer {
     }
 
     /// 正規化されたJSONのサイズを取得
-    pub fn canonical_size(&self, json_str: &str) -> kotoba_core::types::Result<usize> {
+    pub fn canonical_size(&self, json_str: &str) -> std::result::Result<usize, kotoba_errors::KotobaError> {
         let canonical = self.canonicalize(json_str)?;
         Ok(canonical.len())
     }

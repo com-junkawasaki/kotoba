@@ -30,3 +30,5 @@ tracing = "0.1"
 # Kotoba types
 kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
 kotoba-errors = "0.1.2"
+kotoba-schema = { path = "../kotoba-schema", version = "0.1.22" }
+kotoba-cid = { path = "../kotoba-cid", version = "0.1.22" }

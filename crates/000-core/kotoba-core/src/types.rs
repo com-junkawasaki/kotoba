@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+use sha2::{Sha256, Digest};
 
 /// 頂点ID
 pub type VertexId = Uuid;
@@ -49,11 +50,82 @@ pub struct ContentHash(pub String);
 
 impl ContentHash {
     pub fn sha256(data: [u8; 32]) -> Self {
-        use sha2::{Sha256, Digest};
         let mut hasher = Sha256::new();
         hasher.update(data);
         let result = hasher.finalize();
         Self(hex::encode(result))
+    }
+}
+
+/// Content ID (CID) - Merkle DAGにおけるコンテンツアドレッシング
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct Cid(pub [u8; 32]);
+
+impl Cid {
+    /// SHA256ハッシュからCIDを作成
+    pub fn from_sha256(hash: [u8; 32]) -> Self {
+        Self(hash)
+    }
+
+    /// データをSHA256でハッシュしてCIDを計算
+    pub fn compute_sha256<T: Serialize>(data: &T) -> std::result::Result<Self, serde_json::Error> {
+        let json = serde_json::to_string(data)?;
+        let hash = Sha256::digest(json.as_bytes());
+        Ok(Self(hash.into()))
+    }
+
+    /// CIDを16進数文字列に変換
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0)
+    }
+
+    /// 16進数文字列からCIDを作成
+    pub fn from_hex(hex_str: &str) -> std::result::Result<Self, hex::FromHexError> {
+        let bytes = hex::decode(hex_str)?;
+        if bytes.len() != 32 {
+            return Err(hex::FromHexError::InvalidStringLength);
+        }
+        let mut array = [0u8; 32];
+        array.copy_from_slice(&bytes);
+        Ok(Self(array))
+    }
+
+    /// CIDを文字列として取得
+    pub fn as_str(&self) -> String {
+        self.to_hex()
+    }
+}
+
+impl AsRef<[u8]> for Cid {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<[u8; 32]> for Cid {
+    fn from(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<Cid> for [u8; 32] {
+    fn from(cid: Cid) -> Self {
+        cid.0
+    }
+}
+
+impl std::fmt::Display for Cid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_hex())
+    }
+}
+
+impl std::str::FromStr for Cid {
+    type Err = hex::FromHexError;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_hex(s)
     }
 }
 

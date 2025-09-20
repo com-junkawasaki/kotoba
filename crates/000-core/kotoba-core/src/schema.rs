@@ -6,33 +6,9 @@ use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
-use crate::types::Value;
+use crate::types::{Value, Cid};
 
-/// Content ID (CIDv1-like)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, Copy, Default)]
-pub struct Cid(pub [u8; 32]);
 
-impl Cid {
-    pub fn to_hex(&self) -> String {
-        hex::encode(self.0)
-    }
-
-    pub fn as_str(&self) -> String {
-        self.to_hex()
-    }
-
-    pub fn from_hex(s: &str) -> Result<Self, hex::FromHexError> {
-        let mut bytes = [0u8; 32];
-        hex::decode_to_slice(s, &mut bytes)?;
-        Ok(Cid(bytes))
-    }
-}
-
-impl std::fmt::Display for Cid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_hex())
-    }
-}
 
 /// ID型（名前付き識別子）
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

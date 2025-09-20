@@ -28,7 +28,7 @@ impl MerkleTreeBuilder {
     }
 
     /// 中間ノードを作成
-    pub fn create_intermediate(&mut self, left_id: &str, right_id: &str) -> kotoba_core::types::Result<String> {
+    pub fn create_intermediate(&mut self, left_id: &str, right_id: &str) -> std::result::Result<String, kotoba_errors::KotobaError> {
         let left_node = self.find_node(left_id)?;
         let right_node = self.find_node(right_id)?;
 
@@ -56,21 +56,21 @@ impl MerkleTreeBuilder {
     }
 
     /// ノードを検索
-    pub fn find_node(&self, id: &str) -> kotoba_core::types::Result<&MerkleNode> {
+    pub fn find_node(&self, id: &str) -> std::result::Result<&MerkleNode, kotoba_errors::KotobaError> {
         self.nodes.iter()
             .find(|node| node.id == id)
             .ok_or_else(|| KotobaError::NotFound(format!("Node {} not found", id)))
     }
 
     /// ノードをIDで検索（可変参照）
-    pub fn find_node_mut(&mut self, id: &str) -> kotoba_core::types::Result<&mut MerkleNode> {
+    pub fn find_node_mut(&mut self, id: &str) -> std::result::Result<&mut MerkleNode, kotoba_errors::KotobaError> {
         self.nodes.iter_mut()
             .find(|node| node.id == id)
             .ok_or_else(|| KotobaError::NotFound(format!("Node {} not found", id)))
     }
 
     /// Merkleプルーフを生成
-    pub fn generate_proof(&self, leaf_id: &str) -> kotoba_core::types::Result<Vec<MerkleNode>> {
+    pub fn generate_proof(&self, leaf_id: &str) -> std::result::Result<Vec<MerkleNode>, kotoba_errors::KotobaError> {
         let mut proof = Vec::new();
         let mut current_id = leaf_id.to_string();
 

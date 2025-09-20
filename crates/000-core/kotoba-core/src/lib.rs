@@ -7,6 +7,8 @@ pub mod schema_validator;
 pub mod ir;
 pub mod topology;
 pub mod graph;
+pub mod auth;  // 認証・認可エンジン
+pub mod crypto; // 暗号化エンジン
 pub mod prelude {
     // Re-export commonly used items
     pub use crate::types::*;
@@ -14,6 +16,8 @@ pub mod prelude {
     pub use crate::schema_validator::*;
     // pub use crate::pgview::*; // Temporarily disabled
     pub use crate::ir::*;
+    pub use crate::auth::*;  // 認証・認可エンジン
+    pub use crate::crypto::*; // 暗号化エンジン
     // Re-export KotobaError to avoid version conflicts
     pub use kotoba_errors::KotobaError;
 }

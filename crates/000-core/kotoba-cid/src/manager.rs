@@ -21,7 +21,7 @@ impl CidManager {
     }
 
     /// グラフのCIDを計算
-    pub fn compute_graph_cid(&mut self, graph: &GraphCore) -> kotoba_core::types::Result<Cid> {
+    pub fn compute_graph_cid(&mut self, graph: &GraphCore) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let cid = self.calculator.compute_cid(graph)?;
         let key = format!("graph_{}", cid.to_hex());
         self.cache.insert(key, cid.clone());
@@ -29,7 +29,7 @@ impl CidManager {
     }
 
     /// ルールのCIDを計算
-    pub fn compute_rule_cid(&mut self, rule: &RuleDPO) -> kotoba_core::types::Result<Cid> {
+    pub fn compute_rule_cid(&mut self, rule: &RuleDPO) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let cid = self.calculator.compute_cid(rule)?;
         let key = format!("rule_{}", cid.to_hex());
         self.cache.insert(key, cid.clone());
@@ -37,7 +37,7 @@ impl CidManager {
     }
 
     /// クエリのCIDを計算
-    pub fn compute_query_cid(&mut self, query: &str) -> kotoba_core::types::Result<Cid> {
+    pub fn compute_query_cid(&mut self, query: &str) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let cid = self.calculator.compute_cid(&query.to_string())?;
         let key = format!("query_{}", cid.to_hex());
         self.cache.insert(key, cid.clone());

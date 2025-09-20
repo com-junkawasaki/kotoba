@@ -37,6 +37,32 @@ pub enum KotobaError {
     Json(#[from] serde_json::Error),
     #[error("Anyhow error: {0}")]
     Anyhow(#[from] anyhow::Error),
+
+    // --- 認証・認可関連エラー ---
+    #[error("Authentication error: {0}")]
+    Authentication(String),
+    #[error("Authorization error: {0}")]
+    Authorization(String),
+    #[error("Access denied to resource: {0}")]
+    AccessDenied(String),
+    #[error("Invalid credentials: {0}")]
+    InvalidCredentials(String),
+    #[error("Session expired: {0}")]
+    SessionExpired(String),
+    #[error("Insufficient permissions: {0}")]
+    InsufficientPermissions(String),
+
+    // --- 暗号化関連エラー ---
+    #[error("Cryptography error: {0}")]
+    Cryptography(String),
+    #[error("Invalid key: {0}")]
+    InvalidKey(String),
+    #[error("Key not found: {0}")]
+    KeyNotFound(String),
+    #[error("Encryption failed: {0}")]
+    EncryptionFailed(String),
+    #[error("Decryption failed: {0}")]
+    DecryptionFailed(String),
 }
 
 /// Error type specific to the `kotoba-workflow` crate.

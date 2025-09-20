@@ -13,8 +13,8 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
 kotoba-errors = { path = "../kotoba-errors", version = "0.1.2" }
+kotoba-core = { path = "../kotoba-core", version = "0.1.22" }
 
 # Hash algorithms
 sha2 = "0.10"

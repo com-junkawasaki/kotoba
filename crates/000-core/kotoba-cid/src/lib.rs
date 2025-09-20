@@ -1,7 +1,6 @@
 //! CID (Content ID) システムの実装
 //! Merkle DAGにおけるコンテンツアドレッシング
 
-use kotoba_core::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
@@ -27,6 +26,63 @@ pub enum CanonicalJsonMode {
 pub struct CidCalculator {
     hash_algo: HashAlgorithm,
     canonical_json: CanonicalJsonMode,
+}
+
+/// Content ID (CID) - Merkle DAGにおけるコンテンツアドレッシング
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Cid(pub [u8; 32]);
+
+impl Cid {
+    /// SHA256ハッシュからCIDを作成
+    pub fn from_sha256(hash: [u8; 32]) -> Self {
+        Self(hash)
+    }
+
+    /// データをSHA256でハッシュしてCIDを計算
+    pub fn compute_sha256<T: Serialize>(data: &T) -> Result<Self, serde_json::Error> {
+        let json = serde_json::to_string(data)?;
+        let hash = Sha256::digest(json.as_bytes());
+        Ok(Self(hash.into()))
+    }
+
+    /// CIDを16進数文字列に変換
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0)
+    }
+
+    /// 16進数文字列からCIDを作成
+    pub fn from_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
+        let bytes = hex::decode(hex_str)?;
+        if bytes.len() != 32 {
+            return Err(hex::FromHexError::InvalidStringLength);
+        }
+        let mut array = [0u8; 32];
+        array.copy_from_slice(&bytes);
+        Ok(Self(array))
+    }
+
+    /// CIDを文字列として取得
+    pub fn as_str(&self) -> String {
+        self.to_hex()
+    }
+}
+
+impl AsRef<[u8]> for Cid {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<[u8; 32]> for Cid {
+    fn from(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl From<Cid> for [u8; 32] {
+    fn from(cid: Cid) -> Self {
+        cid.0
+    }
 }
 
 /// CIDマネージャー
@@ -70,7 +126,6 @@ pub use canonical_json::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kotoba_core::schema::*;
     use std::collections::HashMap;
 
     #[test]

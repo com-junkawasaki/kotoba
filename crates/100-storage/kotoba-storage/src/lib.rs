@@ -7,6 +7,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use std::fmt;
+use kotoba_core::{auth::{Policy, RelationTuple, Principal}, crypto::EncryptionInfo};
+use kotoba_cid::Cid;
 
 /// Storage backend types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +64,57 @@ pub struct StorageStats {
     pub operations_count: u64,
     pub hit_ratio: f64,
     pub backend_info: String,
+}
+
+/// 認証・認可データの永続化に関するトレイト
+#[async_trait]
+pub trait AuthStorage: Send + Sync {
+    // --- ReBAC (関係性ベースアクセス制御) ---
+
+    /// 関係性タプルを保存する
+    async fn save_relation(&self, tuple: &RelationTuple) -> Result<()>;
+
+    /// 指定されたオブジェクトに対する関係性タプルを検索する
+    async fn find_relations_for_object(&self, object_id: &str) -> Result<Vec<RelationTuple>>;
+
+    /// 指定された主体に対する関係性タプルを検索する
+    async fn find_relations_for_subject(&self, subject_id: &str) -> Result<Vec<RelationTuple>>;
+
+    /// 関係性の存在をチェックする
+    async fn check_relation_exists(&self, tuple: &RelationTuple) -> Result<bool>;
+
+    // --- ABAC/PBAC (属性/ポリシーベースアクセス制御) ---
+
+    /// ポリシーを保存する
+    async fn save_policy(&self, policy: &Policy) -> Result<Cid>;
+
+    /// ポリシーを取得する
+    async fn get_policy(&self, policy_cid: &Cid) -> Result<Option<Policy>>;
+
+    /// 指定されたリソースに対するポリシーを検索する
+    async fn find_policies_for_resource(&self, resource_id: &str) -> Result<Vec<Policy>>;
+
+    // --- Principal（主体）管理 ---
+
+    /// 主体を保存する
+    async fn save_principal(&self, principal: &Principal) -> Result<()>;
+
+    /// 主体を取得する
+    async fn get_principal(&self, principal_id: &str) -> Result<Option<Principal>>;
+
+    /// 主体の属性を更新する
+    async fn update_principal_attributes(&self, principal_id: &str, attributes: std::collections::HashMap<String, String>) -> Result<()>;
+
+    // --- 暗号化キー管理 ---
+
+    /// 暗号化情報を保存する
+    async fn save_encryption_info(&self, info: &EncryptionInfo) -> Result<Cid>;
+
+    /// 暗号化情報を取得する
+    async fn get_encryption_info(&self, info_cid: &Cid) -> Result<Option<EncryptionInfo>>;
+
+    /// 指定された主体に対する暗号化情報を検索する
+    async fn find_encryption_info_for_principal(&self, principal_id: &str) -> Result<Vec<EncryptionInfo>>;
 }
 
 // TODO: Define EventStore and GraphStore traits later
