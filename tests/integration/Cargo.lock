@@ -1678,6 +1678,8 @@ name = "kotoba-schema"
 version = "0.1.22"
 dependencies = [
  "anyhow",
+ "kotoba-core 0.1.22",
+ "kotoba-errors 0.1.2",
  "regex",
  "serde",
  "serde_json",

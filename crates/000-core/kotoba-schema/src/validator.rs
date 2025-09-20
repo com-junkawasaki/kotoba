@@ -4,9 +4,9 @@
 //! against defined schemas.
 
 use crate::schema::*;
-use kotoba_core::types::*;
-use kotoba_core::prelude::KotobaError;
+use kotoba_errors::KotobaError;
 use regex::Regex;
+use serde_json::Value;
 use std::collections::HashMap;
 
 /// Graph data validator
@@ -18,7 +18,7 @@ pub struct GraphValidator {
 
 impl GraphValidator {
     /// Create a new validator for the given schema
-    pub fn new(schema: GraphSchema) -> Result<Self> {
+    pub fn new(schema: GraphSchema) -> Result<Self, KotobaError> {
         let mut validator = Self {
             schema,
             compiled_constraints: HashMap::new(),
@@ -84,7 +84,7 @@ impl GraphValidator {
     }
 
     /// Validate a single vertex
-    pub fn validate_vertex(&self, vertex: &serde_json::Value) -> Result<(Vec<String>, Vec<ValidationError>)> {
+    pub fn validate_vertex(&self, vertex: &serde_json::Value) -> Result<(Vec<String>, Vec<ValidationError>), KotobaError> {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
@@ -156,7 +156,7 @@ impl GraphValidator {
     }
 
     /// Validate a single edge
-    pub fn validate_edge(&self, edge: &serde_json::Value) -> Result<(Vec<String>, Vec<ValidationError>)> {
+    pub fn validate_edge(&self, edge: &serde_json::Value) -> Result<(Vec<String>, Vec<ValidationError>), KotobaError> {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
@@ -232,7 +232,7 @@ impl GraphValidator {
     }
 
     /// Validate a property value against its schema
-    pub fn validate_property(&self, prop_schema: &PropertySchema, value: &serde_json::Value) -> Result<(Vec<String>, Vec<ValidationError>)> {
+    pub fn validate_property(&self, prop_schema: &PropertySchema, value: &serde_json::Value) -> Result<(Vec<String>, Vec<ValidationError>), KotobaError> {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
@@ -475,7 +475,7 @@ impl GraphValidator {
     }
 
     /// Extract vertex type from vertex data
-    fn extract_vertex_type(&self, vertex: &serde_json::Value) -> Result<String> {
+    fn extract_vertex_type(&self, vertex: &serde_json::Value) -> Result<String, KotobaError> {
         match vertex.get("labels").and_then(|l| l.as_array()).and_then(|arr| arr.first()) {
             Some(label) if label.is_string() => Ok(label.as_str().unwrap().to_string()),
             _ => Ok("Unknown".to_string()), // Return default instead of error
@@ -483,7 +483,7 @@ impl GraphValidator {
     }
 
     /// Extract edge type from edge data
-    fn extract_edge_type(&self, edge: &serde_json::Value) -> Result<String> {
+    fn extract_edge_type(&self, edge: &serde_json::Value) -> Result<String, KotobaError> {
         match edge.get("label").and_then(|l| l.as_str()) {
             Some(label) => Ok(label.to_string()),
             None => Ok("Unknown".to_string()), // Return default instead of error
@@ -491,7 +491,7 @@ impl GraphValidator {
     }
 
     /// Pre-compile regex constraints
-    fn compile_constraints(&mut self) -> Result<()> {
+    fn compile_constraints(&mut self) -> Result<(), KotobaError> {
         for vertex_type in self.schema.vertex_types.values() {
             for property in vertex_type.properties.values() {
                 for constraint in &property.constraints {

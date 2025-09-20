@@ -4,7 +4,8 @@
 //! and importing schemas from external sources.
 
 use crate::schema::*;
-use kotoba_core::types::*;
+use kotoba_errors::KotobaError;
+use serde_json::Value;
 use std::collections::HashMap;
 
 /// Schema exporter for different formats
@@ -12,7 +13,7 @@ pub struct SchemaExporter;
 
 impl SchemaExporter {
     /// Export schema as JSON Schema
-    pub fn to_json_schema(schema: &GraphSchema) -> Result<serde_json::Value> {
+    pub fn to_json_schema(schema: &GraphSchema) -> Result<serde_json::Value, KotobaError> {
         let mut json_schema = serde_json::json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": format!("https://kotoba.dev/schemas/{}", schema.id),
@@ -86,7 +87,7 @@ impl SchemaExporter {
     }
 
     /// Export schema as GraphQL schema
-    pub fn to_graphql_schema(schema: &GraphSchema) -> Result<String> {
+    pub fn to_graphql_schema(schema: &GraphSchema) -> Result<String, KotobaError> {
         let mut gql_schema = String::new();
 
         // Add header
@@ -137,7 +138,7 @@ impl SchemaExporter {
     }
 
     /// Export schema as OpenAPI specification
-    pub fn to_openapi_schema(schema: &GraphSchema) -> Result<serde_json::Value> {
+    pub fn to_openapi_schema(schema: &GraphSchema) -> Result<serde_json::Value, KotobaError> {
         let openapi = serde_json::json!({
             "openapi": "3.0.3",
             "info": {
@@ -157,7 +158,7 @@ impl SchemaExporter {
     }
 
     /// Export schema as SQL DDL
-    pub fn to_sql_ddl(schema: &GraphSchema) -> Result<String> {
+    pub fn to_sql_ddl(schema: &GraphSchema) -> Result<String, KotobaError> {
         let mut ddl = String::new();
 
         ddl.push_str(&format!("-- SQL DDL for {}\n", schema.name));
@@ -375,7 +376,7 @@ pub struct SchemaImporter;
 
 impl SchemaImporter {
     /// Import schema from JSON Schema
-    pub fn from_json_schema(json_schema: &serde_json::Value) -> Result<GraphSchema> {
+    pub fn from_json_schema(json_schema: &serde_json::Value) -> Result<GraphSchema, KotobaError> {
         let id = json_schema.get("$id")
             .and_then(|id| id.as_str())
             .and_then(|id_str| id_str.split('/').last())
@@ -404,7 +405,7 @@ impl SchemaImporter {
     }
 
     /// Import schema from GraphQL schema string
-    pub fn from_graphql_schema(_gql_schema: &str) -> Result<GraphSchema> {
+    pub fn from_graphql_schema(_gql_schema: &str) -> Result<GraphSchema, KotobaError> {
         let id = "graphql_imported".to_string();
         let name = "Imported from GraphQL".to_string();
 

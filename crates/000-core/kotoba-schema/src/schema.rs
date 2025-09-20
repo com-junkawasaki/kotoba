@@ -4,8 +4,8 @@
 //! for defining graph schemas in Kotoba.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
-use kotoba_core::types::*;
 
 /// Object storage provider types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

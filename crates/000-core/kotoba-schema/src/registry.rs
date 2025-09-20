@@ -5,8 +5,8 @@
 
 use crate::schema::*;
 use crate::manager::*;
-use kotoba_core::types::*;
-use kotoba_core::prelude::KotobaError;
+use kotoba_errors::KotobaError;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -41,7 +41,7 @@ impl SchemaRegistry {
     }
 
     /// Get a schema manager for a namespace
-    pub fn get_manager(&self, namespace: &str) -> Result<SchemaManager> {
+    pub fn get_manager(&self, namespace: &str) -> Result<SchemaManager, KotobaError> {
         let storage = self.managers.get(namespace)
             .ok_or_else(|| KotobaError::Storage(format!("Namespace '{}' not found", namespace)))?;
 
@@ -49,7 +49,7 @@ impl SchemaRegistry {
     }
 
     /// Get the default schema manager
-    pub fn get_default_manager(&self) -> Result<SchemaManager> {
+    pub fn get_default_manager(&self) -> Result<SchemaManager, KotobaError> {
         self.get_manager(&self.default_namespace)
     }
 
@@ -70,7 +70,7 @@ impl SchemaRegistry {
     }
 
     /// Remove a namespace
-    pub fn remove_namespace(&mut self, namespace: &str) -> Result<()> {
+    pub fn remove_namespace(&mut self, namespace: &str) -> Result<(), KotobaError> {
         if namespace == self.default_namespace {
             return Err(KotobaError::Storage("Cannot remove default namespace".to_string()));
         }
@@ -88,7 +88,7 @@ impl SchemaRegistry {
         source_schema_id: &str,
         target_namespace: &str,
         target_schema_id: &str,
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         // Get source schema
         let mut source_manager = self.get_manager(source_namespace)?;
         let schema = source_manager.get_schema(source_schema_id)?
@@ -114,7 +114,7 @@ impl SchemaRegistry {
         &mut self,
         namespace: &str,
         schemas: Vec<GraphSchema>,
-    ) -> Result<BulkOperationResult> {
+    ) -> Result<BulkOperationResult, KotobaError> {
         let mut manager = self.get_manager(namespace)?;
         let mut results = BulkOperationResult::default();
 
@@ -133,7 +133,7 @@ impl SchemaRegistry {
     }
 
     /// Get registry statistics
-    pub fn get_statistics(&self) -> Result<RegistryStatistics> {
+    pub fn get_statistics(&self) -> Result<RegistryStatistics, KotobaError> {
         let mut stats = RegistryStatistics::default();
 
         for (namespace, storage) in &self.managers {
@@ -149,7 +149,7 @@ impl SchemaRegistry {
     }
 
     /// Health check for all namespaces
-    pub async fn health_check(&self) -> Result<Vec<NamespaceHealth>> {
+    pub async fn health_check(&self) -> Result<Vec<NamespaceHealth>, KotobaError> {
         let mut results = Vec::new();
 
         for (namespace, storage) in &self.managers {

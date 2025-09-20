@@ -5469,6 +5469,8 @@ version = "0.1.22"
 dependencies = [
  "anyhow",
  "jsonschema",
+ "kotoba-core 0.1.22",
+ "kotoba-errors 0.1.2",
  "rand 0.8.5",
  "regex",
  "schemars",

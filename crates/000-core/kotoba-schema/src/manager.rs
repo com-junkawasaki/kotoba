@@ -5,8 +5,8 @@
 
 use crate::schema::*;
 use crate::validator::*;
-use kotoba_core::types::*;
-use kotoba_core::prelude::KotobaError;
+use kotoba_errors::KotobaError;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -24,19 +24,19 @@ pub struct SchemaManager {
 /// Storage backend trait for schema persistence
 pub trait SchemaStorage: Send + Sync {
     /// Store a schema
-    fn store_schema(&self, schema_id: &str, schema: &GraphSchema) -> Result<()>;
+    fn store_schema(&self, schema_id: &str, schema: &GraphSchema) -> Result<(), KotobaError>;
 
     /// Load a schema by ID
-    fn load_schema(&self, schema_id: &str) -> Result<Option<GraphSchema>>;
+    fn load_schema(&self, schema_id: &str) -> Result<Option<GraphSchema>, KotobaError>;
 
     /// Delete a schema
-    fn delete_schema(&self, schema_id: &str) -> Result<()>;
+    fn delete_schema(&self, schema_id: &str) -> Result<(), KotobaError>;
 
     /// List all schema IDs
-    fn list_schemas(&self) -> Result<Vec<String>>;
+    fn list_schemas(&self) -> Result<Vec<String>, KotobaError>;
 
     /// Check if a schema exists
-    fn schema_exists(&self, schema_id: &str) -> Result<bool> {
+    fn schema_exists(&self, schema_id: &str) -> Result<bool, KotobaError> {
         Ok(self.load_schema(schema_id)?.is_some())
     }
 }
@@ -61,7 +61,7 @@ impl SchemaManager {
     }
 
     /// Register a new schema
-    pub fn register_schema(&mut self, schema: GraphSchema) -> Result<()> {
+    pub fn register_schema(&mut self, schema: GraphSchema) -> Result<(), KotobaError> {
         // Validate the schema
         let validation = schema.validate_schema();
         if !validation.is_valid {
@@ -83,7 +83,7 @@ impl SchemaManager {
     }
 
     /// Get a schema by ID
-    pub fn get_schema(&mut self, schema_id: &str) -> Result<Option<GraphSchema>> {
+    pub fn get_schema(&mut self, schema_id: &str) -> Result<Option<GraphSchema>, KotobaError> {
         // Check cache first
         if self.cache_enabled {
             if let Some(schema) = self.cache.get(schema_id) {
@@ -105,7 +105,7 @@ impl SchemaManager {
     }
 
     /// Update an existing schema
-    pub fn update_schema(&mut self, schema: GraphSchema) -> Result<()> {
+    pub fn update_schema(&mut self, schema: GraphSchema) -> Result<(), KotobaError> {
         // Validate the updated schema
         let validation = schema.validate_schema();
         if !validation.is_valid {
@@ -135,7 +135,7 @@ impl SchemaManager {
     }
 
     /// Delete a schema
-    pub fn delete_schema(&mut self, schema_id: &str) -> Result<()> {
+    pub fn delete_schema(&mut self, schema_id: &str) -> Result<(), KotobaError> {
         // Delete from storage
         self.storage.delete_schema(schema_id)?;
 
@@ -148,7 +148,7 @@ impl SchemaManager {
     }
 
     /// List all registered schemas
-    pub fn list_schemas(&self) -> Result<Vec<String>> {
+    pub fn list_schemas(&self) -> Result<Vec<String>, KotobaError> {
         self.storage.list_schemas()
     }
 
@@ -157,7 +157,7 @@ impl SchemaManager {
         &mut self,
         schema_id: &str,
         graph_data: &serde_json::Value
-    ) -> Result<ValidationResult> {
+    ) -> Result<ValidationResult, KotobaError> {
         let schema = match self.get_schema(schema_id)? {
             Some(s) => s,
             None => {
@@ -181,7 +181,7 @@ impl SchemaManager {
     }
 
     /// Create a validator for a specific schema
-    pub fn create_validator(&mut self, schema_id: &str) -> Result<GraphValidator> {
+    pub fn create_validator(&mut self, schema_id: &str) -> Result<GraphValidator, KotobaError> {
         let schema = self.get_schema(schema_id)?
             .ok_or_else(|| KotobaError::Storage(format!("Schema '{}' not found", schema_id)))?;
 
@@ -190,7 +190,7 @@ impl SchemaManager {
     }
 
     /// Get schema statistics
-    pub fn get_schema_statistics(&mut self, schema_id: &str) -> Result<Option<SchemaStatistics>> {
+    pub fn get_schema_statistics(&mut self, schema_id: &str) -> Result<Option<SchemaStatistics>, KotobaError> {
         match self.get_schema(schema_id)? {
             Some(schema) => Ok(Some(schema.statistics())),
             None => Ok(None),
@@ -211,7 +211,7 @@ impl SchemaManager {
     }
 
     /// Check if a schema exists
-    pub fn schema_exists(&self, schema_id: &str) -> Result<bool> {
+    pub fn schema_exists(&self, schema_id: &str) -> Result<bool, KotobaError> {
         // Check cache first if enabled
         if self.cache_enabled && self.cache.contains_key(schema_id) {
             return Ok(true);
@@ -226,7 +226,7 @@ impl SchemaManager {
         &mut self,
         source_schema_id: &str,
         new_schema_id: &str
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         let mut source_schema = self.get_schema(source_schema_id)?
             .ok_or_else(|| KotobaError::Storage(format!("Source schema '{}' not found", source_schema_id)))?;
 
@@ -240,7 +240,7 @@ impl SchemaManager {
     }
 
     /// Get schema metadata
-    pub fn get_schema_metadata(&mut self, schema_id: &str) -> Result<Option<HashMap<String, Value>>> {
+    pub fn get_schema_metadata(&mut self, schema_id: &str) -> Result<Option<HashMap<String, Value>>, KotobaError> {
         match self.get_schema(schema_id)? {
             Some(schema) => Ok(Some(schema.metadata.clone())),
             None => Ok(None),
@@ -252,7 +252,7 @@ impl SchemaManager {
         &mut self,
         schema_id: &str,
         metadata: HashMap<String, Value>
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         let mut schema = self.get_schema(schema_id)?
             .ok_or_else(|| KotobaError::Storage(format!("Schema '{}' not found", schema_id)))?;
 
@@ -283,24 +283,24 @@ impl InMemorySchemaStorage {
 }
 
 impl SchemaStorage for InMemorySchemaStorage {
-    fn store_schema(&self, schema_id: &str, schema: &GraphSchema) -> Result<()> {
+    fn store_schema(&self, schema_id: &str, schema: &GraphSchema) -> Result<(), KotobaError> {
         let mut schemas = self.schemas.write().unwrap();
         schemas.insert(schema_id.to_string(), schema.clone());
         Ok(())
     }
 
-    fn load_schema(&self, schema_id: &str) -> Result<Option<GraphSchema>> {
+    fn load_schema(&self, schema_id: &str) -> Result<Option<GraphSchema>, KotobaError> {
         let schemas = self.schemas.read().unwrap();
         Ok(schemas.get(schema_id).cloned())
     }
 
-    fn delete_schema(&self, schema_id: &str) -> Result<()> {
+    fn delete_schema(&self, schema_id: &str) -> Result<(), KotobaError> {
         let mut schemas = self.schemas.write().unwrap();
         schemas.remove(schema_id);
         Ok(())
     }
 
-    fn list_schemas(&self) -> Result<Vec<String>> {
+    fn list_schemas(&self) -> Result<Vec<String>, KotobaError> {
         let schemas = self.schemas.read().unwrap();
         Ok(schemas.keys().cloned().collect())
     }

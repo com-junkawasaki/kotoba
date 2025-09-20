@@ -5,8 +5,8 @@
 
 use crate::schema::*;
 use crate::manager::*;
-use kotoba_core::types::*;
-use kotoba_core::prelude::KotobaError;
+use kotoba_errors::KotobaError;
+use serde_json::Value;
 use std::collections::HashMap;
 
 /// Migration engine for schema evolution
@@ -44,7 +44,7 @@ impl SchemaMigration {
     }
 
     /// Validate migration rules
-    pub fn validate_rules(&self) -> Result<()> {
+    pub fn validate_rules(&self) -> Result<(), KotobaError> {
         let mut errors = Vec::new();
 
         for (rule_id, rule) in &self.rules {
@@ -86,7 +86,7 @@ impl SchemaMigration {
         &self,
         graph_data: &mut serde_json::Value,
         rules: &[String],
-    ) -> Result<MigrationResult> {
+    ) -> Result<MigrationResult, KotobaError> {
         let mut applied_rules = Vec::new();
         let mut errors = Vec::new();
 
@@ -223,7 +223,7 @@ impl SchemaMigration {
     }
 
     /// Remove a property from graph elements
-    fn remove_property(&self, graph_data: &mut serde_json::Value, source_path: &str) -> Result<()> {
+    fn remove_property(&self, graph_data: &mut serde_json::Value, source_path: &str) -> Result<(), KotobaError> {
         if let Some(vertices) = graph_data.get_mut("vertices").and_then(|v| v.as_array_mut()) {
             for vertex in vertices {
                 if let Some(props) = vertex.get_mut("properties").and_then(|p| p.as_object_mut()) {
@@ -387,7 +387,7 @@ impl MigrationPlan {
     }
 
     /// Execute the migration plan on graph data
-    pub fn execute(&self, graph_data: &mut serde_json::Value) -> Result<MigrationResult> {
+    pub fn execute(&self, graph_data: &mut serde_json::Value) -> Result<MigrationResult, KotobaError> {
         let _migration = SchemaMigration::new();
         let rule_ids: Vec<String> = (0..self.rules.len()).map(|i| format!("rule_{}", i)).collect();
 
