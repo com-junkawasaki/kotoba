@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use clap::Parser;
 use axum::{routing::get, Router};
 use tokio::net::TcpListener;
-// use kotoba_graph_api::create_router; // Temporarily disabled
+use kotoba_graphdb::GraphDB;
+use kotoba_graph_api::create_router;
 
 /// Health check handler
 async fn health_check() -> &'static str {
@@ -21,9 +23,9 @@ struct Args {
     #[arg(long, default_value = "8100")]
     port: u16,
 
-    // /// Graph database path
-    // #[arg(long, default_value = "./data/graph.db")]
-    // db_path: String,
+    /// Graph database path
+    #[arg(long, default_value = "./data/graph.db")]
+    db_path: String,
 
     /// Enable development mode
     #[arg(long)]

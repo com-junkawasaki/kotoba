@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
 use kotoba_storage::KeyValueStore;
 use std::sync::Arc;
 use std::sync::Mutex;

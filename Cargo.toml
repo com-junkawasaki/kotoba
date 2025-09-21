@@ -32,6 +32,7 @@ members = [
     "crates/400-language/kotobas-wasm",
     "crates/500-services/kotoba-server-core",
     "crates/500-services/kotoba-server",
+    "crates/500-services/kotoba-graph-api",
     "crates/600-deployment/kotoba-deploy",
     "crates/600-deployment/kotoba-deploy-cli",
     "crates/600-deployment/kotoba-deploy-controller",

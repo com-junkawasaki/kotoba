@@ -8,6 +8,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 use std::sync::Arc;
+use tower_lsp::ClientSocket;
 
 /// Backend implementation for the Kotoba LSP server
 #[derive(Debug)]
@@ -107,16 +108,18 @@ impl LspServiceBuilder {
     where
         F: FnOnce(Client) -> Backend,
     {
-        tower_lsp::LspService::new(client_fn)
+        let (service, _socket) = tower_lsp::LspService::new(client_fn);
+        service
     }
 
     /// Build the LSP server with stdin/stdout
     pub async fn build_server(
-        stdin: tokio::io::AsyncRead,
-        stdout: tokio::io::AsyncWrite,
-        socket: tower_lsp::LspService<Backend>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        tower_lsp::Server::new(stdin, stdout, socket).serve().await;
+        stdin: impl tokio::io::AsyncRead + Send + Unpin + 'static,
+        stdout: impl tokio::io::AsyncWrite + Send + Unpin + 'static,
+        _socket: tower_lsp::LspService<Backend>,
+    ) -> tower_lsp::jsonrpc::Result<()> {
+        let (service, socket) = tower_lsp::LspService::new(|client| Backend::new(client));
+        tower_lsp::Server::new(stdin, stdout, socket).serve(service).await;
         Ok(())
     }
 }
