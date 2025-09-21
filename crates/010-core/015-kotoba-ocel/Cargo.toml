@@ -27,10 +27,9 @@ thiserror = "1.0"
 # Logging
 tracing = "0.1"
 
-# Kotoba types
-kotoba-core = { path = "../012-kotoba-core", version = "0.1.22" } # Still needed for core logic
-kotoba-types = { path = "../010-kotoba-types" } # Explicit dependency on types
-kotoba-auth = { path = "../016-kotoba-auth" } # For SecureResource trait
-kotoba-errors = "0.1.2"
-kotoba-schema = { path = "../014-kotoba-schema", version = "0.1.22" }
-kotoba-cid = { path = "../013-kotoba-cid", version = "0.1.22" }
+# Kotoba ecosystem
+kotoba-graph-core = { path = "../../010-core/016-kotoba-graph-core" }
+kotoba-errors = { path = "../../010-core/011-kotoba-errors" }
+kotoba-types = { path = "../../010-core/011-kotoba-types" }
+kotoba-cid = { path = "../../010-core/013-kotoba-cid" }
+kotoba-auth = { path = "../../010-core/016-kotoba-auth" }

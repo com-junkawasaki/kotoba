@@ -13,25 +13,23 @@ name = "kotoba-lint"
 path = "src/main.rs"
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
+kotoba-types = { path = "../011-kotoba-types" }
+kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }
+kotoba-graph-core = { path = "../016-kotoba-graph-core" }
 thiserror = { workspace = true }
-anyhow = { workspace = true }
-regex = { workspace = true }
-tokio = { workspace = true }
+anyhow = "1.0"
+serde = { workspace = true }
+serde_json = "1.0"
+regex = "1.0"
+tracing = "0.1"
 futures = "0.3"
-async-trait = "0.1"
-parking_lot = "0.12"
-dirs = { workspace = true }
-toml = "0.8"
-chrono = { workspace = true }
-colored = "2.0"
-clap = { version = "4.0", features = ["derive"] }
-
-# Kotoba ecosystem
-kotoba-core = { path = "../../010-core/012-kotoba-core" }
-kotoba-kotobas = { path = "../023-kotoba-kotobas" }
-# kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4"
+tower-lsp = "0.20"
+dashmap = "5.5"
+url = "2.5"
+ropey = "1.6"
+glob = "0.3"
 
 [dev-dependencies]
 tokio-test = "0.4"

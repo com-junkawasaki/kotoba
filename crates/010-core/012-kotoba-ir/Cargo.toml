@@ -6,4 +6,4 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-kotoba-schema = { path = "../013-kotoba-schema" }
+kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }

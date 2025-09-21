@@ -9,7 +9,7 @@ description = "Semantic Analyzer for the Kotoba language, performing type checki
 [dependencies]
 kotoba-syntax = { path = "../020-kotoba-syntax" }
 kotoba-parser = { path = "../021-kotoba-parser" }
-kotoba-logic = { path = "../../010-core/010-kotoba-logic" }
+kotoba-codebase = { path = "../../010-core/010-kotoba-codebase" }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
