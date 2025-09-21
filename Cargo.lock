@@ -4574,7 +4574,7 @@ dependencies = [
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lz4",
- "metrics",
+ "metrics 0.23.1",
  "redis 0.24.0",
  "serde",
  "serde_json",
@@ -4913,7 +4913,7 @@ dependencies = [
  "hdrhistogram",
  "kotoba-core 0.1.22",
  "kotoba-deploy-core",
- "metrics",
+ "metrics 0.23.1",
  "metrics-exporter-prometheus",
  "prometheus",
  "rand 0.8.5",
@@ -5002,7 +5002,7 @@ dependencies = [
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics",
+ "metrics 0.23.1",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -5061,11 +5061,12 @@ dependencies = [
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-ocel 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics",
+ "metrics 0.23.1",
  "regex",
  "rocksdb",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -5297,6 +5298,7 @@ dependencies = [
  "futures",
  "kotoba-graphdb",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-storage-redis",
  "lru",
  "mimalloc",
  "rand 0.8.5",
@@ -5396,7 +5398,7 @@ dependencies = [
  "itertools 0.12.1",
  "kotoba-ocel 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics",
+ "metrics 0.23.1",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -5643,6 +5645,29 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.16",
  "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "kotoba-storage-redis"
+version = "0.1.22"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "criterion",
+ "futures",
+ "kotoba-memory",
+ "kotoba-storage 0.1.22",
+ "lz4",
+ "metrics 0.21.1",
+ "redis 0.24.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -6421,6 +6446,17 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "metrics"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fde3af1a009ed76a778cb84fdef9e7dbbdf5775ae3e4cc1f434a6a307f6f76c5"
+dependencies = [
+ "ahash 0.8.12",
+ "metrics-macros",
+ "portable-atomic",
+]
+
+[[package]]
+name = "metrics"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3045b4193fbdc5b5681f32f11070da9be3609f189a79f3390706d42587f46bb5"
@@ -6442,12 +6478,23 @@ dependencies = [
  "hyper-util",
  "indexmap 2.11.4",
  "ipnet",
- "metrics",
+ "metrics 0.23.1",
  "metrics-util",
  "quanta",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "metrics-macros"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38b4faf00617defe497754acde3024865bc143d44a86799b24e191ecff91354f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -6459,7 +6506,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.14.5",
- "metrics",
+ "metrics 0.23.1",
  "num_cpus",
  "quanta",
  "sketches-ddsketch",
@@ -8144,6 +8191,7 @@ dependencies = [
  "futures",
  "futures-util",
  "itoa",
+ "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "rand 0.8.5",
@@ -8151,6 +8199,7 @@ dependencies = [
  "sha1_smol",
  "socket2 0.4.10",
  "tokio",
+ "tokio-native-tls",
  "tokio-retry",
  "tokio-util",
  "url",

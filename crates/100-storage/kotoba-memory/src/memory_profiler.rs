@@ -656,7 +656,7 @@ mod tests {
 
         // Get current stats
         let stats = profiler.current_stats().await;
-        assert!(stats.current_memory_mb >= 0.0);
+        assert!(stats.profiler_stats.current_memory_mb >= 0.0);
 
         // Stop profiling
         profiler.stop().await.unwrap();

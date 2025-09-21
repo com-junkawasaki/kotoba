@@ -42,3 +42,6 @@ metrics = "0.23"
 kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
 kotoba-errors = "0.1.2"
 kotoba-ocel = "0.1.22"
+
+[dev-dependencies]
+tempfile = "3.0"

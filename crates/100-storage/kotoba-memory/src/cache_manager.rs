@@ -557,8 +557,8 @@ mod tests {
                 checksum: None,
             },
             access_count: 0,
-            last_access: Instant::now(),
-            created_at: Instant::now(),
+            last_access: Utc::now(),
+            created_at: Utc::now(),
             ttl: None,
         };
 
@@ -589,8 +589,8 @@ mod tests {
                     checksum: None,
                 },
                 access_count: 0,
-                last_access: Instant::now(),
-                created_at: Instant::now(),
+                last_access: Utc::now(),
+                created_at: Utc::now(),
                 ttl: None,
             };
             cache.put(format!("key_{}", i), value);

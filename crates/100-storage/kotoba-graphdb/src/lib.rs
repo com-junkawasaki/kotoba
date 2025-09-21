@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use rocksdb::{DB, ColumnFamilyDescriptor, Options, WriteBatch, IteratorMode};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, instrument};
+use tracing::{info, error, instrument};
 use dashmap::DashMap;
 use bincode;
 use uuid::Uuid;
@@ -609,7 +609,7 @@ impl GraphDB {
         // In a full implementation, this would parse the query and execute it efficiently
         let mut results = Vec::new();
         let mut nodes_scanned = 0u64;
-        let mut edges_scanned = 0u64;
+        let edges_scanned = 0u64;
 
         // For now, return all nodes that match the first node pattern
         if let Some(node_pattern) = query.node_patterns.first() {
@@ -662,7 +662,7 @@ impl GraphDB {
 
         for item in iter {
             let (key, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
-            let node_id = String::from_utf8(key.to_vec())
+            let _node_id = String::from_utf8(key.to_vec())
                 .map_err(|e| GraphError::SerializationError(e.to_string()))?;
             let node: Node = bincode::deserialize(&value)
                 .map_err(|e| GraphError::SerializationError(e.to_string()))?;
@@ -683,7 +683,7 @@ impl GraphDB {
 
         for item in iter {
             let (key, value) = item.map_err(|e| GraphError::RocksDBError(e.to_string()))?;
-            let edge_id = String::from_utf8(key.to_vec())
+            let _edge_id = String::from_utf8(key.to_vec())
                 .map_err(|e| GraphError::SerializationError(e.to_string()))?;
             let edge: Edge = bincode::deserialize(&value)
                 .map_err(|e| GraphError::SerializationError(e.to_string()))?;
@@ -968,7 +968,7 @@ impl GraphDB {
         Ok(())
     }
 
-    async fn delete_indexes_for_node(&self, node_id: &str) -> Result<(), GraphError> {
+    async fn delete_indexes_for_node(&self, _node_id: &str) -> Result<(), GraphError> {
         // This is a simplified implementation
         // In a real implementation, you'd track and delete specific indexes
         Ok(())

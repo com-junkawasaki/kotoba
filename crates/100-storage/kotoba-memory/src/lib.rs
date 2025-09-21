@@ -70,7 +70,7 @@ impl Default for MemoryConfig {
 }
 
 /// Cache eviction policies
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CachePolicy {
     Lru,
     Lfu,
@@ -79,7 +79,7 @@ pub enum CachePolicy {
 }
 
 /// Allocator types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AllocatorType {
     System,
     Jemalloc,
