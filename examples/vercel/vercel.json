@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "graphql.rs",
+      "src": "main.rs",
       "use": "@vercel/rust",
       "config": {
         "features": ["vercel"]
@@ -12,19 +12,19 @@
   "routes": [
     {
       "src": "/api/graphql",
-      "dest": "/graphql.rs"
+      "dest": "/main.rs"
     },
     {
       "src": "/api/graphql/playground",
-      "dest": "/graphql.rs"
+      "dest": "/main.rs"
     },
     {
       "src": "/api/health",
-      "dest": "/graphql.rs"
+      "dest": "/main.rs"
     }
   ],
   "functions": {
-    "graphql.rs": {
+    "main.rs": {
       "runtime": "@vercel/rust@4.0.0"
     }
   },

@@ -5,11 +5,7 @@ pub mod redis_store;
 
 use std::sync::Arc;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
-use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-use axum::{
-    response::{Html, IntoResponse},
-    Extension,
-};
+use axum::response::{Html, IntoResponse};
 use schema::{create_schema, KotobaSchema};
 use redis_store::RedisGraphStore;
 
@@ -39,13 +35,6 @@ pub async fn graphql_playground() -> impl IntoResponse {
     ))
 }
 
-/// GraphQL handler for Vercel
-pub async fn graphql_handler(
-    Extension(context): Extension<Arc<VercelContext>>,
-    req: GraphQLRequest,
-) -> GraphQLResponse {
-    context.schema.execute(req.into_inner()).await.into()
-}
 
 /// Health check handler
 pub async fn health_check() -> impl IntoResponse {

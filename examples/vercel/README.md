@@ -148,10 +148,15 @@ mutation DeleteNode($id: String!) {
 
 ```bash
 # Build the project
-cargo build
+cargo build --package kotoba-vercel-api
 
-# Run with local Redis
-REDIS_URL=redis://127.0.0.1:6379 cargo run --bin kotoba-vercel-api
+# Run with local Redis (make sure Redis is running)
+REDIS_URL=redis://127.0.0.1:6379 cargo run --bin vercel-graphql
+
+# Test the API with curl
+curl -X POST http://localhost:3000/api/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ health }"}'
 ```
 
 ### Vercel Development

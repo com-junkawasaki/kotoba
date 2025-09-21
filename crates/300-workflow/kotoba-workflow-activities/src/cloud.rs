@@ -11,9 +11,15 @@ impl Default for S3UploadActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for S3UploadActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "s3_upload"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for S3UploadActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("S3UploadActivity not implemented")
     }
 }
@@ -23,9 +29,15 @@ impl Default for S3DownloadActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for S3DownloadActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "s3_download"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for S3DownloadActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("S3DownloadActivity not implemented")
     }
 }
@@ -35,9 +47,15 @@ impl Default for S3DeleteActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for S3DeleteActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "s3_delete"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for S3DeleteActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("S3DeleteActivity not implemented")
     }
 }

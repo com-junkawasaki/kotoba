@@ -319,7 +319,7 @@ pub struct RedisEdge {
 }
 
 /// Database statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, async_graphql::SimpleObject)]
 pub struct DatabaseStats {
     pub total_keys: i32,
     pub connected_clients: i32,

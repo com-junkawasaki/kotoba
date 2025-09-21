@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::redis_store::{RedisGraphStore, RedisNode, RedisEdge, DatabaseStats};
+use super::redis_store::{RedisGraphStore, RedisNode, RedisEdge, DatabaseStats};
 
 /// GraphQL schema for Kotoba Graph Database operations
 pub type KotobaSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -104,7 +104,7 @@ impl MutationRoot {
     ) -> Result<Node> {
         // Convert GraphQL input to properties map
         let properties = input.properties.into_iter()
-            .map(|(k, v)| (k, v.into()))
+            .map(|(k, v)| (k, serde_json::Value::from(v)))
             .collect();
 
         match self.store.create_node(input.id, input.labels, properties).await {
@@ -122,7 +122,7 @@ impl MutationRoot {
     ) -> Result<Node> {
         // Convert GraphQL input to properties map
         let properties = input.properties.into_iter()
-            .map(|(k, v)| (k, v.into()))
+            .map(|(k, v)| (k, serde_json::Value::from(v)))
             .collect();
 
         match self.store.update_node(&id, input.labels, properties).await {
@@ -147,7 +147,7 @@ impl MutationRoot {
     ) -> Result<Edge> {
         // Convert GraphQL input to properties map
         let properties = input.properties.into_iter()
-            .map(|(k, v)| (k, v.into()))
+            .map(|(k, v)| (k, serde_json::Value::from(v)))
             .collect();
 
         match self.store.create_edge(input.id, input.from_node, input.to_node, input.label, properties).await {
@@ -165,7 +165,7 @@ impl MutationRoot {
     ) -> Result<Edge> {
         // Convert GraphQL input to properties map
         let properties = input.properties.into_iter()
-            .map(|(k, v)| (k, v.into()))
+            .map(|(k, v)| (k, serde_json::Value::from(v)))
             .collect();
 
         match self.store.update_edge(&id, input.label, properties).await {
@@ -185,13 +185,7 @@ impl MutationRoot {
 
 // GraphQL Types
 
-/// Database statistics
-#[derive(SimpleObject)]
-pub struct DatabaseStats {
-    pub total_keys: i32,
-    pub connected_clients: i32,
-    pub uptime_seconds: i32,
-}
+// DatabaseStats is imported from redis_store
 
 /// Node in the graph database
 #[derive(SimpleObject, Serialize, Deserialize)]
@@ -215,16 +209,14 @@ pub struct Edge {
     pub updated_at: String,
 }
 
-/// GraphQL Value type for properties
-#[derive(SimpleObject, Serialize, Deserialize)]
-#[graphql(input_name = "ValueInput")]
+/// GraphQL Value type for properties (output only)
+#[derive(SimpleObject, Serialize, Deserialize, Clone)]
 pub struct Value {
     pub value_type: ValueType,
 }
 
-/// Different value types supported
-#[derive(SimpleObject, Serialize, Deserialize)]
-#[graphql(input_name = "ValueTypeInput")]
+/// Different value types supported (output only)
+#[derive(SimpleObject, Serialize, Deserialize, Clone)]
 pub struct ValueType {
     pub string_value: Option<String>,
     pub int_value: Option<i64>,
@@ -234,6 +226,15 @@ pub struct ValueType {
     pub object_value: Option<HashMap<String, Value>>,
 }
 
+/// Input for property values - simplified for mutations
+#[derive(InputObject, Serialize, Deserialize)]
+pub struct PropertyValueInput {
+    pub string_value: Option<String>,
+    pub int_value: Option<i64>,
+    pub float_value: Option<f64>,
+    pub bool_value: Option<bool>,
+}
+
 // Input types for mutations
 
 /// Input for creating a node
@@ -241,14 +242,14 @@ pub struct ValueType {
 pub struct CreateNodeInput {
     pub id: Option<String>,
     pub labels: Vec<String>,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, PropertyValueInput>,
 }
 
 /// Input for updating a node
 #[derive(InputObject)]
 pub struct UpdateNodeInput {
     pub labels: Option<Vec<String>>,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, PropertyValueInput>,
 }
 
 /// Input for creating an edge
@@ -258,14 +259,14 @@ pub struct CreateEdgeInput {
     pub from_node: String,
     pub to_node: String,
     pub label: String,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, PropertyValueInput>,
 }
 
 /// Input for updating an edge
 #[derive(InputObject)]
 pub struct UpdateEdgeInput {
     pub label: Option<String>,
-    pub properties: HashMap<String, Value>,
+    pub properties: HashMap<String, PropertyValueInput>,
 }
 
 // Filter types for queries
@@ -291,7 +292,7 @@ pub struct EdgeFilter {
 pub struct PropertyFilter {
     pub property: String,
     pub operator: FilterOperator,
-    pub value: Value,
+    pub value: PropertyValueInput,
 }
 
 /// Filter operators
@@ -453,6 +454,22 @@ impl From<Value> for serde_json::Value {
             serde_json::Value::Array(arr.into_iter().map(Into::into).collect())
         } else if let Some(obj) = value.value_type.object_value {
             serde_json::Value::Object(obj.into_iter().map(|(k, v)| (k, v.into())).collect())
+        } else {
+            serde_json::Value::Null
+        }
+    }
+}
+
+impl From<PropertyValueInput> for serde_json::Value {
+    fn from(input: PropertyValueInput) -> Self {
+        if let Some(s) = input.string_value {
+            serde_json::Value::String(s)
+        } else if let Some(i) = input.int_value {
+            serde_json::Value::Number(i.into())
+        } else if let Some(f) = input.float_value {
+            serde_json::Value::Number(serde_json::Number::from_f64(f).unwrap_or(serde_json::Number::from(0)))
+        } else if let Some(b) = input.bool_value {
+            serde_json::Value::Bool(b)
         } else {
             serde_json::Value::Null
         }

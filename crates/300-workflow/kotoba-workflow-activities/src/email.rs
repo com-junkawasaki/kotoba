@@ -11,9 +11,15 @@ impl Default for SmtpSendActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for SmtpSendActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "smtp_send"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for SmtpSendActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("SmtpSendActivity not implemented")
     }
 }

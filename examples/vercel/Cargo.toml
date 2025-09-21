@@ -6,7 +6,7 @@ publish = false
 
 [[bin]]
 name = "vercel-graphql"
-path = "graphql.rs"
+path = "main.rs"
 
 [dependencies]
 # Vercel runtime
@@ -39,3 +39,13 @@ thiserror = "2.0"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Lazy static for global context
+lazy_static = "1.4"
+
+# Hyper for body conversion
+hyper = "1.0"
+# For HTTP body utilities
+http-body-util = "0.1"
+# Tower utilities
+tower = "0.4"

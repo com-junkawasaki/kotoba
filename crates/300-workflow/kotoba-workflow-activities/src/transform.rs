@@ -11,9 +11,15 @@ impl Default for JsonTransformActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for JsonTransformActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "json_transform"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for JsonTransformActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("JsonTransformActivity not implemented")
     }
 }
@@ -23,9 +29,15 @@ impl Default for StringReplaceActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for StringReplaceActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "string_replace"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for StringReplaceActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("StringReplaceActivity not implemented")
     }
 }
@@ -35,9 +47,15 @@ impl Default for Base64EncodeActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for Base64EncodeActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "base64_encode"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for Base64EncodeActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("Base64EncodeActivity not implemented")
     }
 }
@@ -47,9 +65,15 @@ impl Default for Base64DecodeActivity {
     fn default() -> Self { Self }
 }
 
-#[async_trait::async_trait]
 impl Activity for Base64DecodeActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    fn name(&self) -> &str {
+        "base64_decode"
+    }
+}
+
+#[async_trait::async_trait]
+impl kotoba_workflow::Activity for Base64DecodeActivity {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
         todo!("Base64DecodeActivity not implemented")
     }
 }
