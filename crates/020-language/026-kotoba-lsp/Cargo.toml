@@ -13,8 +13,15 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+kotoba-rewrite-kernel = { path = "../../010-core/012-kotoba-rewrite-kernel" }
+
+# Kotoba language dependencies
 kotoba-kotobas = { path = "../023-kotoba-kotobas" }
-kotoba-jsonnet = { path = "../022-kotoba-jsonnet" }
+kotoba-jsonnet = { path = "../023-kotoba-jsonnet" }
 kotoba-formatter = { path = "../024-kotoba-formatter" }
 kotoba-linter = { path = "../025-kotoba-linter" }
 tokio = { version = "1.0", features = ["full"] }

@@ -21,7 +21,12 @@ parking_lot = "0.12"
 dirs = { workspace = true }
 toml = "0.8"
 
-# Kotoba ecosystem
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+
+# Kotoba language dependencies
 kotoba-parser = { path = "../021-kotoba-parser" }
 kotoba-syntax = { path = "../020-kotoba-syntax" }
 # kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues

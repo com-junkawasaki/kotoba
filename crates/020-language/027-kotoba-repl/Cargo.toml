@@ -33,8 +33,12 @@ console = "0.15"
 dialoguer = "0.11"
 indicatif = "0.17"
 
-# Kotoba ecosystem
-kotoba-graph-core = { path = "../../010-core/016-kotoba-graph-core" }
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+
+# Kotoba language dependencies
 kotoba-kotobas = { path = "../023-kotoba-kotobas" }
 # kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
 

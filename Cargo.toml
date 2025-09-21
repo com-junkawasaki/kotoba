@@ -16,15 +16,15 @@ members = [
     "crates/020-language/020-kotoba-syntax",
     "crates/020-language/021-kotoba-parser",
     "crates/020-language/022-kotoba-analyzer",
-    "crates/020-language/022-kotoba-jsonnet",
+    "crates/020-language/023-kotoba-jsonnet",
     "crates/020-language/023-kotoba-kotobas",
-    "crates/020-language/024-kotoba-formatter",
-    "crates/020-language/025-kotoba-linter",
-    "crates/020-language/026-kotoba-lsp",
-    "crates/020-language/027-kotoba-repl",
-    "crates/020-language/028-kotoba2tsx",
-    "crates/020-language/029-kotobas-wasm",
-    "crates/020-language/030-kotoba-language",
+    "crates/020-language/025-kotoba-formatter",
+    "crates/020-language/026-kotoba-linter",
+    "crates/020-language/027-kotoba-lsp",
+    "crates/020-language/028-kotoba-repl",
+    "crates/020-language/029-kotoba2tsx",
+    "crates/020-language/030-kotobas-wasm",
+    "crates/020-language/031-kotoba-language",
     # "crates/060-services/064-kotoba-server-core", # No Cargo.toml
     # "crates/060-services/067-kotoba-server", # No Cargo.toml
     # "crates/060-services/065-kotoba-graph-api", # No Cargo.toml

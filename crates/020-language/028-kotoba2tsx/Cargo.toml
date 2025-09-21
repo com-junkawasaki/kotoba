@@ -11,8 +11,14 @@ documentation = "https://docs.rs/kotoba2tsx"
 homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
-# Kotoba ecosystem
-kotoba-graph-core = { path = "../../010-core/016-kotoba-graph-core" }
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+kotoba-rewrite-kernel = { path = "../../010-core/012-kotoba-rewrite-kernel" }
+kotoba-compose = { path = "../../010-core/013-kotoba-compose" }
+
+# Kotoba language dependencies
 kotoba-kotobas = { path = "../023-kotoba-kotobas" }
 
 serde = { version = "1.0", features = ["derive"] }

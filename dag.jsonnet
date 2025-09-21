@@ -47,7 +47,7 @@
       name: 'Language Layer',
       description: 'Programming language support (Jsonnet, KotobaScript, TSX)',
       priority: 2,
-      crates: ['021-kotoba-language', '022-kotoba-jsonnet', '023-kotoba-kotobas', '024-kotoba-formatter', '025-kotoba-linter', '026-kotoba-lsp', '027-kotoba-repl', '028-kotoba2tsx', '029-kotobas-wasm']
+      crates: ['020-kotoba-syntax', '021-kotoba-parser', '022-kotoba-analyzer', '023-kotoba-jsonnet', '023-kotoba-kotobas', '024-kotoba-formatter', '025-kotoba-linter', '026-kotoba-lsp', '027-kotoba-repl', '028-kotoba2tsx', '029-kotobas-wasm', '030-kotoba-language']
     },
     '060-services': {
       name: 'Services Layer',

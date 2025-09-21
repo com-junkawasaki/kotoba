@@ -9,7 +9,14 @@ keywords = ["language", "parser", "formatter", "linter", "repl"]
 categories = ["development-tools", "parsing"]
 
 [dependencies]
-# Core dependencies
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+kotoba-rewrite-kernel = { path = "../../010-core/012-kotoba-rewrite-kernel" }
+kotoba-compose = { path = "../../010-core/013-kotoba-compose" }
+
+# Standard dependencies
 serde = { version = "1.0", features = ['derive'] }
 serde_json = "1.0"
 thiserror = "1.0"
