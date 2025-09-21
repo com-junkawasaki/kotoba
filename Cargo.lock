@@ -5018,27 +5018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-graph-api"
-version = "0.1.22"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "futures",
- "kotoba-core 0.1.22",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graphdb",
- "reqwest",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tower 0.4.13",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "kotoba-graphdb"
 version = "0.1.22"
 dependencies = [
@@ -5492,7 +5471,6 @@ dependencies = [
  "js-sys",
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-graph-api",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",

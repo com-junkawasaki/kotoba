@@ -1,9 +1,7 @@
-use std::sync::Arc;
 use clap::Parser;
 use axum::{routing::get, Router};
 use tokio::net::TcpListener;
-use kotoba_graphdb::GraphDB;
-use kotoba_graph_api::create_router;
+// use kotoba_graph_api::create_router; // Temporarily disabled
 
 /// Health check handler
 async fn health_check() -> &'static str {
@@ -23,9 +21,9 @@ struct Args {
     #[arg(long, default_value = "8100")]
     port: u16,
 
-    /// Graph database path
-    #[arg(long, default_value = "./data/graph.db")]
-    db_path: String,
+    // /// Graph database path
+    // #[arg(long, default_value = "./data/graph.db")]
+    // db_path: String,
 
     /// Enable development mode
     #[arg(long)]
@@ -57,22 +55,24 @@ async fn main() -> anyhow::Result<()> {
     // Setup logging
     setup_logging();
 
-    // Initialize GraphDB
-    tracing::info!("🔄 Initializing GraphDB at: {}", args.db_path);
-    let graphdb = Arc::new(GraphDB::new(&args.db_path).await
-        .map_err(|e| {
-            tracing::error!("Failed to initialize GraphDB: {}", e);
-            e
-        })?);
-    tracing::info!("✅ GraphDB initialized successfully");
+    // Initialize GraphDB - temporarily disabled for testing
+    // tracing::info!("🔄 Initializing GraphDB at: {}", args.db_path);
+    // let graphdb = Arc::new(GraphDB::new(&args.db_path).await
+    //     .map_err(|e| {
+    //         tracing::error!("Failed to initialize GraphDB: {}", e);
+    //         e
+    //     })?);
+    // tracing::info!("✅ GraphDB initialized successfully");
 
-    // Create Graph API router
-    let graph_api_router = create_router(graphdb);
+    // Graph API temporarily disabled for testing
+    // TODO: Re-enable when GraphDB integration is fixed
+    // let graphdb = Arc::new(GraphDB::new(&args.db_path).await?);
+    // let graph_api_router = create_router(graphdb);
 
     // Create main application router
     let app = Router::new()
-        .route("/health", get(health_check))
-        .merge(graph_api_router);
+        .route("/health", get(health_check));
+        // .merge(graph_api_router); // Temporarily disabled
 
     // Add workflow features if enabled
     if args.workflow {
@@ -86,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
     // Start server
     let addr = format!("{}:{}", args.host, args.port);
     tracing::info!("🚀 Server starting on {}", addr);
-    tracing::info!("📊 Graph API available at http://{}/api/v1/", addr);
+    tracing::info!("📊 Graph API temporarily disabled - working on integration");
 
     let listener = TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
