@@ -146,7 +146,7 @@ impl SchemaMigration {
         graph_data: &mut serde_json::Value,
         source_path: &str,
         target_path: &str,
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         if let Some(vertices) = graph_data.get_mut("vertices").and_then(|v| v.as_array_mut()) {
             for vertex in vertices {
                 if let Some(props) = vertex.get_mut("properties").and_then(|p| p.as_object_mut()) {
@@ -176,7 +176,7 @@ impl SchemaMigration {
         graph_data: &mut serde_json::Value,
         source_path: &str,
         target_path: &str,
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         // For now, this is a placeholder. In a full implementation,
         // you would attempt to convert values to the new type
         println!("Warning: ChangePropertyType rule applied - manual verification recommended");
@@ -189,7 +189,7 @@ impl SchemaMigration {
         graph_data: &mut serde_json::Value,
         target_path: &str,
         default_value: &Option<ValueTransformation>,
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         let default_json = match default_value {
             Some(ValueTransformation::StringToInt) => serde_json::Value::Number(0.into()),
             Some(ValueTransformation::IntToString) => serde_json::Value::String("".to_string()),
@@ -249,7 +249,7 @@ impl SchemaMigration {
         graph_data: &mut serde_json::Value,
         source_path: &str,
         transformation: &ValueTransformation,
-    ) -> Result<()> {
+    ) -> Result<(), KotobaError> {
         let transform_fn = |value: &mut serde_json::Value| {
             match transformation {
                 ValueTransformation::StringToInt => {

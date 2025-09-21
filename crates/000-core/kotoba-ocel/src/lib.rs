@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use kotoba_core::{auth::{PrincipalId, SecureResource}, crypto::EncryptionInfo};
-use kotoba_cid::Cid;
+use kotoba_core::{auth::{PrincipalId, SecureResource}, crypto::EncryptionInfo, types::Cid};
 
 /// Core OCEL v2 event log structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -336,7 +335,7 @@ impl kotoba_core::auth::SecureResource for OcelEvent {
         let mut attrs = HashMap::new();
         attrs.insert("issuer_id".to_string(), self.issuer_id.clone());
         attrs.insert("activity".to_string(), self.activity.clone());
-        if let Some(policy_cid) = self.policy_cid {
+        if let Some(ref policy_cid) = self.policy_cid {
             attrs.insert("policy_cid".to_string(), policy_cid.to_string());
         }
         attrs
