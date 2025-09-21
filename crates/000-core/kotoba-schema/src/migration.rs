@@ -167,17 +167,151 @@ impl SchemaMigration {
         Ok(())
     }
 
-    /// Change property type (simplified - just validates new type)
+    /// Change property type with actual type conversion
     fn change_property_type(
         &self,
-        _graph_data: &mut serde_json::Value,
-        _source_path: &str,
-        _target_path: &str,
+        graph_data: &mut serde_json::Value,
+        source_path: &str,
+        target_path: &str,
     ) -> Result<(), KotobaError> {
-        // For now, this is a placeholder. In a full implementation,
-        // you would attempt to convert values to the new type
-        println!("Warning: ChangePropertyType rule applied - manual verification recommended");
+        // Extract source and target types from paths
+        let source_parts: Vec<&str> = source_path.split('.').collect();
+        let target_parts: Vec<&str> = target_path.split('.').collect();
+
+        if source_parts.len() < 2 || target_parts.len() < 2 {
+            return Err(KotobaError::Storage("Invalid property path format".to_string()));
+        }
+
+        let source_type = source_parts[1];
+        let target_type = target_parts[1];
+
+        // Convert property values in vertices
+        if let Some(vertices) = graph_data.get_mut("vertices").and_then(|v| v.as_array_mut()) {
+            for vertex in vertices {
+                if let Some(properties) = vertex.get_mut("properties").and_then(|p| p.as_object_mut()) {
+                    self.convert_property_value(properties, source_type, target_type)?;
+                }
+            }
+        }
+
+        // Convert property values in edges
+        if let Some(edges) = graph_data.get_mut("edges").and_then(|e| e.as_array_mut()) {
+            for edge in edges {
+                if let Some(properties) = edge.get_mut("properties").and_then(|p| p.as_object_mut()) {
+                    self.convert_property_value(properties, source_type, target_type)?;
+                }
+            }
+        }
+
         Ok(())
+    }
+
+    /// Convert a single property value from one type to another
+    fn convert_property_value(
+        &self,
+        properties: &mut serde_json::Map<String, serde_json::Value>,
+        source_type: &str,
+        target_type: &str,
+    ) -> Result<(), KotobaError> {
+        // Find properties of the source type
+        let source_keys: Vec<String> = properties.keys()
+            .filter(|key| key.ends_with(&format!(":{}", source_type)))
+            .cloned()
+            .collect();
+
+        for source_key in source_keys {
+            if let Some(value) = properties.get(&source_key) {
+                let new_key = source_key.replace(&format!(":{}", source_type), &format!(":{}", target_type));
+                let converted_value = self.convert_single_value(value, target_type)?;
+
+                properties.insert(new_key, converted_value);
+                properties.remove(&source_key);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Convert a single JSON value to the target type
+    fn convert_single_value(
+        &self,
+        value: &serde_json::Value,
+        target_type: &str,
+    ) -> Result<serde_json::Value, KotobaError> {
+        match target_type {
+            "string" => {
+                match value {
+                    serde_json::Value::String(_s) => Ok(value.clone()),
+                    serde_json::Value::Number(n) => Ok(serde_json::Value::String(n.to_string())),
+                    serde_json::Value::Bool(b) => Ok(serde_json::Value::String(b.to_string())),
+                    _ => Ok(serde_json::Value::String("".to_string())),
+                }
+            },
+            "integer" => {
+                match value {
+                    serde_json::Value::String(s) => {
+                        s.parse::<i64>()
+                            .map(|n| Ok(serde_json::Value::Number(n.into())))
+                            .unwrap_or_else(|_| Ok(serde_json::Value::Number(0.into())))
+                    },
+                    serde_json::Value::Number(n) => {
+                        if let Some(n_int) = n.as_i64() {
+                            Ok(serde_json::Value::Number(n_int.into()))
+                        } else if let Some(n_float) = n.as_f64() {
+                            Ok(serde_json::Value::Number((n_float as i64).into()))
+                        } else {
+                            Ok(serde_json::Value::Number(0.into()))
+                        }
+                    },
+                    serde_json::Value::Bool(b) => {
+                        Ok(serde_json::Value::Number(if *b { 1.into() } else { 0.into() }))
+                    },
+                    _ => Ok(serde_json::Value::Number(0.into())),
+                }
+            },
+            "float" => {
+                match value {
+                    serde_json::Value::String(s) => {
+                        s.parse::<f64>()
+                            .map(|n| Ok(serde_json::Value::Number(serde_json::Number::from_f64(n).unwrap_or(0.into()))))
+                            .unwrap_or_else(|_| Ok(serde_json::Value::Number(0.into())))
+                    },
+                    serde_json::Value::Number(n) => {
+                        if let Some(n_float) = n.as_f64() {
+                            Ok(serde_json::Value::Number(serde_json::Number::from_f64(n_float).unwrap_or(0.into())))
+                        } else {
+                            Ok(serde_json::Value::Number(0.into()))
+                        }
+                    },
+                    serde_json::Value::Bool(b) => {
+                        Ok(serde_json::Value::Number(if *b { 1.into() } else { 0.into() }))
+                    },
+                    _ => Ok(serde_json::Value::Number(0.into())),
+                }
+            },
+            "boolean" => {
+                match value {
+                    serde_json::Value::String(s) => {
+                        Ok(serde_json::Value::Bool(s.to_lowercase() == "true" || s == "1"))
+                    },
+                    serde_json::Value::Number(n) => {
+                        if let Some(n_int) = n.as_i64() {
+                            Ok(serde_json::Value::Bool(n_int != 0))
+                        } else if let Some(n_float) = n.as_f64() {
+                            Ok(serde_json::Value::Bool(n_float != 0.0))
+                        } else {
+                            Ok(serde_json::Value::Bool(false))
+                        }
+                    },
+                    serde_json::Value::Bool(_b) => Ok(value.clone()),
+                    _ => Ok(serde_json::Value::Bool(false)),
+                }
+            },
+            _ => {
+                // Unknown type - keep original value
+                Ok(value.clone())
+            }
+        }
     }
 
     /// Add a property to graph elements

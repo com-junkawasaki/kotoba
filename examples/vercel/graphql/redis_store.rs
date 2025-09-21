@@ -379,7 +379,7 @@ impl RedisGraphStore {
         id: &str,
         label: Option<String>,
         properties: HashMap<String, serde_json::Value>,
-    ) -> Result<Edge, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<GraphDBEdge, Box<dyn std::error::Error + Send + Sync>> {
         // Get existing edge
         let existing = self.get_edge(id).await?
             .ok_or("Edge not found")?;
@@ -395,7 +395,7 @@ impl RedisGraphStore {
             .collect();
         updated_properties.extend(new_properties_btree);
 
-        let updated_edge = Edge {
+        let updated_edge = GraphDBEdge {
             id: id.to_string(),
             from_node: existing.from_node,
             to_node: existing.to_node,

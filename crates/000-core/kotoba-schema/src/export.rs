@@ -5,6 +5,7 @@
 
 use crate::schema::*;
 use kotoba_errors::KotobaError;
+use std::collections::HashMap;
 
 /// Schema exporter for different formats
 pub struct SchemaExporter;
@@ -403,17 +404,182 @@ impl SchemaImporter {
     }
 
     /// Import schema from GraphQL schema string
-    pub fn from_graphql_schema(_gql_schema: &str) -> Result<GraphSchema, KotobaError> {
-        let id = "graphql_imported".to_string();
-        let name = "Imported from GraphQL".to_string();
+    pub fn from_graphql_schema(gql_schema: &str) -> Result<GraphSchema, KotobaError> {
+        let mut schema = GraphSchema::new(
+            "graphql_imported".to_string(),
+            "Imported from GraphQL".to_string(),
+            "1.0.0".to_string(),
+        );
 
-        let schema = GraphSchema::new(id, name, "1.0.0".to_string());
-
-        // This is a placeholder implementation
-        // A full implementation would parse GraphQL schema
-        // and convert it to Kotoba schema types
+        // Parse GraphQL schema and convert to Kotoba schema types
+        Self::parse_graphql_types(gql_schema, &mut schema)?;
 
         Ok(schema)
+    }
+
+    /// Parse GraphQL types and convert to Kotoba schema types
+    fn parse_graphql_types(gql_schema: &str, schema: &mut GraphSchema) -> Result<(), KotobaError> {
+        let lines: Vec<&str> = gql_schema.lines().collect();
+
+        for line in lines {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+
+            // Parse type definitions
+            if line.starts_with("type ") {
+                Self::parse_type_definition(line, schema)?;
+            } else if line.starts_with("enum ") {
+                Self::parse_enum_definition(line, schema)?;
+            } else if line.starts_with("interface ") {
+                Self::parse_interface_definition(line, schema)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Parse GraphQL type definition
+    fn parse_type_definition(line: &str, schema: &mut GraphSchema) -> Result<(), KotobaError> {
+        let parts: Vec<&str> = line.split('{').collect();
+        if parts.len() < 2 {
+            return Ok(()); // Skip incomplete definitions
+        }
+
+        let type_def = parts[0].trim();
+        let type_parts: Vec<&str> = type_def.split_whitespace().collect();
+        if type_parts.len() < 2 {
+            return Ok(());
+        }
+
+        let type_name = type_parts[1];
+
+        // Create vertex type schema
+        let mut vertex_type = VertexTypeSchema::new(type_name.to_string());
+        vertex_type.description = Some(format!("GraphQL type {}", type_name));
+
+        // Parse fields (simplified implementation)
+        let fields_part = parts[1].trim();
+        if fields_part.ends_with('}') {
+            let fields_str = &fields_part[..fields_part.len() - 1];
+            for field_line in fields_str.lines() {
+                let field_line = field_line.trim();
+                if !field_line.is_empty() {
+                    if let Some(field_name) = field_line.split(':').next() {
+                        let field_name = field_name.trim();
+                        if field_name != "id" && field_name != "labels" {
+                            // Add as optional string property by default
+                            let mut props = HashMap::new();
+                            props.insert(
+                                field_name.to_string(),
+                                PropertySchema {
+                                    name: field_name.to_string(),
+                                    property_type: PropertyType::String,
+                                    description: Some(format!("Field from GraphQL type {}", type_name)),
+                                    required: false,
+                                    default_value: None,
+                                    constraints: vec![],
+                                },
+                            );
+                            vertex_type.properties = props;
+                        }
+                    }
+                }
+            }
+        }
+
+        schema.add_vertex_type(vertex_type);
+        Ok(())
+    }
+
+    /// Parse GraphQL enum definition
+    fn parse_enum_definition(line: &str, schema: &mut GraphSchema) -> Result<(), KotobaError> {
+        let parts: Vec<&str> = line.split('{').collect();
+        if parts.len() < 2 {
+            return Ok(());
+        }
+
+        let enum_def = parts[0].trim();
+        let enum_parts: Vec<&str> = enum_def.split_whitespace().collect();
+        if enum_parts.len() < 2 {
+            return Ok(());
+        }
+
+        let enum_name = enum_parts[1];
+
+        // For enums, we create a vertex type with an enum property
+        let mut vertex_type = VertexTypeSchema::new(enum_name.to_string());
+        vertex_type.description = Some(format!("GraphQL enum {}", enum_name));
+
+        let mut props = HashMap::new();
+        props.insert(
+            "value".to_string(),
+            PropertySchema {
+                name: "value".to_string(),
+                property_type: PropertyType::String,
+                description: Some(format!("Enum value for {}", enum_name)),
+                required: true,
+                default_value: None,
+                constraints: vec![],
+            },
+        );
+
+        vertex_type.properties = props;
+        schema.add_vertex_type(vertex_type);
+        Ok(())
+    }
+
+    /// Parse GraphQL interface definition
+    fn parse_interface_definition(line: &str, schema: &mut GraphSchema) -> Result<(), KotobaError> {
+        let parts: Vec<&str> = line.split('{').collect();
+        if parts.len() < 2 {
+            return Ok(());
+        }
+
+        let interface_def = parts[0].trim();
+        let interface_parts: Vec<&str> = interface_def.split_whitespace().collect();
+        if interface_parts.len() < 2 {
+            return Ok(());
+        }
+
+        let interface_name = interface_parts[1];
+
+        // Create an interface type (similar to regular type but marked as interface)
+        let mut vertex_type = VertexTypeSchema::new(format!("I{}", interface_name));
+        vertex_type.description = Some(format!("GraphQL interface {}", interface_name));
+
+        // Parse fields (simplified implementation)
+        let fields_part = parts[1].trim();
+        if fields_part.ends_with('}') {
+            let fields_str = &fields_part[..fields_part.len() - 1];
+            for field_line in fields_str.lines() {
+                let field_line = field_line.trim();
+                if !field_line.is_empty() {
+                    if let Some(field_name) = field_line.split(':').next() {
+                        let field_name = field_name.trim();
+                        if field_name != "id" && field_name != "labels" {
+                            let mut props = HashMap::new();
+                            props.insert(
+                                field_name.to_string(),
+                                PropertySchema {
+                                    name: field_name.to_string(),
+                                    property_type: PropertyType::String,
+                                    description: Some(format!("Field from GraphQL interface {}", interface_name)),
+                                    required: false,
+                                    default_value: None,
+                                    constraints: vec![],
+                                },
+                            );
+                            vertex_type.properties = props;
+                        }
+                    }
+                }
+            }
+        }
+
+        schema.add_vertex_type(vertex_type);
+        Ok(())
     }
 }
 

@@ -265,7 +265,7 @@ impl GraphValidator {
 
         // Constraint validation
         for constraint in &prop_schema.constraints {
-            let constraint_errors = self.validate_constraint(constraint, value, &mut warnings);
+            let constraint_errors = self.validate_constraint(constraint, value, &prop_schema.name, value, &mut warnings);
             errors.extend(constraint_errors);
         }
 
@@ -311,7 +311,7 @@ impl GraphValidator {
     }
 
     /// Validate a constraint
-    fn validate_constraint(&self, constraint: &PropertyConstraint, value: &serde_json::Value, warnings: &mut Vec<String>) -> Vec<ValidationError> {
+    fn validate_constraint(&self, constraint: &PropertyConstraint, value: &serde_json::Value, property_name: &str, property_value: &serde_json::Value, warnings: &mut Vec<String>) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         match constraint {
@@ -471,7 +471,7 @@ impl GraphValidator {
                     errors.extend(path_errors);
                 },
                 SchemaConstraint::Custom { name, parameters } => {
-                    let custom_errors = self.validate_custom_constraint(graph_data, name, parameters);
+                    let custom_errors = self.validate_custom_constraint(graph_data, name, &parameters.clone());
                     errors.extend(custom_errors);
                 }
             }
@@ -689,10 +689,10 @@ impl GraphValidator {
     }
 
     /// Validate custom schema constraints
-    fn validate_custom_constraint(&self, graph_data: &serde_json::Value, name: &str, parameters: &HashMap<String, Value>) -> Vec<ValidationError> {
+    fn validate_custom_constraint(&self, graph_data: &serde_json::Value, name: &str, parameters: &HashMap<String, serde_json::Value>) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
-        match name.as_str() {
+        match name {
             "max_vertices" => {
                 if let Some(max_count) = parameters.get("count").and_then(|v| v.as_u64()) {
                     if let Some(vertices) = graph_data.get("vertices").and_then(|v| v.as_array()) {

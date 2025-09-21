@@ -50,26 +50,79 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    // Test OCEL-like data storage
-    println!("🏗️  Testing OCEL data storage...");
-    let ocel_key = b"node:debug_ocel_order";
-    let ocel_data = br#"{
-        "ocel:type": "object",
-        "ocel:oid": "debug_ocel_order",
-        "ocel:object_type": "Order",
-        "attributes": {
-            "customer_id": "debug_customer",
-            "amount": 100.0
+    // Test RedisGraphStore with proper GraphDB structures
+    println!("🏗️  Testing RedisGraphStore with GraphDB structures...");
+    use kotoba_storage_redis::{RedisStore, RedisConfig};
+    use kotoba_storage::KeyValueStore;
+    use kotoba_graphdb::{Node, Edge, PropertyValue};
+    use std::collections::BTreeMap;
+    use chrono::Utc;
+
+    // Create RedisGraphStore-like key generation (simplified)
+    let node_key = format!("nodes/{}", "test_order_001");
+    let edge_key = format!("edges/{}", "test_event_001");
+
+    // Test creating a GraphDB Node with proper key format
+    let mut node_properties = BTreeMap::new();
+    node_properties.insert("ocel:type".to_string(), PropertyValue::String("object".to_string()));
+    node_properties.insert("ocel:oid".to_string(), PropertyValue::String("test_order_001".to_string()));
+    node_properties.insert("ocel:object_type".to_string(), PropertyValue::String("Order".to_string()));
+    node_properties.insert("customer_id".to_string(), PropertyValue::String("customer_123".to_string()));
+    node_properties.insert("amount".to_string(), PropertyValue::Float(299.99));
+
+    let test_node = Node {
+        id: "test_order_001".to_string(),
+        labels: vec!["Order".to_string(), "OCEL_Object".to_string()],
+        properties: node_properties,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
+    // Test storing node with DAG-structured key
+    let node_data = serde_json::to_string(&test_node)?;
+    store.put(node_key.as_bytes(), node_data.as_bytes()).await?;
+    println!("✅ GraphDB Node stored with DAG key: {}", node_key);
+
+    // Test retrieving node
+    let retrieved_node_data = store.get(node_key.as_bytes()).await?;
+    match retrieved_node_data {
+        Some(data) => {
+            let retrieved_node: Node = serde_json::from_slice(&data)?;
+            println!("✅ GraphDB Node retrieved: id={}, labels={:?}", retrieved_node.id, retrieved_node.labels);
         }
-    }"#;
+        None => println!("❌ GraphDB Node not found"),
+    }
 
-    store.put(ocel_key, ocel_data).await?;
-    println!("✅ OCEL data stored");
+    // Test creating a GraphDB Edge
+    let mut edge_properties = BTreeMap::new();
+    edge_properties.insert("ocel:activity".to_string(), PropertyValue::String("Order Placed".to_string()));
+    edge_properties.insert("ocel:timestamp".to_string(), PropertyValue::Date(Utc::now()));
+    edge_properties.insert("user_agent".to_string(), PropertyValue::String("TestAgent/1.0".to_string()));
 
-    let retrieved_ocel = store.get(ocel_key).await?;
-    match retrieved_ocel {
-        Some(data) => println!("✅ OCEL data retrieved: {:?}", String::from_utf8_lossy(&data)),
-        None => println!("❌ OCEL data not found"),
+    let test_edge = Edge {
+        id: "test_event_001".to_string(),
+        from_node: "customer_123".to_string(),
+        to_node: "test_order_001".to_string(),
+        label: "PLACED_ORDER".to_string(),
+        properties: edge_properties,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
+    // Test storing edge with DAG-structured key
+    let edge_data = serde_json::to_string(&test_edge)?;
+    store.put(edge_key.as_bytes(), edge_data.as_bytes()).await?;
+    println!("✅ GraphDB Edge stored with DAG key: {}", edge_key);
+
+    // Test retrieving edge
+    let retrieved_edge_data = store.get(edge_key.as_bytes()).await?;
+    match retrieved_edge_data {
+        Some(data) => {
+            let retrieved_edge: Edge = serde_json::from_slice(&data)?;
+            println!("✅ GraphDB Edge retrieved: id={}, from={} to={}, label={}",
+                     retrieved_edge.id, retrieved_edge.from_node, retrieved_edge.to_node, retrieved_edge.label);
+        }
+        None => println!("❌ GraphDB Edge not found"),
     }
 
     println!("🎉 Redis debugging complete!");
