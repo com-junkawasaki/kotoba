@@ -1,8 +1,9 @@
 //! Messaging activities - stub implementation
 // TODO: Implement messaging activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,12 +12,13 @@ impl Default for RabbitMqPublishActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for RabbitMqPublishActivity {
     fn name(&self) -> &str {
         "rabbitmq_publish"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("RabbitMqPublishActivity not implemented")
     }
 }
@@ -27,12 +29,13 @@ impl Default for RabbitMqConsumeActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for RabbitMqConsumeActivity {
     fn name(&self) -> &str {
         "rabbitmq_consume"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("RabbitMqConsumeActivity not implemented")
     }
 }

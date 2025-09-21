@@ -16,7 +16,7 @@ impl Activity for FileReadActivity {
         "file_read"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("FileReadActivity not implemented")
     }
 }
@@ -32,7 +32,7 @@ impl Activity for FileWriteActivity {
         "file_write"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("FileWriteActivity not implemented")
     }
 }
@@ -47,7 +47,7 @@ impl Activity for FileCopyActivity {
         "file_copy"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("FileCopyActivity not implemented")
     }
 }
@@ -62,7 +62,7 @@ impl Activity for CsvParseActivity {
         "csv_parse"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("CsvParseActivity not implemented")
     }
 }
@@ -77,7 +77,7 @@ impl Activity for ZipCreateActivity {
         "zip_create"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("ZipCreateActivity not implemented")
     }
 }

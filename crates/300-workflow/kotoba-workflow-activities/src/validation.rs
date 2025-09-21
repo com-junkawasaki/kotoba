@@ -16,7 +16,7 @@ impl Activity for JsonValidateActivity {
         "json_validate"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("JsonValidateActivity not implemented")
     }
 }
@@ -32,7 +32,7 @@ impl Activity for RegexMatchActivity {
         "regex_match"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("RegexMatchActivity not implemented")
     }
 }
@@ -47,7 +47,7 @@ impl Activity for SchemaValidateActivity {
         "schema_validate"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("SchemaValidateActivity not implemented")
     }
 }

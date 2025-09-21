@@ -16,7 +16,7 @@ impl Activity for AiActivity {
         "ai"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("AiActivity not implemented")
     }
 }

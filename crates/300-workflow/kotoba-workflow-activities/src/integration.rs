@@ -16,7 +16,7 @@ impl Activity for IntegrationActivity {
         "integration"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("IntegrationActivity not implemented")
     }
 }

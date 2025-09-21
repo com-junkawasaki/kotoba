@@ -8,6 +8,14 @@ publish = false
 name = "vercel-graphql"
 path = "main.rs"
 
+[[test]]
+name = "ocel_tests"
+path = "tests.rs"
+
+[[bin]]
+name = "debug-redis"
+path = "debug_redis.rs"
+
 [dependencies]
 # Vercel runtime
 vercel_runtime = "1.0"

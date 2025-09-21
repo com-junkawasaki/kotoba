@@ -16,7 +16,7 @@ impl Activity for TimerWaitActivity {
         "timer_wait"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("TimerWaitActivity not implemented")
     }
 }
@@ -32,7 +32,7 @@ impl Activity for TimerScheduleActivity {
         "timer_schedule"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("TimerScheduleActivity not implemented")
     }
 }

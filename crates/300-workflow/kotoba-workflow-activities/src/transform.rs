@@ -16,7 +16,7 @@ impl Activity for JsonTransformActivity {
         "json_transform"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("JsonTransformActivity not implemented")
     }
 }
@@ -32,7 +32,7 @@ impl Activity for StringReplaceActivity {
         "string_replace"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("StringReplaceActivity not implemented")
     }
 }
@@ -47,7 +47,7 @@ impl Activity for Base64EncodeActivity {
         "base64_encode"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("Base64EncodeActivity not implemented")
     }
 }
@@ -62,7 +62,7 @@ impl Activity for Base64DecodeActivity {
         "base64_decode"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("Base64DecodeActivity not implemented")
     }
 }

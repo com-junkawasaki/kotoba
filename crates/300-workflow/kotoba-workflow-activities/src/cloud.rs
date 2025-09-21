@@ -16,7 +16,7 @@ impl Activity for S3UploadActivity {
         "s3_upload"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("S3UploadActivity not implemented")
     }
 }
@@ -32,7 +32,7 @@ impl Activity for S3DownloadActivity {
         "s3_download"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("S3DownloadActivity not implemented")
     }
 }
@@ -48,7 +48,7 @@ impl Activity for S3DeleteActivity {
         "s3_delete"
     }
 
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> std::result::Result<HashMap<String, Value>, ActivityError> {
         todo!("S3DeleteActivity not implemented")
     }
 }
