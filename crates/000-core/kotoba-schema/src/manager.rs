@@ -364,7 +364,7 @@ fn create_test_manager() -> SchemaManager {
     }
 
     #[tokio::test]
-    fn test_schema_validation() {
+    async fn test_schema_validation() {
         let mut manager = create_test_manager();
         let schema = create_test_schema();
 

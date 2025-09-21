@@ -269,7 +269,8 @@ pub struct CompatibilityReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::*;
+    
+    use crate::types::Cid;
 
     #[test]
     fn test_schema_validator_creation() {

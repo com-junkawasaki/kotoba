@@ -3,10 +3,7 @@
 //! This module provides functionality for migrating graph data between
 //! different schema versions and handling schema evolution.
 
-use crate::schema::*;
-use crate::manager::*;
 use kotoba_errors::KotobaError;
-use serde_json::Value;
 use std::collections::HashMap;
 
 /// Migration engine for schema evolution

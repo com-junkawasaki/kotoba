@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[tokio::test]
-    fn test_cross_namespace_operations() {
+    async fn test_cross_namespace_operations() {
         let mut registry = SchemaRegistry::new();
 
         // Create two namespaces
@@ -378,7 +378,7 @@ mod tests {
         source_manager.register_schema(schema).unwrap();
 
         // Copy to target namespace
-        registry.copy_schema("source", "test_schema", "target", "copied_schema").unwrap();
+        registry.copy_schema("source", "test_schema", "target", "copied_schema").await.unwrap();
 
         // Verify in target
         let mut target_manager = registry.get_manager("target").unwrap();
@@ -387,7 +387,7 @@ mod tests {
     }
 
     #[tokio::test]
-    fn test_bulk_operations() {
+    async fn test_bulk_operations() {
         let mut registry = SchemaRegistry::new();
         registry.create_namespace("bulk_test".to_string());
 
@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[tokio::test]
-    fn test_registry_statistics() {
+    async fn test_registry_statistics() {
         let mut registry = SchemaRegistry::new();
 
         // Create namespace with schemas

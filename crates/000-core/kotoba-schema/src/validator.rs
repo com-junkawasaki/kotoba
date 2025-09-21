@@ -6,7 +6,6 @@
 use crate::schema::*;
 use kotoba_errors::KotobaError;
 use regex::Regex;
-use serde_json::Value;
 use std::collections::HashMap;
 
 /// Graph data validator

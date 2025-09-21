@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 use kotoba_memory::MemoryKeyValueStore;
+use kotoba_storage::KeyValueStore;
 use kotoba_core::types::{Value, VertexId, EdgeId};
 use kotoba_errors::KotobaError;
 

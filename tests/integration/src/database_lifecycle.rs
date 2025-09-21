@@ -112,13 +112,8 @@ async fn create_test_schema(_db: &Arc<Mutex<GraphDB>>) -> Result<(), Box<dyn std
     // to_labels: vec!["Post".to_string()],
     // label: "AUTHORED".to_string(),
     // properties: HashMap::new(),
-    // };
-    // 
-    // // Store schemas (simplified - in real implementation would use proper schema management)
-    // println!("✓ Test schema created successfully");
-    // 
-    // Ok(())
-    */
+    // TODO: Implement schema creation using GraphDB API
+    // */
 }
 
 /// Generate comprehensive test data

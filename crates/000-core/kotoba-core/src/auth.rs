@@ -278,7 +278,6 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kotoba_schema::auth::{Principal, Policy, PolicyEffect};
     use std::collections::HashMap;
 
     #[test]
@@ -448,7 +447,7 @@ mod tests {
             attributes: HashMap::new(),
         };
 
-        let mut resource = kotoba_schema::auth::Resource {
+        let mut resource = Resource {
             id: "document:doc1".to_string(),
             attributes: HashMap::new(),
         };

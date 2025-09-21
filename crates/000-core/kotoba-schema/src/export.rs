@@ -5,8 +5,6 @@
 
 use crate::schema::*;
 use kotoba_errors::KotobaError;
-use serde_json::Value;
-use std::collections::HashMap;
 
 /// Schema exporter for different formats
 pub struct SchemaExporter;

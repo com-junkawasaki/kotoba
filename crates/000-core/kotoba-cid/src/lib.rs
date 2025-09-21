@@ -185,12 +185,12 @@ mod tests {
         let data2 = b"world";
         let data_list = vec![data1, data2];
 
-        let cid = calculator.compute_combined_cid(&data_list).unwrap();
+        let cid = calculator.compute_combined_cid(&data_list.iter().map(|&x| x as &[u8]).collect::<Vec<_>>()).unwrap();
         assert_eq!(cid.0.len(), 32);
 
         // Different order should produce different CID
         let data_list_rev = vec![data2, data1];
-        let cid_rev = calculator.compute_combined_cid(&data_list_rev).unwrap();
+        let cid_rev = calculator.compute_combined_cid(&data_list_rev.iter().map(|&x| x as &[u8]).collect::<Vec<_>>()).unwrap();
         assert_ne!(cid, cid_rev);
     }
 

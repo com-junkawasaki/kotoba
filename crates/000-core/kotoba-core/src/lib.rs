@@ -26,9 +26,8 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::types::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_value_serialization() {
