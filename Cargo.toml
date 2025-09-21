@@ -1,10 +1,11 @@
 [workspace]
 members = [
-    "crates/000-core/kotoba-core",
-    "crates/000-core/kotoba-errors",
-    "crates/000-core/kotoba-cid",
-    "crates/000-core/kotoba-ocel",
-    "crates/000-core/kotoba-schema",
+    "crates/010-core/012-kotoba-core",
+    "crates/010-core/011-kotoba-errors",
+    "crates/010-core/013-kotoba-cid",
+    "crates/010-core/015-kotoba-ocel",
+    "crates/010-core/014-kotoba-schema",
+    "crates/020-language/021-kotoba-language",
     "crates/100-storage/kotoba-storage",
     "crates/100-storage/kotoba-storage-rocksdb",
     "crates/100-storage/kotoba-storage-redis",

@@ -1,1 +1,0 @@
-言霊 Kotodama - Kotoba Runtime
