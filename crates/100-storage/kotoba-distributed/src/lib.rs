@@ -4,10 +4,6 @@
 //! CIDベースのキャッシュとタスク分散により、高いパフォーマンスを実現します。
 
 use kotoba_core::prelude::*;
-use kotoba_execution::prelude::*;
-use kotoba_rewrite::prelude::RewriteEngine;
-use kotoba_cid::*;
-use kotoba_errors::KotobaError;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
@@ -17,15 +13,10 @@ use tokio::sync::{RwLock, mpsc};
 /// 分散実行エンジン
 #[derive(Debug)]
 pub struct DistributedEngine {
-    /// ローカル実行エンジン
-    local_engine: RewriteEngine,
     /// CIDキャッシュマネージャー
     cid_cache: Arc<RwLock<CidCache>>,
     /// クラスタマネージャー
     cluster_manager: Arc<RwLock<ClusterManager>>,
-    /// タスクキュー
-    task_queue: mpsc::UnboundedSender<DistributedTask>,
-    task_receiver: mpsc::UnboundedReceiver<DistributedTask>,
 }
 
 /// CIDベースのキャッシュシステム
@@ -41,7 +32,7 @@ pub struct CidCache {
 #[derive(Debug, Clone)]
 pub struct CacheEntry {
     /// 計算結果
-    result: Graph,
+    result: GraphInstance,
     /// 最終アクセス時刻
     last_accessed: std::time::Instant,
     /// アクセス回数
@@ -178,7 +169,7 @@ pub enum TaskType {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TaskInput {
     /// 直接データ
-    Direct(Graph),
+    Direct(GraphInstance),
     /// CID参照
     CidReference(Cid),
     /// 複合データ
@@ -219,7 +210,7 @@ pub struct ResultId(pub String);
 #[derive(Debug)]
 pub enum ResultData {
     /// 成功結果
-    Success(Graph),
+    Success(GraphInstance),
     /// 部分成功
     Partial(Vec<PartialResult>),
     /// エラー
