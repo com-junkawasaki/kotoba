@@ -1,8 +1,9 @@
 //! File activities - stub implementation
 // TODO: Implement file activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,6 +12,7 @@ impl Default for FileReadActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for FileReadActivity {
     fn name(&self) -> &str {
         "file_read"
@@ -27,6 +29,7 @@ impl Default for FileWriteActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for FileWriteActivity {
     fn name(&self) -> &str {
         "file_write"
@@ -42,6 +45,7 @@ impl Default for FileCopyActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for FileCopyActivity {
     fn name(&self) -> &str {
         "file_copy"
@@ -57,6 +61,7 @@ impl Default for CsvParseActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for CsvParseActivity {
     fn name(&self) -> &str {
         "csv_parse"
@@ -72,6 +77,7 @@ impl Default for ZipCreateActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for ZipCreateActivity {
     fn name(&self) -> &str {
         "zip_create"

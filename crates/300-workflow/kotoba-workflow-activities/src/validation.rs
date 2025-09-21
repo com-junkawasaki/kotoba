@@ -1,8 +1,9 @@
 //! Validation activities - stub implementation
 // TODO: Implement validation activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,6 +12,7 @@ impl Default for JsonValidateActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for JsonValidateActivity {
     fn name(&self) -> &str {
         "json_validate"
@@ -27,6 +29,7 @@ impl Default for RegexMatchActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for RegexMatchActivity {
     fn name(&self) -> &str {
         "regex_match"
@@ -42,6 +45,7 @@ impl Default for SchemaValidateActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for SchemaValidateActivity {
     fn name(&self) -> &str {
         "schema_validate"

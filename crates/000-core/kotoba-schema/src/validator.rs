@@ -8,6 +8,30 @@ use kotoba_errors::KotobaError;
 use regex::Regex;
 use std::collections::HashMap;
 
+/// Helper function to extract string value from JSON
+fn get_string_value(value: &serde_json::Value) -> Option<&str> {
+    value.as_str()
+}
+
+/// Helper function to extract number value from JSON
+fn get_number_value(value: &serde_json::Value) -> Option<f64> {
+    value.as_f64()
+}
+
+/// Validate email format
+fn is_valid_email(email: &str) -> bool {
+    let email_regex = regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+    match email_regex {
+        Ok(regex) => regex.is_match(email),
+        Err(_) => false,
+    }
+}
+
+/// Validate URL format
+fn is_valid_url(url: &str) -> bool {
+    url::Url::parse(url).is_ok()
+}
+
 /// Graph data validator
 #[derive(Debug)]
 pub struct GraphValidator {
@@ -359,9 +383,69 @@ impl GraphValidator {
                 warnings.push("Enum constraint validation not fully implemented".to_string());
             },
             PropertyConstraint::Custom(rule_name) => {
-                // Custom validation rules would be implemented here
-                // For now, we just warn about unsupported custom rules
-                warnings.push(format!("Custom validation rule '{}' not implemented", rule_name));
+                // Custom validation rules implementation
+                match rule_name.as_str() {
+                    "email" => {
+                        if let Some(value_str) = get_string_value(property_value) {
+                            if !is_valid_email(value_str) {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Property '{}' must be a valid email address", property_name),
+                                    element_id: None,
+                                    property: Some(property_name.to_string()),
+                                });
+                            }
+                        }
+                    },
+                    "url" => {
+                        if let Some(value_str) = get_string_value(property_value) {
+                            if !is_valid_url(value_str) {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Property '{}' must be a valid URL", property_name),
+                                    element_id: None,
+                                    property: Some(property_name.to_string()),
+                                });
+                            }
+                        }
+                    },
+                    "positive_number" => {
+                        if let Some(value_num) = get_number_value(property_value) {
+                            if value_num <= 0.0 {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Property '{}' must be a positive number", property_name),
+                                    element_id: None,
+                                    property: Some(property_name.to_string()),
+                                });
+                            }
+                        }
+                    },
+                    "future_date" => {
+                        if let Some(value_str) = get_string_value(property_value) {
+                            if let Ok(date) = chrono::DateTime::parse_from_rfc3339(value_str) {
+                                if date <= chrono::Utc::now() {
+                                    errors.push(ValidationError {
+                                        error_type: ValidationErrorType::ConstraintViolation,
+                                        message: format!("Property '{}' must be a future date", property_name),
+                                        element_id: None,
+                                        property: Some(property_name.to_string()),
+                                    });
+                                }
+                            } else {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Property '{}' must be a valid RFC3339 date", property_name),
+                                    element_id: None,
+                                    property: Some(property_name.to_string()),
+                                });
+                            }
+                        }
+                    },
+                    _ => {
+                        warnings.push(format!("Unknown custom validation rule '{}'", rule_name));
+                    }
+                }
             }
         }
 
@@ -382,8 +466,13 @@ impl GraphValidator {
                     let cardinality_errors = self.validate_cardinality(graph_data, edge_type, *min, *max);
                     errors.extend(cardinality_errors);
                 },
-                _ => {
-                    // Other constraint types not implemented yet
+                SchemaConstraint::PathConstraint { pattern, description } => {
+                    let path_errors = self.validate_path_constraint(graph_data, pattern, description);
+                    errors.extend(path_errors);
+                },
+                SchemaConstraint::Custom { name, parameters } => {
+                    let custom_errors = self.validate_custom_constraint(graph_data, name, parameters);
+                    errors.extend(custom_errors);
                 }
             }
         }
@@ -530,6 +619,149 @@ impl GraphValidator {
         }
 
         Ok(())
+    }
+
+    /// Validate path constraints in the graph
+    fn validate_path_constraint(&self, graph_data: &serde_json::Value, pattern: &str, description: &str) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
+
+        // Simple path constraint validation - check for basic patterns
+        // This is a simplified implementation for demonstration
+        match pattern {
+            "no_self_loops" => {
+                if let Some(edges) = graph_data.get("edges").and_then(|v| v.as_array()) {
+                    for edge in edges {
+                        if let (Some(source), Some(target)) = (
+                            edge.get("source").and_then(|s| s.as_str()),
+                            edge.get("target").and_then(|t| t.as_str())
+                        ) {
+                            if source == target {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Self-loop detected: {}", description),
+                                    element_id: edge.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()),
+                                    property: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            },
+            "no_isolated_vertices" => {
+                if let (Some(vertices), Some(edges)) = (
+                    graph_data.get("vertices").and_then(|v| v.as_array()),
+                    graph_data.get("edges").and_then(|e| e.as_array())
+                ) {
+                    let mut connected_vertices = std::collections::HashSet::new();
+
+                    for edge in edges {
+                        if let (Some(source), Some(target)) = (
+                            edge.get("source").and_then(|s| s.as_str()),
+                            edge.get("target").and_then(|t| t.as_str())
+                        ) {
+                            connected_vertices.insert(source.to_string());
+                            connected_vertices.insert(target.to_string());
+                        }
+                    }
+
+                    for vertex in vertices {
+                        if let Some(vertex_id) = vertex.get("id").and_then(|id| id.as_str()) {
+                            if !connected_vertices.contains(vertex_id) {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Isolated vertex detected: {}", description),
+                                    element_id: Some(vertex_id.to_string()),
+                                    property: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            },
+            _ => {
+                // Unknown pattern - this is expected for custom patterns
+                // In a real implementation, you might want to support more patterns
+                // or provide a way to define custom pattern validators
+            }
+        }
+
+        errors
+    }
+
+    /// Validate custom schema constraints
+    fn validate_custom_constraint(&self, graph_data: &serde_json::Value, name: &str, parameters: &HashMap<String, Value>) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
+
+        match name.as_str() {
+            "max_vertices" => {
+                if let Some(max_count) = parameters.get("count").and_then(|v| v.as_u64()) {
+                    if let Some(vertices) = graph_data.get("vertices").and_then(|v| v.as_array()) {
+                        if vertices.len() > max_count as usize {
+                            errors.push(ValidationError {
+                                error_type: ValidationErrorType::ConstraintViolation,
+                                message: format!("Too many vertices: maximum allowed is {}", max_count),
+                                element_id: None,
+                                property: None,
+                            });
+                        }
+                    }
+                }
+            },
+            "max_edges" => {
+                if let Some(max_count) = parameters.get("count").and_then(|v| v.as_u64()) {
+                    if let Some(edges) = graph_data.get("edges").and_then(|e| e.as_array()) {
+                        if edges.len() > max_count as usize {
+                            errors.push(ValidationError {
+                                error_type: ValidationErrorType::ConstraintViolation,
+                                message: format!("Too many edges: maximum allowed is {}", max_count),
+                                element_id: None,
+                                property: None,
+                            });
+                        }
+                    }
+                }
+            },
+            "required_vertex_types" => {
+                if let Some(required_types) = parameters.get("types").and_then(|v| v.as_array()) {
+                    let mut found_types = std::collections::HashSet::new();
+
+                    if let Some(vertices) = graph_data.get("vertices").and_then(|v| v.as_array()) {
+                        for vertex in vertices {
+                            if let Some(labels) = vertex.get("labels").and_then(|l| l.as_array()) {
+                                for label in labels {
+                                    if let Some(label_str) = label.as_str() {
+                                        found_types.insert(label_str.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for required_type in required_types {
+                        if let Some(type_str) = required_type.as_str() {
+                            if !found_types.contains(type_str) {
+                                errors.push(ValidationError {
+                                    error_type: ValidationErrorType::ConstraintViolation,
+                                    message: format!("Required vertex type '{}' not found in graph", type_str),
+                                    element_id: None,
+                                    property: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            },
+            _ => {
+                errors.push(ValidationError {
+                    error_type: ValidationErrorType::ConstraintViolation,
+                    message: format!("Unknown custom constraint: {}", name),
+                    element_id: None,
+                    property: None,
+                });
+            }
+        }
+
+        errors
     }
 }
 

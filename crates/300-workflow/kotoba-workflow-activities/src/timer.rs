@@ -1,8 +1,9 @@
 //! Timer activities - stub implementation
 // TODO: Implement timer activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,6 +12,7 @@ impl Default for TimerWaitActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for TimerWaitActivity {
     fn name(&self) -> &str {
         "timer_wait"
@@ -27,6 +29,7 @@ impl Default for TimerScheduleActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for TimerScheduleActivity {
     fn name(&self) -> &str {
         "timer_schedule"

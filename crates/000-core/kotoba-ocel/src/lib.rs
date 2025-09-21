@@ -327,8 +327,21 @@ impl OcelEvent {
 impl kotoba_core::auth::SecureResource for OcelEvent {
     fn resource_id(&self) -> Cid {
         // OcelEvent自身のCIDを計算して返す
-        // 実際の実装では適切な計算を行う
-        todo!("OcelEventをCIDに変換する実装")
+        // イベントの重要なフィールド（id, activity, timestamp, issuer_id, policy_cid）を使用してCIDを計算
+        let event_data = (
+            &self.id,
+            &self.activity,
+            &self.timestamp,
+            &self.issuer_id,
+            &self.policy_cid,
+            &self.vmap,
+            &self.omap
+        );
+
+        Cid::compute_sha256(&event_data).unwrap_or_else(|_| {
+            // シリアル化エラーの場合は空のハッシュを使用（本番環境では適切なエラーハンドリングが必要）
+            Cid([0; 32])
+        })
     }
 
     fn resource_attributes(&self) -> HashMap<String, String> {

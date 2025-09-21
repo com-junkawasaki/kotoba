@@ -50,9 +50,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Lazy static for global context
 lazy_static = "1.4"
-# Kotoba storage crates
-kotoba-storage-redis = { path = "../../crates/100-storage/kotoba-storage-redis", version = "0.1.22" }
-kotoba-storage = { path = "../../crates/100-storage/kotoba-storage", version = "0.1.22" }
+        # Kotoba storage crates
+        kotoba-storage-redis = { path = "../../crates/100-storage/kotoba-storage-redis", version = "0.1.22" }
+        kotoba-storage = { path = "../../crates/100-storage/kotoba-storage", version = "0.1.22" }
+        kotoba-graphdb = { path = "../../crates/100-storage/kotoba-graphdb", version = "0.1.22" }
 
 # Hyper for body conversion
 hyper = "1.0"

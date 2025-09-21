@@ -1,8 +1,9 @@
 //! Cloud activities - stub implementation
 // TODO: Implement cloud activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,6 +12,7 @@ impl Default for S3UploadActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for S3UploadActivity {
     fn name(&self) -> &str {
         "s3_upload"
@@ -27,6 +29,7 @@ impl Default for S3DownloadActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for S3DownloadActivity {
     fn name(&self) -> &str {
         "s3_download"
@@ -43,6 +46,7 @@ impl Default for S3DeleteActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for S3DeleteActivity {
     fn name(&self) -> &str {
         "s3_delete"

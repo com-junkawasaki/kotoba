@@ -1,8 +1,9 @@
 //! Transform activities - stub implementation
 // TODO: Implement transform activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,6 +12,7 @@ impl Default for JsonTransformActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for JsonTransformActivity {
     fn name(&self) -> &str {
         "json_transform"
@@ -27,6 +29,7 @@ impl Default for StringReplaceActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for StringReplaceActivity {
     fn name(&self) -> &str {
         "string_replace"
@@ -42,6 +45,7 @@ impl Default for Base64EncodeActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for Base64EncodeActivity {
     fn name(&self) -> &str {
         "base64_encode"
@@ -57,6 +61,7 @@ impl Default for Base64DecodeActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for Base64DecodeActivity {
     fn name(&self) -> &str {
         "base64_decode"

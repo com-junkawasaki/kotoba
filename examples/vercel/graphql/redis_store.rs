@@ -2,8 +2,9 @@
 
 use kotoba_storage_redis::{RedisStore, RedisConfig};
 use kotoba_storage::KeyValueStore;
+use kotoba_graphdb::{Node as GraphDBNode, Edge as GraphDBEdge, PropertyValue};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -12,6 +13,176 @@ use uuid::Uuid;
 pub struct RedisGraphStore {
     store: Arc<RedisStore>,
     key_prefix: String,
+}
+
+/// Convert HashMap to BTreeMap
+fn hashmap_to_btreemap<K: Ord + Clone, V>(map: HashMap<K, V>) -> BTreeMap<K, V> {
+    map.into_iter().collect()
+}
+
+/// Convert serde_json::Value to PropertyValue
+fn json_value_to_property_value(value: serde_json::Value) -> PropertyValue {
+    match value {
+        serde_json::Value::String(s) => PropertyValue::String(s),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                PropertyValue::Integer(i)
+            } else if let Some(f) = n.as_f64() {
+                PropertyValue::Float(f)
+            } else {
+                PropertyValue::String(n.to_string())
+            }
+        }
+        serde_json::Value::Bool(b) => PropertyValue::Boolean(b),
+        serde_json::Value::Array(arr) => {
+            let values = arr.into_iter().map(json_value_to_property_value).collect();
+            PropertyValue::List(values)
+        }
+        serde_json::Value::Object(obj) => {
+            let map = obj.into_iter()
+                .map(|(k, v)| (k, json_value_to_property_value(v)))
+                .collect();
+            PropertyValue::Map(map)
+        }
+        _ => PropertyValue::String(value.to_string()),
+    }
+}
+
+/// Convert PropertyValue to GraphQL ValueType
+fn property_value_to_value_type(value: &PropertyValue) -> super::schema::ValueType {
+    match value {
+        PropertyValue::String(s) => super::schema::ValueType {
+            string_value: Some(s.clone()),
+            int_value: None,
+            float_value: None,
+            bool_value: None,
+            array_value: None,
+            object_value: None,
+        },
+        PropertyValue::Integer(i) => super::schema::ValueType {
+            string_value: None,
+            int_value: Some(*i),
+            float_value: None,
+            bool_value: None,
+            array_value: None,
+            object_value: None,
+        },
+        PropertyValue::Float(f) => super::schema::ValueType {
+            string_value: None,
+            int_value: None,
+            float_value: Some(*f),
+            bool_value: None,
+            array_value: None,
+            object_value: None,
+        },
+        PropertyValue::Boolean(b) => super::schema::ValueType {
+            string_value: None,
+            int_value: None,
+            float_value: None,
+            bool_value: Some(*b),
+            array_value: None,
+            object_value: None,
+        },
+        PropertyValue::Date(dt) => super::schema::ValueType {
+            string_value: Some(dt.to_rfc3339()),
+            int_value: None,
+            float_value: None,
+            bool_value: None,
+            array_value: None,
+            object_value: None,
+        },
+        PropertyValue::List(values) => {
+            let graphql_values: Vec<super::schema::Value> = values
+                .iter()
+                .map(|v| super::schema::Value {
+                    value_type: property_value_to_value_type(v),
+                })
+                .collect();
+            super::schema::ValueType {
+                string_value: None,
+                int_value: None,
+                float_value: None,
+                bool_value: None,
+                array_value: Some(graphql_values),
+                object_value: None,
+            }
+        }
+        PropertyValue::Map(map) => {
+            let graphql_map: HashMap<String, super::schema::Value> = map
+                .iter()
+                .map(|(k, v)| (k.clone(), super::schema::Value {
+                    value_type: property_value_to_value_type(v),
+                }))
+                .collect();
+            super::schema::ValueType {
+                string_value: None,
+                int_value: None,
+                float_value: None,
+                bool_value: None,
+                array_value: None,
+                object_value: Some(graphql_map),
+            }
+        }
+    }
+}
+
+/// Convert PropertyValue to serde_json::Value for GraphQL
+fn property_value_to_json_value(value: &PropertyValue) -> serde_json::Value {
+    match value {
+        PropertyValue::String(s) => serde_json::Value::String(s.clone()),
+        PropertyValue::Integer(i) => serde_json::Value::Number(serde_json::Number::from(*i)),
+        PropertyValue::Float(f) => serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap_or(serde_json::Number::from(0))),
+        PropertyValue::Boolean(b) => serde_json::Value::Bool(*b),
+        PropertyValue::Date(dt) => serde_json::Value::String(dt.to_rfc3339()),
+        PropertyValue::List(values) => {
+            let arr = values.iter().map(property_value_to_json_value).collect();
+            serde_json::Value::Array(arr)
+        }
+        PropertyValue::Map(map) => {
+            let obj = map.iter()
+                .map(|(k, v)| (k.clone(), property_value_to_json_value(v)))
+                .collect();
+            serde_json::Value::Object(obj)
+        }
+    }
+}
+
+/// Convert GraphDB Node to GraphQL Node
+pub fn graphdb_node_to_graphql_node(node: &GraphDBNode) -> super::schema::Node {
+    let properties: HashMap<String, super::schema::Value> = node.properties
+        .iter()
+        .map(|(k, v)| (k.clone(), super::schema::Value {
+            value_type: property_value_to_value_type(v)
+        }))
+        .collect();
+
+    super::schema::Node {
+        id: node.id.clone(),
+        labels: node.labels.clone(),
+        properties,
+        created_at: node.created_at.to_rfc3339(),
+        updated_at: node.updated_at.to_rfc3339(),
+    }
+}
+
+/// Convert GraphDB Edge to GraphQL Edge
+pub fn graphdb_edge_to_graphql_edge(edge: &GraphDBEdge) -> super::schema::Edge {
+    let properties: HashMap<String, super::schema::Value> = edge.properties
+        .iter()
+        .map(|(k, v)| (k.clone(), super::schema::Value {
+            value_type: property_value_to_value_type(v)
+        }))
+        .collect();
+
+    super::schema::Edge {
+        id: edge.id.clone(),
+        from_node: edge.from_node.clone(),
+        to_node: edge.to_node.clone(),
+        label: edge.label.clone(),
+        properties,
+        created_at: edge.created_at.to_rfc3339(),
+        updated_at: edge.updated_at.to_rfc3339(),
+    }
 }
 
 impl RedisGraphStore {
@@ -30,24 +201,24 @@ impl RedisGraphStore {
         })
     }
 
-    /// Generate key for node
+    /// Generate key for node (Merkle DAG path structure)
     fn node_key(&self, id: &str) -> String {
-        format!("node:{}", id)
+        format!("nodes/{}", id)
     }
 
-    /// Generate key for edge
+    /// Generate key for edge (Merkle DAG path structure)
     fn edge_key(&self, id: &str) -> String {
-        format!("edge:{}", id)
+        format!("edges/{}", id)
     }
 
-    /// Generate key for node index by label
+    /// Generate key for node index by label (Merkle DAG structure)
     fn node_label_index_key(&self, label: &str) -> String {
-        format!("index:node:label:{}", label)
+        format!("indices/nodes/labels/{}", label)
     }
 
-    /// Generate key for edge index by label
+    /// Generate key for edge index by label (Merkle DAG structure)
     fn edge_label_index_key(&self, label: &str) -> String {
-        format!("index:edge:label:{}", label)
+        format!("indices/edges/labels/{}", label)
     }
 
     /// Create a new node
@@ -56,13 +227,19 @@ impl RedisGraphStore {
         id: Option<String>,
         labels: Vec<String>,
         properties: HashMap<String, serde_json::Value>,
-    ) -> Result<RedisNode, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<GraphDBNode, Box<dyn std::error::Error + Send + Sync>> {
         let node_id = id.unwrap_or_else(|| format!("node_{}", uuid::Uuid::new_v4()));
 
-        let node = RedisNode {
+        // Convert properties from HashMap<serde_json::Value> to BTreeMap<PropertyValue>
+        let properties_btree: BTreeMap<String, PropertyValue> = properties
+            .into_iter()
+            .map(|(k, v)| (k, json_value_to_property_value(v)))
+            .collect();
+
+        let node = GraphDBNode {
             id: node_id.clone(),
-            labels: labels.clone(),
-            properties,
+            labels,
+            properties: properties_btree,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -80,12 +257,12 @@ impl RedisGraphStore {
     }
 
     /// Get node by ID
-    pub async fn get_node(&self, id: &str) -> Result<Option<RedisNode>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_node(&self, id: &str) -> Result<Option<GraphDBNode>, Box<dyn std::error::Error + Send + Sync>> {
         let key = self.node_key(id);
 
         match self.store.get(key.as_bytes()).await? {
             Some(data) => {
-                let node: RedisNode = serde_json::from_slice(&data)?;
+                let node: GraphDBNode = serde_json::from_slice(&data)?;
                 Ok(Some(node))
             }
             None => Ok(None),
@@ -98,17 +275,26 @@ impl RedisGraphStore {
         id: &str,
         labels: Option<Vec<String>>,
         properties: HashMap<String, serde_json::Value>,
-    ) -> Result<RedisNode, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<GraphDBNode, Box<dyn std::error::Error + Send + Sync>> {
         // Get existing node
         let existing = self.get_node(id).await?
             .ok_or("Node not found")?;
 
         // Update node
         let updated_labels = labels.unwrap_or(existing.labels);
-        let updated_node = RedisNode {
+
+        // Merge existing properties with new ones
+        let mut updated_properties = existing.properties;
+        let new_properties_btree: BTreeMap<String, PropertyValue> = properties
+            .into_iter()
+            .map(|(k, v)| (k, json_value_to_property_value(v)))
+            .collect();
+        updated_properties.extend(new_properties_btree);
+
+        let updated_node = GraphDBNode {
             id: id.to_string(),
             labels: updated_labels,
-            properties,
+            properties: updated_properties,
             created_at: existing.created_at,
             updated_at: Utc::now(),
         };
@@ -146,15 +332,21 @@ impl RedisGraphStore {
         to_node: String,
         label: String,
         properties: HashMap<String, serde_json::Value>,
-    ) -> Result<RedisEdge, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<GraphDBEdge, Box<dyn std::error::Error + Send + Sync>> {
         let edge_id = id.unwrap_or_else(|| format!("edge_{}", uuid::Uuid::new_v4()));
 
-        let edge = RedisEdge {
+        // Convert properties from HashMap<serde_json::Value> to BTreeMap<PropertyValue>
+        let properties_btree: BTreeMap<String, PropertyValue> = properties
+            .into_iter()
+            .map(|(k, v)| (k, json_value_to_property_value(v)))
+            .collect();
+
+        let edge = GraphDBEdge {
             id: edge_id.clone(),
             from_node,
             to_node,
             label,
-            properties,
+            properties: properties_btree,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -169,12 +361,12 @@ impl RedisGraphStore {
     }
 
     /// Get edge by ID
-    pub async fn get_edge(&self, id: &str) -> Result<Option<RedisEdge>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_edge(&self, id: &str) -> Result<Option<GraphDBEdge>, Box<dyn std::error::Error + Send + Sync>> {
         let key = self.edge_key(id);
 
         match self.store.get(key.as_bytes()).await? {
             Some(data) => {
-                let edge: RedisEdge = serde_json::from_slice(&data)?;
+                let edge: GraphDBEdge = serde_json::from_slice(&data)?;
                 Ok(Some(edge))
             }
             None => Ok(None),
@@ -187,19 +379,28 @@ impl RedisGraphStore {
         id: &str,
         label: Option<String>,
         properties: HashMap<String, serde_json::Value>,
-    ) -> Result<RedisEdge, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Edge, Box<dyn std::error::Error + Send + Sync>> {
         // Get existing edge
         let existing = self.get_edge(id).await?
             .ok_or("Edge not found")?;
 
         // Update edge
         let updated_label = label.unwrap_or(existing.label);
-        let updated_edge = RedisEdge {
+
+        // Merge existing properties with new ones
+        let mut updated_properties = existing.properties;
+        let new_properties_btree: BTreeMap<String, PropertyValue> = properties
+            .into_iter()
+            .map(|(k, v)| (k, json_value_to_property_value(v)))
+            .collect();
+        updated_properties.extend(new_properties_btree);
+
+        let updated_edge = Edge {
             id: id.to_string(),
             from_node: existing.from_node,
             to_node: existing.to_node,
             label: updated_label,
-            properties,
+            properties: updated_properties,
             created_at: existing.created_at,
             updated_at: Utc::now(),
         };
@@ -242,27 +443,7 @@ impl RedisGraphStore {
     }
 }
 
-/// Redis node representation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisNode {
-    pub id: String,
-    pub labels: Vec<String>,
-    pub properties: HashMap<String, serde_json::Value>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-/// Redis edge representation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisEdge {
-    pub id: String,
-    pub from_node: String,
-    pub to_node: String,
-    pub label: String,
-    pub properties: HashMap<String, serde_json::Value>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+// Using kotoba-graphdb Node and Edge structures directly
 
 /// Database statistics
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::SimpleObject)]

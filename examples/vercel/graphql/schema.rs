@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::redis_store::{RedisGraphStore, RedisNode, RedisEdge, DatabaseStats};
+use super::redis_store::{RedisGraphStore, DatabaseStats, graphdb_node_to_graphql_node, graphdb_edge_to_graphql_edge};
+use kotoba_graphdb::{Node as GraphDBNode, Edge as GraphDBEdge, PropertyValue};
 
 /// GraphQL schema for Kotoba Graph Database operations
 pub type KotobaSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -40,7 +41,7 @@ impl QueryRoot {
     /// Get node by ID
     async fn node(&self, ctx: &Context<'_>, id: String) -> Result<Option<Node>> {
         match self.store.get_node(&id).await {
-            Ok(Some(node)) => Ok(Some(node.into())),
+            Ok(Some(node)) => Ok(Some(graphdb_node_to_graphql_node(&node))),
             Ok(None) => Ok(None),
             Err(e) => Err(Error::new(format!("Failed to get node: {}", e))),
         }
@@ -49,7 +50,7 @@ impl QueryRoot {
     /// Get edge by ID
     async fn edge(&self, ctx: &Context<'_>, id: String) -> Result<Option<Edge>> {
         match self.store.get_edge(&id).await {
-            Ok(Some(edge)) => Ok(Some(edge.into())),
+            Ok(Some(edge)) => Ok(Some(graphdb_edge_to_graphql_edge(&edge))),
             Ok(None) => Ok(None),
             Err(e) => Err(Error::new(format!("Failed to get edge: {}", e))),
         }
@@ -108,7 +109,7 @@ impl MutationRoot {
             .collect();
 
         match self.store.create_node(input.id, input.labels, properties).await {
-            Ok(node) => Ok(node.into()),
+            Ok(node) => Ok(graphdb_node_to_graphql_node(&node)),
             Err(e) => Err(Error::new(format!("Failed to create node: {}", e))),
         }
     }
@@ -126,7 +127,7 @@ impl MutationRoot {
             .collect();
 
         match self.store.update_node(&id, input.labels, properties).await {
-            Ok(node) => Ok(node.into()),
+            Ok(node) => Ok(graphdb_node_to_graphql_node(&node)),
             Err(e) => Err(Error::new(format!("Failed to update node: {}", e))),
         }
     }
@@ -151,7 +152,7 @@ impl MutationRoot {
             .collect();
 
         match self.store.create_edge(input.id, input.from_node, input.to_node, input.label, properties).await {
-            Ok(edge) => Ok(edge.into()),
+            Ok(edge) => Ok(graphdb_edge_to_graphql_edge(&edge)),
             Err(e) => Err(Error::new(format!("Failed to create edge: {}", e))),
         }
     }
@@ -169,7 +170,7 @@ impl MutationRoot {
             .collect();
 
         match self.store.update_edge(&id, input.label, properties).await {
-            Ok(edge) => Ok(edge.into()),
+            Ok(edge) => Ok(graphdb_edge_to_graphql_edge(&edge)),
             Err(e) => Err(Error::new(format!("Failed to update edge: {}", e))),
         }
     }
@@ -187,8 +188,8 @@ impl MutationRoot {
 
 // DatabaseStats is imported from redis_store
 
-/// Node in the graph database
-#[derive(SimpleObject, Serialize, Deserialize)]
+/// GraphQL Node type (output only)
+#[derive(SimpleObject, Serialize, Deserialize, Clone)]
 pub struct Node {
     pub id: String,
     pub labels: Vec<String>,
@@ -197,8 +198,8 @@ pub struct Node {
     pub updated_at: String,
 }
 
-/// Edge in the graph database
-#[derive(SimpleObject, Serialize, Deserialize)]
+/// GraphQL Edge type (output only)
+#[derive(SimpleObject, Serialize, Deserialize, Clone)]
 pub struct Edge {
     pub id: String,
     pub from_node: String,
@@ -317,35 +318,7 @@ pub fn create_schema(store: Arc<RedisGraphStore>) -> KotobaSchema {
 
 // Conversion implementations
 
-impl From<RedisNode> for Node {
-    fn from(node: RedisNode) -> Self {
-        Node {
-            id: node.id,
-            labels: node.labels,
-            properties: node.properties.into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
-            created_at: node.created_at.to_rfc3339(),
-            updated_at: node.updated_at.to_rfc3339(),
-        }
-    }
-}
-
-impl From<RedisEdge> for Edge {
-    fn from(edge: RedisEdge) -> Self {
-        Edge {
-            id: edge.id,
-            from_node: edge.from_node,
-            to_node: edge.to_node,
-            label: edge.label,
-            properties: edge.properties.into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
-            created_at: edge.created_at.to_rfc3339(),
-            updated_at: edge.updated_at.to_rfc3339(),
-        }
-    }
-}
+// Removed From implementations for RedisNode/RedisEdge since we now use GraphDB types directly
 
 impl From<serde_json::Value> for Value {
     fn from(value: serde_json::Value) -> Self {

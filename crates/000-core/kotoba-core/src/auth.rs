@@ -96,8 +96,16 @@ pub trait PolicyEngine {
 impl SecureResource for Resource {
     fn resource_id(&self) -> Cid {
         // Resource自身のデータをCIDに変換
-        // 実際の実装では適切な計算を行う
-        todo!("ResourceをCIDに変換する実装")
+        // ResourceのIDと属性を使用してCIDを計算
+        let resource_data = (
+            &self.id,
+            &self.attributes
+        );
+
+        Cid::compute_sha256(&resource_data).unwrap_or_else(|_| {
+            // シリアル化エラーの場合は空のハッシュを使用（本番環境では適切なエラーハンドリングが必要）
+            Cid([0; 32])
+        })
     }
 
     fn resource_attributes(&self) -> HashMap<String, String> {

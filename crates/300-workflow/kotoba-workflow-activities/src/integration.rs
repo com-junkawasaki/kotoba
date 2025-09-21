@@ -1,8 +1,9 @@
 //! Integration activities - stub implementation
 // TODO: Implement integration activities
 
+use async_trait::async_trait;
 use kotoba_workflow::Activity;
-use kotoba_workflow::ActivityError;
+use kotoba_workflow::executor::ActivityError;
 use std::collections::HashMap;
 use serde_json::Value;
 
@@ -11,6 +12,7 @@ impl Default for IntegrationActivity {
     fn default() -> Self { Self }
 }
 
+#[async_trait]
 impl Activity for IntegrationActivity {
     fn name(&self) -> &str {
         "integration"
