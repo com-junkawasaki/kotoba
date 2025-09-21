@@ -19,7 +19,7 @@ uuid = { version = "1.18", features = ["v4"] }
 reqwest = { version = "0.11", features = ["json"] }
 
 # Kotoba core dependencies
-kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
+kotoba-core = { path = "../../010-core/012-kotoba-core", version = "0.1.22" }
 kotoba-jsonnet = "0.1.22"
 
 # Merkle DAG dependencies

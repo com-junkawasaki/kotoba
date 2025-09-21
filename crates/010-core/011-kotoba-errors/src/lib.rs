@@ -65,6 +65,9 @@ pub enum KotobaError {
     DecryptionFailed(String),
 }
 
+/// A specialized error type for authentication and authorization operations.
+pub type AuthError = KotobaError;
+
 /// Error type specific to the `kotoba-workflow` crate.
 #[derive(Debug, Error)]
 pub enum WorkflowError {

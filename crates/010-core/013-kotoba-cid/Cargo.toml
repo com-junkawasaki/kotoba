@@ -13,8 +13,9 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
+kotoba-types = { path = "../010-kotoba-types" }
 kotoba-errors = { path = "../011-kotoba-errors", version = "0.1.2" }
-kotoba-core = { path = "../012-kotoba-core", version = "0.1.22" }
+# kotoba-core = { path = "../012-kotoba-core", version = "0.1.22" } # No longer needed for types
 
 # Hash algorithms
 sha2 = "0.10"

@@ -1,11 +1,21 @@
-//! # 認証・認可エンジン
+//! # Kotoba Auth
 //!
-//! システム全体の認証・認可ロジックを提供します。
-//! このモジュールは、プロセスネットワークのトポロジカルソートを実行し、
-//! ReBACとABACを組み合わせた認可判定を行います。
+//! This crate provides the authentication and authorization engine for the Kotoba
+//! ecosystem. It implements a hybrid model combining Relationship-Based Access
+//! Control (ReBAC) and Attribute-Based Access Control (ABAC).
 
-use crate::types::Cid;
+use kotoba_errors::AuthError;
+use kotoba_types::{Cid, Label, Permission, ResourceId, Role, User};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+pub type Result<T> = std::result::Result<T, AuthError>;
+
+impl Policy {
+    fn compute_resource_id_from_data(&self, resource_data: &str) -> Result<Cid> {
+        Ok(Cid::new(resource_data.as_bytes()))
+    }
+}
 
 /// アクセス制御の決定（許可/拒否）を表す
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,11 +154,15 @@ impl DefaultPolicyEngine {
     }
 
     /// 指定されたリソースに対する関係性を取得
-    pub fn get_relations_for_resource(&self, resource_id: &str) -> Vec<&RelationTuple> {
+    pub fn get_relations_for_resource(&self, resource_id: &str) -> Vec<(User, Role)> {
         self.relations
-            .get(resource_id)
-            .map(|relations| relations.iter().collect())
-            .unwrap_or_default()
+            .iter()
+            .filter(|(r, _)| r.starts_with(&format!("{}:", resource_id)))
+            .map(|(r, u_r)| {
+                let parts: Vec<&str> = r.split(':').collect();
+                (u_r.0.clone(), parts[1].to_string())
+            })
+            .collect()
     }
 
     /// 指定されたポリシーを取得
@@ -365,7 +379,8 @@ mod tests {
         assert_eq!(engine.relations.len(), 1);
         let relations = engine.get_relations_for_resource("document:doc1");
         assert_eq!(relations.len(), 1);
-        assert_eq!(relations[0].subject_id, "user:alice");
+        assert_eq!(relations[0].0, "user:alice");
+        assert_eq!(relations[0].1, "owner");
     }
 
     #[test]

@@ -1,0 +1,12 @@
+[package]
+name = "kotoba-types"
+version = "0.1.0"
+edition = "2021"
+description = "Core type definitions for the Kotoba ecosystem (Value, VertexId, EdgeId, etc.)."
+license = "Apache-2.0"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+hex = { workspace = true }
+sha2 = { workspace = true }

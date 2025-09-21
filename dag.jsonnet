@@ -21,9 +21,9 @@
   layers: {
     '010-core': {
       name: 'Core Layer',
-      description: 'Foundation types, error handling, CID, schema definitions',
+      description: 'Fundamental data structures, error handling, CID, schema, OCEL',
       priority: 1,
-      crates: ['011-kotoba-errors', '012-kotoba-core', '013-kotoba-cid', '014-kotoba-schema', '015-kotoba-ocel']
+      crates: ['010-kotoba-types', '011-kotoba-errors', '012-kotoba-core', '013-kotoba-cid', '014-kotoba-schema', '015-kotoba-ocel', '016-kotoba-auth']
     },
     '030-storage': {
       name: 'Storage Layer',
@@ -80,35 +80,35 @@
 
     'types': {
       name: 'types',
-      path: 'crates/010-core/kotoba-core/src/types.rs',
+      path: 'crates/010-core/010-kotoba-types/src/lib.rs',
       type: 'foundation',
       layer: '010-core',
       description: '共通型定義 (Value, VertexId, EdgeId, GraphRef, TxId, ContentHash)',
       dependencies: [],
       provides: ['Value', 'VertexId', 'EdgeId', 'GraphRef', 'TxId', 'ContentHash'],
-      status: 'published',
-      published_version: '0.1.21',
-      crate_name: 'kotoba-core',
+      status: 'active',
+      published_version: '0.1.0',
+      crate_name: 'kotoba-types',
       build_order: 1,
     },
 
     'topology': {
       name: 'topology',
-      path: 'crates/010-core/kotoba-core/src/topology.rs',
+      path: 'crates/010-core/012-kotoba-core/src/topology.rs',
       type: 'foundation',
       layer: '010-core',
       description: 'プロセスネットワークトポロジー検証と処理 (TopologyGraph, Node, Edge, Validation)',
       dependencies: ['types'],
       provides: ['TopologyGraph', 'Node', 'Edge', 'ValidationCheck', 'topological_sort'],
       status: 'active',
-      published_version: '0.1.21',
+      published_version: '0.1.22',
       crate_name: 'kotoba-core',
-      build_order: 2,
+      build_order: 3,
     },
 
     'error_handling': {
       name: 'error_handling',
-      path: 'crates/010-core/kotoba-errors/src/lib.rs',
+      path: 'crates/010-core/011-kotoba-errors/src/lib.rs',
       type: 'foundation',
       layer: '010-core',
       description: '統一されたエラーハンドリングシステム (KotobaError, WorkflowError)',
@@ -122,30 +122,30 @@
 
     'ir_catalog': {
       name: 'ir_catalog',
-      path: 'crates/010-core/kotoba-core/src/ir/catalog.rs',
+      path: 'crates/010-core/012-kotoba-core/src/ir/catalog.rs',
       type: 'ir',
       layer: '010-core',
       description: 'スキーマ/索引/不変量定義',
       dependencies: ['types'],
       provides: ['Catalog', 'LabelDef', 'IndexDef', 'Invariant'],
-      status: 'published',
-      published_version: '0.1.21',
+      status: 'active',
+      published_version: '0.1.22',
       crate_name: 'kotoba-core',
-      build_order: 2,
+      build_order: 4,
     },
 
     'auth': {
       name: 'auth',
-      path: 'crates/010-core/012-kotoba-core/src/auth.rs',
+      path: 'crates/010-core/016-kotoba-auth/src/lib.rs',
       type: 'security',
       layer: '010-core',
       description: '認証・認可エンジン (ReBAC + ABAC hybrid model)',
       dependencies: ['types', 'error_handling'],
       provides: ['Principal', 'PolicyEngine', 'Decision', 'AuthContext', 'SecureResource'],
       status: 'active',
-      published_version: '0.1.22',
-      crate_name: 'kotoba-core',
-      build_order: 2,
+      published_version: '0.1.0',
+      crate_name: 'kotoba-auth',
+      build_order: 5,
     },
 
     'crypto': {
@@ -159,7 +159,7 @@
       status: 'active',
       published_version: '0.1.22',
       crate_name: 'kotoba-core',
-      build_order: 2,
+      build_order: 6,
     },
 
     // ==========================================
@@ -168,16 +168,16 @@
 
     'storage_port': {
       name: 'storage_port',
-      path: 'crates/030-storage/kotoba-storage/src/lib.rs',
+      path: 'crates/030-storage/031-kotoba-storage/src/lib.rs',
       type: 'port',
       layer: '030-storage',
       description: 'Storage traits definition (Port in Port/Adapter pattern) - KeyValueStore, AuthStorage, GraphStore',
       dependencies: ['types', 'error_handling', 'auth', 'crypto'],
       provides: ['KeyValueStore', 'StoragePort', 'AuthStorage', 'GraphStore', 'GraphStorage'],
-      status: 'published',
+      status: 'active',
       published_version: '0.1.22',
       crate_name: 'kotoba-storage',
-      build_order: 3,
+      build_order: 10,
     },
 
     'rocksdb_adapter': {
@@ -210,15 +210,16 @@
 
     'schema_validator': {
       name: 'schema_validator',
-      path: 'crates/kotoba-schema/src/validator.rs',
+      path: 'crates/010-core/014-kotoba-schema/src/validator.rs',
       type: 'schema',
+      layer: '010-core',
       description: 'Graph schema validation engine',
-      dependencies: ['types', 'ir_catalog'],
+      dependencies: ['types', 'ir_catalog', 'cid_system'],
       provides: ['SchemaValidator', 'ValidationResult'],
-      status: 'published',
-      published_version: '0.1.16',
+      status: 'active',
+      published_version: '0.1.22',
       crate_name: 'kotoba-schema',
-      build_order: 3,
+      build_order: 5,
     },
 
     'ir_rule': {
@@ -305,37 +306,37 @@
       dependencies: ['types'],
       provides: ['VertexBuilder', 'VertexData'],
       status: 'active',
-      published_version: '0.1.21',
+      published_version: '0.1.22',
       crate_name: 'kotoba-core',
-      build_order: 2,
+      build_order: 7,
     },
 
     'graph_edge': {
       name: 'graph_edge',
-      path: 'crates/010-core/kotoba-core/src/graph/edge.rs',
+      path: 'crates/010-core/012-kotoba-core/src/graph/edge.rs',
       type: 'graph',
       layer: '010-core',
       description: 'エッジ関連構造体とビルダー',
       dependencies: ['types'],
       provides: ['EdgeBuilder', 'EdgeData'],
       status: 'active',
-      published_version: '0.1.21',
+      published_version: '0.1.22',
       crate_name: 'kotoba-core',
-      build_order: 2,
+      build_order: 8,
     },
 
     'graph_core': {
       name: 'graph_core',
-      path: 'crates/010-core/kotoba-core/src/graph/graph.rs',
+      path: 'crates/010-core/012-kotoba-core/src/graph/graph.rs',
       type: 'graph',
       layer: '010-core',
       description: '列指向グラフ表現とGraphRef',
       dependencies: ['types', 'graph_vertex', 'graph_edge'],
       provides: ['Graph', 'GraphRef', 'GraphTraversal', 'GraphAlgorithms'],
       status: 'active',
-      published_version: '0.1.21',
+      published_version: '0.1.22',
       crate_name: 'kotoba-core',
-      build_order: 3,
+      build_order: 9,
     },
 
     // ==========================================
@@ -853,13 +854,16 @@
 
     'cid_system': {
       name: 'cid_system',
-      path: 'crates/kotoba-cid/src/lib.rs',
+      path: 'crates/010-core/013-kotoba-cid/src/lib.rs',
       type: 'cid',
+      layer: '010-core',
       description: 'CID (Content ID) システム - Merkle DAGにおけるコンテンツアドレッシング',
-      dependencies: ['types'],
-      provides: ['CidCalculator', 'CidManager', 'MerkleTreeBuilder', 'JsonCanonicalizer'],
-      status: 'planned',
-      build_order: 3,
+      dependencies: ['types', 'error_handling'],
+      provides: ['Cid', 'CidCalculator', 'CidManager', 'MerkleTreeBuilder', 'JsonCanonicalizer'],
+      status: 'active',
+      published_version: '0.1.22',
+      crate_name: 'kotoba-cid',
+      build_order: 4,
     },
 
     'cli_interface': {
