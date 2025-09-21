@@ -23,6 +23,7 @@ anyhow = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
+schemars = { version = "0.8", features = ["uuid1"] }
 
 [dev-dependencies]
 kube = { version = "0.87", features = ["runtime", "derive"] }

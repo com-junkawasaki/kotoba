@@ -53,6 +53,7 @@ members = [
     "crates/900-tools/kotoba-ssg",
     "crates/900-tools/kotoba-tester",
     "tests/integration",
+    "examples/vercel",
 ]
 exclude = [
     "crates/100-storage/kotoba-db-cluster",

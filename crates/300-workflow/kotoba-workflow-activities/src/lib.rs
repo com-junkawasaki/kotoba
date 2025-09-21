@@ -65,48 +65,48 @@ pub fn create_standard_library() -> ActivityLibrary {
     library.register("mysql_query".to_string(), Box::new(database::MySqlQueryActivity::default()));
     library.register("sqlite_query".to_string(), Box::new(database::SqliteQueryActivity::default()));
 
-    // Cache Activities
-    library.register("redis_get".to_string(), Box::new(cache::RedisGetActivity::default()));
-    library.register("redis_set".to_string(), Box::new(cache::RedisSetActivity::default()));
-    library.register("redis_delete".to_string(), Box::new(cache::RedisDeleteActivity::default()));
+    // Cache Activities (TODO: Implement)
+    // library.register("redis_get".to_string(), Box::new(cache::RedisGetActivity::default()));
+    // library.register("redis_set".to_string(), Box::new(cache::RedisSetActivity::default()));
+    // library.register("redis_delete".to_string(), Box::new(cache::RedisDeleteActivity::default()));
 
-    // Messaging Activities
-    library.register("rabbitmq_publish".to_string(), Box::new(messaging::RabbitMqPublishActivity::default()));
-    library.register("rabbitmq_consume".to_string(), Box::new(messaging::RabbitMqConsumeActivity::default()));
+    // Messaging Activities (TODO: Implement)
+    // library.register("rabbitmq_publish".to_string(), Box::new(messaging::RabbitMqPublishActivity::default()));
+    // library.register("rabbitmq_consume".to_string(), Box::new(messaging::RabbitMqConsumeActivity::default()));
 
-    // Cloud Storage Activities
-    library.register("s3_upload".to_string(), Box::new(cloud::S3UploadActivity::default()));
-    library.register("s3_download".to_string(), Box::new(cloud::S3DownloadActivity::default()));
-    library.register("s3_delete".to_string(), Box::new(cloud::S3DeleteActivity::default()));
+    // Cloud Storage Activities (TODO: Implement)
+    // library.register("s3_upload".to_string(), Box::new(cloud::S3UploadActivity::default()));
+    // library.register("s3_download".to_string(), Box::new(cloud::S3DownloadActivity::default()));
+    // library.register("s3_delete".to_string(), Box::new(cloud::S3DeleteActivity::default()));
 
-    // Email Activities
-    library.register("smtp_send".to_string(), Box::new(email::SmtpSendActivity::default()));
+    // Email Activities (TODO: Implement)
+    // library.register("smtp_send".to_string(), Box::new(email::SmtpSendActivity::default()));
 
-    // File Activities
-    library.register("file_read".to_string(), Box::new(file::FileReadActivity::default()));
-    library.register("file_write".to_string(), Box::new(file::FileWriteActivity::default()));
-    library.register("file_copy".to_string(), Box::new(file::FileCopyActivity::default()));
-    library.register("csv_parse".to_string(), Box::new(file::CsvParseActivity::default()));
-    library.register("zip_create".to_string(), Box::new(file::ZipCreateActivity::default()));
+    // File Activities (TODO: Implement)
+    // library.register("file_read".to_string(), Box::new(file::FileReadActivity::default()));
+    // library.register("file_write".to_string(), Box::new(file::FileWriteActivity::default()));
+    // library.register("file_copy".to_string(), Box::new(file::FileCopyActivity::default()));
+    // library.register("csv_parse".to_string(), Box::new(file::CsvParseActivity::default()));
+    // library.register("zip_create".to_string(), Box::new(file::ZipCreateActivity::default()));
 
-    // Transform Activities
-    library.register("json_transform".to_string(), Box::new(transform::JsonTransformActivity::default()));
-    library.register("string_replace".to_string(), Box::new(transform::StringReplaceActivity::default()));
-    library.register("base64_encode".to_string(), Box::new(transform::Base64EncodeActivity::default()));
-    library.register("base64_decode".to_string(), Box::new(transform::Base64DecodeActivity::default()));
+    // Transform Activities (TODO: Implement)
+    // library.register("json_transform".to_string(), Box::new(transform::JsonTransformActivity::default()));
+    // library.register("string_replace".to_string(), Box::new(transform::StringReplaceActivity::default()));
+    // library.register("base64_encode".to_string(), Box::new(transform::Base64EncodeActivity::default()));
+    // library.register("base64_decode".to_string(), Box::new(transform::Base64DecodeActivity::default()));
 
-    // Timer Activities
-    library.register("timer_wait".to_string(), Box::new(timer::TimerWaitActivity::default()));
-    library.register("timer_schedule".to_string(), Box::new(timer::TimerScheduleActivity::default()));
+    // Timer Activities (TODO: Implement)
+    // library.register("timer_wait".to_string(), Box::new(timer::TimerWaitActivity::default()));
+    // library.register("timer_schedule".to_string(), Box::new(timer::TimerScheduleActivity::default()));
 
-    // Validation Activities
-    library.register("json_validate".to_string(), Box::new(validation::JsonValidateActivity::default()));
-    library.register("regex_match".to_string(), Box::new(validation::RegexMatchActivity::default()));
-    library.register("schema_validate".to_string(), Box::new(validation::SchemaValidateActivity::default()));
+    // Validation Activities (TODO: Implement)
+    // library.register("json_validate".to_string(), Box::new(validation::JsonValidateActivity::default()));
+    // library.register("regex_match".to_string(), Box::new(validation::RegexMatchActivity::default()));
+    // library.register("schema_validate".to_string(), Box::new(validation::SchemaValidateActivity::default()));
 
-    // Notification Activities
-    library.register("webhook_notify".to_string(), Box::new(notification::WebhookNotifyActivity::default()));
-    library.register("slack_notify".to_string(), Box::new(notification::SlackNotifyActivity::default()));
+    // Notification Activities (TODO: Implement)
+    // library.register("webhook_notify".to_string(), Box::new(notification::WebhookNotifyActivity::default()));
+    // library.register("slack_notify".to_string(), Box::new(notification::SlackNotifyActivity::default()));
 
     library
 }
@@ -145,15 +145,18 @@ impl ActivityFactory {
     }
 
     pub fn create_s3_upload(config: ActivityConfig) -> Box<dyn Activity + Send + Sync> {
-        Box::new(cloud::S3UploadActivity::with_config(config))
+        // TODO: Implement
+        todo!("S3 upload activity not implemented")
     }
 
     pub fn create_email_send(config: ActivityConfig) -> Box<dyn Activity + Send + Sync> {
-        Box::new(email::SmtpSendActivity::with_config(config))
+        // TODO: Implement
+        todo!("Email send activity not implemented")
     }
 }
 
 /// Activity categories for organization
+#[derive(Debug, Clone)]
 pub enum ActivityCategory {
     Http,
     Database,
