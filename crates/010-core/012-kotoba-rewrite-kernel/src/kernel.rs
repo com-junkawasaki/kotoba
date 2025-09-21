@@ -3,7 +3,7 @@
 //! This module provides the core kernel implementation for graph rewriting operations.
 
 use super::*;
-use kotoba_codebase::RuleDef;
+use kotoba_codebase::{RuleDef, StrategyDef, DefRef, DefType};
 use std::collections::HashMap;
 
 /// Kernel implementation for rule execution
@@ -66,7 +66,7 @@ impl Kernel {
 
         // Find matches
         let matches = matcher.find_matches(graph)
-            .map_err(|e| KernelError::RuleExecutionFailed(e.to_string()))?;
+            .map_err(|e| KernelError::ExecutionFailed(e.to_string()))?;
 
         // Apply rule to each match
         let mut applications = Vec::new();

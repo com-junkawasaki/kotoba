@@ -4,6 +4,7 @@
 
 use super::*;
 use serde::{Deserialize, Serialize};
+use crate::type_def::TypeDef;
 
 /// Rule definition for graph rewriting
 #[derive(Debug, Clone, Serialize, Deserialize)]

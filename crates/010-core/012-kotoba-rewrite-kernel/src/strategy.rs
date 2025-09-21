@@ -3,7 +3,7 @@
 //! This module provides strategy definitions and execution logic for rule ordering.
 
 use super::*;
-use kotoba_codebase::{StrategyDef, StrategyType, StrategyPhase, RuleOrdering};
+use crate::strategy_def::{StrategyDef, StrategyType, StrategyPhase, RuleOrdering, DefRef, DefType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

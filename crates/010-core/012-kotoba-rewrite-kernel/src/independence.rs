@@ -4,7 +4,7 @@
 //! can be executed in parallel without conflicts.
 
 use super::*;
-use kotoba_codebase::RuleDef;
+use kotoba_codebase::{RuleDef, DefRef};
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};

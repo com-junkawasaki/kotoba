@@ -1,7 +1,7 @@
 //! CID計算器の実装
 
 use super::*;
-use crate::{KotobaResult, KotobaError};
+use super::{KotobaResult, KotobaError};
 
 impl CidCalculator {
     /// 新しいCID計算器を作成
@@ -18,14 +18,14 @@ impl CidCalculator {
     }
 
     /// データを正規化してCIDを計算
-    pub fn compute_cid<T: Serialize>(&self, data: &T) -> KotobaResult<Cid> {
+    pub fn compute_cid<T: Serialize>(&self, data: &T) -> super::KotobaResult<Cid> {
         let canonical_bytes = self.canonicalize_json(data)?;
         let hash = self.compute_hash(&canonical_bytes);
         Ok(Cid::new(hex::encode(hash)))
     }
 
     /// JSONを正規化
-    fn canonicalize_json<T: Serialize>(&self, data: &T) -> KotobaResult<Vec<u8>> {
+    fn canonicalize_json<T: Serialize>(&self, data: &T) -> super::KotobaResult<Vec<u8>> {
         match self.canonical_json {
             CanonicalJsonMode::JCS => {
                 // JCS (RFC 8785) に準拠した正規化
@@ -40,7 +40,7 @@ impl CidCalculator {
     }
 
     /// JCS正規化を適用
-    fn apply_jcs_normalization(&self, json_str: &str) -> KotobaResult<String> {
+    fn apply_jcs_normalization(&self, json_str: &str) -> super::KotobaResult<String> {
         // 簡易版JCS実装
         // 本来はRFC 8785の完全な実装が必要
         let mut normalized = json_str.to_string();
@@ -72,7 +72,7 @@ impl CidCalculator {
     }
 
     /// 複数のデータを統合してCIDを計算
-    pub fn compute_combined_cid(&self, data_list: &[&[u8]]) -> KotobaResult<Cid> {
+    pub fn compute_combined_cid(&self, data_list: &[&[u8]]) -> super::KotobaResult<Cid> {
         let mut combined = Vec::new();
         for data in data_list {
             combined.extend_from_slice(data);
@@ -83,7 +83,7 @@ impl CidCalculator {
     }
 
     /// CIDを検証
-    pub fn verify_cid<T: Serialize>(&self, data: &T, expected_cid: &Cid) -> KotobaResult<bool> {
+    pub fn verify_cid<T: Serialize>(&self, data: &T, expected_cid: &Cid) -> super::KotobaResult<bool> {
         let computed_cid = self.compute_cid(data)?;
         Ok(computed_cid == *expected_cid)
     }

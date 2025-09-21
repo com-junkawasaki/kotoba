@@ -4,7 +4,7 @@
 //! ecosystem. It implements a hybrid model combining Relationship-Based Access
 //! Control (ReBAC) and Attribute-Based Access Control (ABAC).
 
-use kotoba_errors::KotobaError;
+use kotoba_types::KotobaError;
 use kotoba_types::Cid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -100,7 +100,7 @@ impl SecureResource for Resource {
     fn resource_id(&self) -> Cid {
         // Resource自身のデータをCIDに変換
         let resource_data = serde_json::to_string(&(&self.id, &self.attributes)).unwrap_or_default();
-        Cid::new(resource_data.as_bytes())
+        Cid::from(resource_data.as_bytes())
     }
 
     fn resource_attributes(&self) -> HashMap<String, String> {
@@ -320,7 +320,7 @@ pub mod utils {
         resource: &mut dyn SecureResource,
         new_owner: &Principal,
         transferor: &Principal,
-    ) -> Result<(), KotobaError> {
+    ) -> Result<()> {
         // 移譲者が現在の所有者であることを確認
         if !is_owner(transferor, resource) {
             return Err(KotobaError::Auth("Transferor is not the current owner".to_string()));

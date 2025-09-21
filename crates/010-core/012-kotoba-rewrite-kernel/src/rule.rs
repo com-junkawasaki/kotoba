@@ -5,7 +5,8 @@
 //! and various pattern matching and application algorithms.
 
 use super::*;
-use kotoba_codebase::{RuleDef, GraphPattern, PatternNode, PatternEdge, PatternCondition, PatternAttribute, PatternValue};
+use kotoba_codebase::*;
+use kotoba_ir::{RuleIR, GraphPattern, GraphElement, EdgeDef, RuleNac, Match, Matches};
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

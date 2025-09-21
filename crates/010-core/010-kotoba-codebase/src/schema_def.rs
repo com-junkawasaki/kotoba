@@ -4,6 +4,7 @@
 
 use super::*;
 use serde::{Deserialize, Serialize};
+use crate::type_def::TypeDef;
 
 /// Schema definition
 #[derive(Debug, Clone, Serialize, Deserialize)]

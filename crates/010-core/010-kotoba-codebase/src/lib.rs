@@ -101,7 +101,7 @@ impl Hash {
 
     /// Create hash from Blake3
     pub fn from_blake3<T: AsRef<[u8]>>(data: T) -> Self {
-        let hash = blake3::hash(data);
+        let hash = blake3::hash(data.as_ref());
         let mut result = [0u8; 32];
         result.copy_from_slice(&hash.as_bytes()[0..32]);
         Hash(result)

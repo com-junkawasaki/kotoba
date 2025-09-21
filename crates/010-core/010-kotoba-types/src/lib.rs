@@ -26,6 +26,34 @@ impl Cid {
     }
 }
 
+impl std::fmt::Display for Cid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<str> for Cid {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&[u8]> for Cid {
+    fn from(bytes: &[u8]) -> Self {
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(bytes);
+        let hash = hasher.finalize();
+        Cid(hex::encode(hash))
+    }
+}
+
+impl From<&str> for Cid {
+    fn from(s: &str) -> Self {
+        Cid::new(s.to_string())
+    }
+}
+
 /// Vertex ID for graph nodes
 pub type VertexId = Uuid;
 
@@ -43,6 +71,30 @@ pub type PropertyKey = String;
 
 /// Value type for properties
 pub type Value = serde_json::Value;
+
+/// Error category for classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ErrorCategory {
+    /// Validation errors
+    Validation,
+    /// Security errors
+    Security,
+    /// Client errors
+    Client,
+    /// Infrastructure errors
+    Infrastructure,
+    /// Data errors
+    Data,
+    /// System errors
+    System,
+    /// Business logic errors
+    BusinessLogic,
+    /// Service errors
+    Service,
+}
+
+/// Result type alias
+pub type KotobaResult<T> = Result<T, KotobaError>;
 
 /// Graph core structure for graph operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +128,24 @@ pub struct RuleDPO {
     pub left: GraphCore,
     pub right: GraphCore,
     pub mapping: Vec<(VertexId, VertexId)>,
+}
+
+/// Graph instance containing the core graph and metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphInstance {
+    pub id: String,
+    pub core: GraphCore,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+impl GraphInstance {
+    pub fn new(id: impl Into<String>, core: GraphCore) -> Self {
+        Self {
+            id: id.into(),
+            core,
+            metadata: HashMap::new(),
+        }
+    }
 }
 
 /// Core error types for the Kotoba system
@@ -326,7 +396,7 @@ impl KotobaError {
     }
 
     /// Get error category
-    pub fn category(&self) -> crate::ErrorCategory {
+    pub fn category(&self) -> ErrorCategory {
         match self {
             Self::Validation(_) => ErrorCategory::Validation,
             Self::Security(_) | Self::Auth(_) | Self::Authz(_) => ErrorCategory::Security,

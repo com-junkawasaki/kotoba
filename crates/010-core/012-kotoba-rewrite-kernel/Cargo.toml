@@ -9,9 +9,11 @@ description = "Rule/Strategy/Scheduler + independence analysis for graph rewriti
 [dependencies]
 kotoba-types = { path = "../010-kotoba-types" }
 kotoba-ir = { path = "../011-kotoba-ir" }
+kotoba-codebase = { path = "../010-kotoba-codebase" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 sha2.workspace = true
 hex.workspace = true
 blake3.workspace = true
+regex.workspace = true

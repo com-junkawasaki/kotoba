@@ -1,7 +1,7 @@
 //! CIDマネージャーの実装
 
 use super::*;
-use crate::{KotobaResult, KotobaError};
+use super::{KotobaResult, KotobaError};
 // All types should be available through super::*
 
 impl CidManager {

@@ -46,6 +46,16 @@ pub struct GraphPattern {
     pub edges: Vec<EdgeDef>,
 }
 
+impl GraphPattern {
+    /// Create a new empty graph pattern
+    pub fn new() -> Self {
+        Self {
+            nodes: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+}
+
 /// Negative Application Condition (NAC) for rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleNac {

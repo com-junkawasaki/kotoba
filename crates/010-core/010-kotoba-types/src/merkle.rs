@@ -1,7 +1,7 @@
 //! Merkleツリーの実装
 
 use super::*;
-use crate::{KotobaResult, KotobaError};
+use super::{KotobaResult, KotobaError};
 
 impl MerkleTreeBuilder {
     /// 新しいMerkleツリー構築器を作成

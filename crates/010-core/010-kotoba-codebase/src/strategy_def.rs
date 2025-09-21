@@ -4,6 +4,7 @@
 
 use super::*;
 use serde::{Deserialize, Serialize};
+use crate::rule_def::RuleExecutionReport;
 
 /// Strategy definition for rule application
 #[derive(Debug, Clone, Serialize, Deserialize)]

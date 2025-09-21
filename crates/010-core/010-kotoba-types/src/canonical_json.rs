@@ -2,7 +2,7 @@
 
 use super::*;
 use serde_json::{Value, Map};
-use crate::{KotobaResult, KotobaError};
+use super::{KotobaResult, KotobaError};
 
 /// JSON正規化器
 #[derive(Debug)]

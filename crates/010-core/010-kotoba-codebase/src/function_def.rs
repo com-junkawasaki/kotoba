@@ -4,6 +4,8 @@
 
 use super::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use crate::type_def::TypeDef;
 
 /// Function definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +41,7 @@ pub enum FunctionBody {
     /// External function (native implementation)
     External(String),
     /// Graph rewrite rules
-    GraphRewrite(Vec<RuleDef>),
+    GraphRewrite(Vec<RuleDPO>),
     /// Composition of other functions
     Composition(Vec<DefRef>),
     /// Conditional execution

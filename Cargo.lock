@@ -1905,7 +1905,6 @@ dependencies = [
  "blake3",
  "hex",
  "kotoba-codebase",
- "kotoba-compose",
  "kotoba-graph-core",
  "kotoba-ir",
  "kotoba-rewrite-kernel",
@@ -1970,20 +1969,6 @@ dependencies = [
  "blake3",
  "hex",
  "kotoba-logic",
- "kotoba-types",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.16",
-]
-
-[[package]]
-name = "kotoba-compose"
-version = "0.1.22"
-dependencies = [
- "hex",
- "kotoba-ir",
- "kotoba-rewrite-kernel",
  "kotoba-types",
  "serde",
  "serde_json",
@@ -2103,7 +2088,6 @@ dependencies = [
  "async-trait",
  "chrono",
  "kotoba-analyzer",
- "kotoba-compose",
  "kotoba-formatter",
  "kotoba-ir",
  "kotoba-jsonnet",
@@ -2266,8 +2250,10 @@ version = "0.1.22"
 dependencies = [
  "blake3",
  "hex",
+ "kotoba-codebase",
  "kotoba-ir",
  "kotoba-types",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
@@ -2346,7 +2332,6 @@ dependencies = [
  "js-sys",
  "jsonnet-rs",
  "kotoba-analyzer",
- "kotoba-compose",
  "kotoba-ir",
  "kotoba-jsonnet",
  "kotoba-kotobas",

@@ -13,7 +13,6 @@ pub mod independence;
 pub mod kernel;
 
 use kotoba_codebase::*;
-use kotoba_compose::*;
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

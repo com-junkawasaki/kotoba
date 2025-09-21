@@ -120,7 +120,7 @@ impl GraphRef_ {
 
     /// Get vertex count
     pub fn vertex_count(&self) -> usize {
-        self.graph.core.nodes.len()
+        self.graph.core.vertices.len()
     }
 
     /// Get edge count
