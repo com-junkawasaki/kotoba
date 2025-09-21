@@ -6,7 +6,6 @@
 use crate::schema::*;
 use crate::manager::*;
 use kotoba_errors::KotobaError;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 

@@ -42,7 +42,6 @@ pub mod graph_rewriting_tests;
 // ==========================================
 
 use std::collections::{HashMap, HashSet};
-use once_cell::sync::Lazy;
 
 /// Test metadata for topology-based execution ordering
 #[derive(Debug, Clone)]
@@ -429,6 +428,7 @@ pub fn run_tests_in_topological_order() -> Result<(), String> {
 mod integration_tests {
     use std::sync::Arc;
     use tokio::sync::Mutex;
+    use once_cell::sync::Lazy;
 
     /// Global test database instance for shared use across tests
     static TEST_DB: Lazy<Arc<Mutex<Option<kotoba_graphdb::GraphDB>>>> =
@@ -440,9 +440,9 @@ mod integration_tests {
         if db_guard.is_none() {
             // Create a temporary database for testing
             let temp_dir = tempfile::tempdir()?;
-            let db_path = temp_dir.path().join("test_graph.db");
+            let db_path = temp_dir.path().to_string_lossy();
 
-            let db = kotoba_graphdb::GraphDB::open(&db_path).await?;
+            let db = kotoba_graphdb::GraphDB::new(&db_path).await?;
             *db_guard = Some(db);
         }
         Ok(())

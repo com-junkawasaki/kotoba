@@ -8,7 +8,7 @@
 //! - kotoba-execution (rule execution)
 
 use std::sync::Arc;
-use kotoba_memory::MemoryAdapter;
+use kotoba_memory::MemoryKeyValueStore;
 use kotoba_core::types::{Value, VertexId, EdgeId};
 use kotoba_errors::KotobaError;
 
@@ -45,7 +45,7 @@ pub struct GraphRewritingTestFixture {
 
 impl GraphRewritingTestFixture {
     pub async fn new() -> Result<Self, KotobaError> {
-        let storage = Arc::new(MemoryAdapter::new());
+        let storage = Arc::new(MemoryKeyValueStore::new());
 
         // Initialize rewrite engine if available
         let rewrite_engine = if let Ok(engine) = kotoba_rewrite::prelude::RewriteEngine::new(Arc::clone(&storage)).await {

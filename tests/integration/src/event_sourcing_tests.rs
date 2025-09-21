@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use kotoba_memory::MemoryAdapter;
+use kotoba_memory::MemoryKeyValueStore;
 use kotoba_core::types::{Value, VertexId, EdgeId};
 use kotoba_errors::KotobaError;
 
@@ -41,7 +41,7 @@ pub struct EventSourcingTestFixture {
 
 impl EventSourcingTestFixture {
     pub async fn new() -> Result<Self, KotobaError> {
-        let storage = Arc::new(MemoryAdapter::new());
+        let storage = Arc::new(MemoryKeyValueStore::new());
 
         // Initialize event stream
         let event_stream = if let Ok(stream) = kotoba_event_stream::EventStream::new(Arc::clone(&storage)).await {

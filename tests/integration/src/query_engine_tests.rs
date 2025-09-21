@@ -8,7 +8,7 @@
 //! - kotoba-execution (query execution)
 
 use std::sync::Arc;
-use kotoba_memory::MemoryAdapter;
+use kotoba_memory::MemoryKeyValueStore;
 use kotoba_core::types::{Value, VertexId, EdgeId};
 use kotoba_errors::KotobaError;
 
@@ -20,7 +20,7 @@ pub struct QueryEngineTestFixture {
 
 impl QueryEngineTestFixture {
     pub async fn new() -> Result<Self, KotobaError> {
-        let storage = Arc::new(MemoryAdapter::new());
+        let storage = Arc::new(MemoryKeyValueStore::new());
 
         // Initialize query engine if available
         let query_engine = if let Ok(engine) = kotoba_query_engine::GqlQueryEngine::new(Arc::clone(&storage)).await {

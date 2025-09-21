@@ -18,7 +18,7 @@ use tokio::task;
 use kotoba_graphdb::{GraphDB, Node, Edge, GraphTransaction, PropertyValue};
 use kotoba_query_engine::{GqlQueryEngine, GqlParser, QueryPlanner, QueryExecutor, ProjectionEngineAdapter};
 use kotoba_projection_engine::{ProjectionEngine, ProjectionConfig};
-use kotoba_cache::{CacheConfig, CacheLayer};
+// Cache functionality not available - using direct GraphDB operations
 use serde_json::Value;
 
 #[cfg(test)]

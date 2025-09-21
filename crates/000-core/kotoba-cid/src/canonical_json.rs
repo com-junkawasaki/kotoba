@@ -57,7 +57,7 @@ impl JsonCanonicalizer {
                 serde_json::to_string(&Value::Object(sorted_obj))
                     .map_err(|e| KotobaError::Parse(format!("JSON serialization error: {}", e)))
             }
-            Value::Array(arr) => {
+            Value::Array(_arr) => {
                 // 配列はそのまま
                 serde_json::to_string(value)
                     .map_err(|e| KotobaError::Parse(format!("JSON serialization error: {}", e)))

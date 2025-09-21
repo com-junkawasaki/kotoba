@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "schemars")]
 use schemars::JsonSchema;
 use std::collections::HashMap;
-use sha2::{Sha256, Digest};
 use crate::types::{Value, Cid};
 
 

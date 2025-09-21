@@ -9,14 +9,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use kotoba_db::{DB, Transaction};
-use kotoba_db_core::{Block, NodeBlock, EdgeBlock, Value};
+use kotoba_graphdb::GraphDB;
+use kotoba_core::types::{Value, VertexId, EdgeId};
 
 #[tokio::test]
 async fn test_transaction_atomicity() -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = tempfile::tempdir()?;
-    let db_path = temp_dir.path().join("atomicity_test.db");
-    let db = Arc::new(Mutex::new(DB::open_lsm(&db_path).await?));
+    let db_path = temp_dir.path().to_string_lossy();
+    let db = Arc::new(Mutex::new(GraphDB::new(&db_path).await?));
 
     let db_guard = db.lock().await;
 
@@ -370,47 +370,71 @@ fn create_account_node(id: &str, balance: i64) -> NodeBlock {
     }
 }
 
-fn create_transfer_edge(from_cid: kotoba_db_core::Cid, to_cid: kotoba_db_core::Cid, amount: i64) -> EdgeBlock {
-    EdgeBlock {
-        from_labels: vec!["Account".to_string()],
-        to_labels: vec!["Account".to_string()],
+fn create_transfer_edge(from_id: String, to_id: String, amount: i64) -> kotoba_graphdb::Edge {
+    use std::collections::BTreeMap;
+    use chrono::Utc;
+
+    kotoba_graphdb::Edge {
+        id: format!("transfer_{}_{}_{}", from_id, to_id, chrono::Utc::now().timestamp()),
+        from_node: from_id,
+        to_node: to_id,
         label: "TRANSFER".to_string(),
-        properties: HashMap::from([
-            ("amount".to_string(), Value::Int(amount)),
-            ("timestamp".to_string(), Value::String(chrono::Utc::now().to_rfc3339())),
+        properties: BTreeMap::from([
+            ("amount".to_string(), kotoba_graphdb::PropertyValue::Int(amount)),
+            ("timestamp".to_string(), kotoba_graphdb::PropertyValue::String(chrono::Utc::now().to_rfc3339())),
         ]),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
     }
 }
 
-fn create_order_node(id: &str, status: &str) -> NodeBlock {
-    NodeBlock {
+fn create_order_node(id: &str, status: &str) -> kotoba_graphdb::Node {
+    use std::collections::BTreeMap;
+    use chrono::Utc;
+
+    kotoba_graphdb::Node {
+        id: format!("order_{}", id),
         labels: vec!["Order".to_string()],
-        properties: HashMap::from([
-            ("order_id".to_string(), Value::String(id.to_string())),
-            ("status".to_string(), Value::String(status.to_string())),
-            ("created_at".to_string(), Value::String(chrono::Utc::now().to_rfc3339())),
+        properties: BTreeMap::from([
+            ("order_id".to_string(), kotoba_graphdb::PropertyValue::String(id.to_string())),
+            ("status".to_string(), kotoba_graphdb::PropertyValue::String(status.to_string())),
+            ("created_at".to_string(), kotoba_graphdb::PropertyValue::String(chrono::Utc::now().to_rfc3339())),
         ]),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
     }
 }
 
-fn create_order_item_node(id: &str, quantity: i64, price: f64, order_cid: kotoba_db_core::Cid) -> NodeBlock {
-    NodeBlock {
+fn create_order_item_node(id: &str, quantity: i64, price: f64, order_id: String) -> kotoba_graphdb::Node {
+    use std::collections::BTreeMap;
+    use chrono::Utc;
+
+    kotoba_graphdb::Node {
+        id: format!("order_item_{}", id),
         labels: vec!["OrderItem".to_string()],
-        properties: HashMap::from([
-            ("item_id".to_string(), Value::String(id.to_string())),
-            ("quantity".to_string(), Value::Int(quantity)),
-            ("unit_price".to_string(), Value::Float(price)),
-            ("order_ref".to_string(), Value::Link(order_cid)),
+        properties: BTreeMap::from([
+            ("item_id".to_string(), kotoba_graphdb::PropertyValue::String(id.to_string())),
+            ("quantity".to_string(), kotoba_graphdb::PropertyValue::Int(quantity)),
+            ("unit_price".to_string(), kotoba_graphdb::PropertyValue::Float(price)),
+            ("order_ref".to_string(), kotoba_graphdb::PropertyValue::String(order_id)),
         ]),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
     }
 }
 
-fn create_test_node(name: &str, value: i64) -> NodeBlock {
-    NodeBlock {
+fn create_test_node(name: &str, value: i64) -> kotoba_graphdb::Node {
+    use std::collections::BTreeMap;
+    use chrono::Utc;
+
+    kotoba_graphdb::Node {
+        id: format!("test_{}", name),
         labels: vec!["Test".to_string()],
-        properties: HashMap::from([
-            ("name".to_string(), Value::String(name.to_string())),
-            ("value".to_string(), Value::Int(value)),
+        properties: BTreeMap::from([
+            ("name".to_string(), kotoba_graphdb::PropertyValue::String(name.to_string())),
+            ("value".to_string(), kotoba_graphdb::PropertyValue::Int(value)),
         ]),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
     }
 }

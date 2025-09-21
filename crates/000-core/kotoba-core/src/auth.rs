@@ -4,7 +4,6 @@
 //! このモジュールは、プロセスネットワークのトポロジカルソートを実行し、
 //! ReBACとABACを組み合わせた認可判定を行います。
 
-use kotoba_errors::KotobaError;
 use crate::types::Cid;
 use std::collections::HashMap;
 

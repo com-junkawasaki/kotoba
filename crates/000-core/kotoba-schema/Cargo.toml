@@ -38,3 +38,6 @@ default = ["std"]
 std = []
 # graph feature temporarily disabled
 # graph = ["dep:kotoba-graph"]
+# Placeholder features for future use
+graph = []
+async = []

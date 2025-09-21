@@ -13,11 +13,13 @@ pub mod prelude {
     // Re-export commonly used items
     pub use crate::types::*;
     pub use crate::schema::*;
-    pub use crate::schema_validator::*;
+    // Re-export specific items from schema_validator to avoid utils conflict
+    pub use crate::schema_validator::{SchemaValidator, ValidationReport};
     // pub use crate::pgview::*; // Temporarily disabled
     pub use crate::ir::*;
     pub use crate::auth::*;  // 認証・認可エンジン
-    pub use crate::crypto::*; // 暗号化エンジン
+    // Re-export specific items from crypto to avoid utils conflict
+    pub use crate::crypto::EncryptionInfo;
     // Re-export KotobaError to avoid version conflicts
     pub use kotoba_errors::KotobaError;
 }

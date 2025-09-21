@@ -7,14 +7,14 @@
 //! - Index and constraint validation
 
 use std::collections::{HashMap, HashSet};
-use kotoba_db::DB;
-use kotoba_db_core::{Block, NodeBlock, EdgeBlock, Value, Cid};
+use kotoba_graphdb::GraphDB;
+use kotoba_core::types::{Value, VertexId, EdgeId};
 
 #[tokio::test]
 async fn test_graph_crud_operations() -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = tempfile::tempdir()?;
-    let db_path = temp_dir.path().join("graph_crud_test.db");
-    let db = DB::open_lsm(&db_path).await?;
+    let db_path = temp_dir.path().to_string_lossy();
+    let db = GraphDB::new(&db_path).await?;
 
     // Create nodes
     let user1 = create_user_node("alice", "alice@example.com", 25);
@@ -36,16 +36,18 @@ async fn test_graph_crud_operations() -> Result<(), Box<dyn std::error::Error>> 
     let retrieved_user1 = db.get_block(&cid1).await?;
     assert!(retrieved_user1.is_some());
     if let Block::Node(node) = retrieved_user1.unwrap() {
-        assert_eq!(node.properties.get("name").unwrap(), &Value::String("alice".to_string()));
+        assert_eq!(node.properties.get("name").unwrap(), &kotoba_graphdb::PropertyValue::String("alice".to_string()));
     }
 
     // Update operations
-    let updated_user1 = NodeBlock {
+    let updated_user1 = kotoba_graphdb::Node {
+        id: format!(user_{}, name),
         labels: vec!["User".to_string()],
-        properties: HashMap::from([
-            ("name".to_string(), Value::String("Alice Smith".to_string())),
-            ("email".to_string(), Value::String("alice@example.com".to_string())),
-            ("age".to_string(), Value::Int(26)),
+        properties: BTreeMap::from([
+            (id.to_string(), kotoba_graphdb::PropertyValue::String(format!(user_{}, name))),
+            ("name".to_string(), kotoba_graphdb::PropertyValue::String("Alice Smith".to_string())),
+            ("email".to_string(), kotoba_graphdb::PropertyValue::String("alice@example.com".to_string())),
+            ("age".to_string(), kotoba_graphdb::PropertyValue::Int(26)),
         ]),
     };
 
@@ -113,18 +115,20 @@ async fn test_property_operations() -> Result<(), Box<dyn std::error::Error>> {
     let db = DB::open_lsm(&db_path).await?;
 
     // Create nodes with various property types
-    let complex_node = NodeBlock {
+    let complex_node = kotoba_graphdb::Node {
+        id: format!(user_{}, name),
         labels: vec!["Complex".to_string()],
-        properties: HashMap::from([
-            ("string_prop".to_string(), Value::String("hello".to_string())),
-            ("int_prop".to_string(), Value::Int(42)),
-            ("bool_prop".to_string(), Value::Bool(true)),
-            ("float_prop".to_string(), Value::Float(3.14)),
-            ("null_prop".to_string(), Value::Null),
-            ("array_prop".to_string(), Value::Array(vec![
-                Value::String("item1".to_string()),
-                Value::Int(2),
-                Value::Bool(false),
+        properties: BTreeMap::from([
+            (id.to_string(), kotoba_graphdb::PropertyValue::String(format!(user_{}, name))),
+            ("string_prop".to_string(), kotoba_graphdb::PropertyValue::String("hello".to_string())),
+            ("int_prop".to_string(), kotoba_graphdb::PropertyValue::Int(42)),
+            ("bool_prop".to_string(), kotoba_graphdb::PropertyValue::Bool(true)),
+            ("float_prop".to_string(), kotoba_graphdb::PropertyValue::Float(3.14)),
+            ("null_prop".to_string(), kotoba_graphdb::PropertyValue::Null),
+            ("array_prop".to_string(), kotoba_graphdb::PropertyValue::Array(vec![
+                kotoba_graphdb::PropertyValue::String("item1".to_string()),
+                kotoba_graphdb::PropertyValue::Int(2),
+                kotoba_graphdb::PropertyValue::Bool(false),
             ])),
         ]),
     };
@@ -136,17 +140,17 @@ async fn test_property_operations() -> Result<(), Box<dyn std::error::Error>> {
     assert!(retrieved.is_some());
 
     if let Block::Node(node) = retrieved.unwrap() {
-        assert_eq!(node.properties.get("string_prop").unwrap(), &Value::String("hello".to_string()));
-        assert_eq!(node.properties.get("int_prop").unwrap(), &Value::Int(42));
-        assert_eq!(node.properties.get("bool_prop").unwrap(), &Value::Bool(true));
-        assert_eq!(node.properties.get("float_prop").unwrap(), &Value::Float(3.14));
-        assert_eq!(node.properties.get("null_prop").unwrap(), &Value::Null);
+        assert_eq!(node.properties.get("string_prop").unwrap(), &kotoba_graphdb::PropertyValue::String("hello".to_string()));
+        assert_eq!(node.properties.get("int_prop").unwrap(), &kotoba_graphdb::PropertyValue::Int(42));
+        assert_eq!(node.properties.get("bool_prop").unwrap(), &kotoba_graphdb::PropertyValue::Bool(true));
+        assert_eq!(node.properties.get("float_prop").unwrap(), &kotoba_graphdb::PropertyValue::Float(3.14));
+        assert_eq!(node.properties.get("null_prop").unwrap(), &kotoba_graphdb::PropertyValue::Null);
 
-        if let Value::Array(arr) = node.properties.get("array_prop").unwrap() {
+        if let kotoba_graphdb::PropertyValue::Array(arr) = node.properties.get("array_prop").unwrap() {
             assert_eq!(arr.len(), 3);
-            assert_eq!(arr[0], Value::String("item1".to_string()));
-            assert_eq!(arr[1], Value::Int(2));
-            assert_eq!(arr[2], Value::Bool(false));
+            assert_eq!(arr[0], kotoba_graphdb::PropertyValue::String("item1".to_string()));
+            assert_eq!(arr[1], kotoba_graphdb::PropertyValue::Int(2));
+            assert_eq!(arr[2], kotoba_graphdb::PropertyValue::Bool(false));
         } else {
             panic!("Array property should be an array");
         }
@@ -176,11 +180,11 @@ async fn test_index_operations() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Test property-based queries (assuming index support)
-    let young_users = db.find_nodes_by_property("age", &Value::Int(25)).await?;
+    let young_users = db.find_nodes_by_property("age", &kotoba_graphdb::PropertyValue::Int(25)).await?;
     assert!(!young_users.is_empty());
 
     // Test range queries
-    let age_range_20_30 = db.find_nodes_by_property_range("age", &Value::Int(20), &Value::Int(30)).await?;
+    let age_range_20_30 = db.find_nodes_by_property_range("age", &kotoba_graphdb::PropertyValue::Int(20), &kotoba_graphdb::PropertyValue::Int(30)).await?;
     assert!(!age_range_20_30.is_empty());
 
     // Test label-based queries
@@ -189,7 +193,7 @@ async fn test_index_operations() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test composite queries
     let users_25_and_older = db.find_nodes_by_properties(
-        &[("age".to_string(), Value::Int(25))],
+        &[("age".to_string(), kotoba_graphdb::PropertyValue::Int(25))],
         Some("User".to_string())
     ).await?;
     assert!(!users_25_and_older.is_empty());
@@ -200,43 +204,54 @@ async fn test_index_operations() -> Result<(), Box<dyn std::error::Error>> {
 
 // Helper functions
 
-fn create_user_node(name: &str, email: &str, age: i64) -> NodeBlock {
-    NodeBlock {
+fn create_user_node(name: &str, email: &str, age: i64) -> kotoba_graphdb::Node {
+    kotoba_graphdb::Node {
+        id: format!(user_{}, name),
         labels: vec!["User".to_string()],
-        properties: HashMap::from([
-            ("name".to_string(), Value::String(name.to_string())),
-            ("email".to_string(), Value::String(email.to_string())),
-            ("age".to_string(), Value::Int(age)),
+        properties: BTreeMap::from([
+            (id.to_string(), kotoba_graphdb::PropertyValue::String(format!(user_{}, name))),
+            ("name".to_string(), kotoba_graphdb::PropertyValue::String(name.to_string())),
+            ("email".to_string(), kotoba_graphdb::PropertyValue::String(email.to_string())),
+            ("age".to_string(), kotoba_graphdb::PropertyValue::Int(age)),
         ]),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
     }
 }
 
-fn create_post_node(title: &str, content: &str, created_at: &str) -> NodeBlock {
-    NodeBlock {
+fn create_post_node(title: &str, content: &str, created_at: &str) -> kotoba_graphdb::Node {
+    kotoba_graphdb::Node {
+        id: format!(user_{}, name),
         labels: vec!["Post".to_string()],
-        properties: HashMap::from([
-            ("title".to_string(), Value::String(title.to_string())),
-            ("content".to_string(), Value::String(content.to_string())),
-            ("created_at".to_string(), Value::String(created_at.to_string())),
+        properties: BTreeMap::from([
+            (id.to_string(), kotoba_graphdb::PropertyValue::String(format!(user_{}, name))),
+            ("title".to_string(), kotoba_graphdb::PropertyValue::String(title.to_string())),
+            ("content".to_string(), kotoba_graphdb::PropertyValue::String(content.to_string())),
+            ("created_at".to_string(), kotoba_graphdb::PropertyValue::String(created_at.to_string())),
         ]),
     }
 }
 
-fn create_follows_edge(from_cid: Cid, to_cid: Cid, since: &str) -> EdgeBlock {
-    EdgeBlock {
-        from_labels: vec!["User".to_string()],
-        to_labels: vec!["User".to_string()],
+fn create_follows_edge(from_id: String, to_id: String, since: &str) -> kotoba_graphdb::Edge {
+    kotoba_graphdb::Edge {
+        from_id: format!(user_{}, name),
+        labels: vec!["User".to_string()],
+        to_id: format!(user_{}, name),
+        labels: vec!["User".to_string()],
         label: "FOLLOWS".to_string(),
-        properties: HashMap::from([
-            ("since".to_string(), Value::String(since.to_string())),
+        properties: BTreeMap::from([
+            (id.to_string(), kotoba_graphdb::PropertyValue::String(format!(user_{}, name))),
+            ("since".to_string(), kotoba_graphdb::PropertyValue::String(since.to_string())),
         ]),
     }
 }
 
-fn create_authored_edge(from_cid: Cid, to_cid: Cid) -> EdgeBlock {
-    EdgeBlock {
-        from_labels: vec!["User".to_string()],
-        to_labels: vec!["Post".to_string()],
+fn create_authored_edge(from_id: String, to_id: String) -> kotoba_graphdb::Edge {
+    kotoba_graphdb::Edge {
+        from_id: format!(user_{}, name),
+        labels: vec!["User".to_string()],
+        to_id: format!(user_{}, name),
+        labels: vec!["Post".to_string()],
         label: "AUTHORED".to_string(),
         properties: HashMap::new(),
     }

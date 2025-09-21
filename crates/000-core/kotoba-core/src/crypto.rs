@@ -5,7 +5,6 @@
 //! 鍵暗号鍵（KEK）で保護します。
 
 use kotoba_errors::KotobaError;
-use crate::types::Cid;
 use crate::prelude::Principal;
 use std::collections::HashMap;
 

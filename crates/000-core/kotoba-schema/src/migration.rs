@@ -173,9 +173,9 @@ impl SchemaMigration {
     /// Change property type (simplified - just validates new type)
     fn change_property_type(
         &self,
-        graph_data: &mut serde_json::Value,
-        source_path: &str,
-        target_path: &str,
+        _graph_data: &mut serde_json::Value,
+        _source_path: &str,
+        _target_path: &str,
     ) -> Result<(), KotobaError> {
         // For now, this is a placeholder. In a full implementation,
         // you would attempt to convert values to the new type

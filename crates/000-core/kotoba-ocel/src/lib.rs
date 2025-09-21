@@ -6,7 +6,7 @@
 //! このクレートのイベントは、認証・認可・暗号化機能を標準搭載しており、
 //! 自己証明的でセキュアなイベントログを実現します。
 
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use chrono::{DateTime, Utc};

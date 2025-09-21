@@ -4,8 +4,7 @@
 use crate::schema::*;
 use crate::types::Result;
 use kotoba_errors::KotobaError;
-use serde_json::Value;
-use jsonschema::{Draft, JSONSchema};
+use jsonschema::JSONSchema;
 use std::fs;
 use std::path::Path;
 

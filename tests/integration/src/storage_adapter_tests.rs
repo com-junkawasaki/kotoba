@@ -21,7 +21,7 @@ pub struct StorageAdapterTestFixture {
 impl StorageAdapterTestFixture {
     pub async fn new() -> Result<Self, KotobaError> {
         // Always create memory adapter
-        let memory_adapter = Arc::new(kotoba_memory::MemoryAdapter::new());
+        let memory_adapter = Arc::new(kotoba_memory::MemoryKeyValueStore::new());
 
         // Try to create RocksDB adapter
         let rocksdb_adapter = if let Ok(adapter) = Self::create_rocksdb_adapter().await {
