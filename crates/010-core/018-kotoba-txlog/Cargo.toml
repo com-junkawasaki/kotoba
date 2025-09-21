@@ -1,0 +1,19 @@
+[package]
+name = "kotoba-txlog"
+version = "0.1.22"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tx DAG + provenance + replay for causal tracking and audit trails"
+
+[dependencies]
+kotoba-types = { path = "../011-kotoba-types" }
+kotoba-codebase = { path = "../010-kotoba-codebase" }
+kotoba-graph-core = { path = "../016-kotoba-graph-core" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+blake3.workspace = true
+chrono = { workspace = true, features = ["serde"] }
