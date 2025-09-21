@@ -9,7 +9,7 @@ keywords = ["ir", "intermediate", "representation", "graph", "rewrite"]
 categories = ["data-structures", "algorithms"]
 
 [dependencies]
-kotoba-types = { path = "../011-kotoba-types" }
+kotoba-types = { path = "../010-kotoba-types" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

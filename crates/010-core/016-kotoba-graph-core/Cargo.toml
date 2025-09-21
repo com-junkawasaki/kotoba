@@ -8,7 +8,7 @@ description = "Incidence bipartite graph + canonicalization + merkle for content
 
 [dependencies]
 kotoba-logic = { path = "../009-kotoba-logic" }
-kotoba-types = { path = "../011-kotoba-types" }
+kotoba-types = { path = "../010-kotoba-types" }
 kotoba-codebase = { path = "../010-kotoba-codebase" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

@@ -13,9 +13,9 @@ name = "kotoba-lint"
 path = "src/main.rs"
 
 [dependencies]
-kotoba-types = { path = "../011-kotoba-types" }
-kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }
-kotoba-graph-core = { path = "../016-kotoba-graph-core" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-rewrite-kernel = { path = "../../010-core/012-kotoba-rewrite-kernel" }
+kotoba-graph-core = { path = "../../010-core/016-kotoba-graph-core" }
 thiserror = { workspace = true }
 anyhow = "1.0"
 serde = { workspace = true }

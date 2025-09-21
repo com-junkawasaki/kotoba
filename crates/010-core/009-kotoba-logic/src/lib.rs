@@ -12,6 +12,9 @@
 //! This is the foundational layer that provides logical thinking capabilities
 //! to the entire Kotoba system. All other components build upon this logical foundation.
 
+use std::fmt::Debug;
+use serde::{Serialize, Deserialize};
+
 pub mod reasoning;
 pub mod proof_theory;
 pub mod type_theory;

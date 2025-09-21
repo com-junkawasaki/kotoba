@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 [dependencies]
 kotoba-logic = { path = "../009-kotoba-logic" }
-kotoba-types = { path = "../011-kotoba-types" }
+kotoba-types = { path = "../010-kotoba-types" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

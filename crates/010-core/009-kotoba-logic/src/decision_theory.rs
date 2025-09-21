@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use super::{LogicError, LogicResult, PredicateFormula};
 
 /// Decision theory system for automated decision making
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DecisionTheory {
     /// Decision procedures
     procedures: HashMap<String, DecisionProcedure>,
@@ -410,7 +410,7 @@ impl Decision {
 }
 
 /// Decision procedure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DecisionProcedure {
     /// Procedure name
     pub name: String,
@@ -456,7 +456,7 @@ impl DecisionProcedure {
 }
 
 /// Procedure implementation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ProcedureImplementation {
     /// Algorithm-based implementation
     Algorithm(Box<dyn DecisionAlgorithm>),
@@ -465,7 +465,7 @@ pub enum ProcedureImplementation {
 }
 
 /// Decision algorithm trait
-pub trait DecisionAlgorithm: Send + Sync {
+pub trait DecisionAlgorithm: Send + Sync + ::std::fmt::Debug {
     /// Make a decision
     fn decide(&self, problem: &DecisionProblem) -> Result<Decision, LogicError>;
 
@@ -477,7 +477,7 @@ pub trait DecisionAlgorithm: Send + Sync {
 }
 
 /// Decision heuristic
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DecisionHeuristic {
     /// Heuristic name
     pub name: String,
@@ -515,7 +515,7 @@ impl DecisionHeuristic {
 }
 
 /// Heuristic implementation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum HeuristicImplementation {
     /// Function-based implementation
     Function(Box<dyn DecisionFunction>),
@@ -524,7 +524,7 @@ pub enum HeuristicImplementation {
 }
 
 /// Decision function trait
-pub trait DecisionFunction: Send + Sync {
+pub trait DecisionFunction: Send + Sync + ::std::fmt::Debug {
     /// Make a decision
     fn decide(&self, problem: &DecisionProblem) -> Result<Decision, LogicError>;
 
@@ -536,7 +536,7 @@ pub trait DecisionFunction: Send + Sync {
 }
 
 /// Optimization strategy
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OptimizationStrategy {
     /// Strategy name
     pub name: String,
@@ -582,7 +582,7 @@ impl OptimizationStrategy {
 }
 
 /// Strategy implementation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum StrategyImplementation {
     /// Optimizer-based implementation
     Optimizer(Box<dyn DecisionOptimizer>),
@@ -591,7 +591,7 @@ pub enum StrategyImplementation {
 }
 
 /// Decision optimizer trait
-pub trait DecisionOptimizer: Send + Sync {
+pub trait DecisionOptimizer: Send + Sync + ::std::fmt::Debug {
     /// Optimize a decision
     fn optimize(&self, decision: &Decision) -> Result<Decision, LogicError>;
 

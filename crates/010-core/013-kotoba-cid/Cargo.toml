@@ -13,7 +13,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-types = { path = "../011-kotoba-types" }
+kotoba-types = { path = "../010-kotoba-types" }
 kotoba-graph-core = { path = "../016-kotoba-graph-core" }
 
 # Hash algorithms
