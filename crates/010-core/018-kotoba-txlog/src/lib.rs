@@ -10,6 +10,7 @@ pub mod dag;
 pub mod provenance;
 pub mod replay;
 pub mod witness;
+pub mod topology;
 
 use kotoba_types::*;
 use kotoba_codebase::*;

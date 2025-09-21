@@ -11,6 +11,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+// Re-export types from kotoba-types
+pub use kotoba_types::{VertexId, EdgeId, Label, Properties, PropertyKey, Value, GraphInstance, GraphCore, Node, Edge, GraphKind, Typing, Boundary, Port, PortDirection, Attrs};
+
 /// Vertex data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VertexData {
@@ -290,6 +293,36 @@ impl Graph {
         self.edges.keys().cloned().collect()
     }
 
+    /// Check if graph is connected
+    pub fn is_connected(&self) -> bool {
+        if self.vertices.is_empty() {
+            return true;
+        }
+
+        let mut visited = HashSet::new();
+        let mut to_visit = VecDeque::new();
+
+        // Start from first vertex
+        if let Some(first_vertex) = self.vertices.keys().next() {
+            to_visit.push_back(*first_vertex);
+            visited.insert(*first_vertex);
+        }
+
+        // BFS traversal
+        while let Some(current) = to_visit.pop_front() {
+            if let Some(neighbors) = self.adj_out.get(&current) {
+                for neighbor in neighbors {
+                    if !visited.contains(neighbor) {
+                        visited.insert(*neighbor);
+                        to_visit.push_back(*neighbor);
+                    }
+                }
+            }
+        }
+
+        visited.len() == self.vertices.len()
+    }
+
     /// Check if graph contains vertex
     pub fn contains_vertex(&self, id: &VertexId) -> bool {
         self.vertices.contains_key(id)
@@ -299,6 +332,528 @@ impl Graph {
     pub fn contains_edge(&self, id: &EdgeId) -> bool {
         self.edges.contains_key(id)
     }
+}
+
+/// Vertex builder for fluent API
+#[derive(Debug, Clone)]
+pub struct VertexBuilder {
+    id: Option<VertexId>,
+    labels: Vec<Label>,
+    props: Properties,
+}
+
+impl VertexBuilder {
+    /// Create a new vertex builder
+    pub fn new() -> Self {
+        Self {
+            id: None,
+            labels: Vec::new(),
+            props: HashMap::new(),
+        }
+    }
+
+    /// Set vertex ID
+    pub fn id(mut self, id: VertexId) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    /// Add a label
+    pub fn label(mut self, label: Label) -> Self {
+        self.labels.push(label);
+        self
+    }
+
+    /// Set labels
+    pub fn labels(mut self, labels: Vec<Label>) -> Self {
+        self.labels = labels;
+        self
+    }
+
+    /// Add a property
+    pub fn prop(mut self, key: PropertyKey, value: Value) -> Self {
+        self.props.insert(key, value);
+        self
+    }
+
+    /// Set properties
+    pub fn props(mut self, props: Properties) -> Self {
+        self.props = props;
+        self
+    }
+
+    /// Build the vertex
+    pub fn build(self) -> VertexData {
+        VertexData {
+            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4()),
+            labels: self.labels,
+            props: self.props,
+        }
+    }
+}
+
+/// Edge builder for fluent API
+#[derive(Debug, Clone)]
+pub struct EdgeBuilder {
+    id: Option<EdgeId>,
+    src: Option<VertexId>,
+    dst: Option<VertexId>,
+    label: Option<Label>,
+    props: Properties,
+}
+
+impl EdgeBuilder {
+    /// Create a new edge builder
+    pub fn new() -> Self {
+        Self {
+            id: None,
+            src: None,
+            dst: None,
+            label: None,
+            props: HashMap::new(),
+        }
+    }
+
+    /// Set edge ID
+    pub fn id(mut self, id: EdgeId) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    /// Set source vertex
+    pub fn src(mut self, src: VertexId) -> Self {
+        self.src = Some(src);
+        self
+    }
+
+    /// Set destination vertex
+    pub fn dst(mut self, dst: VertexId) -> Self {
+        self.dst = Some(dst);
+        self
+    }
+
+    /// Set label
+    pub fn label(mut self, label: Label) -> Self {
+        self.label = Some(label);
+        self
+    }
+
+    /// Add a property
+    pub fn prop(mut self, key: PropertyKey, value: Value) -> Self {
+        self.props.insert(key, value);
+        self
+    }
+
+    /// Set properties
+    pub fn props(mut self, props: Properties) -> Self {
+        self.props = props;
+        self
+    }
+
+    /// Build the edge
+    pub fn build(self) -> Result<EdgeData, String> {
+        let src = self.src.ok_or("Source vertex not set")?;
+        let dst = self.dst.ok_or("Destination vertex not set")?;
+        let label = self.label.ok_or("Label not set")?;
+
+        Ok(EdgeData {
+            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4()),
+            src,
+            dst,
+            label,
+            props: self.props,
+        })
+    }
+}
+
+/// Graph builder for fluent API
+#[derive(Debug, Clone)]
+pub struct GraphBuilder {
+    graph: Graph,
+}
+
+impl GraphBuilder {
+    /// Create a new graph builder
+    pub fn new() -> Self {
+        Self {
+            graph: Graph::empty(),
+        }
+    }
+
+    /// Add a vertex
+    pub fn vertex(mut self, vertex: VertexData) -> Self {
+        self.graph.add_vertex(vertex);
+        self
+    }
+
+    /// Add an edge
+    pub fn edge(mut self, edge: EdgeData) -> Self {
+        self.graph.add_edge(edge);
+        self
+    }
+
+    /// Build the graph
+    pub fn build(self) -> Graph {
+        self.graph
+    }
+}
+
+/// Graph traversal algorithms
+#[derive(Debug, Clone)]
+pub struct GraphTraversal<'a> {
+    graph: &'a Graph,
+    visited: HashSet<VertexId>,
+    queue: VecDeque<VertexId>,
+    stack: Vec<VertexId>,
+}
+
+impl<'a> GraphTraversal<'a> {
+    /// Create a new traversal
+    pub fn new(graph: &'a Graph) -> Self {
+        Self {
+            graph,
+            visited: HashSet::new(),
+            queue: VecDeque::new(),
+            stack: Vec::new(),
+        }
+    }
+
+    /// BFS (Breadth-First Search)
+    pub fn bfs(&mut self, start: VertexId) -> Vec<VertexId> {
+        self.visited.clear();
+        self.queue.clear();
+        let mut result = Vec::new();
+
+        self.visited.insert(start);
+        self.queue.push_back(start);
+
+        while let Some(current) = self.queue.pop_front() {
+            result.push(current);
+
+            // Explore neighbors
+            if let Some(neighbors) = self.graph.adj_out.get(&current) {
+                for &neighbor in neighbors {
+                    if !self.visited.contains(&neighbor) {
+                        self.visited.insert(neighbor);
+                        self.queue.push_back(neighbor);
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// DFS (Depth-First Search)
+    pub fn dfs(&mut self, start: VertexId) -> Vec<VertexId> {
+        self.visited.clear();
+        self.stack.clear();
+        let mut result = Vec::new();
+
+        self.stack.push(start);
+
+        while let Some(current) = self.stack.pop() {
+            if !self.visited.contains(&current) {
+                self.visited.insert(current);
+                result.push(current);
+
+                // Explore neighbors in reverse order for correct DFS
+                if let Some(neighbors) = self.graph.adj_out.get(&current) {
+                    let mut neighbors_vec: Vec<_> = neighbors.iter().collect();
+                    neighbors_vec.reverse();
+
+                    for &neighbor in &neighbors_vec {
+                        if !self.visited.contains(&neighbor) {
+                            self.stack.push(neighbor);
+                        }
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Check if graph is connected
+    pub fn is_connected(&mut self) -> bool {
+        if self.graph.vertices.is_empty() {
+            return true;
+        }
+
+        // Start BFS from first vertex
+        if let Some(first_vertex) = self.graph.vertices.keys().next() {
+            let reachable = self.bfs(*first_vertex);
+            reachable.len() == self.graph.vertices.len()
+        } else {
+            false
+        }
+    }
+
+    /// Find shortest path between two vertices
+    pub fn shortest_path(&mut self, start: VertexId, end: VertexId) -> Option<Vec<VertexId>> {
+        let mut parent: HashMap<VertexId, VertexId> = HashMap::new();
+        let mut queue = VecDeque::new();
+
+        queue.push_back(start);
+        parent.insert(start, start);
+
+        while let Some(current) = queue.pop_front() {
+            if current == end {
+                // Reconstruct path
+                let mut path = Vec::new();
+                let mut current = end;
+
+                while current != start {
+                    path.push(current);
+                    if let Some(&next) = parent.get(&current) {
+                        current = next;
+                    } else {
+                        return None;
+                    }
+                }
+                path.push(start);
+                path.reverse();
+                return Some(path);
+            }
+
+            if let Some(neighbors) = self.graph.adj_out.get(&current) {
+                for &neighbor in neighbors {
+                    if !parent.contains_key(&neighbor) {
+                        parent.insert(neighbor, current);
+                        queue.push_back(neighbor);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Find all cycles in the graph
+    pub fn find_cycles(&mut self) -> Vec<Vec<VertexId>> {
+        let mut cycles = Vec::new();
+        let mut visited = HashSet::new();
+        let mut rec_stack = HashSet::new();
+
+        for &vertex in self.graph.vertices.keys() {
+            if !visited.contains(&vertex) {
+                self.find_cycles_dfs(vertex, &mut visited, &mut rec_stack, &mut cycles, vertex);
+            }
+        }
+
+        cycles
+    }
+
+    /// DFS helper for cycle detection
+    fn find_cycles_dfs(
+        &mut self,
+        vertex: VertexId,
+        visited: &mut HashSet<VertexId>,
+        rec_stack: &mut HashSet<VertexId>,
+        cycles: &mut Vec<Vec<VertexId>>,
+        start: VertexId,
+    ) {
+        visited.insert(vertex);
+        rec_stack.insert(vertex);
+
+        if let Some(neighbors) = self.graph.adj_out.get(&vertex) {
+            for &neighbor in neighbors {
+                if !visited.contains(&neighbor) {
+                    self.find_cycles_dfs(neighbor, visited, rec_stack, cycles, start);
+                } else if rec_stack.contains(&neighbor) {
+                    // Cycle found - but we need to extract the actual cycle
+                    cycles.push(vec![vertex, neighbor]);
+                }
+            }
+        }
+
+        rec_stack.remove(&vertex);
+    }
+
+    /// Compute graph diameter (longest shortest path)
+    pub fn diameter(&mut self) -> Option<usize> {
+        if !self.is_connected() {
+            return None;
+        }
+
+        let mut max_distance = 0;
+
+        for &vertex in self.graph.vertices.keys() {
+            if let Some(distances) = self.compute_distances(vertex) {
+                if let Some(&max_dist) = distances.values().max() {
+                    max_distance = max_distance.max(max_dist);
+                }
+            }
+        }
+
+        Some(max_distance)
+    }
+
+    /// Compute distances from a source vertex
+    fn compute_distances(&mut self, source: VertexId) -> Option<HashMap<VertexId, usize>> {
+        let mut distances = HashMap::new();
+        let mut queue = VecDeque::new();
+
+        distances.insert(source, 0);
+        queue.push_back(source);
+
+        while let Some(current) = queue.pop_front() {
+            let current_dist = distances[&current];
+
+            if let Some(neighbors) = self.graph.adj_out.get(&current) {
+                for &neighbor in neighbors {
+                    if !distances.contains_key(&neighbor) {
+                        distances.insert(neighbor, current_dist + 1);
+                        queue.push_back(neighbor);
+                    }
+                }
+            }
+        }
+
+        Some(distances)
+    }
+
+    /// Find strongly connected components (Kosaraju's algorithm)
+    pub fn strongly_connected_components(&mut self) -> Vec<Vec<VertexId>> {
+        let mut visited = HashSet::new();
+        let mut stack = Vec::new();
+
+        // First DFS pass: get finishing times
+        for &vertex in self.graph.vertices.keys() {
+            if !visited.contains(&vertex) {
+                self.scc_dfs1(vertex, &mut visited, &mut stack);
+            }
+        }
+
+        // Transpose the graph
+        let transposed = self.transpose_graph();
+
+        // Second DFS pass: get SCCs
+        let mut visited = HashSet::new();
+        let mut sccs = Vec::new();
+
+        while let Some(vertex) = stack.pop() {
+            if !visited.contains(&vertex) {
+                let mut scc = Vec::new();
+                self.scc_dfs2(vertex, &transposed, &mut visited, &mut scc);
+                sccs.push(scc);
+            }
+        }
+
+        sccs
+    }
+
+    /// First DFS pass for SCC
+    fn scc_dfs1(&mut self, vertex: VertexId, visited: &mut HashSet<VertexId>, stack: &mut Vec<VertexId>) {
+        visited.insert(vertex);
+
+        if let Some(neighbors) = self.graph.adj_out.get(&vertex) {
+            for &neighbor in neighbors {
+                if !visited.contains(&neighbor) {
+                    self.scc_dfs1(neighbor, visited, stack);
+                }
+            }
+        }
+
+        stack.push(vertex);
+    }
+
+    /// Second DFS pass for SCC
+    fn scc_dfs2(
+        &mut self,
+        vertex: VertexId,
+        transposed: &HashMap<VertexId, HashSet<VertexId>>,
+        visited: &mut HashSet<VertexId>,
+        scc: &mut Vec<VertexId>,
+    ) {
+        visited.insert(vertex);
+        scc.push(vertex);
+
+        if let Some(neighbors) = transposed.get(&vertex) {
+            for &neighbor in neighbors {
+                if !visited.contains(&neighbor) {
+                    self.scc_dfs2(neighbor, transposed, visited, scc);
+                }
+            }
+        }
+    }
+
+    /// Transpose the graph (reverse all edges)
+    fn transpose_graph(&self) -> HashMap<VertexId, HashSet<VertexId>> {
+        let mut transposed = HashMap::new();
+
+        for (src, dsts) in &self.graph.adj_out {
+            for dst in dsts {
+                transposed.entry(*dst).or_insert_with(HashSet::new).insert(*src);
+            }
+        }
+
+        transposed
+    }
+}
+
+/// Graph analysis utilities
+#[derive(Debug, Clone)]
+pub struct GraphAnalysis;
+
+impl GraphAnalysis {
+    /// Compute graph statistics
+    pub fn statistics(graph: &Graph) -> GraphStatistics {
+        let vertex_count = graph.vertex_count();
+        let edge_count = graph.edge_count();
+
+        let degrees: Vec<usize> = graph.vertices.keys()
+            .map(|v| graph.degree(v))
+            .collect();
+
+        let average_degree = if vertex_count > 0 {
+            degrees.iter().sum::<usize>() as f64 / vertex_count as f64
+        } else {
+            0.0
+        };
+
+        let max_degree = degrees.iter().max().copied().unwrap_or(0);
+
+        GraphStatistics {
+            vertex_count,
+            edge_count,
+            average_degree,
+            max_degree,
+            density: if vertex_count > 1 {
+                2.0 * edge_count as f64 / (vertex_count as f64 * (vertex_count - 1) as f64)
+            } else {
+                0.0
+            },
+        }
+    }
+}
+
+/// Graph statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphStatistics {
+    /// Number of vertices
+    pub vertex_count: usize,
+    /// Number of edges
+    pub edge_count: usize,
+    /// Average degree
+    pub average_degree: f64,
+    /// Maximum degree
+    pub max_degree: usize,
+    /// Graph density
+    pub density: f64,
+}
+
+impl GraphStatistics {
+    /// Check if graph is dense (density > 0.5)
+    pub fn is_dense(&self) -> bool {
+        self.density > 0.5
+    }
+
+    /// Check if graph is sparse (density < 0.1)
+    pub fn is_sparse(&self) -> bool {
+        self.density < 0.1
+    }
+}
 
     /// Get neighbors of a vertex
     pub fn neighbors(&self, id: &VertexId) -> Vec<VertexId> {

@@ -1,10 +1,15 @@
-//! CID (Content ID) システムの実装
-//! Merkle DAGにおけるコンテンツアドレッシング
+//! # Kotoba Types
+//!
+//! Core type definitions for the Kotoba ecosystem, including CID systems,
+//! Merkle DAG structures, and graph-related types.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
 use kotoba_types::Cid;
+
+// Re-export from kotoba-types crate
+pub use kotoba_types::*;
 
 /// ハッシュアルゴリズム
 #[derive(Debug, Clone, PartialEq)]

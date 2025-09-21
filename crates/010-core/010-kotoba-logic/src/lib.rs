@@ -1,13 +1,54 @@
-//! # Kotoba Auth
+//! # Kotoba Core Logic
 //!
-//! This crate provides the authentication and authorization engine for the Kotoba
-//! ecosystem. It implements a hybrid model combining Relationship-Based Access
-//! Control (ReBAC) and Attribute-Based Access Control (ABAC).
+//! This crate provides the core data structures and algorithms for the Kotoba
+//! distributed graph database system, including graph processing, schema validation,
+//! and topology management.
 
-use kotoba_errors::AuthError;
+use kotoba_errors::KotobaError;
 use kotoba_types::Cid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// Core type definitions
+pub mod types;
+
+// Graph processing
+pub mod graph;
+
+// Schema management
+pub mod schema;
+
+// Topology validation
+pub mod topology;
+
+// PG view processing
+pub mod pgview;
+
+// Cryptographic utilities
+pub mod crypto;
+
+// IR processing
+pub mod ir;
+
+// Schema validation utilities
+pub mod schema_validator;
+
+// Schema testing utilities
+pub mod schema_test;
+
+// Re-export common types
+pub use types::*;
+pub use graph::*;
+pub use schema::*;
+pub use topology::*;
+pub use pgview::*;
+pub use crypto::*;
+pub use ir::*;
+pub use schema_validator::*;
+pub use schema_test::*;
+
+// Result type alias
+pub type KotobaResult<T> = std::result::Result<T, KotobaError>;
 
 pub type Result<T> = std::result::Result<T, AuthError>;
 

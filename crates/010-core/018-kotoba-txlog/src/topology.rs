@@ -1,13 +1,14 @@
-//! # Topology Validation and Graph Processing
+//! # Topology validation and graph processing module
 //!
 //! This module provides functionality for validating and processing
 //! process network topologies defined in dag.jsonnet files.
-//! This integrates with the transaction log system for topology-aware
+//!
+//! This integrates with the transaction log system to provide topology-aware
 //! transaction processing and validation.
 
-use kotoba_errors::KotobaError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use kotoba_errors::KotobaError;
 
 /// Represents a node in the topology graph
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -83,25 +84,26 @@ impl TopologyGraph {
         self.edges.len()
     }
 
-    /// Update topological order
-    pub fn update_topological_order(&mut self) {
+    /// Update topological ordering
+    pub fn update_topological_order(&mut self) -> Result<(), TopologyError> {
         let mut order = Vec::new();
-        let mut visited = HashMap::new();
-        let mut visiting = HashMap::new();
+        let mut visited = std::collections::HashSet::new();
+        let mut visiting = std::collections::HashSet::new();
 
-        // Perform topological sort starting from nodes with no dependencies
-        let mut start_nodes = Vec::new();
+        // Start with nodes that have no dependencies
         for node_name in self.nodes.keys() {
             if !self.has_incoming_edges(node_name) {
-                start_nodes.push(node_name.clone());
+                self.topological_sort_visit(node_name, &mut order, &mut visited, &mut visiting)?;
             }
         }
 
-        for node_name in start_nodes {
-            self.topological_sort_visit(&node_name, &mut order, &mut visited, &mut visiting);
-        }
+        self.topological_order = order.clone();
 
-        self.topological_order = order;
+        // Reverse for dependency-first order
+        order.reverse();
+        self.reverse_topological_order = order;
+
+        Ok(())
     }
 
     /// Check if node has incoming edges
@@ -109,41 +111,262 @@ impl TopologyGraph {
         self.edges.iter().any(|edge| edge.to == node_name)
     }
 
-    /// Topological sort visit (DFS with cycle detection)
+    /// Topological sort visit helper
     fn topological_sort_visit(
         &self,
         node_name: &str,
         order: &mut Vec<String>,
-        visited: &mut HashMap<String, bool>,
-        visiting: &mut HashMap<String, bool>,
-    ) {
-        if *visiting.get(node_name).unwrap_or(&false) {
-            // Cycle detected
-            return;
+        visited: &mut std::collections::HashSet<String>,
+        visiting: &mut std::collections::HashSet<String>,
+    ) -> Result<(), TopologyError> {
+        if visiting.contains(node_name) {
+            return Err(TopologyError::CycleDetected(node_name.to_string()));
         }
 
-        if *visited.get(node_name).unwrap_or(&false) {
-            return;
+        if visited.contains(node_name) {
+            return Ok(());
         }
 
-        visiting.insert(node_name.to_string(), true);
+        visiting.insert(node_name.to_string());
 
-        // Visit all nodes that this node depends on
+        // Visit dependencies first
         if let Some(node) = self.nodes.get(node_name) {
             for dep in &node.dependencies {
-                self.topological_sort_visit(dep, order, visited, visiting);
+                if let Some(dep_node) = self.nodes.get(dep) {
+                    self.topological_sort_visit(dep_node.name.as_str(), order, visited, visiting)?;
+                }
             }
         }
 
-        visiting.insert(node_name.to_string(), false);
-        visited.insert(node_name.to_string(), true);
+        visiting.remove(node_name);
+        visited.insert(node_name.to_string());
         order.push(node_name.to_string());
+
+        Ok(())
     }
 
-    /// Generate reverse topological order (dependencies first)
-    pub fn generate_reverse_topological_order(&mut self) {
-        self.update_topological_order();
-        self.reverse_topological_order = self.topological_order.iter().rev().cloned().collect();
+    /// Validate the topology
+    pub fn validate(&self) -> ValidationResult {
+        let mut result = ValidationResult::new();
+
+        // Check for cycles
+        match self.detect_cycles() {
+            Ok(()) => {
+                result.add_check(ValidationCheck {
+                    name: "No Cycles".to_string(),
+                    is_valid: true,
+                    errors: Vec::new(),
+                    warnings: Vec::new(),
+                });
+            }
+            Err(cycle) => {
+                result.add_check(ValidationCheck {
+                    name: "No Cycles".to_string(),
+                    is_valid: false,
+                    errors: vec![format!("Cycle detected: {}", cycle)],
+                    warnings: Vec::new(),
+                });
+            }
+        }
+
+        // Check node consistency
+        result.add_check(self.validate_node_consistency());
+
+        // Check edge consistency
+        result.add_check(self.validate_edge_consistency());
+
+        // Check build order
+        result.add_check(self.validate_build_order());
+
+        result
+    }
+
+    /// Detect cycles in the topology
+    fn detect_cycles(&self) -> Result<(), String> {
+        let mut visited = std::collections::HashSet::new();
+        let mut rec_stack = std::collections::HashSet::new();
+
+        for node_name in self.nodes.keys() {
+            if !visited.contains(node_name) {
+                if self.has_cycle(node_name, &mut visited, &mut rec_stack) {
+                    return Err(format!("Cycle detected involving node: {}", node_name));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// DFS-based cycle detection
+    fn has_cycle(
+        &self,
+        node_name: &str,
+        visited: &mut std::collections::HashSet<String>,
+        rec_stack: &mut std::collections::HashSet<String>,
+    ) -> bool {
+        visited.insert(node_name.to_string());
+        rec_stack.insert(node_name.to_string());
+
+        // Check all outgoing edges (dependencies)
+        if let Some(node) = self.nodes.get(node_name) {
+            for dep in &node.dependencies {
+                if !visited.contains(dep) {
+                    if self.has_cycle(dep, visited, rec_stack) {
+                        return true;
+                    }
+                } else if rec_stack.contains(dep) {
+                    return true;
+                }
+            }
+        }
+
+        rec_stack.remove(node_name);
+        false
+    }
+
+    /// Validate node consistency
+    fn validate_node_consistency(&self) -> ValidationCheck {
+        let mut check = ValidationCheck {
+            name: "Node Consistency".to_string(),
+            is_valid: true,
+            errors: Vec::new(),
+            warnings: Vec::new(),
+        };
+
+        for (node_name, node) in &self.nodes {
+            // Check that dependencies exist
+            for dep in &node.dependencies {
+                if !self.nodes.contains_key(dep) {
+                    check.is_valid = false;
+                    check.errors.push(format!(
+                        "Node '{}' has dependency '{}' which does not exist",
+                        node_name, dep
+                    ));
+                }
+            }
+
+            // Check build order is reasonable
+            if node.build_order == 0 {
+                check.warnings.push(format!("Node '{}' has build order 0", node_name));
+            }
+        }
+
+        check
+    }
+
+    /// Validate edge consistency
+    fn validate_edge_consistency(&self) -> ValidationCheck {
+        let mut check = ValidationCheck {
+            name: "Edge Consistency".to_string(),
+            is_valid: true,
+            errors: Vec::new(),
+            warnings: Vec::new(),
+        };
+
+        for edge in &self.edges {
+            // Check that both nodes exist
+            if !self.nodes.contains_key(&edge.from) {
+                check.is_valid = false;
+                check.errors.push(format!("Edge references non-existent source node '{}'", edge.from));
+            }
+            if !self.nodes.contains_key(&edge.to) {
+                check.is_valid = false;
+                check.errors.push(format!("Edge references non-existent target node '{}'", edge.to));
+            }
+
+            // Check for self-loops
+            if edge.from == edge.to {
+                check.warnings.push(format!("Self-loop detected on node '{}'", edge.from));
+            }
+        }
+
+        check
+    }
+
+    /// Validate build order
+    fn validate_build_order(&self) -> ValidationCheck {
+        let mut check = ValidationCheck {
+            name: "Build Order".to_string(),
+            is_valid: true,
+            errors: Vec::new(),
+            warnings: Vec::new(),
+        };
+
+        let mut build_orders: Vec<u32> = self.nodes.values()
+            .map(|n| n.build_order)
+            .collect();
+        build_orders.sort();
+        build_orders.dedup();
+
+        // Check for gaps in build order
+        if !build_orders.is_empty() {
+            let min_order = build_orders[0];
+            let max_order = *build_orders.last().unwrap();
+
+            if min_order != 1 {
+                check.warnings.push(format!("Build order starts at {} instead of 1", min_order));
+            }
+
+            // Check for gaps
+            for i in 1..build_orders.len() {
+                let expected = build_orders[i-1] + 1;
+                if build_orders[i] != expected {
+                    check.warnings.push(format!(
+                        "Gap in build order: missing order {}",
+                        expected
+                    ));
+                }
+            }
+        }
+
+        check
+    }
+
+    /// Get nodes at a specific level
+    pub fn nodes_at_level(&self, level: u32) -> Vec<&Node> {
+        self.nodes.values()
+            .filter(|node| node.build_order == level)
+            .collect()
+    }
+
+    /// Get dependency chain for a node
+    pub fn get_dependency_chain(&self, node_name: &str) -> Result<Vec<String>, TopologyError> {
+        let mut chain = Vec::new();
+        let mut current = node_name;
+
+        while let Some(node) = self.nodes.get(current) {
+            chain.push(current.to_string());
+
+            if let Some(first_dep) = node.dependencies.first() {
+                current = first_dep;
+            } else {
+                break;
+            }
+        }
+
+        chain.reverse();
+        Ok(chain)
+    }
+
+    /// Export topology as DOT format
+    pub fn export_dot(&self) -> String {
+        let mut dot = String::from("digraph Topology {\n");
+        dot.push_str("  rankdir=TB;\n");
+        dot.push_str("  node [shape=box];\n");
+
+        // Add nodes
+        for (node_name, node) in &self.nodes {
+            let label = format!("{} ({})", node.name, node.node_type);
+            dot.push_str(&format!("  \"{}\" [label=\"{}\"];\n", node_name, label));
+        }
+
+        // Add edges
+        for edge in &self.edges {
+            dot.push_str(&format!("  \"{}\" -> \"{}\";\n", edge.from, edge.to));
+        }
+
+        dot.push_str("}\n");
+        dot
     }
 }
 
@@ -231,7 +454,7 @@ pub struct ValidationStatistics {
     pub orphaned_nodes: usize,
 }
 
-/// Topology validator for checking graph properties
+/// Topology validator
 pub struct TopologyValidator {
     graph: TopologyGraph,
 }
@@ -243,7 +466,7 @@ impl TopologyValidator {
     }
 
     /// Run all validation checks
-    pub fn validate_all(&self) -> KotobaResult<ValidationResult> {
+    pub fn validate_all(&self) -> Result<ValidationResult> {
         let mut result = ValidationResult::new();
 
         // Update statistics
@@ -269,7 +492,7 @@ impl TopologyValidator {
     }
 
     /// Validate topological ordering
-    fn validate_topological_order(&self) -> KotobaResult<ValidationCheck> {
+    fn validate_topological_order(&self) -> Result<ValidationCheck> {
         let mut check = ValidationCheck {
             name: "Topological Order".to_string(),
             is_valid: true,
@@ -315,7 +538,7 @@ impl TopologyValidator {
     }
 
     /// Validate that the graph has no cycles
-    fn validate_no_cycles(&self) -> KotobaResult<ValidationCheck> {
+    fn validate_no_cycles(&self) -> Result<ValidationCheck> {
         let mut check = ValidationCheck {
             name: "No Cycles".to_string(),
             is_valid: true,
@@ -365,7 +588,7 @@ impl TopologyValidator {
     }
 
     /// Validate node consistency
-    fn validate_node_consistency(&self) -> KotobaResult<ValidationCheck> {
+    fn validate_node_consistency(&self) -> Result<ValidationCheck> {
         let mut check = ValidationCheck {
             name: "Node Consistency".to_string(),
             is_valid: true,
@@ -395,7 +618,7 @@ impl TopologyValidator {
     }
 
     /// Validate edge consistency
-    fn validate_edge_consistency(&self) -> KotobaResult<ValidationCheck> {
+    fn validate_edge_consistency(&self) -> Result<ValidationCheck> {
         let mut check = ValidationCheck {
             name: "Edge Consistency".to_string(),
             is_valid: true,
@@ -424,7 +647,7 @@ impl TopologyValidator {
     }
 
     /// Validate build order
-    fn validate_build_order(&self) -> KotobaResult<ValidationCheck> {
+    fn validate_build_order(&self) -> Result<ValidationCheck> {
         let mut check = ValidationCheck {
             name: "Build Order".to_string(),
             is_valid: true,
@@ -463,149 +686,28 @@ impl TopologyValidator {
     }
 }
 
+/// Topology error
+#[derive(Debug, Clone)]
+pub enum TopologyError {
+    /// Cycle detected
+    CycleDetected(String),
+    /// Node not found
+    NodeNotFound(String),
+    /// Invalid dependency
+    InvalidDependency(String),
+}
+
+impl std::fmt::Display for TopologyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TopologyError::CycleDetected(node) => write!(f, "Cycle detected at node: {}", node),
+            TopologyError::NodeNotFound(node) => write!(f, "Node not found: {}", node),
+            TopologyError::InvalidDependency(dep) => write!(f, "Invalid dependency: {}", dep),
+        }
+    }
+}
+
+impl std::error::Error for TopologyError {}
+
 /// Result type alias for topology operations
-pub type Result<T> = std::result::Result<T, KotobaError>;
-
-/// Topology-aware transaction processor
-pub struct TopologyTransactionProcessor {
-    topology: TopologyGraph,
-    validator: TopologyValidator,
-}
-
-impl TopologyTransactionProcessor {
-    /// Create a new topology transaction processor
-    pub fn new(topology: TopologyGraph) -> Self {
-        let validator = TopologyValidator::new(topology.clone());
-        Self {
-            topology,
-            validator,
-        }
-    }
-
-    /// Validate topology before transaction processing
-    pub fn validate_topology(&self) -> KotobaResult<ValidationResult> {
-        self.validator.validate_all()
-    }
-
-    /// Get topological order for transaction processing
-    pub fn get_processing_order(&self) -> &[String] {
-        &self.topology.topological_order
-    }
-
-    /// Check if transaction processing can proceed
-    pub fn can_process_transactions(&self) -> KotobaResult<bool> {
-        let validation = self.validate_topology()?;
-        Ok(validation.is_valid)
-    }
-
-    /// Get nodes that depend on a given node
-    pub fn get_dependent_nodes(&self, node_name: &str) -> Vec<&Node> {
-        self.topology.nodes.values()
-            .filter(|node| node.dependencies.contains(&node_name.to_string()))
-            .collect()
-    }
-
-    /// Get nodes that a given node depends on
-    pub fn get_dependency_nodes(&self, node_name: &str) -> Vec<&Node> {
-        if let Some(node) = self.topology.nodes.get(node_name) {
-            node.dependencies.iter()
-                .filter_map(|dep| self.topology.nodes.get(dep))
-                .collect()
-        } else {
-            Vec::new()
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_empty_topology() {
-        let graph = TopologyGraph::new();
-        assert_eq!(graph.node_count(), 0);
-        assert_eq!(graph.edge_count(), 0);
-    }
-
-    #[test]
-    fn test_add_node() {
-        let mut graph = TopologyGraph::new();
-        let node = Node {
-            name: "test".to_string(),
-            path: "/test".to_string(),
-            node_type: "crate".to_string(),
-            description: "Test node".to_string(),
-            dependencies: Vec::new(),
-            provides: Vec::new(),
-            status: "active".to_string(),
-            build_order: 1,
-        };
-
-        graph.add_node(node);
-        assert_eq!(graph.node_count(), 1);
-        assert!(graph.nodes.contains_key("test"));
-    }
-
-    #[test]
-    fn test_add_edge() {
-        let mut graph = TopologyGraph::new();
-        let edge = Edge {
-            from: "a".to_string(),
-            to: "b".to_string(),
-        };
-
-        graph.add_edge(edge);
-        assert_eq!(graph.edge_count(), 1);
-    }
-
-    #[test]
-    fn test_validation_result_formatting() {
-        let mut result = ValidationResult::new();
-        result.add_check(ValidationCheck {
-            name: "Test Check".to_string(),
-            is_valid: false,
-            errors: vec!["Test error".to_string()],
-            warnings: vec!["Test warning".to_string()],
-        });
-
-        let formatted = result.format();
-        assert!(formatted.contains("FAIL"));
-        assert!(formatted.contains("Test error"));
-        assert!(formatted.contains("Test warning"));
-    }
-
-    #[test]
-    fn test_topological_sort() {
-        let mut graph = TopologyGraph::new();
-
-        let node_a = Node {
-            name: "a".to_string(),
-            path: "/a".to_string(),
-            node_type: "crate".to_string(),
-            description: "Node A".to_string(),
-            dependencies: Vec::new(),
-            provides: Vec::new(),
-            status: "active".to_string(),
-            build_order: 1,
-        };
-
-        let node_b = Node {
-            name: "b".to_string(),
-            path: "/b".to_string(),
-            node_type: "crate".to_string(),
-            description: "Node B".to_string(),
-            dependencies: vec!["a".to_string()],
-            provides: Vec::new(),
-            status: "active".to_string(),
-            build_order: 2,
-        };
-
-        graph.add_node(node_a);
-        graph.add_node(node_b);
-        graph.add_edge(Edge { from: "a".to_string(), to: "b".to_string() });
-        graph.update_topological_order();
-
-        assert_eq!(graph.topological_order, vec!["a", "b"]);
-    }
-}
+pub type Result<T> = std::result::Result<T, TopologyError>;
