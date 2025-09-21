@@ -7,120 +7,182 @@ use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
 use std::fmt;
-use kotoba_types::Cid;
 use thiserror::Error;
+use uuid::Uuid;
 
-// Re-export from kotoba-types crate
-pub use kotoba_types::*;
+/// Content Identifier (CID) - Content-addressed identifier
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Cid(pub String);
 
-// Re-export error types
-pub use crate::{KotobaError, KotobaResult, ErrorCategory};
+impl Cid {
+    /// Create a new CID from a string
+    pub fn new(s: impl Into<String>) -> Self {
+        Cid(s.into())
+    }
+
+    /// Get the string representation
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Vertex ID for graph nodes
+pub type VertexId = Uuid;
+
+/// Edge ID for graph edges
+pub type EdgeId = Uuid;
+
+/// Label for vertices and edges
+pub type Label = String;
+
+/// Properties map
+pub type Properties = HashMap<String, serde_json::Value>;
+
+/// Property key
+pub type PropertyKey = String;
+
+/// Value type for properties
+pub type Value = serde_json::Value;
+
+/// Graph core structure for graph operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphCore {
+    pub vertices: Vec<VertexData>,
+    pub edges: Vec<EdgeData>,
+}
+
+/// Vertex data structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VertexData {
+    pub id: VertexId,
+    pub label: Label,
+    pub properties: Properties,
+}
+
+/// Edge data structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EdgeData {
+    pub id: EdgeId,
+    pub source: VertexId,
+    pub target: VertexId,
+    pub label: Label,
+    pub properties: Properties,
+}
+
+/// DPO (Double Pushout) Rule for graph transformations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleDPO {
+    pub name: String,
+    pub left: GraphCore,
+    pub right: GraphCore,
+    pub mapping: Vec<(VertexId, VertexId)>,
+}
 
 /// Core error types for the Kotoba system
 #[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum KotobaError {
     /// Validation error
-    #[error("Validation error: {message}")]
+    #[error("Validation error: {0}")]
     Validation(String),
 
     /// Security-related error
-    #[error("Security error: {message}")]
+    #[error("Security error: {0}")]
     Security(String),
 
     /// Authentication error
-    #[error("Authentication error: {message}")]
+    #[error("Authentication error: {0}")]
     Auth(String),
 
     /// Authorization error
-    #[error("Authorization error: {message}")]
+    #[error("Authorization error: {0}")]
     Authz(String),
 
     /// Invalid argument
-    #[error("Invalid argument: {message}")]
+    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
 
     /// Not found
-    #[error("Not found: {message}")]
+    #[error("Not found: {0}")]
     NotFound(String),
 
     /// Already exists
-    #[error("Already exists: {message}")]
+    #[error("Already exists: {0}")]
     AlreadyExists(String),
 
     /// IO error
-    #[error("IO error: {message}")]
+    #[error("IO error: {0}")]
     Io(String),
 
     /// Network error
-    #[error("Network error: {message}")]
+    #[error("Network error: {0}")]
     Network(String),
 
     /// Serialization error
-    #[error("Serialization error: {message}")]
+    #[error("Serialization error: {0}")]
     Serialization(String),
 
     /// Deserialization error
-    #[error("Deserialization error: {message}")]
+    #[error("Deserialization error: {0}")]
     Deserialization(String),
 
     /// Timeout error
-    #[error("Timeout error: {message}")]
+    #[error("Timeout error: {0}")]
     Timeout(String),
 
     /// Resource exhausted
-    #[error("Resource exhausted: {message}")]
+    #[error("Resource exhausted: {0}")]
     ResourceExhausted(String),
 
     /// Unimplemented
-    #[error("Unimplemented: {message}")]
+    #[error("Unimplemented: {0}")]
     Unimplemented(String),
 
     /// Internal error
-    #[error("Internal error: {message}")]
+    #[error("Internal error: {0}")]
     Internal(String),
 
     /// Graph transformation error
-    #[error("Graph transformation error: {message}")]
+    #[error("Graph transformation error: {0}")]
     GraphTransformation(String),
 
     /// Schema error
-    #[error("Schema error: {message}")]
+    #[error("Schema error: {0}")]
     Schema(String),
 
     /// Query error
-    #[error("Query error: {message}")]
+    #[error("Query error: {0}")]
     Query(String),
 
     /// Execution error
-    #[error("Execution error: {message}")]
+    #[error("Execution error: {0}")]
     Execution(String),
 
     /// API error
-    #[error("API error: {message}")]
+    #[error("API error: {0}")]
     Api(String),
 
     /// Dependency resolution error
-    #[error("Dependency resolution error: {message}")]
+    #[error("Dependency resolution error: {0}")]
     DependencyResolution(String),
 
     /// Configuration error
-    #[error("Configuration error: {message}")]
+    #[error("Configuration error: {0}")]
     Configuration(String),
 
     /// Database error
-    #[error("Database error: {message}")]
+    #[error("Database error: {0}")]
     Database(String),
 
     /// Cache error
-    #[error("Cache error: {message}")]
+    #[error("Cache error: {0}")]
     Cache(String),
 
     /// Workflow error
-    #[error("Workflow error: {message}")]
+    #[error("Workflow error: {0}")]
     Workflow(String),
 
     /// Plugin error
-    #[error("Plugin error: {message}")]
+    #[error("Plugin error: {0}")]
     Plugin(String),
 }
 
@@ -264,7 +326,7 @@ impl KotobaError {
     }
 
     /// Get error category
-    pub fn category(&self) -> ErrorCategory {
+    pub fn category(&self) -> crate::ErrorCategory {
         match self {
             Self::Validation(_) => ErrorCategory::Validation,
             Self::Security(_) | Self::Auth(_) | Self::Authz(_) => ErrorCategory::Security,
@@ -307,29 +369,8 @@ impl KotobaError {
     }
 }
 
-/// Error category for classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ErrorCategory {
-    /// Validation errors
-    Validation,
-    /// Security errors
-    Security,
-    /// Client errors
-    Client,
-    /// Infrastructure errors
-    Infrastructure,
-    /// Data errors
-    Data,
-    /// System errors
-    System,
-    /// Business logic errors
-    BusinessLogic,
-    /// Service errors
-    Service,
-}
-
-/// Result type alias
-pub type KotobaResult<T> = Result<T, KotobaError>;
+// Error types are defined above and can be used directly
+// No need for re-export as they are already public
 
 /// ハッシュアルゴリズム
 #[derive(Debug, Clone, PartialEq)]

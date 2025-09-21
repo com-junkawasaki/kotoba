@@ -7,9 +7,15 @@ repository.workspace = true
 description = "Semantic Analyzer for the Kotoba language, performing type checking and producing IR."
 
 [dependencies]
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+kotoba-codebase = { path = "../../010-core/010-kotoba-codebase" }
+
+# Kotoba language dependencies
 kotoba-syntax = { path = "../020-kotoba-syntax" }
 kotoba-parser = { path = "../021-kotoba-parser" }
-kotoba-codebase = { path = "../../010-core/010-kotoba-codebase" }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }

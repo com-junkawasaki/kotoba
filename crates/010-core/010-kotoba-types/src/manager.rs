@@ -1,7 +1,8 @@
 //! CIDマネージャーの実装
 
 use super::*;
-use kotoba_core::prelude::*; // GraphCore, RuleDPO などの型定義が必要
+use crate::{KotobaResult, KotobaError};
+// All types should be available through super::*
 
 impl CidManager {
     /// 新しいCIDマネージャーを作成
@@ -21,7 +22,7 @@ impl CidManager {
     }
 
     /// グラフのCIDを計算
-    pub fn compute_graph_cid(&mut self, graph: &GraphCore) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
+    pub fn compute_graph_cid(&mut self, graph: &GraphCore) -> KotobaResult<Cid> {
         let cid = self.calculator.compute_cid(graph)?;
         let key = format!("graph_{}", cid.as_str());
         self.cache.insert(key, cid.clone());
@@ -29,7 +30,7 @@ impl CidManager {
     }
 
     /// ルールのCIDを計算
-    pub fn compute_rule_cid(&mut self, rule: &RuleDPO) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
+    pub fn compute_rule_cid(&mut self, rule: &RuleDPO) -> KotobaResult<Cid> {
         let cid = self.calculator.compute_cid(rule)?;
         let key = format!("rule_{}", cid.as_str());
         self.cache.insert(key, cid.clone());
@@ -37,7 +38,7 @@ impl CidManager {
     }
 
     /// クエリのCIDを計算
-    pub fn compute_query_cid(&mut self, query: &str) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
+    pub fn compute_query_cid(&mut self, query: &str) -> KotobaResult<Cid> {
         let cid = self.calculator.compute_cid(&query.to_string())?;
         let key = format!("query_{}", cid.as_str());
         self.cache.insert(key, cid.clone());
@@ -77,8 +78,8 @@ impl CidManager {
     /// CIDの距離を計算（ハッシュ値の差）
     pub fn cid_distance(&self, cid1: &Cid, cid2: &Cid) -> Option<u64> {
         // 簡易版: 最初の8バイトをu64として比較
-        let bytes1 = cid1.0;
-        let bytes2 = cid2.0;
+        let bytes1 = cid1.0.as_bytes();
+        let bytes2 = cid2.0.as_bytes();
 
         if bytes1.len() < 8 || bytes2.len() < 8 {
             return None;

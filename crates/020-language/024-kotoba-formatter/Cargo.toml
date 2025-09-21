@@ -27,8 +27,11 @@ kotoba-types = { path = "../../010-core/010-kotoba-types" }
 kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
 
 # Kotoba language dependencies
-kotoba-parser = { path = "../021-kotoba-parser" }
 kotoba-syntax = { path = "../020-kotoba-syntax" }
+kotoba-parser = { path = "../021-kotoba-parser" }
+kotoba-analyzer = { path = "../022-kotoba-analyzer" }
+kotoba-jsonnet = { path = "../023-kotoba-jsonnet" }
+kotoba-kotobas = { path = "../023-kotoba-kotobas" }
 # kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
 
 [dev-dependencies]

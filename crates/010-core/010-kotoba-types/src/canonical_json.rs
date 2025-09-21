@@ -2,7 +2,7 @@
 
 use super::*;
 use serde_json::{Value, Map};
-use kotoba_errors::KotobaError;
+use crate::{KotobaResult, KotobaError};
 
 /// JSON正規化器
 #[derive(Debug)]
@@ -17,30 +17,30 @@ impl JsonCanonicalizer {
     }
 
     /// JSON文字列を正規化
-    pub fn canonicalize(&self, json_str: &str) -> std::result::Result<String, kotoba_errors::KotobaError> {
+    pub fn canonicalize(&self, json_str: &str) -> KotobaResult<String> {
         match self.mode {
             CanonicalJsonMode::JCS => self.canonicalize_jcs(json_str),
         }
     }
 
     /// JSON値を正規化
-    pub fn canonicalize_value(&self, value: &Value) -> std::result::Result<String, kotoba_errors::KotobaError> {
+    pub fn canonicalize_value(&self, value: &Value) -> KotobaResult<String> {
         match self.mode {
             CanonicalJsonMode::JCS => self.canonicalize_value_jcs(value),
         }
     }
 
     /// JCS (RFC 8785) に準拠した正規化
-    fn canonicalize_jcs(&self, json_str: &str) -> std::result::Result<String, kotoba_errors::KotobaError> {
+    fn canonicalize_jcs(&self, json_str: &str) -> KotobaResult<String> {
         // JSONをパース
         let value: Value = serde_json::from_str(json_str)
-            .map_err(|e| KotobaError::Parse(format!("JSON parse error: {}", e)))?;
+            .map_err(|e| KotobaError::Validation(format!("JSON parse error: {}", e)))?;
 
         self.canonicalize_value_jcs(&value)
     }
 
     /// JCSによる値の正規化
-    fn canonicalize_value_jcs(&self, value: &Value) -> std::result::Result<String, kotoba_errors::KotobaError> {
+    fn canonicalize_value_jcs(&self, value: &Value) -> KotobaResult<String> {
         match value {
             Value::Object(obj) => {
                 // オブジェクトのキーをソート
@@ -55,34 +55,34 @@ impl JsonCanonicalizer {
                 }
 
                 serde_json::to_string(&Value::Object(sorted_obj))
-                    .map_err(|e| KotobaError::Parse(format!("JSON serialization error: {}", e)))
+                    .map_err(|e| KotobaError::Validation(format!("JSON serialization error: {}", e)))
             }
             Value::Array(_arr) => {
                 // 配列はそのまま
                 serde_json::to_string(value)
-                    .map_err(|e| KotobaError::Parse(format!("JSON serialization error: {}", e)))
+                    .map_err(|e| KotobaError::Validation(format!("JSON serialization error: {}", e)))
             }
             _ => {
                 // その他の値はそのまま
                 serde_json::to_string(value)
-                    .map_err(|e| KotobaError::Parse(format!("JSON serialization error: {}", e)))
+                    .map_err(|e| KotobaError::Validation(format!("JSON serialization error: {}", e)))
             }
         }
     }
 
     /// JSONの差分を計算
-    pub fn compute_diff(&self, json1: &str, json2: &str) -> std::result::Result<JsonDiff, kotoba_errors::KotobaError> {
+    pub fn compute_diff(&self, json1: &str, json2: &str) -> KotobaResult<JsonDiff> {
         let val1: Value = serde_json::from_str(json1)
-            .map_err(|e| KotobaError::Parse(format!("JSON1 parse error: {}", e)))?;
+            .map_err(|e| KotobaError::Validation(format!("JSON1 parse error: {}", e)))?;
 
         let val2: Value = serde_json::from_str(json2)
-            .map_err(|e| KotobaError::Parse(format!("JSON2 parse error: {}", e)))?;
+            .map_err(|e| KotobaError::Validation(format!("JSON2 parse error: {}", e)))?;
 
         self.compute_value_diff(&val1, &val2)
     }
 
     /// 値の差分を計算
-    fn compute_value_diff(&self, val1: &Value, val2: &Value) -> std::result::Result<JsonDiff, kotoba_errors::KotobaError> {
+    fn compute_value_diff(&self, val1: &Value, val2: &Value) -> KotobaResult<JsonDiff> {
         match (val1, val2) {
             (Value::Object(obj1), Value::Object(obj2)) => {
                 let mut added = Vec::new();
@@ -147,7 +147,7 @@ impl JsonCanonicalizer {
     }
 
     /// 正規化されたJSONのサイズを取得
-    pub fn canonical_size(&self, json_str: &str) -> std::result::Result<usize, kotoba_errors::KotobaError> {
+    pub fn canonical_size(&self, json_str: &str) -> KotobaResult<usize> {
         let canonical = self.canonicalize(json_str)?;
         Ok(canonical.len())
     }

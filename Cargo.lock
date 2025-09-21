@@ -1886,8 +1886,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "kotoba-codebase",
+ "kotoba-ir",
+ "kotoba-logic",
  "kotoba-parser",
  "kotoba-syntax",
+ "kotoba-types",
  "serde",
  "serde_json",
  "thiserror 2.0.16",
@@ -1996,8 +1999,14 @@ dependencies = [
  "async-trait",
  "dirs",
  "futures",
+ "kotoba-analyzer",
+ "kotoba-ir",
+ "kotoba-jsonnet",
+ "kotoba-kotobas",
+ "kotoba-logic",
  "kotoba-parser",
  "kotoba-syntax",
+ "kotoba-types",
  "parking_lot",
  "regex",
  "serde",
@@ -2042,6 +2051,10 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "hex",
+ "kotoba-ir",
+ "kotoba-logic",
+ "kotoba-rewrite-kernel",
+ "kotoba-types",
  "md-5",
  "parking_lot",
  "regex",
@@ -2058,40 +2071,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-jsonnet"
-version = "0.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "213854b057ef614f771956a922ee9c0c1083e27f0645dc05e08f5c2a306ccff9"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "hex",
- "md-5",
- "parking_lot",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "sha3",
- "thiserror 2.0.16",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "kotoba-kotobas"
 version = "0.1.22"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
  "chrono",
+ "kotoba-analyzer",
  "kotoba-ir",
- "kotoba-jsonnet 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "kotoba-logic",
+ "kotoba-parser",
  "kotoba-rewrite-kernel",
+ "kotoba-syntax",
  "kotoba-types",
  "regex",
  "reqwest",
@@ -2111,6 +2102,22 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "kotoba-analyzer",
+ "kotoba-compose",
+ "kotoba-formatter",
+ "kotoba-ir",
+ "kotoba-jsonnet",
+ "kotoba-kotobas",
+ "kotoba-linter",
+ "kotoba-logic",
+ "kotoba-lsp",
+ "kotoba-parser",
+ "kotoba-repl",
+ "kotoba-rewrite-kernel",
+ "kotoba-syntax",
+ "kotoba-types",
+ "kotoba2tsx",
+ "kotobas-wasm",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -2126,8 +2133,12 @@ dependencies = [
  "dashmap",
  "futures",
  "glob",
- "kotoba-graph-core",
- "kotoba-rewrite-kernel",
+ "kotoba-analyzer",
+ "kotoba-formatter",
+ "kotoba-ir",
+ "kotoba-logic",
+ "kotoba-parser",
+ "kotoba-syntax",
  "kotoba-types",
  "regex",
  "ropey",
@@ -2157,10 +2168,17 @@ name = "kotoba-lsp"
 version = "0.1.16"
 dependencies = [
  "dashmap",
+ "kotoba-analyzer",
  "kotoba-formatter",
- "kotoba-jsonnet 0.1.22",
+ "kotoba-ir",
+ "kotoba-jsonnet",
  "kotoba-kotobas",
  "kotoba-linter",
+ "kotoba-logic",
+ "kotoba-parser",
+ "kotoba-rewrite-kernel",
+ "kotoba-syntax",
+ "kotoba-types",
  "tokio",
  "tower-lsp",
 ]
@@ -2205,7 +2223,10 @@ dependencies = [
 name = "kotoba-parser"
 version = "0.1.22"
 dependencies = [
+ "kotoba-ir",
+ "kotoba-logic",
  "kotoba-syntax",
+ "kotoba-types",
 ]
 
 [[package]]
@@ -2218,8 +2239,16 @@ dependencies = [
  "dialoguer",
  "dirs",
  "indicatif",
- "kotoba-graph-core",
+ "kotoba-analyzer",
+ "kotoba-formatter",
+ "kotoba-ir",
+ "kotoba-jsonnet",
  "kotoba-kotobas",
+ "kotoba-linter",
+ "kotoba-logic",
+ "kotoba-parser",
+ "kotoba-syntax",
+ "kotoba-types",
  "regex",
  "rustyline",
  "rustyline-derive",
@@ -2268,6 +2297,8 @@ dependencies = [
 name = "kotoba-syntax"
 version = "0.1.22"
 dependencies = [
+ "kotoba-logic",
+ "kotoba-types",
  "serde",
  "serde_json",
 ]
@@ -2293,6 +2324,7 @@ dependencies = [
 name = "kotoba-types"
 version = "0.1.22"
 dependencies = [
+ "blake3",
  "hex",
  "kotoba-logic",
  "schemars",
@@ -2313,8 +2345,16 @@ dependencies = [
  "indexmap 2.11.4",
  "js-sys",
  "jsonnet-rs",
- "kotoba-graph-core",
+ "kotoba-analyzer",
+ "kotoba-compose",
+ "kotoba-ir",
+ "kotoba-jsonnet",
  "kotoba-kotobas",
+ "kotoba-logic",
+ "kotoba-parser",
+ "kotoba-rewrite-kernel",
+ "kotoba-syntax",
+ "kotoba-types",
  "parking_lot",
  "regex",
  "serde",
@@ -2333,8 +2373,14 @@ version = "0.1.16"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
+ "kotoba-analyzer",
+ "kotoba-ir",
  "kotoba-kotobas",
+ "kotoba-logic",
+ "kotoba-parser",
  "kotoba-rewrite-kernel",
+ "kotoba-syntax",
+ "kotoba-types",
  "once_cell",
  "serde",
  "serde-wasm-bindgen",

@@ -17,6 +17,12 @@ path = "src/main.rs"
 kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
 kotoba-types = { path = "../../010-core/010-kotoba-types" }
 kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+
+# Kotoba language dependencies
+kotoba-syntax = { path = "../020-kotoba-syntax" }
+kotoba-parser = { path = "../021-kotoba-parser" }
+kotoba-analyzer = { path = "../022-kotoba-analyzer" }
+kotoba-formatter = { path = "../024-kotoba-formatter" }
 thiserror = { workspace = true }
 anyhow = "1.0"
 serde = { workspace = true }

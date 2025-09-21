@@ -12,5 +12,6 @@ serde_json = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 hex = { workspace = true }
 sha2 = { workspace = true }
+blake3 = { workspace = true }
 schemars = { workspace = true, features = ["uuid1"] }
 thiserror = { workspace = true }
