@@ -105,7 +105,7 @@ impl ActivityRegistry {
         let activity = self.get(name).await
             .ok_or(ActivityError::NotFound(name.to_string()))?;
 
-        let attempt_count = 0;
+        let _attempt_count = 0;
         let retry_policy = activity.retry_policy();
 
         // リトライロジック
@@ -236,7 +236,7 @@ impl HttpActivity {
 
 #[async_trait]
 impl Activity for HttpActivity {
-    async fn execute(&self, inputs: HashMap<String, serde_json::Value>) -> Result<HashMap<String, serde_json::Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, serde_json::Value>) -> Result<HashMap<String, serde_json::Value>, ActivityError> {
         // TODO: HTTPクライアント実装
         // 実際の実装ではreqwestなどを使用
         println!("Executing HTTP activity: {} {} -> {}", self.method, self.url, self.name);
@@ -277,7 +277,7 @@ impl DatabaseActivity {
 
 #[async_trait]
 impl Activity for DatabaseActivity {
-    async fn execute(&self, inputs: HashMap<String, serde_json::Value>) -> Result<HashMap<String, serde_json::Value>, ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, serde_json::Value>) -> Result<HashMap<String, serde_json::Value>, ActivityError> {
         // TODO: データベースクライアント実装
         println!("Executing DB activity: {} -> {}", self.query, self.name);
 

@@ -266,7 +266,7 @@ impl EventSourcingManager {
     }
 
     /// 古いイベントをクリーンアップ
-    pub async fn cleanup_old_events(&self, execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
+    pub async fn cleanup_old_events(&self, _execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
         // メモリストアの場合は何もしない
         // 永続ストアの場合は古いイベントをアーカイブ
         Ok(())
@@ -404,7 +404,7 @@ impl SnapshotManager {
     }
 
     /// 古いスナップショットをクリーンアップ
-    pub async fn cleanup_old_snapshots(&self, execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
+    pub async fn cleanup_old_snapshots(&self, _execution_id: &WorkflowExecutionId) -> Result<(), WorkflowError> {
         // メモリストアの場合は何もしない
         // 永続ストアの場合は古いスナップショットをアーカイブまたは削除
         Ok(())

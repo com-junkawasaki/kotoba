@@ -3,8 +3,8 @@
 //! このモジュールは既存のkotoba-jsonnetとkotoba-kotobasの機能を
 //! 統合的に利用する方法を提供します。
 
-use crate::error::{HandlerError, Result};
-use crate::types::{HandlerContext, HandlerResult};
+use crate::error::Result;
+use crate::types::HandlerContext;
 
 // Jsonnet integration removed - using kotobas only
 

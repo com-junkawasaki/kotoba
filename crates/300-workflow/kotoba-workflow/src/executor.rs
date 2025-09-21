@@ -805,7 +805,7 @@ impl WorkflowExecutor {
     fn evaluate_condition(
         &self,
         condition: &str,
-        context: &HashMap<String, serde_json::Value>,
+        _context: &HashMap<String, serde_json::Value>,
     ) -> bool {
         // 簡易的な条件評価（実際の実装では式パーサーを使用）
         // TODO: より複雑な条件式の評価を実装

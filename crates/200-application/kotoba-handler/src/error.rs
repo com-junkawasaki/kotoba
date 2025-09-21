@@ -1,6 +1,5 @@
 //! Handler error types
 
-use std::fmt;
 
 /// Handler execution errors
 #[derive(Debug, thiserror::Error)]

@@ -1,7 +1,7 @@
 //! Handler executor for different execution environments
 
 use crate::error::{HandlerError, Result};
-use crate::types::{HandlerContext, HandlerResult, ExecutionMode};
+use crate::types::{HandlerContext, ExecutionMode};
 use crate::handler::UnifiedHandler;
 use std::sync::Arc;
 
@@ -94,12 +94,6 @@ impl<T: crate::KeyValueStore + 'static> HandlerExecutor<T> {
     }
 }
 
-impl<T: crate::KeyValueStore + 'static> Default for HandlerExecutor<T> {
-    fn default() -> Self {
-        let handler = Arc::new(UnifiedHandler::new(todo!("KeyValueStore implementation needed")));
-        Self::new(handler)
-    }
-}
 
 /// Builder pattern for HandlerExecutor
 pub struct HandlerExecutorBuilder<T: crate::KeyValueStore + 'static> {
@@ -125,9 +119,9 @@ impl<T: crate::KeyValueStore + 'static> HandlerExecutorBuilder<T> {
         self
     }
 
-    pub fn build(self) -> HandlerExecutor<T> {
-        let handler = self.handler.unwrap_or_else(|| Arc::new(UnifiedHandler::new(todo!("KeyValueStore implementation needed"))));
-        HandlerExecutor::new(handler).with_mode(self.execution_mode)
+    pub fn build(self) -> Result<HandlerExecutor<T>> {
+        let handler = self.handler.ok_or_else(|| crate::HandlerError::Config("Handler must be provided".to_string()))?;
+        Ok(HandlerExecutor::new(handler).with_mode(self.execution_mode))
     }
 }
 

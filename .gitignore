@@ -38,3 +38,5 @@ vendor/
 *.tmp
 *.temp
 
+# data
+data/

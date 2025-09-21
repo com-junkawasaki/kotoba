@@ -1,8 +1,7 @@
 //! Unified Handler implementation
 
 use crate::error::{HandlerError, Result};
-use crate::types::{HandlerContext, HandlerResult, HandlerConfig, ExecutionMode};
-use kotoba_core::prelude::*;
+use crate::types::{HandlerContext, HandlerResult, HandlerConfig};
 use kotoba_storage::KeyValueStore;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -177,8 +176,3 @@ impl<T: KeyValueStore + 'static> UnifiedHandler<T> {
     }
 }
 
-impl<T: KeyValueStore + 'static> Default for UnifiedHandler<T> {
-    fn default() -> Self {
-        Self::new(todo!("Default KeyValueStore implementation needed"))
-    }
-}

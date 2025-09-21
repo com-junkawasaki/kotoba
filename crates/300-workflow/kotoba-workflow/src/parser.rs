@@ -114,7 +114,7 @@ impl ServerlessWorkflowParser {
             crate::spec::CallDefinition::AsyncApi { .. } => "asyncapi_call",
         };
 
-        let config = serde_json::to_value(call)
+        let _config = serde_json::to_value(call)
             .map_err(|e| WorkflowError::InvalidDefinition(format!("Call config serialization failed: {}", e)))?;
 
         Ok(ActivityIR {
