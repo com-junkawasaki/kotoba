@@ -6,16 +6,16 @@
 set -e
 
 # Default timeout settings (can be overridden by environment variables)
-TEST_TIMEOUT=${TEST_TIMEOUT:-300}  # 5 minutes default
-LAYER_TIMEOUT=${LAYER_TIMEOUT:-60} # 1 minute per layer
-INTEGRATION_TIMEOUT=${INTEGRATION_TIMEOUT:-180} # 3 minutes for integration tests
+TEST_TIMEOUT=${TEST_TIMEOUT:-600}    # 10 minutes default (overall suite)
+LAYER_TIMEOUT=${LAYER_TIMEOUT:-120}  # 2 minutes per layer (compilation + tests)
+INTEGRATION_TIMEOUT=${INTEGRATION_TIMEOUT:-300} # 5 minutes for integration tests (longest)
 
 echo "🚀 Kotoba Topology-Based Test Execution (dag.jsonnet validation)"
 echo "================================================================="
 echo "⏰ Timeout Settings:"
-echo "  - Overall test timeout: ${TEST_TIMEOUT}s"
-echo "  - Per-layer timeout: ${LAYER_TIMEOUT}s"
-echo "  - Integration test timeout: ${INTEGRATION_TIMEOUT}s"
+echo "  - Overall test timeout: ${TEST_TIMEOUT}s (${TEST_TIMEOUT}min)"
+echo "  - Per-layer timeout: ${LAYER_TIMEOUT}s (${LAYER_TIMEOUT}min)"
+echo "  - Integration test timeout: ${INTEGRATION_TIMEOUT}s (${INTEGRATION_TIMEOUT}min)"
 
 # Pre-flight validation using dag.jsonnet rules
 echo -e "\n📋 Pre-flight Topology Validation:"

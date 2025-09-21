@@ -42,7 +42,7 @@ impl StorageAdapterTestFixture {
         let db_path = temp_dir.path().join("test_rocksdb");
 
         // Try to create RocksDB adapter
-        match kotoba_graphdb::GraphDbAdapter::new(&db_path).await {
+        match kotoba_graphdb::GraphDB::open(&db_path).await {
             Ok(adapter) => Ok(Arc::new(adapter)),
             Err(e) => {
                 println!("Failed to create RocksDB adapter: {}", e);

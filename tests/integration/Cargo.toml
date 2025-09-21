@@ -42,6 +42,10 @@ uuid = { version = "1.18", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 rand = { version = "0.8", features = ["small_rng"] }
 
+# Additional dependencies for test infrastructure
+once_cell = "1.19"
+itertools = "0.12"
+
 # Testing frameworks
 criterion = { version = "0.5", features = ["async_tokio"] }
 

@@ -105,7 +105,7 @@ async fn test_projection_engine_adapter() {
     let adapter = kotoba_projection_engine::gql_integration::ProjectionEngineAdapter::new(projection_engine.clone());
 
     // Test vertex operations
-    let test_vertex_id = VertexId("test_vertex_1".to_string());
+    let test_vertex_id = "test_vertex_1".to_string();
 
     // Test get_vertex (should return None initially)
     let vertex_result = adapter.get_vertex(&test_vertex_id).await;
@@ -119,7 +119,7 @@ async fn test_projection_engine_adapter() {
     println!("Found {} vertices", vertices.len());
 
     // Test edge operations
-    let test_edge_id = EdgeId("test_edge_1".to_string());
+    let test_edge_id = "test_edge_1".to_string();
 
     // Test get_edge (should return None initially)
     let edge_result = adapter.get_edge(&test_edge_id).await;

@@ -9,6 +9,9 @@
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use kotoba_memory::MemoryAdapter;
+use kotoba_core::types::{Value, VertexId, EdgeId};
+use kotoba_errors::KotobaError;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TestEvent {

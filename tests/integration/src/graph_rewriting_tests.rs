@@ -8,7 +8,7 @@
 //! - kotoba-execution (rule execution)
 
 use std::sync::Arc;
-use kotoba_storage::{KeyValueStore, MemoryAdapter};
+use kotoba_memory::MemoryAdapter;
 use kotoba_core::types::{Value, VertexId, EdgeId};
 use kotoba_errors::KotobaError;
 
@@ -40,7 +40,7 @@ pub struct GraphRewriteRule {
 /// Test fixture for graph rewriting tests
 pub struct GraphRewritingTestFixture {
     pub storage: Arc<dyn KeyValueStore + Send + Sync>,
-    pub rewrite_engine: Option<Arc<kotoba_rewrite::RewriteEngine>>,
+    pub rewrite_engine: Option<Arc<kotoba_rewrite::prelude::RewriteEngine<dyn KeyValueStore + Send + Sync>>>,
 }
 
 impl GraphRewritingTestFixture {
@@ -48,7 +48,7 @@ impl GraphRewritingTestFixture {
         let storage = Arc::new(MemoryAdapter::new());
 
         // Initialize rewrite engine if available
-        let rewrite_engine = if let Ok(engine) = kotoba_rewrite::RewriteEngine::new(Arc::clone(&storage)).await {
+        let rewrite_engine = if let Ok(engine) = kotoba_rewrite::prelude::RewriteEngine::new(Arc::clone(&storage)).await {
             Some(Arc::new(engine))
         } else {
             None
@@ -128,6 +128,145 @@ impl GraphRewritingTestFixture {
             }
         }
         Ok(())
+    }
+
+    // Helper methods for testing
+    pub async fn has_triangle_pattern(&self) -> Result<bool, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut edges = Vec::new();
+
+        // Collect all edges
+        for key in keys {
+            if key.starts_with("edge:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(edge) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if let (Some(from), Some(to)) = (edge["from"].as_u64(), edge["to"].as_u64()) {
+                            edges.push((from, to));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Simple triangle detection (check for cycles of length 3)
+        for &(a, b) in &edges {
+            for &(c, d) in &edges {
+                if b == c {
+                    for &(e, f) in &edges {
+                        if d == e && f == a {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
+
+    pub async fn manual_node_transformation(&self) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut transformed = 0;
+
+        for key in keys.clone() {
+            if key.starts_with("vertex:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(mut vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        // Simple transformation: add a "transformed" property
+                        if let Some(props) = vertex["properties"].as_object_mut() {
+                            props.insert("transformed".to_string(), serde_json::Value::Bool(true));
+                            transformed += 1;
+
+                            let updated_data = serde_json::to_vec(&vertex)?;
+                            self.storage.put(key.as_bytes(), &updated_data).await?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(transformed)
+    }
+
+    pub async fn count_high_value_nodes(&self) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut count = 0;
+
+        for key in keys {
+            if key.starts_with("vertex:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if let Some(props) = vertex["properties"].as_object() {
+                            if let Some(value) = props.get("value").and_then(|v| v.as_u64()) {
+                                if value > 100 {
+                                    count += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(count)
+    }
+
+    pub async fn manual_transformation_with_tracking(&self) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut transformed = 0;
+
+        for key in keys.clone() {
+            if key.starts_with("vertex:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(mut vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        // Add transformation tracking
+                        if let Some(props) = vertex["properties"].as_object_mut() {
+                            let transform_count = props.get("transform_count")
+                                .and_then(|v| v.as_u64()).unwrap_or(0);
+                            props.insert("transform_count".to_string(),
+                                       serde_json::Value::Number((transform_count + 1).into()));
+                            props.insert("last_transformed".to_string(),
+                                       serde_json::Value::String(chrono::Utc::now().to_rfc3339()));
+                            transformed += 1;
+
+                            let updated_data = serde_json::to_vec(&vertex)?;
+                            self.storage.put(key.as_bytes(), &updated_data).await?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(transformed)
+    }
+
+    pub async fn manual_parallel_transformation(&self, index: usize) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let vertex_keys: Vec<_> = keys.iter()
+            .filter(|k| k.starts_with("vertex:"))
+            .enumerate()
+            .filter(|(i, _)| i % 3 == index) // Distribute work across parallel tasks
+            .map(|(_, k)| k.clone())
+            .collect();
+
+        let mut transformed = 0;
+
+        for key in vertex_keys {
+            if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                if let Ok(mut vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                    if let Some(props) = vertex["properties"].as_object_mut() {
+                        props.insert(format!("parallel_transform_{}", index),
+                                   serde_json::Value::Bool(true));
+                        transformed += 1;
+
+                        let updated_data = serde_json::to_vec(&vertex)?;
+                        self.storage.put(key.as_bytes(), &updated_data).await?;
+                    }
+                }
+            }
+        }
+
+        Ok(transformed)
     }
 }
 
@@ -222,12 +361,12 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Pattern matching failed: {}, using fallback", e);
                     // Fallback: manual pattern verification
-                    assert!(Self::has_triangle_pattern(&fixture).await);
+                    assert!(fixture.has_triangle_pattern().await.unwrap().await);
                 }
             }
         } else {
             // Manual pattern verification
-            assert!(Self::has_triangle_pattern(&fixture).await);
+            assert!(fixture.has_triangle_pattern().await.unwrap().await);
             println!("✅ Manual pattern matching test passed");
         }
 
@@ -256,13 +395,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Transformation failed: {}, using fallback", e);
                     // Fallback: manual transformation
-                    let transformed_count = Self::manual_node_transformation(&fixture).await;
+                    let transformed_count = fixture.manual_node_transformation().await.unwrap().await;
                     assert_eq!(transformed_count, 3);
                 }
             }
         } else {
             // Manual transformation
-            let transformed_count = Self::manual_node_transformation(&fixture).await;
+            let transformed_count = fixture.manual_node_transformation().await.unwrap().await;
             assert_eq!(transformed_count, 3);
             println!("✅ Manual transformation test passed");
         }
@@ -293,13 +432,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Conditional rewriting failed: {}, using fallback", e);
                     // Fallback: manual conditional check
-                    let high_value_count = Self::count_high_value_nodes(&fixture).await;
+                    let high_value_count = fixture.count_high_value_nodes().await.unwrap().await;
                     assert_eq!(high_value_count, 2);
                 }
             }
         } else {
             // Manual conditional check
-            let high_value_count = Self::count_high_value_nodes(&fixture).await;
+            let high_value_count = fixture.count_high_value_nodes().await.unwrap().await;
             assert_eq!(high_value_count, 2);
             println!("✅ Manual conditional rewriting test passed");
         }
@@ -371,13 +510,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Rewrite with history failed: {}, using fallback", e);
                     // Fallback: manual transformation tracking
-                    let transformed_count = Self::manual_transformation_with_tracking(&fixture).await;
+                    let transformed_count = fixture.manual_transformation_with_tracking().await.unwrap().await;
                     assert_eq!(transformed_count, 3);
                 }
             }
         } else {
             // Manual transformation tracking
-            let transformed_count = Self::manual_transformation_with_tracking(&fixture).await;
+            let transformed_count = fixture.manual_transformation_with_tracking().await.unwrap().await;
             assert_eq!(transformed_count, 3);
             println!("✅ Manual rewrite history tracking test passed");
         }
@@ -413,7 +552,7 @@ mod tests {
                     }
                 } else {
                     // Manual parallel transformation
-                    Ok(Self::manual_parallel_transformation(&fixture_inner, i).await)
+                    Ok(fixture_inner.manual_parallel_transformation(i).await.unwrap().await)
                 }
             });
             handles.push(handle);
@@ -535,7 +674,7 @@ mod tests {
         fixture.storage.put(history_key.as_bytes(), &serde_json::to_vec(&history_data).unwrap()).await.unwrap();
 
         // Apply transformation
-        transformed = Self::manual_node_transformation(fixture).await;
+        transformed = fixture.manual_node_transformation().await.unwrap();
 
         transformed
     }

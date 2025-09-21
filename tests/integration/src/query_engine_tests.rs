@@ -8,14 +8,14 @@
 //! - kotoba-execution (query execution)
 
 use std::sync::Arc;
-use kotoba_storage::{KeyValueStore, MemoryAdapter};
+use kotoba_memory::MemoryAdapter;
 use kotoba_core::types::{Value, VertexId, EdgeId};
 use kotoba_errors::KotobaError;
 
 /// Test fixture for query engine tests
 pub struct QueryEngineTestFixture {
     pub storage: Arc<dyn KeyValueStore + Send + Sync>,
-    pub query_engine: Option<Arc<kotoba_query_engine::QueryEngine>>,
+    pub query_engine: Option<Arc<kotoba_query_engine::GqlQueryEngine<dyn KeyValueStore + Send + Sync>>>,
 }
 
 impl QueryEngineTestFixture {
@@ -23,7 +23,7 @@ impl QueryEngineTestFixture {
         let storage = Arc::new(MemoryAdapter::new());
 
         // Initialize query engine if available
-        let query_engine = if let Ok(engine) = kotoba_query_engine::QueryEngine::new(Arc::clone(&storage)).await {
+        let query_engine = if let Ok(engine) = kotoba_query_engine::GqlQueryEngine::new(Arc::clone(&storage)).await {
             Some(Arc::new(engine))
         } else {
             None
@@ -90,6 +90,117 @@ impl QueryEngineTestFixture {
             }
         }
         Ok(())
+    }
+
+    // Helper methods for testing
+    pub async fn count_vertices_by_label(&self, label: &str) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut count = 0;
+
+        for key in keys {
+            if key.starts_with("vertex:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if vertex["label"] == label {
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(count)
+    }
+
+    pub async fn count_edges(&self) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        Ok(keys.iter().filter(|k| k.starts_with("edge:")).count())
+    }
+
+    pub async fn count_relationships_by_label(&self, label: &str) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut count = 0;
+
+        for key in keys {
+            if key.starts_with("edge:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(edge) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if edge["label"] == label {
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(count)
+    }
+
+    pub async fn count_vertices_with_property(&self, property: &str, value: impl serde::Serialize) -> Result<usize, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut count = 0;
+        let expected_value = serde_json::to_value(value)?;
+
+        for key in keys {
+            if key.starts_with("vertex:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if let Some(props) = vertex["properties"].as_object() {
+                            if props.get(property) == Some(&expected_value) {
+                                count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(count)
+    }
+
+    pub async fn find_employees_matching_criteria(&self) -> Result<Vec<serde_json::Value>, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let mut employees = Vec::new();
+
+        for key in keys {
+            if key.starts_with("vertex:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(vertex) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if vertex["label"] == "Person" {
+                            if let Some(props) = vertex["properties"].as_object() {
+                                if let (Some(age), Some(salary)) = (props.get("age"), props.get("salary")) {
+                                    if age.as_u64().unwrap_or(0) > 25 && salary.as_u64().unwrap_or(0) > 50000 {
+                                        employees.push(vertex);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(employees)
+    }
+
+    pub async fn person_works_at_company(&self, vertex_id: u64) -> Result<bool, KotobaError> {
+        let keys = self.storage.list_keys().await?;
+        let person_id = format!("vertex:{}", vertex_id);
+
+        for key in keys {
+            if key.starts_with("edge:") {
+                if let Ok(Some(data)) = self.storage.get(key.as_bytes()).await {
+                    if let Ok(edge) = serde_json::from_slice::<serde_json::Value>(&data) {
+                        if edge["label"] == "WORKS_AT" &&
+                           edge["from"].as_str() == Some(&person_id) {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 }
 
@@ -164,13 +275,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Labeled vertex query failed: {}, using fallback", e);
                     // Manual verification
-                    let person_count = Self::count_vertices_by_label(&fixture, "Person").await;
+                    let person_count = fixture.count_vertices_by_label("Person").await.unwrap();
                     assert_eq!(person_count, 3);
                 }
             }
         } else {
             // Manual verification
-            let person_count = Self::count_vertices_by_label(&fixture, "Person").await;
+            let person_count = fixture.count_vertices_by_label("Person").await.unwrap();
             assert_eq!(person_count, 3);
             println!("✅ Manual labeled vertex test passed");
         }
@@ -194,13 +305,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Relationship query failed: {}, using fallback", e);
                     // Manual verification
-                    let edge_count = Self::count_edges(&fixture).await;
+                    let edge_count = fixture.count_edges().await.unwrap();
                     assert_eq!(edge_count, 4);
                 }
             }
         } else {
             // Manual verification
-            let edge_count = Self::count_edges(&fixture).await;
+            let edge_count = fixture.count_edges().await.unwrap().await;
             assert_eq!(edge_count, 4);
             println!("✅ Manual relationship test passed");
         }
@@ -224,13 +335,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Labeled relationship query failed: {}, using fallback", e);
                     // Manual verification
-                    let works_at_count = Self::count_relationships_by_label(&fixture, "WORKS_AT").await;
+                    let works_at_count = fixture.count_relationships_by_label("WORKS_AT").await.unwrap().await;
                     assert_eq!(works_at_count, 2);
                 }
             }
         } else {
             // Manual verification
-            let works_at_count = Self::count_relationships_by_label(&fixture, "WORKS_AT").await;
+            let works_at_count = fixture.count_relationships_by_label("WORKS_AT").await.unwrap().await;
             assert_eq!(works_at_count, 2);
             println!("✅ Manual labeled relationship test passed");
         }
@@ -254,13 +365,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Property query failed: {}, using fallback", e);
                     // Manual verification
-                    let age_count = Self::count_vertices_with_property(&fixture, "age", 25).await;
+                    let age_count = fixture.count_vertices_with_property("age", 25).await.unwrap().await;
                     assert_eq!(age_count, 2);
                 }
             }
         } else {
             // Manual verification
-            let age_count = Self::count_vertices_with_property(&fixture, "age", 25).await;
+            let age_count = fixture.count_vertices_with_property("age", 25).await.unwrap().await;
             assert_eq!(age_count, 2);
             println!("✅ Manual property query test passed");
         }
@@ -286,13 +397,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Path query failed: {}, using fallback", e);
                     // Manual verification - check if we have the expected graph structure
-                    let knows_count = Self::count_relationships_by_label(&fixture, "KNOWS").await;
+                    let knows_count = fixture.count_relationships_by_label("KNOWS").await.unwrap().await;
                     assert_eq!(knows_count, 2); // Alice->Bob, Bob->Charlie
                 }
             }
         } else {
             // Manual verification
-            let knows_count = Self::count_relationships_by_label(&fixture, "KNOWS").await;
+            let knows_count = fixture.count_relationships_by_label("KNOWS").await.unwrap().await;
             assert_eq!(knows_count, 2);
             println!("✅ Manual path query test passed");
         }
@@ -317,16 +428,16 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Aggregation query failed: {}, using fallback", e);
                     // Manual verification
-                    let person_count = Self::count_vertices_by_label(&fixture, "Person").await;
-                    let company_count = Self::count_vertices_by_label(&fixture, "Company").await;
+                    let person_count = fixture.count_vertices_by_label("Person").await.unwrap();
+                    let company_count = fixture.count_vertices_by_label("Company").await.unwrap();
                     assert_eq!(person_count, 3);
                     assert_eq!(company_count, 1);
                 }
             }
         } else {
             // Manual verification
-            let person_count = Self::count_vertices_by_label(&fixture, "Person").await;
-            let company_count = Self::count_vertices_by_label(&fixture, "Company").await;
+            let person_count = fixture.count_vertices_by_label("Person").await.unwrap();
+            let company_count = fixture.count_vertices_by_label("Company").await.unwrap();
             assert_eq!(person_count, 3);
             assert_eq!(company_count, 1);
             println!("✅ Manual aggregation query test passed");
@@ -358,13 +469,13 @@ mod tests {
                 Err(e) => {
                     println!("⚠️ Complex query failed: {}, using fallback", e);
                     // Manual verification
-                    let matching_employees = Self::find_employees_matching_criteria(&fixture).await;
+                    let matching_employees = fixture.find_employees_matching_criteria().await.unwrap().await;
                     assert_eq!(matching_employees, 1);
                 }
             }
         } else {
             // Manual verification
-            let matching_employees = Self::find_employees_matching_criteria(&fixture).await;
+            let matching_employees = fixture.find_employees_matching_criteria().await.unwrap().await;
             assert_eq!(matching_employees, 1);
             println!("✅ Manual complex query test passed");
         }
@@ -449,7 +560,7 @@ mod tests {
                             if let Some(age) = vertex["properties"]["age"].as_i64() {
                                 if age > 25 {
                                     // Check if this person works at a company
-                                    if Self::person_works_at_company(fixture, vertex["id"].as_u64().unwrap()).await {
+                                    if fixture.person_works_at_company(vertex["id"].as_u64().await.unwrap().unwrap()).await {
                                         count += 1;
                                     }
                                 }

@@ -42,6 +42,7 @@ pub mod graph_rewriting_tests;
 // ==========================================
 
 use std::collections::{HashMap, HashSet};
+use once_cell::sync::Lazy;
 
 /// Test metadata for topology-based execution ordering
 #[derive(Debug, Clone)]
@@ -430,8 +431,8 @@ mod integration_tests {
     use tokio::sync::Mutex;
 
     /// Global test database instance for shared use across tests
-    pub static TEST_DB: once_cell::sync::Lazy<Arc<Mutex<Option<kotoba_db::DB>>>> =
-        once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(None)));
+    static TEST_DB: Lazy<Arc<Mutex<Option<kotoba_graphdb::GraphDB>>>> =
+        Lazy::new(|| Arc::new(Mutex::new(None)));
 
     /// Setup function to initialize test database
     pub async fn setup_test_db() -> Result<(), Box<dyn std::error::Error>> {
@@ -439,9 +440,9 @@ mod integration_tests {
         if db_guard.is_none() {
             // Create a temporary database for testing
             let temp_dir = tempfile::tempdir()?;
-            let db_path = temp_dir.path().join("test_kotoba.db");
+            let db_path = temp_dir.path().join("test_graph.db");
 
-            let db = kotoba_db::DB::open_lsm(&db_path).await?;
+            let db = kotoba_graphdb::GraphDB::open(&db_path).await?;
             *db_guard = Some(db);
         }
         Ok(())
@@ -455,7 +456,7 @@ mod integration_tests {
     }
 
     /// Helper to get a reference to the test database
-    pub async fn get_test_db() -> Result<Arc<Mutex<kotoba_db::DB>>, Box<dyn std::error::Error>> {
+    pub async fn get_test_db() -> Result<Arc<Mutex<kotoba_graphdb::GraphDB>>, Box<dyn std::error::Error>> {
         setup_test_db().await?;
         let db_guard = TEST_DB.lock().await;
         match &*db_guard {
