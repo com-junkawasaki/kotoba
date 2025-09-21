@@ -3,14 +3,15 @@
 //! This module provides the core kernel implementation for graph rewriting operations.
 
 use super::*;
-use kotoba_codebase::{RuleDef, StrategyDef, DefRef, DefType};
+use crate::strategy_def::StrategyDef;
+use kotoba_codebase::{DefRef, DefType};
 use std::collections::HashMap;
 
 /// Kernel implementation for rule execution
 #[derive(Debug, Clone)]
 pub struct Kernel {
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, RuleDef>,
+    pub rule_registry: HashMap<DefRef, crate::rule::RuleDPO>,
     /// Strategy registry
     pub strategy_registry: HashMap<DefRef, StrategyDef>,
     /// Execution configuration
@@ -31,7 +32,7 @@ impl Kernel {
     }
 
     /// Register a rule
-    pub fn register_rule(&mut self, rule_def: RuleDef) -> DefRef {
+    pub fn register_rule(&mut self, rule_def: crate::rule::RuleDPO) -> DefRef {
         let def_ref = DefRef::new(
             serde_json::to_vec(&rule_def).expect("Failed to serialize rule"),
             DefType::Rule,
@@ -54,7 +55,7 @@ impl Kernel {
     pub fn execute_rule(
         &mut self,
         rule_ref: DefRef,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
     ) -> Result<RuleExecutionResult, KernelError> {
         let rule = self.rule_registry.get(&rule_ref)
             .ok_or(KernelError::RuleNotFound(rule_ref.clone()))?;
@@ -118,7 +119,7 @@ impl Kernel {
     pub fn execute_strategy(
         &mut self,
         strategy_ref: DefRef,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
     ) -> Result<StrategyExecutionResult, KernelError> {
         let strategy = self.strategy_registry.get(&strategy_ref)
             .ok_or(KernelError::StrategyNotFound(strategy_ref.clone()))?;

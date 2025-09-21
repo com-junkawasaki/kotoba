@@ -7,9 +7,12 @@
 use super::*;
 use kotoba_codebase::*;
 use kotoba_ir::{RuleIR, GraphPattern, GraphElement, EdgeDef, RuleNac, Match, Matches};
-use kotoba_types::*;
+// use kotoba_types::RuleDPO;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// Type alias for RuleDPO from kotoba_types
+pub type RuleDPO = kotoba_types::RuleDPO;
 
 /// ID type for pattern elements
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -196,22 +199,22 @@ pub struct Effects {
     pub labels_remove: Vec<String>,
 }
 
-/// DPO rule definition
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RuleDPO {
-    pub id: Id,
-    pub l: GraphInstance, // Left-hand side (pattern)
-    pub k: GraphInstance, // Context
-    pub r: GraphInstance, // Right-hand side (replacement)
-    pub m_l: Morphisms,   // K -> L
-    pub m_r: Morphisms,   // K -> R
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub nacs: Vec<SchemaNac>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub app_cond: Option<ApplicationCondition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effects: Option<Effects>,
-}
+// DPO rule definition - extending kotoba_types::RuleDPO
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// pub struct RuleDPO {
+//     pub id: Id,
+//     pub l: GraphInstance, // Left-hand side (pattern)
+//     pub k: GraphInstance, // Context
+//     pub r: GraphInstance, // Right-hand side (replacement)
+//     pub m_l: Morphisms,   // K -> L
+//     pub m_r: Morphisms,   // K -> R
+//     #[serde(skip_serializing_if = "Vec::is_empty")]
+//     pub nacs: Vec<SchemaNac>,
+//     #[serde(skip_serializing_if = "Option::is_none")]
+//     pub app_cond: Option<ApplicationCondition>,
+//     #[serde(skip_serializing_if = "Option::is_none")]
+//     pub effects: Option<Effects>,
+// }
 
 /// Component interface
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -418,7 +421,7 @@ pub struct RuleApplicationResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleMatch {
     /// Variable to graph element mapping
-    pub variable_mapping: HashMap<String, GraphElementId>,
+    pub variable_mapping: HashMap<String, kotoba_ir::GraphElement>,
     /// Match score/priority
     pub score: f64,
     /// Match metadata
@@ -457,14 +460,14 @@ pub enum GraphChange {
 #[derive(Debug, Clone)]
 pub struct RuleMatcher {
     /// Rule to match
-    pub rule: RuleDef,
+    pub rule: RuleDPO,
     /// Matching configuration
     pub config: MatcherConfig,
 }
 
 impl RuleMatcher {
     /// Create a new rule matcher
-    pub fn new(rule: RuleDef) -> Self {
+    pub fn new(rule: RuleDPO) -> Self {
         Self {
             rule,
             config: MatcherConfig::default(),
@@ -472,14 +475,14 @@ impl RuleMatcher {
     }
 
     /// Find all matches for the rule in the graph
-    pub fn find_matches(&self, graph: &Graph) -> Result<Vec<RuleMatch>, MatcherError> {
+    pub fn find_matches(&self, graph: &GraphKind) -> Result<Vec<RuleMatch<kotoba_ir::GraphElement>>, MatcherError> {
         // Pattern matching implementation
         // This would traverse the graph and find subgraphs that match the rule pattern
         Ok(Vec::new()) // Placeholder
     }
 
     /// Check if a match satisfies all conditions
-    pub fn validate_match(&self, match_result: &RuleMatch, graph: &Graph) -> bool {
+    pub fn validate_match(&self, match_result: &RuleMatch<kotoba_ir::GraphElement>, graph: &GraphKind) -> bool {
         // Validate negative application conditions
         // Validate guard conditions
         true // Placeholder
@@ -511,14 +514,14 @@ impl Default for MatcherConfig {
 #[derive(Debug, Clone)]
 pub struct RuleApplicator {
     /// Rule to apply
-    pub rule: RuleDef,
+    pub rule: RuleDPO,
     /// Application configuration
     pub config: ApplicatorConfig,
 }
 
 impl RuleApplicator {
     /// Create a new rule applicator
-    pub fn new(rule: RuleDef) -> Self {
+    pub fn new(rule: RuleDPO) -> Self {
         Self {
             rule,
             config: ApplicatorConfig::default(),
@@ -528,8 +531,8 @@ impl RuleApplicator {
     /// Apply the rule to a graph using a match
     pub fn apply(
         &self,
-        graph: &mut Graph,
-        match_result: &RuleMatch,
+        graph: &mut GraphKind,
+        match_result: &RuleMatch<kotoba_ir::GraphElement>,
     ) -> Result<RuleApplication, ApplicatorError> {
         // Apply the rule transformation
         // This would modify the graph according to the rule's RHS pattern
@@ -543,8 +546,8 @@ impl RuleApplicator {
     /// Validate that the rule can be applied
     pub fn validate_application(
         &self,
-        graph: &Graph,
-        match_result: &RuleMatch,
+        graph: &GraphKind,
+        match_result: &RuleMatch<kotoba_ir::GraphElement>,
     ) -> Result<(), ValidationError> {
         // Validate that the application is valid
         // Check for conflicts, type constraints, etc.
@@ -589,7 +592,7 @@ impl RuleOptimizer {
     }
 
     /// Optimize a rule for better performance
-    pub fn optimize_rule(&self, rule: &mut RuleDef) {
+    pub fn optimize_rule(&self, rule: &mut RuleDPO) {
         // Apply rule optimizations
         // - Remove redundant conditions
         // - Optimize pattern matching
@@ -597,7 +600,7 @@ impl RuleOptimizer {
     }
 
     /// Analyze rule properties
-    pub fn analyze_rule(&self, rule: &RuleDef) -> RuleAnalysis {
+    pub fn analyze_rule(&self, rule: &RuleDPO) -> RuleAnalysis {
         RuleAnalysis {
             is_linear: self.is_linear(rule),
             is_idempotent: self.is_idempotent(rule),
@@ -608,31 +611,31 @@ impl RuleOptimizer {
     }
 
     /// Check if rule is linear (no variable reuse)
-    fn is_linear(&self, _rule: &RuleDef) -> bool {
+    fn is_linear(&self, _rule: &RuleDPO) -> bool {
         // Implementation
         true
     }
 
     /// Check if rule is idempotent
-    fn is_idempotent(&self, _rule: &RuleDef) -> bool {
+    fn is_idempotent(&self, _rule: &RuleDPO) -> bool {
         // Implementation
         false
     }
 
     /// Check if rule has an inverse
-    fn has_inverse(&self, _rule: &RuleDef) -> bool {
+    fn has_inverse(&self, _rule: &RuleDPO) -> bool {
         // Implementation
         false
     }
 
     /// Check if rule is parallel safe
-    fn is_parallel_safe(&self, _rule: &RuleDef) -> bool {
+    fn is_parallel_safe(&self, _rule: &RuleDPO) -> bool {
         // Implementation
         true
     }
 
     /// Compute rule complexity
-    fn compute_complexity(&self, _rule: &RuleDef) -> f64 {
+    fn compute_complexity(&self, _rule: &RuleDPO) -> f64 {
         // Implementation
         1.0
     }

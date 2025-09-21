@@ -826,6 +826,88 @@ impl GraphAnalysis {
             },
         }
     }
+
+    /// Get neighbors of a vertex
+    pub fn neighbors(&self, id: &VertexId) -> Vec<VertexId> {
+        self.adj_out.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    /// Get incoming neighbors of a vertex
+    pub fn incoming_neighbors(&self, id: &VertexId) -> Vec<VertexId> {
+        self.adj_in.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    /// Convert from GraphInstance
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> KotobaResult<Self> {
+        let mut graph = Graph::empty();
+        let mut vertex_id_map = HashMap::new();
+
+        // Convert Nodes to Vertices
+        for node in &graph_instance.core.nodes {
+            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+
+            let props = if let Some(attrs) = &node.attrs {
+                attrs.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect::<HashMap<_, _>>()
+            } else {
+                HashMap::new()
+            };
+
+            graph.vertices.insert(
+                vertex_id,
+                VertexData {
+                    id: vertex_id,
+                    label: node.label.clone(),
+                    properties: props,
+                },
+            );
+            vertex_id_map.insert(&node.id, vertex_id);
+        }
+
+        // Convert Edges
+        for edge in &graph_instance.core.edges {
+            if let (Some(from_id), Some(to_id)) = (
+                vertex_id_map.get(&edge.source),
+                vertex_id_map.get(&edge.target),
+            ) {
+                let edge_id = uuid::Uuid::new_v4(); // Should be deterministically generated
+
+                let props = if let Some(attrs) = &edge.attrs {
+                    attrs.iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<_, _>>()
+                } else {
+                    HashMap::new()
+                };
+
+                graph.edges.insert(
+                    edge_id,
+                    EdgeData {
+                        id: edge_id,
+                        source: *from_id,
+                        target: *to_id,
+                        label: edge.label.clone(),
+                        properties: props,
+                    },
+                );
+
+                graph.adj_out.entry(*from_id).or_insert_with(HashSet::new).insert(*to_id);
+                graph.adj_in.entry(*to_id).or_insert_with(HashSet::new).insert(*from_id);
+            }
+        }
+
+        Ok(graph)
+    }
+
+    /// Convert to GraphInstance with computed CID
+    pub fn to_graph_instance_with_cid(&self) -> KotobaResult<GraphInstance> {
+        let graph_instance = self.to_graph_instance(generate_cid("temp"));
+        Ok(GraphInstance {
+            cid: generate_cid("graph"),
+            ..graph_instance
+        })
+    }
 }
 
 /// Graph statistics
@@ -853,9 +935,171 @@ impl GraphStatistics {
     pub fn is_sparse(&self) -> bool {
         self.density < 0.1
     }
-}
 
     /// Get neighbors of a vertex
+    pub fn neighbors(&self, id: &VertexId) -> Vec<VertexId> {
+        self.adj_out.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    /// Get incoming neighbors of a vertex
+    pub fn incoming_neighbors(&self, id: &VertexId) -> Vec<VertexId> {
+        self.adj_in.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    /// Convert from GraphInstance
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> KotobaResult<Self> {
+        let mut graph = Graph::empty();
+        let mut vertex_id_map = HashMap::new();
+
+        // Convert Nodes to Vertices
+        for node in &graph_instance.core.nodes {
+            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+
+            let props = if let Some(attrs) = &node.attrs {
+                attrs.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect::<HashMap<_, _>>()
+            } else {
+                HashMap::new()
+            };
+
+            graph.vertices.insert(
+                vertex_id,
+                VertexData {
+                    id: vertex_id,
+                    label: node.label.clone(),
+                    properties: props,
+                },
+            );
+            vertex_id_map.insert(&node.id, vertex_id);
+        }
+
+        // Convert Edges
+        for edge in &graph_instance.core.edges {
+            if let (Some(from_id), Some(to_id)) = (
+                vertex_id_map.get(&edge.source),
+                vertex_id_map.get(&edge.target),
+            ) {
+                let edge_id = uuid::Uuid::new_v4(); // Should be deterministically generated
+
+                let props = if let Some(attrs) = &edge.attrs {
+                    attrs.iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<_, _>>()
+                } else {
+                    HashMap::new()
+                };
+
+                graph.edges.insert(
+                    edge_id,
+                    EdgeData {
+                        id: edge_id,
+                        source: *from_id,
+                        target: *to_id,
+                        label: edge.label.clone(),
+                        properties: props,
+                    },
+                );
+
+                graph.adj_out.entry(*from_id).or_insert_with(HashSet::new).insert(*to_id);
+                graph.adj_in.entry(*to_id).or_insert_with(HashSet::new).insert(*from_id);
+            }
+        }
+
+        Ok(graph)
+    }
+
+    /// Convert to GraphInstance with computed CID
+    pub fn to_graph_instance_with_cid(&self) -> KotobaResult<GraphInstance> {
+        let graph_instance = self.to_graph_instance(generate_cid("temp"));
+        Ok(GraphInstance {
+            cid: generate_cid("graph"),
+            ..graph_instance
+        })
+    }
+
+    /// Get neighbors of a vertex
+    pub fn neighbors(&self, id: &VertexId) -> Vec<VertexId> {
+        self.adj_out.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    /// Get incoming neighbors of a vertex
+    pub fn incoming_neighbors(&self, id: &VertexId) -> Vec<VertexId> {
+        self.adj_in.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    /// Convert from GraphInstance
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> KotobaResult<Self> {
+        let mut graph = Graph::empty();
+        let mut vertex_id_map = HashMap::new();
+
+        // Convert Nodes to Vertices
+        for node in &graph_instance.core.nodes {
+            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+
+            let props = if let Some(attrs) = &node.attrs {
+                attrs.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect::<HashMap<_, _>>()
+            } else {
+                HashMap::new()
+            };
+
+            graph.vertices.insert(
+                vertex_id,
+                VertexData {
+                    id: vertex_id,
+                    label: node.label.clone(),
+                    properties: props,
+                },
+            );
+            vertex_id_map.insert(&node.id, vertex_id);
+        }
+
+        // Convert Edges
+        for edge in &graph_instance.core.edges {
+            if let (Some(from_id), Some(to_id)) = (
+                vertex_id_map.get(&edge.source),
+                vertex_id_map.get(&edge.target),
+            ) {
+                let edge_id = uuid::Uuid::new_v4(); // Should be deterministically generated
+
+                let props = if let Some(attrs) = &edge.attrs {
+                    attrs.iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<_, _>>()
+                } else {
+                    HashMap::new()
+                };
+
+                graph.edges.insert(
+                    edge_id,
+                    EdgeData {
+                        id: edge_id,
+                        source: *from_id,
+                        target: *to_id,
+                        label: edge.label.clone(),
+                        properties: props,
+                    },
+                );
+
+                graph.adj_out.entry(*from_id).or_insert_with(HashSet::new).insert(*to_id);
+                graph.adj_in.entry(*to_id).or_insert_with(HashSet::new).insert(*from_id);
+            }
+        }
+
+        Ok(graph)
+    }
+
+    /// Convert to GraphInstance with computed CID
+    pub fn to_graph_instance_with_cid(&self) -> KotobaResult<GraphInstance> {
+        let graph_instance = self.to_graph_instance(generate_cid("temp"));
+        Ok(GraphInstance {
+            cid: generate_cid("graph"),
+            ..graph_instance
+        })
+    }
+}
     pub fn neighbors(&self, id: &VertexId) -> Vec<VertexId> {
         self.adj_out.get(id).map(|s| s.iter().cloned().collect()).unwrap_or_default()
     }
@@ -992,7 +1236,6 @@ impl GraphStatistics {
             ..graph_instance
         })
     }
-}
 
 /// Thread-safe graph reference
 #[derive(Debug, Clone)]

@@ -9,6 +9,8 @@
 pub mod rule;
 pub mod strategy;
 pub mod scheduler;
+pub mod rule_def;
+pub mod strategy_def;
 pub mod independence;
 pub mod kernel;
 
@@ -58,9 +60,9 @@ pub struct RewriteKernel {
     /// Configuration
     pub config: RewriteKernelConfig,
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, RuleDef>,
+    pub rule_registry: HashMap<DefRef, crate::rule::RuleDPO>,
     /// Strategy registry
-    pub strategy_registry: HashMap<DefRef, StrategyDef>,
+    pub strategy_registry: HashMap<DefRef, crate::strategy_def::StrategyDef>,
     /// Independence analyzer
     pub independence_analyzer: IndependenceAnalyzer,
     /// Scheduler
@@ -83,7 +85,7 @@ impl RewriteKernel {
     }
 
     /// Register a rule
-    pub fn register_rule(&mut self, rule_def: RuleDef) -> DefRef {
+    pub fn register_rule(&mut self, rule_def: crate::rule::RuleDPO) -> DefRef {
         let def_ref = DefRef::new(
             serde_json::to_vec(&rule_def).expect("Failed to serialize rule"),
             DefType::Rule,
@@ -93,7 +95,7 @@ impl RewriteKernel {
     }
 
     /// Register a strategy
-    pub fn register_strategy(&mut self, strategy_def: StrategyDef) -> DefRef {
+    pub fn register_strategy(&mut self, strategy_def: crate::strategy_def::StrategyDef) -> DefRef {
         let def_ref = DefRef::new(
             serde_json::to_vec(&strategy_def).expect("Failed to serialize strategy"),
             DefType::Strategy,
@@ -106,7 +108,7 @@ impl RewriteKernel {
     pub fn execute_strategy(
         &mut self,
         strategy_ref: DefRef,
-        input_graph: Graph,
+        input_graph: crate::rule::GraphKind,
     ) -> Result<ExecutionResult, KernelError> {
         let strategy = self.strategy_registry.get(&strategy_ref)
             .ok_or(KernelError::StrategyNotFound(strategy_ref))?;
@@ -130,9 +132,9 @@ impl RewriteKernel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {
     /// Output graph
-    pub output_graph: Graph,
+    pub output_graph: crate::rule::GraphKind,
     /// Rules applied
-    pub rules_applied: Vec<RuleExecutionReport>,
+    pub rules_applied: Vec<crate::rule_def::ExecutionRecord>,
     /// Execution time
     pub execution_time: std::time::Duration,
     /// Success status

@@ -3,7 +3,7 @@
 //! This module provides scheduling logic for rule execution in graph rewriting.
 
 use super::*;
-use kotoba_codebase::StrategyDef;
+use crate::strategy_def::StrategyDef;
 use std::collections::{HashMap, VecDeque};
 
 /// Scheduler for managing rule execution
@@ -31,7 +31,7 @@ impl Scheduler {
     pub fn execute(
         &mut self,
         strategy: &StrategyDef,
-        mut graph: Graph,
+        mut graph: crate::rule::GraphKind,
         config: &RewriteKernelConfig,
     ) -> Result<ExecutionResult, KernelError> {
         let start_time = std::time::Instant::now();
@@ -238,14 +238,13 @@ impl Scheduler {
         &mut self,
         context: &mut ExecutionContext,
         rule_ref: &DefRef,
-    ) -> Result<Option<RuleExecutionReport>, KernelError> {
+    ) -> Result<Option<ExecutionRecord>, KernelError> {
         // Rule execution implementation
-        Ok(Some(RuleExecutionReport {
-            rule_def: rule_ref.clone(),
+        Ok(Some(ExecutionRecord {
+            rule_ref: rule_ref.clone(),
             match_count: 0,
             application_count: 0,
-            execution_time_ns: 0,
-            memory_usage: None,
+            execution_time: 0,
             success: true,
             error_message: None,
         }))
@@ -276,11 +275,11 @@ impl Scheduler {
 #[derive(Debug)]
 struct ExecutionContext<'a> {
     /// Graph being rewritten
-    pub graph: &'a mut Graph,
+    pub graph: &'a mut crate::rule::GraphKind,
     /// Configuration
     pub config: &'a RewriteKernelConfig,
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, RuleDef>,
+    pub rule_registry: HashMap<DefRef, crate::rule::RuleDPO>,
     /// Current execution time
     pub current_time: std::time::Instant,
 }

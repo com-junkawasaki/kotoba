@@ -3,7 +3,8 @@
 //! This module provides strategy definitions and execution logic for rule ordering.
 
 use super::*;
-use crate::strategy_def::{StrategyDef, StrategyType, StrategyPhase, RuleOrdering, DefRef, DefType};
+use crate::strategy_def::{StrategyDef, StrategyType, StrategyPhase, RuleOrdering};
+use kotoba_codebase::{DefRef, DefType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,7 +33,7 @@ pub struct StrategyExecutor {
     /// Strategy to execute
     pub strategy: StrategyDef,
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, RuleDef>,
+    pub rule_registry: HashMap<DefRef, RuleDPO>,
     /// Execution configuration
     pub config: ExecutorConfig,
 }
@@ -50,7 +51,7 @@ impl StrategyExecutor {
     /// Execute the strategy on a graph
     pub fn execute(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
     ) -> Result<StrategyExecutionResult, ExecutionError> {
         let start_time = std::time::Instant::now();
@@ -74,7 +75,7 @@ impl StrategyExecutor {
     /// Execute sequential strategy
     fn execute_sequential(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
     ) -> Result<StrategyExecutionResult, ExecutionError> {
         let mut rules_applied = Vec::new();
@@ -113,7 +114,7 @@ impl StrategyExecutor {
     /// Execute parallel strategy
     fn execute_parallel(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
     ) -> Result<StrategyExecutionResult, ExecutionError> {
         // Parallel execution implementation
@@ -135,7 +136,7 @@ impl StrategyExecutor {
     /// Execute layered strategy
     fn execute_layered(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
         phases: &[StrategyPhase],
     ) -> Result<StrategyExecutionResult, ExecutionError> {
@@ -157,7 +158,7 @@ impl StrategyExecutor {
     /// Execute conditional strategy
     fn execute_conditional(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
         condition: &DefRef,
         then_strategy: &StrategyDef,
@@ -181,7 +182,7 @@ impl StrategyExecutor {
     /// Execute prioritized strategy
     fn execute_prioritized(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
         _priority_queue: &PriorityQueue,
     ) -> Result<StrategyExecutionResult, ExecutionError> {
@@ -203,7 +204,7 @@ impl StrategyExecutor {
     /// Execute custom strategy
     fn execute_custom(
         &self,
-        graph: &mut Graph,
+        graph: &mut crate::rule::GraphKind,
         kernel: &RewriteKernel,
         _custom_ref: &DefRef,
     ) -> Result<StrategyExecutionResult, ExecutionError> {
@@ -225,17 +226,16 @@ impl StrategyExecutor {
     /// Execute a single rule
     fn execute_rule(
         &self,
-        graph: &mut Graph,
-        rule: &RuleDef,
+        graph: &mut crate::rule::GraphKind,
+        rule: &RuleDPO,
         rule_ref: &DefRef,
-    ) -> Result<RuleExecutionReport, ExecutionError> {
+    ) -> Result<ExecutionRecord, ExecutionError> {
         // Rule execution implementation
-        Ok(RuleExecutionReport {
-            rule_def: rule_ref.clone(),
+        Ok(ExecutionRecord {
+            rule_ref: rule_ref.clone(),
             match_count: 0,
             application_count: 0,
-            execution_time_ns: 0,
-            memory_usage: None,
+            execution_time: 0,
             success: true,
             error_message: None,
         })
