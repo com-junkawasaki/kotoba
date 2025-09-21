@@ -22,8 +22,8 @@ dirs = { workspace = true }
 toml = "0.8"
 
 # Kotoba ecosystem
-kotoba-core = { path = "../../010-core/012-kotoba-core" }
 kotoba-parser = { path = "../021-kotoba-parser" }
+kotoba-syntax = { path = "../020-kotoba-syntax" }
 # kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
 
 [dev-dependencies]

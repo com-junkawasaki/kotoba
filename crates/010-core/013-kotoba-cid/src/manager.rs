@@ -1,7 +1,7 @@
 //! CIDマネージャーの実装
 
 use super::*;
-use kotoba_core::schema::*; // RuleDPO などの型定義が必要
+use kotoba_core::prelude::*; // GraphCore, RuleDPO などの型定義が必要
 
 impl CidManager {
     /// 新しいCIDマネージャーを作成
@@ -23,7 +23,7 @@ impl CidManager {
     /// グラフのCIDを計算
     pub fn compute_graph_cid(&mut self, graph: &GraphCore) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let cid = self.calculator.compute_cid(graph)?;
-        let key = format!("graph_{}", cid.to_hex());
+        let key = format!("graph_{}", cid.as_str());
         self.cache.insert(key, cid.clone());
         Ok(cid)
     }
@@ -31,7 +31,7 @@ impl CidManager {
     /// ルールのCIDを計算
     pub fn compute_rule_cid(&mut self, rule: &RuleDPO) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let cid = self.calculator.compute_cid(rule)?;
-        let key = format!("rule_{}", cid.to_hex());
+        let key = format!("rule_{}", cid.as_str());
         self.cache.insert(key, cid.clone());
         Ok(cid)
     }
@@ -39,7 +39,7 @@ impl CidManager {
     /// クエリのCIDを計算
     pub fn compute_query_cid(&mut self, query: &str) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let cid = self.calculator.compute_cid(&query.to_string())?;
-        let key = format!("query_{}", cid.to_hex());
+        let key = format!("query_{}", cid.as_str());
         self.cache.insert(key, cid.clone());
         Ok(cid)
     }

@@ -21,7 +21,7 @@ impl CidCalculator {
     pub fn compute_cid<T: Serialize>(&self, data: &T) -> std::result::Result<Cid, kotoba_errors::KotobaError> {
         let canonical_bytes = self.canonicalize_json(data)?;
         let hash = self.compute_hash(&canonical_bytes);
-        Ok(Cid(hash))
+        Ok(kotoba_types::Cid::new(&hash))
     }
 
     /// JSONを正規化
@@ -79,7 +79,7 @@ impl CidCalculator {
             combined.push(0); // 区切り文字
         }
         let hash = self.compute_hash(&combined);
-        Ok(Cid(hash))
+        Ok(kotoba_types::Cid::new(&hash))
     }
 
     /// CIDを検証

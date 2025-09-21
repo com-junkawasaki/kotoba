@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use kotoba_core::{auth::PrincipalId, crypto::EncryptionInfo, types::Cid};
+use kotoba_core::{crypto::EncryptionInfo, types::Cid};
+use kotoba_auth::PrincipalId;
 
 /// Core OCEL v2 event log structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -324,7 +325,7 @@ impl OcelEvent {
 }
 
 /// OcelEventが自身をセキュアリソースとして扱えるようにする
-impl kotoba_core::auth::SecureResource for OcelEvent {
+impl kotoba_auth::SecureResource for OcelEvent {
     fn resource_id(&self) -> Cid {
         // OcelEvent自身のCIDを計算して返す
         // イベントの重要なフィールド（id, activity, timestamp, issuer_id, policy_cid）を使用してCIDを計算
@@ -338,10 +339,11 @@ impl kotoba_core::auth::SecureResource for OcelEvent {
             &self.omap
         );
 
-        Cid::compute_sha256(&event_data).unwrap_or_else(|_| {
-            // シリアル化エラーの場合は空のハッシュを使用（本番環境では適切なエラーハンドリングが必要）
-            Cid([0; 32])
-        })
+        // イベントデータをシリアル化してCIDを計算
+        match serde_json::to_string(&event_data) {
+            Ok(json) => kotoba_types::Cid::new(json.as_bytes()),
+            Err(_) => kotoba_types::Cid([0; 32]), // エラー時はデフォルトCID
+        }
     }
 
     fn resource_attributes(&self) -> HashMap<String, String> {

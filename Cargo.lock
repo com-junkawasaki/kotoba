@@ -1830,12 +1830,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-analyzer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kotoba-core",
+ "kotoba-parser",
+ "kotoba-syntax",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+]
+
+[[package]]
 name = "kotoba-auth"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "hex",
- "kotoba-errors 0.1.2",
+ "kotoba-errors",
  "kotoba-types",
  "serde",
  "serde_json",
@@ -1852,7 +1865,8 @@ dependencies = [
  "base64 0.21.7",
  "blake3",
  "hex",
- "kotoba-errors 0.1.2",
+ "kotoba-core",
+ "kotoba-errors",
  "kotoba-types",
  "serde",
  "serde_json",
@@ -1882,7 +1896,7 @@ dependencies = [
  "js-sys",
  "jsonschema",
  "kotoba-auth",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors",
  "kotoba-types",
  "parking_lot",
  "rand 0.8.5",
@@ -1908,17 +1922,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-errors"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d6588910b80f3b020be047d2eccca2c8207e1fcf00e73b4f8ca6e245e696059"
-dependencies = [
- "anyhow",
- "serde_json",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "kotoba-formatter"
 version = "0.1.22"
 dependencies = [
@@ -1926,8 +1929,8 @@ dependencies = [
  "async-trait",
  "dirs",
  "futures",
- "kotoba-core",
  "kotoba-parser",
+ "kotoba-syntax",
  "parking_lot",
  "regex",
  "serde",
@@ -2099,9 +2102,10 @@ dependencies = [
  "bincode",
  "chrono",
  "indexmap 2.11.4",
+ "kotoba-auth",
  "kotoba-cid",
  "kotoba-core",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-errors",
  "kotoba-schema",
  "kotoba-types",
  "regex",
@@ -2116,6 +2120,9 @@ dependencies = [
 [[package]]
 name = "kotoba-parser"
 version = "0.1.22"
+dependencies = [
+ "kotoba-syntax",
+]
 
 [[package]]
 name = "kotoba-repl"
@@ -2148,7 +2155,7 @@ dependencies = [
  "chrono",
  "jsonschema",
  "kotoba-cid",
- "kotoba-errors 0.1.2",
+ "kotoba-errors",
  "kotoba-types",
  "rand 0.8.5",
  "regex",
@@ -2162,27 +2169,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "kotoba-storage"
-version = "0.1.22"
-dependencies = [
- "anyhow",
- "async-trait",
- "kotoba-core",
- "serde",
- "serde_json",
- "thiserror 2.0.16",
- "tokio",
-]
-
-[[package]]
 name = "kotoba-syntax"
 version = "0.1.22"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "kotoba-types"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "schemars",
  "serde",
  "sha2",
  "uuid",
@@ -2219,7 +2218,7 @@ dependencies = [
  "console_error_panic_hook",
  "js-sys",
  "kotoba-core",
- "kotoba-errors 0.1.2",
+ "kotoba-errors",
  "kotoba-kotobas",
  "once_cell",
  "serde",

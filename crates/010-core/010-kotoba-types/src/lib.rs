@@ -16,15 +16,20 @@ use std::collections::HashMap;
 use std::fmt;
 use uuid::Uuid;
 use sha2::{Digest, Sha256};
+use schemars::JsonSchema;
 
 /// Content Identifier (Merkle-Link)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct Cid(pub [u8; 32]);
 
 impl Cid {
     pub fn new(data: &[u8]) -> Self {
         let hash = Sha256::digest(data);
         Cid(hash.into())
+    }
+
+    pub fn as_str(&self) -> String {
+        hex::encode(self.0)
     }
 }
 
@@ -47,10 +52,8 @@ pub type Label = String;
 pub type PropertyKey = String;
 
 /// プロパティ値
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, JsonSchema)]
 #[serde(untagged)]
-// schemars is not a dependency here yet, will be added if needed.
-// #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Value {
     Null,
     Bool(bool),

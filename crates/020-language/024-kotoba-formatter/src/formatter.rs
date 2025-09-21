@@ -1,21 +1,20 @@
 //! フォーマッター実装モジュール
 
-use super::{FormatterConfig, FormatResult, FormatRules};
+use super::{FormatterConfig, FormatResult};
+use kotoba_parser::Parser;
+use kotoba_syntax::*;
 use std::path::PathBuf;
-use tokio::fs;
 
 /// メインのフォーマッター実装
 #[derive(Debug)]
 pub struct CodeFormatter {
     config: FormatterConfig,
-    rules: FormatRules,
 }
 
 impl CodeFormatter {
     /// 新しいフォーマッターを作成
     pub fn new(config: FormatterConfig) -> Self {
-        let rules = FormatRules::new(&config);
-        Self { config, rules }
+        Self { config }
     }
 
     /// 設定を取得
@@ -23,15 +22,9 @@ impl CodeFormatter {
         &self.config
     }
 
-    /// 設定を更新
-    pub fn set_config(&mut self, config: FormatterConfig) {
-        self.config = config.clone();
-        self.rules = FormatRules::new(&config);
-    }
-
     /// 単一のファイルをフォーマット
     pub async fn format_file(&self, file_path: &PathBuf) -> Result<FormatResult, Box<dyn std::error::Error>> {
-        let content = fs::read_to_string(file_path).await?;
+        let content = tokio::fs::read_to_string(file_path).await?;
         let mut result = FormatResult::new(file_path.clone(), content);
 
         match self.format_content(&result.original_content).await {
@@ -48,37 +41,149 @@ impl CodeFormatter {
 
     /// コンテンツをフォーマット
     pub async fn format_content(&self, content: &str) -> Result<String, Box<dyn std::error::Error>> {
-        // ルールを適用
-        let formatted = self.rules.apply(content)?;
+        let mut parser = Parser::new();
+        let ast = parser.parse(content).map_err(|e| format!("{:?}", e))?;
 
-        // 最終的なクリーンアップ
-        let cleaned = self.final_cleanup(&formatted);
+        let mut writer = AstWriter::new(&self.config);
+        writer.write_program(&ast);
+        
+        Ok(writer.finish())
+    }
+}
 
-        Ok(cleaned)
+/// ASTを走査して整形済み文字列を生成する
+struct AstWriter<'a> {
+    config: &'a FormatterConfig,
+    buffer: String,
+    indent_level: usize,
+}
+
+impl<'a> AstWriter<'a> {
+    fn new(config: &'a FormatterConfig) -> Self {
+        Self {
+            config,
+            buffer: String::new(),
+            indent_level: 0,
+        }
+    }
+    
+    fn finish(self) -> String {
+        self.buffer
     }
 
-    /// 最終的なクリーンアップ処理
-    fn final_cleanup(&self, content: &str) -> String {
-        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+    fn write_program(&mut self, program: &Program) {
+        for (i, stmt) in program.statements.iter().enumerate() {
+            if i > 0 {
+                self.new_line();
+            }
+            self.write_stmt(stmt);
+        }
+    }
 
-        // 末尾の空行を削除
-        while let Some(line) = lines.last() {
-            if line.trim().is_empty() {
-                lines.pop();
-            } else {
-                break;
+    fn write_stmt(&mut self, stmt: &Stmt) {
+        match stmt {
+            Stmt::Expr(expr) => self.write_expr(expr),
+            // Other statement types would be handled here
+            _ => self.buffer.push_str("/* unhandled statement */"),
+        }
+    }
+
+    fn write_expr(&mut self, expr: &Expr) {
+        match expr {
+            Expr::Literal(value) => self.write_value(value),
+            Expr::Object(fields) => self.write_object(fields),
+            Expr::Array(elements) => self.write_array(elements),
+             // Other expression types would be handled here
+            _ => self.buffer.push_str("/* unhandled expression */"),
+        }
+    }
+    
+    fn write_value(&mut self, value: &KotobaValue) {
+        match value {
+            KotobaValue::Null => self.buffer.push_str("null"),
+            KotobaValue::Bool(b) => self.buffer.push_str(&b.to_string()),
+            KotobaValue::Number(n) => self.buffer.push_str(&n.to_string()),
+            KotobaValue::String(s) => self.buffer.push_str(&format!("\"{}\"", s)), // Basic quoting
+            KotobaValue::Array(_) => self.buffer.push_str("[...]"), // Simplified
+            KotobaValue::Object(_) => self.buffer.push_str("{...}"), // Simplified
+        }
+    }
+    
+    fn write_object(&mut self, fields: &[ObjectField]) {
+        self.buffer.push('{');
+        if !fields.is_empty() {
+            self.new_line();
+            self.indent();
+            for (i, field) in fields.iter().enumerate() {
+                if i > 0 {
+                    self.buffer.push(',');
+                    self.new_line();
+                }
+                self.write_indent();
+                self.write_object_field(field);
+            }
+            self.unindent();
+            self.new_line();
+            self.write_indent();
+        }
+        self.buffer.push('}');
+    }
+    
+    fn write_object_field(&mut self, field: &ObjectField) {
+        match &field.name {
+            FieldName::Fixed(name) => self.buffer.push_str(&format!("\"{}\"", name)),
+            FieldName::Computed(expr) => {
+                self.buffer.push('[');
+                self.write_expr(expr);
+                self.buffer.push(']');
             }
         }
-
-        // 各行の末尾の空白を削除
-        for line in &mut lines {
-            *line = line.trim_end().to_string();
+        self.buffer.push_str(": ");
+        self.write_expr(&field.expr);
+    }
+    
+    fn write_array(&mut self, elements: &[Expr]) {
+        self.buffer.push('[');
+        if !elements.is_empty() {
+            self.new_line();
+            self.indent();
+            for (i, element) in elements.iter().enumerate() {
+                 if i > 0 {
+                    self.buffer.push(',');
+                    self.new_line();
+                }
+                self.write_indent();
+                self.write_expr(element);
+            }
+            self.unindent();
+            self.new_line();
+            self.write_indent();
         }
-
-        lines.join(&self.get_line_ending())
+        self.buffer.push(']');
     }
 
-    /// 改行文字を取得
+    fn new_line(&mut self) {
+        self.buffer.push_str(&self.get_line_ending());
+    }
+    
+    fn write_indent(&mut self) {
+        let indent_char = match self.config.indent_style {
+            super::IndentStyle::Space => ' ',
+            super::IndentStyle::Tab => '\t',
+        };
+        for _ in 0..(self.indent_level * self.config.indent_width) {
+            self.buffer.push(indent_char);
+        }
+    }
+    
+    fn indent(&mut self) {
+        self.indent_level += 1;
+    }
+    
+    fn unindent(&mut self) {
+        self.indent_level -= 1;
+    }
+    
     fn get_line_ending(&self) -> String {
         match self.config.line_ending {
             super::LineEnding::Lf => "\n".to_string(),

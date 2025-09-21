@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::Graph;
 use crate::types::VertexId;
 use crate::types::*;
+use crate::KotobaResult;
 
 /// グラフトラバーサルアルゴリズム
 pub struct GraphTraversal<'a> {
@@ -144,7 +145,7 @@ impl GraphAlgorithms {
     }
 
     /// グラフのトポロジカルソート
-    pub fn topological_sort(graph: &Graph) -> Result<Vec<VertexId>> {
+    pub fn topological_sort(graph: &Graph) -> KotobaResult<Vec<VertexId>> {
         let mut in_degree = HashMap::new();
         let mut queue = VecDeque::new();
         let mut result = Vec::new();

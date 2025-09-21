@@ -2,7 +2,7 @@
 //! プロジェクトの公式JSON Schemaによるデータ検証
 
 use crate::schema::*;
-use crate::types::Result;
+use crate::KotobaResult as Result;
 use kotoba_errors::KotobaError;
 use jsonschema::JSONSchema;
 use std::fs;
@@ -357,7 +357,7 @@ mod tests {
                     attrs: None,
                 },
                 kind: GraphKind::Graph,
-                cid: Cid::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").unwrap(),
+                cid: Cid::new(b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
                 typing: None,
             },
             graphs: vec![],

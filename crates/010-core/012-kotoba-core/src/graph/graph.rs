@@ -6,6 +6,7 @@ use parking_lot::RwLock;
 use sha2::{Sha256, Digest};
 use crate::types::*;
 use crate::schema::*;
+use crate::KotobaResult;
 use kotoba_errors::KotobaError;
 
 /// 頂点データ
@@ -199,7 +200,7 @@ impl Graph {
     }
 
     /// GraphInstanceからGraphに変換
-    pub fn from_graph_instance(graph_instance: &GraphInstance) -> Result<Self> {
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> KotobaResult<Self> {
         let mut graph = Graph::empty();
         let mut vertex_id_map = HashMap::new();
 
@@ -323,7 +324,7 @@ impl Graph {
     }
 
     /// CIDを計算してGraphInstanceに変換
-    pub fn to_graph_instance_with_cid(&self) -> Result<GraphInstance> {
+    pub fn to_graph_instance_with_cid(&self) -> KotobaResult<GraphInstance> {
         let graph_instance = self.to_graph_instance(generate_cid("temp"));
         // TODO: CIDマネージャーが実装されたら、ここで計算する
         Ok(GraphInstance {
@@ -355,7 +356,7 @@ impl GraphRef {
     }
 
     /// GraphInstanceからGraphRefに変換
-    pub fn from_graph_instance(graph_instance: &GraphInstance) -> Result<Self> {
+    pub fn from_graph_instance(graph_instance: &GraphInstance) -> KotobaResult<Self> {
         let graph = Graph::from_graph_instance(graph_instance)?;
         Ok(Self::new(graph))
     }
@@ -367,7 +368,7 @@ impl GraphRef {
     }
 
     /// CIDを計算してGraphInstanceに変換
-    pub fn to_graph_instance_with_cid(&self) -> Result<GraphInstance> {
+    pub fn to_graph_instance_with_cid(&self) -> KotobaResult<GraphInstance> {
         let graph = self.read();
         graph.to_graph_instance_with_cid()
     }

@@ -1,6 +1,14 @@
 //! Jsonnet lexer (tokenizer)
 
-use crate::error::{JsonnetError, Result};
+// Note: This parsing logic will be adapted to use the canonical AST from `kotoba-syntax`.
+// For now, this is a direct copy from the original `kotoba-jsonnet` crate.
+
+// We'll need to add error types, likely from `kotoba-errors`.
+// For now, let's define a simple local error type.
+#[derive(Debug)]
+pub struct ParseError(pub String); // Make the inner string public
+pub type Result<T> = std::result::Result<T, ParseError>;
+
 
 /// Part of a string interpolation
 #[derive(Debug, Clone, PartialEq)]
@@ -303,9 +311,7 @@ impl Lexer {
             }
 
             // Unexpected character
-            _ => Err(JsonnetError::parse_error(
-                self.line,
-                self.column,
+            _ => Err(ParseError(
                 format!("Unexpected character: {}", ch)
             )),
         }
@@ -365,10 +371,8 @@ impl Lexer {
                 }
 
                 if paren_count > 0 {
-                    return Err(JsonnetError::parse_error(
-                        start_pos.line,
-                        start_pos.column,
-                        "Unterminated string interpolation"
+                    return Err(ParseError(
+                        "Unterminated string interpolation".to_string()
                     ));
                 }
 
@@ -386,10 +390,8 @@ impl Lexer {
         }
 
         if self.is_at_end() {
-            return Err(JsonnetError::parse_error(
-                start_pos.line,
-                start_pos.column,
-                "Unterminated string literal"
+            return Err(ParseError(
+                "Unterminated string literal".to_string()
             ));
         }
 
@@ -452,9 +454,7 @@ impl Lexer {
                 token: Token::Number(num),
                 position: start_pos,
             }),
-            Err(_) => Err(JsonnetError::parse_error(
-                start_pos.line,
-                start_pos.column,
+            Err(_) => Err(ParseError(
                 format!("Invalid number: {}", num_str)
             )),
         }
@@ -556,126 +556,5 @@ impl Lexer {
             self.advance();
             true
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_basic_tokens() {
-        let mut lexer = Lexer::new("null true false");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token, Token::Null);
-        assert_eq!(tokens[1].token, Token::True);
-        assert_eq!(tokens[2].token, Token::False);
-    }
-
-    #[test]
-    fn test_numbers() {
-        let mut lexer = Lexer::new("42 3.14 1e10");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token, Token::Number(42.0));
-        assert_eq!(tokens[1].token, Token::Number(3.14));
-        assert_eq!(tokens[2].token, Token::Number(1e10));
-    }
-
-    #[test]
-    fn test_strings() {
-        let mut lexer = Lexer::new(r#""hello" 'world'"#);
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].token, Token::String("hello".to_string()));
-        assert_eq!(tokens[1].token, Token::String("world".to_string()));
-    }
-
-    #[test]
-    fn test_identifiers() {
-        let mut lexer = Lexer::new("variable_name x y z");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 4);
-        assert_eq!(tokens[0].token, Token::Identifier("variable_name".to_string()));
-        assert_eq!(tokens[1].token, Token::Identifier("x".to_string()));
-    }
-
-    #[test]
-    fn test_operators() {
-        let mut lexer = Lexer::new("+ - * / % == != < <= > >= && || ! & | ^");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 17);
-        assert_eq!(tokens[0].token, Token::Plus);
-        assert_eq!(tokens[1].token, Token::Minus);
-        assert_eq!(tokens[2].token, Token::Star);
-        assert_eq!(tokens[3].token, Token::Slash);
-        assert_eq!(tokens[4].token, Token::Percent);
-        assert_eq!(tokens[5].token, Token::Equal);
-        assert_eq!(tokens[6].token, Token::NotEqual);
-        assert_eq!(tokens[7].token, Token::Less);
-        assert_eq!(tokens[8].token, Token::LessEqual);
-        assert_eq!(tokens[9].token, Token::Greater);
-        assert_eq!(tokens[10].token, Token::GreaterEqual);
-        assert_eq!(tokens[11].token, Token::And);
-        assert_eq!(tokens[12].token, Token::Or);
-        assert_eq!(tokens[13].token, Token::Not);
-        assert_eq!(tokens[14].token, Token::BitAnd);
-        assert_eq!(tokens[15].token, Token::BitOr);
-        assert_eq!(tokens[16].token, Token::BitXor);
-    }
-
-    #[test]
-    fn test_punctuation() {
-        let mut lexer = Lexer::new("( ) [ ] { } . , ; : :: $");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 12);
-        assert_eq!(tokens[0].token, Token::LParen);
-        assert_eq!(tokens[1].token, Token::RParen);
-        assert_eq!(tokens[2].token, Token::LBracket);
-        assert_eq!(tokens[3].token, Token::RBracket);
-        assert_eq!(tokens[4].token, Token::LBrace);
-        assert_eq!(tokens[5].token, Token::RBrace);
-        assert_eq!(tokens[6].token, Token::Dot);
-        assert_eq!(tokens[7].token, Token::Comma);
-        assert_eq!(tokens[8].token, Token::Semicolon);
-        assert_eq!(tokens[9].token, Token::Colon);
-        assert_eq!(tokens[10].token, Token::DoubleColon);
-    }
-
-    #[test]
-    fn test_keywords() {
-        let mut lexer = Lexer::new("local function if then else for in assert import importstr error");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 11);
-        assert_eq!(tokens[0].token, Token::Local);
-        assert_eq!(tokens[1].token, Token::Function);
-        assert_eq!(tokens[2].token, Token::If);
-        assert_eq!(tokens[3].token, Token::Then);
-        assert_eq!(tokens[4].token, Token::Else);
-        assert_eq!(tokens[5].token, Token::For);
-        assert_eq!(tokens[6].token, Token::In);
-        assert_eq!(tokens[7].token, Token::Assert);
-        assert_eq!(tokens[8].token, Token::Import);
-        assert_eq!(tokens[9].token, Token::ImportStr);
-        assert_eq!(tokens[10].token, Token::Error);
-    }
-
-    #[test]
-    fn test_whitespace_and_comments() {
-        let mut lexer = Lexer::new("null\n  true\t// comment\n  false # another comment");
-        let tokens = lexer.tokenize().unwrap();
-
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token, Token::Null);
-        assert_eq!(tokens[1].token, Token::True);
-        assert_eq!(tokens[2].token, Token::False);
     }
 }

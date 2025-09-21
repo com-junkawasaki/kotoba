@@ -10,31 +10,16 @@ members = [
     # "crates/020-language/031-kotoba-language", # No Cargo.toml
     "crates/020-language/020-kotoba-syntax",
     "crates/020-language/021-kotoba-parser",
-    "crates/030-storage/031-kotoba-storage",
-    # "crates/030-storage/038-kotoba-storage-rocksdb", # No Cargo.toml
-    # "crates/030-storage/037-kotoba-storage-redis",   # No Cargo.toml
-    # "crates/030-storage/035-kotoba-graphdb",         # No Cargo.toml
-    # "crates/030-storage/032-kotoba-cache",           # No Cargo.toml
-    # "crates/040-application/041-kotoba-event-stream", # No Cargo.toml
-    # "crates/040-application/042-kotoba-projection-engine", # No Cargo.toml
-    # "crates/040-application/044-kotoba-query-engine", # No Cargo.toml
-    # "crates/040-application/045-kotoba-execution", # No Cargo.toml
-    # "crates/040-application/046-kotoba-handler", # No Cargo.toml
-    # "crates/040-application/043-kotoba-rewrite", # No Cargo.toml
-    # "crates/040-application/047-kotoba-routing", # No Cargo.toml
-    # "crates/040-application/048-kotoba-state-graph", # No Cargo.toml
-    # "crates/050-workflow/052-kotoba-workflow", # No Cargo.toml
-    # "crates/050-workflow/053-kotoba-workflow-activities", # No Cargo.toml
-    # "crates/050-workflow/051-kotoba-workflow-core", # No Cargo.toml
-    # "crates/050-workflow/054-kotoba-workflow-operator", # No Cargo.toml
+    "crates/020-language/022-kotoba-analyzer",
     "crates/020-language/022-kotoba-jsonnet",
-    # "crates/020-language/024-kotoba-kotobas", # No Cargo.toml
-    # "crates/020-language/025-kotoba-formatter", # No Cargo.toml
-    # "crates/020-language/025-kotoba-linter", # No Cargo.toml
+    "crates/020-language/023-kotoba-kotobas",
+    "crates/020-language/024-kotoba-formatter",
+    "crates/020-language/025-kotoba-linter",
     "crates/020-language/026-kotoba-lsp",
     "crates/020-language/027-kotoba-repl",
     "crates/020-language/028-kotoba2tsx",
     "crates/020-language/029-kotobas-wasm",
+    "crates/020-language/030-kotoba-language",
     # "crates/060-services/064-kotoba-server-core", # No Cargo.toml
     # "crates/060-services/067-kotoba-server", # No Cargo.toml
     # "crates/060-services/065-kotoba-graph-api", # No Cargo.toml
@@ -61,17 +46,8 @@ members = [
     # "examples/vercel", # No Cargo.toml
 ]
 exclude = [
-    "crates/030-storage/kotoba-db-cluster",
-    "crates/030-storage/kotoba-distributed",
-    "crates/030-storage/037-kotoba-storage-redis",
-    "crates/060-services/kotoba-security",
-    "crates/060-services/kotoba-network",
-    "crates/060-services/kotoba-schema-registry",
-    "crates/060-services/kotoba-monitoring",
-    "crates/060-services/064-kotoba-server-core",
-    "crates/060-services/kotoba-server-workflow",
-    "crates/060-services/kotoba-cloud-integrations",
-    "crates/060-services/kotoba-profiler",
+    "crates/020-language/022-kotoba-sem",
+    "examples/densha",
 ]
 resolver = "2"
 

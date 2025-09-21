@@ -2,7 +2,7 @@
 // This crate is being refactored. The `types` and `auth` modules have been
 // extracted into their own crates (`kotoba-types` and `kotoba-auth`).
 
-pub type Result<T> = std::result::Result<T, kotoba_errors::KotobaError>;
+pub type KotobaResult<T> = std::result::Result<T, kotoba_errors::KotobaError>;
 
 // pub mod types; // Extracted to `kotoba-types` crate
 // pub mod auth;  // Extracted to `kotoba-auth` crate
@@ -29,6 +29,16 @@ pub mod prelude {
     pub use crate::crypto::EncryptionInfo;
     // Re-export KotobaError to avoid version conflicts
     pub use kotoba_errors::KotobaError;
+}
+
+// Re-export kotoba_auth as auth for backward compatibility
+pub mod auth {
+    pub use kotoba_auth::*;
+}
+
+// Re-export kotoba_types as types for backward compatibility
+pub mod types {
+    pub use kotoba_types::*;
 }
 
 // Tests related to `types` are now in the `kotoba-types` crate or will be moved.

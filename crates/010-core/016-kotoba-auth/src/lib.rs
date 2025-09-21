@@ -5,7 +5,7 @@
 //! Control (ReBAC) and Attribute-Based Access Control (ABAC).
 
 use kotoba_errors::AuthError;
-use kotoba_types::{Cid, Permission, ResourceId, Role, User}; // Label is unused
+use kotoba_types::Cid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
