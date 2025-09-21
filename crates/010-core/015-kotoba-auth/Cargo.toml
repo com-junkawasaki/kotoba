@@ -1,0 +1,19 @@
+[package]
+name = "kotoba-auth"
+version = "0.1.0"
+edition = "2021"
+description = "Authentication and Authorization engine for the Kotoba ecosystem (ReBAC + ABAC)."
+license = "Apache-2.0"
+
+[dependencies]
+kotoba-logic = { path = "../009-kotoba-logic" }
+kotoba-types = { path = "../011-kotoba-types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = "1.0"
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

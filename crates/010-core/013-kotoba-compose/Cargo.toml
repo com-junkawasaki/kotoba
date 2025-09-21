@@ -1,0 +1,17 @@
+[package]
+name = "kotoba-compose"
+version = "0.1.22"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Function composition normalization using e-graph/KBO/monoid laws"
+
+[dependencies]
+kotoba-types = { path = "../011-kotoba-types" }
+kotoba-ir = { path = "../012-kotoba-ir" }
+kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true

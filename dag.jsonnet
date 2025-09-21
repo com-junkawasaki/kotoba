@@ -23,7 +23,7 @@
       name: 'Core Layer',
       description: 'Fundamental data structures, error handling, CID, schema, OCEL',
       priority: 1,
-      crates: ['009-kotoba-logic', '010-kotoba-codebase', '011-kotoba-types', '012-kotoba-ir', '012-kotoba-rewrite-kernel', '011-kotoba-compose', '013-kotoba-schema', '016-kotoba-auth', '016-kotoba-graph-core', '018-kotoba-txlog', '019-kotoba-api']
+      crates: ['009-kotoba-logic', '010-kotoba-codebase', '010-kotoba-types', '011-kotoba-ir', '012-kotoba-rewrite-kernel', '013-kotoba-compose', '013-kotoba-cid', '014-kotoba-schema', '015-kotoba-auth', '016-kotoba-graph-core', '017-kotoba-txlog', '018-kotoba-api']
     },
     '030-storage': {
       name: 'Storage Layer',

@@ -1,0 +1,27 @@
+[package]
+name = "kotoba-api"
+version = "0.1.22"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "DefRef/patch resolution and execution API layer"
+
+[dependencies]
+kotoba-types = { path = "../010-kotoba-types" }
+kotoba-codebase = { path = "../010-kotoba-codebase" }
+kotoba-ir = { path = "../011-kotoba-ir" }
+kotoba-compose = { path = "../013-kotoba-compose" }
+kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }
+kotoba-graph-core = { path = "../016-kotoba-graph-core" }
+kotoba-txlog = { path = "../017-kotoba-txlog" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+blake3.workspace = true
+tokio = { workspace = true, features = ["full"] }
+async-trait.workspace = true
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs"] }
