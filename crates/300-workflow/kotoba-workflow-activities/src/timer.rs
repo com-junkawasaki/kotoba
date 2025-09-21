@@ -31,5 +31,9 @@ impl Activity for TimerScheduleActivity {
     fn name(&self) -> &str {
         "timer_schedule"
     }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("TimerScheduleActivity not implemented")
+    }
 }
 

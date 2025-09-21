@@ -15,6 +15,10 @@ impl Activity for WebhookNotifyActivity {
     fn name(&self) -> &str {
         "webhook_notify"
     }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("WebhookNotifyActivity not implemented")
+    }
 }
 
 
@@ -26,6 +30,10 @@ impl Default for SlackNotifyActivity {
 impl Activity for SlackNotifyActivity {
     fn name(&self) -> &str {
         "slack_notify"
+    }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("SlackNotifyActivity not implemented")
     }
 }
 

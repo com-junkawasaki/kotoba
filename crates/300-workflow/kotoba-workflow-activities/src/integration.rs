@@ -15,5 +15,9 @@ impl Activity for IntegrationActivity {
     fn name(&self) -> &str {
         "integration"
     }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("IntegrationActivity not implemented")
+    }
 }
 

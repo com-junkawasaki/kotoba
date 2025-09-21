@@ -15,6 +15,10 @@ impl Activity for JsonValidateActivity {
     fn name(&self) -> &str {
         "json_validate"
     }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("JsonValidateActivity not implemented")
+    }
 }
 
 
@@ -26,6 +30,10 @@ impl Default for RegexMatchActivity {
 impl Activity for RegexMatchActivity {
     fn name(&self) -> &str {
         "regex_match"
+    }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("RegexMatchActivity not implemented")
     }
 }
 

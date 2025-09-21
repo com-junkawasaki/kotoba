@@ -15,5 +15,9 @@ impl Activity for AiActivity {
     fn name(&self) -> &str {
         "ai"
     }
+
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
+        todo!("AiActivity not implemented")
+    }
 }
 
