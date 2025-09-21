@@ -15,14 +15,12 @@ impl Activity for FileReadActivity {
     fn name(&self) -> &str {
         "file_read"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for FileReadActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("FileReadActivity not implemented")
     }
 }
+
 
 pub struct FileWriteActivity;
 impl Default for FileWriteActivity {
@@ -33,11 +31,8 @@ impl Activity for FileWriteActivity {
     fn name(&self) -> &str {
         "file_write"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for FileWriteActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("FileWriteActivity not implemented")
     }
 }
@@ -51,11 +46,8 @@ impl Activity for FileCopyActivity {
     fn name(&self) -> &str {
         "file_copy"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for FileCopyActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("FileCopyActivity not implemented")
     }
 }
@@ -69,11 +61,8 @@ impl Activity for CsvParseActivity {
     fn name(&self) -> &str {
         "csv_parse"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for CsvParseActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("CsvParseActivity not implemented")
     }
 }
@@ -87,11 +76,8 @@ impl Activity for ZipCreateActivity {
     fn name(&self) -> &str {
         "zip_create"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for ZipCreateActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("ZipCreateActivity not implemented")
     }
 }

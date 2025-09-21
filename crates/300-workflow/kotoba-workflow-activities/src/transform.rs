@@ -15,14 +15,12 @@ impl Activity for JsonTransformActivity {
     fn name(&self) -> &str {
         "json_transform"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for JsonTransformActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("JsonTransformActivity not implemented")
     }
 }
+
 
 pub struct StringReplaceActivity;
 impl Default for StringReplaceActivity {
@@ -33,11 +31,8 @@ impl Activity for StringReplaceActivity {
     fn name(&self) -> &str {
         "string_replace"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for StringReplaceActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("StringReplaceActivity not implemented")
     }
 }
@@ -51,11 +46,8 @@ impl Activity for Base64EncodeActivity {
     fn name(&self) -> &str {
         "base64_encode"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for Base64EncodeActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("Base64EncodeActivity not implemented")
     }
 }
@@ -69,11 +61,8 @@ impl Activity for Base64DecodeActivity {
     fn name(&self) -> &str {
         "base64_decode"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for Base64DecodeActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("Base64DecodeActivity not implemented")
     }
 }

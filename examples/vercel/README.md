@@ -1,6 +1,6 @@
 # Kotoba GraphQL API for Vercel
 
-This directory contains a Vercel-compatible GraphQL API for the Kotoba graph database with Redis backend.
+This directory contains a Vercel-compatible GraphQL API for the Kotoba graph database using the `kotoba-storage-redis` crate as the backend.
 
 ## Features
 
@@ -178,22 +178,22 @@ vercel
 ## Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────┐
-│   Vercel Func   │────│   GraphQL API    │────│   Redis DB   │
-│                 │    │                  │    │             │
-│ - Request/Resp  │    │ - Queries        │    │ - Nodes     │
-│ - CORS          │    │ - Mutations      │    │ - Edges     │
-│ - Auth (future) │    │ - Subscriptions   │    │ - Indexes   │
-└─────────────────┘    └──────────────────┘    └─────────────┘
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+│   Vercel Func   │────│   GraphQL API    │────│ kotoba-storage-redis │
+│                 │    │                  │    │                     │
+│ - Request/Resp  │    │ - Queries        │    │ - KeyValueStore     │
+│ - CORS          │    │ - Mutations      │    │ - Redis backend     │
+│ - Auth (future) │    │ - Subscriptions   │    │ - JSON serialization│
+└─────────────────┘    └──────────────────┘    └─────────────────────┘
 ```
+
+The API uses the `kotoba-storage-redis` crate which implements the `KeyValueStore` trait for Redis operations. Graph data (nodes and edges) is stored as JSON-serialized objects with keys like `node:{id}` and `edge:{id}`.
 
 ## Redis Data Structure
 
-- **Nodes**: `kotoba:graphql:node:{id}` → JSON
-- **Edges**: `kotoba:graphql:edge:{id}` → JSON
-- **Node Indexes**: `kotoba:graphql:index:node:label:{label}` → Set of node IDs
-- **Edge Indexes**: `kotoba:graphql:index:edge:label:{label}` → Set of edge IDs
-- **Adjacency Lists**: `kotoba:graphql:node:{id}:out` / `kotoba:graphql:node:{id}:in` → Sets
+- **Nodes**: `node:{id}` → JSON serialized node data
+- **Edges**: `edge:{id}` → JSON serialized edge data
+- **KeyValueStore**: Uses `kotoba-storage-redis` crate implementing the `KeyValueStore` trait
 
 ## Error Handling
 

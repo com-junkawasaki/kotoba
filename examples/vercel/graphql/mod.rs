@@ -16,14 +16,13 @@ pub struct VercelContext {
 }
 
 impl VercelContext {
-    pub fn new(redis_url: &str) -> Self {
+    pub async fn new(redis_url: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let store = Arc::new(
-            RedisGraphStore::new(redis_url, "kotoba:graphql")
-                .expect("Failed to create Redis store")
+            RedisGraphStore::new(redis_url, "kotoba:graphql").await?
         );
         let schema = create_schema(store.clone());
 
-        Self { schema, store }
+        Ok(Self { schema, store })
     }
 }
 

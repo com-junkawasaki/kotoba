@@ -15,14 +15,12 @@ impl Activity for RabbitMqPublishActivity {
     fn name(&self) -> &str {
         "rabbitmq_publish"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for RabbitMqPublishActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("RabbitMqPublishActivity not implemented")
     }
 }
+
 
 pub struct RabbitMqConsumeActivity;
 impl Default for RabbitMqConsumeActivity {
@@ -33,11 +31,9 @@ impl Activity for RabbitMqConsumeActivity {
     fn name(&self) -> &str {
         "rabbitmq_consume"
     }
-}
 
-#[async_trait::async_trait]
-impl kotoba_workflow::Activity for RabbitMqConsumeActivity {
-    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, kotoba_workflow::ActivityError> {
+    async fn execute(&self, _inputs: HashMap<String, Value>) -> Result<HashMap<String, Value>, ActivityError> {
         todo!("RabbitMqConsumeActivity not implemented")
     }
 }
+

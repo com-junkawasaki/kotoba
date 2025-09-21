@@ -5783,6 +5783,8 @@ dependencies = [
  "chrono",
  "http-body-util",
  "hyper 1.7.0",
+ "kotoba-storage 0.1.22",
+ "kotoba-storage-redis",
  "lazy_static",
  "redis 0.23.3",
  "serde",

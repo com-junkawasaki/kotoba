@@ -17,13 +17,7 @@ mod graphql;
 use graphql::{VercelContext, graphql_playground, health_check};
 
 // Global context - initialized once per function instance
-lazy_static::lazy_static! {
-    static ref CONTEXT: Arc<VercelContext> = {
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
-        Arc::new(VercelContext::new(&redis_url))
-    };
-}
+static CONTEXT: tokio::sync::OnceCell<Arc<VercelContext>> = tokio::sync::OnceCell::const_new();
 
 async fn graphql_handler(
     Extension(context): Extension<Arc<VercelContext>>,
@@ -41,12 +35,20 @@ async fn graphql_handler(
 }
 
 async fn handler(request: Request) -> Result<Response<vercel_runtime::Body>, Error> {
+    // Initialize context if needed
+    let context = CONTEXT.get_or_try_init(|| async {
+        let redis_url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        let ctx = VercelContext::new(&redis_url).await?;
+        Ok::<Arc<VercelContext>, Box<dyn std::error::Error + Send + Sync>>(Arc::new(ctx))
+    }).await.map_err(|e| Error::from(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+
     // Create router for each request
     let app = Router::new()
         .route("/api/graphql", post(graphql_handler))
         .route("/api/graphql/playground", get(graphql_playground))
         .route("/api/health", get(health_check))
-        .layer(Extension(CONTEXT.clone()))
+        .layer(Extension(context.clone()))
         .layer(CorsLayer::permissive());
 
     // Convert Vercel request to Axum request

@@ -3,7 +3,8 @@
 //! Pre-built activities for HTTP operations including GET, POST, PUT, DELETE, PATCH.
 
 use async_trait::async_trait;
-use kotoba_workflow::{Activity, ActivityError};
+use kotoba_workflow::Activity;
+use kotoba_workflow::executor::ActivityError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
