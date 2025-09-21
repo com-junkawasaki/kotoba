@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use super::{LogicError, LogicResult, PredicateFormula};
 
 /// Decision theory system for automated decision making
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DecisionTheory {
     /// Decision procedures
     procedures: HashMap<String, DecisionProcedure>,
@@ -410,7 +410,7 @@ impl Decision {
 }
 
 /// Decision procedure
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecisionProcedure {
     /// Procedure name
     pub name: String,
@@ -456,10 +456,10 @@ impl DecisionProcedure {
 }
 
 /// Procedure implementation
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProcedureImplementation {
     /// Algorithm-based implementation
-    Algorithm(Box<dyn DecisionAlgorithm>),
+    Algorithm(ConcreteDecisionAlgorithm),
     /// Custom implementation
     Custom(String),
 }
@@ -476,8 +476,41 @@ pub trait DecisionAlgorithm: Send + Sync + ::std::fmt::Debug {
     fn description(&self) -> &str;
 }
 
+/// Concrete decision algorithms - replace trait objects with enum
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConcreteDecisionAlgorithm {
+    /// Dummy algorithm for demonstration
+    Dummy {
+        name: String,
+        description: String,
+    }
+}
+
+impl DecisionAlgorithm for ConcreteDecisionAlgorithm {
+    fn decide(&self, _problem: &DecisionProblem) -> Result<Decision, LogicError> {
+        match self {
+            ConcreteDecisionAlgorithm::Dummy { name, description: _ } => {
+                // Dummy implementation - always return yes
+                Ok(Decision::new(format!("Dummy decision from {}", name)))
+            }
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            ConcreteDecisionAlgorithm::Dummy { name, .. } => name,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            ConcreteDecisionAlgorithm::Dummy { description, .. } => description,
+        }
+    }
+}
+
 /// Decision heuristic
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecisionHeuristic {
     /// Heuristic name
     pub name: String,
@@ -515,10 +548,10 @@ impl DecisionHeuristic {
 }
 
 /// Heuristic implementation
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HeuristicImplementation {
     /// Function-based implementation
-    Function(Box<dyn DecisionFunction>),
+    Function(ConcreteDecisionFunction),
     /// Custom implementation
     Custom(String),
 }
@@ -535,8 +568,41 @@ pub trait DecisionFunction: Send + Sync + ::std::fmt::Debug {
     fn description(&self) -> &str;
 }
 
+/// Concrete decision functions - replace trait objects with enum
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConcreteDecisionFunction {
+    /// Dummy function for demonstration
+    Dummy {
+        name: String,
+        description: String,
+    }
+}
+
+impl DecisionFunction for ConcreteDecisionFunction {
+    fn decide(&self, _problem: &DecisionProblem) -> Result<Decision, LogicError> {
+        match self {
+            ConcreteDecisionFunction::Dummy { name, description: _ } => {
+                // Dummy implementation - always return no
+                Ok(Decision::new(format!("Dummy function decision from {}", name)))
+            }
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            ConcreteDecisionFunction::Dummy { name, .. } => name,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            ConcreteDecisionFunction::Dummy { description, .. } => description,
+        }
+    }
+}
+
 /// Optimization strategy
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizationStrategy {
     /// Strategy name
     pub name: String,
@@ -582,10 +648,10 @@ impl OptimizationStrategy {
 }
 
 /// Strategy implementation
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StrategyImplementation {
     /// Optimizer-based implementation
-    Optimizer(Box<dyn DecisionOptimizer>),
+    Optimizer(ConcreteDecisionOptimizer),
     /// Custom implementation
     Custom(String),
 }
@@ -603,4 +669,46 @@ pub trait DecisionOptimizer: Send + Sync + ::std::fmt::Debug {
 
     /// Get optimizer description
     fn description(&self) -> &str;
+}
+
+/// Concrete decision optimizers - replace trait objects with enum
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConcreteDecisionOptimizer {
+    /// Dummy optimizer for demonstration
+    Dummy {
+        name: String,
+        description: String,
+    }
+}
+
+impl DecisionOptimizer for ConcreteDecisionOptimizer {
+    fn optimize(&self, _decision: &Decision) -> Result<Decision, LogicError> {
+        match self {
+            ConcreteDecisionOptimizer::Dummy { name, description: _ } => {
+                // Dummy implementation - return unchanged decision
+                Ok(Decision::new(format!("Dummy optimized decision from {}", name)))
+            }
+        }
+    }
+
+    fn evaluate(&self, _decision: &Decision) -> f64 {
+        match self {
+            ConcreteDecisionOptimizer::Dummy { .. } => {
+                // Dummy implementation - always return 1.0
+                1.0
+            }
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            ConcreteDecisionOptimizer::Dummy { name, .. } => name,
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            ConcreteDecisionOptimizer::Dummy { description, .. } => description,
+        }
+    }
 }
