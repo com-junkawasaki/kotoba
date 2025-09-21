@@ -1,6 +1,6 @@
 //! kotoba-server - Kotoba Server Components
 
-// pub mod http; // TODO: Implement HTTP server modules
+pub mod http;
 pub mod frontend;
 
 pub mod prelude {

@@ -3,14 +3,13 @@ name = "kotoba-integration-tests"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-
 [dependencies]
 # Core crates
 kotoba-core = { path = "../../crates/000-core/kotoba-core", version = "0.1.22" }
 kotoba-errors = { path = "../../crates/000-core/kotoba-errors", version = "0.1.2" }
 kotoba-cid = { path = "../../crates/000-core/kotoba-cid", version = "0.1.22" }
 kotoba-ocel = { path = "../../crates/000-core/kotoba-ocel", version = "0.1.22" }
+kotoba-schema = { path = "../../crates/000-core/kotoba-schema", version = "0.1.22" }
 
 
 # Storage layer
@@ -25,6 +24,9 @@ kotoba-projection-engine = { path = "../../crates/200-application/kotoba-project
 kotoba-query-engine = { path = "../../crates/200-application/kotoba-query-engine", version = "0.1.0" }
 kotoba-execution = { path = "../../crates/200-application/kotoba-execution", version = "0.1.21" }
 kotoba-rewrite = { path = "../../crates/200-application/kotoba-rewrite", version = "0.1.21" }
+
+# Services layer
+kotoba-server = { path = "../../crates/500-services/kotoba-server", version = "0.1.22" }
 
 # Language layer
 kotoba-jsonnet = { path = "../../crates/400-language/kotoba-jsonnet", version = "0.1.17" }

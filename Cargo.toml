@@ -49,6 +49,7 @@ members = [
     "crates/900-tools/kotoba-runtime",
     "crates/900-tools/kotoba-ssg",
     "crates/900-tools/kotoba-tester",
+    "tests/integration",
 ]
 exclude = [
     "crates/100-storage/kotoba-db-cluster",
@@ -62,7 +63,6 @@ exclude = [
     "crates/500-services/kotoba-server-workflow",
     "crates/500-services/kotoba-cloud-integrations",
     "crates/500-services/kotoba-profiler",
-    "tests/20100_redis",
 ]
 resolver = "2"
 

@@ -1,226 +1,149 @@
-//! Integration test for GQL Query Engine and Projection Engine
+//! Integration test for GraphQL API with Kotoba DB
 //!
-//! This test verifies that GQL queries can be executed against the
-//! Projection Engine's GraphDB with proper integration.
+//! This test verifies that GraphQL API works correctly with Kotoba DB components.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::test;
 
-use kotoba_projection_engine::{ProjectionEngine, ProjectionConfig};
-use kotoba_query_engine::{QueryContext, VertexId, EdgeId, Vertex, Edge};
-use kotoba_ocel::{OcelEvent, OcelValue};
-use kotoba_graphdb::PropertyValue;
-use chrono::{DateTime, Utc, TimeZone};
+use kotoba_schema::{SchemaManager, GraphSchema};
+use kotoba_server::http::graphql::{create_schema, graphql_handler, SchemaContext};
 
-/// Test GQL query execution against Projection Engine
+/// Test GraphQL API integration with Kotoba DB
 #[tokio::test]
-async fn test_gql_query_execution() {
-    // Setup test data
-    let temp_dir = tempfile::tempdir().unwrap();
-    let db_path = temp_dir.path().to_str().unwrap().to_string();
+async fn test_graphql_api_integration() {
+    println!("🚀 Testing GraphQL API integration with Kotoba DB...");
 
-    // Create projection engine
-    let config = ProjectionConfig {
-        rocksdb_path: db_path,
-        max_concurrent_projections: 10,
-        batch_size: 100,
-        checkpoint_interval: 1000,
-        cache_config: Default::default(),
-        enable_metrics: false,
-    };
+    // Create schema manager for testing
+    let schema_manager = Arc::new(SchemaManager::new());
 
-    let projection_engine = Arc::new(ProjectionEngine::new(config).await.unwrap());
+    // Create a test schema
+    let mut test_schema = GraphSchema::new(
+        "test_schema".to_string(),
+        "Test Schema".to_string(),
+        "1.0.0".to_string()
+    );
+    test_schema.description = Some("Test schema for GraphQL integration".to_string());
 
-    // Start the engine
-    projection_engine.start().await.unwrap();
+    schema_manager.register_schema(test_schema)
+        .expect("Failed to register test schema");
 
-    // Create test OCEL events and process them
-    let events = create_test_ocel_events();
-    for event in events {
-        projection_engine.process_ocel_events(vec![event]).await.unwrap();
-    }
+    println!("✅ Test schema registered");
 
-    // Test GQL query execution
-    let query_context = QueryContext {
-        user_id: Some("test_user".to_string()),
-        database: "default".to_string(),
-        timeout: std::time::Duration::from_secs(30),
-        parameters: HashMap::new(),
-    };
+    // Setup GraphQL schema
+    let graphql_schema = create_schema(schema_manager.clone());
 
-    // Test MATCH query
-    let match_query = "MATCH (n) RETURN n";
-    let result = projection_engine.execute_gql_query(match_query, query_context.clone()).await;
-
-    match result {
-        Ok(query_result) => {
-            println!("GQL MATCH query executed successfully");
-            println!("Columns: {:?}", query_result.columns);
-            println!("Rows count: {}", query_result.rows.len());
-            assert!(!query_result.rows.is_empty(), "Should return some data");
-        }
-        Err(e) => {
-            println!("GQL MATCH query failed (expected for now): {}", e);
-            // This is expected to fail initially as we need more implementation
+    // Test GraphQL query: Get all schemas
+    let query = r#"
+    {
+        schemas {
+            id
+            name
+            version
+            description
         }
     }
+    "#;
 
-    // Test CREATE statement
-    let create_statement = "CREATE GRAPH test_graph";
-    let create_result = projection_engine.execute_gql_statement(create_statement, query_context).await;
+    let response = graphql_handler(&graphql_schema, query.to_string()).await
+        .expect("GraphQL query failed");
 
-    match create_result {
-        Ok(result) => {
-            println!("GQL CREATE statement executed successfully: {:?}", result);
-        }
-        Err(e) => {
-            println!("GQL CREATE statement failed (expected for now): {}", e);
-            // This is expected to fail initially as CREATE is not fully implemented
+    println!("📄 GraphQL Query Response:");
+    println!("{}", response);
+
+    // Parse and verify response
+    let response_json: serde_json::Value = serde_json::from_str(&response)
+        .expect("Failed to parse GraphQL response");
+
+    assert!(response_json.get("data").is_some(), "Response should contain data");
+    assert!(response_json["data"].get("schemas").is_some(), "Response should contain schemas");
+
+    let schemas = &response_json["data"]["schemas"];
+    assert!(schemas.is_array(), "Schemas should be an array");
+    assert_eq!(schemas.as_array().unwrap().len(), 1, "Should have one schema");
+
+    let schema = &schemas[0];
+    assert_eq!(schema["id"], "test_schema", "Schema ID should match");
+    assert_eq!(schema["name"], "Test Schema", "Schema name should match");
+    assert_eq!(schema["version"], "1.0.0", "Schema version should match");
+
+    println!("✅ GraphQL query for schemas executed successfully");
+
+    // Test GraphQL mutation: Create a new schema
+    let mutation = r#"
+    mutation {
+        createSchema(
+            id: "user_schema",
+            name: "User Schema",
+            version: "1.0.0",
+            description: "Schema for user data"
+        ) {
+            id
+            name
+            version
+            description
         }
     }
+    "#;
 
-    // Stop the engine
-    projection_engine.stop().await.unwrap();
-}
+    let mutation_response = graphql_handler(&graphql_schema, mutation.to_string()).await
+        .expect("GraphQL mutation failed");
 
-/// Test Projection Engine adapter functionality
-#[tokio::test]
-async fn test_projection_engine_adapter() {
-    // Setup test data
-    let temp_dir = tempfile::tempdir().unwrap();
-    let db_path = temp_dir.path().to_str().unwrap().to_string();
+    println!("📝 GraphQL Mutation Response:");
+    println!("{}", mutation_response);
 
-    // Create projection engine
-    let config = ProjectionConfig {
-        rocksdb_path: db_path,
-        max_concurrent_projections: 10,
-        batch_size: 100,
-        checkpoint_interval: 1000,
-        cache_config: Default::default(),
-        enable_metrics: false,
-    };
+    // Verify mutation response
+    let mutation_json: serde_json::Value = serde_json::from_str(&mutation_response)
+        .expect("Failed to parse GraphQL mutation response");
 
-    let projection_engine = Arc::new(ProjectionEngine::new(config).await.unwrap());
-    let adapter = kotoba_projection_engine::gql_integration::ProjectionEngineAdapter::new(projection_engine.clone());
+    assert!(mutation_json.get("data").is_some(), "Mutation response should contain data");
 
-    // Test vertex operations
-    let test_vertex_id = "test_vertex_1".to_string();
+    let created_schema = &mutation_json["data"]["createSchema"];
+    assert_eq!(created_schema["id"], "user_schema", "Created schema ID should match");
+    assert_eq!(created_schema["name"], "User Schema", "Created schema name should match");
 
-    // Test get_vertex (should return None initially)
-    let vertex_result = adapter.get_vertex(&test_vertex_id).await;
-    assert!(vertex_result.is_ok());
-    assert!(vertex_result.unwrap().is_none());
+    println!("✅ GraphQL mutation for schema creation executed successfully");
 
-    // Test scan_vertices
-    let vertices_result = adapter.scan_vertices(None).await;
-    assert!(vertices_result.is_ok());
-    let vertices = vertices_result.unwrap();
-    println!("Found {} vertices", vertices.len());
+    // Test GraphQL query: Get the newly created schema
+    let get_schema_query = r#"
+    {
+        schema(id: "user_schema") {
+            id
+            name
+            version
+            description
+        }
+    }
+    "#;
 
-    // Test edge operations
-    let test_edge_id = "test_edge_1".to_string();
+    let schema_response = graphql_handler(&graphql_schema, get_schema_query.to_string()).await
+        .expect("GraphQL get schema query failed");
 
-    // Test get_edge (should return None initially)
-    let edge_result = adapter.get_edge(&test_edge_id).await;
-    assert!(edge_result.is_ok());
-    assert!(edge_result.unwrap().is_none());
+    let schema_json: serde_json::Value = serde_json::from_str(&schema_response)
+        .expect("Failed to parse schema query response");
 
-    // Test scan_edges
-    let edges_result = adapter.scan_edges(None).await;
-    assert!(edges_result.is_ok());
-    let edges = edges_result.unwrap();
-    println!("Found {} edges", edges.len());
+    assert!(schema_json.get("data").is_some(), "Schema query response should contain data");
 
-    // Test cache operations
-    let cache_result = adapter.get("test_key").await;
-    assert!(cache_result.is_ok());
-    assert!(cache_result.unwrap().is_none());
+    let retrieved_schema = &schema_json["data"]["schema"];
+    assert_eq!(retrieved_schema["id"], "user_schema", "Retrieved schema ID should match");
+    assert_eq!(retrieved_schema["name"], "User Schema", "Retrieved schema name should match");
 
-    let set_result = adapter.set("test_key", serde_json::json!("test_value"), None).await;
-    assert!(set_result.is_ok());
+    println!("✅ GraphQL query for specific schema executed successfully");
 
-    let get_result = adapter.get("test_key").await;
-    assert!(get_result.is_ok());
-    assert_eq!(get_result.unwrap(), Some(serde_json::json!("test_value")));
-}
+    // Test health check
+    let health_query = r#"{ schemaHealth }"#;
 
-/// Helper function to create test OCEL events
-fn create_test_ocel_events() -> Vec<OcelEvent> {
-    let mut events = Vec::new();
+    let health_response = graphql_handler(&graphql_schema, health_query.to_string()).await
+        .expect("GraphQL health check failed");
 
-    // Event 1: Create order
-    let mut event1 = OcelEvent::new(
-        "evt1".to_string(),
-        "create_order".to_string(),
-        Utc.ymd(2023, 1, 1).and_hms(12, 0, 0),
-    );
+    let health_json: serde_json::Value = serde_json::from_str(&health_response)
+        .expect("Failed to parse health response");
 
-    event1.vmap.insert("customer_id".to_string(), OcelValue::String("cust123".to_string()));
-    event1.vmap.insert("amount".to_string(), OcelValue::Float(99.99));
-    event1.omap.push("order1".to_string());
-    event1.omap.push("customer1".to_string());
+    assert!(health_json.get("data").is_some(), "Health response should contain data");
+    assert_eq!(health_json["data"]["schemaHealth"], "Schema system is healthy", "Health check should pass");
 
-    events.push(event1);
+    println!("✅ GraphQL health check executed successfully");
 
-    // Event 2: Process order
-    let mut event2 = OcelEvent::new(
-        "evt2".to_string(),
-        "process_order".to_string(),
-        Utc.ymd(2023, 1, 1).and_hms(12, 5, 0),
-    );
-
-    event2.vmap.insert("status".to_string(), OcelValue::String("processing".to_string()));
-    event2.omap.push("order1".to_string());
-
-    events.push(event2);
-
-    // Event 3: Complete order
-    let mut event3 = OcelEvent::new(
-        "evt3".to_string(),
-        "complete_order".to_string(),
-        Utc.ymd(2023, 1, 1).and_hms(12, 10, 0),
-    );
-
-    event3.vmap.insert("status".to_string(), OcelValue::String("completed".to_string()));
-    event3.omap.push("order1".to_string());
-
-    events.push(event3);
-
-    events
-}
-
-/// Test GQL query parsing and execution flow
-#[tokio::test]
-async fn test_gql_parsing_flow() {
-    // Test basic GQL parsing
-    let query = "MATCH (n) RETURN n";
-
-    // This would normally go through the full pipeline:
-    // 1. GQL Parser parses the query string
-    // 2. Query Planner creates execution plan
-    // 3. Query Executor runs against GraphDB
-    // 4. Results returned as JSON
-
-    println!("Testing GQL parsing flow for query: {}", query);
-
-    // For now, just test that we can create the components
-    let temp_dir = tempfile::tempdir().unwrap();
-    let db_path = temp_dir.path().to_str().unwrap().to_string();
-
-    let config = ProjectionConfig {
-        rocksdb_path: db_path,
-        max_concurrent_projections: 10,
-        batch_size: 100,
-        checkpoint_interval: 1000,
-        cache_config: Default::default(),
-        enable_metrics: false,
-    };
-
-    let projection_engine = ProjectionEngine::new(config).await.unwrap();
-    let _adapter = kotoba_projection_engine::gql_integration::ProjectionEngineAdapter::new(Arc::new(projection_engine));
-
-    println!("GQL integration components created successfully");
-
-    // TODO: Add full parsing and execution test once all components are connected
+    println!("🎉 GraphQL API integration test completed successfully!");
+    println!("📊 GraphQL API is working correctly with Kotoba DB.");
 }

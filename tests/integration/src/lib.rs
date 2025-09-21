@@ -28,7 +28,7 @@
 
 // New architecture tests (Port/Adapter Pattern)
 // pub mod ocel_graphdb_tests;
-// pub mod gql_integration_tests;
+pub mod gql_integration_tests;
 
 // Core Graph Processing Tests (80% Coverage Target)
 // pub mod core_graph_processing_tests;
@@ -333,11 +333,11 @@ fn detect_cycles() -> Result<(), String> {
 
         if let Some(test) = TEST_TOPOLOGY_ORDER.iter().find(|t| t.name == test_name) {
             for dep in &test.dependencies {
-                if !visited.contains(dep) {
+                if !visited.contains(&dep[..]) {
                     if let Err(cycle) = has_cycle(dep, visited, recursion_stack) {
                         return Err(cycle);
                     }
-                } else if recursion_stack.contains(dep) {
+                } else if recursion_stack.contains(&dep[..]) {
                     return Err(format!("Cycle detected: {} -> {}", test_name, dep));
                 }
             }
