@@ -14,7 +14,7 @@ kotoba-schema = { path = "../../crates/000-core/kotoba-schema", version = "0.1.2
 
 # Storage layer
 kotoba-storage = { path = "../../crates/100-storage/kotoba-storage", version = "0.1.21" }
-kotoba-memory = { path = "../../crates/100-storage/kotoba-memory", version = "0.1.21" }
+# kotoba-memory = { path = "../../crates/100-storage/kotoba-memory", version = "0.1.21" }
 kotoba-graphdb = { path = "../../crates/100-storage/kotoba-graphdb", version = "0.1.21" }
 kotoba-db-cluster = { path = "../../crates/100-storage/kotoba-db-cluster", version = "0.1.16", optional = true }
 

@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
+use redis::AsyncCommands;
 use kotoba_storage_redis::{RedisStore, RedisConfig, ConnectionStatus};
 use kotoba_storage::KeyValueStore;
 
@@ -76,12 +77,12 @@ async fn test_integration_multiple_keys() {
     ];
 
     for (key, value) in &test_data {
-        store.put(key, value).await.expect("Put should succeed");
+        store.put(*key, *value).await.expect("Put should succeed");
     }
 
     // Verify all keys exist
     for (key, expected_value) in &test_data {
-        let retrieved = store.get(key).await.expect("Get should succeed");
+        let retrieved = store.get(*key).await.expect("Get should succeed");
         assert_eq!(retrieved, Some(expected_value.to_vec()), "Value should match");
     }
 
@@ -97,7 +98,7 @@ async fn test_integration_scan() {
     cleanup_test_store(&store).await;
 
     // Put keys with common prefix
-    let keys_and_values = vec![
+    let keys_and_values: Vec<(&[u8], &[u8])> = vec![
         (b"prefix_key1", b"value1"),
         (b"prefix_key2", b"value2"),
         (b"prefix_key3", b"value3"),
@@ -105,7 +106,7 @@ async fn test_integration_scan() {
     ];
 
     for (key, value) in &keys_and_values {
-        store.put(key, value).await.expect("Put should succeed");
+        store.put(*key, *value).await.expect("Put should succeed");
     }
 
     // Scan with prefix

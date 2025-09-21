@@ -91,12 +91,10 @@ impl Default for ConnectionStatus {
 
 /// Redis-based key-value store implementation
 pub struct RedisStore {
-    /// Configuration
-    config: RedisConfig,
-    /// Redis client
+    /// Redis client or cluster client
     client: Client,
-    /// Connection pool
-    connection_pool: Arc<RwLock<Vec<redis::aio::Connection>>>,
+    /// Configuration settings, now public
+    pub config: RedisConfig,
     /// Statistics
     stats: Arc<RwLock<RedisStats>>,
     /// Active entries tracking
@@ -121,42 +119,14 @@ impl RedisStore {
         let client = Client::open(client_url)
             .map_err(|e| RedisError::ConnectionError(e.to_string()))?;
 
-        // Initialize connection pool
-        let mut connection_pool = Vec::new();
-        let mut connection_status = ConnectionStatus::Disconnected;
-
-        // Try to establish connections
-        for i in 0..config.connection_pool_size {
-            match client.get_async_connection().await {
-                Ok(conn) => {
-                    connection_pool.push(conn);
-                    if i == 0 {
-                        connection_status = ConnectionStatus::Connected;
-                        info!("Redis connection established successfully");
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to establish Redis connection {}: {}. Using mock mode.", i, e);
-                    connection_status = ConnectionStatus::MockMode;
-                    break;
-                }
-            }
-        }
-
-        if connection_pool.is_empty() {
-            warn!("No Redis connections available, operating in mock mode");
-            connection_status = ConnectionStatus::MockMode;
-        }
-
         let stats = RedisStats {
-            connection_status,
+            connection_status: ConnectionStatus::Disconnected,
             ..Default::default()
         };
 
         Ok(Self {
-            config,
             client,
-            connection_pool: Arc::new(RwLock::new(connection_pool)),
+            config,
             stats: Arc::new(RwLock::new(stats)),
             active_entries: Arc::new(RwLock::new(HashMap::new())),
         })
@@ -203,27 +173,15 @@ impl RedisStore {
         Ok(url)
     }
 
-    /// Get connection from pool
-    async fn get_connection(&self) -> Result<redis::aio::Connection, RedisError> {
-        let mut pool = self.connection_pool.write().await;
-        if pool.is_empty() {
-            // Try to create a new connection
-            match self.client.get_async_connection().await {
-                Ok(conn) => Ok(conn),
-                Err(e) => Err(RedisError::ConnectionError(e.to_string())),
-            }
-        } else {
-            Ok(pool.remove(0))
-        }
+    /// Get a connection from the pool or create a new one
+    pub async fn get_connection(&self) -> Result<redis::aio::Connection, RedisError> {
+        self.client.get_async_connection().await.map_err(|e| RedisError::ConnectionError(e.to_string()))
     }
 
-    /// Return connection to pool
-    async fn return_connection(&self, connection: redis::aio::Connection) {
-        let mut pool = self.connection_pool.write().await;
-        if pool.len() < self.config.connection_pool_size {
-            pool.push(connection);
-        }
-        // If pool is full, connection will be dropped
+    /// Return a connection to the pool
+    pub async fn return_connection(&self, _connection: redis::aio::Connection) {
+        // With no pool, we don't need to return the connection.
+        // It will be dropped.
     }
 
     /// Make storage key with prefix
@@ -320,7 +278,7 @@ impl KeyValueStore for RedisStore {
         // Store with TTL
         let ttl = self.config.default_ttl_seconds;
         let result = if ttl > 0 {
-            connection.set_ex(&storage_key, final_data, ttl as u64).await
+            connection.set_ex(&storage_key, final_data, ttl as usize).await
         } else {
             connection.set(&storage_key, final_data).await
         };
