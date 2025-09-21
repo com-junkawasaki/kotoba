@@ -9,6 +9,7 @@ description = "DefRef/patch resolution and execution API layer"
 [dependencies]
 kotoba-types = { path = "../011-kotoba-types" }
 kotoba-codebase = { path = "../010-kotoba-codebase" }
+kotoba-ir = { path = "../012-kotoba-ir" }
 kotoba-compose = { path = "../011-kotoba-compose" }
 kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }
 kotoba-graph-core = { path = "../016-kotoba-graph-core" }

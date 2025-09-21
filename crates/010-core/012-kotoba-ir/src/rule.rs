@@ -2,67 +2,119 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::types::*;
+use kotoba_types::{VertexId, Value as KotobaValue, Properties, PropertyKey, Label};
 
-/// ガード条件（名前付き述語）
+/// Guard condition (named predicate)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Guard {
-    pub ref_: String,  // 述語名（例: "deg_ge"）
-    pub args: HashMap<String, Value>,
+    /// Predicate name (e.g., "deg_ge")
+    pub ref_: String,
+    /// Arguments
+    pub args: HashMap<String, KotobaValue>,
 }
 
-/// グラフパターン要素
+/// Graph pattern element
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphElement {
-    pub id: String,  // 変数名
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Variable name
+    pub id: String,
+    /// Type (optional)
     pub type_: Option<Label>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Properties (optional)
     pub props: Option<Properties>,
 }
 
-/// エッジ定義
+/// Edge definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgeDef {
+    /// Edge ID
     pub id: String,
+    /// Source vertex
     pub src: String,
+    /// Destination vertex
     pub dst: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Type (optional)
     pub type_: Option<Label>,
 }
 
-/// グラフパターン
+/// Graph pattern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphPattern {
+    /// Nodes
     pub nodes: Vec<GraphElement>,
+    /// Edges
     pub edges: Vec<EdgeDef>,
 }
 
-/// 負の条件（NAC: Negative Application Condition）- ルール用
+/// Negative Application Condition (NAC) for rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleNac {
+    /// Nodes
     pub nodes: Vec<GraphElement>,
+    /// Edges
     pub edges: Vec<EdgeDef>,
 }
 
-/// DPOルール定義
+/// DPO rule definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleIR {
+    /// Rule name
     pub name: String,
-    pub types: HashMap<String, Vec<Label>>,  // 型定義
-    pub lhs: GraphPattern,                   // Left-hand side (L)
-    pub context: GraphPattern,               // Context (K)
-    pub rhs: GraphPattern,                   // Right-hand side (R)
-    pub nacs: Vec<RuleNac>,                   // Negative conditions
-    pub guards: Vec<Guard>,                  // ガード条件
+    /// Type definitions
+    pub types: HashMap<String, Vec<Label>>,
+    /// Left-hand side (L)
+    pub lhs: GraphPattern,
+    /// Context (K)
+    pub context: GraphPattern,
+    /// Right-hand side (R)
+    pub rhs: GraphPattern,
+    /// Negative conditions
+    pub nacs: Vec<RuleNac>,
+    /// Guard conditions
+    pub guards: Vec<Guard>,
 }
 
-/// ルールマッチ結果
+impl RuleIR {
+    /// Create a new rule
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            types: HashMap::new(),
+            lhs: GraphPattern::new(),
+            context: GraphPattern::new(),
+            rhs: GraphPattern::new(),
+            nacs: Vec::new(),
+            guards: Vec::new(),
+        }
+    }
+
+    /// Add type definition
+    pub fn with_type(mut self, name: String, labels: Vec<Label>) -> Self {
+        self.types.insert(name, labels);
+        self
+    }
+
+    /// Add guard condition
+    pub fn with_guard(mut self, guard: Guard) -> Self {
+        self.guards.push(guard);
+        self
+    }
+
+    /// Add NAC
+    pub fn with_nac(mut self, nac: RuleNac) -> Self {
+        self.nacs.push(nac);
+        self
+    }
+}
+
+/// Rule match result
 #[derive(Debug, Clone)]
 pub struct Match {
-    pub mapping: HashMap<String, VertexId>,  // 変数→頂点IDマッピング
-    pub score: f64,                         // マッチスコア
+    /// Variable to vertex ID mapping
+    pub mapping: HashMap<String, VertexId>,
+    /// Match score
+    pub score: f64,
 }
 
-/// 複数マッチ結果
+/// Multiple match results
 pub type Matches = Vec<Match>;

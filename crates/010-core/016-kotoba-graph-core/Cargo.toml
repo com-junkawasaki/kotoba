@@ -7,6 +7,7 @@ repository.workspace = true
 description = "Incidence bipartite graph + canonicalization + merkle for content-addressed graphs"
 
 [dependencies]
+kotoba-logic = { path = "../009-kotoba-logic" }
 kotoba-types = { path = "../011-kotoba-types" }
 kotoba-codebase = { path = "../010-kotoba-codebase" }
 serde = { workspace = true, features = ["derive"] }

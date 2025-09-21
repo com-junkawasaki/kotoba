@@ -1,18 +1,18 @@
 //! Strategy-IR（極小戦略表現）
 
 use serde::{Deserialize, Serialize};
-use crate::types::*;
+use kotoba_types::{VertexId, Value as KotobaValue};
 
-/// 戦略演算子
+/// Strategy operator
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op")]
 pub enum StrategyOp {
-    /// 1回だけ適用
+    /// Apply once
     Once {
-        rule: String,  // ルール名またはハッシュ
+        rule: String,  // Rule name or hash
     },
 
-    /// 適用可能になるまで繰り返し
+    /// Exhaustive application
     Exhaust {
         rule: String,
         #[serde(default)]
@@ -21,38 +21,40 @@ pub enum StrategyOp {
         measure: Option<String>,
     },
 
-    /// 条件付き繰り返し
+    /// Conditional repetition
     While {
         rule: String,
-        pred: String,  // 述語名
+        pred: String,  // Predicate name
         #[serde(default)]
         order: Order,
     },
 
-    /// 順次実行
+    /// Sequential execution
     Seq {
         strategies: Vec<Box<StrategyOp>>,
     },
 
-    /// 選択実行（最初に成功したもの）
+    /// Choice (first successful)
     Choice {
         strategies: Vec<Box<StrategyOp>>,
     },
 
-    /// 優先順位付き選択
+    /// Priority-based choice
     Priority {
         strategies: Vec<PrioritizedStrategy>,
     },
 }
 
-/// 優先順位付き戦略
+/// Prioritized strategy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrioritizedStrategy {
+    /// Strategy
     pub strategy: Box<StrategyOp>,
+    /// Priority
     pub priority: i32,
 }
 
-/// 適用順序
+/// Application order
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum Order {
     #[default]
@@ -66,28 +68,63 @@ pub enum Order {
     Fair,
 }
 
-/// 戦略IR
+/// Strategy IR
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategyIR {
+    /// Strategy
     pub strategy: StrategyOp,
 }
 
-/// 戦略実行結果
-#[derive(Debug, Clone)]
-pub struct StrategyResult {
-    pub applied_count: usize,
-    pub final_graph: GraphRef_,
-    pub patches: Vec<crate::ir::patch::Patch>,
+impl StrategyIR {
+    /// Create a new strategy
+    pub fn new(strategy: StrategyOp) -> Self {
+        Self { strategy }
+    }
 }
 
-/// 外部述語/測度トレイト
+/// Strategy execution result
+#[derive(Debug, Clone)]
+pub struct StrategyResult {
+    /// Applied count
+    pub applied_count: usize,
+    /// Final graph
+    pub final_graph: GraphRef_,
+    /// Applied patches
+    pub patches: Vec<crate::patch::Patch>,
+}
+
+/// External predicates/measures trait
 pub trait Externs {
-    /// 次数が指定値以上かチェック
+    /// Check if degree is greater than or equal to k
     fn deg_ge(&self, v: VertexId, k: u32) -> bool;
 
-    /// エッジ数が非増加かチェック（停止測度）
+    /// Check if edge count is non-increasing (termination measure)
     fn edge_count_nonincreasing(&self, g0: &GraphRef_, g1: &GraphRef_) -> bool;
 
-    /// カスタム述語
-    fn custom_pred(&self, name: &str, args: &[Value]) -> bool;
+    /// Custom predicate
+    fn custom_pred(&self, name: &str, args: &[KotobaValue]) -> bool;
+}
+
+/// Graph reference for strategy execution
+#[derive(Debug, Clone)]
+pub struct GraphRef_ {
+    /// Graph instance
+    pub graph: kotoba_types::GraphInstance,
+}
+
+impl GraphRef_ {
+    /// Create a new graph reference
+    pub fn new(graph: kotoba_types::GraphInstance) -> Self {
+        Self { graph }
+    }
+
+    /// Get vertex count
+    pub fn vertex_count(&self) -> usize {
+        self.graph.core.nodes.len()
+    }
+
+    /// Get edge count
+    pub fn edge_count(&self) -> usize {
+        self.graph.core.edges.len()
+    }
 }

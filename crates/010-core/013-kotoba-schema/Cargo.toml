@@ -13,8 +13,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 [dependencies]
 # Core dependencies
 kotoba-types = { path = "../011-kotoba-types" }
-kotoba-errors = { path = "../011-kotoba-errors" }
-kotoba-rewrite-kernel = { path = "../012-kotoba-rewrite-kernel" }
+kotoba-ir = { path = "../012-kotoba-ir" }
 kotoba-graph-core = { path = "../016-kotoba-graph-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

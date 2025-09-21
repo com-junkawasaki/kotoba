@@ -29,7 +29,6 @@ tracing = "0.1"
 
 # Kotoba ecosystem
 kotoba-graph-core = { path = "../../010-core/016-kotoba-graph-core" }
-kotoba-errors = { path = "../../010-core/011-kotoba-errors" }
-kotoba-types = { path = "../../010-core/011-kotoba-types" }
+kotoba-types = { path = "../011-kotoba-types" }
 kotoba-cid = { path = "../../010-core/013-kotoba-cid" }
 kotoba-auth = { path = "../../010-core/016-kotoba-auth" }

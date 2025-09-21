@@ -23,7 +23,7 @@
       name: 'Core Layer',
       description: 'Fundamental data structures, error handling, CID, schema, OCEL',
       priority: 1,
-      crates: ['010-kotoba-logic', '011-kotoba-types', '012-kotoba-ir', '013-kotoba-schema', '014-kotoba-api']
+      crates: ['009-kotoba-logic', '010-kotoba-codebase', '011-kotoba-types', '012-kotoba-ir', '012-kotoba-rewrite-kernel', '011-kotoba-compose', '013-kotoba-schema', '016-kotoba-auth', '016-kotoba-graph-core', '018-kotoba-txlog', '019-kotoba-api']
     },
     '030-storage': {
       name: 'Storage Layer',
@@ -94,7 +94,7 @@
 
     'topology': {
       name: 'topology',
-      path: 'crates/010-core/010-kotoba-logic/src/topology.rs',
+      path: 'crates/010-core/018-kotoba-txlog/src/topology.rs',
       type: 'foundation',
       layer: '010-core',
       description: 'プロセスネットワークトポロジー検証と処理 (TopologyGraph, Node, Edge, Validation)',
@@ -108,7 +108,7 @@
 
     'error_handling': {
       name: 'error_handling',
-      path: 'crates/010-core/011-kotoba-errors/src/lib.rs',
+      path: 'crates/010-core/011-kotoba-types/src/lib.rs',
       type: 'foundation',
       layer: '010-core',
       description: '統一されたエラーハンドリングシステム (KotobaError, WorkflowError)',
@@ -122,7 +122,7 @@
 
     'ir_catalog': {
       name: 'ir_catalog',
-      path: 'crates/010-core/012-kotoba-ir/src/catalog.rs',
+      path: 'crates/010-core/012-kotoba-rewrite-kernel/src/catalog.rs',
       type: 'ir',
       layer: '010-core',
       description: 'スキーマ/索引/不変量定義',
@@ -150,7 +150,7 @@
 
     'crypto': {
       name: 'crypto',
-      path: 'crates/010-core/010-kotoba-logic/src/crypto.rs',
+      path: 'crates/010-core/016-kotoba-auth/src/crypto.rs',
       type: 'security',
       layer: '010-core',
       description: '暗号化エンジン (envelope encryption + DEK management)',
@@ -299,7 +299,7 @@
     // グラフ層
     'graph_vertex': {
       name: 'graph_vertex',
-      path: 'crates/010-core/010-kotoba-logic/src/graph/vertex.rs',
+      path: 'crates/010-core/016-kotoba-graph-core/src/graph.rs',
       type: 'graph',
       layer: '010-core',
       description: '頂点関連構造体とビルダー',
@@ -313,7 +313,7 @@
 
     'graph_edge': {
       name: 'graph_edge',
-      path: 'crates/010-core/010-kotoba-logic/src/graph/edge.rs',
+      path: 'crates/010-core/016-kotoba-graph-core/src/graph.rs',
       type: 'graph',
       layer: '010-core',
       description: 'エッジ関連構造体とビルダー',
@@ -868,7 +868,7 @@
 
     'ocel_system': {
       name: 'ocel_system',
-      path: 'crates/010-core/015-kotoba-ocel/src/lib.rs',
+# OCEL removed during cleanup
       type: 'ocel',
       layer: '010-core',
       description: 'OCEL v2 (Object-Centric Event Log) 実装 - プロセス実行履歴管理',

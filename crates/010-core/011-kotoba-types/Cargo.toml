@@ -2,15 +2,15 @@
 name = "kotoba-types"
 version = "0.1.22"
 edition = "2021"
-description = "Core type definitions for the Kotoba ecosystem (Value, VertexId, EdgeId, etc.)."
+description = "Core type definitions for the Kotoba ecosystem including CID, graph types, and error handling."
 license = "Apache-2.0"
 
 [dependencies]
-kotoba-types = { path = "../011-kotoba-types" }
-kotoba-errors = { path = "../011-kotoba-errors" }
-serde = { workspace = true }
+kotoba-logic = { path = "../009-kotoba-logic" }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 hex = { workspace = true }
 sha2 = { workspace = true }
 schemars = { workspace = true, features = ["uuid1"] }
+thiserror = { workspace = true }

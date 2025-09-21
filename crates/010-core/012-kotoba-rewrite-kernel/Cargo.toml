@@ -7,9 +7,8 @@ repository.workspace = true
 description = "Rule/Strategy/Scheduler + independence analysis for graph rewriting"
 
 [dependencies]
-kotoba-codebase = { path = "../010-kotoba-codebase" }
-kotoba-compose = { path = "../011-kotoba-compose" }
 kotoba-types = { path = "../011-kotoba-types" }
+kotoba-ir = { path = "../012-kotoba-ir" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true

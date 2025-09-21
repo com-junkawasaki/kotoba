@@ -9,6 +9,7 @@ description = "Tx DAG + provenance + replay for causal tracking and audit trails
 [dependencies]
 kotoba-types = { path = "../011-kotoba-types" }
 kotoba-codebase = { path = "../010-kotoba-codebase" }
+kotoba-ir = { path = "../012-kotoba-ir" }
 kotoba-graph-core = { path = "../016-kotoba-graph-core" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

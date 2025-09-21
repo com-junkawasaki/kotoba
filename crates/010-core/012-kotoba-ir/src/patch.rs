@@ -1,75 +1,96 @@
 //! Patch-IR（差分表現）
 
 use serde::{Deserialize, Serialize};
-use crate::types::*;
+use kotoba_types::{VertexId, EdgeId, PropertyKey, Value as KotobaValue, Label};
 
-/// 頂点追加
+/// Add vertex operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddVertex {
+    /// Vertex ID
     pub id: VertexId,
+    /// Labels
     pub labels: Vec<Label>,
-    pub props: Properties,
+    /// Properties
+    pub props: kotoba_types::Properties,
 }
 
-/// エッジ追加
+/// Add edge operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddEdge {
+    /// Edge ID
     pub id: EdgeId,
+    /// Source vertex
     pub src: VertexId,
+    /// Destination vertex
     pub dst: VertexId,
+    /// Label
     pub label: Label,
-    pub props: Properties,
+    /// Properties
+    pub props: kotoba_types::Properties,
 }
 
-/// プロパティ更新
+/// Update property operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateProp {
-    pub id: VertexId,  // 頂点IDまたはエッジID
+    /// Element ID (vertex or edge)
+    pub id: VertexId,
+    /// Property key
     pub key: PropertyKey,
-    pub value: Value,
+    /// New value
+    pub value: KotobaValue,
 }
 
-/// リリンク（エッジの端点変更）
+/// Relink operation (change edge endpoints)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Relink {
+    /// Edge ID
     pub edge_id: EdgeId,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// New source (optional)
     pub new_src: Option<VertexId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// New destination (optional)
     pub new_dst: Option<VertexId>,
 }
 
-/// パッチ操作
+/// Patch containing multiple operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Patch {
+    /// Add operations
     pub adds: Adds,
+    /// Delete operations
     pub dels: Dels,
+    /// Update operations
     pub updates: Updates,
 }
 
-/// 追加操作
+/// Add operations
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Adds {
+    /// Vertices to add
     pub vertices: Vec<AddVertex>,
+    /// Edges to add
     pub edges: Vec<AddEdge>,
 }
 
-/// 削除操作
+/// Delete operations
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Dels {
+    /// Vertices to delete
     pub vertices: Vec<VertexId>,
+    /// Edges to delete
     pub edges: Vec<EdgeId>,
 }
 
-/// 更新操作
+/// Update operations
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Updates {
+    /// Property updates
     pub props: Vec<UpdateProp>,
+    /// Relink operations
     pub relinks: Vec<Relink>,
 }
 
 impl Patch {
-    /// 空のパッチを作成
+    /// Create an empty patch
     pub fn empty() -> Self {
         Self {
             adds: Adds::default(),
@@ -78,7 +99,7 @@ impl Patch {
         }
     }
 
-    /// パッチが空かどうか
+    /// Check if patch is empty
     pub fn is_empty(&self) -> bool {
         self.adds.vertices.is_empty()
             && self.adds.edges.is_empty()
@@ -88,7 +109,7 @@ impl Patch {
             && self.updates.relinks.is_empty()
     }
 
-    /// 2つのパッチをマージ
+    /// Merge two patches
     pub fn merge(mut self, other: Patch) -> Self {
         self.adds.vertices.extend(other.adds.vertices);
         self.adds.edges.extend(other.adds.edges);
@@ -97,5 +118,47 @@ impl Patch {
         self.updates.props.extend(other.updates.props);
         self.updates.relinks.extend(other.updates.relinks);
         self
+    }
+
+    /// Add a vertex
+    pub fn add_vertex(mut self, vertex: AddVertex) -> Self {
+        self.adds.vertices.push(vertex);
+        self
+    }
+
+    /// Add an edge
+    pub fn add_edge(mut self, edge: AddEdge) -> Self {
+        self.adds.edges.push(edge);
+        self
+    }
+
+    /// Delete a vertex
+    pub fn delete_vertex(mut self, vertex_id: VertexId) -> Self {
+        self.dels.vertices.push(vertex_id);
+        self
+    }
+
+    /// Delete an edge
+    pub fn delete_edge(mut self, edge_id: EdgeId) -> Self {
+        self.dels.edges.push(edge_id);
+        self
+    }
+
+    /// Update a property
+    pub fn update_prop(mut self, update: UpdateProp) -> Self {
+        self.updates.props.push(update);
+        self
+    }
+
+    /// Relink an edge
+    pub fn relink_edge(mut self, relink: Relink) -> Self {
+        self.updates.relinks.push(relink);
+        self
+    }
+}
+
+impl Default for Patch {
+    fn default() -> Self {
+        Self::empty()
     }
 }

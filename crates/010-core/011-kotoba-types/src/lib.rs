@@ -1,15 +1,335 @@
 //! # Kotoba Types
 //!
 //! Core type definitions for the Kotoba ecosystem, including CID systems,
-//! Merkle DAG structures, and graph-related types.
+//! Merkle DAG structures, graph-related types, and unified error handling.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
+use std::fmt;
 use kotoba_types::Cid;
+use thiserror::Error;
 
 // Re-export from kotoba-types crate
 pub use kotoba_types::*;
+
+// Re-export error types
+pub use crate::{KotobaError, KotobaResult, ErrorCategory};
+
+/// Core error types for the Kotoba system
+#[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum KotobaError {
+    /// Validation error
+    #[error("Validation error: {message}")]
+    Validation(String),
+
+    /// Security-related error
+    #[error("Security error: {message}")]
+    Security(String),
+
+    /// Authentication error
+    #[error("Authentication error: {message}")]
+    Auth(String),
+
+    /// Authorization error
+    #[error("Authorization error: {message}")]
+    Authz(String),
+
+    /// Invalid argument
+    #[error("Invalid argument: {message}")]
+    InvalidArgument(String),
+
+    /// Not found
+    #[error("Not found: {message}")]
+    NotFound(String),
+
+    /// Already exists
+    #[error("Already exists: {message}")]
+    AlreadyExists(String),
+
+    /// IO error
+    #[error("IO error: {message}")]
+    Io(String),
+
+    /// Network error
+    #[error("Network error: {message}")]
+    Network(String),
+
+    /// Serialization error
+    #[error("Serialization error: {message}")]
+    Serialization(String),
+
+    /// Deserialization error
+    #[error("Deserialization error: {message}")]
+    Deserialization(String),
+
+    /// Timeout error
+    #[error("Timeout error: {message}")]
+    Timeout(String),
+
+    /// Resource exhausted
+    #[error("Resource exhausted: {message}")]
+    ResourceExhausted(String),
+
+    /// Unimplemented
+    #[error("Unimplemented: {message}")]
+    Unimplemented(String),
+
+    /// Internal error
+    #[error("Internal error: {message}")]
+    Internal(String),
+
+    /// Graph transformation error
+    #[error("Graph transformation error: {message}")]
+    GraphTransformation(String),
+
+    /// Schema error
+    #[error("Schema error: {message}")]
+    Schema(String),
+
+    /// Query error
+    #[error("Query error: {message}")]
+    Query(String),
+
+    /// Execution error
+    #[error("Execution error: {message}")]
+    Execution(String),
+
+    /// API error
+    #[error("API error: {message}")]
+    Api(String),
+
+    /// Dependency resolution error
+    #[error("Dependency resolution error: {message}")]
+    DependencyResolution(String),
+
+    /// Configuration error
+    #[error("Configuration error: {message}")]
+    Configuration(String),
+
+    /// Database error
+    #[error("Database error: {message}")]
+    Database(String),
+
+    /// Cache error
+    #[error("Cache error: {message}")]
+    Cache(String),
+
+    /// Workflow error
+    #[error("Workflow error: {message}")]
+    Workflow(String),
+
+    /// Plugin error
+    #[error("Plugin error: {message}")]
+    Plugin(String),
+}
+
+impl KotobaError {
+    /// Create a validation error
+    pub fn validation(message: impl Into<String>) -> Self {
+        Self::Validation(message.into())
+    }
+
+    /// Create a security error
+    pub fn security(message: impl Into<String>) -> Self {
+        Self::Security(message.into())
+    }
+
+    /// Create an authentication error
+    pub fn auth(message: impl Into<String>) -> Self {
+        Self::Auth(message.into())
+    }
+
+    /// Create an authorization error
+    pub fn authz(message: impl Into<String>) -> Self {
+        Self::Authz(message.into())
+    }
+
+    /// Create an invalid argument error
+    pub fn invalid_argument(message: impl Into<String>) -> Self {
+        Self::InvalidArgument(message.into())
+    }
+
+    /// Create a not found error
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::NotFound(message.into())
+    }
+
+    /// Create an already exists error
+    pub fn already_exists(message: impl Into<String>) -> Self {
+        Self::AlreadyExists(message.into())
+    }
+
+    /// Create an IO error
+    pub fn io(message: impl Into<String>) -> Self {
+        Self::Io(message.into())
+    }
+
+    /// Create a network error
+    pub fn network(message: impl Into<String>) -> Self {
+        Self::Network(message.into())
+    }
+
+    /// Create a serialization error
+    pub fn serialization(message: impl Into<String>) -> Self {
+        Self::Serialization(message.into())
+    }
+
+    /// Create a deserialization error
+    pub fn deserialization(message: impl Into<String>) -> Self {
+        Self::Deserialization(message.into())
+    }
+
+    /// Create a timeout error
+    pub fn timeout(message: impl Into<String>) -> Self {
+        Self::Timeout(message.into())
+    }
+
+    /// Create a resource exhausted error
+    pub fn resource_exhausted(message: impl Into<String>) -> Self {
+        Self::ResourceExhausted(message.into())
+    }
+
+    /// Create an unimplemented error
+    pub fn unimplemented(message: impl Into<String>) -> Self {
+        Self::Unimplemented(message.into())
+    }
+
+    /// Create an internal error
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self::Internal(message.into())
+    }
+
+    /// Create a graph transformation error
+    pub fn graph_transformation(message: impl Into<String>) -> Self {
+        Self::GraphTransformation(message.into())
+    }
+
+    /// Create a schema error
+    pub fn schema(message: impl Into<String>) -> Self {
+        Self::Schema(message.into())
+    }
+
+    /// Create a query error
+    pub fn query(message: impl Into<String>) -> Self {
+        Self::Query(message.into())
+    }
+
+    /// Create an execution error
+    pub fn execution(message: impl Into<String>) -> Self {
+        Self::Execution(message.into())
+    }
+
+    /// Create an API error
+    pub fn api(message: impl Into<String>) -> Self {
+        Self::Api(message.into())
+    }
+
+    /// Create a dependency resolution error
+    pub fn dependency_resolution(message: impl Into<String>) -> Self {
+        Self::DependencyResolution(message.into())
+    }
+
+    /// Create a configuration error
+    pub fn configuration(message: impl Into<String>) -> Self {
+        Self::Configuration(message.into())
+    }
+
+    /// Create a database error
+    pub fn database(message: impl Into<String>) -> Self {
+        Self::Database(message.into())
+    }
+
+    /// Create a cache error
+    pub fn cache(message: impl Into<String>) -> Self {
+        Self::Cache(message.into())
+    }
+
+    /// Create a workflow error
+    pub fn workflow(message: impl Into<String>) -> Self {
+        Self::Workflow(message.into())
+    }
+
+    /// Create a plugin error
+    pub fn plugin(message: impl Into<String>) -> Self {
+        Self::Plugin(message.into())
+    }
+
+    /// Check if the error is retryable
+    pub fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            Self::Network(_) | Self::Timeout(_) | Self::ResourceExhausted(_)
+        )
+    }
+
+    /// Get error category
+    pub fn category(&self) -> ErrorCategory {
+        match self {
+            Self::Validation(_) => ErrorCategory::Validation,
+            Self::Security(_) | Self::Auth(_) | Self::Authz(_) => ErrorCategory::Security,
+            Self::InvalidArgument(_) | Self::NotFound(_) | Self::AlreadyExists(_) => ErrorCategory::Client,
+            Self::Io(_) | Self::Network(_) | Self::Timeout(_) | Self::ResourceExhausted(_) => ErrorCategory::Infrastructure,
+            Self::Serialization(_) | Self::Deserialization(_) => ErrorCategory::Data,
+            Self::Unimplemented(_) | Self::Internal(_) => ErrorCategory::System,
+            Self::GraphTransformation(_) | Self::Schema(_) | Self::Query(_) | Self::Execution(_) => ErrorCategory::BusinessLogic,
+            Self::Api(_) | Self::DependencyResolution(_) | Self::Configuration(_) | Self::Database(_) | Self::Cache(_) | Self::Workflow(_) | Self::Plugin(_) => ErrorCategory::Service,
+        }
+    }
+
+    /// Get HTTP status code for this error
+    pub fn http_status_code(&self) -> u16 {
+        match self {
+            Self::Validation(_) => 400,
+            Self::Security(_) | Self::Auth(_) | Self::Authz(_) => 401,
+            Self::InvalidArgument(_) => 400,
+            Self::NotFound(_) => 404,
+            Self::AlreadyExists(_) => 409,
+            Self::Io(_) => 500,
+            Self::Network(_) => 503,
+            Self::Serialization(_) | Self::Deserialization(_) => 400,
+            Self::Timeout(_) => 408,
+            Self::ResourceExhausted(_) => 429,
+            Self::Unimplemented(_) => 501,
+            Self::Internal(_) => 500,
+            Self::GraphTransformation(_) => 422,
+            Self::Schema(_) => 422,
+            Self::Query(_) => 400,
+            Self::Execution(_) => 500,
+            Self::Api(_) => 500,
+            Self::DependencyResolution(_) => 500,
+            Self::Configuration(_) => 500,
+            Self::Database(_) => 500,
+            Self::Cache(_) => 500,
+            Self::Workflow(_) => 500,
+            Self::Plugin(_) => 500,
+        }
+    }
+}
+
+/// Error category for classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ErrorCategory {
+    /// Validation errors
+    Validation,
+    /// Security errors
+    Security,
+    /// Client errors
+    Client,
+    /// Infrastructure errors
+    Infrastructure,
+    /// Data errors
+    Data,
+    /// System errors
+    System,
+    /// Business logic errors
+    BusinessLogic,
+    /// Service errors
+    Service,
+}
+
+/// Result type alias
+pub type KotobaResult<T> = Result<T, KotobaError>;
 
 /// ハッシュアルゴリズム
 #[derive(Debug, Clone, PartialEq)]

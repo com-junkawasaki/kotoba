@@ -2,13 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::types::*;
+use kotoba_types::{Value as KotobaValue, Label, Properties};
 
-/// 論理演算子
+/// Logical operator
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "op")]
 pub enum LogicalOp {
-    /// ノードスキャン
+    /// Node scan
     NodeScan {
         label: Label,
         as_: String,
@@ -16,97 +16,111 @@ pub enum LogicalOp {
         props: Option<Properties>,
     },
 
-    /// インデックススキャン
+    /// Index scan
     IndexScan {
         label: Label,
         as_: String,
         index: String,
-        value: Value,
+        value: KotobaValue,
     },
 
-    /// フィルタ
+    /// Filter
     Filter {
         pred: Predicate,
         input: Box<LogicalOp>,
     },
 
-    /// エッジ展開
+    /// Edge expansion
     Expand {
         edge: EdgePattern,
         to_as: String,
         from: Box<LogicalOp>,
     },
 
-    /// 結合
+    /// Join
     Join {
         left: Box<LogicalOp>,
         right: Box<LogicalOp>,
-        on: Vec<String>,  // 結合キー
+        on: Vec<String>,
     },
 
-    /// 射影
+    /// Projection
     Project {
         cols: Vec<String>,
         input: Box<LogicalOp>,
     },
 
-    /// グループ化
+    /// Grouping
     Group {
         keys: Vec<String>,
         aggregations: Vec<Aggregation>,
         input: Box<LogicalOp>,
     },
 
-    /// ソート
+    /// Sorting
     Sort {
         keys: Vec<SortKey>,
         input: Box<LogicalOp>,
     },
 
-    /// リミット
+    /// Limit
     Limit {
         count: usize,
         input: Box<LogicalOp>,
     },
 
-    /// 重複除去
+    /// Distinct
     Distinct {
         input: Box<LogicalOp>,
     },
 }
 
-/// エッジパターン
+/// Edge pattern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgePattern {
+    /// Edge label
     pub label: Label,
+    /// Direction
     pub dir: Direction,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Properties (optional)
     pub props: Option<Properties>,
 }
 
-/// 方向
+/// Direction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Direction {
+    /// Outgoing
     #[serde(rename = "out")]
     Out,
+    /// Incoming
     #[serde(rename = "in")]
     In,
+    /// Both directions
     #[serde(rename = "both")]
     Both,
 }
 
-/// 述語
+/// Predicate
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Predicate {
+    /// Equality
     Eq { eq: [Expr; 2] },
+    /// Inequality
     Ne { ne: [Expr; 2] },
+    /// Less than
     Lt { lt: [Expr; 2] },
+    /// Less than or equal
     Le { le: [Expr; 2] },
+    /// Greater than
     Gt { gt: [Expr; 2] },
+    /// Greater than or equal
     Ge { ge: [Expr; 2] },
+    /// And
     And { and: Vec<Predicate> },
+    /// Or
     Or { or: Vec<Predicate> },
+    /// Not
     Not { not: Box<Predicate> },
 }
 
@@ -144,12 +158,15 @@ impl std::fmt::Display for Predicate {
     }
 }
 
-/// 式
+/// Expression
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Expr {
+    /// Variable
     Var(String),
-    Const(Value),
+    /// Constant
+    Const(KotobaValue),
+    /// Function call
     Fn { fn_: String, args: Vec<Expr> },
 }
 
@@ -165,34 +182,54 @@ impl std::fmt::Display for Expr {
     }
 }
 
-/// 集計関数
+/// Aggregation function
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Aggregation {
+    /// Function name
     pub fn_: String,
+    /// Arguments
     pub args: Vec<String>,
+    /// Alias
     pub as_: String,
 }
 
-/// ソートキー
+/// Sort key
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SortKey {
+    /// Expression
     pub expr: Expr,
+    /// Ascending order
     pub asc: bool,
 }
 
-/// 論理プラン
+/// Logical plan
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanIR {
+    /// Plan
     pub plan: LogicalOp,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Limit (optional)
     pub limit: Option<usize>,
 }
 
-/// 実行結果行
-#[derive(Debug, Clone)]
-pub struct Row {
-    pub values: HashMap<String, Value>,
+impl PlanIR {
+    /// Create a new plan
+    pub fn new(plan: LogicalOp) -> Self {
+        Self { plan, limit: None }
+    }
+
+    /// Set limit
+    pub fn with_limit(mut self, limit: usize) -> Self {
+        self.limit = Some(limit);
+        self
+    }
 }
 
-/// 結果ストリーム
+/// Row in query result
+#[derive(Debug, Clone)]
+pub struct Row {
+    /// Values
+    pub values: HashMap<String, KotobaValue>,
+}
+
+/// Result stream
 pub type RowStream = Vec<Row>;

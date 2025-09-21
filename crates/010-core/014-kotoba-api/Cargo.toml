@@ -1,8 +1,0 @@
-[package]
-name = "kotoba-api"
-version = "0.1.22"
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
-
-[dependencies]
