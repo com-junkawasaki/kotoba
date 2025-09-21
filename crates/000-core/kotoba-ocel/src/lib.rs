@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use kotoba_core::{auth::{PrincipalId, SecureResource}, crypto::EncryptionInfo, types::Cid};
+use kotoba_core::{auth::PrincipalId, crypto::EncryptionInfo, types::Cid};
 
 /// Core OCEL v2 event log structure
 #[derive(Debug, Clone, Serialize, Deserialize)]

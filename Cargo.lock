@@ -4493,7 +4493,7 @@ dependencies = [
  "flate2",
  "futures",
  "google-cloud-storage",
- "kotoba-graphdb 0.1.22",
+ "kotoba-graphdb",
  "kotoba-storage 0.1.22",
  "parking_lot",
  "rusoto_core",
@@ -4520,7 +4520,7 @@ dependencies = [
  "csv",
  "futures",
  "hdrhistogram",
- "kotoba-graphdb 0.1.22",
+ "kotoba-graphdb",
  "kotoba-memory",
  "kotoba-storage 0.1.22",
  "plotters",
@@ -4635,7 +4635,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "futures",
- "kotoba-graphdb 0.1.22",
+ "kotoba-graphdb",
  "kotoba-storage 0.1.22",
  "lazy_static",
  "notify",
@@ -5049,33 +5049,6 @@ dependencies = [
 
 [[package]]
 name = "kotoba-graphdb"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaa58594ccda0ec4c8a65324ac04dd1e4cdb1384a89a75b69df78139c7856268"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "chrono",
- "dashmap 5.5.3",
- "futures",
- "itertools 0.12.1",
- "kotoba-core 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "kotoba-ocel 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
- "metrics",
- "regex",
- "rocksdb",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "kotoba-graphdb"
 version = "0.1.22"
 dependencies = [
  "anyhow",
@@ -5155,7 +5128,7 @@ dependencies = [
  "kotoba-errors 0.1.2",
  "kotoba-event-stream",
  "kotoba-execution",
- "kotoba-graphdb 0.1.22",
+ "kotoba-graphdb",
  "kotoba-jsonnet 0.1.22",
  "kotoba-memory",
  "kotoba-ocel 0.1.22",
@@ -5322,7 +5295,7 @@ dependencies = [
  "crossbeam",
  "dashmap 5.5.3",
  "futures",
- "kotoba-graphdb 0.1.21",
+ "kotoba-graphdb",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "lru",
  "mimalloc",

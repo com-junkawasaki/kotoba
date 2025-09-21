@@ -5,13 +5,11 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
-use redis::{Client, Connection, AsyncCommands, RedisResult};
+use redis::{Client, AsyncCommands};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, instrument};
-use metrics::{counter, histogram};
 use chrono::{DateTime, Utc};
 
 /// Cache layer configuration
@@ -145,7 +143,7 @@ impl CacheLayer {
         let mut connection = self.get_connection().await?;
 
         let result = connection.get::<_, Option<Vec<u8>>>(&cache_key).await;
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match result {
             Ok(Some(data)) => {
@@ -228,7 +226,7 @@ impl CacheLayer {
             connection.set(&cache_key, final_data).await
         };
 
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match result {
             Ok(()) => {
@@ -279,7 +277,7 @@ impl CacheLayer {
         let mut connection = self.get_connection().await?;
 
         let result = connection.del::<_, i64>(&cache_key).await;
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match result {
             Ok(count) => {
@@ -314,7 +312,7 @@ impl CacheLayer {
         let mut connection = self.get_connection().await?;
 
         let result = connection.exists::<_, bool>(&cache_key).await;
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match result {
             Ok(exists) => Ok(exists),
@@ -339,7 +337,7 @@ impl CacheLayer {
         let mut connection = self.get_connection().await?;
 
         let result = connection.ttl::<_, i64>(&cache_key).await;
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match result {
             Ok(ttl) => {
@@ -371,7 +369,7 @@ impl CacheLayer {
         let mut connection = self.get_connection().await?;
 
         let result = connection.incr::<_, _, i64>(&cache_key, amount).await;
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match result {
             Ok(value) => Ok(value),
@@ -405,7 +403,7 @@ impl CacheLayer {
                     .map_err(|e| CacheError::RedisError(e.to_string()))?;
             }
 
-            self.return_connection(connection);
+            self.return_connection(connection).await;
             keys_count
         } else {
             0
@@ -445,7 +443,7 @@ impl CacheLayer {
         let mut connection = self.get_connection().await?;
 
         let info_result: Result<String, _> = redis::cmd("INFO").query_async(&mut connection).await;
-        self.return_connection(connection);
+        self.return_connection(connection).await;
 
         match info_result {
             Ok(info) => {

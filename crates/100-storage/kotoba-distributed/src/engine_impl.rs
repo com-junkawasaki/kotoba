@@ -79,7 +79,7 @@ impl DistributedEngine {
             let g = graph.read();
             let core = GraphCore {
                 nodes: g.vertices.values().map(|v| Node {
-                    cid: Cid::new(&v.id.to_string()),
+                    cid: Cid::compute_sha256(&v.id.to_string())?,
                     labels: v.labels.clone(),
                     r#type: v.labels.first().cloned().unwrap_or_else(|| "unknown".to_string()),
                     ports: vec![], // 簡易版
@@ -89,7 +89,7 @@ impl DistributedEngine {
                     component_ref: None,
                 }).collect(),
                 edges: g.edges.values().map(|e| Edge {
-                    cid: Cid::new(&e.id.to_string()),
+                    cid: Cid::compute_sha256(&e.id.to_string())?,
                     label: Some(e.label.clone()),
                     r#type: e.label.clone(),
                     src: e.src.to_string(),
@@ -222,7 +222,7 @@ impl DistributedEngine {
                 attrs: None,
             },
             kind: GraphKind::Instance,
-            cid: Cid::new(&format!("gql_integrated_{}", uuid::Uuid::new_v4())),
+            cid: Cid::compute_sha256(&format!("gql_integrated_{}", uuid::Uuid::new_v4()))?,
             typing: None,
         });
 
@@ -401,7 +401,7 @@ impl DistributedEngine {
                 attrs: None,
             },
             kind: GraphKind::Instance,
-            cid: Cid::new(&format!("integrated_{}", uuid::Uuid::new_v4())),
+            cid: Cid::compute_sha256(&format!("integrated_{}", uuid::Uuid::new_v4()))?,
             typing: None,
         });
 
@@ -492,7 +492,7 @@ impl DistributedEngine {
                             attrs: None,
                         },
                         kind: GraphKind::Instance,
-                        cid: Cid::new(&format!("context_{}", uuid::Uuid::new_v4())),
+                        cid: Cid::compute_sha256(&format!("context_{}", uuid::Uuid::new_v4()))?,
                         typing: None,
                     },
                     r: GraphInstance {
@@ -503,7 +503,7 @@ impl DistributedEngine {
                             attrs: None,
                         },
                         kind: GraphKind::Instance,
-                        cid: Cid::new(&format!("result_{}", uuid::Uuid::new_v4())),
+                        cid: Cid::compute_sha256(&format!("result_{}", uuid::Uuid::new_v4()))?,
                         typing: None,
                     },
                     m_l: Morphisms {
@@ -554,7 +554,7 @@ impl DistributedEngine {
     /// キャッシュキーの作成
     fn create_cache_key(&self, rule_cid: &Cid, host_cid: &Cid) -> Cid {
         // 簡易版: 2つのCIDを組み合わせた新しいCID
-        Cid::new(&format!("{}_{}", rule_cid.as_str(), host_cid.as_str()))
+        Cid::compute_sha256(&format!("{}_{}", rule_cid.as_str(), host_cid.as_str()))?
     }
 
     /// サイズ推定

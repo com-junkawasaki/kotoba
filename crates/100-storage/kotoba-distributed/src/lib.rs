@@ -4,11 +4,11 @@
 //! CIDベースのキャッシュとタスク分散により、高いパフォーマンスを実現します。
 
 use kotoba_core::prelude::*;
-use kotoba_graph::prelude::*;
 use kotoba_execution::prelude::*;
 use kotoba_rewrite::prelude::RewriteEngine;
 use kotoba_cid::*;
 use kotoba_errors::KotobaError;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,7 +41,7 @@ pub struct CidCache {
 #[derive(Debug, Clone)]
 pub struct CacheEntry {
     /// 計算結果
-    result: GraphInstance,
+    result: Graph,
     /// 最終アクセス時刻
     last_accessed: std::time::Instant,
     /// アクセス回数
@@ -178,7 +178,7 @@ pub enum TaskType {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TaskInput {
     /// 直接データ
-    Direct(GraphInstance),
+    Direct(Graph),
     /// CID参照
     CidReference(Cid),
     /// 複合データ
@@ -219,7 +219,7 @@ pub struct ResultId(pub String);
 #[derive(Debug)]
 pub enum ResultData {
     /// 成功結果
-    Success(GraphInstance),
+    Success(Graph),
     /// 部分成功
     Partial(Vec<PartialResult>),
     /// エラー

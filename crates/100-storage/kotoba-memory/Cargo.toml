@@ -13,7 +13,7 @@ documentation = "https://docs.rs/kotoba-memory"
 [dependencies]
 # KotobaDB core crates - Storage layer
 kotoba-storage = "0.1.22"
-kotoba-graphdb = "0.1.21"
+kotoba-graphdb = { path = "../kotoba-graphdb", version = "0.1.22" }
 
 # Profiling integration - temporarily disabled
 # kotoba-profiler = { path = "../../500-services/kotoba-profiler", version = "0.1.22" }
