@@ -3,11 +3,11 @@ members = [
     "crates/010-core/016-kotoba-auth",
     "crates/010-core/010-kotoba-types",
     "crates/010-core/012-kotoba-core",
-    "crates/010-core/011-kotoba-errors",
+    # "crates/010-core/011-kotoba-errors", # Moved to workspace dependencies
     "crates/010-core/013-kotoba-cid",
     "crates/010-core/015-kotoba-ocel",
     "crates/010-core/014-kotoba-schema",
-    "crates/020-language/030-kotoba-language",
+    # "crates/020-language/031-kotoba-language", # No Cargo.toml
     "crates/020-language/020-kotoba-syntax",
     "crates/020-language/021-kotoba-parser",
     "crates/030-storage/031-kotoba-storage",
@@ -28,9 +28,9 @@ members = [
     # "crates/050-workflow/051-kotoba-workflow-core", # No Cargo.toml
     # "crates/050-workflow/054-kotoba-workflow-operator", # No Cargo.toml
     "crates/020-language/022-kotoba-jsonnet",
-    "crates/020-language/023-kotoba-kotobas",
-    "crates/020-language/024-kotoba-formatter",
-    "crates/020-language/025-kotoba-linter",
+    # "crates/020-language/024-kotoba-kotobas", # No Cargo.toml
+    # "crates/020-language/025-kotoba-formatter", # No Cargo.toml
+    # "crates/020-language/025-kotoba-linter", # No Cargo.toml
     "crates/020-language/026-kotoba-lsp",
     "crates/020-language/027-kotoba-repl",
     "crates/020-language/028-kotoba2tsx",
@@ -219,7 +219,6 @@ thiserror.workspace = true
 tempfile.workspace = true
 
 # Core crates
-kotoba-errors = { workspace = true }
 kotoba-repl = { path = "crates/020-language/027-kotoba-repl", version = "0.1.22" }
 
 # For binary
@@ -328,3 +327,6 @@ rayon = "1.7"
 # [[example]]
 # name = "tauri_react_app"
 # path = "examples/tauri_react_app/src-tauri/src/main.rs"
+
+[patch.crates-io]
+kotoba-errors = { path = "crates/010-core/011-kotoba-errors" }

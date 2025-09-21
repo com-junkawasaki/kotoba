@@ -182,30 +182,30 @@
 
     'rocksdb_adapter': {
       name: 'rocksdb_adapter',
-      path: 'crates/030-storage/kotoba-storage-rocksdb/src/lib.rs',
+      path: 'crates/030-storage/038-kotoba-storage-rocksdb/src/lib.rs',
       type: 'adapter',
       layer: '030-storage',
       description: 'RocksDB adapter implementation (Adapter in Port/Adapter pattern)',
       dependencies: ['storage_port'],
       provides: ['RocksDbAdapter'],
-      status: 'published',
-      published_version: '0.1.21',
+      status: 'active',
+      published_version: '0.1.22',
       crate_name: 'kotoba-storage-rocksdb',
-      build_order: 4,
+      build_order: 11,
     },
 
     'graphdb_adapter': {
       name: 'graphdb_adapter',
-      path: 'crates/030-storage/kotoba-graphdb/src/lib.rs',
+      path: 'crates/030-storage/035-kotoba-graphdb/src/lib.rs',
       type: 'adapter',
       layer: '030-storage',
       description: 'GraphDB adapter implementation (Adapter in Port/Adapter pattern) - implements GraphStore trait',
       dependencies: ['storage_port'],
       provides: ['GraphDbAdapter', 'GraphStoreImpl'],
-      status: 'published',
+      status: 'active',
       published_version: '0.1.22',
       crate_name: 'kotoba-graphdb',
-      build_order: 4,
+      build_order: 12,
     },
 
     'schema_validator': {
@@ -864,6 +864,20 @@
       published_version: '0.1.22',
       crate_name: 'kotoba-cid',
       build_order: 4,
+    },
+
+    'ocel_system': {
+      name: 'ocel_system',
+      path: 'crates/010-core/015-kotoba-ocel/src/lib.rs',
+      type: 'ocel',
+      layer: '010-core',
+      description: 'OCEL v2 (Object-Centric Event Log) 実装 - プロセス実行履歴管理',
+      dependencies: ['types', 'error_handling', 'cid_system', 'schema_validator'],
+      provides: ['OcelLog', 'OcelEvent', 'OcelObject', 'EventProcessor'],
+      status: 'active',
+      published_version: '0.1.22',
+      crate_name: 'kotoba-ocel',
+      build_order: 13,
     },
 
     'cli_interface': {

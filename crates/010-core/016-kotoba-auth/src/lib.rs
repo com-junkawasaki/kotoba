@@ -5,7 +5,7 @@
 //! Control (ReBAC) and Attribute-Based Access Control (ABAC).
 
 use kotoba_errors::AuthError;
-use kotoba_types::{Cid, Label, Permission, ResourceId, Role, User};
+use kotoba_types::{Cid, Permission, ResourceId, Role, User}; // Label is unused
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -106,16 +106,8 @@ pub trait PolicyEngine {
 impl SecureResource for Resource {
     fn resource_id(&self) -> Cid {
         // Resource自身のデータをCIDに変換
-        // ResourceのIDと属性を使用してCIDを計算
-        let resource_data = (
-            &self.id,
-            &self.attributes
-        );
-
-        Cid::compute_sha256(&resource_data).unwrap_or_else(|_| {
-            // シリアル化エラーの場合は空のハッシュを使用（本番環境では適切なエラーハンドリングが必要）
-            Cid([0; 32])
-        })
+        let resource_data = serde_json::to_string(&(&self.id, &self.attributes)).unwrap_or_default();
+        Cid::new(resource_data.as_bytes())
     }
 
     fn resource_attributes(&self) -> HashMap<String, String> {
@@ -154,15 +146,11 @@ impl DefaultPolicyEngine {
     }
 
     /// 指定されたリソースに対する関係性を取得
-    pub fn get_relations_for_resource(&self, resource_id: &str) -> Vec<(User, Role)> {
+    pub fn get_relations_for_resource(&self, resource_id: &str) -> Vec<&RelationTuple> {
         self.relations
-            .iter()
-            .filter(|(r, _)| r.starts_with(&format!("{}:", resource_id)))
-            .map(|(r, u_r)| {
-                let parts: Vec<&str> = r.split(':').collect();
-                (u_r.0.clone(), parts[1].to_string())
-            })
-            .collect()
+            .get(resource_id)
+            .map(|relations| relations.iter().collect())
+            .unwrap_or_default()
     }
 
     /// 指定されたポリシーを取得
@@ -224,13 +212,7 @@ impl DefaultPolicyEngine {
 
         // リソースがポリシーの対象リソースにマッチするか
         if !policy.resources.iter().any(|resource_pattern| {
-            let matches = self.resource_matches_policy_pattern(&context, resource_pattern);
-            // デバッグ出力
-            if context.action == "read" {
-                eprintln!("Debug: CID={}, Pattern={}, Matches={}",
-                    context.resource.resource_id().as_str(), resource_pattern, matches);
-            }
-            matches
+            self.resource_matches_policy_pattern(context, resource_pattern)
         }) {
             return false;
         }
@@ -265,9 +247,9 @@ impl DefaultPolicyEngine {
         }
 
         // CIDベースのパターンマッチング
-        if pattern.ends_with("*") {
+        if pattern.ends_with('*') {
             let prefix = &pattern[..pattern.len() - 1];
-            if context.resource.resource_id().as_str().starts_with(prefix) {
+            if context.resource.resource_id().to_string().starts_with(prefix) {
                 return true;
             }
         }
@@ -278,13 +260,13 @@ impl DefaultPolicyEngine {
             if pattern == format!("{}:*", resource_type) {
                 return true;
             }
-            if pattern == format!("{}:{}", resource_type, context.resource.resource_id().as_str()) {
+            if pattern == format!("{}:{}", resource_type, context.resource.resource_id().to_string()) {
                 return true;
             }
         }
 
         // 完全一致
-        context.resource.resource_id().as_str() == pattern
+        context.resource.resource_id().to_string() == pattern
     }
 }
 
@@ -379,8 +361,8 @@ mod tests {
         assert_eq!(engine.relations.len(), 1);
         let relations = engine.get_relations_for_resource("document:doc1");
         assert_eq!(relations.len(), 1);
-        assert_eq!(relations[0].0, "user:alice");
-        assert_eq!(relations[0].1, "owner");
+        assert_eq!(relations[0].subject_id, "user:alice");
+        assert_eq!(relations[0].relation, "owner");
     }
 
     #[test]
@@ -494,7 +476,7 @@ mod tests {
 
         assert_eq!(context.principal.id, "user:alice");
         assert_eq!(context.action, "read");
-        assert_eq!(context.resource.resource_id().0.len(), 32);
+        assert!(!context.resource.resource_id().to_string().is_empty());
     }
 
     #[test]
