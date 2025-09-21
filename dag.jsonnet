@@ -23,7 +23,7 @@
       name: 'Core Layer',
       description: 'Fundamental data structures, error handling, CID, schema, OCEL',
       priority: 1,
-      crates: ['010-kotoba-types', '011-kotoba-errors', '012-kotoba-core', '013-kotoba-cid', '014-kotoba-schema', '015-kotoba-ocel', '016-kotoba-auth']
+      crates: ['010-kotoba-logic', '011-kotoba-types', '012-kotoba-ir', '013-kotoba-schema', '014-kotoba-api']
     },
     '030-storage': {
       name: 'Storage Layer',
@@ -94,7 +94,7 @@
 
     'topology': {
       name: 'topology',
-      path: 'crates/010-core/012-kotoba-core/src/topology.rs',
+      path: 'crates/010-core/010-kotoba-logic/src/topology.rs',
       type: 'foundation',
       layer: '010-core',
       description: 'プロセスネットワークトポロジー検証と処理 (TopologyGraph, Node, Edge, Validation)',
@@ -122,7 +122,7 @@
 
     'ir_catalog': {
       name: 'ir_catalog',
-      path: 'crates/010-core/012-kotoba-core/src/ir/catalog.rs',
+      path: 'crates/010-core/012-kotoba-ir/src/catalog.rs',
       type: 'ir',
       layer: '010-core',
       description: 'スキーマ/索引/不変量定義',
@@ -150,7 +150,7 @@
 
     'crypto': {
       name: 'crypto',
-      path: 'crates/010-core/012-kotoba-core/src/crypto.rs',
+      path: 'crates/010-core/010-kotoba-logic/src/crypto.rs',
       type: 'security',
       layer: '010-core',
       description: '暗号化エンジン (envelope encryption + DEK management)',
@@ -210,7 +210,7 @@
 
     'schema_validator': {
       name: 'schema_validator',
-      path: 'crates/010-core/014-kotoba-schema/src/validator.rs',
+      path: 'crates/010-core/013-kotoba-schema/src/validator.rs',
       type: 'schema',
       layer: '010-core',
       description: 'Graph schema validation engine',
@@ -299,7 +299,7 @@
     // グラフ層
     'graph_vertex': {
       name: 'graph_vertex',
-      path: 'crates/010-core/012-kotoba-core/src/graph/vertex.rs',
+      path: 'crates/010-core/010-kotoba-logic/src/graph/vertex.rs',
       type: 'graph',
       layer: '010-core',
       description: '頂点関連構造体とビルダー',
@@ -313,7 +313,7 @@
 
     'graph_edge': {
       name: 'graph_edge',
-      path: 'crates/010-core/012-kotoba-core/src/graph/edge.rs',
+      path: 'crates/010-core/010-kotoba-logic/src/graph/edge.rs',
       type: 'graph',
       layer: '010-core',
       description: 'エッジ関連構造体とビルダー',

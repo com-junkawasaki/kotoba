@@ -12,6 +12,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Core dependencies
+kotoba-api = { path = "../014-kotoba-api" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -21,10 +22,7 @@ url = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Kotoba ecosystem
-kotoba-types = { path = "../010-kotoba-types" }
-kotoba-errors = { path = "../011-kotoba-errors", version = "0.1.2" }
-kotoba-cid = { path = "../013-kotoba-cid" }
-# kotoba-core = { path = "../012-kotoba-core", version = "0.1.22" } # No longer needed for types
+kotoba-types = { path = "../011-kotoba-types" }
 
 # kotoba-graph temporarily disabled - will be re-enabled after graphdb refactoring
 # kotoba-graph = { path = "../../100-storage/kotoba-graphdb", version = "0.1.17", optional = true }

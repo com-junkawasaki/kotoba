@@ -1,12 +1,10 @@
 [workspace]
 members = [
-    "crates/010-core/016-kotoba-auth",
-    "crates/010-core/010-kotoba-types",
-    "crates/010-core/012-kotoba-core",
-    # "crates/010-core/011-kotoba-errors", # Moved to workspace dependencies
-    "crates/010-core/013-kotoba-cid",
-    "crates/010-core/015-kotoba-ocel",
-    "crates/010-core/014-kotoba-schema",
+    "crates/010-core/010-kotoba-logic",
+    "crates/010-core/011-kotoba-types",
+    "crates/010-core/012-kotoba-ir",
+    "crates/010-core/013-kotoba-schema",
+    "crates/010-core/014-kotoba-api",
     # "crates/020-language/031-kotoba-language", # No Cargo.toml
     "crates/020-language/020-kotoba-syntax",
     "crates/020-language/021-kotoba-parser",
@@ -91,9 +89,11 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 hyper = { version = "1.0", features = ["full"] }
 
 # Kotoba workspace crates
-kotoba-core = { path = "crates/010-core/012-kotoba-core", version = "0.1.21" }
-kotoba-errors = { path = "crates/010-core/011-kotoba-errors", version = "0.1.2" }
-kotoba-cid = { path = "crates/010-core/013-kotoba-cid", version = "0.1.21" }
+kotoba-logic = { path = "crates/010-core/010-kotoba-logic", version = "0.1.22" }
+kotoba-types = { path = "crates/010-core/011-kotoba-types", version = "0.1.22" }
+kotoba-ir = { path = "crates/010-core/012-kotoba-ir", version = "0.1.22" }
+kotoba-schema = { path = "crates/010-core/013-kotoba-schema", version = "0.1.22" }
+kotoba-api = { path = "crates/010-core/014-kotoba-api", version = "0.1.22" }
 # kotoba-graph temporarily disabled
 # kotoba-graph = { path = "crates/030-storage/kotoba-graphdb", version = "0.1.21" }
 kotoba-storage = { path = "crates/030-storage/kotoba-storage", version = "0.1.21" }
@@ -305,4 +305,3 @@ rayon = "1.7"
 # path = "examples/tauri_react_app/src-tauri/src/main.rs"
 
 [patch.crates-io]
-kotoba-errors = { path = "crates/010-core/011-kotoba-errors" }

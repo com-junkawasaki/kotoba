@@ -1,0 +1,9 @@
+[package]
+name = "kotoba-ir"
+version = "0.1.22"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+kotoba-schema = { path = "../013-kotoba-schema" }

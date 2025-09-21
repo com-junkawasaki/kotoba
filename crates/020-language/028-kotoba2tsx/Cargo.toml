@@ -12,7 +12,7 @@ homepage = "https://github.com/com-junkawasaki/kotoba"
 
 [dependencies]
 # Kotoba ecosystem
-kotoba-core = { path = "../../010-core/012-kotoba-core" }
+kotoba-logic = { path = "../../010-core/010-kotoba-logic" }
 kotoba-kotobas = { path = "../023-kotoba-kotobas" }
 
 serde = { version = "1.0", features = ["derive"] }

@@ -34,7 +34,7 @@ dialoguer = "0.11"
 indicatif = "0.17"
 
 # Kotoba ecosystem
-kotoba-core = { path = "../../010-core/012-kotoba-core" }
+kotoba-logic = { path = "../../010-core/010-kotoba-logic" }
 kotoba-kotobas = { path = "../023-kotoba-kotobas" }
 # kotoba-jsonnet = { path = "../../200-application/kotoba-jsonnet", version = "0.1.16" } # Temporarily disabled due to compilation issues
 
