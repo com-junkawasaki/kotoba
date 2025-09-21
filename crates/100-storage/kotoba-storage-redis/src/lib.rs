@@ -119,8 +119,17 @@ impl RedisStore {
         let client = Client::open(client_url)
             .map_err(|e| RedisError::ConnectionError(e.to_string()))?;
 
+        // Try to get a connection to check if Redis is available
+        let connection_status = match client.get_async_connection().await {
+            Ok(_conn) => ConnectionStatus::Connected,
+            Err(e) => {
+                warn!("Failed to connect to Redis: {}. Operating in mock mode.", e);
+                ConnectionStatus::MockMode
+            }
+        };
+
         let stats = RedisStats {
-            connection_status: ConnectionStatus::Disconnected,
+            connection_status,
             ..Default::default()
         };
 
@@ -426,7 +435,7 @@ impl KeyValueStore for RedisStore {
         for key in keys {
             if let Ok(Some(value)) = connection.get::<_, Option<Vec<u8>>>(&key).await {
                 // Remove prefix from key for result
-                let original_key = if let Some(stripped) = key.strip_prefix(&format!("{}:", self.config.key_prefix)) {
+                let original_key = if let Some(stripped) = key.strip_prefix(&(self.config.key_prefix.clone() + ":")) {
                     stripped.as_bytes().to_vec()
                 } else {
                     key.as_bytes().to_vec()
@@ -470,8 +479,8 @@ pub enum RedisError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
-    use tokio::time::sleep;
+    
+    
 
     #[tokio::test]
     async fn test_redis_store_creation_mock() {

@@ -2,6 +2,8 @@ use std::sync::Arc;
 use clap::Parser;
 use axum::{routing::get, Router};
 use tokio::net::TcpListener;
+use kotoba_graphdb::GraphDB;
+use kotoba_graph_api::create_router;
 
 /// Health check handler
 async fn health_check() -> &'static str {
@@ -11,7 +13,7 @@ async fn health_check() -> &'static str {
 /// Command line arguments for kotoba-server
 #[derive(Parser)]
 #[command(name = "kotoba-server")]
-#[command(about = "Kotoba HTTP Server")]
+#[command(about = "Kotoba HTTP Server with Graph Database API")]
 struct Args {
     /// Host address to bind to
     #[arg(long, default_value = "127.0.0.1")]
@@ -20,6 +22,10 @@ struct Args {
     /// Port number to bind to
     #[arg(long, default_value = "8100")]
     port: u16,
+
+    /// Graph database path
+    #[arg(long, default_value = "./data/graph.db")]
+    db_path: String,
 
     /// Enable development mode
     #[arg(long)]
@@ -51,9 +57,22 @@ async fn main() -> anyhow::Result<()> {
     // Setup logging
     setup_logging();
 
-    // Create router with axum
+    // Initialize GraphDB
+    tracing::info!("🔄 Initializing GraphDB at: {}", args.db_path);
+    let graphdb = Arc::new(GraphDB::new(&args.db_path).await
+        .map_err(|e| {
+            tracing::error!("Failed to initialize GraphDB: {}", e);
+            e
+        })?);
+    tracing::info!("✅ GraphDB initialized successfully");
+
+    // Create Graph API router
+    let graph_api_router = create_router(graphdb);
+
+    // Create main application router
     let app = Router::new()
-        .route("/health", get(health_check));
+        .route("/health", get(health_check))
+        .merge(graph_api_router);
 
     // Add workflow features if enabled
     if args.workflow {
@@ -67,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
     // Start server
     let addr = format!("{}:{}", args.host, args.port);
     tracing::info!("🚀 Server starting on {}", addr);
+    tracing::info!("📊 Graph API available at http://{}/api/v1/", addr);
 
     let listener = TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;

@@ -51,9 +51,9 @@
     },
     '500-services': {
       name: 'Services Layer',
-      description: 'HTTP servers, GraphQL APIs, external integrations',
+      description: 'HTTP servers, GraphQL APIs, REST APIs, external integrations',
       priority: 6,
-      crates: ['kotoba-server-core', 'kotoba-server', 'kotoba-network', 'kotoba-security', 'kotoba-monitoring', 'kotoba-profiler', 'kotoba-schema-registry', 'kotoba-cloud-integrations']
+      crates: ['kotoba-server-core', 'kotoba-server', 'kotoba-graph-api', 'kotoba-network', 'kotoba-security', 'kotoba-monitoring', 'kotoba-profiler', 'kotoba-schema-registry', 'kotoba-cloud-integrations']
     },
     '600-deployment': {
       name: 'Deployment Layer',
@@ -1112,6 +1112,38 @@
       provides: ['GraphQLHandler', 'RequestExecutor'],
       status: 'planned',
       build_order: 9,
+    },
+
+    // ==========================================
+    // Graph API 層
+    // ==========================================
+
+    'graph_api': {
+      name: 'graph_api',
+      path: 'crates/kotoba-graph-api/src/lib.rs',
+      type: 'api',
+      layer: '500-services',
+      description: 'REST API for graph database operations (CRUD on nodes/edges, queries)',
+      dependencies: ['types', 'graph_core', 'storage_lsm'],
+      provides: ['GraphApiRouter', 'ApiHandler', 'NodeOperations', 'EdgeOperations', 'QueryOperations'],
+      status: 'published',
+      published_version: '0.1.22',
+      crate_name: 'kotoba-graph-api',
+      build_order: 11,
+    },
+
+    'graph_api_server_integration': {
+      name: 'graph_api_server_integration',
+      path: 'crates/kotoba-server/src/main.rs',
+      type: 'integration',
+      layer: '500-services',
+      description: 'Integration of Graph API into HTTP server',
+      dependencies: ['types', 'graph_api', 'graph_core', 'http_server'],
+      provides: ['GraphApiIntegration', 'ServerWithGraphApi'],
+      status: 'published',
+      published_version: '0.1.22',
+      crate_name: 'kotoba-server',
+      build_order: 12,
     },
 
     // フロントエンドフレームワーク層
@@ -3136,6 +3168,15 @@
     { from: 'http_parser', to: 'http_server' },
     { from: 'http_engine', to: 'http_server' },
     { from: 'http_handlers', to: 'http_server' },
+
+    // Graph API dependencies
+    { from: 'types', to: 'graph_api' },
+    { from: 'graph_core', to: 'graph_api' },
+    { from: 'storage_lsm', to: 'graph_api' },
+    { from: 'types', to: 'graph_api_server_integration' },
+    { from: 'graph_api', to: 'graph_api_server_integration' },
+    { from: 'graph_core', to: 'graph_api_server_integration' },
+    { from: 'http_server', to: 'graph_api_server_integration' },
 
     // Server Core dependencies
     { from: 'types', to: 'kotoba_server_core' },

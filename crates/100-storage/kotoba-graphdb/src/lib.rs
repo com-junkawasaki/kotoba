@@ -27,6 +27,8 @@ pub struct GraphDB {
 }
 
 /// Node (Vertex) in the graph
+/// Represents a content-addressable node in the Merkle DAG.
+/// The hash of its content (labels and properties) can be used as its ID (CID).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     /// Unique node ID
@@ -42,6 +44,8 @@ pub struct Node {
 }
 
 /// Edge (Relationship) in the graph
+/// Represents a link between two nodes in the Merkle DAG.
+/// The edge itself can also be a node in the DAG, with its own properties.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Edge {
     /// Unique edge ID
@@ -949,7 +953,7 @@ impl GraphDB {
         Ok(())
     }
 
-    async fn delete_edge(&self, edge_id: &str) -> Result<(), GraphError> {
+    pub async fn delete_edge(&self, edge_id: &str) -> Result<(), GraphError> {
         let cf_edges = self.db.cf_handle("edges")
             .ok_or_else(|| GraphError::ColumnFamilyNotFound("edges".to_string()))?;
 

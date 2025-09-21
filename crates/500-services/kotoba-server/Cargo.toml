@@ -34,6 +34,9 @@ kotoba-storage = "0.1.22"
 kotoba-core = { path = "../../000-core/kotoba-core", version = "0.1.22" }
 # kotoba-routing = "0.1.22"
 kotoba-errors = "0.1.2"
+
+# Graph API
+kotoba-graph-api = { path = "../kotoba-graph-api", version = "0.1.22" }
 # kotoba-workflow-core = { path = "../../300-workflow/kotoba-workflow-core", optional = true }
 # kotoba-server-core = { path = "../kotoba-server-core" }
 # kotoba-server-workflow temporarily disabled due to build issues

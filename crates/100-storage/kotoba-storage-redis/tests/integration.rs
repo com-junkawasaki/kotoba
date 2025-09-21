@@ -7,13 +7,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use redis::AsyncCommands;
+use uuid::Uuid;
 use kotoba_storage_redis::{RedisStore, RedisConfig, ConnectionStatus};
 use kotoba_storage::KeyValueStore;
 
 async fn create_test_store() -> RedisStore {
+    let unique_prefix = format!("test:integration:{}", Uuid::new_v4());
     let config = RedisConfig {
         redis_urls: vec!["redis://127.0.0.1:6379".to_string()],
-        key_prefix: "test:integration".to_string(),
+        key_prefix: unique_prefix,
         enable_compression: true,
         enable_metrics: true,
         ..Default::default()
@@ -78,6 +80,8 @@ async fn test_integration_multiple_keys() {
 
     for (key, value) in &test_data {
         store.put(*key, *value).await.expect("Put should succeed");
+        let retrieved = store.get(*key).await.expect("Immediate get should succeed");
+        assert_eq!(retrieved, Some(value.to_vec()), "Value should be present immediately after put");
     }
 
     // Verify all keys exist
@@ -98,25 +102,25 @@ async fn test_integration_scan() {
     cleanup_test_store(&store).await;
 
     // Put keys with common prefix
-    let keys_and_values: Vec<(&[u8], &[u8])> = vec![
-        (b"prefix_key1", b"value1"),
-        (b"prefix_key2", b"value2"),
-        (b"prefix_key3", b"value3"),
-        (b"other_key", b"other_value"),
+    let keys_and_values: Vec<(Vec<u8>, Vec<u8>)> = vec![
+        (b"test_scan:key1".to_vec(), b"value1".to_vec()),
+        (b"test_scan:key2".to_vec(), b"value2".to_vec()),
+        (b"test_scan:key3".to_vec(), b"value3".to_vec()),
+        (b"other_scan:key".to_vec(), b"other_value".to_vec()),
     ];
 
     for (key, value) in &keys_and_values {
-        store.put(*key, *value).await.expect("Put should succeed");
+        store.put(key, value).await.expect("Put should succeed");
     }
 
     // Scan with prefix
-    let results = store.scan(b"prefix_").await.expect("Scan should succeed");
+    let results = store.scan(b"test_scan:").await.expect("Scan should succeed");
     assert_eq!(results.len(), 3, "Should find 3 keys with prefix");
 
     // Verify results are sorted
-    assert_eq!(results[0].0, b"prefix_key1");
-    assert_eq!(results[1].0, b"prefix_key2");
-    assert_eq!(results[2].0, b"prefix_key3");
+    assert_eq!(results[0].0, b"test_scan:key1");
+    assert_eq!(results[1].0, b"test_scan:key2");
+    assert_eq!(results[2].0, b"test_scan:key3");
 
     // Scan with empty prefix should return all test keys
     let all_results = store.scan(b"").await.expect("Scan all should succeed");

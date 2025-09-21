@@ -31,18 +31,24 @@ impl fmt::Display for StorageBackend {
 }
 
 /// A generic key-value store trait.
+/// Keys and values are treated as opaque byte arrays.
+/// The key can be considered a path in a Merkle DAG, and the value is the content of a node.
 #[async_trait]
 pub trait KeyValueStore: Send + Sync {
     /// Puts a key-value pair into the store.
+    /// This operation can be seen as adding or updating a node in the Merkle DAG.
     async fn put(&self, key: &[u8], value: &[u8]) -> Result<()>;
 
     /// Gets a value for a given key.
+    /// Retrieves the content of a node from the Merkle DAG using its key (path).
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>>;
 
     /// Deletes a key-value pair from the store.
+    /// Removes a node from the Merkle DAG.
     async fn delete(&self, key: &[u8]) -> Result<()>;
 
     /// Scans for key-value pairs with a given prefix.
+    /// Can be used to traverse a subtree of the Merkle DAG.
     async fn scan(&self, prefix: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
 
     /// Returns the storage backend type
