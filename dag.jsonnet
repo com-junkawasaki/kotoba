@@ -10,7 +10,7 @@
   // - Port/Adapter Pattern: Clean separation of business logic and infrastructure
   // - Event Sourcing: Complete event-driven architecture
   // - Graph Database: ISO GQL-compliant query processing
-  // - Layered Architecture: 000-core → 100-storage → 200-application → 300-workflow → 400-language → 500-services → 600-deployment → 900-tools
+  // - Layered Architecture: 010-core → 020-language → 030-storage → 040-application → 050-workflow → 060-services → 070-deployment → 090-tools
   // - Topological sort: Build order (lower numbers first)
   // - Reverse topological sort: Problem resolution order
 
@@ -19,53 +19,53 @@
   // ==========================================
 
   layers: {
-    '000-core': {
+    '010-core': {
       name: 'Core Layer',
       description: 'Foundation types, error handling, CID, schema definitions',
       priority: 1,
-      crates: ['kotoba-core', 'kotoba-errors', 'kotoba-cid', 'kotoba-schema', 'kotoba-ocel']
+      crates: ['011-kotoba-errors', '012-kotoba-core', '013-kotoba-cid', '014-kotoba-schema', '015-kotoba-ocel']
     },
-    '100-storage': {
+    '030-storage': {
       name: 'Storage Layer',
       description: 'Storage adapters and persistence implementations (Port/Adapter pattern)',
       priority: 2,
-      crates: ['kotoba-storage', 'kotoba-graphdb', 'kotoba-memory', 'kotoba-cache', 'kotoba-db-cluster', 'kotoba-distributed', 'kotoba-storage-rocksdb']
+      crates: ['031-kotoba-storage', '032-kotoba-cache', '033-kotoba-db-cluster', '034-kotoba-distributed', '035-kotoba-graphdb', '036-kotoba-memory', '037-kotoba-storage-redis', '038-kotoba-storage-rocksdb']
     },
-    '200-application': {
+    '040-application': {
       name: 'Application Layer',
       description: 'Business logic, event sourcing, query processing (Clean Architecture)',
       priority: 3,
-      crates: ['kotoba-event-stream', 'kotoba-projection-engine', 'kotoba-query-engine', 'kotoba-execution', 'kotoba-handler', 'kotoba-rewrite', 'kotoba-routing', 'kotoba-state-graph']
+      crates: ['041-kotoba-event-stream', '042-kotoba-projection-engine', '043-kotoba-rewrite', '044-kotoba-query-engine', '045-kotoba-execution', '046-kotoba-handler', '047-kotoba-routing', '048-kotoba-state-graph']
     },
-    '300-workflow': {
+    '050-workflow': {
       name: 'Workflow Layer',
       description: 'Workflow orchestration and process management',
       priority: 4,
-      crates: ['kotoba-workflow-core', 'kotoba-workflow', 'kotoba-workflow-activities', 'kotoba-workflow-operator']
+      crates: ['051-kotoba-workflow-core', '052-kotoba-workflow', '053-kotoba-workflow-activities', '054-kotoba-workflow-operator']
     },
-    '400-language': {
+    '020-language': {
       name: 'Language Layer',
       description: 'Programming language support (Jsonnet, KotobaScript, TSX)',
-      priority: 5,
-      crates: ['kotoba-jsonnet', 'kotoba-kotobas', 'kotoba-formatter', 'kotoba-linter', 'kotoba-lsp', 'kotoba-repl', 'kotoba2tsx', 'kotobas-wasm']
+      priority: 2,
+      crates: ['021-kotoba-language', '022-kotoba-jsonnet', '023-kotoba-kotobas', '024-kotoba-formatter', '025-kotoba-linter', '026-kotoba-lsp', '027-kotoba-repl', '028-kotoba2tsx', '029-kotobas-wasm']
     },
-    '500-services': {
+    '060-services': {
       name: 'Services Layer',
       description: 'HTTP servers, GraphQL APIs, REST APIs, external integrations',
-      priority: 6,
-      crates: ['kotoba-server-core', 'kotoba-server', 'kotoba-graph-api', 'kotoba-network', 'kotoba-security', 'kotoba-monitoring', 'kotoba-profiler', 'kotoba-schema-registry', 'kotoba-cloud-integrations']
+      priority: 5,
+      crates: ['061-kotoba-security', '062-kotoba-network', '063-kotoba-schema-registry', '064-kotoba-server-core', '065-kotoba-graph-api', '066-kotoba-server-workflow', '067-kotoba-server', '068-kotoba-monitoring', '069-kotoba-profiler', '070-kotoba-cloud-integrations']
     },
-    '600-deployment': {
+    '070-deployment': {
       name: 'Deployment Layer',
       description: 'Deployment orchestration, scaling, networking',
-      priority: 7,
-      crates: ['kotoba-deploy-core', 'kotoba-deploy', 'kotoba-deploy-cli', 'kotoba-deploy-controller', 'kotoba-deploy-git', 'kotoba-deploy-hosting', 'kotoba-deploy-network', 'kotoba-deploy-runtime', 'kotoba-deploy-scaling']
+      priority: 6,
+      crates: ['071-kotoba-deploy-core', '072-kotoba-deploy', '073-kotoba-deploy-scaling', '074-kotoba-deploy-network', '075-kotoba-deploy-git', '076-kotoba-deploy-controller', '077-kotoba-deploy-cli', '078-kotoba-deploy-runtime', '079-kotoba-deploy-hosting']
     },
-    '900-tools': {
+    '090-tools': {
       name: 'Tools Layer',
       description: 'Development tools, CLI utilities, testing frameworks',
-      priority: 8,
-      crates: ['kotoba-cli', 'kotoba-build', 'kotoba-bench', 'kotoba-config', 'kotoba-docs', 'kotoba-package-manager', 'kotoba-runtime', 'kotoba-ssg', 'kotoba-tester', 'kotoba-backup']
+      priority: 7,
+      crates: ['091-kotoba-config', '092-kotoba-build', '093-kotoba-package-manager', '094-kotoba-runtime', '095-kotoba-docs', '096-kotoba-ssg', '097-kotoba-tester', '098-kotoba-bench', '099-kotoba-backup', '100-kotoba-cli']
     }
   },
 
@@ -80,9 +80,9 @@
 
     'types': {
       name: 'types',
-      path: 'crates/000-core/kotoba-core/src/types.rs',
+      path: 'crates/010-core/kotoba-core/src/types.rs',
       type: 'foundation',
-      layer: '000-core',
+      layer: '010-core',
       description: '共通型定義 (Value, VertexId, EdgeId, GraphRef, TxId, ContentHash)',
       dependencies: [],
       provides: ['Value', 'VertexId', 'EdgeId', 'GraphRef', 'TxId', 'ContentHash'],
@@ -94,9 +94,9 @@
 
     'topology': {
       name: 'topology',
-      path: 'crates/000-core/kotoba-core/src/topology.rs',
+      path: 'crates/010-core/kotoba-core/src/topology.rs',
       type: 'foundation',
-      layer: '000-core',
+      layer: '010-core',
       description: 'プロセスネットワークトポロジー検証と処理 (TopologyGraph, Node, Edge, Validation)',
       dependencies: ['types'],
       provides: ['TopologyGraph', 'Node', 'Edge', 'ValidationCheck', 'topological_sort'],
@@ -108,9 +108,9 @@
 
     'error_handling': {
       name: 'error_handling',
-      path: 'crates/000-core/kotoba-errors/src/lib.rs',
+      path: 'crates/010-core/kotoba-errors/src/lib.rs',
       type: 'foundation',
-      layer: '000-core',
+      layer: '010-core',
       description: '統一されたエラーハンドリングシステム (KotobaError, WorkflowError)',
       dependencies: [],
       provides: ['KotobaError', 'WorkflowError', 'error_conversion'],
@@ -122,9 +122,9 @@
 
     'ir_catalog': {
       name: 'ir_catalog',
-      path: 'crates/000-core/kotoba-core/src/ir/catalog.rs',
+      path: 'crates/010-core/kotoba-core/src/ir/catalog.rs',
       type: 'ir',
-      layer: '000-core',
+      layer: '010-core',
       description: 'スキーマ/索引/不変量定義',
       dependencies: ['types'],
       provides: ['Catalog', 'LabelDef', 'IndexDef', 'Invariant'],
@@ -136,9 +136,9 @@
 
     'auth': {
       name: 'auth',
-      path: 'crates/000-core/kotoba-core/src/auth.rs',
+      path: 'crates/010-core/012-kotoba-core/src/auth.rs',
       type: 'security',
-      layer: '000-core',
+      layer: '010-core',
       description: '認証・認可エンジン (ReBAC + ABAC hybrid model)',
       dependencies: ['types', 'error_handling'],
       provides: ['Principal', 'PolicyEngine', 'Decision', 'AuthContext', 'SecureResource'],
@@ -150,9 +150,9 @@
 
     'crypto': {
       name: 'crypto',
-      path: 'crates/000-core/kotoba-core/src/crypto.rs',
+      path: 'crates/010-core/012-kotoba-core/src/crypto.rs',
       type: 'security',
-      layer: '000-core',
+      layer: '010-core',
       description: '暗号化エンジン (envelope encryption + DEK management)',
       dependencies: ['types', 'error_handling', 'auth'],
       provides: ['CryptoEngine', 'EncryptionInfo', 'SecureEnvelope'],
@@ -168,9 +168,9 @@
 
     'storage_port': {
       name: 'storage_port',
-      path: 'crates/100-storage/kotoba-storage/src/lib.rs',
+      path: 'crates/030-storage/kotoba-storage/src/lib.rs',
       type: 'port',
-      layer: '100-storage',
+      layer: '030-storage',
       description: 'Storage traits definition (Port in Port/Adapter pattern) - KeyValueStore, AuthStorage, GraphStore',
       dependencies: ['types', 'error_handling', 'auth', 'crypto'],
       provides: ['KeyValueStore', 'StoragePort', 'AuthStorage', 'GraphStore', 'GraphStorage'],
@@ -182,9 +182,9 @@
 
     'rocksdb_adapter': {
       name: 'rocksdb_adapter',
-      path: 'crates/100-storage/kotoba-storage-rocksdb/src/lib.rs',
+      path: 'crates/030-storage/kotoba-storage-rocksdb/src/lib.rs',
       type: 'adapter',
-      layer: '100-storage',
+      layer: '030-storage',
       description: 'RocksDB adapter implementation (Adapter in Port/Adapter pattern)',
       dependencies: ['storage_port'],
       provides: ['RocksDbAdapter'],
@@ -196,9 +196,9 @@
 
     'graphdb_adapter': {
       name: 'graphdb_adapter',
-      path: 'crates/100-storage/kotoba-graphdb/src/lib.rs',
+      path: 'crates/030-storage/kotoba-graphdb/src/lib.rs',
       type: 'adapter',
-      layer: '100-storage',
+      layer: '030-storage',
       description: 'GraphDB adapter implementation (Adapter in Port/Adapter pattern) - implements GraphStore trait',
       dependencies: ['storage_port'],
       provides: ['GraphDbAdapter', 'GraphStoreImpl'],
@@ -298,9 +298,9 @@
     // グラフ層
     'graph_vertex': {
       name: 'graph_vertex',
-      path: 'crates/000-core/kotoba-core/src/graph/vertex.rs',
+      path: 'crates/010-core/012-kotoba-core/src/graph/vertex.rs',
       type: 'graph',
-      layer: '000-core',
+      layer: '010-core',
       description: '頂点関連構造体とビルダー',
       dependencies: ['types'],
       provides: ['VertexBuilder', 'VertexData'],
@@ -312,9 +312,9 @@
 
     'graph_edge': {
       name: 'graph_edge',
-      path: 'crates/000-core/kotoba-core/src/graph/edge.rs',
+      path: 'crates/010-core/kotoba-core/src/graph/edge.rs',
       type: 'graph',
-      layer: '000-core',
+      layer: '010-core',
       description: 'エッジ関連構造体とビルダー',
       dependencies: ['types'],
       provides: ['EdgeBuilder', 'EdgeData'],
@@ -326,9 +326,9 @@
 
     'graph_core': {
       name: 'graph_core',
-      path: 'crates/000-core/kotoba-core/src/graph/graph.rs',
+      path: 'crates/010-core/kotoba-core/src/graph/graph.rs',
       type: 'graph',
-      layer: '000-core',
+      layer: '010-core',
       description: '列指向グラフ表現とGraphRef',
       dependencies: ['types', 'graph_vertex', 'graph_edge'],
       provides: ['Graph', 'GraphRef', 'GraphTraversal', 'GraphAlgorithms'],
@@ -1136,7 +1136,7 @@
       name: 'graph_api',
       path: 'crates/kotoba-graph-api/src/lib.rs',
       type: 'api',
-      layer: '500-services',
+      layer: '060-services',
       description: 'REST API for graph database operations (CRUD on nodes/edges, queries) - uses storage abstraction layer',
       dependencies: ['types', 'storage'],
       provides: ['GraphApiRouter', 'ApiHandler', 'NodeOperations', 'EdgeOperations', 'QueryOperations'],
@@ -1150,7 +1150,7 @@
       name: 'graph_api_server_integration',
       path: 'crates/kotoba-server/src/main.rs',
       type: 'integration',
-      layer: '500-services',
+      layer: '060-services',
       description: 'Integration of Graph API into HTTP server',
       dependencies: ['types', 'graph_api', 'graph_core', 'http_server'],
       provides: ['GraphApiIntegration', 'ServerWithGraphApi'],

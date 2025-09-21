@@ -6,68 +6,68 @@ members = [
     "crates/010-core/015-kotoba-ocel",
     "crates/010-core/014-kotoba-schema",
     "crates/020-language/021-kotoba-language",
-    "crates/100-storage/kotoba-storage",
-    "crates/100-storage/kotoba-storage-rocksdb",
-    "crates/100-storage/kotoba-storage-redis",
-    "crates/100-storage/kotoba-graphdb",
-    "crates/100-storage/kotoba-cache",
-    "crates/200-application/kotoba-event-stream",
-    "crates/200-application/kotoba-projection-engine",
-    "crates/200-application/kotoba-query-engine",
-    "crates/200-application/kotoba-execution",
-    "crates/200-application/kotoba-handler",
-    "crates/200-application/kotoba-rewrite",
-    "crates/200-application/kotoba-routing",
-    "crates/200-application/kotoba-state-graph",
-    "crates/300-workflow/kotoba-workflow",
-    "crates/300-workflow/kotoba-workflow-activities",
-    "crates/300-workflow/kotoba-workflow-core",
-    "crates/300-workflow/kotoba-workflow-operator",
-    "crates/400-language/kotoba-jsonnet",
-    "crates/400-language/kotoba-kotobas",
-    "crates/400-language/kotoba-formatter",
-    "crates/400-language/kotoba-linter",
-    "crates/400-language/kotoba-lsp",
-    "crates/400-language/kotoba-repl",
-    "crates/400-language/kotoba2tsx",
-    "crates/400-language/kotobas-wasm",
-    "crates/500-services/kotoba-server-core",
-    "crates/500-services/kotoba-server",
-    "crates/500-services/kotoba-graph-api",
-    "crates/600-deployment/kotoba-deploy",
-    "crates/600-deployment/kotoba-deploy-cli",
-    "crates/600-deployment/kotoba-deploy-controller",
-    "crates/600-deployment/kotoba-deploy-core",
-    "crates/600-deployment/kotoba-deploy-git",
-    "crates/600-deployment/kotoba-deploy-hosting",
-    "crates/600-deployment/kotoba-deploy-network",
-    "crates/600-deployment/kotoba-deploy-runtime",
-    "crates/600-deployment/kotoba-deploy-scaling",
-    "crates/900-tools/kotoba-cli",
-    "crates/900-tools/kotoba-build",
-    "crates/900-tools/kotoba-backup",
-    "crates/900-tools/kotoba-bench",
-    "crates/900-tools/kotoba-config",
-    "crates/900-tools/kotoba-docs",
-    "crates/900-tools/kotoba-package-manager",
-    "crates/900-tools/kotoba-runtime",
-    "crates/900-tools/kotoba-ssg",
-    "crates/900-tools/kotoba-tester",
+    "crates/030-storage/031-kotoba-storage",
+    "crates/030-storage/038-kotoba-storage-rocksdb",
+    "crates/030-storage/037-kotoba-storage-redis",
+    "crates/030-storage/035-kotoba-graphdb",
+    "crates/030-storage/032-kotoba-cache",
+    "crates/040-application/041-kotoba-event-stream",
+    "crates/040-application/042-kotoba-projection-engine",
+    "crates/040-application/044-kotoba-query-engine",
+    "crates/040-application/045-kotoba-execution",
+    "crates/040-application/046-kotoba-handler",
+    "crates/040-application/043-kotoba-rewrite",
+    "crates/040-application/047-kotoba-routing",
+    "crates/040-application/048-kotoba-state-graph",
+    "crates/050-workflow/052-kotoba-workflow",
+    "crates/050-workflow/053-kotoba-workflow-activities",
+    "crates/050-workflow/051-kotoba-workflow-core",
+    "crates/050-workflow/054-kotoba-workflow-operator",
+    "crates/020-language/kotoba-jsonnet",
+    "crates/020-language/kotoba-kotobas",
+    "crates/020-language/kotoba-formatter",
+    "crates/020-language/kotoba-linter",
+    "crates/020-language/kotoba-lsp",
+    "crates/020-language/kotoba-repl",
+    "crates/020-language/kotoba2tsx",
+    "crates/020-language/kotobas-wasm",
+    "crates/060-services/064-kotoba-server-core",
+    "crates/060-services/067-kotoba-server",
+    "crates/060-services/kotoba-graph-api",
+    "crates/070-deployment/072-kotoba-deploy",
+    "crates/070-deployment/077-kotoba-deploy-cli",
+    "crates/070-deployment/076-kotoba-deploy-controller",
+    "crates/070-deployment/071-kotoba-deploy-core",
+    "crates/070-deployment/075-kotoba-deploy-git",
+    "crates/070-deployment/079-kotoba-deploy-hosting",
+    "crates/070-deployment/074-kotoba-deploy-network",
+    "crates/070-deployment/078-kotoba-deploy-runtime",
+    "crates/070-deployment/kotoba-deploy-scaling",
+    "crates/090-tools/kotoba-cli",
+    "crates/090-tools/kotoba-build",
+    "crates/090-tools/kotoba-backup",
+    "crates/090-tools/kotoba-bench",
+    "crates/090-tools/kotoba-config",
+    "crates/090-tools/kotoba-docs",
+    "crates/090-tools/kotoba-package-manager",
+    "crates/090-tools/kotoba-runtime",
+    "crates/090-tools/kotoba-ssg",
+    "crates/090-tools/kotoba-tester",
     "tests/integration",
     "examples/vercel",
 ]
 exclude = [
-    "crates/100-storage/kotoba-db-cluster",
-    "crates/100-storage/kotoba-distributed",
-    "crates/100-storage/kotoba-storage-redis",
-    "crates/500-services/kotoba-security",
-    "crates/500-services/kotoba-network",
-    "crates/500-services/kotoba-schema-registry",
-    "crates/500-services/kotoba-monitoring",
-    "crates/500-services/kotoba-server-core",
-    "crates/500-services/kotoba-server-workflow",
-    "crates/500-services/kotoba-cloud-integrations",
-    "crates/500-services/kotoba-profiler",
+    "crates/030-storage/kotoba-db-cluster",
+    "crates/030-storage/kotoba-distributed",
+    "crates/030-storage/037-kotoba-storage-redis",
+    "crates/060-services/kotoba-security",
+    "crates/060-services/kotoba-network",
+    "crates/060-services/kotoba-schema-registry",
+    "crates/060-services/kotoba-monitoring",
+    "crates/060-services/064-kotoba-server-core",
+    "crates/060-services/kotoba-server-workflow",
+    "crates/060-services/kotoba-cloud-integrations",
+    "crates/060-services/kotoba-profiler",
 ]
 resolver = "2"
 
@@ -111,25 +111,25 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
 hyper = { version = "1.0", features = ["full"] }
 
 # Kotoba workspace crates
-kotoba-core = { path = "crates/000-core/kotoba-core", version = "0.1.21" }
-kotoba-errors = { path = "crates/000-core/kotoba-errors", version = "0.1.2" }
-kotoba-cid = { path = "crates/000-core/kotoba-cid", version = "0.1.21" }
+kotoba-core = { path = "crates/010-core/kotoba-core", version = "0.1.21" }
+kotoba-errors = { path = "crates/010-core/kotoba-errors", version = "0.1.2" }
+kotoba-cid = { path = "crates/010-core/kotoba-cid", version = "0.1.21" }
 # kotoba-graph temporarily disabled
-# kotoba-graph = { path = "crates/100-storage/kotoba-graphdb", version = "0.1.21" }
-kotoba-storage = { path = "crates/100-storage/kotoba-storage", version = "0.1.21" }
-kotoba-execution = { path = "crates/200-application/kotoba-execution", version = "0.1.21" }
-kotoba-rewrite = { path = "crates/200-application/kotoba-rewrite", version = "0.1.21" }
-kotoba-jsonnet = { path = "crates/400-language/kotoba-jsonnet", version = "0.1.17" }
-kotoba-routing = { path = "crates/200-application/kotoba-routing", version = "0.1.16" }
-kotoba-workflow-core = { path = "crates/300-workflow/kotoba-workflow-core", version = "0.1.21" }
-kotoba-workflow = { path = "crates/300-workflow/kotoba-workflow", version = "0.1.21" }
-kotoba-workflow-activities = { path = "crates/300-workflow/kotoba-workflow-activities", version = "0.1.21" }
-kotoba-workflow-operator = { path = "crates/300-workflow/kotoba-workflow-operator", version = "0.1.21" }
-kotoba-deploy-core = { path = "crates/600-deployment/kotoba-deploy-core", version = "0.1.21" }
-kotoba-deploy-controller = { path = "crates/600-deployment/kotoba-deploy-controller", version = "0.1.21" }
-kotoba-deploy-runtime = { path = "crates/600-deployment/kotoba-deploy-runtime", version = "0.1.21" }
-kotoba-deploy-scaling = { path = "crates/600-deployment/kotoba-deploy-scaling", version = "0.1.21" }
-kotoba-deploy-network = { path = "crates/600-deployment/kotoba-deploy-network", version = "0.1.21" }
+# kotoba-graph = { path = "crates/030-storage/kotoba-graphdb", version = "0.1.21" }
+kotoba-storage = { path = "crates/030-storage/kotoba-storage", version = "0.1.21" }
+kotoba-execution = { path = "crates/040-application/kotoba-execution", version = "0.1.21" }
+kotoba-rewrite = { path = "crates/040-application/kotoba-rewrite", version = "0.1.21" }
+kotoba-jsonnet = { path = "crates/020-language/kotoba-jsonnet", version = "0.1.17" }
+kotoba-routing = { path = "crates/040-application/kotoba-routing", version = "0.1.16" }
+kotoba-workflow-core = { path = "crates/050-workflow/kotoba-workflow-core", version = "0.1.21" }
+kotoba-workflow = { path = "crates/050-workflow/kotoba-workflow", version = "0.1.21" }
+kotoba-workflow-activities = { path = "crates/050-workflow/kotoba-workflow-activities", version = "0.1.21" }
+kotoba-workflow-operator = { path = "crates/050-workflow/kotoba-workflow-operator", version = "0.1.21" }
+kotoba-deploy-core = { path = "crates/070-deployment/kotoba-deploy-core", version = "0.1.21" }
+kotoba-deploy-controller = { path = "crates/070-deployment/kotoba-deploy-controller", version = "0.1.21" }
+kotoba-deploy-runtime = { path = "crates/070-deployment/kotoba-deploy-runtime", version = "0.1.21" }
+kotoba-deploy-scaling = { path = "crates/070-deployment/kotoba-deploy-scaling", version = "0.1.21" }
+kotoba-deploy-network = { path = "crates/070-deployment/kotoba-deploy-network", version = "0.1.21" }
 
 # Fix digest version conflict
 digest = "0.10.7"
@@ -215,8 +215,8 @@ thiserror.workspace = true
 tempfile.workspace = true
 
 # Core crates
-kotoba-errors = { path = "crates/000-core/kotoba-errors", version = "0.1.2" }
-kotoba-repl = { path = "crates/400-language/kotoba-repl", version = "0.1.22" }
+kotoba-errors = { path = "crates/010-core/kotoba-errors", version = "0.1.2" }
+kotoba-repl = { path = "crates/020-language/kotoba-repl", version = "0.1.22" }
 
 # For binary
 clap = { version = "4.0", features = ["derive"] }
