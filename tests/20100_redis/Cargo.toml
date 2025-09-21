@@ -1,0 +1,29 @@
+[package]
+name = "kotoba-redis-tests"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "test_redis_db"
+path = "test_redis_db.rs"
+
+[dependencies]
+# Core crates
+kotoba-core = { path = "../../crates/000-core/kotoba-core", version = "0.1.22" }
+kotoba-errors = { path = "../../crates/000-core/kotoba-errors", version = "0.1.2" }
+
+# Storage layer - using the excluded Redis crate directly
+kotoba-storage = { path = "../../crates/100-storage/kotoba-storage", version = "0.1.21" }
+kotoba-storage-redis = { path = "../../crates/100-storage/kotoba-storage-redis", version = "0.1.22" }
+
+# Testing utilities
+tokio = { version = "1.0", features = ["full", "test-util"] }
+futures = "0.3"
+async-trait = "0.1"
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.0"
+uuid = { version = "1.18", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
