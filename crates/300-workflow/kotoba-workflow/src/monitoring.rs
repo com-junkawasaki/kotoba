@@ -3,7 +3,6 @@
 //! ワークフロー実行の監視、観測性、メトリクス収集を提供します。
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 

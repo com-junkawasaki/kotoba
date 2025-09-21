@@ -9,7 +9,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::timeout;
 
-use crate::ir::ActivityIR;
 
 /// Activity実行インターフェース
 #[async_trait]
@@ -106,7 +105,7 @@ impl ActivityRegistry {
         let activity = self.get(name).await
             .ok_or(ActivityError::NotFound(name.to_string()))?;
 
-        let mut attempt_count = 0;
+        let attempt_count = 0;
         let retry_policy = activity.retry_policy();
 
         // リトライロジック

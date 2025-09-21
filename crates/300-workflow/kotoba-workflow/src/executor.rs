@@ -124,7 +124,7 @@ impl ActivityRegistry {
         let activity = self.get(name).await
             .ok_or(ActivityError::NotFound(name.to_string()))?;
 
-        let mut attempt_count = 0;
+        let _attempt_count = 0;
         let retry_policy = activity.retry_policy();
 
         // リトライロジック
@@ -593,7 +593,7 @@ impl WorkflowExecutor {
                 // TODO: select! マクロを使って実装
                 Err(WorkflowError::InvalidStrategy("Any completion not implemented".to_string()))
             }
-            CompletionCondition::AtLeast(count) => {
+            CompletionCondition::AtLeast(_count) => {
                 // 指定数のブランチが完了したら進む
                 Err(WorkflowError::InvalidStrategy("AtLeast completion not implemented".to_string()))
             }
@@ -642,7 +642,7 @@ impl WorkflowExecutor {
                 tokio::time::sleep(duration).await;
                 Ok(graph)
             }
-            WaitCondition::Event { event_type, filter } => {
+            WaitCondition::Event { event_type, filter: _ } => {
                 // イベント待機は別途実装が必要
                 println!("Waiting for event: {}", event_type);
                 if let Some(timeout) = timeout {
@@ -672,7 +672,7 @@ impl WorkflowExecutor {
         // メイン処理を実行
         match self.execute_strategy(main_flow, graph.clone(), execution_id).await {
             Ok(result_graph) => Ok(result_graph),
-            Err(e) => {
+            Err(_e) => {
                 // 失敗したら補償処理を実行
                 println!("Main flow failed, executing compensation");
                 match self.execute_strategy(compensation, graph, execution_id).await {
@@ -709,7 +709,7 @@ impl WorkflowExecutor {
         };
 
         match result {
-            Ok(outputs) => {
+            Ok(_outputs) => {
                 // 実行結果をグラフに反映（TODO）
                 println!("Activity {} completed successfully", activity_ref);
                 Ok(graph)

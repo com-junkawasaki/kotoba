@@ -286,7 +286,7 @@ impl SagaManager {
         match policy {
             CompensationPolicy::ReverseOrder => {
                 // 逆順で補償を実行
-                let mut order: Vec<String> = compensable.iter()
+                let order: Vec<String> = compensable.iter()
                     .rev()
                     .filter_map(|tx| tx.compensation_ref.clone())
                     .collect();

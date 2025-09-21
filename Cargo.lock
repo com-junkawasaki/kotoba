@@ -5492,6 +5492,8 @@ dependencies = [
  "js-sys",
  "kotoba-core 0.1.22",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-graph-api",
+ "kotoba-graphdb",
  "kotoba-storage 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "serde",

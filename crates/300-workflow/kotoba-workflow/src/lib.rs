@@ -234,7 +234,7 @@ impl ExtendedWorkflowEngine {
     pub async fn wait_for_completion(
         &self,
         execution_id: WorkflowExecutionId,
-        timeout: Option<std::time::Duration>,
+        _timeout: Option<std::time::Duration>,
     ) -> Result<WorkflowResult, WorkflowError> {
         // TODO: Implement actual completion waiting logic with timeout
         // For now, just poll the execution status

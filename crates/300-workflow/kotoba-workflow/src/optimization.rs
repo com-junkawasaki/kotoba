@@ -4,10 +4,9 @@
 //! コストベース最適化、並列実行最適化、クエリ最適化などをサポート。
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
-use crate::ir::{WorkflowIR, WorkflowStrategyOp, ActivityIR};
+use crate::ir::{WorkflowIR, WorkflowStrategyOp};
 
 /// 最適化戦略
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -261,7 +260,7 @@ impl WorkflowOptimizer {
         max_parallelism: usize,
     ) -> Result<ParallelExecutionPlan, OptimizationError> {
         let mut stages = Vec::new();
-        let mut dependencies = HashMap::new();
+        let dependencies = HashMap::new();
         let mut processed = HashSet::new();
         let mut queue = VecDeque::new();
 
@@ -270,7 +269,7 @@ impl WorkflowOptimizer {
 
         while !queue.is_empty() {
             let mut current_stage_activities = Vec::new();
-            let mut current_dependencies: HashMap<String, Vec<String>> = HashMap::new();
+            let current_dependencies: HashMap<String, Vec<String>> = HashMap::new();
 
             // 現在のステージで実行可能なActivityを収集
             let batch_size = std::cmp::min(queue.len(), max_parallelism);

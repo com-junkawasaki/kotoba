@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 
-use crate::ir::{WorkflowExecutionId, WorkflowExecution, ExecutionStatus};
+use crate::ir::WorkflowExecutionId;
 use kotoba_errors::WorkflowError;
 
 /// ノード情報

@@ -68,7 +68,7 @@ impl WorkflowEngineInterface for WorkflowEngine {
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
             let mut executions = executions.write().await;
-            if let Some(mut exec) = executions.get_mut(&execution_clone.execution_id) {
+            if let Some(exec) = executions.get_mut(&execution_clone.execution_id) {
                 exec.status = ExecutionStatus::Completed;
                 exec.updated_at = Utc::now();
                 exec.result = Some(serde_json::json!({"message": "Workflow completed successfully"}));
@@ -99,7 +99,7 @@ impl WorkflowEngineInterface for WorkflowEngine {
         execution_id: &WorkflowExecutionId,
     ) -> Result<(), WorkflowError> {
         let mut executions = self.executions.write().await;
-        if let Some(mut execution) = executions.get_mut(execution_id) {
+        if let Some(execution) = executions.get_mut(execution_id) {
             execution.status = ExecutionStatus::Cancelled;
             execution.updated_at = Utc::now();
             Ok(())

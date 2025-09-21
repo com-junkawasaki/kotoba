@@ -57,24 +57,22 @@ async fn main() -> anyhow::Result<()> {
     // Setup logging
     setup_logging();
 
-    // Initialize GraphDB - temporarily disabled for testing
-    // tracing::info!("🔄 Initializing GraphDB at: {}", args.db_path);
-    // let graphdb = Arc::new(GraphDB::new(&args.db_path).await
-    //     .map_err(|e| {
-    //         tracing::error!("Failed to initialize GraphDB: {}", e);
-    //         e
-    //     })?);
-    // tracing::info!("✅ GraphDB initialized successfully");
+    // Initialize GraphDB
+    tracing::info!("🔄 Initializing GraphDB at: {}", args.db_path);
+    let graphdb = Arc::new(GraphDB::new(&args.db_path).await
+        .map_err(|e| {
+            tracing::error!("Failed to initialize GraphDB: {}", e);
+            e
+        })?);
+    tracing::info!("✅ GraphDB initialized successfully");
 
-    // Graph API temporarily disabled for testing
-    // TODO: Re-enable when GraphDB integration is fixed
-    // let graphdb = Arc::new(GraphDB::new(&args.db_path).await?);
-    // let graph_api_router = create_router(graphdb);
+    // Create Graph API router
+    let graph_api_router = create_router(graphdb);
 
     // Create main application router
     let app = Router::new()
-        .route("/health", get(health_check));
-        // .merge(graph_api_router); // Temporarily disabled
+        .route("/health", get(health_check))
+        .merge(graph_api_router);
 
     // Add workflow features if enabled
     if args.workflow {
@@ -88,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
     // Start server
     let addr = format!("{}:{}", args.host, args.port);
     tracing::info!("🚀 Server starting on {}", addr);
-    tracing::info!("📊 Graph API temporarily disabled - working on integration");
+    tracing::info!("📊 Graph API available at http://{}/api/v1/", addr);
 
     let listener = TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;

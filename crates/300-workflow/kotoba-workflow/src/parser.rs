@@ -7,7 +7,7 @@ use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::result::Result as StdResult;
 
-use crate::spec::{WorkflowStep, CallDefinition, EmitDefinition, ListenDefinition, WaitDefinition, RunDefinition, SwitchCase, ForDefinition, ForkDefinition, TryDefinition, RaiseDefinition, ServerlessWorkflow};
+use crate::spec::{RunDefinition, ServerlessWorkflow};
 use crate::ir::{ActivityIR, WorkflowIR, ActivityImplementation};
 use kotoba_errors::WorkflowError;
 
