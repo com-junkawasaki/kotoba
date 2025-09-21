@@ -4727,6 +4727,7 @@ dependencies = [
  "js-sys",
  "jsonschema",
  "kotoba-errors 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kotoba-language",
  "parking_lot",
  "rand 0.8.5",
  "regex",
@@ -5302,6 +5303,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "kotoba-language"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "kotoba-linter"
 version = "0.1.22"
 dependencies = [
@@ -5789,6 +5804,7 @@ dependencies = [
  "kotoba-storage 0.1.22",
  "kotoba-storage-redis",
  "lazy_static",
+ "rand 0.8.5",
  "redis 0.23.3",
  "serde",
  "serde_json",

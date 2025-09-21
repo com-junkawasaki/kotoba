@@ -16,6 +16,10 @@ path = "tests.rs"
 name = "facebook_social_graph"
 path = "test_facebook.rs"
 
+[[test]]
+name = "facebook_performance_analysis"
+path = "test_facebook_performance_analysis.rs"
+
 [[bin]]
 name = "debug-redis"
 path = "debug_redis.rs"

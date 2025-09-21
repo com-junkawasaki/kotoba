@@ -17,6 +17,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
 
 # Note: Language feature integration will be added in future phases
 # to avoid cyclic dependencies during the transition period
