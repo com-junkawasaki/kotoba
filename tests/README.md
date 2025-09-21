@@ -1,259 +1,178 @@
-# KotobaDB Testing Framework
+# Kotoba Test Suite - Topology-Based Execution
 
-This directory contains comprehensive testing infrastructure for KotobaDB, ensuring quality, stability, and performance across all components.
+This directory contains comprehensive tests for the Kotoba project, organized according to the **process network topology** defined in `dag.jsonnet`. Tests execute in **topological order** to ensure proper dependency validation across all layers of the system.
 
-## 🧪 Test Categories
+## 🏗️ Test Organization (Topology-based Numbering)
 
-### Integration Tests (`tests/integration/`)
-End-to-end testing of complete KotobaDB functionality including:
-- **Database Lifecycle**: Creation, schema setup, data population, queries, backup/restore
-- **Graph Operations**: Node/edge CRUD, traversals, property operations, indexing
-- **Transaction Tests**: ACID properties, isolation levels, rollback behavior
-- **Backup/Restore**: Full backups, incremental backups, point-in-time recovery
+Tests are organized and numbered according to the layered architecture and dependency relationships:
+
+### 10000-19999: Core Layer Tests (`10000_core/`)
+- **10000-10999**: Core Types & Schema Validation
+- **11000-11999**: Error Handling & Recovery
+- **12000-12999**: Type Safety & Validation
+
+**Dependencies**: None (foundation layer)
+
+### 20000-29999: Storage Layer Tests (`20000_storage/`)
+- **20000-20999**: Storage Adapters (Redis, RocksDB, Memory)
+- **21000-21999**: Database Lifecycle Management
+- **22000-22999**: Data Integrity & Corruption Recovery
+- **23000-23999**: Performance & Benchmarking
+
+**Dependencies**: Core Layer
+
+### 30000-39999: Application Layer Tests (`30000_application/`)
+- **30000-30999**: Graph Operations (CRUD, traversals)
+- **31000-31999**: Transaction Management & ACID
+- **32000-32999**: Core Graph Processing Algorithms
+- **33000-33999**: Query Engine & Execution
+- **34000-34999**: Event Sourcing & CQRS
+- **35000-35999**: GP2-based Graph Rewriting
+
+**Dependencies**: Storage Layer
+
+### 40000-49999: Workflow Layer Tests (`40000_workflow/`)
+- **40000-40999**: Concurrent Access Patterns
+- **41000-41999**: Process Orchestration
+- **42000-42999**: Workflow State Management
+
+**Dependencies**: Application Layer
+
+### 50000-59999: Language Layer Tests (`50000_language/`)
+- **50000-50999**: GraphQL Integration & ISO GQL
+- **51000-51999**: Jsonnet Processing
+- **52000-52999**: KotobaScript Compilation
+
+**Dependencies**: Application Layer
+
+### 60000-69999: Services Layer Tests (`60000_services/`)
+- **60000-60999**: HTTP API Endpoints
+- **61000-61999**: GraphQL API Validation
+- **62000-62999**: Authentication & Authorization
+
+**Dependencies**: Language Layer
+
+### 70000-79999: Deployment Layer Tests (`70000_deployment/`)
+- **70000-70999**: Cluster Deployment
+- **71000-71999**: Scaling & Load Balancing
+- **72000-72999**: Service Discovery
+
+**Dependencies**: Services Layer
+
+### 90000-99999: Tools Layer Tests (`90000_tools/`)
+- **90000-90999**: CLI Utilities
+- **91000-91999**: Development Tools
+- **92000-92999**: Testing Frameworks
+
+**Dependencies**: All layers
+
+## 🧪 Special Test Directories
+
+- **`integration/`**: Cross-layer integration tests (run after all layer tests)
+- **`fuzz/`**: Fuzzing tests for security validation
+- **`load/`**: Performance and load testing
+- **`repl/`**: REPL interface tests
+
+## 🚀 Running Tests
+
+### Run All Tests in Topology Order
+```bash
+./tests/run_topology_tests.sh
+```
+
+### Run Specific Layer Tests
+```bash
+# Core layer only
+cd tests/10000_core && cargo test
+
+# Storage layer only
+cd tests/20000_storage && cargo test
+
+# Integration tests
+cd tests/integration && cargo test
+```
+
+### Run with Specific Profile
+```bash
+# Debug build
+cargo test --manifest-path tests/integration/Cargo.toml
+
+# Release build for performance tests
+cargo test --release --manifest-path tests/integration/Cargo.toml
+```
+
+### Run with Custom Timeouts
+```bash
+# Set custom timeouts (in seconds)
+TEST_TIMEOUT=600 LAYER_TIMEOUT=120 INTEGRATION_TIMEOUT=300 ./tests/run_topology_tests.sh
+
+# Quick test run with shorter timeouts
+TEST_TIMEOUT=180 LAYER_TIMEOUT=30 INTEGRATION_TIMEOUT=90 ./tests/run_topology_tests.sh
+```
+
+### Timeout Configuration
+- **TEST_TIMEOUT**: Overall test suite timeout (default: 300s = 5min)
+- **LAYER_TIMEOUT**: Per-layer test timeout (default: 60s = 1min)
+- **INTEGRATION_TIMEOUT**: Integration test timeout (default: 180s = 3min)
+
+## 🔄 Test Execution Order
+
+Tests execute in strict topological order to ensure:
+
+1. **Dependencies are satisfied** - Lower layers must pass before higher layers run
+2. **Incremental validation** - Each layer builds upon the validated foundation below
+3. **Failure isolation** - Problems are caught at the earliest possible layer
+4. **Systematic coverage** - Complete validation of the entire process network
+
+## ✅ Topology Validation (dag.jsonnet rules)
+
+The test suite includes comprehensive validation following `dag.jsonnet` topology rules:
 
 ```bash
-# Run integration tests
-cargo test --test integration -- --nocapture
-
-# Run specific integration test
-cargo test --test integration database_lifecycle::test_full_database_lifecycle -- --nocapture
+cd tests/integration
+cargo test test_topology_validation
 ```
 
-### Load Tests (`tests/load/`)
-Comprehensive load testing framework with:
-- **YCSB Workloads**: Industry-standard benchmarks (A-F)
-- **Application Scenarios**: Social network, e-commerce patterns
-- **Stress Testing**: Hotspot contention, large values, max throughput
-- **Scalability Testing**: Concurrency and data size scaling
-- **Performance Metrics**: Latency percentiles, throughput, resource usage
+### Validation Rules Applied
+
+Following `scripts/validate_topology.jsonnet`, the validation ensures:
+
+1. **Node Existence** - All tests have valid module paths and are properly defined
+2. **Edge Integrity** - No self-dependencies, duplicate edges, or invalid references
+3. **Dependency Integrity** - All dependencies reference existing tests in the topology
+4. **Build Order Integrity** - Dependencies have lower build orders than dependent tests
+5. **No Cycles** - Cycle detection prevents circular dependencies
+6. **Topological Order** - Execution order respects the dependency hierarchy
+7. **Layer Validation** - All tests belong to valid architectural layers
+
+### Pre-flight Validation
+
+The test runner also performs pre-flight validation using dag.jsonnet:
 
 ```bash
-# Run YCSB Workload A
-cargo run --bin load_test_runner -- --workload ycsb-a --duration 60
-
-# Run comprehensive scenario
-cargo run --bin load_test_runner -- --scenario comprehensive
-
-# Run with custom configuration
-cargo run --bin load_test_runner -- --workload ycsb-a --concurrency 100 --duration 120
+./tests/run_topology_tests.sh
 ```
 
-### Fuzz Tests (`tests/fuzz/`)
-Security and robustness testing with:
-- **Graph Operations**: Random sequences of graph manipulations
-- **Transaction Operations**: ACID property verification under random conditions
-- **Data Structures**: CBOR serialization/deserialization edge cases
-- **Concurrent Operations**: Race condition detection
+This runs `scripts/validate_topology.jsonnet` to ensure the process network topology is valid before executing tests.
 
-```bash
-# Install fuzzing tools
-cargo install cargo-fuzz
+## 🛠️ Adding New Tests
 
-# Run graph operations fuzzing
-cargo fuzz run fuzz_graph_operations
+When adding new tests:
 
-# Run transaction fuzzing
-cargo fuzz run fuzz_transaction_operations
-
-# Run with corpus
-cargo fuzz run fuzz_graph_operations -- -max_len=1024
-```
-
-## 📊 Performance Benchmarks
-
-### Running Benchmarks
-```bash
-# Run all benchmarks
-cargo bench
-
-# Run specific benchmark
-cargo bench --bench integration_benchmark
-
-# Compare against baseline
-cargo bench --bench integration_benchmark -- --baseline
-```
-
-### Benchmark Categories
-- **CRUD Operations**: Basic create/read/update/delete performance
-- **Query Performance**: Graph traversals, property lookups, range queries
-- **Transaction Throughput**: Concurrent transaction performance
-- **Storage Operations**: LSM-tree, backup/restore performance
-
-## 🔒 Security Testing
-
-### Fuzzing Strategy
-- **Coverage-guided fuzzing** with `cargo-fuzz`
-- **Arbitrary input generation** for edge case discovery
-- **Corpus minimization** for efficient test maintenance
-- **Crash reproduction** with minimized test cases
-
-### Security Checks
-- **Memory safety** with AddressSanitizer and MemorySanitizer
-- **Thread safety** with ThreadSanitizer
-- **Undefined behavior** detection
-- **Dependency vulnerability** scanning
-
-## 🚀 CI/CD Integration
-
-### GitHub Actions Pipeline
-The test suite integrates with CI/CD through `.github/workflows/ci.yml`:
-- **Quality Gates**: Formatting, linting, security audits
-- **Integration Tests**: Full test matrix across Rust versions and features
-- **Performance Tests**: Automated benchmark execution and comparison
-- **Cross-platform**: Linux, macOS, Windows compatibility
-- **Release Verification**: Pre-release validation
-
-### Running CI Locally
-```bash
-# Run full CI pipeline locally
-./scripts/run_ci_locally.sh
-
-# Run specific CI jobs
-./scripts/run_ci_locally.sh --job integration-tests
-./scripts/run_ci_locally.sh --job performance-tests
-```
-
-## 📈 Metrics and Reporting
-
-### Test Reports
-All test runs generate comprehensive reports:
-- **Console Output**: Real-time colored output with progress indicators
-- **JSON Reports**: Structured data for analysis and CI integration
-- **CSV Reports**: Spreadsheet-compatible performance data
-- **HTML Reports**: Web-viewable detailed reports with charts
-
-### Performance Tracking
-- **Baseline Comparisons**: Detect performance regressions
-- **Trend Analysis**: Historical performance tracking
-- **Resource Monitoring**: CPU, memory, disk usage tracking
-- **Custom Metrics**: Application-specific performance indicators
-
-## 🛠️ Development Tools
-
-### Test Utilities
-```rust
-use kotoba_load_tests::*;
-
-// Create a load test
-let config = LoadTestConfig {
-    duration: Duration::from_secs(60),
-    concurrency: 32,
-    warmup_duration: Duration::from_secs(10),
-    ..Default::default()
-};
-
-let workload = Box::new(ycsb::WorkloadA::new(100000, 1024));
-let result = run_load_test(runner, workload, config).await?;
-println!("{}", result.summary());
-```
-
-### Custom Test Scenarios
-```rust
-// Implement custom workload
-#[async_trait]
-impl WorkloadGenerator for MyCustomWorkload {
-    async fn generate_operation(&self, worker_id: usize, count: u64) -> Operation {
-        // Custom operation generation logic
-        Operation::Read { key: format!("custom_key_{}", count).into_bytes() }
-    }
-
-    fn clone_box(&self) -> Box<dyn WorkloadGenerator> {
-        Box::new(MyCustomWorkload { /* fields */ })
-    }
-}
-```
-
-## 🎯 Test Coverage Goals
-
-### Code Coverage
-- **Target**: 95% line coverage, 90% branch coverage
-- **Critical Paths**: All error handling, transaction logic, storage operations
-- **Generated Code**: Protocol buffers, serialization logic
-
-### Performance Benchmarks
-- **Latency**: p95 < 10ms for typical operations
-- **Throughput**: > 10,000 ops/sec for basic workloads
-- **Scalability**: Linear scaling with concurrency up to 100 workers
-- **Memory**: < 100MB baseline, < 1GB under load
-
-### Compatibility Matrix
-- **Rust Versions**: 1.70+, stable, beta
-- **Operating Systems**: Linux, macOS, Windows
-- **Architectures**: x86_64, ARM64
-- **Storage Backends**: RocksDB, in-memory, custom
-
-## 🔧 Configuration
-
-### Environment Variables
-```bash
-# Test database paths
-KOTOBA_TEST_DB_PATH=/tmp/kotoba_test.db
-
-# Load test parameters
-KOTOBA_LOAD_TEST_DURATION=60
-KOTOBA_LOAD_TEST_CONCURRENCY=32
-
-# Fuzzing parameters
-KOTOBA_FUZZ_MAX_LEN=8192
-KOTOBA_FUZZ_TIMEOUT=30
-```
-
-### Configuration Files
-- `tests/config/integration.toml`: Integration test configuration
-- `tests/config/load_test.toml`: Load testing parameters
-- `tests/config/benchmark.toml`: Benchmark configuration
-
-## 📝 Best Practices
-
-### Writing Tests
-1. **Isolation**: Each test should be independent and not rely on global state
-2. **Cleanup**: Always clean up resources (databases, files, connections)
-3. **Timeouts**: Set reasonable timeouts to prevent hanging tests
-4. **Error Handling**: Test both success and failure paths
-5. **Performance**: Avoid expensive operations in unit tests
-
-### Load Testing
-1. **Warmup**: Always include warmup periods for accurate measurements
-2. **Steady State**: Run tests long enough to reach steady-state performance
-3. **Statistical Significance**: Run multiple iterations for reliable results
-4. **Resource Monitoring**: Track system resources during testing
-5. **Realistic Data**: Use realistic data patterns and distributions
-
-### Fuzz Testing
-1. **Seed Corpus**: Start with meaningful inputs in the corpus
-2. **Crash Triage**: Quickly identify and fix discovered crashes
-3. **Corpus Maintenance**: Regularly update and minimize the corpus
-4. **Integration**: Run fuzzers in CI with reasonable time limits
-
-## 🤝 Contributing
-
-### Adding New Tests
-1. Follow the existing directory structure
-2. Add appropriate documentation and examples
-3. Include both positive and negative test cases
-4. Update this README with new test categories
-5. Ensure tests run in the CI pipeline
-
-### Performance Baselines
-1. Establish baselines on clean environments
-2. Document expected performance characteristics
-3. Monitor for regressions in CI
-4. Update baselines when intentionally changing performance
-
-### Security Considerations
-1. Never commit sensitive test data
-2. Use proper entropy for cryptographic testing
-3. Report security issues through appropriate channels
-4. Include security headers in web-based test reports
+1. **Choose the correct layer** based on what component you're testing
+2. **Assign appropriate numbering** within the layer's range
+3. **Define dependencies** in the test metadata
+4. **Update this README** with the new test category
+5. **Run topology validation** to ensure dependencies are correct
 
 ---
 
 ## 📞 Support
 
-For questions about testing:
+For questions about topology-based testing:
 - **Documentation**: Check this README and inline code documentation
+- **Topology Validation**: Run `cargo test test_topology_validation` to verify dependencies
 - **Issues**: File bugs and feature requests on GitHub
-- **Discussions**: Join community discussions for testing best practices
 - **CI/CD**: Check GitHub Actions logs for detailed test output
 
-Remember: **Thorough testing is the foundation of reliable software!** 🧪✨
+Remember: **Topology-based testing ensures systematic validation of the entire process network!** 🏗️✨
