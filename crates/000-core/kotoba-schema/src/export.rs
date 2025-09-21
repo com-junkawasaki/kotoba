@@ -703,8 +703,8 @@ mod tests {
         assert!(ddl.is_ok());
 
         let ddl_str = ddl.unwrap();
-        assert!(ddl.contains("CREATE TABLE user_vertices"));
-        assert!(ddl.contains("name VARCHAR(255) NOT NULL"));
+        assert!(ddl_str.contains("CREATE TABLE user_vertices"));
+        assert!(ddl_str.contains("name VARCHAR(255) NOT NULL"));
     }
 
     #[test]

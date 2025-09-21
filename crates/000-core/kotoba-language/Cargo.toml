@@ -1,0 +1,26 @@
+[package]
+name = "kotoba-language"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
+description = "Unified language processing for Kotoba - integrates all language features"
+keywords = ["language", "parser", "formatter", "linter", "repl"]
+categories = ["development-tools", "parsing"]
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ['derive'] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+async-trait = "0.1"
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+
+# Note: Language feature integration will be added in future phases
+# to avoid cyclic dependencies during the transition period
+
+[features]
+default = []
+full = []

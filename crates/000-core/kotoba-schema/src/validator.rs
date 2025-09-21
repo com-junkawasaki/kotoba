@@ -839,7 +839,9 @@ mod tests {
 
         let result = validator.validate_vertex(&valid_vertex);
         assert!(result.is_ok());
-        assert!(result.unwrap().is_empty()); // No warnings
+        let (warnings, errors) = result.unwrap();
+        assert!(warnings.is_empty()); // No warnings
+        assert!(errors.is_empty()); // No errors
     }
 
     #[test]
@@ -857,8 +859,8 @@ mod tests {
         });
 
         let result = validator.validate_vertex(&invalid_vertex);
-        assert!(result.is_err());
-        let errors = result.unwrap_err();
+        assert!(result.is_ok());
+        let (warnings, errors) = result.unwrap();
         assert!(!errors.is_empty());
         assert!(matches!(errors[0].error_type, ValidationErrorType::MissingRequiredProperty));
     }
@@ -898,8 +900,8 @@ mod tests {
         });
 
         let result = validator.validate_vertex(&invalid_vertex);
-        assert!(result.is_err());
-        let errors = result.unwrap_err();
+        assert!(result.is_ok());
+        let (warnings, errors) = result.unwrap();
         assert!(matches!(errors[0].error_type, ValidationErrorType::ConstraintViolation));
     }
 

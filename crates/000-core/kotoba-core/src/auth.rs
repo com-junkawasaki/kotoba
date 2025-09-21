@@ -210,7 +210,13 @@ impl DefaultPolicyEngine {
 
         // リソースがポリシーの対象リソースにマッチするか
         if !policy.resources.iter().any(|resource_pattern| {
-            self.resource_matches_pattern(&context.resource.resource_id().to_string(), resource_pattern)
+            let matches = self.resource_matches_policy_pattern(&context, resource_pattern);
+            // デバッグ出力
+            if context.action == "read" {
+                eprintln!("Debug: CID={}, Pattern={}, Matches={}",
+                    context.resource.resource_id().as_str(), resource_pattern, matches);
+            }
+            matches
         }) {
             return false;
         }
@@ -235,6 +241,36 @@ impl DefaultPolicyEngine {
             return resource_id.starts_with(prefix);
         }
         resource_id == pattern
+    }
+
+    /// リソースがパターンにマッチするかをチェック
+    fn resource_matches_policy_pattern(&self, context: &AuthContext, pattern: &str) -> bool {
+        // シンプルなパターンマッチング - CIDまたは属性ベース
+        if pattern == "*" {
+            return true;
+        }
+
+        // CIDベースのパターンマッチング
+        if pattern.ends_with("*") {
+            let prefix = &pattern[..pattern.len() - 1];
+            if context.resource.resource_id().as_str().starts_with(prefix) {
+                return true;
+            }
+        }
+
+        // 属性ベースのパターンマッチング
+        let attributes = context.resource.resource_attributes();
+        if let Some(resource_type) = attributes.get("resource_type") {
+            if pattern == format!("{}:*", resource_type) {
+                return true;
+            }
+            if pattern == format!("{}:{}", resource_type, context.resource.resource_id().as_str()) {
+                return true;
+            }
+        }
+
+        // 完全一致
+        context.resource.resource_id().as_str() == pattern
     }
 }
 
@@ -353,7 +389,7 @@ mod tests {
 
         let resource = Resource {
             id: "document:doc1".to_string(),
-            attributes: HashMap::new(),
+            attributes: HashMap::from([("resource_type".to_string(), "document".to_string())]),
         };
 
         let context = AuthContext {

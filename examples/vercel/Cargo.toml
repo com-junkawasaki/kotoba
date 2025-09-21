@@ -12,6 +12,10 @@ path = "main.rs"
 name = "ocel_tests"
 path = "tests.rs"
 
+[[test]]
+name = "facebook_social_graph"
+path = "test_facebook.rs"
+
 [[bin]]
 name = "debug-redis"
 path = "debug_redis.rs"
@@ -39,6 +43,7 @@ serde_json = "1.0"
 # Utilities
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
 
 # Error handling
 anyhow = "1.0"

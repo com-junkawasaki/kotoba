@@ -9,6 +9,7 @@ pub mod topology;
 pub mod graph;
 pub mod auth;  // 認証・認可エンジン
 pub mod crypto; // 暗号化エンジン
+pub mod language; // 言語処理統合
 pub mod prelude {
     // Re-export commonly used items
     pub use crate::types::*;
@@ -22,6 +23,8 @@ pub mod prelude {
     pub use crate::crypto::EncryptionInfo;
     // Re-export KotobaError to avoid version conflicts
     pub use kotoba_errors::KotobaError;
+    // Re-export language integration
+    pub use crate::language::*;
 }
 
 #[cfg(test)]
