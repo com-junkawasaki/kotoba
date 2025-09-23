@@ -7,12 +7,9 @@
 use super::*;
 use kotoba_codebase::*;
 use kotoba_ir::{RuleIR, GraphPattern, GraphElement, EdgeDef, RuleNac, Match, Matches};
-// use kotoba_types::RuleDPO;
+use kotoba_types::RuleDPO;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-/// Type alias for RuleDPO from kotoba_types
-pub type RuleDPO = kotoba_types::RuleDPO;
 
 /// ID type for pattern elements
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -343,7 +340,7 @@ pub struct PGMapping {
 }
 
 /// Main process network model
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessNetwork {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<MetaInfo>,
@@ -419,9 +416,9 @@ pub struct RuleApplicationResult {
 
 /// Rule match result
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuleMatch {
+pub struct RuleMatch<GraphElementId = kotoba_ir::GraphElement> {
     /// Variable to graph element mapping
-    pub variable_mapping: HashMap<String, kotoba_ir::GraphElement>,
+    pub variable_mapping: HashMap<String, GraphElementId>,
     /// Match score/priority
     pub score: f64,
     /// Match metadata

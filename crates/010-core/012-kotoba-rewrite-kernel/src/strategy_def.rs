@@ -13,6 +13,8 @@ pub struct StrategyDef {
     pub name: String,
     /// Strategy type
     pub strategy_type: StrategyType,
+    /// Rule ordering strategy
+    pub rule_order: RuleOrdering,
     /// Metadata
     pub metadata: StrategyMetadata,
 }
@@ -103,12 +105,8 @@ pub struct StrategyPhase {
     pub dependencies: Vec<String>,
 }
 
-/// Priority queue for prioritized strategies
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PriorityQueue {
-    /// Priority-ordered rules
-    pub rules: Vec<(DefRef, i32)>, // (rule_ref, priority)
-}
+// Priority queue is defined in strategy.rs
+pub type PriorityQueue = crate::strategy::PriorityQueue;
 
 /// Rule ordering strategies
 #[derive(Debug, Clone, Serialize, Deserialize)]

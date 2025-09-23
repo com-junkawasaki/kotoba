@@ -4,7 +4,7 @@
 //! can be executed in parallel without conflicts.
 
 use super::*;
-use kotoba_codebase::{RuleDef, DefRef};
+use kotoba_codebase::DefRef;
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -31,7 +31,7 @@ impl IndependenceAnalyzer {
     }
 
     /// Analyze independence between all rule pairs
-    pub fn analyze(&mut self, rule_registry: &HashMap<DefRef, RuleDef>) -> Result<(), KernelError> {
+    pub fn analyze(&mut self, rule_registry: &HashMap<DefRef, kotoba_types::RuleDPO>) -> Result<(), KernelError> {
         if !self.config.enabled {
             return Ok(());
         }
@@ -88,12 +88,12 @@ impl IndependenceAnalyzer {
     }
 
     /// Analyze independence between two rules
-    pub fn analyze_rule_pair(&self, rule1: &RuleDef, rule2: &RuleDef) -> IndependenceResult {
+    pub fn analyze_rule_pair(&self, rule1: &kotoba_types::RuleDPO, rule2: &kotoba_types::RuleDPO) -> IndependenceResult {
         // Check if result is cached
         let cache_key = if rule1.name <= rule2.name {
-            (rule1.get_def_ref(), rule2.get_def_ref())
+            (DefRef::new(&rule1.name, kotoba_codebase::DefType::Rule), DefRef::new(&rule2.name, kotoba_codebase::DefType::Rule))
         } else {
-            (rule2.get_def_ref(), rule1.get_def_ref())
+            (DefRef::new(&rule2.name, kotoba_codebase::DefType::Rule), DefRef::new(&rule1.name, kotoba_codebase::DefType::Rule))
         };
 
         if let Some(result) = self.independence_cache.get(&cache_key) {
@@ -106,7 +106,7 @@ impl IndependenceAnalyzer {
     }
 
     /// Perform detailed independence analysis
-    fn perform_independence_analysis(&self, rule1: &RuleDef, rule2: &RuleDef) -> IndependenceResult {
+    fn perform_independence_analysis(&self, rule1: &kotoba_types::RuleDPO, rule2: &kotoba_types::RuleDPO) -> IndependenceResult {
         // Check for conflicts in node patterns
         let node_conflict = self.check_node_conflicts(rule1, rule2);
 
@@ -134,26 +134,26 @@ impl IndependenceAnalyzer {
     }
 
     /// Check for node conflicts between rules
-    fn check_node_conflicts(&self, rule1: &RuleDef, rule2: &RuleDef) -> bool {
+    fn check_node_conflicts(&self, rule1: &kotoba_types::RuleDPO, rule2: &kotoba_types::RuleDPO) -> bool {
         // Check if rules modify the same nodes
         // Implementation would analyze LHS/RHS patterns
         false // Placeholder
     }
 
     /// Check for edge conflicts between rules
-    fn check_edge_conflicts(&self, rule1: &RuleDef, rule2: &RuleDef) -> bool {
+    fn check_edge_conflicts(&self, rule1: &kotoba_types::RuleDPO, rule2: &kotoba_types::RuleDPO) -> bool {
         // Check if rules modify the same edges
         false // Placeholder
     }
 
     /// Check for variable conflicts between rules
-    fn check_variable_conflicts(&self, rule1: &RuleDef, rule2: &RuleDef) -> bool {
+    fn check_variable_conflicts(&self, rule1: &kotoba_types::RuleDPO, rule2: &kotoba_types::RuleDPO) -> bool {
         // Check if rules use the same variables in conflicting ways
         false // Placeholder
     }
 
     /// Check for condition conflicts between rules
-    fn check_condition_conflicts(&self, rule1: &RuleDef, rule2: &RuleDef) -> bool {
+    fn check_condition_conflicts(&self, rule1: &kotoba_types::RuleDPO, rule2: &kotoba_types::RuleDPO) -> bool {
         // Check if rules have conflicting conditions
         false // Placeholder
     }
@@ -370,7 +370,7 @@ impl ParallelExecutionPlanner {
         let independent_sets = self.independence_analyzer.get_independent_sets(rules);
 
         ExecutionPlan {
-            independent_sets,
+            independent_sets: independent_sets.clone(),
             estimated_parallelism: self.estimate_parallelism(&independent_sets),
             estimated_speedup: self.estimate_speedup(&independent_sets),
         }

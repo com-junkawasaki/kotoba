@@ -4,6 +4,8 @@
 
 use super::*;
 use crate::strategy_def::StrategyDef;
+use crate::rule_def::{RuleMatcher, RuleApplicator, RuleOptimizer, RuleExecutionResult, RuleAnalysis};
+use crate::strategy::StrategyExecutor;
 use kotoba_codebase::{DefRef, DefType};
 use std::collections::HashMap;
 
@@ -11,7 +13,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct Kernel {
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, crate::rule::RuleDPO>,
+    pub rule_registry: HashMap<DefRef, kotoba_types::RuleDPO>,
     /// Strategy registry
     pub strategy_registry: HashMap<DefRef, StrategyDef>,
     /// Execution configuration
@@ -32,7 +34,7 @@ impl Kernel {
     }
 
     /// Register a rule
-    pub fn register_rule(&mut self, rule_def: crate::rule::RuleDPO) -> DefRef {
+    pub fn register_rule(&mut self, rule_def: kotoba_types::RuleDPO) -> DefRef {
         let def_ref = DefRef::new(
             serde_json::to_vec(&rule_def).expect("Failed to serialize rule"),
             DefType::Rule,
@@ -83,7 +85,7 @@ impl Kernel {
             let applicator = RuleApplicator::new(rule.clone());
 
             // Apply rule
-            match applicator.apply(graph, &match_result) {
+            match applicator.apply(graph) {
                 Ok(application) => {
                     applications.push(application);
                 },
@@ -107,10 +109,8 @@ impl Kernel {
 
         Ok(RuleExecutionResult {
             rule_ref,
-            matches_found: matches.len(),
-            applications_performed: applications.len(),
-            execution_time,
             success,
+            execution_time: execution_time.as_nanos() as u64,
             error_message,
         })
     }
@@ -120,7 +120,7 @@ impl Kernel {
         &mut self,
         strategy_ref: DefRef,
         graph: &mut crate::rule::GraphKind,
-    ) -> Result<StrategyExecutionResult, KernelError> {
+    ) -> Result<crate::strategy_def::StrategyExecutionResult, KernelError> {
         let strategy = self.strategy_registry.get(&strategy_ref)
             .ok_or(KernelError::StrategyNotFound(strategy_ref.clone()))?;
 
@@ -145,7 +145,7 @@ impl Kernel {
             result.success,
         );
 
-        Ok(StrategyExecutionResult {
+        Ok(crate::strategy_def::StrategyExecutionResult {
             strategy_ref,
             rules_applied: result.rules_applied,
             total_applications: result.total_applications,
@@ -157,7 +157,7 @@ impl Kernel {
     }
 
     /// Optimize a rule for better performance
-    pub fn optimize_rule(&self, rule_ref: DefRef) -> Result<RuleDef, KernelError> {
+    pub fn optimize_rule(&self, rule_ref: DefRef) -> Result<kotoba_types::RuleDPO, KernelError> {
         let rule = self.rule_registry.get(&rule_ref)
             .ok_or(KernelError::RuleNotFound(rule_ref))?;
 
@@ -169,7 +169,7 @@ impl Kernel {
     }
 
     /// Analyze rule properties
-    pub fn analyze_rule(&self, rule_ref: DefRef) -> Result<RuleAnalysis, KernelError> {
+    pub fn analyze_rule(&self, rule_ref: DefRef) -> Result<crate::rule_def::RuleAnalysis, KernelError> {
         let rule = self.rule_registry.get(&rule_ref)
             .ok_or(KernelError::RuleNotFound(rule_ref))?;
 
@@ -361,5 +361,28 @@ impl StrategyStats {
         } else {
             self.rules_applied as f64 / self.call_count as f64
         }
+    }
+}
+
+/// Kernel execution errors
+#[derive(Debug, Clone)]
+pub enum KernelError {
+    /// Rule not found in registry
+    RuleNotFound(DefRef),
+    /// Strategy not found in registry
+    StrategyNotFound(DefRef),
+    /// Execution error from strategy executor
+    ExecutionError(crate::strategy::ExecutionError),
+    /// Independence analysis error
+    IndependenceError(String),
+    /// Timeout during execution
+    Timeout,
+    /// Resource limit exceeded
+    ResourceLimitExceeded(String),
+}
+
+impl From<crate::strategy::ExecutionError> for KernelError {
+    fn from(err: crate::strategy::ExecutionError) -> Self {
+        KernelError::ExecutionError(err)
     }
 }

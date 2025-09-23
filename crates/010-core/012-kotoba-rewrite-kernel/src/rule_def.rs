@@ -7,24 +7,36 @@ use kotoba_codebase::DefRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Rule execution report
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RuleExecutionReport {
-    /// Rule reference
-    pub rule_ref: DefRef,
-    /// Application count
-    pub applications: usize,
-    /// Execution time (nanoseconds)
-    pub execution_time: u64,
-    /// Success/failure status
-    pub status: ExecutionStatus,
-}
+// Rule execution report - using ExecutionRecord
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct RuleExecutionReport {
+//     /// Rule reference
+//     pub rule_ref: DefRef,
+//     /// Application count
+//     pub applications: usize,
+//     /// Execution time (nanoseconds)
+//     pub execution_time: u64,
+//     /// Success/failure status
+//     pub status: ExecutionStatus,
+// }
+//
+// /// Execution status
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub enum ExecutionStatus {
+//     Success,
+//     Failed(String),
+// }
 
-/// Execution status
+/// Type alias for ExecutionRecord
+pub type RuleExecutionReport = ExecutionRecord;
+
+/// Rule execution result
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ExecutionStatus {
-    Success,
-    Failed(String),
+pub struct RuleExecutionResult {
+    pub rule_ref: DefRef,
+    pub success: bool,
+    pub execution_time: u64,
+    pub error_message: Option<String>,
 }
 
 /// Rule analysis result
@@ -147,6 +159,17 @@ pub enum MatcherError {
     InvalidGraph(String),
 }
 
+impl std::fmt::Display for MatcherError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MatcherError::PatternMatchFailed(msg) => write!(f, "Pattern match failed: {}", msg),
+            MatcherError::InvalidGraph(msg) => write!(f, "Invalid graph: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for MatcherError {}
+
 /// Applicator error
 #[derive(Debug, Clone)]
 pub enum ApplicatorError {
@@ -155,5 +178,17 @@ pub enum ApplicatorError {
     GraphModificationFailed(String),
 }
 
+impl std::fmt::Display for ApplicatorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApplicatorError::ApplicationFailed(msg) => write!(f, "Application failed: {}", msg),
+            ApplicatorError::InvalidMatch(msg) => write!(f, "Invalid match: {}", msg),
+            ApplicatorError::GraphModificationFailed(msg) => write!(f, "Graph modification failed: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ApplicatorError {}
+
 /// Result type aliases
-pub type Result<T> = std::result::Result<T, String>;
+pub type Result<T, E = String> = std::result::Result<T, E>;

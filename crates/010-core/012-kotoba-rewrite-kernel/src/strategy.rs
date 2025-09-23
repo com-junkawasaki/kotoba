@@ -14,7 +14,7 @@ pub struct StrategyExecutionResult {
     /// Strategy that was executed
     pub strategy_ref: DefRef,
     /// Rules applied during execution
-    pub rules_applied: Vec<RuleExecutionReport>,
+    pub rules_applied: Vec<crate::rule_def::ExecutionRecord>,
     /// Total number of rule applications
     pub total_applications: usize,
     /// Execution time
@@ -40,7 +40,7 @@ pub struct StrategyExecutor {
 
 impl StrategyExecutor {
     /// Create a new strategy executor
-    pub fn new(strategy: StrategyDef, rule_registry: HashMap<DefRef, RuleDef>) -> Self {
+    pub fn new(strategy: StrategyDef, rule_registry: HashMap<DefRef, kotoba_types::RuleDPO>) -> Self {
         Self {
             strategy,
             rule_registry,
@@ -229,9 +229,9 @@ impl StrategyExecutor {
         graph: &mut crate::rule::GraphKind,
         rule: &RuleDPO,
         rule_ref: &DefRef,
-    ) -> Result<ExecutionRecord, ExecutionError> {
+    ) -> Result<crate::rule_def::ExecutionRecord, ExecutionError> {
         // Rule execution implementation
-        Ok(ExecutionRecord {
+        Ok(crate::rule_def::ExecutionRecord {
             rule_ref: rule_ref.clone(),
             match_count: 0,
             application_count: 0,

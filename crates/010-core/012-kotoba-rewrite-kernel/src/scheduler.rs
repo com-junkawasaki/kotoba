@@ -3,7 +3,7 @@
 //! This module provides scheduling logic for rule execution in graph rewriting.
 
 use super::*;
-use crate::strategy_def::StrategyDef;
+use crate::strategy_def::{StrategyDef, StrategyType, RuleOrdering, StrategyPhase, PriorityQueue};
 use std::collections::{HashMap, VecDeque};
 
 /// Scheduler for managing rule execution
@@ -106,7 +106,7 @@ impl Scheduler {
                 // Execute rules in random order
                 // Implementation would shuffle rules
             },
-            RuleOrdering::Custom(custom_ref) => {
+            RuleOrdering::Custom(_custom_ref) => {
                 // Execute rules using custom ordering
                 // Implementation would use custom ordering function
             },
@@ -151,7 +151,7 @@ impl Scheduler {
         // Execute each phase
         for phase in phases {
             let phase_result = self.execute_phase(context, phase)?;
-            all_rules_applied.extend(phase_result.rules_applied);
+            all_rules_applied.extend(phase_result.rules_applied.clone());
             total_applications += phase_result.rules_applied.len();
         }
 
@@ -236,11 +236,11 @@ impl Scheduler {
     /// Execute a single rule
     fn execute_rule(
         &mut self,
-        context: &mut ExecutionContext,
+        _context: &mut ExecutionContext,
         rule_ref: &DefRef,
-    ) -> Result<Option<ExecutionRecord>, KernelError> {
+    ) -> Result<Option<crate::rule_def::ExecutionRecord>, KernelError> {
         // Rule execution implementation
-        Ok(Some(ExecutionRecord {
+        Ok(Some(crate::rule_def::ExecutionRecord {
             rule_ref: rule_ref.clone(),
             match_count: 0,
             application_count: 0,
@@ -279,7 +279,7 @@ struct ExecutionContext<'a> {
     /// Configuration
     pub config: &'a RewriteKernelConfig,
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, crate::rule::RuleDPO>,
+    pub rule_registry: HashMap<DefRef, kotoba_types::RuleDPO>,
     /// Current execution time
     pub current_time: std::time::Instant,
 }

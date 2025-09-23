@@ -19,6 +19,10 @@ use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+// Re-export types from submodules
+pub use crate::independence::IndependenceAnalyzer;
+pub use crate::scheduler::Scheduler;
+
 /// Rewrite kernel configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RewriteKernelConfig {
@@ -60,13 +64,13 @@ pub struct RewriteKernel {
     /// Configuration
     pub config: RewriteKernelConfig,
     /// Rule registry
-    pub rule_registry: HashMap<DefRef, crate::rule::RuleDPO>,
+    pub rule_registry: HashMap<DefRef, kotoba_types::RuleDPO>,
     /// Strategy registry
     pub strategy_registry: HashMap<DefRef, crate::strategy_def::StrategyDef>,
     /// Independence analyzer
-    pub independence_analyzer: IndependenceAnalyzer,
+    pub independence_analyzer: crate::independence::IndependenceAnalyzer,
     /// Scheduler
-    pub scheduler: Scheduler,
+    pub scheduler: crate::scheduler::Scheduler,
     /// Execution statistics
     pub stats: ExecutionStats,
 }
@@ -75,17 +79,17 @@ impl RewriteKernel {
     /// Create a new rewrite kernel
     pub fn new(config: RewriteKernelConfig) -> Self {
         Self {
-            config,
+            config: config.clone(),
             rule_registry: HashMap::new(),
             strategy_registry: HashMap::new(),
-            independence_analyzer: IndependenceAnalyzer::new(config.independence_analysis.clone()),
-            scheduler: Scheduler::new(),
+            independence_analyzer: crate::independence::IndependenceAnalyzer::new(config.independence_analysis.clone()),
+            scheduler: crate::scheduler::Scheduler::new(),
             stats: ExecutionStats::default(),
         }
     }
 
     /// Register a rule
-    pub fn register_rule(&mut self, rule_def: crate::rule::RuleDPO) -> DefRef {
+    pub fn register_rule(&mut self, rule_def: kotoba_types::RuleDPO) -> DefRef {
         let def_ref = DefRef::new(
             serde_json::to_vec(&rule_def).expect("Failed to serialize rule"),
             DefType::Rule,
