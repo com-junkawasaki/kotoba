@@ -28,6 +28,15 @@ pub mod ai_memory;
 pub mod ai_chains;
 pub mod github_pages;
 
+// Re-export core dependencies for convenience
+// Note: Additional core dependencies commented out due to compilation issues
+// pub use kotoba_cid::{utils as cid_utils, Principal};
+// pub use kotoba_schema::{GraphSchema, SchemaManager};
+// pub use kotoba_auth::{PureAuthEngine, AuthEngine};
+// pub use kotoba_graph_core::{Graph, GraphRef, GraphCanonicalizer, GraphProcessor};
+// pub use kotoba_txlog::{PureTxLog, TransactionDAG};
+// pub use kotoba_api::{ApiRequest, ApiResponse};
+
 pub use error::*;
 pub use http_parser::*;
 pub use frontend::*;
@@ -59,7 +68,6 @@ pub fn evaluate_kotoba_to_json(code: &str) -> Result<String> {
 /// Merkle DAG ID generator for content-based addressing
 pub mod merkle_dag {
     use sha2::{Sha256, Digest};
-    use base64::{Engine as _, engine::general_purpose};
 
     /// Generate a content-based ID using SHA-256 hash
     /// This implements CID (Content ID) for Merkle DAG addressing
@@ -69,7 +77,8 @@ pub mod merkle_dag {
         let hash = hasher.finalize();
 
         // Convert to base64url encoding (URL-safe base64)
-        let cid = general_purpose::URL_SAFE_NO_PAD.encode(&hash);
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let cid = base64::Engine::encode(&URL_SAFE_NO_PAD, &hash);
 
         // Prefix with 'k' to indicate Kotoba content
         format!("k{}", cid)

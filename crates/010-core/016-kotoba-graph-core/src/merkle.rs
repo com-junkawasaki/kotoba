@@ -3,11 +3,11 @@
 //! This module provides merkle tree implementation for verifying
 //! graph integrity and enabling efficient proof generation.
 
-use super::*;
 use crate::graph::Graph;
-use kotoba_types::*;
+use kotoba_types::{Hash, KotobaError};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
+use super::{MerkleNode, MerkleTree};
 
 impl MerkleTree {
     /// Create a new merkle tree from leaves
@@ -53,8 +53,8 @@ impl MerkleTree {
                     let right = nodes[i + 1].clone();
 
                     let mut combined = Vec::new();
-                    combined.extend_from_slice(&left.hash.0);
-                    combined.extend_from_slice(&right.hash.0);
+                    combined.extend_from_slice(left.hash.as_bytes());
+                    combined.extend_from_slice(right.hash.as_bytes());
 
                     let hash = Hash::from_sha256(&combined);
 
@@ -211,7 +211,7 @@ impl MerkleTree {
     /// Collect all leaf hashes recursively
     fn collect_leaves(&self, node: &MerkleNode) -> Vec<Hash> {
         if node.left.is_none() && node.right.is_none() {
-            vec![node.hash.clone()]
+            vec![node.hash]
         } else {
             let mut leaves = Vec::new();
             if let Some(left) = &node.left {
