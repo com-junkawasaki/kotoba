@@ -705,4 +705,142 @@ mod tests {
         assert!(utils::is_owner(&alice, &resource));
         assert!(!utils::is_owner(&bob, &resource));
     }
+
+    #[test]
+    fn test_pure_auth_engine_immutability() {
+        // Pure Kernel: PureAuthEngineは不変、コピーオンライト
+        let engine = PureAuthEngine::new();
+
+        let policy = Policy {
+            id: "test_policy".to_string(),
+            description: "Test policy for immutability".to_string(),
+            effect: PolicyEffect::Allow,
+            actions: vec!["read".to_string()],
+            resources: vec!["document:*".to_string()],
+            condition: "".to_string(),
+        };
+
+        // 元のエンジンに影響を与えずに新しいエンジンを作成
+        let engine_with_policy = engine.with_policy(policy.clone());
+
+        // 元のエンジンは変更されていない
+        assert!(engine.policies.is_empty());
+        assert_eq!(engine_with_policy.policies.len(), 1);
+
+        // さらにポリシーを追加
+        let engine_with_two_policies = engine_with_policy.with_policy(Policy {
+            id: "test_policy2".to_string(),
+            description: "Second test policy".to_string(),
+            effect: PolicyEffect::Deny,
+            actions: vec!["write".to_string()],
+            resources: vec!["document:secret".to_string()],
+            condition: "".to_string(),
+        });
+
+        // 最初のエンジンはまだ1つのポリシーのみ
+        assert_eq!(engine_with_policy.policies.len(), 1);
+        assert_eq!(engine_with_two_policies.policies.len(), 2);
+    }
+
+    #[test]
+    fn test_pure_auth_engine_determinism() {
+        // Pure Kernel: 同じ入力で常に同じ結果
+        let engine = PureAuthEngine::new();
+
+        let policy = Policy {
+            id: "deterministic_policy".to_string(),
+            description: "Deterministic test".to_string(),
+            effect: PolicyEffect::Allow,
+            actions: vec!["read".to_string()],
+            resources: vec!["document:*".to_string()],
+            condition: "".to_string(),
+        };
+
+        let relation = RelationTuple {
+            subject_id: "user:test".to_string(),
+            relation: "owner".to_string(),
+            object_id: "document:test".to_string(),
+        };
+
+        // 同じ順序で同じ操作を繰り返す
+        let engine1 = engine.clone()
+            .with_policy(policy.clone())
+            .with_relation(relation.clone());
+
+        let engine2 = engine.clone()
+            .with_policy(policy.clone())
+            .with_relation(relation.clone());
+
+        // 結果は完全に同一
+        assert_eq!(engine1.policies, engine2.policies);
+        assert_eq!(engine1.relations, engine2.relations);
+
+        // 関係の取得も決定論的
+        let relations1 = engine1.get_relations_for_resource("document:test");
+        let relations2 = engine2.get_relations_for_resource("document:test");
+        assert_eq!(relations1.len(), relations2.len());
+        assert_eq!(relations1[0].subject_id, relations2[0].subject_id);
+    }
+
+    #[test]
+    fn test_pure_auth_engine_pure_evaluation() {
+        // Pure Kernel: 認可評価は純粋関数
+        let engine = PureAuthEngine::new();
+
+        let policy = Policy {
+            id: "pure_eval_policy".to_string(),
+            description: "Pure evaluation test".to_string(),
+            effect: PolicyEffect::Allow,
+            actions: vec!["read".to_string()],
+            resources: vec!["document:*".to_string()],
+            condition: "".to_string(),
+        };
+
+        let relation = RelationTuple {
+            subject_id: "user:pure_test".to_string(),
+            relation: "owner".to_string(),
+            object_id: "document:pure_test".to_string(),
+        };
+
+        let engine_with_data = engine
+            .with_policy(policy)
+            .with_relation(relation);
+
+        let principal = Principal {
+            id: "user:pure_test".to_string(),
+            attributes: HashMap::new(),
+        };
+
+        let resource = Resource {
+            id: "document:pure_test".to_string(),
+            attributes: HashMap::new(),
+        };
+
+        let auth_context = AuthContext {
+            principal: &principal,
+            action: "read",
+            resource: &resource,
+            environment: HashMap::new(),
+        };
+
+        // 同じコンテキストで複数回評価しても同じ結果
+        let decision1 = engine_with_data.evaluate(&auth_context);
+        let decision2 = engine_with_data.evaluate(&auth_context);
+        let decision3 = engine_with_data.evaluate(&auth_context);
+
+        assert_eq!(decision1, decision2);
+        assert_eq!(decision2, decision3);
+        assert_eq!(decision1, Decision::Allow);
+
+        // 異なるアクションでは異なる結果
+        let auth_context_deny = AuthContext {
+            principal: &principal,
+            action: "write", // ポリシーで許可されていないアクション
+            resource: &resource,
+            environment: HashMap::new(),
+        };
+
+        let decision_deny = engine_with_data.evaluate(&auth_context_deny);
+        assert_eq!(decision_deny, Decision::Deny);
+    }
 }

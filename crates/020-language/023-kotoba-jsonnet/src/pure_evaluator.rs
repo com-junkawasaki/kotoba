@@ -195,4 +195,115 @@ mod tests {
 
         assert_eq!(result1, result2);
     }
+
+    #[test]
+    fn test_pure_evaluator_immutability() {
+        // Pure Kernel: PureEvaluatorは不変、設定は作成時に固定
+        let evaluator = PureEvaluator::new();
+
+        // TLA引数付きの新しいevaluatorを作成
+        let tla_args = HashMap::from([("greeting".to_string(), r#""Hello""#.to_string())]);
+        let evaluator_with_tla = PureEvaluator::with_tla_args(tla_args.clone());
+
+        // 元のevaluatorは変更されていない
+        assert!(evaluator.tla_args.is_empty());
+        assert!(evaluator.ext_vars.is_empty());
+
+        // 新しいevaluatorにはTLA引数がある
+        assert_eq!(evaluator_with_tla.tla_args.len(), 1);
+        assert_eq!(evaluator_with_tla.tla_args.get("greeting").unwrap(), r#""Hello""#);
+
+        // さらに外部変数を追加
+        let ext_vars = HashMap::from([("env".to_string(), r#""production""#.to_string())]);
+        let evaluator_with_both = PureEvaluator::with_config(tla_args, ext_vars);
+
+        assert_eq!(evaluator_with_both.tla_args.len(), 1);
+        assert_eq!(evaluator_with_both.ext_vars.len(), 1);
+        assert_eq!(evaluator_with_both.ext_vars.get("env").unwrap(), r#""production""#);
+    }
+
+    #[test]
+    fn test_pure_evaluator_deterministic_with_config() {
+        // Pure Kernel: 設定が同じなら常に同じ結果
+        let tla_args1 = HashMap::from([
+            ("name".to_string(), r#""World""#.to_string()),
+            ("count".to_string(), "42".to_string()),
+        ]);
+
+        let tla_args2 = HashMap::from([
+            ("name".to_string(), r#""World""#.to_string()),
+            ("count".to_string(), "42".to_string()),
+        ]);
+
+        let evaluator1 = PureEvaluator::with_tla_args(tla_args1);
+        let evaluator2 = PureEvaluator::with_tla_args(tla_args2);
+
+        let source = r#" "Result: " + name + " - " + count "#;
+
+        let result1 = evaluator1.evaluate(source).unwrap();
+        let result2 = evaluator2.evaluate(source).unwrap();
+
+        assert_eq!(result1, result2);
+
+        // 複数回の評価でも同じ結果
+        for _ in 0..5 {
+            let result_n = evaluator1.evaluate(source).unwrap();
+            assert_eq!(result1, result_n);
+        }
+    }
+
+    #[test]
+    fn test_pure_evaluator_external_vars() {
+        // Pure Kernel: 外部変数も決定論的
+        let ext_vars = HashMap::from([
+            ("version".to_string(), r#""1.0.0""#.to_string()),
+            ("debug".to_string(), "false".to_string()),
+        ]);
+
+        let tla_args = HashMap::from([
+            ("app".to_string(), r#""myapp""#.to_string()),
+        ]);
+
+        let evaluator = PureEvaluator::with_config(tla_args, ext_vars);
+        let source = r#" "App: " + app + " v" + version + " debug=" + debug "#;
+
+        // 同じ設定で作成したevaluatorは同じ結果を返す
+        let evaluator2 = PureEvaluator::with_config(
+            HashMap::from([("app".to_string(), r#""myapp""#.to_string())]),
+            HashMap::from([
+                ("version".to_string(), r#""1.0.0""#.to_string()),
+                ("debug".to_string(), "false".to_string()),
+            ])
+        );
+
+        let result1 = evaluator.evaluate(source).unwrap();
+        let result2 = evaluator2.evaluate(source).unwrap();
+
+        assert_eq!(result1, result2);
+    }
+
+    #[test]
+    fn test_pure_evaluator_no_side_effects() {
+        // Pure Kernel: 評価に副作用がないことを確認
+        let evaluator = PureEvaluator::new();
+        let source = r#" "side effect test" "#;
+
+        // 評価前の状態を記録
+        let tla_before = evaluator.tla_args.len();
+        let ext_before = evaluator.ext_vars.len();
+
+        // 評価実行
+        let _result = evaluator.evaluate(source).unwrap();
+
+        // 評価後も状態が変わっていない
+        assert_eq!(evaluator.tla_args.len(), tla_before);
+        assert_eq!(evaluator.ext_vars.len(), ext_before);
+
+        // 複数回評価しても状態は変わらない
+        for _ in 0..10 {
+            let _result = evaluator.evaluate(source).unwrap();
+            assert_eq!(evaluator.tla_args.len(), tla_before);
+            assert_eq!(evaluator.ext_vars.len(), ext_before);
+        }
+    }
 }
