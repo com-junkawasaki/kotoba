@@ -4,7 +4,8 @@
 
 use super::*;
 use crate::strategy_def::StrategyDef;
-use crate::rule_def::{RuleMatcher, RuleApplicator, RuleOptimizer, RuleExecutionResult, RuleAnalysis};
+use crate::rule_def::{RuleApplicator, RuleOptimizer, RuleExecutionResult, RuleAnalysis};
+use crate::rule::RuleMatcher;
 use crate::strategy::StrategyExecutor;
 use kotoba_codebase::{DefRef, DefType};
 use std::collections::HashMap;
@@ -30,6 +31,38 @@ impl Kernel {
             strategy_registry: HashMap::new(),
             config,
             stats: KernelStats::default(),
+        }
+    }
+
+    /// Convert to RewriteKernel (for compatibility with strategy executor)
+    pub fn to_rewrite_kernel(&self) -> crate::RewriteKernel {
+        use crate::ParallelConfig;
+        use crate::IndependenceConfig;
+
+        crate::RewriteKernel {
+            config: crate::RewriteKernelConfig {
+                max_applications: self.config.max_applications,
+                max_time_ms: self.config.timeout.map(|d| d.as_millis() as u64),
+                parallel_execution: ParallelConfig {
+                    enabled: self.config.enable_parallel_execution,
+                    max_workers: Some(4), // default
+                    min_batch_size: 1, // default
+                },
+                independence_analysis: IndependenceConfig {
+                    enabled: self.config.enable_parallel_execution, // simplified
+                    depth: 2, // default
+                    cache_results: true, // default
+                },
+            },
+            rule_registry: self.rule_registry.clone(),
+            strategy_registry: self.strategy_registry.clone(),
+            independence_analyzer: crate::independence::IndependenceAnalyzer::new(IndependenceConfig {
+                enabled: self.config.enable_parallel_execution,
+                depth: 2,
+                cache_results: true,
+            }),
+            scheduler: crate::scheduler::Scheduler::new(),
+            stats: crate::ExecutionStats::default(),
         }
     }
 
@@ -101,7 +134,7 @@ impl Kernel {
 
         // Update statistics
         self.stats.update_rule_execution(
-            rule_ref,
+            &rule_ref,
             applications.len(),
             execution_time,
             success,
@@ -120,7 +153,7 @@ impl Kernel {
         &mut self,
         strategy_ref: DefRef,
         graph: &mut crate::rule::GraphKind,
-    ) -> Result<crate::strategy_def::StrategyExecutionResult, KernelError> {
+    ) -> Result<crate::strategy::StrategyExecutionResult, KernelError> {
         let strategy = self.strategy_registry.get(&strategy_ref)
             .ok_or(KernelError::StrategyNotFound(strategy_ref.clone()))?;
 
@@ -133,27 +166,19 @@ impl Kernel {
         );
 
         // Execute strategy
-        let result = executor.execute(graph, self)?;
+        let result = executor.execute(graph, &self.to_rewrite_kernel())?;
 
         let execution_time = start_time.elapsed();
 
         // Update statistics
         self.stats.update_strategy_execution(
-            strategy_ref,
+            strategy_ref.clone(),
             result.rules_applied.len(),
             execution_time,
             result.success,
         );
 
-        Ok(crate::strategy_def::StrategyExecutionResult {
-            strategy_ref,
-            rules_applied: result.rules_applied,
-            total_applications: result.total_applications,
-            execution_time,
-            success: result.success,
-            error_message: result.error_message,
-            final_state: None, // TODO: compute final state hash
-        })
+        Ok(result)
     }
 
     /// Optimize a rule for better performance
@@ -231,12 +256,12 @@ impl KernelStats {
     /// Update rule execution statistics
     pub fn update_rule_execution(
         &mut self,
-        rule_ref: DefRef,
+        rule_ref: &DefRef,
         applications: usize,
         execution_time: std::time::Duration,
         success: bool,
     ) {
-        let stats = self.rule_stats.entry(rule_ref).or_insert_with(RuleStats::default);
+        let stats = self.rule_stats.entry(rule_ref.clone()).or_insert_with(RuleStats::default);
         stats.applications += applications;
         stats.total_time += execution_time;
         stats.success_count += if success { 1 } else { 0 };
@@ -373,6 +398,8 @@ pub enum KernelError {
     StrategyNotFound(DefRef),
     /// Execution error from strategy executor
     ExecutionError(crate::strategy::ExecutionError),
+    /// Execution failed
+    ExecutionFailed(String),
     /// Independence analysis error
     IndependenceError(String),
     /// Timeout during execution

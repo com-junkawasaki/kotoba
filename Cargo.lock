@@ -2064,6 +2064,7 @@ dependencies = [
  "chrono",
  "kotoba-analyzer",
  "kotoba-ir",
+ "kotoba-jsonnet",
  "kotoba-logic",
  "kotoba-parser",
  "kotoba-rewrite-kernel",

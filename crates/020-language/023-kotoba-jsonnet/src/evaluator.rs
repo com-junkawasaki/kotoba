@@ -115,4 +115,3 @@ pub mod pure {
         PureEvaluator::with_tla_args(tla_args).evaluate(source)
     }
 }
-}
