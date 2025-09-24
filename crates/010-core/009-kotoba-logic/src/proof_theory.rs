@@ -1,7 +1,7 @@
 //! Proof Theory - Formal proof construction and verification
 
 use serde::{Deserialize, Serialize};
-use super::{LogicError, LogicResult, LogicalStatement, Proof, ProofStep};
+use super::{LogicError, LogicalStatement, Proof, ProofStep};
 
 /// Proof theory system for formal proof construction
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl ProofTheory {
         for step in &proof.steps {
             match self.verify_step(step, &context)? {
                 VerificationResult::Valid => continue,
-                VerificationResult::Invalid(reason) => {
+                VerificationResult::Invalid(_reason) => {
                     return Ok(false);
                 }
                 VerificationResult::ContextUpdated(new_statements) => {
@@ -78,7 +78,7 @@ impl ProofTheory {
     }
 
     /// Try a specific proof strategy
-    fn try_strategy(&self, theorem: &LogicalStatement, strategy: &ProofStrategy) -> Result<Proof, LogicError> {
+    fn try_strategy(&self, _theorem: &LogicalStatement, _strategy: &ProofStrategy) -> Result<Proof, LogicError> {
         // Strategy-specific proof construction
         // This would be expanded with actual strategy implementations
         Err(LogicError::Proof("Strategy not implemented".to_string()))
@@ -118,7 +118,7 @@ impl ProofTheory {
     }
 
     /// Check if an inference rule can be applied
-    fn can_apply_rule(&self, rule: &InferenceRule, premises: &[LogicalStatement], context: &[LogicalStatement]) -> bool {
+    fn can_apply_rule(&self, _rule: &InferenceRule, _premises: &[LogicalStatement], _context: &[LogicalStatement]) -> bool {
         // Rule application logic
         // This would be expanded with actual rule application checking
         true

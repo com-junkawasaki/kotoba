@@ -41,6 +41,21 @@ pub struct GitHubPagesConfig {
     pub deployment: DeploymentConfig,
 }
 
+impl Default for GitHubPagesConfig {
+    fn default() -> Self {
+        Self {
+            name: "My Site".to_string(),
+            description: "A static site generated with Kotoba".to_string(),
+            base_url: "/".to_string(),
+            github_repo: None,
+            theme: "default".to_string(),
+            cname: None,
+            build: BuildConfig::default(),
+            deployment: DeploymentConfig::default(),
+        }
+    }
+}
+
 /// Build configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildConfig {
@@ -58,6 +73,18 @@ pub struct BuildConfig {
     pub optimization: OptimizationConfig,
 }
 
+impl Default for BuildConfig {
+    fn default() -> Self {
+        Self {
+            source_dir: "content".to_string(),
+            output_dir: "public".to_string(),
+            template_dir: "templates".to_string(),
+            markdown: MarkdownConfig::default(),
+            optimization: OptimizationConfig::default(),
+        }
+    }
+}
+
 /// Markdown processing configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarkdownConfig {
@@ -67,8 +94,30 @@ pub struct MarkdownConfig {
     pub highlight_languages: Vec<String>,
 }
 
+impl Default for MarkdownConfig {
+    fn default() -> Self {
+        Self {
+            extensions: vec![
+                "tables".to_string(),
+                "fenced_code".to_string(),
+                "footnotes".to_string(),
+                "strikethrough".to_string(),
+            ],
+            highlight_languages: vec![
+                "rust".to_string(),
+                "javascript".to_string(),
+                "typescript".to_string(),
+                "python".to_string(),
+                "json".to_string(),
+                "yaml".to_string(),
+                "bash".to_string(),
+            ],
+        }
+    }
+}
+
 /// Optimization configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OptimizationConfig {
     /// Minify HTML output
     pub minify_html: bool,
@@ -91,6 +140,17 @@ pub struct DeploymentConfig {
     pub build_command: String,
     /// Output directory for deployment
     pub output_dir: String,
+}
+
+impl Default for DeploymentConfig {
+    fn default() -> Self {
+        Self {
+            provider: "github-pages".to_string(),
+            branch: "gh-pages".to_string(),
+            build_command: "npm run build".to_string(),
+            output_dir: "public".to_string(),
+        }
+    }
 }
 
 /// Page definition

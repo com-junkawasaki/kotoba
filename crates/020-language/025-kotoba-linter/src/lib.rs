@@ -3,6 +3,13 @@
 //! Denoの `deno lint` に似た使い勝手で、.kotoba ファイルの
 //! 静的解析と品質チェックを行います。
 //!
+//! ## Pure Kernel & Effects Shell Architecture
+//!
+//! This crate follows the Pure Kernel/Effects Shell pattern:
+//!
+//! - **Pure Kernel**: `PureLinter` - performs deterministic code linting without side effects
+//! - **Effects Shell**: `Linter` - wraps the pure linter and handles file I/O
+//!
 //! ## 使用方法
 //!
 //! ```bash
@@ -29,6 +36,7 @@ pub mod rules;
 pub mod diagnostics;
 pub mod analyzer;
 pub mod reporter;
+pub mod pure_linter;
 
 /// 診断結果のレベル
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -361,6 +369,7 @@ pub use rules::*;
 pub use diagnostics::*;
 pub use analyzer::*;
 pub use reporter::*;
+pub use pure_linter::*;
 
 #[cfg(test)]
 mod tests {

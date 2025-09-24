@@ -4,6 +4,7 @@
 //! for representing attributed graphs in a canonical form.
 
 use super::*;
+use crate::graph::Graph;
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, BTreeMap, BTreeSet};
@@ -482,11 +483,10 @@ fn value_to_canonical_string(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
         Value::Bool(b) => format!("bool:{}", b),
-        Value::Int(i) => format!("int:{}", i),
-        Value::Integer(i) => format!("integer:{}", i),
+        Value::Number(n) => format!("number:{}", n),
         Value::String(s) => format!("string:{}", s),
         Value::Array(arr) => format!("array:{}", arr.len()),
-        Value::Hash(h) => format!("hash:{}", h),
+        Value::Object(obj) => format!("object:{}", obj.len()),
         _ => "unknown".to_string(),
     }
 }

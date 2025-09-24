@@ -13,7 +13,6 @@
 //! to the entire Kotoba system. All other components build upon this logical foundation.
 
 use std::fmt::Debug;
-use serde::{Serialize, Deserialize};
 
 pub mod reasoning;
 pub mod proof_theory;
@@ -27,10 +26,41 @@ pub mod inference;
 pub use reasoning::*;
 pub use proof_theory::*;
 pub use type_theory::*;
-pub use predicate_logic::*;
-pub use model_theory::*;
-pub use decision_theory::*;
-pub use inference::*;
+// Re-export predicate_logic items individually to avoid conflicts
+pub use predicate_logic::PredicateLogic;
+pub use predicate_logic::PredicateSymbol;
+pub use predicate_logic::FunctionSymbol;
+pub use predicate_logic::Constant;
+pub use predicate_logic::PredicateFormula;
+// Re-export model_theory items individually to avoid conflicts
+pub use model_theory::ModelTheory;
+pub use model_theory::InterpretationFunction;
+pub use model_theory::FunctionImplementation;
+pub use model_theory::ExpectedTerm;
+pub use model_theory::SemanticAnalysis;
+pub use model_theory::AnalysisResults;
+// Re-export decision_theory items individually to avoid conflicts
+pub use decision_theory::DecisionTheory;
+pub use decision_theory::DecisionProblem;
+pub use decision_theory::ProblemState;
+pub use decision_theory::Action;
+pub use decision_theory::Condition;
+pub use decision_theory::Effect;
+pub use decision_theory::Constraint;
+pub use decision_theory::Decision;
+pub use decision_theory::DecisionProcedure;
+pub use decision_theory::ProcedureImplementation;
+pub use decision_theory::ConcreteDecisionAlgorithm;
+pub use decision_theory::DecisionHeuristic;
+pub use decision_theory::HeuristicImplementation;
+pub use decision_theory::ConcreteDecisionFunction;
+pub use decision_theory::OptimizationStrategy;
+pub use decision_theory::ConcreteDecisionOptimizer;
+
+// Re-export inference items individually to avoid conflicts
+pub use inference::InferenceEngine;
+pub use inference::KnowledgeBase;
+pub use inference::InferenceContext;
 
 /// Logical system configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -254,14 +284,14 @@ pub mod utils {
     }
 
     /// Check if a statement is a tautology
-    pub fn is_tautology(statement: &LogicalStatement) -> bool {
+    pub fn is_tautology(_statement: &LogicalStatement) -> bool {
         // Basic tautology checking
         // This would be expanded with actual tautology checking
         false
     }
 
     /// Check if a statement is a contradiction
-    pub fn is_contradiction(statement: &LogicalStatement) -> bool {
+    pub fn is_contradiction(_statement: &LogicalStatement) -> bool {
         // Basic contradiction checking
         // This would be expanded with actual contradiction checking
         false

@@ -6,9 +6,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
-use std::fmt;
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Content Identifier (CID) - Content-addressed identifier
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -54,11 +52,11 @@ impl From<&str> for Cid {
     }
 }
 
-/// Vertex ID for graph nodes
-pub type VertexId = Uuid;
+/// Vertex ID for graph nodes - Content-addressed and deterministic
+pub type VertexId = Cid;
 
-/// Edge ID for graph edges
-pub type EdgeId = Uuid;
+/// Edge ID for graph edges - Content-addressed and deterministic
+pub type EdgeId = Cid;
 
 /// Label for vertices and edges
 pub type Label = String;
@@ -138,12 +136,49 @@ pub struct GraphInstance {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
-impl GraphInstance {
+/// Builder for GraphInstance to ensure immutability
+#[derive(Debug)]
+pub struct GraphInstanceBuilder {
+    id: String,
+    core: GraphCore,
+    metadata: HashMap<String, serde_json::Value>,
+}
+
+impl GraphInstanceBuilder {
     pub fn new(id: impl Into<String>, core: GraphCore) -> Self {
         Self {
             id: id.into(),
             core,
             metadata: HashMap::new(),
+        }
+    }
+
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn build(self) -> GraphInstance {
+        GraphInstance {
+            id: self.id,
+            core: self.core,
+            metadata: self.metadata,
+        }
+    }
+}
+
+impl GraphInstance {
+    /// Create a new GraphInstance with minimal data
+    pub fn new(id: impl Into<String>, core: GraphCore) -> Self {
+        GraphInstanceBuilder::new(id, core).build()
+    }
+
+    /// Create a GraphInstance with metadata
+    pub fn with_metadata(id: impl Into<String>, core: GraphCore, metadata: HashMap<String, serde_json::Value>) -> Self {
+        GraphInstance {
+            id: id.into(),
+            core,
+            metadata,
         }
     }
 }
@@ -510,8 +545,6 @@ pub use canonical_json::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-
     #[test]
     fn test_cid_calculator_creation() {
         let calculator = CidCalculator::new(HashAlgorithm::Sha2256, CanonicalJsonMode::JCS);
@@ -610,8 +643,8 @@ mod tests {
     #[test]
     fn test_cid_distance() {
         let manager = CidManager::new();
-        let cid1 = kotoba_types::Cid::new(&[0; 32]);
-        let cid2 = kotoba_types::Cid::new(&[1; 32]);
+        let cid1 = Cid::new("0000000000000000000000000000000000000000000000000000000000000000");
+        let cid2 = Cid::new("1111111111111111111111111111111111111111111111111111111111111111");
 
         let distance = manager.cid_distance(&cid1, &cid2);
         assert!(distance.is_some());
@@ -710,19 +743,19 @@ mod tests {
 
     #[test]
     fn test_cid_hex_conversion() {
-        let bytes = [42; 32];
-        let cid = kotoba_types::Cid::new(&bytes);
+        let hex_str = "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a";
+        let cid = Cid::new(hex_str);
 
-        let hex_str = cid.as_str();
-        let reconstructed_cid = kotoba_types::Cid::new(hex_str.as_bytes());
+        let cid_str = cid.as_str();
+        let reconstructed_cid = Cid::new(cid_str);
 
         assert_eq!(cid, reconstructed_cid);
-        assert_eq!(hex_str.len(), 64); // 32 bytes * 2 hex chars per byte
+        assert_eq!(cid_str.len(), 64); // 32 bytes * 2 hex chars per byte
     }
 
     #[test]
     fn test_cid_as_str() {
-        let cid = kotoba_types::Cid::new(&[255; 32]);
+        let cid = Cid::new("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         let hex_str = cid.as_str();
         assert_eq!(hex_str, cid.as_str());
     }
@@ -747,8 +780,106 @@ mod tests {
         assert_eq!(size, canonical.len());
     }
 
+    #[test]
+    fn test_cid_determinism() {
+        // Pure Kernel: CID生成は決定論的
+        let data1 = "hello world".to_string();
+        let data2 = "hello world".to_string();
+
+        let cid1 = Cid::new(data1.clone());
+        let cid2 = Cid::new(data2);
+
+        assert_eq!(cid1, cid2, "CID generation should be deterministic");
+
+        // 同じデータを何度生成しても同じ結果
+        for _ in 0..10 {
+            let cid_n = Cid::new(data1.clone());
+            assert_eq!(cid1, cid_n, "CID should be consistently generated");
+        }
+    }
+
+    #[test]
+    fn test_cid_uniqueness() {
+        // Pure Kernel: 異なるデータは異なるCIDを生成
+        let data1 = "hello world".to_string();
+        let data2 = "hello world!".to_string();
+
+        let cid1 = Cid::new(data1);
+        let cid2 = Cid::new(data2);
+
+        assert_ne!(cid1, cid2, "Different data should produce different CIDs");
+    }
+
+    #[test]
+    fn test_cid_immutability() {
+        // Pure Kernel: CIDは不変
+        let data = "test data".to_string();
+        let cid1 = Cid::new(data.clone());
+
+        // CIDの内部表現を変更しようとしても不可能
+        let cid2 = Cid::new(data);
+        assert_eq!(cid1, cid2);
+
+        // 文字列変換も決定論的
+        assert_eq!(cid1.as_str(), cid2.as_str());
+    }
+
+    #[test]
+    fn test_cid_calculator_pure_functions() {
+        // Pure Kernel: CID計算器の純粋関数テスト
+        let calculator = CidCalculator::new(HashAlgorithm::Sha2256, CanonicalJsonMode::JCS);
+
+        let test_data = TestData {
+            name: "test".to_string(),
+            value: 42,
+        };
+
+        let cid1 = calculator.compute_cid(&test_data).unwrap();
+        let cid2 = calculator.compute_cid(&test_data).unwrap();
+
+        assert_eq!(cid1, cid2, "CID calculator should be deterministic");
+
+        // 異なるデータで異なるCID
+        let test_data2 = TestData {
+            name: "test2".to_string(),
+            value: 42,
+        };
+        let cid3 = calculator.compute_cid(&test_data2).unwrap();
+        assert_ne!(cid1, cid3);
+    }
+
+    #[test]
+    fn test_cid_manager_pure_operations() {
+        // Pure Kernel: CIDマネージャーの純粋操作
+        let mut manager = CidManager::new();
+
+        let graph_core = GraphCore {
+            vertices: vec![],
+            edges: vec![],
+        };
+
+        // CIDを計算（この操作は副作用があるが、Pure Kernelの観点ではデータ変換）
+        let cid1 = manager.compute_graph_cid(&graph_core).unwrap();
+
+        // 同じグラフで同じCIDが得られる
+        let cid2 = manager.compute_graph_cid(&graph_core).unwrap();
+        assert_eq!(cid1, cid2, "Same graph should produce same CID");
+
+        // 異なるグラフで異なるCID
+        let different_graph = GraphCore {
+            vertices: vec![VertexData {
+                id: Cid("different".to_string()),
+                label: "test".to_string(),
+                properties: Properties::new(),
+            }],
+            edges: vec![],
+        };
+        let cid3 = manager.compute_graph_cid(&different_graph).unwrap();
+        assert_ne!(cid1, cid3, "Different graphs should produce different CIDs");
+    }
+
     // Helper struct for testing
-    #[derive(serde::Serialize, serde::Deserialize)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
     struct TestData {
         name: String,
         value: i32,

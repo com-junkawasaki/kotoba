@@ -460,59 +460,119 @@ impl ProvenanceInfo {
     }
 }
 
-/// API client for interacting with Kotoba API
+/// Pure API processor for transforming requests to pure data and back
 #[derive(Debug, Clone)]
-pub struct ApiClient {
-    /// Base URL
-    pub base_url: String,
-    /// HTTP client
-    pub client: reqwest::Client,
+pub struct PureApiProcessor {
     /// Configuration
     pub config: ClientConfig,
 }
 
-impl ApiClient {
-    /// Create a new API client
-    pub fn new(base_url: String) -> Self {
+impl PureApiProcessor {
+    /// Create a new pure API processor
+    pub fn new() -> Self {
         Self {
-            base_url,
-            client: reqwest::Client::new(),
             config: ClientConfig::default(),
         }
     }
 
-    /// Execute a request
-    pub async fn execute(&self, request: ApiRequest) -> Result<ApiResponse, ApiError> {
-        let url = format!("{}/api/execute", self.base_url);
+    /// Transform HTTP request to pure ApiRequest
+    /// This is a pure function: HTTP request data -> pure data structure
+    pub fn http_request_to_api_request(&self, method: &str, path: &str, body: &[u8], headers: &HashMap<String, String>) -> Result<ApiRequest, ApiError> {
+        // Parse JSON body to ApiRequest (pure transformation)
+        let request_data: ApiRequest = serde_json::from_slice(body)
+            .map_err(|e| ApiError::JsonError(e.to_string()))?;
 
-        let response = self.client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await?;
+        // Validate and enrich with HTTP context if needed
+        // This could add HTTP-specific metadata to the request
 
-        if response.status().is_success() {
-            let api_response = response.json::<ApiResponse>().await?;
-            Ok(api_response)
-        } else {
-            Err(ApiError::HttpError(response.status().as_u16()))
-        }
+        Ok(request_data)
     }
 
-    /// Health check
-    pub async fn health_check(&self) -> Result<HealthResponse, ApiError> {
-        let url = format!("{}/health", self.base_url);
+    /// Transform pure ApiResponse to HTTP response data
+    /// This is a pure function: pure data structure -> HTTP response data
+    pub fn api_response_to_http_response(&self, response: &ApiResponse) -> Result<(u16, Vec<u8>, HashMap<String, String>), ApiError> {
+        let status_code = if response.success { 200 } else { 400 };
 
-        let response = self.client
-            .get(&url)
-            .send()
-            .await?;
+        let body = serde_json::to_vec(response)
+            .map_err(|e| ApiError::JsonError(e.to_string()))?;
 
-        if response.status().is_success() {
-            let health = response.json::<HealthResponse>().await?;
-            Ok(health)
-        } else {
-            Err(ApiError::HttpError(response.status().as_u16()))
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "application/json".to_string());
+
+        Ok((status_code, body, headers))
+    }
+
+    /// Transform health data to HTTP response
+    pub fn health_to_http_response(&self, health: &HealthResponse) -> Result<(u16, Vec<u8>, HashMap<String, String>), ApiError> {
+        let body = serde_json::to_vec(health)
+            .map_err(|e| ApiError::JsonError(e.to_string()))?;
+
+        let mut headers = HashMap::new();
+        headers.insert("Content-Type".to_string(), "application/json".to_string());
+
+        Ok((200, body, headers))
+    }
+}
+
+/// Effects-based API client (moved to separate module for clarity)
+pub mod effects_client {
+    use super::*;
+    use reqwest::Client as HttpClient;
+
+    /// API client for interacting with Kotoba API (effects layer)
+    #[derive(Debug)]
+    pub struct ApiClient {
+        /// Base URL
+        pub base_url: String,
+        /// HTTP client
+        pub client: HttpClient,
+        /// Pure processor
+        pub processor: PureApiProcessor,
+    }
+
+    impl ApiClient {
+        /// Create a new API client
+        pub fn new(base_url: String) -> Self {
+            Self {
+                base_url,
+                client: HttpClient::new(),
+                processor: PureApiProcessor::new(),
+            }
+        }
+
+        /// Execute a request (effects: makes HTTP call)
+        pub async fn execute(&self, request: ApiRequest) -> Result<ApiResponse, ApiError> {
+            let url = format!("{}/api/execute", self.base_url);
+
+            let response = self.client
+                .post(&url)
+                .json(&request)
+                .send()
+                .await?;
+
+            if response.status().is_success() {
+                let api_response = response.json::<ApiResponse>().await?;
+                Ok(api_response)
+            } else {
+                Err(ApiError::HttpError(response.status().as_u16()))
+            }
+        }
+
+        /// Health check (effects: makes HTTP call)
+        pub async fn health_check(&self) -> Result<HealthResponse, ApiError> {
+            let url = format!("{}/health", self.base_url);
+
+            let response = self.client
+                .get(&url)
+                .send()
+                .await?;
+
+            if response.status().is_success() {
+                let health = response.json::<HealthResponse>().await?;
+                Ok(health)
+            } else {
+                Err(ApiError::HttpError(response.status().as_u16()))
+            }
         }
     }
 }
@@ -580,39 +640,139 @@ impl std::fmt::Display for ApiError {
 
 impl std::error::Error for ApiError {}
 
-/// API server
+/// Pure API handler for processing requests without side effects
 #[derive(Debug, Clone)]
-pub struct ApiServer {
-    /// Server configuration
-    pub config: ServerConfig,
-    /// Execution engine
+pub struct PureApiHandler {
+    /// Pure processor
+    pub processor: PureApiProcessor,
+    /// Execution engine (pure computation)
     pub executor: ExecutionEngine,
-    /// Transaction log
-    pub tx_log: TxLog,
 }
 
-impl ApiServer {
-    /// Create a new API server
-    pub fn new(config: ServerConfig, executor: ExecutionEngine, tx_log: TxLog) -> Self {
+impl PureApiHandler {
+    /// Create a new pure API handler
+    pub fn new(executor: ExecutionEngine) -> Self {
         Self {
-            config,
+            processor: PureApiProcessor::new(),
             executor,
-            tx_log,
         }
     }
 
-    /// Start the server
-    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
-        use axum::{routing::post, Router};
+    /// Handle API execute request (pure function)
+    /// Input: HTTP request data -> Output: HTTP response data
+    pub async fn handle_execute(&self, method: &str, path: &str, body: &[u8], headers: &HashMap<String, String>) -> Result<(u16, Vec<u8>, HashMap<String, String>), ApiError> {
+        // Step 1: Transform HTTP request to pure ApiRequest
+        let api_request = self.processor.http_request_to_api_request(method, path, body, headers)?;
 
-        let app = Router::new()
-            .route("/api/execute", post(api::execute_handler))
-            .route("/health", axum::routing::get(api::health_handler));
+        // Step 2: Execute pure computation
+        let api_response = self.executor.execute(api_request).await?;
 
-        let listener = tokio::net::TcpListener::bind(&self.config.bind_address).await?;
-        axum::serve(listener, app).await?;
+        // Step 3: Transform pure ApiResponse to HTTP response
+        self.processor.api_response_to_http_response(&api_response)
+    }
 
-        Ok(())
+    /// Handle health check request (pure function)
+    pub fn handle_health(&self) -> Result<(u16, Vec<u8>, HashMap<String, String>), ApiError> {
+        // Create health response data (this could be passed in as parameter for purity)
+        let health = HealthResponse {
+            status: "ok".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            uptime_seconds: 0, // Would be passed in from effects layer
+            active_connections: 0, // Would be passed in from effects layer
+        };
+
+        self.processor.health_to_http_response(&health)
+    }
+}
+
+/// Effects-based API server (moved to separate module for clarity)
+pub mod effects_server {
+    use super::*;
+    use axum::{routing::post, Router};
+    use std::sync::Arc;
+
+    /// API server (effects layer)
+    #[derive(Debug)]
+    pub struct ApiServer {
+        /// Server configuration
+        pub config: ServerConfig,
+        /// Pure API handler
+        pub handler: Arc<PureApiHandler>,
+        /// Transaction log (effects)
+        pub tx_log: TxLog,
+    }
+
+    impl ApiServer {
+        /// Create a new API server
+        pub fn new(config: ServerConfig, handler: PureApiHandler, tx_log: TxLog) -> Self {
+            Self {
+                config,
+                handler: Arc::new(handler),
+                tx_log,
+            }
+        }
+
+        /// Start the server (effects: binds to network, handles HTTP)
+        pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+            use axum::extract::{Query, State};
+            use axum::http::{Method, Uri};
+            use axum::response::Response;
+            use axum::{body::Body, routing::get};
+
+            let app = Router::new()
+                .route("/api/execute", post({
+                    let handler = Arc::clone(&self.handler);
+                    move |body: axum::body::Bytes, method: Method, uri: Uri, headers: axum::http::HeaderMap| async move {
+                        // Convert HTTP data to pure data structures
+                        let method_str = method.as_str();
+                        let path_str = uri.path();
+
+                        let headers_map: HashMap<String, String> = headers
+                            .iter()
+                            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+                            .collect();
+
+                        // Call pure handler
+                        match handler.handle_execute(method_str, path_str, &body, &headers_map).await {
+                            Ok((status, body, headers)) => {
+                                let mut response = Response::builder().status(status);
+                                for (k, v) in headers {
+                                    response = response.header(k, v);
+                                }
+                                response.body(Body::from(body)).unwrap()
+                            }
+                            Err(_) => Response::builder()
+                                .status(500)
+                                .body(Body::from("Internal Server Error"))
+                                .unwrap()
+                        }
+                    }
+                }))
+                .route("/health", get({
+                    let handler = Arc::clone(&self.handler);
+                    move || async move {
+                        // Call pure handler
+                        match handler.handle_health() {
+                            Ok((status, body, headers)) => {
+                                let mut response = Response::builder().status(status);
+                                for (k, v) in headers {
+                                    response = response.header(k, v);
+                                }
+                                response.body(Body::from(body)).unwrap()
+                            }
+                            Err(_) => Response::builder()
+                                .status(500)
+                                .body(Body::from("Internal Server Error"))
+                                .unwrap()
+                        }
+                    }
+                }));
+
+            let listener = tokio::net::TcpListener::bind(&self.config.bind_address).await?;
+            axum::serve(listener, app).await?;
+
+            Ok(())
+        }
     }
 }
 

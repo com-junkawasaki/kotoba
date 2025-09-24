@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::{LogicError, LogicResult, LogicalStatement, Proof, ProofStep};
+use super::{LogicError, LogicalStatement, Proof, ProofStep};
 
 /// Inference engine for automated theorem proving
 #[derive(Debug, Clone)]
@@ -80,7 +80,7 @@ impl InferenceEngine {
         for step in &proof.steps {
             match self.verify_step(step, &context)? {
                 VerificationResult::Valid => continue,
-                VerificationResult::Invalid(reason) => {
+                VerificationResult::Invalid(_reason) => {
                     return Ok(false);
                 }
                 VerificationResult::ContextUpdated(new_statements) => {
@@ -153,28 +153,28 @@ impl InferenceEngine {
     }
 
     /// Backward chaining proof construction
-    fn backward_chain_proof(&self, theorem: &LogicalStatement) -> Result<Proof, LogicError> {
+    fn backward_chain_proof(&self, _theorem: &LogicalStatement) -> Result<Proof, LogicError> {
         // Basic backward chaining implementation
         // This would be expanded with actual backward chaining
         Err(LogicError::Proof("Backward chaining not implemented".to_string()))
     }
 
     /// Resolution proof construction
-    fn resolution_proof(&self, theorem: &LogicalStatement) -> Result<Proof, LogicError> {
+    fn resolution_proof(&self, _theorem: &LogicalStatement) -> Result<Proof, LogicError> {
         // Basic resolution implementation
         // This would be expanded with actual resolution
         Err(LogicError::Proof("Resolution not implemented".to_string()))
     }
 
     /// Tableau proof construction
-    fn tableau_proof(&self, theorem: &LogicalStatement) -> Result<Proof, LogicError> {
+    fn tableau_proof(&self, _theorem: &LogicalStatement) -> Result<Proof, LogicError> {
         // Basic tableau implementation
         // This would be expanded with actual tableau
         Err(LogicError::Proof("Tableau not implemented".to_string()))
     }
 
     /// Apply an inference rule
-    fn apply_rule(&self, rule: &InferenceRule, context: &InferenceContext) -> Result<Option<LogicalStatement>, LogicError> {
+    fn apply_rule(&self, _rule: &InferenceRule, _context: &InferenceContext) -> Result<Option<LogicalStatement>, LogicError> {
         // Rule application logic
         // This would be expanded with actual rule application
         Ok(None)
@@ -213,7 +213,7 @@ impl InferenceEngine {
     }
 
     /// Check if an inference rule can be applied
-    fn can_apply_rule(&self, rule: &InferenceRule, premises: &[LogicalStatement], context: &[LogicalStatement]) -> bool {
+    fn can_apply_rule(&self, _rule: &InferenceRule, _premises: &[LogicalStatement], _context: &[LogicalStatement]) -> bool {
         // Rule application checking
         // This would be expanded with actual rule application checking
         true

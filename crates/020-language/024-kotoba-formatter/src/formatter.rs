@@ -1,20 +1,28 @@
-//! フォーマッター実装モジュール
+//! Effects Shell Code Formatter - handles I/O operations
+//!
+//! This module provides the Effects Shell wrapper around the Pure Code Formatter.
+//! It handles file I/O, external library dependencies, and mutable state.
 
 use super::{FormatterConfig, FormatResult};
-use kotoba_parser::Parser;
-use kotoba_syntax::*;
+use crate::pure_formatter::PureFormatter;
 use std::path::PathBuf;
 
-/// メインのフォーマッター実装
+/// Effects Shell formatter - handles I/O and external dependencies
 #[derive(Debug)]
 pub struct CodeFormatter {
+    /// Pure formatter instance (immutable after creation)
+    pure_formatter: PureFormatter,
+    /// Configuration (effects: can be modified)
     config: FormatterConfig,
 }
 
 impl CodeFormatter {
     /// 新しいフォーマッターを作成
     pub fn new(config: FormatterConfig) -> Self {
-        Self { config }
+        Self {
+            pure_formatter: PureFormatter::with_config(config.clone()),
+            config,
+        }
     }
 
     /// 設定を取得
@@ -22,32 +30,48 @@ impl CodeFormatter {
         &self.config
     }
 
-    /// 単一のファイルをフォーマット
+    /// 設定を更新（effects: modifies internal state）
+    pub fn update_config(&mut self, config: FormatterConfig) {
+        self.config = config.clone();
+        self.pure_formatter = PureFormatter::with_config(config);
+    }
+
+    /// 単一のファイルをフォーマット（effects: file I/O）
     pub async fn format_file(&self, file_path: &PathBuf) -> Result<FormatResult, Box<dyn std::error::Error>> {
+        // Read file (side effect)
         let content = tokio::fs::read_to_string(file_path).await?;
         let mut result = FormatResult::new(file_path.clone(), content);
 
-        match self.format_content(&result.original_content).await {
-            Ok(formatted) => {
-                result.set_formatted_content(formatted);
-                Ok(result)
-            }
-            Err(e) => {
-                result.set_error(e.to_string());
-                Ok(result)
+        // Pure formatting (no side effects)
+        let formatted = self.pure_formatter.format_content(&result.original_content);
+        result.set_formatted_content(formatted);
+
+        Ok(result)
+    }
+
+    /// コンテンツをフォーマット（effects: may involve external libraries）
+    pub async fn format_content(&self, content: &str) -> Result<String, Box<dyn std::error::Error>> {
+        // For backward compatibility, try the full AST-based approach first
+        // If that fails, fall back to pure formatting
+        match self.try_ast_formatting(content).await {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                // Fallback to pure formatting (always succeeds)
+                Ok(self.pure_formatter.format_content(content))
             }
         }
     }
 
-    /// コンテンツをフォーマット
-    pub async fn format_content(&self, content: &str) -> Result<String, Box<dyn std::error::Error>> {
+    /// Try AST-based formatting (effects: may involve external libraries)
+    async fn try_ast_formatting(&self, content: &str) -> Result<String, Box<dyn std::error::Error>> {
         let mut parser = Parser::new();
         let ast = parser.parse(content).map_err(|e| format!("{:?}", e))?;
 
         let mut writer = AstWriter::new(&self.config);
         writer.write_program(&ast);
-        
+
         Ok(writer.finish())
+    }
     }
 }
 

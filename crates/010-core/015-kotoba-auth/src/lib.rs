@@ -1,8 +1,13 @@
 //! # Kotoba Auth
 //!
-//! This crate provides the authentication and authorization engine for the Kotoba
-//! ecosystem. It implements a hybrid model combining Relationship-Based Access
-//! Control (ReBAC) and Attribute-Based Access Control (ABAC).
+//! Purely Functional Authorization Engine with Effects Shell Separation
+//!
+//! ## Architecture
+//!
+//! The authorization system is split into two conceptual layers:
+//!
+//! - **Pure Layer**: Pure functional authorization evaluation and policy matching
+//! - **Effects Layer**: Persistence, I/O, and other side effects for policies and relations
 
 use kotoba_types::KotobaError;
 use kotoba_types::Cid;
@@ -108,16 +113,17 @@ impl SecureResource for Resource {
     }
 }
 
-/// デフォルトのポリシーエンジン実装
-pub struct DefaultPolicyEngine {
-    /// ポリシーストレージ
+/// Pure authorization engine (no side effects)
+#[derive(Debug, Clone)]
+pub struct PureAuthEngine {
+    /// ポリシーストレージ (pure data)
     policies: HashMap<String, Policy>,
-    /// 関係性ストレージ
+    /// 関係性ストレージ (pure data)
     relations: HashMap<String, Vec<RelationTuple>>,
 }
 
-impl DefaultPolicyEngine {
-    /// 新しいポリシーエンジンを作成
+impl PureAuthEngine {
+    /// Create a new pure authorization engine
     pub fn new() -> Self {
         Self {
             policies: HashMap::new(),
@@ -125,20 +131,32 @@ impl DefaultPolicyEngine {
         }
     }
 
-    /// ポリシーを追加
-    pub fn add_policy(&mut self, policy: Policy) {
-        self.policies.insert(policy.id.clone(), policy);
+    /// Add policy (returns new engine with policy added)
+    pub fn with_policy(self, policy: Policy) -> Self {
+        let mut new_policies = self.policies.clone();
+        new_policies.insert(policy.id.clone(), policy);
+
+        Self {
+            policies: new_policies,
+            relations: self.relations,
+        }
     }
 
-    /// 関係性を追加
-    pub fn add_relation(&mut self, relation: RelationTuple) {
-        self.relations
+    /// Add relation (returns new engine with relation added)
+    pub fn with_relation(self, relation: RelationTuple) -> Self {
+        let mut new_relations = self.relations.clone();
+        new_relations
             .entry(relation.object_id.clone())
             .or_insert_with(Vec::new)
             .push(relation);
+
+        Self {
+            policies: self.policies,
+            relations: new_relations,
+        }
     }
 
-    /// 指定されたリソースに対する関係性を取得
+    /// Get relations for resource (pure function)
     pub fn get_relations_for_resource(&self, resource_id: &str) -> Vec<&RelationTuple> {
         self.relations
             .get(resource_id)
@@ -146,55 +164,77 @@ impl DefaultPolicyEngine {
             .unwrap_or_default()
     }
 
-    /// 指定されたポリシーを取得
+    /// Get policy (pure function)
     pub fn get_policy(&self, policy_id: &str) -> Option<&Policy> {
         self.policies.get(policy_id)
     }
 
-    /// ポリシーが与えられたコンテキストにマッチするかをチェック
+    /// Evaluate authorization (pure function)
+    pub fn evaluate(&self, context: AuthContext) -> Decision {
+        // 1. Check explicit deny policies
+        for policy in self.policies.values() {
+            if self.policy_matches(&context, policy) {
+                if policy.effect == PolicyEffect::Deny {
+                    return Decision::Deny;
+                }
+            }
+        }
+
+        // 2. Check explicit allow policies
+        for policy in self.policies.values() {
+            if self.policy_matches(&context, policy) {
+                if policy.effect == PolicyEffect::Allow {
+                    return Decision::Allow;
+                }
+            }
+        }
+
+        // 3. Check resource-specific policies
+        if let Some(policy_cid) = context.resource.resource_attributes().get("policy_cid") {
+            if let Some(policy) = self.get_policy(policy_cid) {
+                if self.policy_matches(&context, policy) {
+                    return Decision::Allow;
+                }
+            }
+        }
+
+        // 4. Relationship-based check (ReBAC)
+        let relations = self.get_relations_for_resource(&context.resource.resource_id().to_string());
+        for relation in relations {
+            if relation.subject_id == context.principal.id {
+                return Decision::Allow;
+            }
+        }
+
+        // Default deny
+        Decision::Deny
+    }
+
+    /// Check if policy matches context (pure function)
     fn policy_matches(&self, context: &AuthContext, policy: &Policy) -> bool {
-        // アクションがポリシーの許可されたアクションに含まれるか
+        // Action check
         if !policy.actions.iter().any(|action| context.action == action) {
             return false;
         }
 
-        // リソースがポリシーの対象リソースにマッチするか
+        // Resource pattern check
         if !policy.resources.iter().any(|resource_pattern| {
             self.resource_matches_policy_pattern(context, resource_pattern)
         }) {
             return false;
         }
 
-        // 条件が満たされるか（簡易実装）
-        if !policy.condition.is_empty() {
-            // ここでは簡易的に、条件が空でない場合は常にマッチすると仮定
-            // 実際には条件をパースして評価する必要がある
-            true
-        } else {
-            true
-        }
+        // Condition check (simplified)
+        !policy.condition.is_empty() || policy.condition.is_empty()
     }
 
-    /// リソースがパターンにマッチするかをチェック
-    fn resource_matches_pattern(&self, resource_id: &str, pattern: &str) -> bool {
-        if pattern == "*" {
-            return true;
-        }
-        if pattern.ends_with("*") {
-            let prefix = &pattern[..pattern.len() - 1];
-            return resource_id.starts_with(prefix);
-        }
-        resource_id == pattern
-    }
-
-    /// リソースがパターンにマッチするかをチェック
+    /// Check if resource matches pattern (pure function)
     fn resource_matches_policy_pattern(&self, context: &AuthContext, pattern: &str) -> bool {
-        // シンプルなパターンマッチング - CIDまたは属性ベース
         if pattern == "*" {
             return true;
         }
 
-        // CIDベースのパターンマッチング
+        // CID-based pattern matching
         if pattern.ends_with('*') {
             let prefix = &pattern[..pattern.len() - 1];
             if context.resource.resource_id().to_string().starts_with(prefix) {
@@ -202,7 +242,7 @@ impl DefaultPolicyEngine {
             }
         }
 
-        // 属性ベースのパターンマッチング
+        // Attribute-based pattern matching
         let attributes = context.resource.resource_attributes();
         if let Some(resource_type) = attributes.get("resource_type") {
             if pattern == format!("{}:*", resource_type) {
@@ -213,59 +253,121 @@ impl DefaultPolicyEngine {
             }
         }
 
-        // 完全一致
+        // Exact match
         context.resource.resource_id().to_string() == pattern
     }
 }
 
-impl PolicyEngine for DefaultPolicyEngine {
+impl PolicyEngine for PureAuthEngine {
     fn evaluate(&self, context: AuthContext) -> Decision {
-        // 1. まず、明示的に拒否するポリシーをチェック
-        for policy in self.policies.values() {
-            if self.policy_matches(&context, policy) {
-                if policy.effect == PolicyEffect::Deny {
-                    return Decision::Deny;
-                }
-            }
-        }
-
-        // 2. 次に、明示的に許可するポリシーをチェック
-        for policy in self.policies.values() {
-            if self.policy_matches(&context, policy) {
-                if policy.effect == PolicyEffect::Allow {
-                    return Decision::Allow;
-                }
-            }
-        }
-
-        // 3. リソース固有のポリシーがない場合は、関係性ベースのデフォルト許可をチェック
-        if let Some(policy_cid) = context.resource.resource_attributes().get("policy_cid") {
-            if let Some(policy) = self.get_policy(policy_cid) {
-                if self.policy_matches(&context, policy) {
-                    return Decision::Allow;
-                }
-            }
-        }
-
-        // 4. 関係性ベースのチェック（ReBAC）
-        let relations = self.get_relations_for_resource(&context.resource.resource_id().to_string());
-        for relation in relations {
-            if relation.subject_id == context.principal.id {
-                // 関係性がある場合のデフォルト許可
-                return Decision::Allow;
-            }
-        }
-
-        // デフォルトは拒否
-        Decision::Deny
+        self.evaluate(context)
     }
 }
 
-impl Default for DefaultPolicyEngine {
-    fn default() -> Self {
-        Self::new()
+/// Effects-based authorization engine (handles persistence)
+pub mod effects_auth {
+    use super::*;
+    use std::path::Path;
+
+    /// Authorization engine with persistence effects
+    #[derive(Debug)]
+    pub struct AuthEngine {
+        /// Pure authorization engine
+        pub pure_engine: PureAuthEngine,
+        /// Storage backend (effects)
+        pub storage: Box<dyn AuthStorage>,
+    }
+
+    impl AuthEngine {
+        /// Create new authorization engine with persistence
+        pub fn new(storage: Box<dyn AuthStorage>) -> Result<Self> {
+            let pure_engine = PureAuthEngine::new();
+            Ok(Self { pure_engine, storage })
+        }
+
+        /// Load authorization engine from storage (effects)
+        pub fn load_from_storage<P: AsRef<Path>>(path: P) -> Result<Self> {
+            let storage = Box::new(FileAuthStorage::new(path)?);
+            Self::new(storage)
+        }
+
+        /// Add policy (effects: persists to storage)
+        pub fn add_policy(&mut self, policy: Policy) -> Result<()> {
+            // Persist policy (effects)
+            self.storage.persist_policy(&policy)?;
+
+            // Apply to pure engine (pure)
+            self.pure_engine = self.pure_engine.clone().with_policy(policy);
+
+            Ok(())
+        }
+
+        /// Add relation (effects: persists to storage)
+        pub fn add_relation(&mut self, relation: RelationTuple) -> Result<()> {
+            // Persist relation (effects)
+            self.storage.persist_relation(&relation)?;
+
+            // Apply to pure engine (pure)
+            self.pure_engine = self.pure_engine.clone().with_relation(relation);
+
+            Ok(())
+        }
+
+        /// Evaluate authorization (pure, delegates to pure_engine)
+        pub fn evaluate(&self, context: AuthContext) -> Decision {
+            self.pure_engine.evaluate(context)
+        }
+    }
+
+    /// Authorization storage trait (effects)
+    pub trait AuthStorage: std::fmt::Debug {
+        fn persist_policy(&mut self, policy: &Policy) -> Result<()>;
+        fn persist_relation(&mut self, relation: &RelationTuple) -> Result<()>;
+        fn load_policies(&self) -> Result<HashMap<String, Policy>>;
+        fn load_relations(&self) -> Result<HashMap<String, Vec<RelationTuple>>>;
+    }
+
+    /// File-based authorization storage
+    #[derive(Debug)]
+    pub struct FileAuthStorage {
+        // Implementation would handle file I/O
+    }
+
+    impl FileAuthStorage {
+        pub fn new<P: AsRef<Path>>(_path: P) -> Result<Self> {
+            // Implementation would open/create files
+            Ok(Self {})
+        }
+    }
+
+    impl AuthStorage for FileAuthStorage {
+        fn persist_policy(&mut self, _policy: &Policy) -> Result<()> {
+            // Implementation would write to files
+            Ok(())
+        }
+
+        fn persist_relation(&mut self, _relation: &RelationTuple) -> Result<()> {
+            // Implementation would write to files
+            Ok(())
+        }
+
+        fn load_policies(&self) -> Result<HashMap<String, Policy>> {
+            // Implementation would read from files
+            Ok(HashMap::new())
+        }
+
+        fn load_relations(&self) -> Result<HashMap<String, Vec<RelationTuple>>> {
+            // Implementation would read from files
+            Ok(HashMap::new())
+        }
     }
 }
+
+// Backward compatibility - re-export PureAuthEngine as DefaultPolicyEngine
+pub use PureAuthEngine as DefaultPolicyEngine;
+
+// Re-export effects-based engine
+pub use effects_auth::AuthEngine;
 
 /// 認証・認可のユーティリティ関数
 pub mod utils {
@@ -315,7 +417,7 @@ pub mod utils {
         engine.evaluate(context)
     }
 
-    /// リソースの所有権を移譲
+    /// リソースの所有権を移譲 (effects: modifies resource)
     pub fn transfer_ownership(
         resource: &mut dyn SecureResource,
         new_owner: &Principal,
@@ -351,7 +453,7 @@ mod tests {
 
     #[test]
     fn test_policy_addition() {
-        let mut engine = DefaultPolicyEngine::new();
+        let engine = DefaultPolicyEngine::new();
 
         let policy = Policy {
             id: "policy1".to_string(),
@@ -362,15 +464,14 @@ mod tests {
             condition: "".to_string(),
         };
 
-        engine.add_policy(policy);
-
-        assert_eq!(engine.policies.len(), 1);
-        assert!(engine.policies.contains_key("policy1"));
+        let engine_with_policy = engine.with_policy(policy);
+        assert_eq!(engine_with_policy.policies.len(), 1);
+        assert!(engine_with_policy.policies.contains_key("policy1"));
     }
 
     #[test]
     fn test_relation_addition() {
-        let mut engine = DefaultPolicyEngine::new();
+        let engine = DefaultPolicyEngine::new();
 
         let relation = RelationTuple {
             subject_id: "user:alice".to_string(),
@@ -378,10 +479,9 @@ mod tests {
             object_id: "document:doc1".to_string(),
         };
 
-        engine.add_relation(relation);
-
-        assert_eq!(engine.relations.len(), 1);
-        let relations = engine.get_relations_for_resource("document:doc1");
+        let engine_with_relation = engine.with_relation(relation);
+        assert_eq!(engine_with_relation.relations.len(), 1);
+        let relations = engine_with_relation.get_relations_for_resource("document:doc1");
         assert_eq!(relations.len(), 1);
         assert_eq!(relations[0].subject_id, "user:alice");
         assert_eq!(relations[0].relation, "owner");
@@ -389,8 +489,6 @@ mod tests {
 
     #[test]
     fn test_policy_evaluation_allow() {
-        let mut engine = DefaultPolicyEngine::new();
-
         let policy = Policy {
             id: "allow_read".to_string(),
             description: "Allow read access".to_string(),
@@ -399,7 +497,8 @@ mod tests {
             resources: vec!["document:*".to_string()],
             condition: "".to_string(),
         };
-        engine.add_policy(policy);
+
+        let engine = DefaultPolicyEngine::new().with_policy(policy);
 
         let principal = Principal {
             id: "user:alice".to_string(),
@@ -424,8 +523,6 @@ mod tests {
 
     #[test]
     fn test_policy_evaluation_deny() {
-        let mut engine = DefaultPolicyEngine::new();
-
         let policy = Policy {
             id: "deny_write".to_string(),
             description: "Deny write access".to_string(),
@@ -434,7 +531,8 @@ mod tests {
             resources: vec!["document:*".to_string()],
             condition: "".to_string(),
         };
-        engine.add_policy(policy);
+
+        let engine = DefaultPolicyEngine::new().with_policy(policy);
 
         let principal = Principal {
             id: "user:alice".to_string(),
@@ -455,24 +553,6 @@ mod tests {
 
         let decision = engine.evaluate(context);
         assert_eq!(decision, Decision::Deny);
-    }
-
-    #[test]
-    fn test_resource_pattern_matching() {
-        let engine = DefaultPolicyEngine::new();
-
-        // ワイルドカードマッチ
-        assert!(engine.resource_matches_pattern("document:doc1", "document:*"));
-        assert!(engine.resource_matches_pattern("document:doc1", "*"));
-        assert!(engine.resource_matches_pattern("document:doc1", "document:doc1"));
-
-        // プレフィックスマッチ
-        assert!(engine.resource_matches_pattern("document:doc1", "document:*"));
-        assert!(!engine.resource_matches_pattern("folder:doc1", "document:*"));
-
-        // 完全一致
-        assert!(engine.resource_matches_pattern("document:doc1", "document:doc1"));
-        assert!(!engine.resource_matches_pattern("document:doc2", "document:doc1"));
     }
 
     #[test]
@@ -506,16 +586,18 @@ mod tests {
             attributes: HashMap::new(),
         };
 
-        let mut resource = Resource {
+        let resource = Resource {
             id: "document:doc1".to_string(),
-            attributes: HashMap::new(),
+            attributes: HashMap::from([("issuer_id".to_string(), "user:alice".to_string())]),
         };
-        resource.attributes.insert("issuer_id".to_string(), "user:alice".to_string());
 
         assert!(utils::is_owner(&principal, &resource));
 
-        resource.attributes.insert("issuer_id".to_string(), "user:bob".to_string());
-        assert!(!utils::is_owner(&principal, &resource));
+        let resource2 = Resource {
+            id: "document:doc1".to_string(),
+            attributes: HashMap::from([("issuer_id".to_string(), "user:bob".to_string())]),
+        };
+        assert!(!utils::is_owner(&principal, &resource2));
     }
 
     #[test]
@@ -536,8 +618,6 @@ mod tests {
 
     #[test]
     fn test_utils_check_access() {
-        let mut engine = DefaultPolicyEngine::new();
-
         let policy = Policy {
             id: "allow_read".to_string(),
             description: "Allow read access".to_string(),
@@ -546,7 +626,8 @@ mod tests {
             resources: vec!["document:*".to_string()],
             condition: "".to_string(),
         };
-        engine.add_policy(policy);
+
+        let engine = DefaultPolicyEngine::new().with_policy(policy);
 
         let principal = Principal {
             id: "user:alice".to_string(),
@@ -579,9 +660,8 @@ mod tests {
 
         let mut resource = Resource {
             id: "document:doc1".to_string(),
-            attributes: HashMap::new(),
+            attributes: HashMap::from([("issuer_id".to_string(), "user:alice".to_string())]),
         };
-        resource.attributes.insert("issuer_id".to_string(), "user:alice".to_string());
 
         // AliceからBobへの所有権移譲
         let result = utils::transfer_ownership(&mut resource, &bob, &alice);
@@ -613,9 +693,8 @@ mod tests {
 
         let mut resource = Resource {
             id: "document:doc1".to_string(),
-            attributes: HashMap::new(),
+            attributes: HashMap::from([("issuer_id".to_string(), "user:alice".to_string())]),
         };
-        resource.attributes.insert("issuer_id".to_string(), "user:alice".to_string());
 
         // Charlieが移譲を試みる（失敗するはず）
         let result = utils::transfer_ownership(&mut resource, &bob, &charlie);
@@ -625,5 +704,143 @@ mod tests {
         // 所有者は変わっていないことを確認
         assert!(utils::is_owner(&alice, &resource));
         assert!(!utils::is_owner(&bob, &resource));
+    }
+
+    #[test]
+    fn test_pure_auth_engine_immutability() {
+        // Pure Kernel: PureAuthEngineは不変、コピーオンライト
+        let engine = PureAuthEngine::new();
+
+        let policy = Policy {
+            id: "test_policy".to_string(),
+            description: "Test policy for immutability".to_string(),
+            effect: PolicyEffect::Allow,
+            actions: vec!["read".to_string()],
+            resources: vec!["document:*".to_string()],
+            condition: "".to_string(),
+        };
+
+        // 元のエンジンに影響を与えずに新しいエンジンを作成
+        let engine_with_policy = engine.clone().with_policy(policy.clone());
+
+        // 元のエンジンは変更されていない
+        assert!(engine.policies.is_empty());
+        assert_eq!(engine_with_policy.policies.len(), 1);
+
+        // さらにポリシーを追加
+        let engine_with_two_policies = engine_with_policy.clone().with_policy(Policy {
+            id: "test_policy2".to_string(),
+            description: "Second test policy".to_string(),
+            effect: PolicyEffect::Deny,
+            actions: vec!["write".to_string()],
+            resources: vec!["document:secret".to_string()],
+            condition: "".to_string(),
+        });
+
+        // 最初のエンジンはまだ1つのポリシーのみ
+        assert_eq!(engine_with_policy.policies.len(), 1);
+        assert_eq!(engine_with_two_policies.policies.len(), 2);
+    }
+
+    #[test]
+    fn test_pure_auth_engine_determinism() {
+        // Pure Kernel: 同じ入力で常に同じ結果
+        let engine = PureAuthEngine::new();
+
+        let policy = Policy {
+            id: "deterministic_policy".to_string(),
+            description: "Deterministic test".to_string(),
+            effect: PolicyEffect::Allow,
+            actions: vec!["read".to_string()],
+            resources: vec!["document:*".to_string()],
+            condition: "".to_string(),
+        };
+
+        let relation = RelationTuple {
+            subject_id: "user:test".to_string(),
+            relation: "owner".to_string(),
+            object_id: "document:test".to_string(),
+        };
+
+        // 同じ順序で同じ操作を繰り返す
+        let engine1 = engine.clone()
+            .with_policy(policy.clone())
+            .with_relation(relation.clone());
+
+        let engine2 = engine.clone()
+            .with_policy(policy.clone())
+            .with_relation(relation.clone());
+
+        // 結果は完全に同一
+        assert_eq!(engine1.policies, engine2.policies);
+        assert_eq!(engine1.relations, engine2.relations);
+
+        // 関係の取得も決定論的
+        let relations1 = engine1.get_relations_for_resource("document:test");
+        let relations2 = engine2.get_relations_for_resource("document:test");
+        assert_eq!(relations1.len(), relations2.len());
+        assert_eq!(relations1[0].subject_id, relations2[0].subject_id);
+    }
+
+    #[test]
+    fn test_pure_auth_engine_pure_evaluation() {
+        // Pure Kernel: 認可評価は純粋関数
+        let engine = PureAuthEngine::new();
+
+        let policy = Policy {
+            id: "pure_eval_policy".to_string(),
+            description: "Pure evaluation test".to_string(),
+            effect: PolicyEffect::Allow,
+            actions: vec!["read".to_string()],
+            resources: vec!["document:*".to_string()],
+            condition: "".to_string(),
+        };
+
+        let relation = RelationTuple {
+            subject_id: "user:pure_test".to_string(),
+            relation: "owner".to_string(),
+            object_id: "document:pure_test".to_string(),
+        };
+
+        let engine_with_data = engine
+            .with_policy(policy)
+            .with_relation(relation);
+
+        let principal = Principal {
+            id: "user:pure_test".to_string(),
+            attributes: HashMap::new(),
+        };
+
+        let resource = Resource {
+            id: "document:pure_test".to_string(),
+            attributes: HashMap::from([("resource_type".to_string(), "document".to_string())]),
+        };
+
+        let auth_context = AuthContext {
+            principal: &principal,
+            action: "read",
+            resource: &resource,
+            environment: HashMap::new(),
+        };
+
+        // 同じコンテキストで複数回評価しても同じ結果
+        let decision1 = engine_with_data.evaluate(auth_context.clone());
+        let decision2 = engine_with_data.evaluate(auth_context.clone());
+        let decision3 = engine_with_data.evaluate(auth_context.clone());
+
+        assert_eq!(decision1, decision2);
+        assert_eq!(decision2, decision3);
+        assert_eq!(decision1, Decision::Allow);
+
+        // 異なるアクションでは異なる結果
+        let auth_context_deny = AuthContext {
+            principal: &principal,
+            action: "write", // ポリシーで許可されていないアクション
+            resource: &resource,
+            environment: HashMap::new(),
+        };
+
+        let decision_deny = engine_with_data.evaluate(auth_context_deny.clone());
+        assert_eq!(decision_deny, Decision::Deny);
     }
 }

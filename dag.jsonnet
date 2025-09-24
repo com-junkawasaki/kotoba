@@ -45,7 +45,7 @@
     },
     '020-language': {
       name: 'Language Layer',
-      description: 'Programming language support (Jsonnet, KotobaScript, TSX)',
+      description: 'Programming language support (Jsonnet, KotobaScript, TSX) with pure functional static analysis',
       priority: 2,
       crates: ['020-kotoba-syntax', '021-kotoba-parser', '022-kotoba-analyzer', '023-kotoba-jsonnet', '023-kotoba-kotobas', '024-kotoba-formatter']
     },
@@ -1719,6 +1719,19 @@
       provides: ['ai_agent_examples', 'chatbot_example', 'code_assistant_example', 'data_analyzer_example'],
       status: 'pending',
       build_order: 27,
+    },
+
+    'repl': {
+      name: 'repl',
+      path: 'examples/repl/',
+      type: 'web_example',
+      layer: '020-language',
+      description: 'KotobaScript オンラインREPL - PureScriptのtry.purescript.orgに似たブラウザベースのインタラクティブ環境',
+      dependencies: ['frontend', 'ai_parser'],
+      provides: ['online_repl', 'code_editor', 'live_evaluation', 'shareable_urls'],
+      status: 'active',
+      build_order: 28,
+      published_version: '0.1.0',
     },
 
     // ==========================================
@@ -3402,6 +3415,10 @@
     { from: 'ai_tools', to: 'ai_examples' },
     { from: 'ai_memory', to: 'ai_examples' },
 
+    // REPL dependencies
+    { from: 'frontend', to: 'repl' },
+    { from: 'ai_parser', to: 'repl' },
+
     // Integration with main library
     { from: 'ai_agent_parser', to: 'lib' },
     { from: 'ai_runtime', to: 'lib' },
@@ -3976,6 +3993,7 @@
     'ai_memory',
     'ai_chains',
     'ai_examples',
+    'repl',
 
     // ドキュメント生成
     'docs_parser',
@@ -4179,6 +4197,7 @@
     'db_engine_memory',
     'db_core',
     'ai_examples',
+    'repl',
     'ai_chains',
     'ai_memory',
     'ai_tools',

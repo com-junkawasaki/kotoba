@@ -3,6 +3,13 @@
 //! Denoの `deno fmt` に似た使い勝手で、.kotoba ファイルを
 //! 統一されたスタイルでフォーマットします。
 //!
+//! ## Pure Kernel & Effects Shell Architecture
+//!
+//! This crate follows the Pure Kernel/Effects Shell pattern:
+//!
+//! - **Pure Kernel**: `PureFormatter` - performs deterministic code formatting without side effects
+//! - **Effects Shell**: `CodeFormatter` - wraps the pure formatter and handles file I/O
+//!
 //! ## 使用方法
 //!
 //! ```bash
@@ -21,6 +28,7 @@ use std::path::PathBuf;
 
 pub mod config;
 pub mod formatter;
+pub mod pure_formatter;
 
 /// Formatterの結果
 #[derive(Debug, Clone)]
@@ -171,6 +179,7 @@ async fn find_kotoba_files(dir: PathBuf, files: &mut Vec<PathBuf>) -> Result<(),
 // 各モジュールの再エクスポート
 pub use config::*;
 pub use formatter::*;
+pub use pure_formatter::*;
 
 #[cfg(test)]
 mod tests {

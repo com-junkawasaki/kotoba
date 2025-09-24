@@ -1,7 +1,6 @@
 //! CID計算器の実装
 
 use super::*;
-use super::{KotobaResult, KotobaError};
 
 impl CidCalculator {
     /// 新しいCID計算器を作成

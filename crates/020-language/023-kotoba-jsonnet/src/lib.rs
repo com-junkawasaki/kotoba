@@ -2,6 +2,13 @@
 //!
 //! A complete Rust implementation of Jsonnet 0.21.0 compatible with the Jsonnet specification.
 //! This crate provides a pure Rust implementation without external C dependencies.
+//!
+//! ## Pure Kernel & Effects Shell Architecture
+//!
+//! This crate follows the Pure Kernel/Effects Shell pattern:
+//!
+//! - **Pure Kernel**: `PureEvaluator` - performs deterministic Jsonnet evaluation without side effects
+//! - **Effects Shell**: `Evaluator` - wraps the pure evaluator and handles I/O operations
 
 pub mod ast;
 pub mod error;
@@ -13,10 +20,16 @@ pub mod runtime;
 pub mod stdlib;
 pub mod value;
 
+// Pure Kernel components
+pub mod pure_evaluator;
+
 pub use error::{JsonnetError, Result};
 pub use evaluator::Evaluator;
 pub use parser::Parser;
 pub use value::JsonnetValue;
+
+// Re-export pure evaluator
+pub use pure_evaluator::PureEvaluator;
 
 /// Evaluate a Jsonnet snippet
 ///

@@ -1,7 +1,7 @@
 //! CIDマネージャーの実装
 
 use super::*;
-use super::{KotobaResult, KotobaError};
+use std::collections::HashMap;
 // All types should be available through super::*
 
 impl CidManager {
