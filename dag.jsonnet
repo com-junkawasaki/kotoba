@@ -45,7 +45,7 @@
     },
     '020-language': {
       name: 'Language Layer',
-      description: 'Programming language support (Jsonnet, KotobaScript, TSX)',
+      description: 'Programming language support (Jsonnet, KotobaScript, TSX) with pure functional static analysis',
       priority: 2,
       crates: ['020-kotoba-syntax', '021-kotoba-parser', '022-kotoba-analyzer', '023-kotoba-jsonnet', '023-kotoba-kotobas', '024-kotoba-formatter']
     },
