@@ -8,12 +8,11 @@
   <img src="public/hiragana_05_o.png.png" alt="Logo 05" width="80" height="80" />
 </div>
 
-**GP2-based Graph Rewriting + Event Sourcing + ISO GQL** - A comprehensive graph processing platform featuring complete Event Sourcing, ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
+**GP2-based Graph Rewriting + ISO GQL** - A comprehensive graph processing platform featuring ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
 
 ```bash
 🌟 Core Graph Processing System
 🔄 GP2-based Graph Rewriting Engine
-📊 Event Sourcing + Materialized Views
 🔍 ISO GQL-compliant Graph Queries
 ⚡ MVCC + Merkle DAG Persistence
 🏗️  Pure Kernel & Effects Shell Architecture ✅
@@ -41,7 +40,7 @@
 
 ## 📖 Overview
 
-Kotoba is a graph processing system built on the principles of **purely functional programming**. It leverages a deterministic, declarative core to deliver predictable and robust graph transformations, inspired by technologies like Event Sourcing, GP2-based Graph Rewriting, and modern dataflow architectures.
+Kotoba is a graph processing system built on the principles of **purely functional programming**. It leverages a deterministic, declarative core to deliver predictable and robust graph transformations, inspired by technologies like GP2-based Graph Rewriting and modern dataflow architectures.
 
 At its heart, Kotoba separates its logic into two distinct areas: the **Pure Kernel** and the **Effects Shell**. This separation is key to its design.
 
@@ -89,7 +88,7 @@ The architecture is designed to isolate pure computation from side effects, prov
 │ │    API Processor (Pure HTTP request/response handling) ✅ │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Transaction Log (Pure event sourcing logic) ✅          │ │
+│ │ Transaction Log (Pure transaction logic) ✅          │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -129,12 +128,6 @@ The Pure Kernel/Effects Shell architecture provides excellent performance charac
 - **Rule-based Transformations**: Declarative graph rewriting rules
 - **Graph Isomorphism**: Advanced graph matching algorithms
 - **Concurrent Processing**: Parallel graph operations and transformations
-
-#### **🎪 Complete Event Sourcing System**
-- **Event Store**: Immutable event storage with versioning
-- **Projection Engine**: Real-time materialized views and read models
-- **Command Processing**: CQRS pattern with command validation
-- **Event Streaming**: Real-time event processing and subscriptions
 
 #### **🔍 Advanced Graph Query Language**
 - **ISO GQL Compliance**: Industry-standard graph query language
@@ -238,19 +231,7 @@ MATCH (p:Person) RETURN p.name;' > query.gql
 cargo run -- query --file query.gql
 ```
 
-#### **2. Event Sourcing Example**
-```bash
-# Start event sourcing with in-memory storage
-cargo run -- event-stream --create example_stream
-
-# Add events
-cargo run -- event-stream --stream example_stream --add "UserCreated" '{"id": 1, "name": "Alice"}'
-
-# Create projection
-cargo run -- projection --create user_count --query "MATCH (u:User) RETURN count(u) as total"
-```
-
-#### **3. Graph Rewriting Example**
+#### **2. Graph Rewriting Example**
 ```bash
 # Define a graph rewriting rule
 echo 'rule: {
