@@ -2359,22 +2359,12 @@ version = "0.1.16"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
- "kotoba-analyzer",
- "kotoba-ir",
- "kotoba-kotobas",
- "kotoba-logic",
- "kotoba-parser",
- "kotoba-rewrite-kernel",
- "kotoba-syntax",
- "kotoba-types",
- "once_cell",
+ "kotoba-jsonnet",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "tracing",
- "uuid",
  "wasm-bindgen",
- "wasm-bindgen-futures",
  "wee_alloc",
 ]
 

@@ -22,22 +22,9 @@ tracing = "0.1"
 console_error_panic_hook = { version = "0.1.7", optional = true }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
-wasm-bindgen-futures = "0.4"
-uuid = { workspace = true, features = ["v4", "serde", "js"] }
-once_cell = "1.0"
 
-# Kotoba core dependencies
-kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
-kotoba-types = { path = "../../010-core/010-kotoba-types" }
-kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
-kotoba-rewrite-kernel = { path = "../../010-core/012-kotoba-rewrite-kernel" }
-
-# Kotoba language dependencies
-kotoba-syntax = { path = "../020-kotoba-syntax" }
-kotoba-parser = { path = "../021-kotoba-parser" }
-kotoba-analyzer = { path = "../022-kotoba-analyzer" }
-kotoba-kotobas = { path = "../023-kotoba-kotobas" }
-# kotoba-storage = { path = "../../030-storage/031-kotoba-storage" } # Temporarily disabled
+# Direct dependencies for WASM (minimal)
+kotoba-jsonnet = { path = "../023-kotoba-jsonnet", default-features = false }
 
 # TODO: Replace with KeyValueStore-based workflow
 # kotoba-workflow = { path = "../../300-workflow/kotoba-workflow", default-features = false, features = ["wasm-bindgen"] }

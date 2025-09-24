@@ -1454,6 +1454,14 @@
             "to": "ai_examples"
          },
          {
+            "from": "frontend",
+            "to": "repl"
+         },
+         {
+            "from": "ai_parser",
+            "to": "repl"
+         },
+         {
             "from": "ai_agent_parser",
             "to": "lib"
          },
@@ -5694,6 +5702,24 @@
             ],
             "status": "completed"
          },
+         "repl": {
+            "build_order": 28,
+            "dependencies": [
+               "frontend",
+               "ai_parser"
+            ],
+            "description": "KotobaScript オンラインREPL - PureScriptのtry.purescript.orgに似たブラウザベースのインタラクティブ環境",
+            "name": "repl",
+            "node_type": "web_example",
+            "path": "examples/repl/",
+            "provides": [
+               "online_repl",
+               "code_editor",
+               "live_evaluation",
+               "shareable_urls"
+            ],
+            "status": "active"
+         },
          "repl_tests": {
             "build_order": 25,
             "dependencies": [
@@ -6582,6 +6608,7 @@
          "db_engine_memory",
          "db_core",
          "ai_examples",
+         "repl",
          "ai_chains",
          "ai_memory",
          "ai_tools",
@@ -6840,6 +6867,7 @@
          "ai_memory",
          "ai_chains",
          "ai_examples",
+         "repl",
          "docs_parser",
          "docs_config",
          "docs_generator",
@@ -6906,11 +6934,11 @@
          "version": "0.2.0"
       },
       "statistics": {
-         "edge_count": 611,
+         "edge_count": 613,
          "has_cycles": false,
          "is_valid_topology": false,
-         "max_build_order": 229,
-         "node_count": 229
+         "max_build_order": 230,
+         "node_count": 230
       }
    },
    "validation_rules": {
