@@ -1,5 +1,13 @@
 # Kotoba: A Purely Functional Graph Processing System
 
+<div align="center">
+  <img src="public/hiragana_01_a.png.png" alt="Logo 01" width="80" height="80" />
+  <img src="public/hiragana_02_i.png.png" alt="Logo 02" width="80" height="80" />
+  <img src="public/hiragana_03_u.png.png" alt="Logo 03" width="80" height="80" />
+  <img src="public/hiragana_04_e.png.png" alt="Logo 04" width="80" height="80" />
+  <img src="public/hiragana_05_o.png.png" alt="Logo 05" width="80" height="80" />
+</div>
+
 **GP2-based Graph Rewriting + Event Sourcing + ISO GQL** - A comprehensive graph processing platform featuring complete Event Sourcing, ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
 
 ```bash
