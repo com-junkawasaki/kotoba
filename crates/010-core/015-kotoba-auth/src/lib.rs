@@ -297,7 +297,7 @@ pub mod effects_auth {
             self.storage.persist_policy(&policy)?;
 
             // Apply to pure engine (pure)
-            self.pure_engine = self.pure_engine.with_policy(policy);
+            self.pure_engine = self.pure_engine.clone().with_policy(policy);
 
             Ok(())
         }
@@ -308,7 +308,7 @@ pub mod effects_auth {
             self.storage.persist_relation(&relation)?;
 
             // Apply to pure engine (pure)
-            self.pure_engine = self.pure_engine.with_relation(relation);
+            self.pure_engine = self.pure_engine.clone().with_relation(relation);
 
             Ok(())
         }
@@ -320,7 +320,7 @@ pub mod effects_auth {
     }
 
     /// Authorization storage trait (effects)
-    pub trait AuthStorage {
+    pub trait AuthStorage: std::fmt::Debug {
         fn persist_policy(&mut self, policy: &Policy) -> Result<()>;
         fn persist_relation(&mut self, relation: &RelationTuple) -> Result<()>;
         fn load_policies(&self) -> Result<HashMap<String, Policy>>;
@@ -328,6 +328,7 @@ pub mod effects_auth {
     }
 
     /// File-based authorization storage
+    #[derive(Debug)]
     pub struct FileAuthStorage {
         // Implementation would handle file I/O
     }
