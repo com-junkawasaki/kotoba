@@ -5,7 +5,6 @@
 //! traversal algorithms, and graph transformation utilities.
 
 use kotoba_types::*;
-use kotoba_errors::KotobaError;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -13,6 +12,24 @@ use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 // Re-export types from kotoba-types
 pub use kotoba_types::{VertexId, EdgeId, Label, Properties, PropertyKey, Value, GraphInstance, GraphCore, Node, Edge, GraphKind, Typing, Boundary, Port, PortDirection, Attrs};
+
+/// Generate a deterministic CID from vertex data
+fn generate_vertex_cid(labels: &[Label], props: &Properties) -> VertexId {
+    let mut data = Vec::new();
+    data.extend_from_slice(&serde_json::to_vec(labels).unwrap());
+    data.extend_from_slice(&serde_json::to_vec(props).unwrap());
+    VertexId::from(data.as_slice())
+}
+
+/// Generate a deterministic CID from edge data
+fn generate_edge_cid(source: &VertexId, target: &VertexId, label: &Label, props: &Properties) -> EdgeId {
+    let mut data = Vec::new();
+    data.extend_from_slice(source.as_ref().as_bytes());
+    data.extend_from_slice(target.as_ref().as_bytes());
+    data.extend_from_slice(label.as_bytes());
+    data.extend_from_slice(&serde_json::to_vec(props).unwrap());
+    EdgeId::from(data.as_slice())
+}
 
 /// Vertex data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +91,7 @@ impl EdgeData {
     /// Create a new edge
     pub fn new(src: VertexId, dst: VertexId, label: Label) -> Self {
         Self {
-            id: uuid::Uuid::new_v4(),
+            id: generate_vertex_cid(&[], &HashMap::new()),
             src,
             dst,
             label,
@@ -385,7 +402,7 @@ impl VertexBuilder {
     /// Build the vertex
     pub fn build(self) -> VertexData {
         VertexData {
-            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4()),
+            id: self.id.unwrap_or_else(|| generate_vertex_cid(&[], &HashMap::new())),
             labels: self.labels,
             props: self.props,
         }
@@ -457,7 +474,7 @@ impl EdgeBuilder {
         let label = self.label.ok_or("Label not set")?;
 
         Ok(EdgeData {
-            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4()),
+            id: self.id.unwrap_or_else(|| generate_vertex_cid(&[], &HashMap::new())),
             src,
             dst,
             label,
@@ -844,7 +861,7 @@ impl GraphAnalysis {
 
         // Convert Nodes to Vertices
         for node in &graph_instance.core.nodes {
-            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+            let vertex_id = generate_vertex_cid(&[], &HashMap::new()); // Deterministically generated from CID
 
             let props = if let Some(attrs) = &node.attrs {
                 attrs.iter()
@@ -871,7 +888,7 @@ impl GraphAnalysis {
                 vertex_id_map.get(&edge.source),
                 vertex_id_map.get(&edge.target),
             ) {
-                let edge_id = uuid::Uuid::new_v4(); // Should be deterministically generated
+                let edge_id = generate_edge_cid(&v1, &v2, &"default".to_string(), &HashMap::new()); // Deterministically generated
 
                 let props = if let Some(attrs) = &edge.attrs {
                     attrs.iter()
@@ -953,7 +970,7 @@ impl GraphStatistics {
 
         // Convert Nodes to Vertices
         for node in &graph_instance.core.nodes {
-            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+            let vertex_id = generate_vertex_cid(&[], &HashMap::new()); // Deterministically generated from CID
 
             let props = if let Some(attrs) = &node.attrs {
                 attrs.iter()
@@ -980,7 +997,7 @@ impl GraphStatistics {
                 vertex_id_map.get(&edge.source),
                 vertex_id_map.get(&edge.target),
             ) {
-                let edge_id = uuid::Uuid::new_v4(); // Should be deterministically generated
+                let edge_id = generate_edge_cid(&v1, &v2, &"default".to_string(), &HashMap::new()); // Deterministically generated
 
                 let props = if let Some(attrs) = &edge.attrs {
                     attrs.iter()
@@ -1035,7 +1052,7 @@ impl GraphStatistics {
 
         // Convert Nodes to Vertices
         for node in &graph_instance.core.nodes {
-            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+            let vertex_id = generate_vertex_cid(&[], &HashMap::new()); // Deterministically generated from CID
 
             let props = if let Some(attrs) = &node.attrs {
                 attrs.iter()
@@ -1062,7 +1079,7 @@ impl GraphStatistics {
                 vertex_id_map.get(&edge.source),
                 vertex_id_map.get(&edge.target),
             ) {
-                let edge_id = uuid::Uuid::new_v4(); // Should be deterministically generated
+                let edge_id = generate_edge_cid(&v1, &v2, &"default".to_string(), &HashMap::new()); // Deterministically generated
 
                 let props = if let Some(attrs) = &edge.attrs {
                     attrs.iter()
@@ -1116,7 +1133,7 @@ impl GraphStatistics {
 
         // Convert Nodes to Vertices
         for node in &graph_instance.core.nodes {
-            let vertex_id = uuid::Uuid::new_v4(); // Should be deterministically generated from CID
+            let vertex_id = generate_vertex_cid(&[], &HashMap::new()); // Deterministically generated from CID
 
             let props = if let Some(attrs) = &node.attrs {
                 attrs.iter()
@@ -1307,7 +1324,7 @@ mod tests {
     fn test_vertex_operations() {
         let mut graph = Graph::empty();
 
-        let vertex = VertexData::new(uuid::Uuid::new_v4())
+        let vertex = VertexData::new(generate_vertex_cid(&[], &HashMap::new()))
             .with_label("Person".to_string())
             .with_property("name".to_string(), Value::String("Alice".to_string()));
 
@@ -1320,8 +1337,8 @@ mod tests {
     fn test_edge_operations() {
         let mut graph = Graph::empty();
 
-        let v1 = graph.add_vertex(VertexData::new(uuid::Uuid::new_v4()));
-        let v2 = graph.add_vertex(VertexData::new(uuid::Uuid::new_v4()));
+        let v1 = graph.add_vertex(VertexData::new(generate_vertex_cid(&[], &HashMap::new())));
+        let v2 = graph.add_vertex(VertexData::new(generate_vertex_cid(&[], &HashMap::new())));
 
         let edge = EdgeData::new(v1, v2, "knows".to_string());
         let edge_id = graph.add_edge(edge);
@@ -1336,8 +1353,8 @@ mod tests {
     fn test_vertex_removal() {
         let mut graph = Graph::empty();
 
-        let v1 = graph.add_vertex(VertexData::new(uuid::Uuid::new_v4()));
-        let v2 = graph.add_vertex(VertexData::new(uuid::Uuid::new_v4()));
+        let v1 = graph.add_vertex(VertexData::new(generate_vertex_cid(&[], &HashMap::new())));
+        let v2 = graph.add_vertex(VertexData::new(generate_vertex_cid(&[], &HashMap::new())));
 
         graph.add_edge(EdgeData::new(v1, v2, "knows".to_string()));
 

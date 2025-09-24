@@ -15,6 +15,8 @@ use kotoba_codebase::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub use graph::Graph;
+
 /// Graph ID type for content addressing
 pub type GraphId = Hash;
 
@@ -304,19 +306,25 @@ impl IncidenceGraph {
         Self::default()
     }
 
-    /// Add a left vertex
-    pub fn add_left_vertex(&mut self, vertex: IncidenceVertex) {
-        self.left_vertices.push(vertex);
+    /// Add a left vertex (returns new graph)
+    pub fn with_left_vertex(self, vertex: IncidenceVertex) -> Self {
+        let mut new_graph = self.clone();
+        new_graph.left_vertices.push(vertex);
+        new_graph
     }
 
-    /// Add a right vertex
-    pub fn add_right_vertex(&mut self, vertex: IncidenceVertex) {
-        self.right_vertices.push(vertex);
+    /// Add a right vertex (returns new graph)
+    pub fn with_right_vertex(self, vertex: IncidenceVertex) -> Self {
+        let mut new_graph = self.clone();
+        new_graph.right_vertices.push(vertex);
+        new_graph
     }
 
-    /// Add an edge
-    pub fn add_edge(&mut self, edge: IncidenceEdge) {
-        self.edges.push(edge);
+    /// Add an edge (returns new graph)
+    pub fn with_edge(self, edge: IncidenceEdge) -> Self {
+        let mut new_graph = self.clone();
+        new_graph.edges.push(edge);
+        new_graph
     }
 }
 

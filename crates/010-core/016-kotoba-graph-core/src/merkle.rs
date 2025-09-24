@@ -4,6 +4,7 @@
 //! graph integrity and enabling efficient proof generation.
 
 use super::*;
+use crate::graph::Graph;
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -366,9 +367,11 @@ impl MerkleTreeBuilder {
         hex::encode(key_data)
     }
 
-    /// Clear cache
-    pub fn clear_cache(&mut self) {
-        self.tree_cache.clear();
+    /// Clear cache (returns new builder)
+    pub fn with_cleared_cache(self) -> Self {
+        let mut new_builder = self.clone();
+        new_builder.tree_cache.clear();
+        new_builder
     }
 }
 

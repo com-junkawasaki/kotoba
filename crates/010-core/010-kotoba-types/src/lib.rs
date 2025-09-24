@@ -54,11 +54,11 @@ impl From<&str> for Cid {
     }
 }
 
-/// Vertex ID for graph nodes
-pub type VertexId = Uuid;
+/// Vertex ID for graph nodes - Content-addressed and deterministic
+pub type VertexId = Cid;
 
-/// Edge ID for graph edges
-pub type EdgeId = Uuid;
+/// Edge ID for graph edges - Content-addressed and deterministic
+pub type EdgeId = Cid;
 
 /// Label for vertices and edges
 pub type Label = String;
@@ -138,12 +138,49 @@ pub struct GraphInstance {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
-impl GraphInstance {
+/// Builder for GraphInstance to ensure immutability
+#[derive(Debug)]
+pub struct GraphInstanceBuilder {
+    id: String,
+    core: GraphCore,
+    metadata: HashMap<String, serde_json::Value>,
+}
+
+impl GraphInstanceBuilder {
     pub fn new(id: impl Into<String>, core: GraphCore) -> Self {
         Self {
             id: id.into(),
             core,
             metadata: HashMap::new(),
+        }
+    }
+
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn build(self) -> GraphInstance {
+        GraphInstance {
+            id: self.id,
+            core: self.core,
+            metadata: self.metadata,
+        }
+    }
+}
+
+impl GraphInstance {
+    /// Create a new GraphInstance with minimal data
+    pub fn new(id: impl Into<String>, core: GraphCore) -> Self {
+        GraphInstanceBuilder::new(id, core).build()
+    }
+
+    /// Create a GraphInstance with metadata
+    pub fn with_metadata(id: impl Into<String>, core: GraphCore, metadata: HashMap<String, serde_json::Value>) -> Self {
+        GraphInstance {
+            id: id.into(),
+            core,
+            metadata,
         }
     }
 }

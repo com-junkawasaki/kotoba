@@ -4,6 +4,7 @@
 //! using various canonical labeling techniques.
 
 use super::*;
+use crate::graph::Graph;
 use kotoba_types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, BTreeMap, BTreeSet, VecDeque};
