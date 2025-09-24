@@ -11,7 +11,7 @@
 //! Effects Shell components.
 
 use std::collections::HashMap;
-use kotoba_syntax::Program;
+use kotoba_syntax::{Expr, Program, Stmt};
 
 /// Pure semantic analysis result
 #[derive(Debug, Clone, PartialEq)]
@@ -77,6 +77,9 @@ pub enum SemanticError {
     },
     DuplicateDefinition(String, Location),
     InvalidOperation(String, Location),
+    // --- New Errors for Pure Functional Validation ---
+    ForbiddenConstruct(String, Location),
+    TopLevelNotFunction(Location),
 }
 
 /// Semantic warnings
@@ -110,6 +113,8 @@ pub struct AnalyzerConfig {
     pub strict_mode: bool,
     pub allow_shadowing: bool,
     pub check_unused_variables: bool,
+    /// Enforce the pure functional subset of Kotoba/Jsonnet
+    pub enforce_pure_functional_rules: bool,
 }
 
 impl Default for AnalyzerConfig {
@@ -118,6 +123,7 @@ impl Default for AnalyzerConfig {
             strict_mode: false,
             allow_shadowing: false,
             check_unused_variables: true,
+            enforce_pure_functional_rules: true, // Default to strict rules
         }
     }
 }
@@ -145,8 +151,21 @@ impl PureAnalyzer {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
-        // Analyze the AST (simplified implementation)
-        self.analyze_program(ast, &mut symbol_table, &mut type_info, &mut errors, &mut warnings);
+        // If enabled, run the pure functional validator first.
+        if self.config.enforce_pure_functional_rules {
+            let mut validator = PureFunctionalValidator::new();
+            validator.validate_program(ast);
+            errors.extend(validator.errors);
+        }
+
+        // The existing (or future) analysis can run here.
+        self.analyze_program(
+            ast,
+            &mut symbol_table,
+            &mut type_info,
+            &mut errors,
+            &mut warnings,
+        );
 
         AnalysisResult {
             symbol_table,
@@ -193,6 +212,163 @@ impl PureAnalyzer {
         }
     }
 }
+
+// --- Visitor Trait for AST Traversal ---
+trait AstVisitor {
+    fn visit_program(&mut self, program: &Program);
+    fn visit_stmt(&mut self, stmt: &Stmt);
+    fn visit_expr(&mut self, expr: &Expr);
+}
+
+// --- Pure Functional Validator ---
+struct PureFunctionalValidator {
+    errors: Vec<SemanticError>,
+}
+
+impl PureFunctionalValidator {
+    fn new() -> Self {
+        Self { errors: Vec::new() }
+    }
+
+    fn validate_program(&mut self, program: &Program) {
+        // Rule: The entry point must be a single function.
+        if program.statements.len() != 1 {
+            self.add_error("Expected a single top-level function.", Location { line: 1, column: 1 });
+            return;
+        }
+
+        if let Some(stmt) = program.statements.get(0) {
+            if let Stmt::Expr(expr) = stmt {
+                if !matches!(expr, Expr::Function { .. }) {
+                    self.add_error("Top-level statement must be a function.", Location { line: 1, column: 1 });
+                }
+                self.visit_expr(expr);
+            } else {
+                self.add_error("Top-level statement must be a function expression.", Location { line: 1, column: 1 });
+            }
+        }
+    }
+
+    fn add_error(&mut self, message: &str, location: Location) {
+        self.errors.push(SemanticError::ForbiddenConstruct(message.to_string(), location));
+    }
+}
+
+impl AstVisitor for PureFunctionalValidator {
+    fn visit_program(&mut self, program: &Program) {
+        for stmt in &program.statements {
+            self.visit_stmt(stmt);
+        }
+    }
+
+    fn visit_stmt(&mut self, stmt: &Stmt) {
+        match stmt {
+            Stmt::Expr(expr) => self.visit_expr(expr),
+            Stmt::Local(bindings) => {
+                for (_, expr) in bindings {
+                    self.visit_expr(expr);
+                }
+            }
+            Stmt::Assert { cond, message, .. } => {
+                self.visit_expr(cond);
+                if let Some(msg) = message {
+                    self.visit_expr(msg);
+                }
+            }
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &Expr) {
+        match expr {
+            Expr::Var(name) if name == "self" || name == "super" => {
+                self.add_error(&format!("Use of '{}' is forbidden.", name), Location { line: 0, column: 0 }); // Placeholder location
+            }
+            Expr::Index { target, index } => {
+                 if let Expr::Var(target_name) = &**target {
+                    if target_name == "std" {
+                        if let Expr::Literal(kotoba_syntax::KotobaValue::String(s)) = &**index {
+                            match s.as_str() {
+                                "extVar" | "native" | "trace" => {
+                                    self.add_error(&format!("Use of 'std.{}' is forbidden.", s), Location { line: 0, column: 0 });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                self.visit_expr(target);
+                self.visit_expr(index);
+            }
+            Expr::Object(fields) => {
+                for field in fields {
+                    if field.visibility != kotoba_syntax::Visibility::Normal {
+                        self.add_error("Field visibility modifiers (::, :::) are forbidden.", Location { line: 0, column: 0 });
+                    }
+                    self.visit_expr(&field.expr);
+                }
+            }
+            // --- Recursive traversal for other expression types ---
+            Expr::BinaryOp { left, right, .. } => {
+                self.visit_expr(left);
+                self.visit_expr(right);
+            }
+            Expr::UnaryOp { expr, .. } => self.visit_expr(expr),
+            Expr::Array(elements) => {
+                for el in elements {
+                    self.visit_expr(el);
+                }
+            }
+            Expr::ArrayComp { expr, array, cond, .. } => {
+                self.visit_expr(expr);
+                self.visit_expr(array);
+                if let Some(c) = cond {
+                    self.visit_expr(c);
+                }
+            }
+            Expr::ObjectComp{ field, array, .. } => {
+                self.visit_expr(&field.expr);
+                self.visit_expr(array);
+            }
+            Expr::Call { func, args } => {
+                self.visit_expr(func);
+                for arg in args {
+                    self.visit_expr(arg);
+                }
+            }
+            Expr::Slice { target, start, end, step } => {
+                self.visit_expr(target);
+                start.as_ref().map(|e| self.visit_expr(e));
+                end.as_ref().map(|e| self.visit_expr(e));
+                step.as_ref().map(|e| self.visit_expr(e));
+            }
+            Expr::Local { bindings, body } => {
+                for (_, val) in bindings {
+                    self.visit_expr(val);
+                }
+                self.visit_expr(body);
+            }
+            Expr::Function { body, .. } => self.visit_expr(body),
+            Expr::If { cond, then_branch, else_branch } => {
+                self.visit_expr(cond);
+                self.visit_expr(then_branch);
+                if let Some(e) = else_branch {
+                    self.visit_expr(e);
+                }
+            }
+             Expr::Assert { cond, message, expr } => {
+                self.visit_expr(cond);
+                message.as_ref().map(|e| self.visit_expr(e));
+                self.visit_expr(expr);
+            }
+            Expr::Error(_) => {
+                self.add_error("'error' expressions are forbidden.", Location { line: 0, column: 0 });
+            }
+            // No action needed for these
+            Expr::Literal(_) | Expr::StringInterpolation(_) | Expr::Var(_) | Expr::Import(_) | Expr::ImportStr(_) => {}
+        }
+    }
+}
+
 
 /// Effects Shell wrapper for the pure analyzer
 /// This handles I/O operations and external dependencies
@@ -266,5 +442,90 @@ pub use effects_analyzer::Analyzer;
 impl Default for Analyzer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kotoba_parser::Parser;
+    use kotoba_syntax::{Location, SemanticError};
+
+    fn analyze_source(source: &str) -> AnalysisResult {
+        let mut parser = Parser::new();
+        let program = parser.parse(source).expect("Failed to parse for test");
+        
+        let config = AnalyzerConfig {
+            enforce_pure_functional_rules: true,
+            ..Default::default()
+        };
+        let analyzer = PureAnalyzer::with_config(config);
+        analyzer.analyze(&program)
+    }
+
+    #[test]
+    fn test_valid_pure_functional_code() {
+        let source = r#"
+        function(params)
+            local a = params.a;
+            {
+                field: a + 1
+            }
+        "#;
+        let result = analyze_source(source);
+        assert!(result.errors.is_empty(), "Expected no errors for valid code, but found: {:?}", result.errors);
+    }
+
+    #[test]
+    fn test_forbidden_std_extvar() {
+        let source = "function(params) std.extVar('foo')";
+        let result = analyze_source(source);
+        assert_eq!(result.errors.len(), 1);
+        assert!(matches!(result.errors[0], SemanticError::ForbiddenConstruct(_, _)));
+        if let SemanticError::ForbiddenConstruct(msg, _) = &result.errors[0] {
+            assert!(msg.contains("std.extVar"));
+        }
+    }
+
+    #[test]
+    fn test_forbidden_self() {
+        let source = "function(params) { val: self.other }";
+        let result = analyze_source(source);
+        assert_eq!(result.errors.len(), 1);
+        assert!(matches!(result.errors[0], SemanticError::ForbiddenConstruct(_, _)));
+        if let SemanticError::ForbiddenConstruct(msg, _) = &result.errors[0] {
+            assert!(msg.contains("'self'"));
+        }
+    }
+
+    #[test]
+    fn test_forbidden_field_visibility() {
+        let source = "function(params) { field:: 1 }";
+        let result = analyze_source(source);
+        assert_eq!(result.errors.len(), 1);
+        assert!(matches!(result.errors[0], SemanticError::ForbiddenConstruct(_, _)));
+        if let SemanticError::ForbiddenConstruct(msg, _) = &result.errors[0] {
+            assert!(msg.contains("Field visibility modifiers"));
+        }
+    }
+
+    #[test]
+    fn test_top_level_is_not_a_function() {
+        let source = "{ a: 1 }"; // Not a function
+        let result = analyze_source(source);
+        assert_eq!(result.errors.len(), 1);
+        if let SemanticError::ForbiddenConstruct(msg, _) = &result.errors[0] {
+            assert!(msg.contains("Top-level statement must be a function"));
+        }
+    }
+
+    #[test]
+    fn test_multiple_statements_are_forbidden() {
+        let source = "local a = 1; { b: a }"; // Not a single function
+        let result = analyze_source(source);
+        assert_eq!(result.errors.len(), 1);
+        if let SemanticError::ForbiddenConstruct(msg, _) = &result.errors[0] {
+            assert!(msg.contains("Expected a single top-level function"));
+        }
     }
 }
