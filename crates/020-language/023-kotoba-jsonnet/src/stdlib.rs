@@ -3263,7 +3263,7 @@ impl JsonnetValue {
 
         let symmetric_diff: std::collections::HashSet<_> = a_set.symmetric_difference(&b_set).cloned().collect();
 
-        let mut result: Vec<JsonnetValue> = a.iter()
+        let result: Vec<JsonnetValue> = a.iter()
             .filter(|item| symmetric_diff.contains(&format!("{:?}", item)))
             .chain(b.iter().filter(|item| symmetric_diff.contains(&format!("{:?}", item))))
             .cloned()

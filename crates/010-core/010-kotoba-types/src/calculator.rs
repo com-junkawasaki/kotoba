@@ -1,7 +1,6 @@
 //! CID計算器の実装
 
 use super::*;
-use std::collections::HashMap;
 
 impl CidCalculator {
     /// 新しいCID計算器を作成

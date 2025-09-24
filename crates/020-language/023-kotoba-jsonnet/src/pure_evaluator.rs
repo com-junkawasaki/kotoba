@@ -3,7 +3,7 @@
 //! This module provides a pure functional implementation of Jsonnet evaluation.
 //! All evaluation is deterministic: same input always produces same output.
 
-use crate::error::{JsonnetError, Result};
+use crate::error::Result;
 use crate::value::JsonnetValue;
 use std::collections::HashMap;
 
@@ -115,7 +115,7 @@ impl PureEvaluator {
     fn evaluate_expression(&self, expr: ParsedExpression) -> Result<JsonnetValue> {
         match expr {
             ParsedExpression::String(s) => Ok(JsonnetValue::String(s)),
-            ParsedExpression::LocalBindings { bindings, body } => {
+            ParsedExpression::LocalBindings { bindings: _, body } => {
                 // In real implementation, this would evaluate with local scope
                 // For now, just evaluate the body
                 self.evaluate_expression(*body)

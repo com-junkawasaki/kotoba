@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::{LogicError, LogicResult, LogicalStatement};
+use super::LogicError;
 
 /// Predicate logic system
 #[derive(Debug, Clone)]
@@ -53,21 +53,21 @@ impl PredicateLogic {
     }
 
     /// Check if a formula is well-formed
-    pub fn is_well_formed(&self, formula: &PredicateFormula) -> bool {
+    pub fn is_well_formed(&self, _formula: &PredicateFormula) -> bool {
         // Well-formedness checking
         // This would be expanded with actual well-formedness checking
         true
     }
 
     /// Check if a formula is valid
-    pub fn is_valid(&self, formula: &PredicateFormula) -> bool {
+    pub fn is_valid(&self, _formula: &PredicateFormula) -> bool {
         // Validity checking
         // This would be expanded with actual validity checking
         false
     }
 
     /// Check if a formula is satisfiable
-    pub fn is_satisfiable(&self, formula: &PredicateFormula) -> bool {
+    pub fn is_satisfiable(&self, _formula: &PredicateFormula) -> bool {
         // Satisfiability checking
         // This would be expanded with actual satisfiability checking
         true
@@ -325,7 +325,7 @@ impl Model {
     }
 
     /// Evaluate a formula in this model
-    pub fn evaluate(&self, formula: &PredicateFormula) -> Option<bool> {
+    pub fn evaluate(&self, _formula: &PredicateFormula) -> Option<bool> {
         // Model evaluation logic
         // This would be expanded with actual model evaluation
         None
@@ -362,10 +362,10 @@ impl Interpretation {
     }
 
     /// Evaluate a formula under this interpretation
-    pub fn evaluate(&self, formula: &PredicateFormula) -> Option<bool> {
+    pub fn evaluate(&self, _formula: &PredicateFormula) -> Option<bool> {
         // Interpretation evaluation logic
         // This would be expanded with actual interpretation evaluation
-        self.model.evaluate(formula)
+        self.model.evaluate(_formula)
     }
 }
 

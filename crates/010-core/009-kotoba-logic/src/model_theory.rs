@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::{LogicError, LogicResult, LogicalStatement, PredicateFormula};
+use super::{LogicError, PredicateFormula};
 
 /// Model theory system for semantic analysis
 #[derive(Debug, Clone)]
@@ -120,7 +120,7 @@ impl Model {
     }
 
     /// Check if this model satisfies a formula
-    pub fn satisfies(&self, formula: &PredicateFormula) -> bool {
+    pub fn satisfies(&self, _formula: &PredicateFormula) -> bool {
         // Model satisfaction checking
         // This would be expanded with actual satisfaction checking
         true
@@ -133,7 +133,7 @@ impl Model {
                 // Look up constant in domain
                 self.domain.iter().find(|d| d.contains(name)).cloned()
             }
-            Term::Variable(name) => {
+            Term::Variable(_name) => {
                 // Variables need assignment
                 None
             }
@@ -199,7 +199,7 @@ impl InterpretationFunction {
                 }
                 None
             }
-            FunctionImplementation::Code(code) => {
+            FunctionImplementation::Code(_code) => {
                 // Execute code (would need interpreter)
                 None
             }
@@ -252,7 +252,7 @@ impl Interpretation {
     }
 
     /// Check if a formula is satisfied under this interpretation
-    pub fn satisfies(&self, formula: &PredicateFormula) -> bool {
+    pub fn satisfies(&self, _formula: &PredicateFormula) -> bool {
         // Interpretation satisfaction checking
         // This would be expanded with actual satisfaction checking
         true

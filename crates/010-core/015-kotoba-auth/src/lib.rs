@@ -721,14 +721,14 @@ mod tests {
         };
 
         // 元のエンジンに影響を与えずに新しいエンジンを作成
-        let engine_with_policy = engine.with_policy(policy.clone());
+        let engine_with_policy = engine.clone().with_policy(policy.clone());
 
         // 元のエンジンは変更されていない
         assert!(engine.policies.is_empty());
         assert_eq!(engine_with_policy.policies.len(), 1);
 
         // さらにポリシーを追加
-        let engine_with_two_policies = engine_with_policy.with_policy(Policy {
+        let engine_with_two_policies = engine_with_policy.clone().with_policy(Policy {
             id: "test_policy2".to_string(),
             description: "Second test policy".to_string(),
             effect: PolicyEffect::Deny,
@@ -813,7 +813,7 @@ mod tests {
 
         let resource = Resource {
             id: "document:pure_test".to_string(),
-            attributes: HashMap::new(),
+            attributes: HashMap::from([("resource_type".to_string(), "document".to_string())]),
         };
 
         let auth_context = AuthContext {
@@ -824,9 +824,9 @@ mod tests {
         };
 
         // 同じコンテキストで複数回評価しても同じ結果
-        let decision1 = engine_with_data.evaluate(&auth_context);
-        let decision2 = engine_with_data.evaluate(&auth_context);
-        let decision3 = engine_with_data.evaluate(&auth_context);
+        let decision1 = engine_with_data.evaluate(auth_context.clone());
+        let decision2 = engine_with_data.evaluate(auth_context.clone());
+        let decision3 = engine_with_data.evaluate(auth_context.clone());
 
         assert_eq!(decision1, decision2);
         assert_eq!(decision2, decision3);
@@ -840,7 +840,7 @@ mod tests {
             environment: HashMap::new(),
         };
 
-        let decision_deny = engine_with_data.evaluate(&auth_context_deny);
+        let decision_deny = engine_with_data.evaluate(auth_context_deny.clone());
         assert_eq!(decision_deny, Decision::Deny);
     }
 }

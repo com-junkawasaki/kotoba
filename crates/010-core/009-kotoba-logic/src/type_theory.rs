@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::{LogicError, LogicResult, LogicalStatement};
+use super::LogicError;
 
 /// Type theory system with dependent types
 #[derive(Debug, Clone)]
@@ -116,7 +116,7 @@ impl TypeContext {
     }
 
     /// Check if a type assumption holds
-    pub fn check_assumption(&self, assumption: &TypeAssumption) -> bool {
+    pub fn check_assumption(&self, _assumption: &TypeAssumption) -> bool {
         // Assumption checking logic
         // This would be expanded with actual assumption checking
         true

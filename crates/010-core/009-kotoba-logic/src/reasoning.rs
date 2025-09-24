@@ -1,8 +1,7 @@
 //! Reasoning Engine - Core reasoning and inference capabilities
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use super::{LogicSystem, LogicError, LogicResult, LogicalStatement, LogicalResult as Result};
+use super::LogicalStatement;
 
 /// Reasoning context for maintaining state during reasoning
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,14 +142,14 @@ impl ReasoningEngine {
     }
 
     /// Perform backward chaining reasoning
-    pub fn backward_chain(&self, target: &LogicalStatement) -> Vec<LogicalStatement> {
+    pub fn backward_chain(&self, _target: &LogicalStatement) -> Vec<LogicalStatement> {
         // Basic backward chaining implementation
         // This would be expanded with actual backward chaining logic
         Vec::new()
     }
 
     /// Check if a rule can be applied
-    fn can_apply_rule(&self, rule: &ReasoningRule) -> bool {
+    fn can_apply_rule(&self, _rule: &ReasoningRule) -> bool {
         // Basic rule applicability checking
         // This would be expanded with actual rule matching
         true

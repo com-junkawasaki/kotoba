@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::{LogicError, LogicResult, PredicateFormula};
+use super::{LogicError, PredicateFormula};
 
 /// Decision theory system for automated decision making
 #[derive(Debug, Serialize, Deserialize)]
@@ -440,7 +440,7 @@ impl DecisionProcedure {
     pub fn decide(&self, problem: &DecisionProblem) -> Result<Decision, LogicError> {
         match &self.implementation {
             ProcedureImplementation::Algorithm(algorithm) => algorithm.decide(problem),
-            ProcedureImplementation::Custom(code) => {
+            ProcedureImplementation::Custom(_code) => {
                 // Execute custom code
                 Err(LogicError::Reasoning("Custom procedure not implemented".to_string()))
             }
@@ -540,7 +540,7 @@ impl DecisionHeuristic {
     pub fn decide(&self, problem: &DecisionProblem) -> Result<Decision, LogicError> {
         match &self.implementation {
             HeuristicImplementation::Function(function) => function.decide(problem),
-            HeuristicImplementation::Custom(code) => {
+            HeuristicImplementation::Custom(_code) => {
                 Err(LogicError::Reasoning("Custom heuristic not implemented".to_string()))
             }
         }
@@ -632,7 +632,7 @@ impl OptimizationStrategy {
     pub fn optimize(&self, decision: &Decision) -> Result<Decision, LogicError> {
         match &self.implementation {
             StrategyImplementation::Optimizer(optimizer) => optimizer.optimize(decision),
-            StrategyImplementation::Custom(code) => {
+            StrategyImplementation::Custom(_code) => {
                 Err(LogicError::Reasoning("Custom strategy not implemented".to_string()))
             }
         }

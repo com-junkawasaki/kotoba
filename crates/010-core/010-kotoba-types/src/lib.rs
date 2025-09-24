@@ -545,8 +545,6 @@ pub use canonical_json::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-
     #[test]
     fn test_cid_calculator_creation() {
         let calculator = CidCalculator::new(HashAlgorithm::Sha2256, CanonicalJsonMode::JCS);
@@ -645,8 +643,8 @@ mod tests {
     #[test]
     fn test_cid_distance() {
         let manager = CidManager::new();
-        let cid1 = Cid::new(&[0; 32]);
-        let cid2 = Cid::new(&[1; 32]);
+        let cid1 = Cid::new("0000000000000000000000000000000000000000000000000000000000000000");
+        let cid2 = Cid::new("1111111111111111111111111111111111111111111111111111111111111111");
 
         let distance = manager.cid_distance(&cid1, &cid2);
         assert!(distance.is_some());
@@ -745,19 +743,19 @@ mod tests {
 
     #[test]
     fn test_cid_hex_conversion() {
-        let bytes = [42; 32];
-        let cid = Cid::new(&bytes);
+        let hex_str = "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a";
+        let cid = Cid::new(hex_str);
 
-        let hex_str = cid.as_str();
-        let reconstructed_cid = Cid::new(hex_str.as_bytes());
+        let cid_str = cid.as_str();
+        let reconstructed_cid = Cid::new(cid_str);
 
         assert_eq!(cid, reconstructed_cid);
-        assert_eq!(hex_str.len(), 64); // 32 bytes * 2 hex chars per byte
+        assert_eq!(cid_str.len(), 64); // 32 bytes * 2 hex chars per byte
     }
 
     #[test]
     fn test_cid_as_str() {
-        let cid = Cid::new(&[255; 32]);
+        let cid = Cid::new("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         let hex_str = cid.as_str();
         assert_eq!(hex_str, cid.as_str());
     }
@@ -785,17 +783,17 @@ mod tests {
     #[test]
     fn test_cid_determinism() {
         // Pure Kernel: CID生成は決定論的
-        let data1 = b"hello world";
-        let data2 = b"hello world";
+        let data1 = "hello world".to_string();
+        let data2 = "hello world".to_string();
 
-        let cid1 = kotoba_types::Cid::new(data1);
-        let cid2 = kotoba_types::Cid::new(data2);
+        let cid1 = Cid::new(data1.clone());
+        let cid2 = Cid::new(data2);
 
         assert_eq!(cid1, cid2, "CID generation should be deterministic");
 
         // 同じデータを何度生成しても同じ結果
         for _ in 0..10 {
-            let cid_n = kotoba_types::Cid::new(data1);
+            let cid_n = Cid::new(data1.clone());
             assert_eq!(cid1, cid_n, "CID should be consistently generated");
         }
     }
@@ -803,11 +801,11 @@ mod tests {
     #[test]
     fn test_cid_uniqueness() {
         // Pure Kernel: 異なるデータは異なるCIDを生成
-        let data1 = b"hello world";
-        let data2 = b"hello world!";
+        let data1 = "hello world".to_string();
+        let data2 = "hello world!".to_string();
 
-        let cid1 = kotoba_types::Cid::new(data1);
-        let cid2 = kotoba_types::Cid::new(data2);
+        let cid1 = Cid::new(data1);
+        let cid2 = Cid::new(data2);
 
         assert_ne!(cid1, cid2, "Different data should produce different CIDs");
     }
@@ -815,11 +813,11 @@ mod tests {
     #[test]
     fn test_cid_immutability() {
         // Pure Kernel: CIDは不変
-        let data = b"test data";
-        let cid1 = kotoba_types::Cid::new(data);
+        let data = "test data".to_string();
+        let cid1 = Cid::new(data.clone());
 
         // CIDの内部表現を変更しようとしても不可能
-        let cid2 = kotoba_types::Cid::new(data);
+        let cid2 = Cid::new(data);
         assert_eq!(cid1, cid2);
 
         // 文字列変換も決定論的
@@ -858,7 +856,6 @@ mod tests {
         let graph_core = GraphCore {
             vertices: vec![],
             edges: vec![],
-            properties: Properties::new(),
         };
 
         // CIDを計算（この操作は副作用があるが、Pure Kernelの観点ではデータ変換）
@@ -870,13 +867,12 @@ mod tests {
 
         // 異なるグラフで異なるCID
         let different_graph = GraphCore {
-            vertices: vec![VertexCore {
+            vertices: vec![VertexData {
                 id: Cid("different".to_string()),
                 label: "test".to_string(),
                 properties: Properties::new(),
             }],
             edges: vec![],
-            properties: Properties::new(),
         };
         let cid3 = manager.compute_graph_cid(&different_graph).unwrap();
         assert_ne!(cid1, cid3, "Different graphs should produce different CIDs");

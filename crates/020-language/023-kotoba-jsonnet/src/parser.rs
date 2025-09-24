@@ -1,9 +1,8 @@
 //! Parser for Jsonnet AST
 
-use crate::ast::{Expr, Stmt};
-use crate::error::{JsonnetError, Result};
+use crate::ast::Expr;
+use crate::error::Result;
 use crate::lexer::Token;
-use crate::value::JsonnetValue;
 
 /// Parser for Jsonnet source code
 pub struct Parser {
@@ -34,18 +33,19 @@ impl Parser {
     pub fn parse(&mut self) -> Result<Expr> {
         // Dummy implementation - return a simple expression
         // In a real implementation, this would parse the tokens into an AST
-        match self.current() {
+        let token = self.current().cloned();
+        match token {
             Some(Token::String(s)) => {
                 self.advance();
-                Ok(Expr::String(s.clone()))
+                Ok(Expr::String(s))
             }
             Some(Token::Number(n)) => {
                 self.advance();
-                Ok(Expr::Number(*n))
+                Ok(Expr::Number(n))
             }
             Some(Token::Boolean(b)) => {
                 self.advance();
-                Ok(Expr::Boolean(*b))
+                Ok(Expr::Boolean(b))
             }
             Some(Token::Null) => {
                 self.advance();
