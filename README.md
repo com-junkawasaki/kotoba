@@ -1,4 +1,4 @@
-# Kotoba : "ことば" - Core Graph Processing System
+# Kotoba: A Purely Functional Graph Processing System
 
 **GP2-based Graph Rewriting + Event Sourcing + ISO GQL** - A comprehensive graph processing platform featuring complete Event Sourcing, ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
 
@@ -20,60 +20,48 @@
 
 ## 📖 Overview
 
-Kotoba is a **Core Graph Processing System** featuring **GP2-based graph rewriting** with complete Event Sourcing capabilities, ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution using hexagonal architecture.
+Kotoba is a graph processing system built on the principles of **purely functional programming**. It leverages a deterministic, declarative core to deliver predictable and robust graph transformations, inspired by technologies like Event Sourcing, GP2-based Graph Rewriting, and modern dataflow architectures.
 
-### 🎯 **Core Features**
+At its heart, Kotoba separates its logic into two distinct areas: the **Pure Kernel** and the **Effects Shell**. This separation is key to its design.
 
-- **🔄 GP2-based Graph Rewriting**: Theoretical foundation for graph transformations
-- **📊 Complete Event Sourcing**: Immutable events, projections, materialized views
-- **🔍 ISO GQL-compliant Queries**: Standardized graph query language
-- **⚡ MVCC + Merkle DAG Persistence**: Consistent distributed data management
-- **🏗️ Hexagonal Architecture**: Clean separation of business logic and infrastructure
-- **🔧 Pluggable Storage**: Choose from RocksDB, Redis, or In-Memory implementations
-- **🌐 Distributed Execution**: Multi-node coordination and consensus
-- **🔒 Type Safety**: Full Rust type system with compile-time guarantees
+### 🎯 Core Principles
 
-### 🏗️ Architecture Overview
+-   **🧬 Purely Functional Core**: All core business logic is implemented as pure, deterministic functions that transform immutable graph data structures. No side effects, no exceptions.
+-   **📣 Declarative Definitions**: Users define everything—from data schemas to HTTP routes—in declarative `.kotoba` (Jsonnet) files. You describe *what* you want, and the runtime figures out *how* to achieve it.
+-   **🔌 Effects as Boundaries**: Side effects like database access, network I/O, or logging are handled exclusively at the system's edge, in a thin layer called the "Effects Shell". This keeps the core logic clean, predictable, and easy to test.
+-   **⛓️ Immutable & Verifiable Data**: All data is immutable and content-addressed (CID). Every change creates a new version, providing a complete, verifiable history of the system's state, much like a Git repository.
+
+### 🏗️ Architecture: Pure Kernel & Effects Shell
+
+The architecture is designed to isolate pure computation from side effects, providing maximum safety and testability.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    🏛️ PRESENTATION LAYER                    │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │                🌐 HTTP/GraphQL API                 │    │
-│  │  ┌─────────────────────────────────────────────┐   │    │
-│  │  │            📱 CLI & Web Clients             │   │    │
-│  │  └─────────────────────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-                      ▼
+│                       Effects Shell                         │
+│ (Handles all I/O, state changes, and non-deterministic ops) │
+│                                                             │
+│ ┌───────────────┐   ┌───────────────┐   ┌───────────────┐   │
+│ │  HTTP Server  │   │  Database IO  │   │   File System │   │
+│ │ (axum/hyper)  │   │  (rocksdb/rusqlite)│   │    (tokio)    │   │
+│ └───────┬───────┘   └───────┬───────┘   └───────┬───────┘   │
+│         │                   │                   │         │
+└─────────┼───────────────────┼───────────────────┼─────────┘
+          │ (Requests as Data)│ (Data as Patches) │
+          ▼                   │                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 🎯 APPLICATION LAYER                         │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │           🔄 CORE GRAPH PROCESSING                 │    │
-│  │  ┌─────────────────────────────────────────────┐   │    │
-│  │  │        ✏️  GRAPH REWRITING ENGINE (GP2)     │   │    │
-│  │  │        📊 EVENT SOURCING ENGINE             │   │    │
-│  │  │        📈 PROJECTION ENGINE                  │   │    │
-│  │  │        🔍 GQL QUERY ENGINE                   │   │    │
-│  │  │        🛣️  ROUTING ENGINE                     │   │    │
-│  │  │        🎭 STATE GRAPH ENGINE                 │   │    │
-│  │  └─────────────────────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────┘    │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 🔧 INFRASTRUCTURE LAYER                      │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              💾 STORAGE ADAPTERS                   │    │
-│  │  ┌─────────────────────────────────────────────┐   │    │
-│  │  │        🗄️  RocksDB Adapter                  │   │    │
-│  │  │        🔴 Redis Adapter                      │   │    │
-│  │  │        🧠 In-Memory Adapter                  │   │    │
-│  │  │        ☁️  Distributed Storage               │   │    │
-│  │  └─────────────────────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────┘    │
+│                         Pure Kernel                         │
+│      (Deterministic, stateless, purely functional core)     │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │  Graph Rewriting Engine (GP2-based pure transformations)│ │
+│ └─────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │      Query Engine (GQL to pure data transformations)    │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │    Schema Validator (Pure validation of graph state)    │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,7 +218,6 @@ docker run -v $(pwd)/data:/data kotoba --storage rocksdb --path /data
 # Run with Redis storage
 docker run -p 6379:6379 -d redis
 docker run --network host kotoba --storage redis --url redis://localhost:6379
-```
 ```
 
 The Nix environment provides:
