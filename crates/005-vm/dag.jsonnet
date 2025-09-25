@@ -52,8 +52,8 @@ local dag = {
                                    'GNN embeddings enable meaning-aware cache keys.'),
           dag.node('DpoRuleEngine', 'Applies DPO rewriting rules with NACs for safe optimizations. ' +
                                   '✅ IMPLEMENTED: 6 rules - Basic (3) + Advanced (3): Loop fusion, vectorization, parallelization.'),
-          dag.node('GnnTrainingEngine', 'Trains Advanced GNN models for optimization prediction. ' +
-                                        '✅ IMPLEMENTED: GAT, GCN, GraphSAGE, HetGNN architectures with Bipartite/Hypergraph features.'),
+          dag.node('GnnTrainingEngine', 'Trains Hardware-Specific GNN models for optimization prediction. ' +
+                                        '✅ IMPLEMENTED: CGRA/FPGA patterns, spatial computing, RTL synthesis guidance, hardware constraints.'),
         ]),
       ]),
       dag.node('VM_Core_Integration', 'Integration layer between PIH compiler and VM runtime. ' +

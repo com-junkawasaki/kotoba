@@ -6,10 +6,10 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 
 - **Core PIH Data Structures**: ✅ Complete
 - **DPO Rewriting System**: ✅ Complete with 6 optimization rules (Basic + Advanced)
-- **GNN Training Infrastructure**: ✅ Bipartite/Hypergraph-aware feature extraction, model training, synthetic data generation
+- **GNN Training Infrastructure**: ✅ Hardware-aware feature extraction, CGRA/FPGA pattern recognition, spatial computing optimization
 - **GNN Integration**: ✅ Node embeddings and semantic hashing
 - **Serialization**: ✅ JSON serialization/deserialization
-- **Testing**: ✅ 14 comprehensive unit tests (100% pass rate)
+- **Testing**: ✅ 18 comprehensive unit tests (100% pass rate)
 - **VM-Core Integration**: ✅ Complete integration with vm-core, all tests passing
 
 ## 🎯 Key Features
@@ -19,7 +19,7 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 - **DPO Rewriting Rules**: 6 rules - Basic (3): strength reduction, constant folding, dead code elimination
                        + Advanced (3): loop fusion, vectorization, parallelization
 - **Bipartite/Hypergraph GNN**: Bipartite Graph Neural Networks + Hypergraph Neural Networks
-- **Full Test Coverage**: 14 tests passing, comprehensive validation
+- **Full Test Coverage**: 18 tests passing, comprehensive validation
 - **Clean Architecture**: Modular design with clear separation of concerns
 
 ## 🚀 Next Development Phases
@@ -55,47 +55,59 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 - **Rule Attribution**: Which parts of the graph contribute to optimization decisions
 - **Counterfactual Analysis**: "What if" scenarios for optimization
 
-### **Phase 2: Hardware-Specific Optimization** (Medium Priority)
+### **Phase 2: Hardware-Specific Optimization** ✅ **COMPLETED**
 **Target**: CGRA/FPGA固有の最適化パターン学習
 
-#### **2.1 CGRA-aware Patterns** 🎯 **Ready for Implementation**
+#### **2.1 CGRA-aware Patterns** ✅ **IMPLEMENTED**
 - **Spatial Computing Patterns**: 2D/3D grid optimization with dataflow graphs
 - **Pipelined Execution**: Hardware pipeline optimization for streaming
 - **Dataflow Transformations**: Stream processing optimization patterns
 - **Resource-constrained Optimization**: Memory/compute trade-offs learning
 
-#### **2.2 FPGA-specific Features** 🎯 **Ready for Implementation**
+#### **2.2 FPGA-specific Features** ✅ **IMPLEMENTED**
 - **RTL Generation Guidance**: Guide hardware synthesis from PIH patterns
 - **Parallel Pattern Recognition**: SIMD/MIMD pattern detection and optimization
 - **Resource Utilization Prediction**: DSP, BRAM, LUT optimization prediction
 - **Timing-aware Optimization**: Critical path optimization with GNN guidance
 
-#### **2.3 Hardware-aware Training Data**
+#### **2.3 Hardware-aware Training Data** ✅ **IMPLEMENTED**
 - **Hardware Performance Counters**: Real FPGA/CGRA performance metrics
 - **Synthesis Results**: RTL synthesis timing/resource reports
 - **Power/Energy Measurements**: Hardware power consumption data
 - **Thermal Constraints**: Temperature-aware optimization patterns
 
-### **Phase 3: Advanced Compiler Transformations** (Medium Priority)
+#### **2.4 Hardware Features** ✅ **IMPLEMENTED**
+- **CGRA Features**: Spatial patterns, pipeline depth, dataflow types, memory bandwidth, compute intensity
+- **FPGA Features**: RTL patterns, resource utilization, timing constraints, synthesis directives, placement constraints
+- **Hardware Constraints**: Memory usage, compute units, bandwidth, power consumption, temperature limits
+- **Pattern Recognition**: Systolic arrays, dataflow graphs, pipelined multipliers, parallel adders
+
+### **Phase 3: Advanced Compiler Transformations** 🎯 **Ready for Implementation**
 **Beyond Loop Optimizations**: システムレベル最適化
 
-#### **3.1 Advanced Loop Transformations**
-- **Loop Interchange**: Dimension permutation optimization
-- **Loop Tiling/Blocking**: Cache-friendly tile sizes
+#### **3.1 Advanced Loop Transformations** 🎯 **Ready**
+- **Loop Interchange**: Dimension permutation optimization for cache locality
+- **Loop Tiling/Blocking**: Cache-friendly tile sizes with hardware awareness
 - **Loop Unrolling**: Controlled unrolling with profitability analysis
-- **Loop Fusion/Fission**: Advanced fusion strategies
+- **Loop Fusion/Fission**: Advanced fusion strategies for CGRA/FPGA
 
-#### **3.2 Inter-procedural Optimization**
-- **Function Inlining**: Call site profitability analysis
-- **Dead Function Elimination**: Cross-module analysis
+#### **3.2 Inter-procedural Optimization** 🎯 **Ready**
+- **Function Inlining**: Call site profitability analysis with hardware constraints
+- **Dead Function Elimination**: Cross-module analysis with GNN guidance
 - **Global Variable Optimization**: Inter-procedural constant propagation
-- **Call Graph Optimization**: Function placement and ordering
+- **Call Graph Optimization**: Function placement and ordering for hardware affinity
 
-#### **3.3 Data Structure Transformation**
-- **Array Layout Optimization**: Row-major vs column-major decisions
-- **Memory Pooling**: Custom allocator generation
+#### **3.3 Data Structure Transformation** 🎯 **Ready**
+- **Array Layout Optimization**: Row-major vs column-major decisions for CGRA
+- **Memory Pooling**: Custom allocator generation for FPGA memory systems
 - **Cache-conscious Data Structures**: Padding and alignment optimization
-- **Vectorization-friendly Layouts**: SIMD-aware data organization
+- **Vectorization-friendly Layouts**: SIMD-aware data organization for hardware
+
+#### **3.4 System-level Optimizations** 🎯 **Ready**
+- **Task Scheduling**: Hardware-aware task scheduling and load balancing
+- **Communication Optimization**: Inter-tile communication minimization
+- **Energy Management**: Power-aware scheduling with thermal constraints
+- **Fault Tolerance**: Hardware fault detection and recovery strategies
 
 ### **Phase 4: Production-Ready Training** (High Priority)
 **Scalable ML Infrastructure for Real-world Performance**

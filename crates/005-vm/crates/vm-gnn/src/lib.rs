@@ -48,6 +48,8 @@ pub mod gnn_training {
         // Bipartite/Hypergraph-specific features
         pub bipartite_features: BipartiteFeatures,
         pub hypergraph_features: HypergraphFeatures,
+        // Hardware-specific features
+        pub hardware_features: HardwareFeatures,
     }
 
     /// Bipartite graph specific features
@@ -61,16 +63,172 @@ pub mod gnn_training {
         pub cross_type_connectivity: f32, // Connectivity between different node types
     }
 
-    /// Hypergraph specific features
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct HypergraphFeatures {
-        pub hyperedge_sizes: Vec<usize>, // Size of each hyperedge (event)
-        pub avg_hyperedge_size: f32,
-        pub max_hyperedge_size: usize,
-        pub hyperedge_degree_distribution: Vec<f32>,
-        pub node_hyperedge_membership: HashMap<String, usize>, // Node -> hyperedge count
-        pub hypergraph_clustering_coeff: f32, // Clustering coefficient for hypergraph
-    }
+        /// Hypergraph specific features
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct HypergraphFeatures {
+            pub hyperedge_sizes: Vec<usize>, // Size of each hyperedge (event)
+            pub avg_hyperedge_size: f32,
+            pub max_hyperedge_size: usize,
+            pub hyperedge_degree_distribution: Vec<f32>,
+            pub node_hyperedge_membership: HashMap<String, usize>, // Node -> hyperedge count
+            pub hypergraph_clustering_coeff: f32, // Clustering coefficient for hypergraph
+        }
+
+        /// Hardware-specific features for optimization
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct HardwareFeatures {
+            pub cgra_features: CgraFeatures,
+            pub fpga_features: FpgaFeatures,
+            pub hardware_constraints: HardwareConstraints,
+        }
+
+        /// CGRA-specific features
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct CgraFeatures {
+            pub spatial_patterns: Vec<SpatialPattern>,
+            pub pipeline_depth: usize,
+            pub dataflow_type: DataflowType,
+            pub memory_bandwidth: f32,
+            pub compute_intensity: f32,
+            pub parallelism_degree: usize,
+        }
+
+        /// FPGA-specific features
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct FpgaFeatures {
+            pub rtl_patterns: Vec<RtlPattern>,
+            pub resource_utilization: ResourceUtilization,
+            pub timing_constraints: TimingConstraints,
+            pub synthesis_directives: Vec<SynthesisDirective>,
+            pub placement_constraints: Vec<PlacementConstraint>,
+        }
+
+        /// Hardware constraints for optimization
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct HardwareConstraints {
+            pub max_memory_usage: usize,
+            pub max_compute_units: usize,
+            pub max_bandwidth: f32,
+            pub max_power_consumption: f32,
+            pub max_temperature: f32,
+            pub target_frequency: f32,
+        }
+
+        /// Spatial computing patterns for CGRA
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct SpatialPattern {
+            pub pattern_type: SpatialPatternType,
+            pub grid_size: (usize, usize),
+            pub dataflow_pattern: String,
+            pub memory_access_pattern: String,
+            pub compute_distribution: Vec<f32>,
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+        pub enum SpatialPatternType {
+            SystolicArray,
+            Pipeline,
+            Dataflow,
+            StreamProcessing,
+            Custom,
+        }
+
+        /// Dataflow types for CGRA
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+        pub enum DataflowType {
+            DataParallel,
+            TaskParallel,
+            Pipeline,
+            Stream,
+            Custom,
+        }
+
+        /// RTL patterns for FPGA
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct RtlPattern {
+            pub pattern_type: RtlPatternType,
+            pub module_template: String,
+            pub resource_estimate: ResourceEstimate,
+            pub timing_estimate: f32,
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+        pub enum RtlPatternType {
+            PipelinedMultiplier,
+            ParallelAdder,
+            MemoryInterface,
+            StreamProcessor,
+            Custom,
+        }
+
+        /// Resource utilization estimates
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct ResourceUtilization {
+            pub dsp_usage: f32,
+            pub bram_usage: f32,
+            pub lut_usage: f32,
+            pub ff_usage: f32,
+        }
+
+        /// Timing constraints for FPGA
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct TimingConstraints {
+            pub clock_frequency: f32,
+            pub setup_time: f32,
+            pub hold_time: f32,
+            pub latency_requirement: f32,
+        }
+
+        /// Synthesis directives for FPGA optimization
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct SynthesisDirective {
+            pub directive_type: SynthesisDirectiveType,
+            pub parameters: HashMap<String, String>,
+            pub expected_impact: OptimizationImpact,
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+        pub enum SynthesisDirectiveType {
+            Retiming,
+            ResourceSharing,
+            LoopUnrolling,
+            ParallelSynthesis,
+            Custom,
+        }
+
+        /// Placement constraints for FPGA
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct PlacementConstraint {
+            pub constraint_type: PlacementConstraintType,
+            pub region: String,
+            pub priority: u32,
+        }
+
+        #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+        pub enum PlacementConstraintType {
+            Region,
+            ClockRegion,
+            Custom,
+        }
+
+        /// Resource estimates for RTL patterns
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct ResourceEstimate {
+            pub dsp_count: usize,
+            pub bram_blocks: usize,
+            pub lut_count: usize,
+            pub ff_count: usize,
+            pub estimated_power: f32,
+        }
+
+        /// Optimization impact predictions
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct OptimizationImpact {
+            pub performance_improvement: f32,
+            pub resource_reduction: f32,
+            pub power_savings: f32,
+            pub confidence_score: f32,
+        }
 
     /// Training sample for GNN optimization model
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -451,12 +609,16 @@ pub mod gnn_training {
             // Extract hypergraph features
             let hypergraph_features = Self::extract_hypergraph_features(pih, &node_hyperedge_membership);
 
+            // Extract hardware-specific features
+            let hardware_features = Self::extract_hardware_features(pih);
+
             GnnFeatures {
                 node_features,
                 edge_features,
                 global_features,
                 bipartite_features,
                 hypergraph_features,
+                hardware_features,
             }
         }
 
@@ -645,6 +807,337 @@ pub mod gnn_training {
                 node_hyperedge_membership: node_hyperedge_membership.clone(),
                 hypergraph_clustering_coeff,
             }
+        }
+
+        fn extract_hardware_features(pih: &ProgramInteractionHypergraph) -> HardwareFeatures {
+            let cgra_features = Self::extract_cgra_features(pih);
+            let fpga_features = Self::extract_fpga_features(pih);
+            let hardware_constraints = Self::extract_hardware_constraints(pih);
+
+            HardwareFeatures {
+                cgra_features,
+                fpga_features,
+                hardware_constraints,
+            }
+        }
+
+        fn extract_cgra_features(pih: &ProgramInteractionHypergraph) -> CgraFeatures {
+            // Analyze PIH for CGRA patterns
+            let spatial_patterns = Self::analyze_spatial_patterns(pih);
+            let dataflow_type = Self::analyze_dataflow_type(pih);
+            let (memory_bandwidth, compute_intensity) = Self::analyze_compute_memory_patterns(pih);
+
+            CgraFeatures {
+                spatial_patterns,
+                pipeline_depth: Self::estimate_pipeline_depth(pih),
+                dataflow_type,
+                memory_bandwidth,
+                compute_intensity,
+                parallelism_degree: Self::estimate_parallelism_degree(pih),
+            }
+        }
+
+        fn extract_fpga_features(pih: &ProgramInteractionHypergraph) -> FpgaFeatures {
+            let rtl_patterns = Self::analyze_rtl_patterns(pih);
+            let resource_utilization = Self::estimate_resource_utilization(pih);
+            let timing_constraints = Self::analyze_timing_constraints(pih);
+            let synthesis_directives = Self::generate_synthesis_directives(pih);
+            let placement_constraints = Self::generate_placement_constraints(pih);
+
+            FpgaFeatures {
+                rtl_patterns,
+                resource_utilization,
+                timing_constraints,
+                synthesis_directives,
+                placement_constraints,
+            }
+        }
+
+        fn extract_hardware_constraints(pih: &ProgramInteractionHypergraph) -> HardwareConstraints {
+            // Estimate hardware constraints based on PIH characteristics
+            let memory_usage = Self::estimate_memory_usage(pih);
+            let compute_units = Self::estimate_compute_units(pih);
+            let bandwidth = Self::estimate_bandwidth(pih);
+
+            HardwareConstraints {
+                max_memory_usage: memory_usage * 2, // 2x safety margin
+                max_compute_units: compute_units * 2,
+                max_bandwidth: bandwidth * 1.5, // 1.5x safety margin
+                max_power_consumption: 100.0, // Default power limit
+                max_temperature: 85.0, // Default temperature limit
+                target_frequency: 200.0, // Default target frequency in MHz
+            }
+        }
+
+        fn analyze_spatial_patterns(pih: &ProgramInteractionHypergraph) -> Vec<SpatialPattern> {
+            let mut patterns = Vec::new();
+
+            // Analyze loop structures for spatial patterns
+            for event in pih.events.values() {
+                if event.opcode == "for" {
+                    if let Some(pattern) = Self::analyze_loop_spatial_pattern(event, pih) {
+                        patterns.push(pattern);
+                    }
+                }
+            }
+
+            // Also analyze CGRA compute events
+            for event in pih.events.values() {
+                if event.opcode == "cgra_compute" {
+                    if let Some(pattern) = Self::analyze_cgra_spatial_pattern(event) {
+                        patterns.push(pattern);
+                    }
+                }
+            }
+
+            patterns
+        }
+
+        fn analyze_loop_spatial_pattern(event: &Event, pih: &ProgramInteractionHypergraph) -> Option<SpatialPattern> {
+            // Simple heuristic: detect matrix multiplication patterns
+            let connected_entities = pih.incidence.iter()
+                .filter(|inc| inc.event == event.id)
+                .count();
+
+            if connected_entities >= 4 { // Likely matrix operations
+                Some(SpatialPattern {
+                    pattern_type: SpatialPatternType::SystolicArray,
+                    grid_size: (2, 2),
+                    dataflow_pattern: "systolic".to_string(),
+                    memory_access_pattern: "blocked".to_string(),
+                    compute_distribution: vec![0.25, 0.25, 0.25, 0.25],
+                })
+            } else if connected_entities >= 2 {
+                Some(SpatialPattern {
+                    pattern_type: SpatialPatternType::Dataflow,
+                    grid_size: (1, connected_entities),
+                    dataflow_pattern: "linear".to_string(),
+                    memory_access_pattern: "streaming".to_string(),
+                    compute_distribution: vec![1.0 / connected_entities as f32; connected_entities],
+                })
+            } else {
+                None
+            }
+        }
+
+        fn analyze_cgra_spatial_pattern(event: &Event) -> Option<SpatialPattern> {
+            // Analyze CGRA compute events for spatial patterns
+            if let Some(pattern_value) = event.attributes.get("pattern") {
+                if let Some(pattern_str) = pattern_value.as_str() {
+                    if pattern_str == "systolic_array" {
+                        return Some(SpatialPattern {
+                            pattern_type: SpatialPatternType::SystolicArray,
+                            grid_size: (2, 2),
+                            dataflow_pattern: "systolic".to_string(),
+                            memory_access_pattern: "blocked".to_string(),
+                            compute_distribution: vec![0.25, 0.25, 0.25, 0.25],
+                        });
+                    }
+                }
+            }
+
+            // Default dataflow pattern
+            Some(SpatialPattern {
+                pattern_type: SpatialPatternType::Dataflow,
+                grid_size: (1, 1),
+                dataflow_pattern: "linear".to_string(),
+                memory_access_pattern: "streaming".to_string(),
+                compute_distribution: vec![1.0],
+            })
+        }
+
+        fn analyze_dataflow_type(pih: &ProgramInteractionHypergraph) -> DataflowType {
+            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
+            let cgra_count = pih.events.values().filter(|e| e.opcode == "cgra_compute").count();
+
+            if cgra_count > 0 {
+                // If we have CGRA compute events, use spatial patterns
+                DataflowType::DataParallel
+            } else if loop_count > 3 {
+                DataflowType::Pipeline
+            } else if loop_count > 1 {
+                DataflowType::DataParallel
+            } else {
+                DataflowType::Stream
+            }
+        }
+
+        fn analyze_compute_memory_patterns(pih: &ProgramInteractionHypergraph) -> (f32, f32) {
+            let compute_ops = pih.events.values().filter(|e| e.opcode == "mul" || e.opcode == "add").count();
+            let memory_ops = pih.events.values().filter(|e| e.opcode == "load" || e.opcode == "store").count();
+
+            let memory_bandwidth = memory_ops as f32 * 64.0; // Assume 64-bit operations
+            let compute_intensity = if memory_ops > 0 {
+                compute_ops as f32 / memory_ops as f32
+            } else {
+                1.0
+            };
+
+            (memory_bandwidth, compute_intensity)
+        }
+
+        fn estimate_pipeline_depth(pih: &ProgramInteractionHypergraph) -> usize {
+            // Simple estimation based on operation count
+            let operation_count = pih.events.len();
+            if operation_count > 10 {
+                4
+            } else if operation_count > 5 {
+                3
+            } else {
+                2
+            }
+        }
+
+        fn estimate_parallelism_degree(pih: &ProgramInteractionHypergraph) -> usize {
+            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
+            let array_count = pih.entities.values().filter(|e| e.entity_type.ends_with('*')).count();
+
+            (loop_count + array_count).max(1)
+        }
+
+        fn analyze_rtl_patterns(pih: &ProgramInteractionHypergraph) -> Vec<RtlPattern> {
+            let mut patterns = Vec::new();
+
+            // Detect arithmetic patterns
+            let mul_count = pih.events.values().filter(|e| e.opcode == "mul").count();
+            let add_count = pih.events.values().filter(|e| e.opcode == "add").count();
+
+            // Also check for FPGA compute events
+            let fpga_count = pih.events.values().filter(|e| e.opcode == "fpga_compute").count();
+
+            if fpga_count > 0 {
+                // FPGA compute events should generate RTL patterns
+                patterns.push(RtlPattern {
+                    pattern_type: RtlPatternType::PipelinedMultiplier,
+                    module_template: "fpga_compute_unit".to_string(),
+                    resource_estimate: ResourceEstimate {
+                        dsp_count: fpga_count,
+                        bram_blocks: fpga_count / 2,
+                        lut_count: fpga_count * 200,
+                        ff_count: fpga_count * 100,
+                        estimated_power: fpga_count as f32 * 3.0,
+                    },
+                    timing_estimate: 8.0, // 8ns delay for FPGA
+                });
+            }
+
+            if mul_count > 0 {
+                patterns.push(RtlPattern {
+                    pattern_type: RtlPatternType::PipelinedMultiplier,
+                    module_template: "pipelined_mult".to_string(),
+                    resource_estimate: ResourceEstimate {
+                        dsp_count: mul_count,
+                        bram_blocks: 0,
+                        lut_count: mul_count * 100,
+                        ff_count: mul_count * 50,
+                        estimated_power: mul_count as f32 * 2.5,
+                    },
+                    timing_estimate: 5.0, // 5ns delay
+                });
+            }
+
+            if add_count > 0 {
+                patterns.push(RtlPattern {
+                    pattern_type: RtlPatternType::ParallelAdder,
+                    module_template: "parallel_adder".to_string(),
+                    resource_estimate: ResourceEstimate {
+                        dsp_count: 0,
+                        bram_blocks: 0,
+                        lut_count: add_count * 50,
+                        ff_count: add_count * 25,
+                        estimated_power: add_count as f32 * 1.0,
+                    },
+                    timing_estimate: 2.0, // 2ns delay
+                });
+            }
+
+            patterns
+        }
+
+        fn estimate_resource_utilization(pih: &ProgramInteractionHypergraph) -> ResourceUtilization {
+            let total_operations = pih.events.len();
+            let memory_operations = pih.events.values().filter(|e| e.opcode == "load" || e.opcode == "store").count();
+            let compute_operations = pih.events.values().filter(|e| e.opcode == "add" || e.opcode == "mul").count();
+            let cgra_operations = pih.events.values().filter(|e| e.opcode == "cgra_compute").count();
+
+            // CGRA operations use more DSP resources
+            let dsp_usage = if cgra_operations > 0 {
+                (cgra_operations as f32 * 0.3).min(1.0) // CGRA uses significant DSP resources
+            } else {
+                (compute_operations as f32 * 0.1).min(1.0)
+            };
+
+            ResourceUtilization {
+                dsp_usage,
+                bram_usage: (memory_operations as f32 * 0.05).min(1.0),
+                lut_usage: (total_operations as f32 * 0.02).min(1.0),
+                ff_usage: (total_operations as f32 * 0.03).min(1.0),
+            }
+        }
+
+        fn analyze_timing_constraints(pih: &ProgramInteractionHypergraph) -> TimingConstraints {
+            let complexity = pih.events.len() as f32;
+
+            TimingConstraints {
+                clock_frequency: 200.0 - complexity * 10.0, // Higher complexity -> lower frequency
+                setup_time: 1.0,
+                hold_time: 0.5,
+                latency_requirement: complexity * 2.0,
+            }
+        }
+
+        fn generate_synthesis_directives(pih: &ProgramInteractionHypergraph) -> Vec<SynthesisDirective> {
+            let mut directives = Vec::new();
+
+            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
+            if loop_count > 2 {
+                directives.push(SynthesisDirective {
+                    directive_type: SynthesisDirectiveType::LoopUnrolling,
+                    parameters: [("factor".to_string(), "2".to_string())].iter().cloned().collect(),
+                    expected_impact: OptimizationImpact {
+                        performance_improvement: 0.3,
+                        resource_reduction: -0.2,
+                        power_savings: 0.0,
+                        confidence_score: 0.7,
+                    },
+                });
+            }
+
+            directives.push(SynthesisDirective {
+                directive_type: SynthesisDirectiveType::Retiming,
+                parameters: [("enable".to_string(), "true".to_string())].iter().cloned().collect(),
+                expected_impact: OptimizationImpact {
+                    performance_improvement: 0.1,
+                    resource_reduction: 0.0,
+                    power_savings: 0.15,
+                    confidence_score: 0.8,
+                },
+            });
+
+            directives
+        }
+
+        fn generate_placement_constraints(pih: &ProgramInteractionHypergraph) -> Vec<PlacementConstraint> {
+            vec![PlacementConstraint {
+                constraint_type: PlacementConstraintType::Region,
+                region: "dsp_chain".to_string(),
+                priority: 1,
+            }]
+        }
+
+        fn estimate_memory_usage(pih: &ProgramInteractionHypergraph) -> usize {
+            let array_entities = pih.entities.values().filter(|e| e.entity_type.ends_with('*')).count();
+            array_entities * 1024 // Assume 1KB per array entity
+        }
+
+        fn estimate_compute_units(pih: &ProgramInteractionHypergraph) -> usize {
+            let compute_ops = pih.events.values().filter(|e| e.opcode == "add" || e.opcode == "mul").count();
+            (compute_ops / 4).max(1) // One compute unit per 4 operations
+        }
+
+        fn estimate_bandwidth(pih: &ProgramInteractionHypergraph) -> f32 {
+            let memory_ops = pih.events.values().filter(|e| e.opcode == "load" || e.opcode == "store").count();
+            memory_ops as f32 * 8.0 // Assume 8 bytes per memory operation
         }
     }
 
@@ -1159,19 +1652,19 @@ pub mod gnn_training {
             }
         }
 
-        /// Generate synthetic training data for demonstration
+        /// Generate synthetic training data for demonstration (Hardware-aware)
         pub fn generate_synthetic_dataset(size: usize) -> Vec<TrainingSample> {
             let mut dataset = Vec::new();
 
             for i in 0..size {
-                // Create synthetic PIH
+                // Create synthetic PIH with hardware patterns
                 let pih = Self::create_synthetic_pih(i);
 
-                // Extract features
+                // Extract features including hardware features
                 let features = FeatureExtractor::extract_features(&pih);
 
-                // Generate synthetic labels
-                let labels = Self::generate_synthetic_labels(i);
+                // Generate hardware-aware synthetic labels
+                let labels = Self::generate_hardware_aware_labels(&pih, i);
 
                 dataset.push(TrainingSample {
                     pih,
@@ -1184,11 +1677,174 @@ pub mod gnn_training {
             dataset
         }
 
+        fn generate_synthetic_labels(index: usize) -> OptimizationLabels {
+            // For backward compatibility, delegate to hardware-aware version
+            let pih = Self::create_synthetic_pih(index);
+            Self::generate_hardware_aware_labels(&pih, index)
+        }
+
+        /// Generate hardware-aware synthetic labels
+        pub fn generate_hardware_aware_labels(pih: &ProgramInteractionHypergraph, _sample_id: usize) -> OptimizationLabels {
+            // Extract hardware features for better prediction
+            let hardware_features = FeatureExtractor::extract_hardware_features(pih);
+
+            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
+            let compute_ops = pih.events.values().filter(|e| e.opcode == "mul" || e.opcode == "add").count();
+
+            // Hardware-specific optimization predictions
+            let mut applied_rules = Vec::new();
+
+            // CGRA-specific optimizations
+            if loop_count >= 2 && hardware_features.cgra_features.spatial_patterns.len() > 0 {
+                applied_rules.push("CgraSpatialMapping".to_string());
+                applied_rules.push("CgraPipelining".to_string());
+            }
+
+            // Also check for CGRA compute events
+            let cgra_compute_events = pih.events.values().filter(|e| e.opcode == "cgra_compute").count();
+            if cgra_compute_events > 0 {
+                applied_rules.push("CgraSpatialMapping".to_string());
+                applied_rules.push("CgraPipelining".to_string());
+            }
+
+            // FPGA-specific optimizations
+            if compute_ops >= 3 && hardware_features.fpga_features.rtl_patterns.len() > 0 {
+                applied_rules.push("FpgaPipelining".to_string());
+                if hardware_features.fpga_features.resource_utilization.dsp_usage < 0.7 {
+                    applied_rules.push("FpgaDspOptimization".to_string());
+                }
+            }
+
+            // Power optimization based on constraints
+            if hardware_features.hardware_constraints.max_power_consumption < 50.0 {
+                applied_rules.push("PowerOptimization".to_string());
+            }
+
+            // Temperature-aware optimization
+            if hardware_features.hardware_constraints.max_temperature < 70.0 {
+                applied_rules.push("ThermalOptimization".to_string());
+            }
+
+            // Power-aware optimization
+            if hardware_features.hardware_constraints.max_power_consumption < 50.0 {
+                applied_rules.push("PowerOptimization".to_string());
+            }
+
+            // Check for power-aware compute events
+            let power_aware_events = pih.events.values().filter(|e| e.opcode == "power_aware_compute").count();
+            if power_aware_events > 0 {
+                applied_rules.push("PowerOptimization".to_string());
+                applied_rules.push("ThermalOptimization".to_string());
+            }
+
+            // Calculate hardware-aware performance metrics
+            let base_performance_gain = (loop_count as f32 * 0.1).min(0.6);
+            let cgra_boost = if applied_rules.iter().any(|r| r.contains("Cgra")) { 0.2 } else { 0.0 };
+            let fpga_boost = if applied_rules.iter().any(|r| r.contains("Fpga")) { 0.15 } else { 0.0 };
+            let power_penalty = if applied_rules.iter().any(|r| r.contains("Power")) { -0.1 } else { 0.0 };
+
+            // Ensure energy savings is calculated properly
+            let energy_savings = if compute_ops > 0 {
+                (compute_ops as f32 * 0.02).min(0.5)
+            } else if applied_rules.iter().any(|r| r.contains("Cgra")) {
+                0.25 // CGRA optimizations provide energy efficiency
+            } else if applied_rules.iter().any(|r| r.contains("Fpga")) {
+                0.2 // FPGA optimizations provide energy efficiency
+            } else {
+                0.1 // Default energy savings
+            };
+
+            OptimizationLabels {
+                rule_applications: applied_rules,
+                performance_gain: (base_performance_gain + cgra_boost + fpga_boost + power_penalty).max(0.0).min(1.0),
+                memory_reduction: (loop_count as f32 * 0.05).min(0.4),
+                energy_savings,
+            }
+        }
+
         fn create_synthetic_pih(index: usize) -> ProgramInteractionHypergraph {
             let mut pih = ProgramInteractionHypergraph::new();
 
             // Create synthetic events and entities based on index
-            if index % 3 == 0 {
+            if index % 4 == 0 {
+                // CGRA spatial mapping pattern - Matrix multiplication
+                let cgra_kernel_id = "cgra_kernel".to_string();
+                let cgra_kernel = Event {
+                    id: cgra_kernel_id.clone(),
+                    opcode: "cgra_compute".to_string(),
+                    dtype: "f32*".to_string(),
+                    can_throw: false,
+                    attributes: [
+                        ("pattern".to_string(), json!("systolic_array")),
+                        ("grid_size".to_string(), json!("2x2")),
+                        ("dataflow".to_string(), json!("stationary")),
+                        ("memory_pattern".to_string(), json!("blocked")),
+                    ].iter().cloned().collect(),
+                };
+
+                pih.events.insert(cgra_kernel_id, cgra_kernel);
+
+                // Add matrix entities for CGRA pattern
+                let a_entity = Entity {
+                    id: "matrix_a".to_string(),
+                    kind: EntityKind::Obj,
+                    entity_type: "f32*".to_string(),
+                    attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+                };
+
+                let b_entity = Entity {
+                    id: "matrix_b".to_string(),
+                    kind: EntityKind::Obj,
+                    entity_type: "f32*".to_string(),
+                    attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+                };
+
+                let c_entity = Entity {
+                    id: "matrix_c".to_string(),
+                    kind: EntityKind::Obj,
+                    entity_type: "f32*".to_string(),
+                    attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+                };
+
+                pih.entities.insert("matrix_a".to_string(), a_entity);
+                pih.entities.insert("matrix_b".to_string(), b_entity);
+                pih.entities.insert("matrix_c".to_string(), c_entity);
+            } else if index % 4 == 1 {
+                // FPGA pipelining pattern
+                let fpga_pipeline_id = "fpga_pipeline".to_string();
+                let fpga_pipeline = Event {
+                    id: fpga_pipeline_id.clone(),
+                    opcode: "fpga_compute".to_string(),
+                    dtype: "f32*".to_string(),
+                    can_throw: false,
+                    attributes: [
+                        ("pipeline_depth".to_string(), json!(5)),
+                        ("target_frequency".to_string(), json!(250.0)),
+                        ("resource_type".to_string(), json!("dsp_chain")),
+                        ("synthesis_directive".to_string(), json!("retiming")),
+                    ].iter().cloned().collect(),
+                };
+
+                pih.events.insert(fpga_pipeline_id, fpga_pipeline);
+
+                // Add array entities for FPGA pattern
+                let input_array = Entity {
+                    id: "input_array".to_string(),
+                    kind: EntityKind::Obj,
+                    entity_type: "f32*".to_string(),
+                    attributes: [("size".to_string(), json!(2048))].iter().cloned().collect(),
+                };
+
+                let output_array = Entity {
+                    id: "output_array".to_string(),
+                    kind: EntityKind::Obj,
+                    entity_type: "f32*".to_string(),
+                    attributes: [("size".to_string(), json!(2048))].iter().cloned().collect(),
+                };
+
+                pih.entities.insert("input_array".to_string(), input_array);
+                pih.entities.insert("output_array".to_string(), output_array);
+            } else if index % 4 == 2 {
                 // Loop fusion pattern
                 let loop1_id = "loop1".to_string();
                 let loop2_id = "loop2".to_string();
@@ -1211,57 +1867,27 @@ pub mod gnn_training {
 
                 pih.events.insert(loop1_id, loop1);
                 pih.events.insert(loop2_id, loop2);
-            } else if index % 3 == 1 {
-                // Vectorization pattern
-                let scalar_loop_id = "scalar_loop".to_string();
-                let scalar_loop = Event {
-                    id: scalar_loop_id.clone(),
-                    opcode: "for".to_string(),
-                    dtype: "i32".to_string(),
-                    can_throw: false,
-                    attributes: [("start".to_string(), json!(0)), ("end".to_string(), json!("N"))].iter().cloned().collect(),
-                };
-
-                pih.events.insert(scalar_loop_id, scalar_loop);
             } else {
-                // Parallelization pattern
-                let parallel_loop_id = "parallel_loop".to_string();
-                let parallel_loop = Event {
-                    id: parallel_loop_id.clone(),
-                    opcode: "parallel_for".to_string(),
-                    dtype: "i32".to_string(),
+                // Power optimization pattern
+                let power_compute_id = "power_compute".to_string();
+                let power_compute = Event {
+                    id: power_compute_id.clone(),
+                    opcode: "power_aware_compute".to_string(),
+                    dtype: "f32*".to_string(),
                     can_throw: false,
-                    attributes: [("start".to_string(), json!(0)), ("end".to_string(), json!("N")), ("num_threads".to_string(), json!(4))].iter().cloned().collect(),
+                    attributes: [
+                        ("power_constraint".to_string(), json!(50.0)),
+                        ("thermal_constraint".to_string(), json!(70.0)),
+                        ("energy_efficient".to_string(), json!(true)),
+                    ].iter().cloned().collect(),
                 };
 
-                pih.events.insert(parallel_loop_id, parallel_loop);
+                pih.events.insert(power_compute_id, power_compute);
             }
 
             pih
         }
 
-        fn generate_synthetic_labels(index: usize) -> OptimizationLabels {
-            match index % 3 {
-                0 => OptimizationLabels {
-                    rule_applications: vec!["LoopFusion".to_string()],
-                    performance_gain: 0.3,
-                    memory_reduction: 0.2,
-                    energy_savings: 0.25,
-                },
-                1 => OptimizationLabels {
-                    rule_applications: vec!["Vectorization".to_string()],
-                    performance_gain: 0.5,
-                    memory_reduction: 0.1,
-                    energy_savings: 0.3,
-                },
-                _ => OptimizationLabels {
-                    rule_applications: vec!["Parallelization".to_string()],
-                    performance_gain: 0.4,
-                    memory_reduction: 0.15,
-                    energy_savings: 0.2,
-                },
-            }
-        }
     }
 }
 
@@ -2565,7 +3191,7 @@ mod tests {
         let sample = &dataset[0];
         assert!(sample.sample_id.starts_with("sample_"));
         assert!(!sample.features.node_features.is_empty());
-        assert!(!sample.labels.rule_applications.is_empty());
+        assert!(!sample.labels.rule_applications.is_empty(), "Sample 0 should have optimization rules. Rules: {:?}", sample.labels.rule_applications);
         assert!(sample.labels.performance_gain >= 0.0 && sample.labels.performance_gain <= 1.0);
     }
 
@@ -2590,6 +3216,199 @@ mod tests {
         let loss = GnnTrainer::compute_loss(&predicted, &actual);
         assert!(loss >= 0.0);
         assert!(loss < 2.0); // Should be reasonable loss value
+    }
+
+    #[test]
+    fn test_hardware_feature_extraction() {
+        use crate::gnn_training::{FeatureExtractor, GnnFeatures, SpatialPatternType, DataflowType};
+
+        // Create a simple PIH for testing
+        let mut pih = ProgramInteractionHypergraph::new();
+
+        let event = Event {
+            id: "test_event".to_string(),
+            opcode: "cgra_compute".to_string(),
+            dtype: "f32*".to_string(),
+            can_throw: false,
+            attributes: [
+                ("pattern".to_string(), json!("systolic_array")),
+                ("grid_size".to_string(), json!("2x2")),
+            ].iter().cloned().collect(),
+        };
+
+        let entity = Entity {
+            id: "test_entity".to_string(),
+            kind: EntityKind::Obj,
+            entity_type: "f32*".to_string(),
+            attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+        };
+
+        pih.events.insert("test_event".to_string(), event);
+        pih.entities.insert("test_entity".to_string(), entity);
+
+        let features = FeatureExtractor::extract_features(&pih);
+
+        // Verify hardware features are extracted
+        assert!(features.hardware_features.cgra_features.spatial_patterns.len() > 0);
+        assert!(features.hardware_features.fpga_features.rtl_patterns.len() >= 0);
+
+        // Check CGRA pattern detection
+        let spatial_pattern = &features.hardware_features.cgra_features.spatial_patterns[0];
+        assert_eq!(spatial_pattern.pattern_type, SpatialPatternType::SystolicArray);
+
+        // Check hardware constraints
+        assert!(features.hardware_features.hardware_constraints.max_memory_usage > 0);
+        assert!(features.hardware_features.hardware_constraints.max_compute_units > 0);
+        assert!(features.hardware_features.hardware_constraints.target_frequency > 0.0);
+    }
+
+    #[test]
+    fn test_cgra_optimization_patterns() {
+        use crate::gnn_training::{FeatureExtractor, SpatialPatternType, DataflowType, RtlPatternType};
+
+        // Create CGRA matrix multiplication pattern
+        let mut pih = ProgramInteractionHypergraph::new();
+
+        let cgra_kernel = Event {
+            id: "cgra_kernel".to_string(),
+            opcode: "cgra_compute".to_string(),
+            dtype: "f32*".to_string(),
+            can_throw: false,
+            attributes: [
+                ("pattern".to_string(), json!("systolic_array")),
+                ("dataflow".to_string(), json!("stationary")),
+            ].iter().cloned().collect(),
+        };
+
+        // Add matrix entities
+        for i in 0..3 {
+            let entity = Entity {
+                id: format!("matrix_{}", i),
+                kind: EntityKind::Obj,
+                entity_type: "f32*".to_string(),
+                attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+            };
+            pih.entities.insert(format!("matrix_{}", i), entity);
+        }
+
+        pih.events.insert("cgra_kernel".to_string(), cgra_kernel);
+
+        let features = FeatureExtractor::extract_features(&pih);
+
+        // Verify CGRA-specific features
+        assert!(features.hardware_features.cgra_features.spatial_patterns.len() > 0);
+        assert_eq!(features.hardware_features.cgra_features.dataflow_type, DataflowType::DataParallel);
+
+        // Check for systolic array pattern
+        let pattern = &features.hardware_features.cgra_features.spatial_patterns[0];
+        assert_eq!(pattern.pattern_type, SpatialPatternType::SystolicArray);
+        assert_eq!(pattern.grid_size, (2, 2));
+
+        // Verify resource estimation
+        assert!(features.hardware_features.fpga_features.resource_utilization.dsp_usage > 0.0);
+        assert!(features.hardware_features.hardware_constraints.max_compute_units >= 1);
+    }
+
+    #[test]
+    fn test_fpga_optimization_patterns() {
+        use crate::gnn_training::{FeatureExtractor, RtlPatternType, SynthesisDirectiveType};
+
+        // Create FPGA pipelining pattern
+        let mut pih = ProgramInteractionHypergraph::new();
+
+        let fpga_pipeline = Event {
+            id: "fpga_pipeline".to_string(),
+            opcode: "fpga_compute".to_string(),
+            dtype: "f32*".to_string(),
+            can_throw: false,
+            attributes: [
+                ("pipeline_depth".to_string(), json!(5)),
+                ("target_frequency".to_string(), json!(250.0)),
+                ("resource_type".to_string(), json!("dsp_chain")),
+            ].iter().cloned().collect(),
+        };
+
+        // Add array entities
+        for i in 0..2 {
+            let entity = Entity {
+                id: format!("array_{}", i),
+                kind: EntityKind::Obj,
+                entity_type: "f32*".to_string(),
+                attributes: [("size".to_string(), json!(2048))].iter().cloned().collect(),
+            };
+            pih.entities.insert(format!("array_{}", i), entity);
+        }
+
+        pih.events.insert("fpga_pipeline".to_string(), fpga_pipeline);
+
+        let features = FeatureExtractor::extract_features(&pih);
+
+        // Verify FPGA-specific features
+        assert!(features.hardware_features.fpga_features.rtl_patterns.len() > 0);
+        assert!(features.hardware_features.fpga_features.synthesis_directives.len() > 0);
+
+        // Check RTL pattern detection
+        let rtl_pattern = &features.hardware_features.fpga_features.rtl_patterns[0];
+        assert_eq!(rtl_pattern.pattern_type, RtlPatternType::PipelinedMultiplier);
+
+        // Check synthesis directives
+        let directive = &features.hardware_features.fpga_features.synthesis_directives[0];
+        assert_eq!(directive.directive_type, SynthesisDirectiveType::Retiming);
+
+        // Verify timing constraints
+        assert!(features.hardware_features.fpga_features.timing_constraints.clock_frequency > 0.0);
+        assert!(features.hardware_features.fpga_features.timing_constraints.setup_time > 0.0);
+    }
+
+    #[test]
+    fn test_hardware_aware_training_labels() {
+        use crate::gnn_training::GnnTrainer;
+
+        // Create PIH with hardware patterns
+        let mut pih = ProgramInteractionHypergraph::new();
+
+        // Add CGRA pattern
+        let cgra_event = Event {
+            id: "cgra_event".to_string(),
+            opcode: "cgra_compute".to_string(),
+            dtype: "f32*".to_string(),
+            can_throw: false,
+            attributes: [("pattern".to_string(), json!("systolic_array"))].iter().cloned().collect(),
+        };
+
+        // Add multiple loop events
+        for i in 0..3 {
+            let loop_event = Event {
+                id: format!("loop_{}", i),
+                opcode: "for".to_string(),
+                dtype: "i32".to_string(),
+                can_throw: false,
+                attributes: [("iterations".to_string(), json!(100))].iter().cloned().collect(),
+            };
+            pih.events.insert(format!("loop_{}", i), loop_event);
+        }
+
+        // Add CGRA pattern
+        let cgra_event = Event {
+            id: "cgra_event".to_string(),
+            opcode: "cgra_compute".to_string(),
+            dtype: "f32*".to_string(),
+            can_throw: false,
+            attributes: [("pattern".to_string(), json!("systolic_array"))].iter().cloned().collect(),
+        };
+
+        pih.events.insert("cgra_event".to_string(), cgra_event);
+
+        let labels = GnnTrainer::generate_hardware_aware_labels(&pih, 0);
+
+        // Verify hardware-aware optimization predictions
+        assert!(labels.rule_applications.iter().any(|rule| rule.contains("Cgra")));
+        assert!(labels.performance_gain > 0.0);
+        assert!(labels.energy_savings > 0.0);
+
+        // CGRA optimizations should provide significant benefits
+        assert!(labels.performance_gain >= 0.4); // CGRA spatial mapping benefits
+        assert!(labels.energy_savings >= 0.2); // CGRA energy efficiency
     }
 
     /// Creates a constant folding rule: add(x, 0) → x, mul(x, 1) → x
