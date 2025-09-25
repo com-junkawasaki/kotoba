@@ -3314,22 +3314,26 @@ pub mod gnn_training {
                     cid: None,
                 };
 
-                pih.nodes.push(array_entity);
-                pih.nodes.push(function_entity);
-
-                // Add function call event
-                let function_call = Edge {
-                    id: "function_call".to_string(),
-                    kind: EdgeKind::Event,
-                    label: Some("call".to_string()),
-                    opcode: Some("call".to_string()),
-                    dtype: Some("void".to_string()),
-                    can_throw: false,
-                    attributes: [("callee".to_string(), json!("helper_function"))].iter().cloned().collect(),
+                // Add array and function entities
+                let array_entity = Node {
+                    id: "nested_array".to_string(),
+                    kind: NodeKind::Obj,
+                    node_type: "f32**".to_string(),
+                    entity_type: Some("f32**".to_string()),
+                    attributes: HashMap::new(),
+                    cid: None,
+                };
+                let function_entity = Node {
+                    id: "helper_function".to_string(),
+                    kind: NodeKind::Obj,
+                    node_type: "global".to_string(),
+                    entity_type: Some("global".to_string()),
+                    attributes: [("dead_function".to_string(), json!(true))].iter().cloned().collect(),
                     cid: None,
                 };
 
-                pih.edges.push(function_call);
+                pih.nodes.push(array_entity);
+                pih.nodes.push(function_entity);
 
                 // Add production training entities
                 let benchmark_node = Node {
@@ -4187,34 +4191,31 @@ pub fn create_constant_folding_rule() -> DpoRule {
         cid: None,
     };
 
-    lhs.events.insert(op_event.id.clone(), op_event);
-    lhs.entities.insert(x_entity.id.clone(), x_entity.clone());
-    lhs.entities.insert(identity_entity.id.clone(), identity_entity);
-    lhs.entities.insert(out_entity.id.clone(), out_entity.clone());
+    lhs.edges.push(op_edge);
+    lhs.nodes.push(x_node);
+    lhs.nodes.push(identity_node);
+    lhs.nodes.push(out_node);
 
-    lhs.incidence.push(Incidence {
-        event: "op".to_string(),
-        port: "data_in[0]".to_string(),
-        entity: "x".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "op".to_string(),
+        node: "x".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "op".to_string(),
-        port: "data_in[1]".to_string(),
-        entity: "identity".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "op".to_string(),
+        node: "identity".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "op".to_string(),
-        port: "data_out[0]".to_string(),
-        entity: "out".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "op".to_string(),
+        node: "out".to_string(),
         cid: None,
     });
 
     // RHS: just pass through x
     let mut rhs = ProgramInteractionHypergraph::new();
-    rhs.entities.insert(x_entity.id.clone(), x_entity);
-    rhs.entities.insert(out_entity.id.clone(), out_entity);
+    rhs.nodes.push(x_node);
+    rhs.nodes.push(out_node);
 
     DpoRule {
         name: "ConstantFolding".to_string(),
@@ -4259,19 +4260,18 @@ pub fn create_dead_code_elimination_rule() -> DpoRule {
         cid: None,
     };
 
-    lhs.events.insert(compute_event.id.clone(), compute_event);
-    lhs.entities.insert(x_entity.id.clone(), x_entity.clone());
-    lhs.entities.insert(y_entity.id.clone(), y_entity.clone());
-    lhs.entities.insert(unused_entity.id.clone(), unused_entity.clone());
+    lhs.edges.push(compute_edge);
+    lhs.nodes.push(x_node);
+    lhs.nodes.push(y_node);
+    lhs.nodes.push(unused_node);
 
-    lhs.incidence.push(Incidence {
-        event: "compute".to_string(),
-        port: "data_in[0]".to_string(),
-        entity: "x".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "compute".to_string(),
+        node: "x".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "compute".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "compute".to_string(),
         port: "data_in[1]".to_string(),
         entity: "y".to_string(),
         cid: None,
