@@ -37,23 +37,25 @@ local dag = {
       ]),
       dag.node('Compiler', 'Transforms source code into an optimized PIH representation for execution. ' +
                             '✅ IMPLEMENTED: Core PIH structures, DPO rules, GNN integration.', [
-        dag.node('PIH_Generator', 'Parses source code into a Program Interaction Hypergraph (PIH). ' +
-                                  'Converts computation patterns to bipartite hypergraph structures. ' +
-                                  '✅ IMPLEMENTED: convert_computation_to_pih() function.'),
-        dag.node('GNN_Engine', 'Analyzes and optimizes the PIH using Graph Neural Networks. ' +
-                               '✅ IMPLEMENTED: Node embeddings, semantic hashing, rule application.', [
+        dag.node('PIH_Generator', 'Parses source code into a Program Interaction Hypergraph (PIH) using unified node/edge/incidence structure. ' +
+                                  'Converts computation patterns to tripartite hypergraph representation. ' +
+                                  '✅ IMPLEMENTED: convert_computation_to_pih() function with Event/Flow/Meta edges.'),
+        dag.node('GNN_Engine', 'Analyzes and optimizes the PIH using Graph Neural Networks with unified node/edge/incidence structure. ' +
+                               '✅ IMPLEMENTED: CID computation, bipartite GNN training, rule application.', [
           dag.node('TaskBoundryDetector', 'Identifies optimal task boundaries within the PIH. ' +
                                         'Uses GNN to find cuts that balance parallelism vs. overhead.'),
           dag.node('MetadataPredictor', 'Predicts task metadata (e.g., execution time, memory usage) from PIH subgraphs. ' +
                                       'GNN regression on graph embeddings for high-precision predictions.'),
           dag.node('HardwareAffinityAnalyzer', 'Determines the best hardware tile for a PIH subgraph. ' +
                                              'Learns hardware-specific patterns from PIH structures.'),
-          dag.node('SemanticHasher', 'Generates semantic hashes for PIH subgraphs for advanced memoization. ' +
-                                   'GNN embeddings enable meaning-aware cache keys.'),
+          dag.node('SemanticHasher', 'Computes content-based hashes for PIH subgraphs using unified node/edge/incidence structure. ' +
+                                   'Supports canonicalization and Merkle DAG construction with Blake3 hashing.'),
           dag.node('DpoRuleEngine', 'Applies DPO rewriting rules with NACs for safe optimizations. ' +
                                   '✅ IMPLEMENTED: 6 rules - Basic (3) + Advanced (3): Loop fusion, vectorization, parallelization.'),
           dag.node('GnnTrainingEngine', 'Trains Production-Ready GNN models for optimization prediction. ' +
                                         '✅ IMPLEMENTED: Dataset pipeline, model quantization, incremental learning, build system integration.'),
+          dag.node('CidSystem', 'Computes Content IDs (CIDs) for all PIH objects using Blake3 hashing and canonicalization. ' +
+                               'Provides Merkle DAG construction and embedding cache management.'),
         ]),
       ]),
       dag.node('VM_Core_Integration', 'Integration layer between PIH compiler and VM runtime. ' +

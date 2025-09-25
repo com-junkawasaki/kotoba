@@ -62,11 +62,11 @@ pub mod gnn_training {
     /// Bipartite graph specific features
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct BipartiteFeatures {
-        pub event_node_count: usize,
-        pub entity_node_count: usize,
-        pub event_to_entity_edges: usize,
-        pub entity_to_event_edges: usize,
-        pub node_type_distribution: Vec<f32>, // [event_ratio, entity_ratio]
+        pub edge_node_count: usize,
+        pub node_count: usize,
+        pub edge_to_node_connections: usize,
+        pub node_to_edge_connections: usize,
+        pub node_type_distribution: Vec<f32>, // [edge_ratio, node_ratio]
         pub cross_type_connectivity: f32, // Connectivity between different node types
     }
 
@@ -1316,21 +1316,14 @@ pub mod gnn_training {
             let mut features = Vec::new();
 
             // Port type encoding
-            features.push(if incidence.port.starts_with("data_in") { 1.0 } else { 0.0 });
-            features.push(if incidence.port.starts_with("data_out") { 1.0 } else { 0.0 });
-            features.push(if incidence.port.starts_with("state") { 1.0 } else { 0.0 });
+            features.push(if matches!(incidence.role, RoleKind::DataIn) { 1.0 } else { 0.0 });
+            features.push(if matches!(incidence.role, RoleKind::DataOut) { 1.0 } else { 0.0 });
+            features.push(if matches!(incidence.role, RoleKind::StateIn) || matches!(incidence.role, RoleKind::StateOut) { 1.0 } else { 0.0 });
 
             // Port index (if available)
-            if let Some(index_str) = incidence.port.split('[').nth(1) {
-                if let Some(index) = index_str.split(']').next() {
-                    if let Ok(idx) = index.parse::<f32>() {
-                        features.push(idx);
-                    } else {
-                        features.push(0.0);
-                    }
-                } else {
-                    features.push(0.0);
-                }
+            if let Some(idx) = incidence.idx {
+                let idx_f32 = idx as f32;
+                features.push(idx_f32);
             } else {
                 features.push(0.0);
             }
@@ -1342,52 +1335,52 @@ pub mod gnn_training {
             let mut features = Vec::new();
 
             // Graph statistics
-            features.push(pih.events.len() as f32);
-            features.push(pih.entities.len() as f32);
-            features.push(pih.incidence.len() as f32);
+            features.push(pih.edges.len() as f32);
+            features.push(pih.nodes.len() as f32);
+            features.push(pih.incidences.len() as f32);
 
-            // Event type distribution
-            let add_count = pih.events.values().filter(|e| e.opcode == "add").count() as f32;
-            let mul_count = pih.events.values().filter(|e| e.opcode == "mul").count() as f32;
-            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count() as f32;
+            // Edge type distribution
+            let add_count = pih.edges.iter().filter(|e| e.attributes.get("opcode") == Some(&json!("add"))).count() as f32;
+            let mul_count = pih.edges.iter().filter(|e| e.attributes.get("opcode") == Some(&json!("mul"))).count() as f32;
+            let loop_count = pih.edges.iter().filter(|e| e.attributes.get("opcode") == Some(&json!("for"))).count() as f32;
 
-            features.push(add_count / pih.events.len() as f32);
-            features.push(mul_count / pih.events.len() as f32);
-            features.push(loop_count / pih.events.len() as f32);
+            features.push(add_count / pih.edges.len() as f32);
+            features.push(mul_count / pih.edges.len() as f32);
+            features.push(loop_count / pih.edges.len() as f32);
 
-            // Entity type distribution
-            let val_count = pih.entities.values().filter(|e| matches!(e.kind, EntityKind::Val)).count() as f32;
-            let state_count = pih.entities.values().filter(|e| matches!(e.kind, EntityKind::State)).count() as f32;
+            // Node type distribution
+            let val_count = pih.nodes.iter().filter(|n| matches!(n.kind, NodeKind::Val)).count() as f32;
+            let state_count = pih.nodes.iter().filter(|n| matches!(n.kind, NodeKind::State)).count() as f32;
 
-            features.push(val_count / pih.entities.len() as f32);
-            features.push(state_count / pih.entities.len() as f32);
+            features.push(val_count / pih.nodes.len() as f32);
+            features.push(state_count / pih.nodes.len() as f32);
 
             features
         }
 
         fn extract_bipartite_features(
             pih: &ProgramInteractionHypergraph,
-            event_count: usize,
-            entity_count: usize
+            edge_count: usize,
+            node_count: usize
         ) -> BipartiteFeatures {
             // Count edges by type
-            let event_to_entity_edges = pih.incidence.len();
-            let entity_to_event_edges = pih.incidence.len(); // Same count for now
+            let node_to_edge_connections = pih.incidences.len();
+            let edge_to_node_connections = pih.incidences.len(); // Same count for now
 
             // Node type distribution
-            let total_nodes = event_count + entity_count;
-            let event_ratio = event_count as f32 / total_nodes as f32;
-            let entity_ratio = entity_count as f32 / total_nodes as f32;
+            let total_nodes = edge_count + node_count;
+            let edge_ratio = edge_count as f32 / total_nodes as f32;
+            let node_ratio = node_count as f32 / total_nodes as f32;
 
             // Cross-type connectivity (edges connecting different node types)
             let cross_type_connectivity = event_to_entity_edges as f32 / total_nodes as f32;
 
             BipartiteFeatures {
-                event_node_count: event_count,
-                entity_node_count: entity_count,
-                event_to_entity_edges,
-                entity_to_event_edges,
-                node_type_distribution: vec![event_ratio, entity_ratio],
+                edge_node_count: edge_count,
+                node_count: node_count,
+                edge_to_node_connections: node_to_edge_connections,
+                node_to_edge_connections: node_to_edge_connections,
+                node_type_distribution: vec![edge_ratio, node_ratio],
                 cross_type_connectivity,
             }
         }
@@ -3151,6 +3144,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "f32*".to_string(),
                     attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 let b_entity = Entity {
@@ -3158,6 +3152,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "f32*".to_string(),
                     attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 let c_entity = Entity {
@@ -3165,6 +3160,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "f32*".to_string(),
                     attributes: [("size".to_string(), json!(1024))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 pih.entities.insert("matrix_a".to_string(), a_entity);
@@ -3195,6 +3191,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "f32*".to_string(),
                     attributes: [("size".to_string(), json!(2048))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 let output_array = Entity {
@@ -3202,6 +3199,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "f32*".to_string(),
                     attributes: [("size".to_string(), json!(2048))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 pih.entities.insert("input_array".to_string(), input_array);
@@ -3288,6 +3286,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "f32**".to_string(),
                     attributes: [("dimensions".to_string(), json!([100, 100, 4]))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 // Add function entities for inter-procedural analysis
@@ -3296,6 +3295,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "global".to_string(),
                     attributes: [("dead_function".to_string(), json!(true))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 pih.entities.insert("nested_array".to_string(), array_entity);
@@ -3319,6 +3319,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "benchmark_data".to_string(),
                     attributes: [("path".to_string(), json!("/benchmarks/spec"))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 let hardware_entity = Entity {
@@ -3326,6 +3327,7 @@ pub mod gnn_training {
                     kind: EntityKind::Obj,
                     entity_type: "hardware_profile".to_string(),
                     attributes: [("arch".to_string(), json!("x86_64"))].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 pih.entities.insert("spec_benchmark".to_string(), benchmark_entity);
@@ -3372,16 +3374,15 @@ pub type EventId = String;
 /// A unique identifier for an Entity node in the hypergraph.
 pub type EntityId = String;
 
-/// Represents the `Event` part of the bipartite hypergraph.
-/// An Event is an operation, such as an arithmetic operation, a function call, or a memory access.
+/// Represents an edge in the PIH (unified node/edge/incidence structure).
+/// An Edge can be an Event (computation), Flow (data/state flow), or Meta (metadata relationship).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Event {
-    pub id: EventId,
-    pub opcode: String,
-    pub dtype: String,
-    #[serde(default = "default_can_throw")]
-    pub can_throw: bool,
-    // Additional attributes like lanes, latency, cost, etc., can be added here.
+pub struct Edge {
+    pub id: String,
+    pub kind: EdgeKind,
+    // Common attributes
+    #[serde(default)]
+    pub label: Option<String>,
     #[serde(flatten)]
     pub attributes: HashMap<String, serde_json::Value>,
     /// Content ID for canonical representation (for content-addressable storage)
@@ -3397,28 +3398,65 @@ fn default_cid() -> Option<String> {
     None
 }
 
-/// Represents the kind of an `Entity` node.
+/// Represents the kind of a node in the PIH.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum EntityKind {
-    /// SSA value, constant, argument, or return value.
+pub enum NodeKind {
+    /// Value node: SSA value, constant, argument, or return value.
     Val,
-    /// An abstract object or memory region.
+    /// Object node: Object, array, or composite data structure.
     Obj,
-    /// A versioned memory state (similar to Memory-SSA).
+    /// State node: Memory state or versioned data.
     State,
-    /// A control point for modeling dominance and post-dominance.
+    /// Control node: Control point, branch, or join point.
     Ctrl,
+    /// UI node: User interface element or interaction point.
+    UI,
+    /// Other node: Custom or specialized node types.
+    Other,
 }
 
-/// Represents the `Entity` part of the bipartite hypergraph.
-/// An Entity is a value, an object, a state, or a control point.
+/// Represents the kind of an edge in the PIH.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum EdgeKind {
+    /// Event edge: Computation operations (add, mul, for, etc.)
+    Event,
+    /// Flow edge: Data or state flow relationships (effects, dependencies)
+    Flow,
+    /// Meta edge: Metadata relationships (alias, reference, etc.)
+    Meta,
+}
+
+/// Represents a role in an incidence relationship.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum RoleKind {
+    // Event roles
+    DataIn,
+    DataOut,
+    CtrlIn,
+    CtrlOut,
+    StateIn,
+    StateOut,
+    Obj,
+    ExcOut,
+    // Flow roles
+    Src,
+    Dst,
+    // Meta roles
+    Left,
+    Right,
+    // Custom roles (for extensibility)
+    Custom(String),
+}
+
+/// Represents a node in the PIH (unified node/edge/incidence structure).
+/// A Node can be a value, object, state, control point, UI element, or other specialized types.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Entity {
-    pub id: EntityId,
-    pub kind: EntityKind,
+pub struct Node {
+    pub id: String,
+    pub kind: NodeKind,
     #[serde(rename = "type")]
-    pub entity_type: String,
-    // Additional attributes like is_const, value, alias-class, etc.
+    pub node_type: String,
+    // Additional attributes based on kind
     #[serde(flatten)]
     pub attributes: HashMap<String, serde_json::Value>,
     /// Content ID for canonical representation (for content-addressable storage)
@@ -3444,16 +3482,19 @@ pub enum PortRole {
     Other(String),
 }
 
-/// Represents an incidence edge in the hypergraph, connecting an Event to an Entity via a Port.
-/// This is the hyperedge itself.
+/// Represents an incidence in the tripartite hypergraph, connecting an edge to a node with a specific role.
+/// This defines how nodes and edges are related in the unified node/edge/incidence structure.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Incidence {
-    pub event: EventId,
-    /// The port name, e.g., "data_in[0]", "state_in[0]".
-    /// The string format allows flexibility.
-    pub port: String,
-    pub entity: EntityId,
-    // Additional attributes can be added here, e.g. for mutability.
+    pub edge: String,
+    pub node: String,
+    pub role: RoleKind,
+    /// Index for ordering multiple incidences with same edge and role
+    #[serde(default)]
+    pub idx: Option<u32>,
+    /// Additional attributes for this incidence
+    #[serde(default)]
+    pub attrs: HashMap<String, serde_json::Value>,
     /// Content ID for canonical representation (for content-addressable storage)
     #[serde(default = "default_cid")]
     pub cid: Option<String>,
@@ -3477,14 +3518,20 @@ pub struct NodeEmbedding {
     pub embedding: Vec<f32>,
 }
 
-/// Represents the complete Program Interaction Hypergraph (PIH).
+/// Represents the complete Program Interaction Hypergraph (PIH) using unified node/edge/incidence structure.
+/// This is the core data structure for program representation in the unified tripartite model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProgramInteractionHypergraph {
-    pub events: HashMap<EventId, Event>,
-    pub entities: HashMap<EntityId, Entity>,
-    pub incidence: Vec<Incidence>,
-    pub state_edges: Vec<StateEdge>,
-    /// Node embeddings computed by GNN for learning-based optimization.
+    /// Metadata about the graph
+    #[serde(default)]
+    pub meta: HashMap<String, serde_json::Value>,
+    /// All nodes in the hypergraph (formerly entities)
+    pub nodes: Vec<Node>,
+    /// All edges in the hypergraph (formerly events)
+    pub edges: Vec<Edge>,
+    /// All incidences connecting nodes and edges
+    pub incidences: Vec<Incidence>,
+    /// Node embeddings computed by GNN for learning-based optimization
     #[serde(default)]
     pub node_embeddings: HashMap<String, Vec<f32>>,
     /// Content ID for the entire hypergraph
@@ -3501,20 +3548,25 @@ pub struct ProgramInteractionHypergraph {
     pub cid_metadata: Option<CidMetadata>,
 }
 
+/// Members of a subgraph for Merkle DAG construction
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubgraphMembers {
+    pub nodes: Vec<String>, // list of node IDs
+    pub edges: Vec<String>, // list of edge IDs
+    pub incidences: Vec<String>, // list of incidence indices
+}
+
 /// Information about a subgraph with its Merkle DAG CID
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SubgraphInfo {
     /// Subgraph identifier
     pub id: String,
-    /// Sorted list of node CIDs in this subgraph
-    pub node_cids: Vec<String>,
-    /// Sorted list of edge CIDs in this subgraph
-    pub edge_cids: Vec<String>,
-    /// Sorted list of incidence CIDs in this subgraph
-    pub incidence_cids: Vec<String>,
+    /// Members of the subgraph
+    pub members: SubgraphMembers,
     /// Merkle root CID of the subgraph
     pub gcid: String,
     /// Optional metadata about the subgraph
+    #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
@@ -3563,39 +3615,46 @@ impl ProgramInteractionHypergraph {
     pub fn compute_all_cids(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let cid_system = CidSystem::new();
 
-        // Compute CIDs for events (collect CIDs first to avoid borrow conflicts)
-        let mut event_cids = Vec::new();
-        for (id, event) in &self.events {
-            let cid = cid_system.compute_event_cid(event)?;
-            event_cids.push((id.clone(), cid));
+        // Compute CIDs for nodes (collect CIDs first to avoid borrow conflicts)
+        let mut node_cids = Vec::new();
+        for (i, node) in self.nodes.iter().enumerate() {
+            let cid = cid_system.compute_node_cid(node)?;
+            node_cids.push((i, cid));
         }
 
-        // Assign CIDs to events
-        for (id, cid) in event_cids {
-            if let Some(event_mut) = self.events.get_mut(&id) {
-                event_mut.cid = Some(cid);
+        // Assign CIDs to nodes
+        for (i, cid) in node_cids {
+            if i < self.nodes.len() {
+                self.nodes[i].cid = Some(cid);
             }
         }
 
-        // Compute CIDs for entities (collect CIDs first to avoid borrow conflicts)
-        let mut entity_cids = Vec::new();
-        for (id, entity) in &self.entities {
-            let cid = cid_system.compute_entity_cid(entity)?;
-            entity_cids.push((id.clone(), cid));
+        // Compute CIDs for edges (collect CIDs first to avoid borrow conflicts)
+        let mut edge_cids = Vec::new();
+        for (i, edge) in self.edges.iter().enumerate() {
+            let cid = cid_system.compute_edge_cid(edge)?;
+            edge_cids.push((i, cid));
         }
 
-        // Assign CIDs to entities
-        for (id, cid) in entity_cids {
-            if let Some(entity_mut) = self.entities.get_mut(&id) {
-                entity_mut.cid = Some(cid);
+        // Assign CIDs to edges
+        for (i, cid) in edge_cids {
+            if i < self.edges.len() {
+                self.edges[i].cid = Some(cid);
             }
         }
 
-        // Compute CIDs for incidences
-        for incidence in &self.incidence {
-            let _ = cid_system.compute_incidence_cid(incidence)?;
-            // Note: We can't easily mutate incidence in the vector, so we skip this for now
-            // In a real implementation, we'd need to return the updated incidences
+        // Compute CIDs for incidences (collect CIDs first to avoid borrow conflicts)
+        let mut incidence_cids = Vec::new();
+        for (i, incidence) in self.incidences.iter().enumerate() {
+            let cid = cid_system.compute_incidence_cid(incidence)?;
+            incidence_cids.push((i, cid));
+        }
+
+        // Assign CIDs to incidences
+        for (i, cid) in incidence_cids {
+            if i < self.incidences.len() {
+                self.incidences[i].cid = Some(cid);
+            }
         }
 
         // Compute graph CID
@@ -3606,7 +3665,7 @@ impl ProgramInteractionHypergraph {
         self.cid_metadata = Some(CidMetadata {
             hash_algorithm: HashAlgorithm::Blake3,
             multibase_encoding: MultibaseEncoding::Base64Url,
-            schema_version: "pih.cid.schema.v1".to_string(),
+            schema_version: "pih.min.schema.v1".to_string(),
             computed_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -3638,24 +3697,24 @@ impl ProgramInteractionHypergraph {
         let mut incidence_cids = Vec::new();
 
         for node_id in &node_ids {
-            if let Some(entity) = self.entities.get(node_id) {
-                if let Some(cid) = &entity.cid {
+            if let Some(node) = self.nodes.iter().find(|n| n.id == *node_id) {
+                if let Some(cid) = &node.cid {
                     node_cids.push(cid.clone());
                 }
             }
         }
 
         for edge_id in &edge_ids {
-            if let Some(event) = self.events.get(edge_id) {
-                if let Some(cid) = &event.cid {
+            if let Some(edge) = self.edges.iter().find(|e| e.id == *edge_id) {
+                if let Some(cid) = &edge.cid {
                     edge_cids.push(cid.clone());
                 }
             }
         }
 
         for &incidence_idx in &incidence_indices {
-            if incidence_idx < self.incidence.len() {
-                let incidence = &self.incidence[incidence_idx];
+            if incidence_idx < self.incidences.len() {
+                let incidence = &self.incidences[incidence_idx];
                 if let Some(cid) = &incidence.cid {
                     incidence_cids.push(cid.clone());
                 }
@@ -3670,11 +3729,15 @@ impl ProgramInteractionHypergraph {
         let gcid = cid_system.compute_merkle_root(&all_cids)?;
 
         // Create subgraph info
+        let subgraph_members = SubgraphMembers {
+            nodes: node_ids,
+            edges: edge_ids,
+            incidences: incidence_indices.iter().map(|i| i.to_string()).collect(),
+        };
+
         let subgraph_info = SubgraphInfo {
             id: subgraph_id.clone(),
-            node_cids,
-            edge_cids,
-            incidence_cids,
+            members: subgraph_members,
             gcid: gcid.clone(),
             metadata: HashMap::new(),
         };
@@ -3800,7 +3863,7 @@ impl CidSystem {
             MultibaseEncoding::Base64Url => {
                 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
                 let engine = &URL_SAFE_NO_PAD;
-                let encoded = engine.encode(data);
+                let encoded = base64::encode_engine(data, engine);
                 Ok(format!("u{}", encoded))
             }
             MultibaseEncoding::Base58Btc => {
@@ -3835,36 +3898,37 @@ impl CidSystem {
         self.compute_cid(&concatenated)
     }
 
-    /// Compute CID for Event (excluding local ID for content-based addressing)
-    pub fn compute_event_cid(&self, event: &Event) -> Result<String, Box<dyn std::error::Error>> {
+    /// Compute CID for Edge (excluding local ID for content-based addressing)
+    pub fn compute_edge_cid(&self, edge: &Edge) -> Result<String, Box<dyn std::error::Error>> {
         // Create a copy without the ID for canonical representation
-        let canonical_event = CanonicalEvent {
-            opcode: event.opcode.clone(),
-            dtype: event.dtype.clone(),
-            can_throw: event.can_throw,
-            attributes: event.attributes.clone(),
+        let canonical_edge = CanonicalEdge {
+            kind: edge.kind.clone(),
+            label: edge.label.clone(),
+            attributes: edge.attributes.clone(),
         };
-        self.compute_cid(&canonical_event)
+        self.compute_cid(&canonical_edge)
     }
 
-    /// Compute CID for Entity (excluding local ID for content-based addressing)
-    pub fn compute_entity_cid(&self, entity: &Entity) -> Result<String, Box<dyn std::error::Error>> {
+    /// Compute CID for Node (excluding local ID for content-based addressing)
+    pub fn compute_node_cid(&self, node: &Node) -> Result<String, Box<dyn std::error::Error>> {
         // Create a copy without the ID for canonical representation
-        let canonical_entity = CanonicalEntity {
-            kind: entity.kind.clone(),
-            entity_type: entity.entity_type.clone(),
-            attributes: entity.attributes.clone(),
+        let canonical_node = CanonicalNode {
+            kind: node.kind.clone(),
+            node_type: node.node_type.clone(),
+            attributes: node.attributes.clone(),
         };
-        self.compute_cid(&canonical_entity)
+        self.compute_cid(&canonical_node)
     }
 
     /// Compute CID for Incidence (excluding local IDs for content-based addressing)
     pub fn compute_incidence_cid(&self, incidence: &Incidence) -> Result<String, Box<dyn std::error::Error>> {
         // Create a copy without the local IDs for canonical representation
         let canonical_incidence = CanonicalIncidence {
-            event_id: incidence.event.clone(),
-            port: incidence.port.clone(),
-            entity_id: incidence.entity.clone(),
+            edge_id: incidence.edge.clone(),
+            node_id: incidence.node.clone(),
+            role: incidence.role.clone(),
+            idx: incidence.idx,
+            attrs: incidence.attrs.clone(),
         };
         self.compute_cid(&canonical_incidence)
     }
@@ -3909,100 +3973,125 @@ struct CanonicalEvent {
     pub attributes: HashMap<String, serde_json::Value>,
 }
 
-/// Canonical representation of Entity for CID computation (without local ID)
+/// Canonical representation of Node for CID computation (without local ID)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct CanonicalEntity {
-    pub kind: EntityKind,
-    pub entity_type: String,
+struct CanonicalNode {
+    pub kind: NodeKind,
+    pub node_type: String,
+    pub attributes: HashMap<String, serde_json::Value>,
+}
+
+/// Canonical representation of Edge for CID computation (without local ID)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CanonicalEdge {
+    pub kind: EdgeKind,
+    pub label: Option<String>,
     pub attributes: HashMap<String, serde_json::Value>,
 }
 
 /// Canonical representation of Incidence for CID computation (without local IDs)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CanonicalIncidence {
-    pub event_id: String,
-    pub port: String,
-    pub entity_id: String,
+    pub edge_id: String,
+    pub node_id: String,
+    pub role: RoleKind,
+    pub idx: Option<u32>,
+    pub attrs: HashMap<String, serde_json::Value>,
 }
 
 
-/// Converts a simple computation pattern into a PIH representation.
+/// Converts a simple computation pattern into a PIH representation using unified node/edge/incidence structure.
 /// This is a basic converter that can be extended to handle more complex patterns.
 pub fn convert_computation_to_pih(
     opcode: &str,
-    inputs: Vec<(String, EntityKind, String)>, // (id, kind, type)
-    outputs: Vec<(String, EntityKind, String)>, // (id, kind, type)
+    inputs: Vec<(String, NodeKind, String)>, // (id, kind, type)
+    outputs: Vec<(String, NodeKind, String)>, // (id, kind, type)
     constants: Vec<(String, serde_json::Value)>, // (id, value)
 ) -> ProgramInteractionHypergraph {
     let mut pih = ProgramInteractionHypergraph::new();
 
-    // Create event
-    let event = Event {
+    // Create event edge
+    let event_edge = Edge {
         id: format!("event_{}", opcode),
-        opcode: opcode.to_string(),
-        dtype: "i32".to_string(), // Default to i32, can be parameterized
-        can_throw: false,
-        attributes: HashMap::new(),
+        kind: EdgeKind::Event,
+        label: Some(opcode.to_string()),
+        attributes: [
+            ("opcode".to_string(), json!(opcode)),
+            ("dtype".to_string(), json!("i32")), // Default to i32, can be parameterized
+        ].iter().cloned().collect(),
+        cid: None,
     };
-    pih.events.insert(event.id.clone(), event);
+    pih.edges.push(event_edge);
 
-    // Create input entities
+    // Create input nodes
     let input_count = inputs.len();
     let constant_count = constants.len();
-    for (id, kind, entity_type) in inputs {
-        let entity = Entity {
+    for (id, kind, node_type) in inputs {
+        let node = Node {
             id: id.clone(),
             kind,
-            entity_type: entity_type.clone(),
+            node_type: node_type.clone(),
             attributes: HashMap::new(),
+            cid: None,
         };
-        pih.entities.insert(id.clone(), entity);
+        pih.nodes.push(node);
 
-        // Add incidence edge
-        pih.incidence.push(Incidence {
-            event: format!("event_{}", opcode),
-            port: format!("data_in[{}]", pih.incidence.len()),
-            entity: id,
+        // Add incidence
+        pih.incidences.push(Incidence {
+            edge: format!("event_{}", opcode),
+            node: id,
+            role: RoleKind::DataIn,
+            idx: Some(pih.incidences.len() as u32),
+            attrs: HashMap::new(),
+            cid: None,
         });
     }
 
-    // Create constant entities
+    // Create constant nodes
     for (id, value) in constants {
         let mut attributes = HashMap::new();
         attributes.insert("is_const".to_string(), json!(true));
         attributes.insert("value".to_string(), value);
 
-        let entity = Entity {
+        let node = Node {
             id: id.clone(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes,
+            cid: None,
         };
-        pih.entities.insert(id.clone(), entity);
+        pih.nodes.push(node);
 
-        // Add incidence edge
-        pih.incidence.push(Incidence {
-            event: format!("event_{}", opcode),
-            port: format!("data_in[{}]", pih.incidence.len()),
-            entity: id,
+        // Add incidence
+        pih.incidences.push(Incidence {
+            edge: format!("event_{}", opcode),
+            node: id,
+            role: RoleKind::DataIn,
+            idx: Some(pih.incidences.len() as u32),
+            attrs: HashMap::new(),
+            cid: None,
         });
     }
 
-    // Create output entities
-    for (id, kind, entity_type) in outputs {
-        let entity = Entity {
+    // Create output nodes
+    for (id, kind, node_type) in outputs {
+        let node = Node {
             id: id.clone(),
             kind,
-            entity_type: entity_type.clone(),
+            node_type: node_type.clone(),
             attributes: HashMap::new(),
+            cid: None,
         };
-        pih.entities.insert(id.clone(), entity);
+        pih.nodes.push(node);
 
-        // Add incidence edge
-        pih.incidence.push(Incidence {
-            event: format!("event_{}", opcode),
-            port: format!("data_out[{}]", pih.incidence.len() - input_count - constant_count),
-            entity: id,
+        // Add incidence
+        pih.incidences.push(Incidence {
+            edge: format!("event_{}", opcode),
+            node: id,
+            role: RoleKind::DataOut,
+            idx: Some(pih.incidences.len() as u32),
+            attrs: HashMap::new(),
+            cid: None,
         });
     }
 
@@ -4012,10 +4101,10 @@ pub fn convert_computation_to_pih(
 impl ProgramInteractionHypergraph {
     pub fn new() -> Self {
         Self {
-            events: HashMap::new(),
-            entities: HashMap::new(),
-            incidence: Vec::new(),
-            state_edges: Vec::new(),
+            meta: HashMap::new(),
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            incidences: Vec::new(),
             node_embeddings: HashMap::new(),
             graph_cid: None,
             subgraphs: HashMap::new(),
@@ -4041,12 +4130,14 @@ pub fn create_constant_folding_rule() -> DpoRule {
         dtype: "i32".to_string(),
         can_throw: false,
         attributes: HashMap::new(),
+        cid: None,
     };
     let x_entity = Entity {
         id: "x".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let identity_entity = Entity {
         id: "identity".to_string(),
@@ -4056,12 +4147,14 @@ pub fn create_constant_folding_rule() -> DpoRule {
             ("is_const".to_string(), json!(true)),
             ("value".to_string(), json!(0)), // 0 for add, 1 for mul
         ].iter().cloned().collect(),
+        cid: None,
     };
     let out_entity = Entity {
         id: "out".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(op_event.id.clone(), op_event);
@@ -4073,16 +4166,19 @@ pub fn create_constant_folding_rule() -> DpoRule {
         event: "op".to_string(),
         port: "data_in[0]".to_string(),
         entity: "x".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "op".to_string(),
         port: "data_in[1]".to_string(),
         entity: "identity".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "op".to_string(),
         port: "data_out[0]".to_string(),
         entity: "out".to_string(),
+        cid: None,
     });
 
     // RHS: just pass through x
@@ -4109,24 +4205,28 @@ pub fn create_dead_code_elimination_rule() -> DpoRule {
         dtype: "i32".to_string(),
         can_throw: false,
         attributes: HashMap::new(),
+        cid: None,
     };
     let x_entity = Entity {
         id: "x".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let y_entity = Entity {
         id: "y".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let unused_entity = Entity {
         id: "unused".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(compute_event.id.clone(), compute_event);
@@ -4138,16 +4238,19 @@ pub fn create_dead_code_elimination_rule() -> DpoRule {
         event: "compute".to_string(),
         port: "data_in[0]".to_string(),
         entity: "x".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "compute".to_string(),
         port: "data_in[1]".to_string(),
         entity: "y".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "compute".to_string(),
         port: "data_out[0]".to_string(),
         entity: "unused".to_string(),
+        cid: None,
     });
 
     // RHS: remove the unused computation entirely
@@ -4163,6 +4266,7 @@ pub fn create_dead_code_elimination_rule() -> DpoRule {
             event: "other_op".to_string(),
             port: "data_in[0]".to_string(),
             entity: "unused".to_string(),
+            cid: None,
         }],
         forbidden_state_edges: vec![],
     };
@@ -4192,30 +4296,35 @@ pub fn create_loop_fusion_rule() -> DpoRule {
             ("end".to_string(), json!("N")),
             ("step".to_string(), json!(1)),
         ].iter().cloned().collect(),
+        cid: None,
     };
     let i_entity = Entity {
         id: "i".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let a_entity = Entity {
         id: "a".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let b_entity = Entity {
         id: "b".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let c_entity = Entity {
         id: "c".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(loop1_event.id.clone(), loop1_event);
@@ -4229,11 +4338,13 @@ pub fn create_loop_fusion_rule() -> DpoRule {
         event: "loop1".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "loop1".to_string(),
         port: "body".to_string(),
         entity: "load_b".to_string(),
+        cid: None,
     });
 
     // Loop 2: for(i=0; i<N; i++) { d[i] = e[i] * f[i]; }
@@ -4247,24 +4358,28 @@ pub fn create_loop_fusion_rule() -> DpoRule {
             ("end".to_string(), json!("N")),
             ("step".to_string(), json!(1)),
         ].iter().cloned().collect(),
+        cid: None,
     };
     let d_entity = Entity {
         id: "d".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let e_entity = Entity {
         id: "e".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let f_entity = Entity {
         id: "f".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(loop2_event.id.clone(), loop2_event);
@@ -4277,11 +4392,13 @@ pub fn create_loop_fusion_rule() -> DpoRule {
         event: "loop2".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "loop2".to_string(),
         port: "body".to_string(),
         entity: "load_e".to_string(),
+        cid: None,
     });
 
     // RHS: Fused loop with both operations
@@ -4296,6 +4413,7 @@ pub fn create_loop_fusion_rule() -> DpoRule {
             ("end".to_string(), json!("N")),
             ("step".to_string(), json!(1)),
         ].iter().cloned().collect(),
+        cid: None,
     };
 
     rhs.events.insert(fused_loop.id.clone(), fused_loop);
@@ -4312,11 +4430,13 @@ pub fn create_loop_fusion_rule() -> DpoRule {
         event: "fused_loop".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     rhs.incidence.push(Incidence {
         event: "fused_loop".to_string(),
         port: "body".to_string(),
         entity: "fused_body".to_string(),
+        cid: None,
     });
 
     // NAC: No dependencies between loops
@@ -4327,6 +4447,7 @@ pub fn create_loop_fusion_rule() -> DpoRule {
             event: "loop2".to_string(),
             port: "dependency".to_string(),
             entity: "loop1_output".to_string(),
+            cid: None,
         }],
         forbidden_state_edges: vec![],
     };
@@ -4354,24 +4475,28 @@ pub fn create_vectorization_rule() -> DpoRule {
             ("end".to_string(), json!("N")),
             ("step".to_string(), json!(1)),
         ].iter().cloned().collect(),
+        cid: None,
     };
     let i_entity = Entity {
         id: "i".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let a_entity = Entity {
         id: "a".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let b_entity = Entity {
         id: "b".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(scalar_loop.id.clone(), scalar_loop);
@@ -4383,11 +4508,13 @@ pub fn create_vectorization_rule() -> DpoRule {
         event: "scalar_loop".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "scalar_loop".to_string(),
         port: "body".to_string(),
         entity: "scalar_add".to_string(),
+        cid: None,
     });
 
     // RHS: Vectorized loop with SIMD operations
@@ -4402,12 +4529,14 @@ pub fn create_vectorization_rule() -> DpoRule {
             ("end".to_string(), json!("N")),
             ("step".to_string(), json!(4)), // Process 4 elements per iteration
         ].iter().cloned().collect(),
+        cid: None,
     };
     let vector_entity = Entity {
         id: "vector".to_string(),
         kind: EntityKind::Val,
         entity_type: "__m128i".to_string(), // SIMD vector type
         attributes: HashMap::new(),
+        cid: None,
     };
 
     rhs.events.insert(vector_loop.id.clone(), vector_loop);
@@ -4420,11 +4549,13 @@ pub fn create_vectorization_rule() -> DpoRule {
         event: "vector_loop".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     rhs.incidence.push(Incidence {
         event: "vector_loop".to_string(),
         port: "body".to_string(),
         entity: "simd_add".to_string(),
+        cid: None,
     });
 
     // NAC: Data must be aligned for SIMD operations
@@ -4435,6 +4566,7 @@ pub fn create_vectorization_rule() -> DpoRule {
             event: "scalar_loop".to_string(),
             port: "unaligned".to_string(),
             entity: "data".to_string(),
+            cid: None,
         }],
         forbidden_state_edges: vec![],
     };
@@ -4462,18 +4594,21 @@ pub fn create_parallelization_rule() -> DpoRule {
             ("end".to_string(), json!("N")),
             ("step".to_string(), json!(1)),
         ].iter().cloned().collect(),
+        cid: None,
     };
     let i_entity = Entity {
         id: "i".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let array_entity = Entity {
         id: "array".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32*".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(seq_loop.id.clone(), seq_loop);
@@ -4484,11 +4619,13 @@ pub fn create_parallelization_rule() -> DpoRule {
         event: "sequential_loop".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     lhs.incidence.push(Incidence {
         event: "sequential_loop".to_string(),
         port: "body".to_string(),
         entity: "sequential_compute".to_string(),
+        cid: None,
     });
 
     // RHS: Parallel loop using OpenMP or similar
@@ -4504,12 +4641,14 @@ pub fn create_parallelization_rule() -> DpoRule {
             ("step".to_string(), json!(1)),
             ("num_threads".to_string(), json!(4)),
         ].iter().cloned().collect(),
+        cid: None,
     };
     let thread_id_entity = Entity {
         id: "thread_id".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     rhs.events.insert(parallel_loop.id.clone(), parallel_loop);
@@ -4521,16 +4660,19 @@ pub fn create_parallelization_rule() -> DpoRule {
         event: "parallel_loop".to_string(),
         port: "index".to_string(),
         entity: "i".to_string(),
+        cid: None,
     });
     rhs.incidence.push(Incidence {
         event: "parallel_loop".to_string(),
         port: "thread_id".to_string(),
         entity: "thread_id".to_string(),
+        cid: None,
     });
     rhs.incidence.push(Incidence {
         event: "parallel_loop".to_string(),
         port: "body".to_string(),
         entity: "parallel_compute".to_string(),
+        cid: None,
     });
 
     // NAC: No loop-carried dependencies
@@ -4541,6 +4683,7 @@ pub fn create_parallelization_rule() -> DpoRule {
             event: "sequential_loop".to_string(),
             port: "dependency".to_string(),
             entity: "previous_iteration".to_string(),
+            cid: None,
         }],
         forbidden_state_edges: vec![],
     };
@@ -4564,12 +4707,14 @@ pub fn create_strength_reduction_rule() -> DpoRule {
         dtype: "i32".to_string(),
         can_throw: false,
         attributes: HashMap::new(),
+        cid: None,
     };
     let x_entity = Entity {
         id: "x".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
     let c_entity = Entity {
         id: "c".to_string(),
@@ -4579,12 +4724,14 @@ pub fn create_strength_reduction_rule() -> DpoRule {
             ("is_const".to_string(), json!(true)),
             ("value".to_string(), json!(8)), // 2^3
         ].iter().cloned().collect(),
+        cid: None,
     };
     let out_entity = Entity {
         id: "out".to_string(),
         kind: EntityKind::Val,
         entity_type: "i32".to_string(),
         attributes: HashMap::new(),
+        cid: None,
     };
 
     lhs.events.insert(mul_event.id.clone(), mul_event);
@@ -4592,70 +4739,98 @@ pub fn create_strength_reduction_rule() -> DpoRule {
     lhs.entities.insert(c_entity.id.clone(), c_entity);
     lhs.entities.insert(out_entity.id.clone(), out_entity.clone());
 
-    lhs.incidence.push(Incidence {
-        event: "mul_op".to_string(),
-        port: "data_in[0]".to_string(),
-        entity: "x".to_string(),
-    });
-    lhs.incidence.push(Incidence {
-        event: "mul_op".to_string(),
-        port: "data_in[1]".to_string(),
-        entity: "c".to_string(),
-    });
-    lhs.incidence.push(Incidence {
-        event: "mul_op".to_string(),
-        port: "data_out[0]".to_string(),
-        entity: "out".to_string(),
-    });
+        lhs.incidences.push(Incidence {
+            edge: "mul_op".to_string(),
+            node: "x".to_string(),
+            role: RoleKind::DataIn,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
+        });
+        lhs.incidences.push(Incidence {
+            edge: "mul_op".to_string(),
+            node: "c".to_string(),
+            role: RoleKind::DataIn,
+            idx: Some(1),
+            attrs: HashMap::new(),
+            cid: None,
+        });
+        lhs.incidences.push(Incidence {
+            edge: "mul_op".to_string(),
+            node: "out".to_string(),
+            role: RoleKind::DataOut,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
+        });
 
     // RHS: equivalent shift operation
     let mut rhs = ProgramInteractionHypergraph::new();
-    let shift_amount = Entity {
+    let shift_amount = Node {
         id: "shift_amt".to_string(),
-        kind: EntityKind::Val,
-        entity_type: "i32".to_string(),
+        kind: NodeKind::Val,
+        node_type: "i32".to_string(),
         attributes: [
             ("is_const".to_string(), json!(true)),
             ("value".to_string(), json!(3)), // log2(8)
         ].iter().cloned().collect(),
+        cid: None,
     };
-    let shl_event = Event {
+    let shl_edge = Edge {
         id: "shl_op".to_string(),
-        opcode: "shl".to_string(),
-        dtype: "i32".to_string(),
-        can_throw: false,
-        attributes: HashMap::new(),
+        kind: EdgeKind::Event,
+        label: Some("shl".to_string()),
+        attributes: [
+            ("opcode".to_string(), json!("shl")),
+            ("dtype".to_string(), json!("i32")),
+            ("can_throw".to_string(), json!(false)),
+        ].iter().cloned().collect(),
+        cid: None,
     };
 
-    rhs.events.insert(shl_event.id.clone(), shl_event);
-    rhs.entities.insert(x_entity.id.clone(), x_entity);
-    rhs.entities.insert(shift_amount.id.clone(), shift_amount);
-    rhs.entities.insert(out_entity.id.clone(), out_entity);
+    rhs.edges.push(shl_edge);
+    rhs.nodes.push(x_node);
+    rhs.nodes.push(shift_amount);
+    rhs.nodes.push(out_node);
 
-    rhs.incidence.push(Incidence {
-        event: "shl_op".to_string(),
-        port: "data_in[0]".to_string(),
-        entity: "x".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "shl_op".to_string(),
+        node: "x".to_string(),
+        role: RoleKind::DataIn,
+        idx: Some(0),
+        attrs: HashMap::new(),
+        cid: None,
     });
-    rhs.incidence.push(Incidence {
-        event: "shl_op".to_string(),
-        port: "data_in[1]".to_string(),
-        entity: "shift_amt".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "shl_op".to_string(),
+        node: "shift_amt".to_string(),
+        role: RoleKind::DataIn,
+        idx: Some(1),
+        attrs: HashMap::new(),
+        cid: None,
     });
-    rhs.incidence.push(Incidence {
-        event: "shl_op".to_string(),
-        port: "data_out[0]".to_string(),
-        entity: "out".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "shl_op".to_string(),
+        node: "out".to_string(),
+        role: RoleKind::DataOut,
+        idx: Some(0),
+        attrs: HashMap::new(),
+        cid: None,
     });
 
     // NAC: Don't apply if dtype is floating point (due to rounding differences)
     let floating_point_nac = NegativeApplicationCondition {
         name: "no_floating_point".to_string(),
         description: "Don't apply strength reduction to floating point types".to_string(),
-        forbidden_incidence: vec![Incidence {
-            event: "mul_op".to_string(),
-            port: "dtype".to_string(),
-            entity: "float_type".to_string(),
+        forbidden_incidences: vec![Incidence {
+            edge: "mul_op".to_string(),
+            node: "float_type".to_string(),
+            role: RoleKind::DataIn,
+            idx: Some(0),
+            attrs: [
+                ("dtype".to_string(), json!("float")),
+            ].iter().cloned().collect(),
+            cid: None,
         }],
         forbidden_state_edges: vec![],
     };
@@ -4678,89 +4853,149 @@ mod tests {
     fn test_pih_serialization_deserialization() {
         let mut pih = ProgramInteractionHypergraph::new();
 
-        // Nodes
-        let event1 = Event {
+        // Edges
+        let edge1 = Edge {
             id: "e1".to_string(),
-            opcode: "mul".to_string(),
-            dtype: "i32".to_string(),
-            can_throw: false,
+            kind: EdgeKind::Event,
+            label: Some("mul".to_string()),
+            attributes: [
+                ("opcode".to_string(), json!("mul")),
+                ("dtype".to_string(), json!("i32")),
+                ("can_throw".to_string(), json!(false)),
+            ].iter().cloned().collect(),
             cid: None,
-            attributes: HashMap::new(),
         };
-        let entity_x = Entity {
+        let node_x = Node {
             id: "v_x".to_string(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes: HashMap::new(),
             cid: None,
         };
         let mut const_attr = HashMap::new();
         const_attr.insert("is_const".to_string(), json!(true));
         const_attr.insert("value".to_string(), json!(8));
-        let entity_c = Entity {
+        let node_c = Node {
             id: "v_c".to_string(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes: const_attr,
+            cid: None,
         };
-        let entity_out = Entity {
+        let node_out = Node {
             id: "v_out".to_string(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes: HashMap::new(),
             cid: None,
         };
-        let state3 = Entity {
+        let state3 = Node {
             id: "s3".to_string(),
-            kind: EntityKind::State,
-            entity_type: "heap".to_string(),
+            kind: NodeKind::State,
+            node_type: "heap".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
-        let state4 = Entity {
+        let state4 = Node {
             id: "s4".to_string(),
-            kind: EntityKind::State,
-            entity_type: "heap".to_string(),
+            kind: NodeKind::State,
+            node_type: "heap".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
 
-        pih.events.insert(event1.id.clone(), event1);
-        pih.entities.insert(entity_x.id.clone(), entity_x);
-        pih.entities.insert(entity_c.id.clone(), entity_c);
-        pih.entities.insert(entity_out.id.clone(), entity_out);
-        pih.entities.insert(state3.id.clone(), state3);
-        pih.entities.insert(state4.id.clone(), state4);
+        pih.edges.push(edge1);
+        pih.nodes.push(node_x);
+        pih.nodes.push(node_c);
+        pih.nodes.push(node_out);
+        pih.nodes.push(state3);
+        pih.nodes.push(state4);
 
-        // Incidence
-        pih.incidence.push(Incidence {
-            event: "e1".to_string(),
-            port: "data_in[0]".to_string(),
-            entity: "v_x".to_string(),
+        // Incidences
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "v_x".to_string(),
+            role: RoleKind::DataIn,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
         });
-        pih.incidence.push(Incidence {
-            event: "e1".to_string(),
-            port: "data_in[1]".to_string(),
-            entity: "v_c".to_string(),
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "v_c".to_string(),
+            role: RoleKind::DataIn,
+            idx: Some(1),
+            attrs: HashMap::new(),
+            cid: None,
         });
-        pih.incidence.push(Incidence {
-            event: "e1".to_string(),
-            port: "data_out[0]".to_string(),
-            entity: "v_out".to_string(),
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "v_out".to_string(),
+            role: RoleKind::DataOut,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
         });
-        pih.incidence.push(Incidence {
-            event: "e1".to_string(),
-            port: "state_in[0]".to_string(),
-            entity: "s3".to_string(),
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "s3".to_string(),
+            role: RoleKind::StateIn,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
         });
-        pih.incidence.push(Incidence {
-            event: "e1".to_string(),
-            port: "state_out[0]".to_string(),
-            entity: "s4".to_string(),
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "s4".to_string(),
+            role: RoleKind::StateOut,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
+        });
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "c1".to_string(),
+            role: RoleKind::CtrlIn,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
+        });
+        pih.incidences.push(Incidence {
+            edge: "e1".to_string(),
+            node: "c1".to_string(),
+            role: RoleKind::CtrlOut,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
         });
 
-        // State Edges
-        pih.state_edges.push(StateEdge {
-            from: "s3".to_string(),
-            to: "s4".to_string(),
+        // State flow edge
+        let flow_edge = Edge {
+            id: "flow_s3_s4".to_string(),
+            kind: EdgeKind::Flow,
+            label: Some("heap_flow".to_string()),
+            attributes: [
+                ("flow_type".to_string(), json!("EFFECTS")),
+            ].iter().cloned().collect(),
+            cid: None,
+        };
+
+        pih.edges.push(flow_edge);
+        pih.incidences.push(Incidence {
+            edge: "flow_s3_s4".to_string(),
+            node: "s3".to_string(),
+            role: RoleKind::Src,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
+        });
+        pih.incidences.push(Incidence {
+            edge: "flow_s3_s4".to_string(),
+            node: "s4".to_string(),
+            role: RoleKind::Dst,
+            idx: Some(0),
+            attrs: HashMap::new(),
+            cid: None,
         });
 
         let serialized = serde_json::to_string_pretty(&pih).unwrap();
@@ -4768,15 +5003,14 @@ mod tests {
         // This is a simplified check. A more robust test would compare field by field.
         assert!(serialized.contains("\"opcode\": \"mul\""));
         assert!(serialized.contains("\"kind\": \"State\""));
-        assert!(serialized.contains("\"port\": \"data_in[1]\""));
-        assert!(serialized.contains("\"from\": \"s3\""));
+        assert!(serialized.contains("\"role\": \"data_in\""));
+        assert!(serialized.contains("\"flow_type\": \"EFFECTS\""));
 
         let deserialized: ProgramInteractionHypergraph = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(deserialized.events.len(), 1);
-        assert_eq!(deserialized.entities.len(), 5); // v_x, v_c, v_out, s3, s4
-        assert_eq!(deserialized.incidence.len(), 5);
-        assert_eq!(deserialized.state_edges.len(), 1);
-        assert_eq!(deserialized.entities.get("v_c").unwrap().attributes.get("value").unwrap(), &json!(8));
+        assert_eq!(deserialized.edges.len(), 2); // e1, flow_s3_s4
+        assert_eq!(deserialized.nodes.len(), 5); // v_x, v_c, v_out, s3, s4
+        assert_eq!(deserialized.incidences.len(), 8); // 6 for e1, 2 for flow_s3_s4
+        assert_eq!(deserialized.nodes.iter().find(|n| n.id == "v_c").unwrap().attributes.get("value").unwrap(), &json!(8));
     }
 
     #[test]
@@ -4784,16 +5018,16 @@ mod tests {
         let rule = create_strength_reduction_rule();
 
         // Check LHS structure
-        assert_eq!(rule.lhs.events.len(), 1);
-        assert_eq!(rule.lhs.entities.len(), 3); // x, c, out
-        assert_eq!(rule.lhs.incidence.len(), 3);
-        assert_eq!(rule.lhs.events.get("mul_op").unwrap().opcode, "mul");
+        assert_eq!(rule.lhs.edges.len(), 1);
+        assert_eq!(rule.lhs.nodes.len(), 3); // x, c, out
+        assert_eq!(rule.lhs.incidences.len(), 3);
+        assert_eq!(rule.lhs.edges.iter().find(|e| e.id == "mul_op").unwrap().attributes.get("opcode").unwrap(), &json!("mul"));
 
         // Check RHS structure
-        assert_eq!(rule.rhs.events.len(), 1);
-        assert_eq!(rule.rhs.entities.len(), 3); // x, shift_amt, out
-        assert_eq!(rule.rhs.incidence.len(), 3);
-        assert_eq!(rule.rhs.events.get("shl_op").unwrap().opcode, "shl");
+        assert_eq!(rule.rhs.edges.len(), 1);
+        assert_eq!(rule.rhs.nodes.len(), 3); // x, shift_amt, out
+        assert_eq!(rule.rhs.incidences.len(), 3);
+        assert_eq!(rule.rhs.edges.iter().find(|e| e.id == "shl_op").unwrap().attributes.get("opcode").unwrap(), &json!("shl"));
 
         // Check NAC
         assert_eq!(rule.nacs.len(), 1);
@@ -5825,43 +6059,46 @@ mod tests {
     pub fn create_strength_reduction_rule() -> DpoRule {
         // LHS: mul operation with constant power of 2
         let mut lhs = ProgramInteractionHypergraph::new();
-        let mul_event = Event {
+        let mul_edge = Edge {
             id: "mul_op".to_string(),
-            opcode: "mul".to_string(),
-            dtype: "i32".to_string(),
-            can_throw: false,
-            cid: None,
-            attributes: HashMap::new(),
+            kind: EdgeKind::Event,
+            label: Some("mul".to_string()),
+            attributes: [
+                ("opcode".to_string(), json!("mul")),
+                ("dtype".to_string(), json!("i32")),
+                ("can_throw".to_string(), json!(false)),
+            ].iter().cloned().collect(),
             cid: None,
         };
-        let x_entity = Entity {
+        let x_node = Node {
             id: "x".to_string(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes: HashMap::new(),
             cid: None,
         };
-        let c_entity = Entity {
+        let c_node = Node {
             id: "c".to_string(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes: [
                 ("is_const".to_string(), json!(true)),
                 ("value".to_string(), json!(8)), // 2^3
             ].iter().cloned().collect(),
+            cid: None,
         };
-        let out_entity = Entity {
+        let out_node = Node {
             id: "out".to_string(),
-            kind: EntityKind::Val,
-            entity_type: "i32".to_string(),
+            kind: NodeKind::Val,
+            node_type: "i32".to_string(),
             attributes: HashMap::new(),
             cid: None,
         };
 
-        lhs.events.insert(mul_event.id.clone(), mul_event);
-        lhs.entities.insert(x_entity.id.clone(), x_entity.clone());
-        lhs.entities.insert(c_entity.id.clone(), c_entity);
-        lhs.entities.insert(out_entity.id.clone(), out_entity.clone());
+        lhs.edges.push(mul_edge);
+        lhs.nodes.push(x_node.clone());
+        lhs.nodes.push(c_node);
+        lhs.nodes.push(out_node.clone());
 
         lhs.incidence.push(Incidence {
             event: "mul_op".to_string(),

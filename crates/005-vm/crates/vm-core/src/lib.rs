@@ -16,7 +16,7 @@ use vm_cpu::{VonNeumannCore, VonNeumannCoreImpl};
 use vm_scheduler::{DataflowRuntime, DataflowRuntimeImpl};
 use vm_types::{Dag, Task, Instruction, TaskCharacteristics, ComputationType, HardwareTile, HardwareTileType, IoInterface};
 use vm_hardware::{ComputeTile, CpuTile, GpuTile, CgraFpgaTile, PimTile};
-use vm_gnn::{ProgramInteractionHypergraph, EntityKind, convert_computation_to_pih, create_strength_reduction_rule, create_constant_folding_rule, create_dead_code_elimination_rule, create_loop_fusion_rule, create_vectorization_rule, create_parallelization_rule, gnn_training::{GnnTrainer, TrainingConfig, TrainingStats, FeatureExtractor}};
+use vm_gnn::{ProgramInteractionHypergraph, NodeKind, EdgeKind, RoleKind, convert_computation_to_pih, create_strength_reduction_rule, create_constant_folding_rule, create_dead_code_elimination_rule, create_loop_fusion_rule, create_vectorization_rule, create_parallelization_rule, gnn_training::{GnnTrainer, TrainingConfig, TrainingStats, FeatureExtractor}};
 use std::future::Future;
 use std::pin::Pin;
 use serde_json::json;
@@ -228,57 +228,86 @@ impl Vm {
         let mut combined_pih = ProgramInteractionHypergraph::new();
 
         // Example: Generate PIH for multiple multiplication operations
-        let inputs = vec![("x".to_string(), EntityKind::Val, "i32".to_string())];
-        let outputs = vec![("result".to_string(), EntityKind::Val, "i32".to_string())];
+        let inputs = vec![("x".to_string(), NodeKind::Val, "i32".to_string())];
+        let outputs = vec![("result".to_string(), NodeKind::Val, "i32".to_string())];
         let constants = vec![("eight".to_string(), json!(8))];
 
         let pih = convert_computation_to_pih("mul", inputs, outputs, constants);
 
         // Add some state management
-        let _state_in = vm_gnn::Entity {
+        let _state_in = vm_gnn::Node {
             id: "heap_v1".to_string(),
-            kind: EntityKind::State,
-            entity_type: "heap".to_string(),
+            kind: NodeKind::State,
+            node_type: "heap".to_string(),
             attributes: std::collections::HashMap::new(),
+            cid: None,
         };
 
-        let _state_out = vm_gnn::Entity {
+        let _state_out = vm_gnn::Node {
             id: "heap_v2".to_string(),
-            kind: EntityKind::State,
-            entity_type: "heap".to_string(),
+            kind: NodeKind::State,
+            node_type: "heap".to_string(),
             attributes: std::collections::HashMap::new(),
+            cid: None,
         };
 
-        combined_pih.events.extend(pih.events);
-        combined_pih.entities.extend(pih.entities);
-        combined_pih.incidence.extend(pih.incidence);
+        combined_pih.nodes.extend(pih.nodes);
+        combined_pih.edges.extend(pih.edges);
+        combined_pih.incidences.extend(pih.incidences);
 
-        // Add state edges
-        combined_pih.state_edges.push(vm_gnn::StateEdge {
-            from: "heap_v1".to_string(),
-            to: "heap_v2".to_string(),
-        });
+        // Add state flow edge (using Flow edge instead of state_edges)
+        let state_flow_edge = vm_gnn::Edge {
+            id: "state_flow".to_string(),
+            kind: vm_gnn::EdgeKind::Flow,
+            label: Some("heap_version_chain".to_string()),
+            attributes: [("flow_type".to_string(), json!("VERSION_CHAIN"))].iter().cloned().collect(),
+            cid: None,
+        };
+
+        let state_flow_incidence1 = vm_gnn::Incidence {
+            edge: "state_flow".to_string(),
+            node: "heap_v1".to_string(),
+            role: vm_gnn::RoleKind::Src,
+            idx: Some(0),
+            attrs: std::collections::HashMap::new(),
+            cid: None,
+        };
+
+        let state_flow_incidence2 = vm_gnn::Incidence {
+            edge: "state_flow".to_string(),
+            node: "heap_v2".to_string(),
+            role: vm_gnn::RoleKind::Dst,
+            idx: Some(0),
+            attrs: std::collections::HashMap::new(),
+            cid: None,
+        };
+
+        combined_pih.edges.push(state_flow_edge);
+        combined_pih.incidences.push(state_flow_incidence1);
+        combined_pih.incidences.push(state_flow_incidence2);
 
         self.gnn_engine.set_current_pih(combined_pih);
     }
 
     /// Converts optimized PIH to a DAG for execution
     fn convert_pih_to_dag(&self, pih: &ProgramInteractionHypergraph) -> Dag {
-        // Convert PIH events to tasks
-        let tasks: Vec<Task> = pih.events.values().enumerate().map(|(i, _event)| {
-            Task {
-                id: i as u64,
-                operation: vec![Instruction::Halt], // Placeholder
-                dependencies: vec![], // TODO: Extract dependencies from PIH
-                estimated_execution_time: 100, // TODO: Use GNN prediction
-                characteristics: TaskCharacteristics {
-                    computation_type: ComputationType::GeneralPurpose,
-                    data_size: 1024,
-                    parallelism_factor: 1,
-                    memory_intensity: 0.5,
-                },
-            }
-        }).collect();
+        // Convert PIH Event edges to tasks
+        let tasks: Vec<Task> = pih.edges.iter().enumerate()
+            .filter(|(_, edge)| matches!(edge.kind, vm_gnn::EdgeKind::Event))
+            .map(|(i, edge)| {
+                Task {
+                    id: i as u64,
+                    operation: vec![Instruction::Halt], // Placeholder - convert from opcode
+                    dependencies: vec![], // TODO: Extract dependencies from incidence relationships
+                    estimated_execution_time: 100, // TODO: Use GNN prediction
+                    characteristics: TaskCharacteristics {
+                        computation_type: ComputationType::GeneralPurpose,
+                        data_size: 1024,
+                        parallelism_factor: 1,
+                        memory_intensity: 0.5,
+                    },
+                }
+            }).collect();
 
         Dag { tasks }
     }
@@ -465,8 +494,8 @@ mod tests {
         // Verify PIH was generated
         assert!(vm.gnn_engine.get_current_pih().is_some());
         let pih = vm.gnn_engine.get_current_pih().unwrap();
-        assert!(pih.events.len() > 0);
-        assert!(pih.entities.len() > 0);
+        assert!(pih.edges.len() > 0);
+        assert!(pih.nodes.len() > 0);
 
         // Verify all optimization rules are available (basic + advanced)
         assert!(vm.gnn_engine.get_rules().len() >= 6);
