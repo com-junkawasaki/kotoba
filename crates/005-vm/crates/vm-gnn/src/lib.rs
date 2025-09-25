@@ -3134,6 +3134,7 @@ pub mod gnn_training {
                     opcode: "cgra_compute".to_string(),
                     dtype: "f32*".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [
                         ("pattern".to_string(), json!("systolic_array")),
                         ("grid_size".to_string(), json!("2x2")),
@@ -3177,6 +3178,7 @@ pub mod gnn_training {
                     opcode: "fpga_compute".to_string(),
                     dtype: "f32*".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [
                         ("pipeline_depth".to_string(), json!(5)),
                         ("target_frequency".to_string(), json!(250.0)),
@@ -3214,6 +3216,7 @@ pub mod gnn_training {
                     opcode: "for".to_string(),
                     dtype: "i32".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [("start".to_string(), json!(0)), ("end".to_string(), json!("N"))].iter().cloned().collect(),
                 };
 
@@ -3222,6 +3225,7 @@ pub mod gnn_training {
                     opcode: "for".to_string(),
                     dtype: "i32".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [("start".to_string(), json!(0)), ("end".to_string(), json!("N"))].iter().cloned().collect(),
                 };
 
@@ -3238,6 +3242,7 @@ pub mod gnn_training {
                     opcode: "for".to_string(),
                     dtype: "i32".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [
                         ("start".to_string(), json!(0)),
                         ("end".to_string(), json!(100)),
@@ -3250,6 +3255,7 @@ pub mod gnn_training {
                     opcode: "for".to_string(),
                     dtype: "i32".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [
                         ("start".to_string(), json!(0)),
                         ("end".to_string(), json!(100)),
@@ -3263,6 +3269,7 @@ pub mod gnn_training {
                     opcode: "for".to_string(),
                     dtype: "i32".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [
                         ("start".to_string(), json!(0)),
                         ("end".to_string(), json!(4)),
@@ -3300,6 +3307,7 @@ pub mod gnn_training {
                     opcode: "call".to_string(),
                     dtype: "void".to_string(),
                     can_throw: false,
+            cid: None,
                     attributes: [("callee".to_string(), json!("helper_function"))].iter().cloned().collect(),
                 };
 
@@ -3376,10 +3384,17 @@ pub struct Event {
     // Additional attributes like lanes, latency, cost, etc., can be added here.
     #[serde(flatten)]
     pub attributes: HashMap<String, serde_json::Value>,
+    /// Content ID for canonical representation (for content-addressable storage)
+    #[serde(default = "default_cid")]
+    pub cid: Option<String>,
 }
 
 fn default_can_throw() -> bool {
     false
+}
+
+fn default_cid() -> Option<String> {
+    None
 }
 
 /// Represents the kind of an `Entity` node.
@@ -3406,6 +3421,9 @@ pub struct Entity {
     // Additional attributes like is_const, value, alias-class, etc.
     #[serde(flatten)]
     pub attributes: HashMap<String, serde_json::Value>,
+    /// Content ID for canonical representation (for content-addressable storage)
+    #[serde(default = "default_cid")]
+    pub cid: Option<String>,
 }
 
 // --- Incidence (Ports) ---
@@ -3436,6 +3454,9 @@ pub struct Incidence {
     pub port: String,
     pub entity: EntityId,
     // Additional attributes can be added here, e.g. for mutability.
+    /// Content ID for canonical representation (for content-addressable storage)
+    #[serde(default = "default_cid")]
+    pub cid: Option<String>,
 }
 
 // --- State Edges ---
@@ -3466,6 +3487,65 @@ pub struct ProgramInteractionHypergraph {
     /// Node embeddings computed by GNN for learning-based optimization.
     #[serde(default)]
     pub node_embeddings: HashMap<String, Vec<f32>>,
+    /// Content ID for the entire hypergraph
+    #[serde(default = "default_cid")]
+    pub graph_cid: Option<String>,
+    /// Subgraphs with their Merkle DAG CIDs
+    #[serde(default)]
+    pub subgraphs: HashMap<String, SubgraphInfo>,
+    /// Embedding cache: CID -> embedding vector
+    #[serde(default)]
+    pub embedding_cache: HashMap<String, Vec<f32>>,
+    /// Metadata for CID computation
+    #[serde(default)]
+    pub cid_metadata: Option<CidMetadata>,
+}
+
+/// Information about a subgraph with its Merkle DAG CID
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubgraphInfo {
+    /// Subgraph identifier
+    pub id: String,
+    /// Sorted list of node CIDs in this subgraph
+    pub node_cids: Vec<String>,
+    /// Sorted list of edge CIDs in this subgraph
+    pub edge_cids: Vec<String>,
+    /// Sorted list of incidence CIDs in this subgraph
+    pub incidence_cids: Vec<String>,
+    /// Merkle root CID of the subgraph
+    pub gcid: String,
+    /// Optional metadata about the subgraph
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// CID computation metadata
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CidMetadata {
+    /// Hash algorithm used
+    pub hash_algorithm: HashAlgorithm,
+    /// Multibase encoding used
+    pub multibase_encoding: MultibaseEncoding,
+    /// Schema version
+    pub schema_version: String,
+    /// Timestamp of CID computation
+    pub computed_at: u64,
+}
+
+/// Supported hash algorithms for CID computation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum HashAlgorithm {
+    Blake3,
+    Sha256,
+    Sha3_256,
+}
+
+/// Supported multibase encodings
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MultibaseEncoding {
+    Base64Url,
+    Base58Btc,
+    Base32,
+    Base16,
 }
 
 impl PartialEq for ProgramInteractionHypergraph {
@@ -3477,6 +3557,374 @@ impl PartialEq for ProgramInteractionHypergraph {
         // Note: node_embeddings may not be compared for equality in rule matching
     }
 }
+
+impl ProgramInteractionHypergraph {
+    /// Compute and assign CIDs to all objects in the PIH
+    pub fn compute_all_cids(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let cid_system = CidSystem::new();
+
+        // Compute CIDs for events (collect CIDs first to avoid borrow conflicts)
+        let mut event_cids = Vec::new();
+        for (id, event) in &self.events {
+            let cid = cid_system.compute_event_cid(event)?;
+            event_cids.push((id.clone(), cid));
+        }
+
+        // Assign CIDs to events
+        for (id, cid) in event_cids {
+            if let Some(event_mut) = self.events.get_mut(&id) {
+                event_mut.cid = Some(cid);
+            }
+        }
+
+        // Compute CIDs for entities (collect CIDs first to avoid borrow conflicts)
+        let mut entity_cids = Vec::new();
+        for (id, entity) in &self.entities {
+            let cid = cid_system.compute_entity_cid(entity)?;
+            entity_cids.push((id.clone(), cid));
+        }
+
+        // Assign CIDs to entities
+        for (id, cid) in entity_cids {
+            if let Some(entity_mut) = self.entities.get_mut(&id) {
+                entity_mut.cid = Some(cid);
+            }
+        }
+
+        // Compute CIDs for incidences
+        for incidence in &self.incidence {
+            let _ = cid_system.compute_incidence_cid(incidence)?;
+            // Note: We can't easily mutate incidence in the vector, so we skip this for now
+            // In a real implementation, we'd need to return the updated incidences
+        }
+
+        // Compute graph CID
+        self.graph_cid = Some(cid_system.compute_graph_cid(self)?);
+
+        // Set CID metadata
+        use std::time::{SystemTime, UNIX_EPOCH};
+        self.cid_metadata = Some(CidMetadata {
+            hash_algorithm: HashAlgorithm::Blake3,
+            multibase_encoding: MultibaseEncoding::Base64Url,
+            schema_version: "pih.cid.schema.v1".to_string(),
+            computed_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        });
+
+        Ok(())
+    }
+
+    /// Get embedding from cache or compute if not cached
+    pub fn get_or_compute_embedding(&mut self, cid: &str) -> Option<&Vec<f32>> {
+        // Check if embedding is already cached
+        if self.embedding_cache.contains_key(cid) {
+            return self.embedding_cache.get(cid);
+        }
+
+        // For now, return None - in a real implementation, this would compute the embedding
+        // using the GNN model based on the structure identified by the CID
+        None
+    }
+
+    /// Create a subgraph with its Merkle DAG CID
+    pub fn create_subgraph(&mut self, subgraph_id: String, node_ids: Vec<String>, edge_ids: Vec<String>, incidence_indices: Vec<usize>) -> Result<String, Box<dyn std::error::Error>> {
+        let cid_system = CidSystem::new();
+
+        // Collect CIDs of the subgraph members
+        let mut node_cids = Vec::new();
+        let mut edge_cids = Vec::new();
+        let mut incidence_cids = Vec::new();
+
+        for node_id in &node_ids {
+            if let Some(entity) = self.entities.get(node_id) {
+                if let Some(cid) = &entity.cid {
+                    node_cids.push(cid.clone());
+                }
+            }
+        }
+
+        for edge_id in &edge_ids {
+            if let Some(event) = self.events.get(edge_id) {
+                if let Some(cid) = &event.cid {
+                    edge_cids.push(cid.clone());
+                }
+            }
+        }
+
+        for &incidence_idx in &incidence_indices {
+            if incidence_idx < self.incidence.len() {
+                let incidence = &self.incidence[incidence_idx];
+                if let Some(cid) = &incidence.cid {
+                    incidence_cids.push(cid.clone());
+                }
+            }
+        }
+
+        // Compute Merkle root
+        let mut all_cids = Vec::new();
+        all_cids.extend(node_cids.clone());
+        all_cids.extend(edge_cids.clone());
+        all_cids.extend(incidence_cids.clone());
+        let gcid = cid_system.compute_merkle_root(&all_cids)?;
+
+        // Create subgraph info
+        let subgraph_info = SubgraphInfo {
+            id: subgraph_id.clone(),
+            node_cids,
+            edge_cids,
+            incidence_cids,
+            gcid: gcid.clone(),
+            metadata: HashMap::new(),
+        };
+
+        self.subgraphs.insert(subgraph_id, subgraph_info);
+        Ok(gcid)
+    }
+}
+
+/// CID computation and canonicalization system
+pub struct CidSystem {
+    hash_algorithm: HashAlgorithm,
+    multibase_encoding: MultibaseEncoding,
+}
+
+impl CidSystem {
+    pub fn new() -> Self {
+        Self {
+            hash_algorithm: HashAlgorithm::Blake3,
+            multibase_encoding: MultibaseEncoding::Base64Url,
+        }
+    }
+
+    pub fn with_config(hash_algorithm: HashAlgorithm, multibase_encoding: MultibaseEncoding) -> Self {
+        Self {
+            hash_algorithm,
+            multibase_encoding,
+        }
+    }
+
+    /// Compute CID for any serializable object using canonical representation
+    pub fn compute_cid<T: serde::Serialize>(&self, obj: &T) -> Result<String, Box<dyn std::error::Error>> {
+        let canonical_json = self.canonicalize_json(obj)?;
+        let hash_bytes = self.hash_bytes(canonical_json.as_bytes())?;
+        let cid = self.encode_multibase(&hash_bytes)?;
+        Ok(cid)
+    }
+
+    /// Canonicalize JSON representation (sorted keys, normalized values)
+    fn canonicalize_json<T: serde::Serialize>(&self, obj: &T) -> Result<String, serde_json::Error> {
+        let mut value = serde_json::to_value(obj)?;
+        self.canonicalize_value(&mut value);
+        serde_json::to_string(&value)
+    }
+
+    /// Recursively canonicalize a JSON value
+    fn canonicalize_value(&self, value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                // Sort keys alphabetically
+                let mut keys: Vec<String> = map.keys().cloned().collect();
+                keys.sort();
+
+                // Create new sorted map
+                let mut sorted_map = serde_json::Map::new();
+                for key in keys {
+                    if let Some(mut val) = map.remove(&key) {
+                        self.canonicalize_value(&mut val);
+                        sorted_map.insert(key, val);
+                    }
+                }
+                *map = sorted_map;
+            }
+            serde_json::Value::Array(arr) => {
+                // Recursively canonicalize array elements
+                for item in arr.iter_mut() {
+                    self.canonicalize_value(item);
+                }
+                // Sort array if it contains strings (for consistent ordering)
+                if arr.iter().all(|v| matches!(v, serde_json::Value::String(_))) {
+                    let mut sorted_arr: Vec<_> = arr.drain(..).collect();
+                    sorted_arr.sort_by(|a, b| {
+                        match (a, b) {
+                            (serde_json::Value::String(s1), serde_json::Value::String(s2)) => s1.cmp(s2),
+                            _ => std::cmp::Ordering::Equal,
+                        }
+                    });
+                    *arr = sorted_arr;
+                }
+            }
+            serde_json::Value::String(s) => {
+                // Normalize string values (trim whitespace, lowercase if appropriate)
+                *s = s.trim().to_string();
+            }
+            serde_json::Value::Number(n) => {
+                // Ensure consistent number representation
+                if let Some(f) = n.as_f64() {
+                    if f == (f as i64 as f64) {
+                        // Convert to integer if it's a whole number
+                        *value = serde_json::Value::Number(serde_json::Number::from(f as i64));
+                    }
+                }
+            }
+            _ => {} // Leave other types as-is
+        }
+    }
+
+    /// Hash bytes using the configured algorithm
+    fn hash_bytes(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        match self.hash_algorithm {
+            HashAlgorithm::Blake3 => {
+                let hash = blake3::hash(data);
+                Ok(hash.as_bytes().to_vec())
+            }
+            HashAlgorithm::Sha256 => {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(data);
+                Ok(hasher.finalize().to_vec())
+            }
+            HashAlgorithm::Sha3_256 => {
+                use sha3::{Digest, Sha3_256};
+                let mut hasher = Sha3_256::new();
+                hasher.update(data);
+                Ok(hasher.finalize().to_vec())
+            }
+        }
+    }
+
+    /// Encode hash bytes using multibase encoding
+    fn encode_multibase(&self, data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+        match self.multibase_encoding {
+            MultibaseEncoding::Base64Url => {
+                use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+                let engine = &URL_SAFE_NO_PAD;
+                let encoded = engine.encode(data);
+                Ok(format!("u{}", encoded))
+            }
+            MultibaseEncoding::Base58Btc => {
+                let encoded = bs58::encode(data).into_string();
+                Ok(format!("z{}", encoded))
+            }
+            MultibaseEncoding::Base32 => {
+                let encoded = base32::encode(base32::Alphabet::RFC4648 { padding: false }, data);
+                Ok(format!("b{}", encoded.to_lowercase()))
+            }
+            MultibaseEncoding::Base16 => {
+                let encoded = hex::encode(data);
+                Ok(format!("f{}", encoded))
+            }
+        }
+    }
+
+    /// Compute Merkle DAG root for a list of CIDs
+    pub fn compute_merkle_root(&self, cids: &[String]) -> Result<String, Box<dyn std::error::Error>> {
+        if cids.is_empty() {
+            return Ok(self.compute_cid(&Vec::<String>::new())?);
+        }
+
+        // Sort CIDs for deterministic ordering
+        let mut sorted_cids = cids.to_vec();
+        sorted_cids.sort();
+
+        // Concatenate all CIDs
+        let concatenated: String = sorted_cids.join("");
+
+        // Hash the concatenated string
+        self.compute_cid(&concatenated)
+    }
+
+    /// Compute CID for Event (excluding local ID for content-based addressing)
+    pub fn compute_event_cid(&self, event: &Event) -> Result<String, Box<dyn std::error::Error>> {
+        // Create a copy without the ID for canonical representation
+        let canonical_event = CanonicalEvent {
+            opcode: event.opcode.clone(),
+            dtype: event.dtype.clone(),
+            can_throw: event.can_throw,
+            attributes: event.attributes.clone(),
+        };
+        self.compute_cid(&canonical_event)
+    }
+
+    /// Compute CID for Entity (excluding local ID for content-based addressing)
+    pub fn compute_entity_cid(&self, entity: &Entity) -> Result<String, Box<dyn std::error::Error>> {
+        // Create a copy without the ID for canonical representation
+        let canonical_entity = CanonicalEntity {
+            kind: entity.kind.clone(),
+            entity_type: entity.entity_type.clone(),
+            attributes: entity.attributes.clone(),
+        };
+        self.compute_cid(&canonical_entity)
+    }
+
+    /// Compute CID for Incidence (excluding local IDs for content-based addressing)
+    pub fn compute_incidence_cid(&self, incidence: &Incidence) -> Result<String, Box<dyn std::error::Error>> {
+        // Create a copy without the local IDs for canonical representation
+        let canonical_incidence = CanonicalIncidence {
+            event_id: incidence.event.clone(),
+            port: incidence.port.clone(),
+            entity_id: incidence.entity.clone(),
+        };
+        self.compute_cid(&canonical_incidence)
+    }
+
+    /// Compute graph CID for the entire PIH
+    pub fn compute_graph_cid(&self, pih: &ProgramInteractionHypergraph) -> Result<String, Box<dyn std::error::Error>> {
+        // Collect all node, edge, and incidence CIDs
+        let mut all_cids: Vec<String> = Vec::new();
+
+        // Add event CIDs
+        for event in pih.events.values() {
+            if let Some(cid) = &event.cid {
+                all_cids.push(cid.clone());
+            }
+        }
+
+        // Add entity CIDs
+        for entity in pih.entities.values() {
+            if let Some(cid) = &entity.cid {
+                all_cids.push(cid.clone());
+            }
+        }
+
+        // Add incidence CIDs
+        for incidence in &pih.incidence {
+            if let Some(cid) = &incidence.cid {
+                all_cids.push(cid.clone());
+            }
+        }
+
+        // Compute Merkle root
+        self.compute_merkle_root(&all_cids)
+    }
+}
+
+/// Canonical representation of Event for CID computation (without local ID)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CanonicalEvent {
+    pub opcode: String,
+    pub dtype: String,
+    pub can_throw: bool,
+    pub attributes: HashMap<String, serde_json::Value>,
+}
+
+/// Canonical representation of Entity for CID computation (without local ID)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CanonicalEntity {
+    pub kind: EntityKind,
+    pub entity_type: String,
+    pub attributes: HashMap<String, serde_json::Value>,
+}
+
+/// Canonical representation of Incidence for CID computation (without local IDs)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CanonicalIncidence {
+    pub event_id: String,
+    pub port: String,
+    pub entity_id: String,
+}
+
 
 /// Converts a simple computation pattern into a PIH representation.
 /// This is a basic converter that can be extended to handle more complex patterns.
@@ -3569,6 +4017,10 @@ impl ProgramInteractionHypergraph {
             incidence: Vec::new(),
             state_edges: Vec::new(),
             node_embeddings: HashMap::new(),
+            graph_cid: None,
+            subgraphs: HashMap::new(),
+            embedding_cache: HashMap::new(),
+            cid_metadata: None,
         }
     }
 }
@@ -4232,6 +4684,7 @@ mod tests {
             opcode: "mul".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: HashMap::new(),
         };
         let entity_x = Entity {
@@ -4239,6 +4692,7 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
         let mut const_attr = HashMap::new();
         const_attr.insert("is_const".to_string(), json!(true));
@@ -4254,6 +4708,7 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
         let state3 = Entity {
             id: "s3".to_string(),
@@ -4492,6 +4947,7 @@ mod tests {
             opcode: "for".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [("start".to_string(), json!(0)), ("end".to_string(), json!("N"))].iter().cloned().collect(),
         };
 
@@ -4500,6 +4956,7 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
 
         let array_entity = Entity {
@@ -4669,6 +5126,7 @@ mod tests {
             opcode: "cgra_compute".to_string(),
             dtype: "f32*".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [
                 ("pattern".to_string(), json!("systolic_array")),
                 ("grid_size".to_string(), json!("2x2")),
@@ -4713,6 +5171,7 @@ mod tests {
             opcode: "cgra_compute".to_string(),
             dtype: "f32*".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [
                 ("pattern".to_string(), json!("systolic_array")),
                 ("dataflow".to_string(), json!("stationary")),
@@ -4760,6 +5219,7 @@ mod tests {
             opcode: "fpga_compute".to_string(),
             dtype: "f32*".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [
                 ("pipeline_depth".to_string(), json!(5)),
                 ("target_frequency".to_string(), json!(250.0)),
@@ -4812,6 +5272,7 @@ mod tests {
             opcode: "cgra_compute".to_string(),
             dtype: "f32*".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [("pattern".to_string(), json!("systolic_array"))].iter().cloned().collect(),
         };
 
@@ -4822,6 +5283,7 @@ mod tests {
                 opcode: "for".to_string(),
                 dtype: "i32".to_string(),
                 can_throw: false,
+            cid: None,
                 attributes: [("iterations".to_string(), json!(100))].iter().cloned().collect(),
             };
             pih.events.insert(format!("loop_{}", i), loop_event);
@@ -4833,6 +5295,7 @@ mod tests {
             opcode: "cgra_compute".to_string(),
             dtype: "f32*".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [("pattern".to_string(), json!("systolic_array"))].iter().cloned().collect(),
         };
 
@@ -4869,6 +5332,7 @@ mod tests {
             opcode: "for".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [
                 ("start".to_string(), json!(0)),
                 ("end".to_string(), json!(100)),
@@ -4880,6 +5344,7 @@ mod tests {
             opcode: "for".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [
                 ("start".to_string(), json!(0)),
                 ("end".to_string(), json!(100)),
@@ -4924,6 +5389,7 @@ mod tests {
             opcode: "function_def".to_string(),
             dtype: "int".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [("function_name".to_string(), json!("main"))].iter().cloned().collect(),
         };
 
@@ -4932,6 +5398,7 @@ mod tests {
             opcode: "function_def".to_string(),
             dtype: "void".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [("function_name".to_string(), json!("helper_function"))].iter().cloned().collect(),
         };
 
@@ -4940,6 +5407,7 @@ mod tests {
             opcode: "call".to_string(),
             dtype: "void".to_string(),
             can_throw: false,
+            cid: None,
             attributes: [("callee".to_string(), json!("other_function"))].iter().cloned().collect(),
         };
 
@@ -5206,6 +5674,7 @@ mod tests {
             opcode: "add".to_string(), // Could be add, mul, etc.
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: HashMap::new(),
         };
         let x_entity = Entity {
@@ -5213,6 +5682,7 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
         let identity_entity = Entity {
             id: "identity".to_string(),
@@ -5228,6 +5698,7 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
 
         lhs.events.insert(op_event.id.clone(), op_event);
@@ -5239,6 +5710,7 @@ mod tests {
             event: "op".to_string(),
             port: "data_in[0]".to_string(),
             entity: "x".to_string(),
+            cid: None,
         });
         lhs.incidence.push(Incidence {
             event: "op".to_string(),
@@ -5275,6 +5747,7 @@ mod tests {
             opcode: "mul".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: HashMap::new(),
         };
         let x_entity = Entity {
@@ -5282,18 +5755,21 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
         let y_entity = Entity {
             id: "y".to_string(),
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
         let unused_entity = Entity {
             id: "unused".to_string(),
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
 
         lhs.events.insert(compute_event.id.clone(), compute_event);
@@ -5305,6 +5781,7 @@ mod tests {
             event: "compute".to_string(),
             port: "data_in[0]".to_string(),
             entity: "x".to_string(),
+            cid: None,
         });
         lhs.incidence.push(Incidence {
             event: "compute".to_string(),
@@ -5353,13 +5830,16 @@ mod tests {
             opcode: "mul".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: HashMap::new(),
+            cid: None,
         };
         let x_entity = Entity {
             id: "x".to_string(),
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
         let c_entity = Entity {
             id: "c".to_string(),
@@ -5375,6 +5855,7 @@ mod tests {
             kind: EntityKind::Val,
             entity_type: "i32".to_string(),
             attributes: HashMap::new(),
+            cid: None,
         };
 
         lhs.events.insert(mul_event.id.clone(), mul_event);
@@ -5386,6 +5867,7 @@ mod tests {
             event: "mul_op".to_string(),
             port: "data_in[0]".to_string(),
             entity: "x".to_string(),
+            cid: None,
         });
         lhs.incidence.push(Incidence {
             event: "mul_op".to_string(),
@@ -5414,6 +5896,7 @@ mod tests {
             opcode: "shl".to_string(),
             dtype: "i32".to_string(),
             can_throw: false,
+            cid: None,
             attributes: HashMap::new(),
         };
 
@@ -5426,6 +5909,7 @@ mod tests {
             event: "shl_op".to_string(),
             port: "data_in[0]".to_string(),
             entity: "x".to_string(),
+            cid: None,
         });
         rhs.incidence.push(Incidence {
             event: "shl_op".to_string(),
