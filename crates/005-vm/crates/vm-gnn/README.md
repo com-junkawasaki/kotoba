@@ -6,9 +6,10 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 
 - **Core PIH Data Structures**: ✅ Complete
 - **DPO Rewriting System**: ✅ Complete with 6 optimization rules (Basic + Advanced)
+- **GNN Training Infrastructure**: ✅ Bipartite/Hypergraph-aware feature extraction, model training, synthetic data generation
 - **GNN Integration**: ✅ Node embeddings and semantic hashing
 - **Serialization**: ✅ JSON serialization/deserialization
-- **Testing**: ✅ 8 comprehensive unit tests (100% pass rate)
+- **Testing**: ✅ 12 comprehensive unit tests (100% pass rate)
 - **VM-Core Integration**: ✅ Complete integration with vm-core, all tests passing
 
 ## 🎯 Key Features
@@ -17,17 +18,39 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 - **Bipartite Hypergraph Structure**: Events (operations) and Entities (values/states)
 - **DPO Rewriting Rules**: 6 rules - Basic (3): strength reduction, constant folding, dead code elimination
                        + Advanced (3): loop fusion, vectorization, parallelization
-- **GNN-Ready Design**: Node embeddings and semantic hashing
-- **Full Test Coverage**: 8 tests passing, comprehensive validation
+- **Bipartite/Hypergraph GNN**: Bipartite Graph Neural Networks + Hypergraph Neural Networks
+- **Full Test Coverage**: 12 tests passing, comprehensive validation
 - **Clean Architecture**: Modular design with clear separation of concerns
 
 ### 🔄 Next Steps
-- **GNN Training**: Machine learning models for better optimization predictions
+- **Advanced GNN Models**: Real GNN architectures (GAT, GCN, GraphSAGE)
 - **Hardware-Specific Optimizations**: CGRA/FPGA-specific PIH patterns
 - **Advanced Loop Transformations**: Loop interchange, loop tiling, loop unrolling
 - **Memory Optimizations**: Cache optimization, prefetching, memory layout transformation
+- **Production Training**: Real dataset collection and model training pipelines
 
 ## Architecture Overview
+
+### Bipartite/Hypergraph GNN Design
+
+The GNN Training infrastructure is specifically designed for **Bipartite Graph Neural Networks** and **Hypergraph Neural Networks**:
+
+#### **Bipartite Graph Structure**
+- **Event Nodes**: Operations, loops, function calls
+- **Entity Nodes**: Values, states, arrays, variables
+- **Bipartite Edges**: Connect operations to their operands/results
+- **Message Passing**: Separate handling of Event→Entity and Entity→Event flows
+
+#### **Hypergraph Structure**
+- **Hyperedges**: Events that connect multiple entities (e.g., function calls with multiple arguments)
+- **Incidence Structure**: Tracks which entities participate in which operations
+- **Hypergraph-aware Aggregation**: Special handling for multi-entity operations
+
+#### **Key Components**
+- **BipartiteFeatures**: Event/entity counts, connectivity metrics, type distributions
+- **HypergraphFeatures**: Hyperedge sizes, clustering coefficients, degree distributions
+- **Bipartite Message Passing**: Specialized aggregation for different node types
+- **Hypergraph Pooling**: Global representation considering hypergraph structure
 
 The PIH model is designed to address the limitations of traditional program representations by:
 

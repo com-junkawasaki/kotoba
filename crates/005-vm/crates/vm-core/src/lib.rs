@@ -16,7 +16,7 @@ use vm_cpu::{VonNeumannCore, VonNeumannCoreImpl};
 use vm_scheduler::{DataflowRuntime, DataflowRuntimeImpl};
 use vm_types::{Dag, Task, Instruction, TaskCharacteristics, ComputationType, HardwareTile, HardwareTileType, IoInterface};
 use vm_hardware::{ComputeTile, CpuTile, GpuTile, CgraFpgaTile, PimTile};
-use vm_gnn::{ProgramInteractionHypergraph, EntityKind, convert_computation_to_pih, create_strength_reduction_rule, create_constant_folding_rule, create_dead_code_elimination_rule, create_loop_fusion_rule, create_vectorization_rule, create_parallelization_rule};
+use vm_gnn::{ProgramInteractionHypergraph, EntityKind, convert_computation_to_pih, create_strength_reduction_rule, create_constant_folding_rule, create_dead_code_elimination_rule, create_loop_fusion_rule, create_vectorization_rule, create_parallelization_rule, gnn_training::{GnnTrainer, TrainingConfig, TrainingStats, FeatureExtractor}};
 use std::future::Future;
 use std::pin::Pin;
 use serde_json::json;
@@ -38,13 +38,17 @@ pub struct Vm {
     gnn_engine: GnnEngine,
 }
 
-/// Simple GNN engine for PIH analysis and optimization
-pub struct GnnEngine {
-    /// Current PIH representation
-    current_pih: Option<ProgramInteractionHypergraph>,
-    /// Available DPO rules
-    rules: Vec<vm_gnn::DpoRule>,
-}
+        /// Simple GNN engine for PIH analysis and optimization
+        pub struct GnnEngine {
+            /// Current PIH representation
+            current_pih: Option<ProgramInteractionHypergraph>,
+            /// Available DPO rules
+            rules: Vec<vm_gnn::DpoRule>,
+            /// Trained GNN model for optimization prediction
+            trained_model: Option<vm_gnn::gnn_training::OptimizationGnn>,
+            /// Training configuration
+            training_config: TrainingConfig,
+        }
 
 impl GnnEngine {
     pub fn new() -> Self {
@@ -59,14 +63,64 @@ impl GnnEngine {
         rules.push(create_vectorization_rule());
         rules.push(create_parallelization_rule());
 
+        let training_config = TrainingConfig::default();
+
         Self {
             current_pih: None,
             rules,
+            trained_model: None,
+            training_config,
         }
     }
 
     pub fn get_current_pih(&self) -> Option<&ProgramInteractionHypergraph> {
         self.current_pih.as_ref()
+    }
+
+    /// Train GNN model on synthetic data
+    pub fn train_gnn_model(&mut self) -> Result<Vec<TrainingStats>, String> {
+        if self.current_pih.is_none() {
+            return Err("No PIH available for training".to_string());
+        }
+
+        // Generate synthetic training dataset
+        let dataset = GnnTrainer::generate_synthetic_dataset(100);
+
+        // Create new model
+        let mut model = GnnTrainer::create_model(&self.training_config);
+
+        // Train the model
+        let training_stats = GnnTrainer::train_model(&mut model, &dataset, &self.training_config);
+
+        // Store the trained model
+        self.trained_model = Some(model);
+
+        Ok(training_stats)
+    }
+
+    /// Predict optimization opportunities using trained GNN model
+    pub fn predict_optimizations(&self) -> Result<vm_gnn::gnn_training::OptimizationLabels, String> {
+        if let Some(ref pih) = self.current_pih {
+            if let Some(ref model) = self.trained_model {
+                let features = FeatureExtractor::extract_features(pih);
+                let predictions = GnnTrainer::forward(model, &features);
+                Ok(predictions)
+            } else {
+                Err("No trained model available".to_string())
+            }
+        } else {
+            Err("No PIH available for prediction".to_string())
+        }
+    }
+
+    /// Get training configuration
+    pub fn get_training_config(&self) -> &TrainingConfig {
+        &self.training_config
+    }
+
+    /// Update training configuration
+    pub fn set_training_config(&mut self, config: TrainingConfig) {
+        self.training_config = config;
     }
 
     pub fn set_current_pih(&mut self, pih: ProgramInteractionHypergraph) {
@@ -420,5 +474,11 @@ mod tests {
         assert!(rules.iter().any(|r| r.name == "LoopFusion"));
         assert!(rules.iter().any(|r| r.name == "Vectorization"));
         assert!(rules.iter().any(|r| r.name == "Parallelization"));
+
+        // Test GNN training functionality
+        let training_config = vm.gnn_engine.get_training_config().clone();
+        assert_eq!(training_config.learning_rate, 0.001);
+        assert_eq!(training_config.batch_size, 32);
+        assert_eq!(training_config.hidden_dim, 64);
     }
 }
