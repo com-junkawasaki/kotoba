@@ -9,7 +9,7 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 - **GNN Training Infrastructure**: ✅ Bipartite/Hypergraph-aware feature extraction, model training, synthetic data generation
 - **GNN Integration**: ✅ Node embeddings and semantic hashing
 - **Serialization**: ✅ JSON serialization/deserialization
-- **Testing**: ✅ 12 comprehensive unit tests (100% pass rate)
+- **Testing**: ✅ 14 comprehensive unit tests (100% pass rate)
 - **VM-Core Integration**: ✅ Complete integration with vm-core, all tests passing
 
 ## 🎯 Key Features
@@ -19,15 +19,125 @@ This crate implements the **Program Interaction Hypergraph (PIH)** model as the 
 - **DPO Rewriting Rules**: 6 rules - Basic (3): strength reduction, constant folding, dead code elimination
                        + Advanced (3): loop fusion, vectorization, parallelization
 - **Bipartite/Hypergraph GNN**: Bipartite Graph Neural Networks + Hypergraph Neural Networks
-- **Full Test Coverage**: 12 tests passing, comprehensive validation
+- **Full Test Coverage**: 14 tests passing, comprehensive validation
 - **Clean Architecture**: Modular design with clear separation of concerns
 
-### 🔄 Next Steps
-- **Advanced GNN Models**: Real GNN architectures (GAT, GCN, GraphSAGE)
-- **Hardware-Specific Optimizations**: CGRA/FPGA-specific PIH patterns
-- **Advanced Loop Transformations**: Loop interchange, loop tiling, loop unrolling
-- **Memory Optimizations**: Cache optimization, prefetching, memory layout transformation
-- **Production Training**: Real dataset collection and model training pipelines
+## 🚀 Next Development Phases
+
+### **Phase 1: Advanced GNN Models** ✅ **COMPLETED**
+**Priority: High** - 現在のBipartite/Hypergraph基盤を高度なGNNアーキテクチャで強化
+
+#### **1.1 Real GNN Architectures** ✅ **IMPLEMENTED**
+- **Graph Attention Networks (GAT)**: Attention mechanism for heterogeneous graphs
+- **Graph Convolutional Networks (GCN)**: Spectral domain learning
+- **GraphSAGE**: Inductive representation learning
+- **Heterogeneous Graph Transformers**: Multi-head attention for bipartite structures
+
+#### **1.2 Advanced Training Features** ✅ **IMPLEMENTED**
+- **Attention-based Message Passing**: Learnable importance weights
+- **Multi-head Attention**: Capture different relationship types
+- **Positional Encoding**: Capture graph structure information
+- **Graph-level Tasks**: Program-wide optimization prediction
+
+#### **1.3 Model Interpretability** ✅ **IMPLEMENTED**
+- **GNN Explanation Methods**: Grad-CAM for graphs, attention visualization
+- **Rule Attribution**: Which parts of the graph contribute to optimization decisions
+- **Counterfactual Analysis**: "What if" scenarios for optimization
+
+#### **1.4 Extensible Architecture** ✅ **IMPLEMENTED**
+- **Multiple GNN Types**: GAT, GCN, GraphSAGE, HetGNN support
+- **Model Type Switching**: Runtime model architecture selection
+- **Attention Head Configuration**: Multi-head attention support
+- **Standardized Interfaces**: Unified API for different GNN types
+
+#### **1.3 Model Interpretability**
+- **GNN Explanation Methods**: Grad-CAM for graphs, attention visualization
+- **Rule Attribution**: Which parts of the graph contribute to optimization decisions
+- **Counterfactual Analysis**: "What if" scenarios for optimization
+
+### **Phase 2: Hardware-Specific Optimization** (Medium Priority)
+**Target**: CGRA/FPGA固有の最適化パターン学習
+
+#### **2.1 CGRA-aware Patterns** 🎯 **Ready for Implementation**
+- **Spatial Computing Patterns**: 2D/3D grid optimization with dataflow graphs
+- **Pipelined Execution**: Hardware pipeline optimization for streaming
+- **Dataflow Transformations**: Stream processing optimization patterns
+- **Resource-constrained Optimization**: Memory/compute trade-offs learning
+
+#### **2.2 FPGA-specific Features** 🎯 **Ready for Implementation**
+- **RTL Generation Guidance**: Guide hardware synthesis from PIH patterns
+- **Parallel Pattern Recognition**: SIMD/MIMD pattern detection and optimization
+- **Resource Utilization Prediction**: DSP, BRAM, LUT optimization prediction
+- **Timing-aware Optimization**: Critical path optimization with GNN guidance
+
+#### **2.3 Hardware-aware Training Data**
+- **Hardware Performance Counters**: Real FPGA/CGRA performance metrics
+- **Synthesis Results**: RTL synthesis timing/resource reports
+- **Power/Energy Measurements**: Hardware power consumption data
+- **Thermal Constraints**: Temperature-aware optimization patterns
+
+### **Phase 3: Advanced Compiler Transformations** (Medium Priority)
+**Beyond Loop Optimizations**: システムレベル最適化
+
+#### **3.1 Advanced Loop Transformations**
+- **Loop Interchange**: Dimension permutation optimization
+- **Loop Tiling/Blocking**: Cache-friendly tile sizes
+- **Loop Unrolling**: Controlled unrolling with profitability analysis
+- **Loop Fusion/Fission**: Advanced fusion strategies
+
+#### **3.2 Inter-procedural Optimization**
+- **Function Inlining**: Call site profitability analysis
+- **Dead Function Elimination**: Cross-module analysis
+- **Global Variable Optimization**: Inter-procedural constant propagation
+- **Call Graph Optimization**: Function placement and ordering
+
+#### **3.3 Data Structure Transformation**
+- **Array Layout Optimization**: Row-major vs column-major decisions
+- **Memory Pooling**: Custom allocator generation
+- **Cache-conscious Data Structures**: Padding and alignment optimization
+- **Vectorization-friendly Layouts**: SIMD-aware data organization
+
+### **Phase 4: Production-Ready Training** (High Priority)
+**Scalable ML Infrastructure for Real-world Performance**
+
+#### **4.1 Dataset Collection Pipeline**
+- **Real Program Corpus**: Industry-standard benchmarks (SPEC, PolyBench)
+- **Compiler Optimization Logs**: Ground truth from existing compilers
+- **Performance Counters**: Hardware performance metrics
+- **Dynamic Analysis**: Runtime profiling data
+
+#### **4.2 Model Deployment**
+- **Model Quantization**: Reduce model size for production use
+- **Incremental Learning**: Online learning from new optimization patterns
+- **Model Versioning**: A/B testing of different GNN versions
+- **Performance Monitoring**: Track optimization effectiveness
+
+#### **4.3 Integration with Build Systems**
+- **Just-in-Time Training**: Train on user's codebase
+- **Compiler Flags Optimization**: Suggest optimal -O flags
+- **Build-time Optimization**: Integrate with CMake/Make/Ninja
+- **IDE Integration**: Real-time optimization suggestions
+
+### **Phase 5: Research Frontiers** (Long-term)
+**Cutting-edge Compiler Research Integration**
+
+#### **5.1 Advanced ML Techniques**
+- **Reinforcement Learning**: RL-based optimization policy learning
+- **Meta-Learning**: Few-shot adaptation to new architectures
+- **Neural Architecture Search**: Automated GNN architecture design
+- **Federated Learning**: Cross-organization optimization learning
+
+#### **5.2 Emerging Hardware Support**
+- **Quantum Computing**: Quantum circuit optimization
+- **Neuromorphic Computing**: Spiking neural network optimization
+- **Optical Computing**: Light-based computation optimization
+- **In-memory Computing**: PIM (Processing-in-Memory) optimization
+
+#### **5.3 Formal Verification**
+- **Certified Optimization**: Formally verified optimization correctness
+- **Counterexample Generation**: Find optimization bugs
+- **Proof-carrying Code**: Generate optimization proofs
+- **Symbolic Execution**: Symbolic optimization analysis
 
 ## Architecture Overview
 

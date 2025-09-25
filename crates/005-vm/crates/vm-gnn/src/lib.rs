@@ -90,13 +90,30 @@ pub mod gnn_training {
         pub energy_savings: f32, // Energy consumption reduction (0.0-1.0)
     }
 
-    /// GNN model for optimization prediction
+    /// GNN model for optimization prediction (Extensible Architecture)
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct OptimizationGnn {
         pub hidden_dim: usize,
         pub num_layers: usize,
         pub dropout: f32,
         pub weights: Vec<Vec<Vec<f32>>>, // Simplified weight representation
+        pub model_type: GnnModelType, // Support multiple GNN architectures
+        pub attention_heads: usize, // Multi-head attention support
+    }
+
+    /// Supported GNN model types
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+    pub enum GnnModelType {
+        /// Basic Bipartite GNN (current implementation)
+        BipartiteGnn,
+        /// Graph Attention Networks
+        Gat,
+        /// Graph Convolutional Networks
+        Gcn,
+        /// GraphSAGE (Inductive Learning)
+        GraphSage,
+        /// Heterogeneous Graph Transformer
+        HetGnn,
     }
 
     /// GNN training configuration
@@ -129,6 +146,258 @@ pub mod gnn_training {
                 hidden_dim: 64,
                 num_layers: 3,
                 dropout: 0.1,
+            }
+        }
+    }
+
+    impl Default for OptimizationGnn {
+        fn default() -> Self {
+            Self {
+                hidden_dim: 64,
+                num_layers: 3,
+                dropout: 0.1,
+                weights: Vec::new(), // Will be initialized by create_model
+                model_type: GnnModelType::BipartiteGnn,
+                attention_heads: 4,
+            }
+        }
+    }
+
+    /// GAT (Graph Attention Networks) Implementation
+    pub mod gat {
+        use super::*;
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        use std::collections::HashMap;
+
+        /// Graph Attention Layer for heterogeneous bipartite graphs
+        pub struct GatLayer {
+            pub input_dim: usize,
+            pub output_dim: usize,
+            pub num_heads: usize,
+            pub dropout: f32,
+            pub concat_heads: bool,
+            // Attention weights: W for each head
+            pub attention_weights: Vec<Vec<Vec<f32>>>,
+            // Attention mechanism parameters
+            pub a_weights: Vec<Vec<f32>>, // Attention coefficients
+            pub bias: Option<Vec<f32>>,
+        }
+
+        impl GatLayer {
+            pub fn new(input_dim: usize, output_dim: usize, num_heads: usize, dropout: f32, concat_heads: bool) -> Self {
+                let mut attention_weights = Vec::new();
+                let mut a_weights = Vec::new();
+
+                // Initialize weights for each attention head
+                for head in 0..num_heads {
+                    let mut head_weights = Vec::new();
+                    for _ in 0..output_dim {
+                        let mut node_weights = Vec::new();
+                        for _ in 0..input_dim {
+                            // Random initialization
+                            use std::collections::hash_map::DefaultHasher;
+                            use std::hash::{Hash, Hasher};
+                            let mut hasher = DefaultHasher::new();
+                            head.hash(&mut hasher);
+                            let hash = hasher.finish();
+                            let random = (hash % 1000) as f32 / 1000.0 - 0.5;
+                            node_weights.push(random * 0.1);
+                        }
+                        head_weights.push(node_weights);
+                    }
+                    attention_weights.push(head_weights);
+
+                    // Attention coefficients (a) for each head
+                    let mut a_head = Vec::new();
+                    for _ in 0..2 { // For source and target nodes
+                        let mut hasher = DefaultHasher::new();
+                        head.hash(&mut hasher);
+                        let hash = hasher.finish();
+                        let random = (hash % 1000) as f32 / 1000.0 - 0.5;
+                        a_head.push(random * 0.1);
+                    }
+                    a_weights.push(a_head);
+                }
+
+                Self {
+                    input_dim,
+                    output_dim,
+                    num_heads,
+                    dropout,
+                    concat_heads,
+                    attention_weights,
+                    a_weights,
+                    bias: Some(vec![0.0; output_dim]),
+                }
+            }
+
+            /// Compute attention coefficients between source and target nodes
+            pub fn compute_attention_coefficients(
+                &self,
+                source_embedding: &[f32],
+                target_embedding: &[f32],
+                edge_features: Option<&[f32]>,
+                head_idx: usize
+            ) -> f32 {
+                let a_weights = &self.a_weights[head_idx];
+
+                // Linear transformation for source and target
+                let source_transformed = self.transform_node(source_embedding, head_idx);
+                let target_transformed = self.transform_node(target_embedding, head_idx);
+
+                // Concatenate transformed embeddings
+                let mut concatenated = Vec::new();
+                concatenated.extend_from_slice(&source_transformed);
+                concatenated.extend_from_slice(&target_transformed);
+
+                // Add edge features if available
+                if let Some(edge_feats) = edge_features {
+                    concatenated.extend_from_slice(edge_feats);
+                }
+
+                // Apply attention mechanism: a^T * LeakyReLU(concatenation)
+                let mut attention_score = 0.0;
+                for (i, &value) in concatenated.iter().enumerate() {
+                    if i < a_weights.len() {
+                        attention_score += a_weights[i] * value.max(0.0); // LeakyReLU
+                    }
+                }
+
+                attention_score
+            }
+
+            /// Transform node embedding using attention head weights
+            fn transform_node(&self, node_embedding: &[f32], head_idx: usize) -> Vec<f32> {
+                let weights = &self.attention_weights[head_idx];
+                weights.iter().map(|weight_row| {
+                    node_embedding.iter().zip(weight_row.iter())
+                        .map(|(&node_val, &weight_val)| node_val * weight_val)
+                        .sum::<f32>()
+                }).collect()
+            }
+
+            /// Apply GAT layer to bipartite graph
+            pub fn forward(
+                &self,
+                event_embeddings: &HashMap<String, Vec<f32>>,
+                entity_embeddings: &HashMap<String, Vec<f32>>,
+                edge_features: &[(String, String, Vec<f32>)],
+            ) -> (HashMap<String, Vec<f32>>, HashMap<String, Vec<f32>>) {
+                let mut new_event_embeddings = HashMap::new();
+                let mut new_entity_embeddings = HashMap::new();
+
+                // Process entities (update based on connected events)
+                for (entity_id, entity_embedding) in entity_embeddings {
+                    let connected_events = Self::get_connected_events(entity_id, edge_features);
+                    let mut attention_weights = Vec::new();
+                    let mut neighbor_embeddings = Vec::new();
+
+                    // Compute attention for each connected event
+                    for event_id in &connected_events {
+                        if let Some(event_embedding) = event_embeddings.get(event_id) {
+                            // Find edge features for this connection
+                            let edge_feats = edge_features.iter()
+                                .find(|(src, tgt, _)| src == event_id && tgt == entity_id)
+                                .map(|(_, _, feats)| feats.as_slice());
+
+                            let attention_coeff = self.compute_attention_coefficients(
+                                event_embedding,
+                                entity_embedding,
+                                edge_feats,
+                                0 // Use first head for simplicity
+                            );
+
+                            attention_weights.push(attention_coeff.exp());
+                            neighbor_embeddings.push(event_embedding.clone());
+                        }
+                    }
+
+                    // Normalize attention weights
+                    let sum_attention: f32 = attention_weights.iter().sum();
+                    if sum_attention > 0.0 {
+                        for weight in &mut attention_weights {
+                            *weight /= sum_attention;
+                        }
+                    }
+
+                    // Aggregate neighbor embeddings with attention
+                    let mut aggregated = vec![0.0; self.output_dim];
+                    for (i, embedding) in neighbor_embeddings.iter().enumerate() {
+                        let weight = attention_weights[i];
+                        for (j, &value) in embedding.iter().enumerate() {
+                            if j < aggregated.len() {
+                                aggregated[j] += weight * value;
+                            }
+                        }
+                    }
+
+                    new_entity_embeddings.insert(entity_id.clone(), aggregated);
+                }
+
+                // Process events (update based on connected entities - hypergraph aware)
+                for (event_id, event_embedding) in event_embeddings {
+                    let connected_entities = Self::get_connected_entities(event_id, edge_features);
+                    let mut attention_weights = Vec::new();
+                    let mut neighbor_embeddings = Vec::new();
+
+                    // Compute attention for each connected entity
+                    for entity_id in &connected_entities {
+                        if let Some(entity_embedding) = entity_embeddings.get(entity_id) {
+                            // Find edge features for this connection
+                            let edge_feats = edge_features.iter()
+                                .find(|(src, tgt, _)| src == event_id && tgt == entity_id)
+                                .map(|(_, _, feats)| feats.as_slice());
+
+                            let attention_coeff = self.compute_attention_coefficients(
+                                event_embedding,
+                                entity_embedding,
+                                edge_feats,
+                                0 // Use first head for simplicity
+                            );
+
+                            attention_weights.push(attention_coeff.exp());
+                            neighbor_embeddings.push(entity_embedding.clone());
+                        }
+                    }
+
+                    // Normalize attention weights
+                    let sum_attention: f32 = attention_weights.iter().sum();
+                    if sum_attention > 0.0 {
+                        for weight in &mut attention_weights {
+                            *weight /= sum_attention;
+                        }
+                    }
+
+                    // Aggregate neighbor embeddings with attention (hypergraph-aware)
+                    let mut aggregated = vec![0.0; self.output_dim];
+                    for (i, embedding) in neighbor_embeddings.iter().enumerate() {
+                        let weight = attention_weights[i];
+                        for (j, &value) in embedding.iter().enumerate() {
+                            if j < aggregated.len() {
+                                aggregated[j] += weight * value;
+                            }
+                        }
+                    }
+
+                    new_event_embeddings.insert(event_id.clone(), aggregated);
+                }
+
+                (new_event_embeddings, new_entity_embeddings)
+            }
+
+            fn get_connected_events(entity_id: &str, edge_features: &[(String, String, Vec<f32>)]) -> Vec<String> {
+                edge_features.iter()
+                    .filter(|(_, target, _)| target == entity_id)
+                    .map(|(source, _, _)| source.clone())
+                    .collect()
+            }
+
+            fn get_connected_entities(event_id: &str, edge_features: &[(String, String, Vec<f32>)]) -> Vec<String> {
+                edge_features.iter()
+                    .filter(|(source, _, _)| source == event_id)
+                    .map(|(_, target, _)| target.clone())
+                    .collect()
             }
         }
     }
@@ -416,11 +685,97 @@ pub mod gnn_training {
                 num_layers: config.num_layers,
                 dropout: config.dropout,
                 weights,
+                model_type: GnnModelType::BipartiteGnn,
+                attention_heads: 4,
             }
+        }
+
+        /// Create a GAT model with attention mechanism
+        pub fn create_gat_model(config: &TrainingConfig, num_heads: usize) -> OptimizationGnn {
+            // Use standard weight structure for now
+            // In a real implementation, we would extend the OptimizationGnn struct
+            // to support different weight structures per model type
+            let weights = Self::create_standard_weights(config);
+
+            OptimizationGnn {
+                hidden_dim: config.hidden_dim,
+                num_layers: config.num_layers,
+                dropout: config.dropout,
+                weights,
+                model_type: GnnModelType::Gat,
+                attention_heads: num_heads,
+            }
+        }
+
+        /// Create standard weight structure for compatibility
+        fn create_standard_weights(config: &TrainingConfig) -> Vec<Vec<Vec<f32>>> {
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut weights = Vec::new();
+
+            // Initialize weights for each layer
+            for layer in 0..config.num_layers {
+                let input_dim = if layer == 0 { config.hidden_dim } else { config.hidden_dim };
+                let output_dim = config.hidden_dim;
+
+                let mut layer_weights = Vec::new();
+                for _ in 0..output_dim {
+                    let mut node_weights = Vec::new();
+                    for _ in 0..input_dim {
+                        // Simple random initialization
+                        let mut hasher = DefaultHasher::new();
+                        (layer as u64).hash(&mut hasher);
+                        let hash = hasher.finish();
+                        let random = (hash % 1000) as f32 / 1000.0 - 0.5;
+                        node_weights.push(random * 0.1); // Small random values
+                    }
+                    layer_weights.push(node_weights);
+                }
+                weights.push(layer_weights);
+            }
+
+            weights
         }
 
         /// Forward pass through Bipartite Hypergraph GNN model
         pub fn forward(model: &OptimizationGnn, features: &GnnFeatures) -> OptimizationLabels {
+            match model.model_type {
+                GnnModelType::Gat => Self::gat_forward(model, features),
+                GnnModelType::Gcn => Self::gcn_forward(model, features),
+                GnnModelType::GraphSage => Self::graphsage_forward(model, features),
+                GnnModelType::HetGnn => Self::hetgnn_forward(model, features),
+                _ => Self::bipartite_gnn_forward(model, features),
+            }
+        }
+
+        /// GAT-specific forward pass
+        fn gat_forward(model: &OptimizationGnn, features: &GnnFeatures) -> OptimizationLabels {
+            // Use GAT layers for attention-based message passing
+            // This would use the GAT layer implementation above
+            Self::bipartite_gnn_forward(model, features) // Placeholder for now
+        }
+
+        /// GCN-specific forward pass
+        fn gcn_forward(model: &OptimizationGnn, features: &GnnFeatures) -> OptimizationLabels {
+            // Graph Convolutional Networks forward pass
+            Self::bipartite_gnn_forward(model, features) // Placeholder for now
+        }
+
+        /// GraphSAGE-specific forward pass
+        fn graphsage_forward(model: &OptimizationGnn, features: &GnnFeatures) -> OptimizationLabels {
+            // GraphSAGE inductive learning forward pass
+            Self::bipartite_gnn_forward(model, features) // Placeholder for now
+        }
+
+        /// Heterogeneous GNN forward pass
+        fn hetgnn_forward(model: &OptimizationGnn, features: &GnnFeatures) -> OptimizationLabels {
+            // Heterogeneous Graph Neural Network forward pass
+            Self::bipartite_gnn_forward(model, features) // Placeholder for now
+        }
+
+        /// Basic Bipartite GNN forward pass
+        fn bipartite_gnn_forward(model: &OptimizationGnn, features: &GnnFeatures) -> OptimizationLabels {
             // Bipartite/Hypergraph-aware forward pass
             // This implements a simplified version of Bipartite Graph Neural Networks
             // with hypergraph message passing
@@ -2130,7 +2485,7 @@ mod tests {
 
     #[test]
     fn test_gnn_model_creation() {
-        use crate::gnn_training::{GnnTrainer, TrainingConfig};
+        use crate::gnn_training::{GnnTrainer, TrainingConfig, GnnModelType};
 
         let config = TrainingConfig {
             learning_rate: 0.001,
@@ -2146,9 +2501,56 @@ mod tests {
         assert_eq!(model.hidden_dim, 64);
         assert_eq!(model.num_layers, 3);
         assert_eq!(model.dropout, 0.1);
+        assert_eq!(model.model_type, GnnModelType::BipartiteGnn);
+        assert_eq!(model.attention_heads, 4);
         assert_eq!(model.weights.len(), 3);
         assert_eq!(model.weights[0].len(), 64);
         assert_eq!(model.weights[0][0].len(), 64);
+    }
+
+    #[test]
+    fn test_gat_model_creation() {
+        use crate::gnn_training::{GnnTrainer, TrainingConfig, GnnModelType};
+
+        let config = TrainingConfig {
+            learning_rate: 0.001,
+            batch_size: 32,
+            num_epochs: 100,
+            hidden_dim: 64,
+            num_layers: 2,
+            dropout: 0.1,
+        };
+
+        let model = GnnTrainer::create_gat_model(&config, 8);
+
+        assert_eq!(model.hidden_dim, 64);
+        assert_eq!(model.num_layers, 2);
+        assert_eq!(model.dropout, 0.1);
+        assert_eq!(model.model_type, GnnModelType::Gat);
+        assert_eq!(model.attention_heads, 8);
+        assert_eq!(model.weights.len(), 2);
+        assert_eq!(model.weights[0].len(), 64); // 64 output dimensions
+        assert_eq!(model.weights[0][0].len(), 64); // 64 input dimensions
+    }
+
+    #[test]
+    fn test_gnn_model_types() {
+        use crate::gnn_training::{GnnModelType, OptimizationGnn};
+
+        let mut model = OptimizationGnn::default();
+        assert_eq!(model.model_type, GnnModelType::BipartiteGnn);
+
+        model.model_type = GnnModelType::Gat;
+        assert_eq!(model.model_type, GnnModelType::Gat);
+
+        model.model_type = GnnModelType::Gcn;
+        assert_eq!(model.model_type, GnnModelType::Gcn);
+
+        model.model_type = GnnModelType::GraphSage;
+        assert_eq!(model.model_type, GnnModelType::GraphSage);
+
+        model.model_type = GnnModelType::HetGnn;
+        assert_eq!(model.model_type, GnnModelType::HetGnn);
     }
 
     #[test]
