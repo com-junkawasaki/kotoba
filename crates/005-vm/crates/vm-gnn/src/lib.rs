@@ -4272,21 +4272,19 @@ pub fn create_dead_code_elimination_rule() -> DpoRule {
     });
     lhs.incidences.push(Incidence {
         edge: "compute".to_string(),
-        port: "data_in[1]".to_string(),
-        entity: "y".to_string(),
+        node: "y".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "compute".to_string(),
-        port: "data_out[0]".to_string(),
-        entity: "unused".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "compute".to_string(),
+        node: "unused".to_string(),
         cid: None,
     });
 
     // RHS: remove the unused computation entirely
     let mut rhs = ProgramInteractionHypergraph::new();
-    rhs.entities.insert(x_entity.id.clone(), x_entity);
-    rhs.entities.insert(y_entity.id.clone(), y_entity);
+    rhs.nodes.push(x_node);
+    rhs.nodes.push(y_node);
 
     // NAC: Don't eliminate if result is actually used somewhere
     let used_result_nac = NegativeApplicationCondition {
@@ -4357,31 +4355,31 @@ pub fn create_loop_fusion_rule() -> DpoRule {
         cid: None,
     };
 
-    lhs.events.insert(loop1_event.id.clone(), loop1_event);
-    lhs.entities.insert(i_entity.id.clone(), i_entity.clone());
-    lhs.entities.insert(a_entity.id.clone(), a_entity.clone());
-    lhs.entities.insert(b_entity.id.clone(), b_entity.clone());
-    lhs.entities.insert(c_entity.id.clone(), c_entity.clone());
+    lhs.edges.push(loop1_edge);
+    lhs.nodes.push(i_node);
+    lhs.nodes.push(a_node);
+    lhs.nodes.push(b_node);
+    lhs.nodes.push(c_node);
 
     // Loop 1 body: a[i] = b[i] + c[i]
-    lhs.incidence.push(Incidence {
-        event: "loop1".to_string(),
-        port: "index".to_string(),
-        entity: "i".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "loop1".to_string(),
+        node: "i".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "loop1".to_string(),
-        port: "body".to_string(),
-        entity: "load_b".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "loop1".to_string(),
+        node: "load_b".to_string(),
         cid: None,
     });
 
     // Loop 2: for(i=0; i<N; i++) { d[i] = e[i] * f[i]; }
     let loop2_edge = Edge {
         id: "loop2".to_string(),
-        opcode: "for".to_string(),
-        dtype: "i32".to_string(),
+        kind: EdgeKind::Event,
+        label: Some("for".to_string()),
+        opcode: Some("for".to_string()),
+        dtype: Some("i32".to_string()),
         can_throw: false,
         attributes: [
             ("start".to_string(), json!(0)),
@@ -4393,41 +4391,42 @@ pub fn create_loop_fusion_rule() -> DpoRule {
     let d_node = Node {
         id: "d".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+        entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let e_node = Node {
         id: "e".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+        entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let f_node = Node {
         id: "f".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+        entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
 
-    lhs.events.insert(loop2_event.id.clone(), loop2_event);
-    lhs.entities.insert(d_entity.id.clone(), d_entity.clone());
-    lhs.entities.insert(e_entity.id.clone(), e_entity.clone());
-    lhs.entities.insert(f_entity.id.clone(), f_entity.clone());
+    lhs.edges.push(loop2_edge);
+    lhs.nodes.push(d_node);
+    lhs.nodes.push(e_node);
+    lhs.nodes.push(f_node);
 
     // Loop 2 body: d[i] = e[i] * f[i]
-    lhs.incidence.push(Incidence {
-        event: "loop2".to_string(),
-        port: "index".to_string(),
-        entity: "i".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "loop2".to_string(),
+        node: "i".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "loop2".to_string(),
-        port: "body".to_string(),
-        entity: "load_e".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "loop2".to_string(),
+        node: "load_e".to_string(),
         cid: None,
     });
 
@@ -4435,8 +4434,10 @@ pub fn create_loop_fusion_rule() -> DpoRule {
     let mut rhs = ProgramInteractionHypergraph::new();
     let fused_edge = Edge {
         id: "fused_loop".to_string(),
-        opcode: "for".to_string(),
-        dtype: "i32".to_string(),
+        kind: EdgeKind::Event,
+        label: Some("for".to_string()),
+        opcode: Some("for".to_string()),
+        dtype: Some("i32".to_string()),
         can_throw: false,
         attributes: [
             ("start".to_string(), json!(0)),
@@ -4446,26 +4447,24 @@ pub fn create_loop_fusion_rule() -> DpoRule {
         cid: None,
     };
 
-    rhs.events.insert(fused_loop.id.clone(), fused_loop);
-    rhs.entities.insert(i_entity.id.clone(), i_entity);
-    rhs.entities.insert(a_entity.id.clone(), a_entity);
-    rhs.entities.insert(b_entity.id.clone(), b_entity);
-    rhs.entities.insert(c_entity.id.clone(), c_entity);
-    rhs.entities.insert(d_entity.id.clone(), d_entity);
-    rhs.entities.insert(e_entity.id.clone(), e_entity);
-    rhs.entities.insert(f_entity.id.clone(), f_entity);
+    rhs.edges.push(fused_edge);
+    rhs.nodes.push(i_node);
+    rhs.nodes.push(a_node);
+    rhs.nodes.push(b_node);
+    rhs.nodes.push(c_node);
+    rhs.nodes.push(d_node);
+    rhs.nodes.push(e_node);
+    rhs.nodes.push(f_node);
 
     // Fused loop body: a[i] = b[i] + c[i]; d[i] = e[i] * f[i];
-    rhs.incidence.push(Incidence {
-        event: "fused_loop".to_string(),
-        port: "index".to_string(),
-        entity: "i".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "fused_loop".to_string(),
+        node: "i".to_string(),
         cid: None,
     });
-    rhs.incidence.push(Incidence {
-        event: "fused_loop".to_string(),
-        port: "body".to_string(),
-        entity: "fused_body".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "fused_loop".to_string(),
+        node: "fused_body".to_string(),
         cid: None,
     });
 
@@ -4529,21 +4528,19 @@ pub fn create_vectorization_rule() -> DpoRule {
         cid: None,
     };
 
-    lhs.events.insert(scalar_loop.id.clone(), scalar_loop);
-    lhs.entities.insert(i_entity.id.clone(), i_entity.clone());
-    lhs.entities.insert(a_entity.id.clone(), a_entity.clone());
-    lhs.entities.insert(b_entity.id.clone(), b_entity.clone());
+    lhs.edges.push(scalar_loop);
+    lhs.nodes.push(i_node);
+    lhs.nodes.push(a_node);
+    lhs.nodes.push(b_node);
 
-    lhs.incidence.push(Incidence {
-        event: "scalar_loop".to_string(),
-        port: "index".to_string(),
-        entity: "i".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "scalar_loop".to_string(),
+        node: "i".to_string(),
         cid: None,
     });
-    lhs.incidence.push(Incidence {
-        event: "scalar_loop".to_string(),
-        port: "body".to_string(),
-        entity: "scalar_add".to_string(),
+    lhs.incidences.push(Incidence {
+        edge: "scalar_loop".to_string(),
+        node: "scalar_add".to_string(),
         cid: None,
     });
 
