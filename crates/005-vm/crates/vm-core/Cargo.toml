@@ -15,5 +15,6 @@ vm_memory = { path = "../vm-memory" }
 vm_cpu = { path = "../vm-cpu" }
 vm_scheduler = { path = "../vm-scheduler" }
 vm_hardware = { path = "../vm-hardware" }
-# vm-gnn = { path = "../vm-gnn" } # Temporarily disabled for basic build
+vm-gnn = { path = "../vm-gnn" }
+serde_json = "1.0"
 tokio = { workspace = true }

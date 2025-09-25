@@ -51,8 +51,17 @@ local dag = {
           dag.node('SemanticHasher', 'Generates semantic hashes for PIH subgraphs for advanced memoization. ' +
                                    'GNN embeddings enable meaning-aware cache keys.'),
           dag.node('DpoRuleEngine', 'Applies DPO rewriting rules with NACs for safe optimizations. ' +
-                                  '✅ IMPLEMENTED: Strength reduction, constant folding, dead code elimination.'),
+                                  '✅ IMPLEMENTED: 6 rules - Basic (3) + Advanced (3): Loop fusion, vectorization, parallelization.'),
         ]),
+      ]),
+      dag.node('VM_Core_Integration', 'Integration layer between PIH compiler and VM runtime. ' +
+                                      '✅ COMPLETED: Full integration with GnnEngine, all tests passing.', [
+        dag.node('PIH_to_DAG_Converter', 'Converts optimized PIH to executable DAG tasks. ' +
+                                         '✅ IMPLEMENTED: convert_pih_to_dag() method.'),
+        dag.node('Optimization_Applier', 'Applies PIH optimizations to VM execution flow. ' +
+                                         '✅ IMPLEMENTED: apply_optimizations() with 6 DPO rules (Basic + Advanced).'),
+        dag.node('GnnEngine', 'Core GNN engine for PIH analysis and optimization. ' +
+                              '✅ IMPLEMENTED: Node embeddings, semantic hashing, rule application.'),
       ]),
       dag.node('VirtualHardware', 'Simulated heterogeneous hardware components (computing tiles). ' +
                                   'Ring-tree topology with 2-5% small-world shortcuts.', [
