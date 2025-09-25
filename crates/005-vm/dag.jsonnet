@@ -35,6 +35,22 @@ local dag = {
                                        'Achieves 78-85% hit rates for similar workloads, 20-35% task reduction.'),
         ]),
       ]),
+      dag.node('Compiler', 'Transforms source code into an optimized PIH representation for execution.', [
+        dag.node('PIH_Generator', 'Parses source code into a Program Interaction Hypergraph (PIH). ' +
+                                  'Converts computation patterns to bipartite hypergraph structures.'),
+        dag.node('GNN_Engine', 'Analyzes and optimizes the PIH using Graph Neural Networks.', [
+          dag.node('TaskBoundryDetector', 'Identifies optimal task boundaries within the PIH. ' +
+                                        'Uses GNN to find cuts that balance parallelism vs. overhead.'),
+          dag.node('MetadataPredictor', 'Predicts task metadata (e.g., execution time, memory usage) from PIH subgraphs. ' +
+                                      'GNN regression on graph embeddings for high-precision predictions.'),
+          dag.node('HardwareAffinityAnalyzer', 'Determines the best hardware tile for a PIH subgraph. ' +
+                                             'Learns hardware-specific patterns from PIH structures.'),
+          dag.node('SemanticHasher', 'Generates semantic hashes for PIH subgraphs for advanced memoization. ' +
+                                   'GNN embeddings enable meaning-aware cache keys.'),
+          dag.node('DpoRuleEngine', 'Applies DPO rewriting rules with NACs for safe optimizations. ' +
+                                  'Strength reduction, constant folding, and other transformations.'),
+        ]),
+      ]),
       dag.node('VirtualHardware', 'Simulated heterogeneous hardware components (computing tiles). ' +
                                   'Ring-tree topology with 2-5% small-world shortcuts.', [
         dag.node('CPU_Tile', 'General-purpose computation tile. Arithmetic intensity: 0.8, Memory bandwidth: 0.2.'),
@@ -59,6 +75,11 @@ local dag = {
   // --- Edges (Data/Control Flow) ---
   // Defines the topological sort for execution.
   edges: [
+    // Compilation Flow
+    dag.edge('SourceCode', 'VM.Compiler.PIH_Generator', 'parse'),
+    dag.edge('VM.Compiler.PIH_Generator', 'VM.Compiler.GNN_Engine', 'analyze_and_optimize'),
+    dag.edge('VM.Compiler.GNN_Engine', 'VM.ExecutionEngine.DataflowRuntime', 'submit_optimized_tasks'),
+
     // Task dispatch flow
     dag.edge('VM.ExecutionEngine.DataflowRuntime.TaskScheduler', 'VM.VirtualHardware.CPU_Tile', 'dispatch_task'),
     dag.edge('VM.ExecutionEngine.DataflowRuntime.TaskScheduler', 'VM.VirtualHardware.GPU_Tile', 'dispatch_task'),
@@ -67,7 +88,7 @@ local dag = {
 
     // Memoization/Caching flow
     dag.edge('VM.ExecutionEngine.DataflowRuntime.MemoizationEngine', 'VM.MemorySystem.ContentAddressableCache', 'lookup/store'),
-    dag.edge('VM.ExecutionEngine.DataflowRuntime', 'VM.ExecutionEngine.DataflowRuntime.MemoizationEngine', 'check_cache_before_scheduling'),
+    dag.edge('VM.ExecutionEngine', 'VM.ExecutionEngine.DataflowRuntime.MemoizationEngine', 'check_cache_before_scheduling'),
 
     // Memory access flow
     dag.edge('VM.VirtualHardware.CPU_Tile', 'VM.MemorySystem.MainMemory', 'memory_access'),
