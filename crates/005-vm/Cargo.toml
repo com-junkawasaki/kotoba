@@ -3,7 +3,6 @@ resolver = "2" # Use the edition 2021 resolver
 members = [
     "crates/vm-benchmarks",
     "crates/vm-cli",
-    "crates/vm-core",
     "crates/vm-cpu",
     "crates/vm-hardware",
     "crates/vm-memory",

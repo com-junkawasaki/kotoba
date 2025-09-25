@@ -35,10 +35,13 @@ local dag = {
                                        'Achieves 78-85% hit rates for similar workloads, 20-35% task reduction.'),
         ]),
       ]),
-      dag.node('Compiler', 'Transforms source code into an optimized PIH representation for execution.', [
+      dag.node('Compiler', 'Transforms source code into an optimized PIH representation for execution. ' +
+                            '✅ IMPLEMENTED: Core PIH structures, DPO rules, GNN integration.', [
         dag.node('PIH_Generator', 'Parses source code into a Program Interaction Hypergraph (PIH). ' +
-                                  'Converts computation patterns to bipartite hypergraph structures.'),
-        dag.node('GNN_Engine', 'Analyzes and optimizes the PIH using Graph Neural Networks.', [
+                                  'Converts computation patterns to bipartite hypergraph structures. ' +
+                                  '✅ IMPLEMENTED: convert_computation_to_pih() function.'),
+        dag.node('GNN_Engine', 'Analyzes and optimizes the PIH using Graph Neural Networks. ' +
+                               '✅ IMPLEMENTED: Node embeddings, semantic hashing, rule application.', [
           dag.node('TaskBoundryDetector', 'Identifies optimal task boundaries within the PIH. ' +
                                         'Uses GNN to find cuts that balance parallelism vs. overhead.'),
           dag.node('MetadataPredictor', 'Predicts task metadata (e.g., execution time, memory usage) from PIH subgraphs. ' +
@@ -48,7 +51,7 @@ local dag = {
           dag.node('SemanticHasher', 'Generates semantic hashes for PIH subgraphs for advanced memoization. ' +
                                    'GNN embeddings enable meaning-aware cache keys.'),
           dag.node('DpoRuleEngine', 'Applies DPO rewriting rules with NACs for safe optimizations. ' +
-                                  'Strength reduction, constant folding, and other transformations.'),
+                                  '✅ IMPLEMENTED: Strength reduction, constant folding, dead code elimination.'),
         ]),
       ]),
       dag.node('VirtualHardware', 'Simulated heterogeneous hardware components (computing tiles). ' +

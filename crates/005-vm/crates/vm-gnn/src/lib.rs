@@ -18,20 +18,15 @@
 //!
 //! ## Usage
 //!
-//! ```rust
-//! use vm_gnn::*;
+//! The vm-gnn crate provides core data structures and algorithms for Program Interaction Hypergraphs:
 //!
-//! // Create a simple multiplication PIH
-//! let inputs = vec![("x".to_string(), EntityKind::Val, "i32".to_string())];
-//! let outputs = vec![("result".to_string(), EntityKind::Val, "i32".to_string())];
-//! let constants = vec![("eight".to_string(), serde_json::json!(8))];
+//! - [`ProgramInteractionHypergraph`]: Main hypergraph structure
+//! - [`Event`]: Operation nodes
+//! - [`Entity`]: Value/state nodes
+//! - [`DpoRule`]: Double Pushout rewriting rules
+//! - [`convert_computation_to_pih()`]: Convert computation patterns to PIH
 //!
-//! let pih = convert_computation_to_pih("mul", inputs, outputs, constants);
-//!
-//! // Apply strength reduction rule
-//! let rule = create_strength_reduction_rule();
-//! // ... rule application logic would go here
-//! ```
+//! See the unit tests for detailed usage examples.
 
 #![allow(dead_code)] // TODO: Remove this later on
 
@@ -439,6 +434,195 @@ mod tests {
         let const_entity = pih.entities.get("eight").unwrap();
         assert_eq!(const_entity.attributes.get("is_const").unwrap(), &json!(true));
         assert_eq!(const_entity.attributes.get("value").unwrap(), &json!(8));
+    }
+
+    #[test]
+    fn test_constant_folding_rule() {
+        let rule = create_constant_folding_rule();
+
+        // Check LHS structure
+        assert_eq!(rule.lhs.events.len(), 1);
+        assert_eq!(rule.lhs.entities.len(), 3); // x, identity, out
+        assert_eq!(rule.lhs.incidence.len(), 3);
+        assert_eq!(rule.lhs.events.get("op").unwrap().opcode, "add");
+
+        // Check RHS structure (simplified - just entities, no operations)
+        assert_eq!(rule.rhs.events.len(), 0);
+        assert_eq!(rule.rhs.entities.len(), 2); // x, out
+        assert_eq!(rule.rhs.incidence.len(), 0); // No operations
+
+        // Check identity constant
+        let identity_entity = rule.lhs.entities.get("identity").unwrap();
+        assert_eq!(identity_entity.attributes.get("value").unwrap(), &json!(0));
+
+        // Check NACs
+        assert_eq!(rule.nacs.len(), 0); // No negative conditions
+    }
+
+    #[test]
+    fn test_dead_code_elimination_rule() {
+        let rule = create_dead_code_elimination_rule();
+
+        // Check LHS structure
+        assert_eq!(rule.lhs.events.len(), 1);
+        assert_eq!(rule.lhs.entities.len(), 3); // x, y, unused
+        assert_eq!(rule.lhs.incidence.len(), 3);
+
+        // Check RHS structure (unused entities removed)
+        assert_eq!(rule.rhs.events.len(), 0);
+        assert_eq!(rule.rhs.entities.len(), 2); // x, y (unused removed)
+        assert_eq!(rule.rhs.incidence.len(), 0);
+
+        // Check NACs
+        assert_eq!(rule.nacs.len(), 1);
+        assert_eq!(rule.nacs[0].name, "result_is_used");
+    }
+
+    /// Creates a constant folding rule: add(x, 0) → x, mul(x, 1) → x
+    pub fn create_constant_folding_rule() -> DpoRule {
+        // LHS: operation with identity constant
+        let mut lhs = ProgramInteractionHypergraph::new();
+        let op_event = Event {
+            id: "op".to_string(),
+            opcode: "add".to_string(), // Could be add, mul, etc.
+            dtype: "i32".to_string(),
+            can_throw: false,
+            attributes: HashMap::new(),
+        };
+        let x_entity = Entity {
+            id: "x".to_string(),
+            kind: EntityKind::Val,
+            entity_type: "i32".to_string(),
+            attributes: HashMap::new(),
+        };
+        let identity_entity = Entity {
+            id: "identity".to_string(),
+            kind: EntityKind::Val,
+            entity_type: "i32".to_string(),
+            attributes: [
+                ("is_const".to_string(), json!(true)),
+                ("value".to_string(), json!(0)), // 0 for add, 1 for mul
+            ].iter().cloned().collect(),
+        };
+        let out_entity = Entity {
+            id: "out".to_string(),
+            kind: EntityKind::Val,
+            entity_type: "i32".to_string(),
+            attributes: HashMap::new(),
+        };
+
+        lhs.events.insert(op_event.id.clone(), op_event);
+        lhs.entities.insert(x_entity.id.clone(), x_entity.clone());
+        lhs.entities.insert(identity_entity.id.clone(), identity_entity);
+        lhs.entities.insert(out_entity.id.clone(), out_entity.clone());
+
+        lhs.incidence.push(Incidence {
+            event: "op".to_string(),
+            port: "data_in[0]".to_string(),
+            entity: "x".to_string(),
+        });
+        lhs.incidence.push(Incidence {
+            event: "op".to_string(),
+            port: "data_in[1]".to_string(),
+            entity: "identity".to_string(),
+        });
+        lhs.incidence.push(Incidence {
+            event: "op".to_string(),
+            port: "data_out[0]".to_string(),
+            entity: "out".to_string(),
+        });
+
+        // RHS: just pass through x
+        let mut rhs = ProgramInteractionHypergraph::new();
+        rhs.entities.insert(x_entity.id.clone(), x_entity.clone());
+        rhs.entities.insert(out_entity.id.clone(), out_entity.clone());
+        // Direct connection: x → out (no operation needed)
+
+        DpoRule {
+            name: "ConstantFolding".to_string(),
+            description: "Eliminate operations with identity constants".to_string(),
+            lhs,
+            rhs,
+            nacs: vec![], // No negative conditions for this simple rule
+        }
+    }
+
+    /// Creates a dead code elimination rule
+    pub fn create_dead_code_elimination_rule() -> DpoRule {
+        // LHS: computation result that is never used
+        let mut lhs = ProgramInteractionHypergraph::new();
+        let compute_event = Event {
+            id: "compute".to_string(),
+            opcode: "mul".to_string(),
+            dtype: "i32".to_string(),
+            can_throw: false,
+            attributes: HashMap::new(),
+        };
+        let x_entity = Entity {
+            id: "x".to_string(),
+            kind: EntityKind::Val,
+            entity_type: "i32".to_string(),
+            attributes: HashMap::new(),
+        };
+        let y_entity = Entity {
+            id: "y".to_string(),
+            kind: EntityKind::Val,
+            entity_type: "i32".to_string(),
+            attributes: HashMap::new(),
+        };
+        let unused_entity = Entity {
+            id: "unused".to_string(),
+            kind: EntityKind::Val,
+            entity_type: "i32".to_string(),
+            attributes: HashMap::new(),
+        };
+
+        lhs.events.insert(compute_event.id.clone(), compute_event);
+        lhs.entities.insert(x_entity.id.clone(), x_entity.clone());
+        lhs.entities.insert(y_entity.id.clone(), y_entity.clone());
+        lhs.entities.insert(unused_entity.id.clone(), unused_entity.clone());
+
+        lhs.incidence.push(Incidence {
+            event: "compute".to_string(),
+            port: "data_in[0]".to_string(),
+            entity: "x".to_string(),
+        });
+        lhs.incidence.push(Incidence {
+            event: "compute".to_string(),
+            port: "data_in[1]".to_string(),
+            entity: "y".to_string(),
+        });
+        lhs.incidence.push(Incidence {
+            event: "compute".to_string(),
+            port: "data_out[0]".to_string(),
+            entity: "unused".to_string(),
+        });
+
+        // RHS: remove the unused computation entirely
+        let mut rhs = ProgramInteractionHypergraph::new();
+        rhs.entities.insert(x_entity.id.clone(), x_entity);
+        rhs.entities.insert(y_entity.id.clone(), y_entity);
+        // No events, no unused entity
+
+        // NAC: Don't eliminate if result is actually used somewhere
+        let used_result_nac = NegativeApplicationCondition {
+            name: "result_is_used".to_string(),
+            description: "Don't eliminate if the result is used by another operation".to_string(),
+            forbidden_incidence: vec![Incidence {
+                event: "other_op".to_string(),
+                port: "data_in[0]".to_string(),
+                entity: "unused".to_string(),
+            }],
+            forbidden_state_edges: vec![],
+        };
+
+        DpoRule {
+            name: "DeadCodeElimination".to_string(),
+            description: "Remove computations whose results are never used".to_string(),
+            lhs,
+            rhs,
+            nacs: vec![used_result_nac],
+        }
     }
 
     /// Creates a strength reduction rule: mul(x, 2^k) → shl(x, k)

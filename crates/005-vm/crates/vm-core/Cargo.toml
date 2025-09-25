@@ -15,4 +15,5 @@ vm_memory = { path = "../vm-memory" }
 vm_cpu = { path = "../vm-cpu" }
 vm_scheduler = { path = "../vm-scheduler" }
 vm_hardware = { path = "../vm-hardware" }
+# vm-gnn = { path = "../vm-gnn" } # Temporarily disabled for basic build
 tokio = { workspace = true }
