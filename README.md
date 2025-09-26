@@ -11,7 +11,7 @@
 **Kotoba is a next-generation digital computing system where every aspect of computation—from low-level hardware operations to high-level application logic—is represented, optimized, and executed as a graph.**
 
 This project unifies two powerful concepts:
-1.  **The Tamaki VM**: A high-performance, modern Von Neumann-style virtual machine featuring a **Graph Neural Network (GNN)-based optimization engine**.
+1.  **The Kotoba VM - Tamaki Architecture**: A high-performance, modern Von Neumann-style virtual machine featuring a **Graph Neural Network (GNN)-based optimization engine**.
 2.  **The Kotoba Language**: A declarative, functional language based on Jsonnet for defining applications, schemas, and business logic as verifiable, content-addressed graphs.
 
 Together, they form a cohesive ecosystem that treats computing as a continuous process of **graph rewriting**.
@@ -32,7 +32,7 @@ Together, they form a cohesive ecosystem that treats computing as a continuous p
 
 Kotoba reimagines the entire computing stack through the lens of graph theory. Instead of separate, disjointed layers of abstraction (hardware, OS, application), Kotoba proposes a unified model:
 
--   **Low-Level Execution as a Graph**: The **Tamaki VM** represents low-level program instructions and data dependencies as a **Program Interaction Hypergraph (PIH)**. This graph is not just a representation; it is the program itself, ready to be optimized and executed.
+-   **Low-Level Execution as a Graph**: The **Kotoba VM** represents low-level program instructions and data dependencies as a **Program Interaction Hypergraph (PIH)**. This graph is not just a representation; it is the program itself, ready to be optimized and executed.
 -   **High-Level Logic as a Graph**: The **Kotoba Language** uses declarative `.kotoba` files (Jsonnet) to define application logic, data schemas, and UI components as a graph of interconnected objects and functions.
 -   **Optimization as Graph Rewriting**: The GNN engine within the VM learns the most effective sequences of graph transformations (DPO rules) to optimize the PIH for specific hardware targets (CPU, GPU, CGRA/FPGA).
 -   **Verifiability through Content-Addressing**: Every object in the system, from a low-level operation to a high-level UI component, is assigned a **Content ID (CID)** based on its contents. This creates an immutable, verifiable Merkle-DAG of the entire system state, ensuring reproducibility and enabling powerful caching.
@@ -64,7 +64,7 @@ The entire system is built upon a **Purely Functional Architecture**, separating
 │ │       GNN Optimization Engine (PIH Graph Rewriting)     │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │ ┌─────────────────────────────────────────────────────────┐ │
-│ │         Tamaki VM (Low-Level Graph Execution)           │ │
+│ │         Kotoba VM - Tamaki Architecture (Low-Level Graph Execution)           │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -80,7 +80,7 @@ The project is a modular multi-crate workspace, separating the low-level computi
 │   ├── 002-language/             # Kotoba Language (Jsonnet) and compiler
 │   ├── 003-graph/                # High-level graph data structures and GQL engine
 │   ├── 004-storage/              # Pluggable storage adapters (RocksDB, Redis)
-│   └── 005-vm/                   # The Tamaki Digital Computing System VM
+│   └── 005-vm/                   # The Kotoba VM - Tamaki Architecture
 │       ├── vm-types/             # Core types for the VM
 │       ├── vm-memory/            # VM memory management
 │       ├── vm-cpu/               # Von Neumann CPU core
@@ -94,7 +94,7 @@ The project is a modular multi-crate workspace, separating the low-level computi
 
 ## 🎯 Key Components
 
-### 1. The Tamaki Digital Computing System (`005-vm`)
+### 1. The Kotoba VM - Tamaki Architecture (`005-vm`)
 
 A high-performance virtual machine that forms the execution layer of Kotoba.
 
@@ -103,7 +103,7 @@ A high-performance virtual machine that forms the execution layer of Kotoba.
 -   **Heterogeneous Execution**: Simulates and schedules tasks across diverse hardware tiles like CPUs, GPUs, and specialized accelerators (CGRA/FPGA).
 -   **High Performance**: Backed by extensive benchmarks demonstrating significant speedups over traditional approaches.
 
-**🚀 Validated Performance of the Tamaki VM:**
+**🚀 Validated Performance of the Kotoba VM - Tamaki Architecture:**
 - **DAG Scheduling**: **5.7x** faster than simple topological sort.
 - **Memory Efficiency**: **35x** better sequential access performance.
 - **Memoization**: **78-85%** cache hit rates.

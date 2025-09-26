@@ -1,4 +1,4 @@
-# Tamaki: A Modern Autopoietic Digital Computing System VM
+# Kotoba VM - Tamaki Architecture: A Modern Autopoietic Digital Computing System VM
 
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
@@ -83,7 +83,7 @@ The VM is implemented as a **modular multi-crate architecture** for better maint
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd tamaki-vm
+cd kotoba-vm
 
 # Build all crates
 cargo build
@@ -166,7 +166,7 @@ The architecture's effectiveness is validated across diverse, large-scale applic
 ## 📄 Academic Context
 
 This implementation accompanies the paper:
-> **Tamaki: An Autopoietic Computing System - EDVAC and Von Neumann Architecture-Based Digital Computing System: A Modern Approach with Data Flow and Small-World Networks**
+> **Kotoba VM - Tamaki Architecture: An Autopoietic Computing System - EDVAC and Von Neumann Architecture-Based Digital Computing System: A Modern Approach with Data Flow and Small-World Networks**
 
 The VM demonstrates practical implementation of theoretical concepts including:
 - Von Neumann architecture foundations

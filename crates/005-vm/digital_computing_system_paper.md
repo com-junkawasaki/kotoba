@@ -1,4 +1,4 @@
-# Tamaki: An Autopoietic Computing System - EDVAC and Von Neumann Architecture-Based Digital Computing System: A Modern Approach with Data Flow and Small-World Networks
+# Kotoba VM - Tamaki Architecture: An Autopoietic Computing System - EDVAC and Von Neumann Architecture-Based Digital Computing System: A Modern Approach with Data Flow and Small-World Networks
 
 ## Abstract
 
