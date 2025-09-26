@@ -4,11 +4,11 @@
 //! Provides tools for running simulations, benchmarks, and analysis.
 
 use clap::{Parser, Subcommand};
-use vm_core::Vm;
-use vm_types::{Dag, Task, TaskId, Instruction, TaskCharacteristics, ComputationType};
-use vm_memory::{MemorySystem, MemorySystemImpl};
-use vm_cpu::{VonNeumannCore, VonNeumannCoreImpl};
-use vm_scheduler::{DataflowRuntime, DataflowRuntimeImpl};
+use kotoba_vm_core::Vm;
+use kotoba_vm_types::{Dag, Task, TaskId, Instruction, TaskCharacteristics, ComputationType};
+use kotoba_vm_memory::{MemorySystem, MemorySystemImpl};
+use kotoba_vm_cpu::{VonNeumannCore, VonNeumannCoreImpl};
+use kotoba_vm_scheduler::{DataflowRuntime, DataflowRuntimeImpl};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::fs;
@@ -341,12 +341,12 @@ async fn run_hardware_benchmarks() {
 }
 
 /// Create test hardware tiles for benchmarking
-fn create_hardware_tiles() -> Vec<vm_types::HardwareTile> {
+fn create_hardware_tiles() -> Vec<kotoba_vm_types::HardwareTile> {
     vec![
-        vm_types::HardwareTile {
+        kotoba_vm_types::HardwareTile {
             id: 0,
-            characteristics: vm_types::HardwareCharacteristics {
-                tile_type: vm_types::HardwareTileType::CPU,
+            characteristics: kotoba_vm_types::HardwareCharacteristics {
+                tile_type: kotoba_vm_types::HardwareTileType::CPU,
                 compute_units: 8,
                 memory_bandwidth: 50_000,
                 power_efficiency: 0.8,
@@ -354,10 +354,10 @@ fn create_hardware_tiles() -> Vec<vm_types::HardwareTile> {
             },
             is_available: true,
         },
-        vm_types::HardwareTile {
+        kotoba_vm_types::HardwareTile {
             id: 1,
-            characteristics: vm_types::HardwareCharacteristics {
-                tile_type: vm_types::HardwareTileType::GPU,
+            characteristics: kotoba_vm_types::HardwareCharacteristics {
+                tile_type: kotoba_vm_types::HardwareTileType::GPU,
                 compute_units: 1024,
                 memory_bandwidth: 1_000_000,
                 power_efficiency: 0.6,
@@ -365,10 +365,10 @@ fn create_hardware_tiles() -> Vec<vm_types::HardwareTile> {
             },
             is_available: true,
         },
-        vm_types::HardwareTile {
+        kotoba_vm_types::HardwareTile {
             id: 2,
-            characteristics: vm_types::HardwareCharacteristics {
-                tile_type: vm_types::HardwareTileType::CgraFpga,
+            characteristics: kotoba_vm_types::HardwareCharacteristics {
+                tile_type: kotoba_vm_types::HardwareTileType::CgraFpga,
                 compute_units: 64,
                 memory_bandwidth: 100_000,
                 power_efficiency: 0.9,
@@ -376,10 +376,10 @@ fn create_hardware_tiles() -> Vec<vm_types::HardwareTile> {
             },
             is_available: true,
         },
-        vm_types::HardwareTile {
+        kotoba_vm_types::HardwareTile {
             id: 3,
-            characteristics: vm_types::HardwareCharacteristics {
-                tile_type: vm_types::HardwareTileType::PIM,
+            characteristics: kotoba_vm_types::HardwareCharacteristics {
+                tile_type: kotoba_vm_types::HardwareTileType::PIM,
                 compute_units: 16,
                 memory_bandwidth: 10_000_000,
                 power_efficiency: 0.95,
@@ -559,10 +559,10 @@ async fn run_utilization_analysis(scheduler: &DataflowRuntimeImpl, dag: &Dag) ->
     for (i, &usage) in tile_usage.iter().enumerate() {
         let utilization = usage as f64 / 1000.0;
         let tile_name = match tiles[i].characteristics.tile_type {
-            vm_types::HardwareTileType::CPU => "CPU",
-            vm_types::HardwareTileType::GPU => "GPU",
-            vm_types::HardwareTileType::CgraFpga => "CGRA/FPGA",
-            vm_types::HardwareTileType::PIM => "PIM",
+            kotoba_vm_types::HardwareTileType::CPU => "CPU",
+            kotoba_vm_types::HardwareTileType::GPU => "GPU",
+            kotoba_vm_types::HardwareTileType::CgraFpga => "CGRA/FPGA",
+            kotoba_vm_types::HardwareTileType::PIM => "PIM",
         };
         println!("    {} Tile: {:.1}% utilization", tile_name, utilization * 100.0);
     }

@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use vm_types::{Dag, Task, TaskCharacteristics, ComputationType, Instruction, TaskId};
-use vm_scheduler::{DataflowRuntimeImpl, MemoizationEngineImpl};
-use vm_memory::{MemorySystemImpl};
-use vm_cpu::{VonNeumannCoreImpl};
+use kotoba_vm_types::{Dag, Task, TaskCharacteristics, ComputationType, Instruction, TaskId};
+use kotoba_vm_scheduler::{DataflowRuntimeImpl, MemoizationEngineImpl};
+use kotoba_vm_memory::{MemorySystemImpl};
+use kotoba_vm_cpu::{VonNeumannCoreImpl};
 
 fn create_simple_dag(size: usize) -> Dag {
     let mut tasks = Vec::new();

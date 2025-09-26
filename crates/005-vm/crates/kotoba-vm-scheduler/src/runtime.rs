@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use vm_types::{TaskId, CachedResult, Task, HardwareTile, HardwareTileType, TaskCharacteristics, HardwareCharacteristics, ComputationType};
+use kotoba_vm_types::{TaskId, CachedResult, Task, HardwareTile, HardwareTileType, TaskCharacteristics, HardwareCharacteristics, ComputationType};
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::memoization::MemoizationEngine;
 

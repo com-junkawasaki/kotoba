@@ -11,12 +11,12 @@
 //! - **Scheduler**: DAG-based task orchestration
 //! - **Hardware Tiles**: Heterogeneous compute resources
 
-use vm_memory::MemorySystemImpl;
-use vm_cpu::{VonNeumannCore, VonNeumannCoreImpl};
-use vm_scheduler::{DataflowRuntime, DataflowRuntimeImpl};
-use vm_types::{Dag, Task, Instruction, TaskCharacteristics, ComputationType, HardwareTile, HardwareTileType, IoInterface};
-use vm_hardware::{ComputeTile, CpuTile, GpuTile, CgraFpgaTile, PimTile};
-use vm_gnn::{ProgramInteractionHypergraph, NodeKind, EdgeKind, RoleKind, convert_computation_to_pih, create_strength_reduction_rule, create_constant_folding_rule, create_dead_code_elimination_rule, create_loop_fusion_rule, create_vectorization_rule, create_parallelization_rule, FeatureExtractor, TrainingConfig, TrainingStats};
+use kotoba_vm_memory::MemorySystemImpl;
+use kotoba_vm_cpu::{VonNeumannCore, VonNeumannCoreImpl};
+use kotoba_vm_scheduler::{DataflowRuntime, DataflowRuntimeImpl};
+use kotoba_vm_types::{Dag, Task, Instruction, TaskCharacteristics, ComputationType, HardwareTile, HardwareTileType, IoInterface};
+use kotoba_vm_hardware::{ComputeTile, CpuTile, GpuTile, CgraFpgaTile, PimTile};
+use kotoba_vm_gnn::{ProgramInteractionHypergraph, NodeKind, EdgeKind, RoleKind, convert_computation_to_pih, create_strength_reduction_rule, create_constant_folding_rule, create_dead_code_elimination_rule, create_loop_fusion_rule, create_vectorization_rule, create_parallelization_rule, FeatureExtractor, TrainingConfig, TrainingStats};
 use std::future::Future;
 use std::pin::Pin;
 use serde_json::json;
@@ -43,9 +43,9 @@ pub struct Vm {
             /// Current PIH representation
             current_pih: Option<ProgramInteractionHypergraph>,
             /// Available DPO rules
-            rules: Vec<vm_gnn::DpoRule>,
+            rules: Vec<kotoba_vm_gnn::DpoRule>,
             /// Trained GNN model for optimization prediction
-            trained_model: Option<vm_gnn::BipartiteGnn>,
+            trained_model: Option<kotoba_vm_gnn::BipartiteGnn>,
             /// Training configuration
             training_config: TrainingConfig,
         }
@@ -84,10 +84,10 @@ impl GnnEngine {
         }
 
         // Generate synthetic training dataset
-        let dataset = vm_gnn::SyntheticDataGenerator::generate_synthetic_dataset(100);
+        let dataset = kotoba_vm_gnn::SyntheticDataGenerator::generate_synthetic_dataset(100);
 
         // Create new model
-        let mut model = vm_gnn::BipartiteGnn::default();
+        let mut model = kotoba_vm_gnn::BipartiteGnn::default();
 
         // For now, skip training (placeholder)
         let training_stats = TrainingStats::default();
@@ -99,7 +99,7 @@ impl GnnEngine {
     }
 
     /// Predict optimization opportunities using trained GNN model
-    pub fn predict_optimizations(&self) -> Result<vm_gnn::OptimizationLabels, String> {
+    pub fn predict_optimizations(&self) -> Result<kotoba_vm_gnn::OptimizationLabels, String> {
         if let Some(ref pih) = self.current_pih {
             if let Some(ref model) = self.trained_model {
                 let features = FeatureExtractor::extract_features(pih);
@@ -127,7 +127,7 @@ impl GnnEngine {
         self.current_pih = Some(pih);
     }
 
-    pub fn get_rules(&self) -> &[vm_gnn::DpoRule] {
+    pub fn get_rules(&self) -> &[kotoba_vm_gnn::DpoRule] {
         &self.rules
     }
 
@@ -150,7 +150,7 @@ impl GnnEngine {
     }
 
     /// Check if a DPO rule can be applied to the current PIH
-    fn can_apply_rule(&self, pih: &ProgramInteractionHypergraph, _rule: &vm_gnn::DpoRule) -> bool {
+    fn can_apply_rule(&self, pih: &ProgramInteractionHypergraph, _rule: &kotoba_vm_gnn::DpoRule) -> bool {
         pih.edges.iter().any(|edge| {
             edge.opcode.as_ref() == Some(&"mul".to_string()) && pih.nodes.iter().any(|node| {
                 node.attributes.get("is_const") == Some(&json!(true)) &&
@@ -235,7 +235,7 @@ impl Vm {
         let pih = convert_computation_to_pih("mul", inputs, outputs, constants);
 
         // Add some state management
-        let _state_in = vm_gnn::Node {
+        let _state_in = kotoba_vm_gnn::Node {
             id: "heap_v1".to_string(),
             kind: NodeKind::State,
             node_type: "heap".to_string(),
@@ -244,7 +244,7 @@ impl Vm {
             cid: None,
         };
 
-        let _state_out = vm_gnn::Node {
+        let _state_out = kotoba_vm_gnn::Node {
             id: "heap_v2".to_string(),
             kind: NodeKind::State,
             node_type: "heap".to_string(),
@@ -258,9 +258,9 @@ impl Vm {
         combined_pih.incidences.extend(pih.incidences);
 
         // Add state flow edge (using Flow edge instead of state_edges)
-        let state_flow_edge = vm_gnn::Edge {
+        let state_flow_edge = kotoba_vm_gnn::Edge {
             id: "state_flow".to_string(),
-            kind: vm_gnn::EdgeKind::Flow,
+            kind: kotoba_vm_gnn::EdgeKind::Flow,
             label: Some("heap_version_chain".to_string()),
             opcode: None,
             dtype: None,
@@ -269,19 +269,19 @@ impl Vm {
             cid: None,
         };
 
-        let state_flow_incidence1 = vm_gnn::Incidence {
+        let state_flow_incidence1 = kotoba_vm_gnn::Incidence {
             edge: "state_flow".to_string(),
             node: "heap_v1".to_string(),
-            role: vm_gnn::RoleKind::Src,
+            role: kotoba_vm_gnn::RoleKind::Src,
             idx: Some(0),
             attrs: std::collections::HashMap::new(),
             cid: None,
         };
 
-        let state_flow_incidence2 = vm_gnn::Incidence {
+        let state_flow_incidence2 = kotoba_vm_gnn::Incidence {
             edge: "state_flow".to_string(),
             node: "heap_v2".to_string(),
-            role: vm_gnn::RoleKind::Dst,
+            role: kotoba_vm_gnn::RoleKind::Dst,
             idx: Some(0),
             attrs: std::collections::HashMap::new(),
             cid: None,
@@ -298,7 +298,7 @@ impl Vm {
     fn convert_pih_to_dag(&self, pih: &ProgramInteractionHypergraph) -> Dag {
         // Convert PIH Event edges to tasks
         let tasks: Vec<Task> = pih.edges.iter().enumerate()
-            .filter(|(_, edge)| matches!(edge.kind, vm_gnn::EdgeKind::Event))
+            .filter(|(_, edge)| matches!(edge.kind, kotoba_vm_gnn::EdgeKind::Event))
             .map(|(i, edge)| {
                 Task {
                     id: i as u64,
@@ -320,7 +320,7 @@ impl Vm {
     // PIH-related methods temporarily disabled
     // fn generate_pih_from_patterns(&mut self) { ... }
     // fn apply_dpo_optimizations(&mut self) -> usize { ... }
-    // fn can_apply_rule(&self, pih: &ProgramInteractionHypergraph, rule: &vm_gnn::DpoRule) -> bool { ... }
+    // fn can_apply_rule(&self, pih: &ProgramInteractionHypergraph, rule: &kotoba_vm_gnn::DpoRule) -> bool { ... }
     // fn convert_pih_to_dag(&self, pih: &ProgramInteractionHypergraph) -> Dag { ... }
 
 

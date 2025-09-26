@@ -1,4 +1,4 @@
-use vm_types::{Task, HardwareCharacteristics, HardwareTileType, ComputationType};
+use kotoba_vm_types::{Task, HardwareCharacteristics, HardwareTileType, ComputationType};
 
 // Merkle DAG: vm.VirtualHardware
 // A common trait for any computational tile.

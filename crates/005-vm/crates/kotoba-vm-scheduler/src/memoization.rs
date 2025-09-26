@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash, Hasher};
 use twox_hash::XxHash64;
-use vm_types::{TaskId, CachedResult, Task};
+use kotoba_vm_types::{TaskId, CachedResult, Task};
 
 // Use XxHash64 for faster hashing performance.
 type FastHasher = BuildHasherDefault<XxHash64>;

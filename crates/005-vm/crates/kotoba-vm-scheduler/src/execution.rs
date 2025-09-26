@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use vm_types::{Dag, TaskId, CachedResult, Task, HardwareTile, HardwareTileType, TaskCharacteristics, HardwareCharacteristics, ComputationType};
+use kotoba_vm_types::{Dag, TaskId, CachedResult, Task, HardwareTile, HardwareTileType, TaskCharacteristics, HardwareCharacteristics, ComputationType};
 use crate::runtime::DataflowRuntime;
 use crate::scheduler::Scheduler;
 use crate::memoization::MemoizationEngine;

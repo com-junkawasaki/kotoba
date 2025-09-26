@@ -1,5 +1,5 @@
-use vm_memory::MemorySystem;
-use vm_types::Instruction;
+use kotoba_vm_memory::MemorySystem;
+use kotoba_vm_types::Instruction;
 
 const NUM_REGISTERS: usize = 16;
 
