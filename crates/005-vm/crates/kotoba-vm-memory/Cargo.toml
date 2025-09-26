@@ -1,13 +1,13 @@
 [package]
-name = "vm_memory"
+name = "kotoba-vm-memory"
 version = "0.1.0"
 edition = "2021"
 description = "Memory management system for the Digital Computing System VM"
 license = "Apache-2.0"
 
 [lib]
-name = "vm_memory"
+name = "kotoba_vm_memory"
 path = "src/lib.rs"
 
 [dependencies]
-vm_types = { path = "../vm-types" }
+kotoba-vm-types = { path = "../kotoba-vm-types" }

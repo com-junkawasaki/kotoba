@@ -1,14 +1,15 @@
 [workspace]
 resolver = "2" # Use the edition 2021 resolver
 members = [
-    "crates/vm-benchmarks",
-    "crates/vm-cli",
-    "crates/vm-cpu",
-    "crates/vm-hardware",
-    "crates/vm-memory",
-    "crates/vm-scheduler",
-    "crates/vm-types",
-    "crates/vm-gnn",
+    "crates/kotoba-vm-benchmarks",
+    "crates/kotoba-vm-cli",
+    "crates/kotoba-vm-core",
+    "crates/kotoba-vm-cpu",
+    "crates/kotoba-vm-hardware",
+    "crates/kotoba-vm-memory",
+    "crates/kotoba-vm-scheduler",
+    "crates/kotoba-vm-types",
+    "crates/kotoba-vm-gnn",
 ]
 
 [profile.release]

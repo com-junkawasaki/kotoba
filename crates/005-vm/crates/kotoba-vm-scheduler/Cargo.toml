@@ -1,15 +1,15 @@
 [package]
-name = "vm_scheduler"
+name = "kotoba-vm-scheduler"
 version = "0.1.0"
 edition = "2021"
 description = "DAG scheduling and memoization system for the Digital Computing System VM"
 license = "Apache-2.0"
 
 [lib]
-name = "vm_scheduler"
+name = "kotoba_vm_scheduler"
 path = "src/lib.rs"
 
 [dependencies]
-vm_types = { path = "../vm-types" }
+kotoba-vm-types = { path = "../kotoba-vm-types" }
 twox-hash = { workspace = true }
 rayon = { workspace = true }

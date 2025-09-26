@@ -1,5 +1,5 @@
 [package]
-name = "vm-gnn"
+name = "kotoba-vm-gnn"
 version = "0.1.0"
 edition = "2021"
 

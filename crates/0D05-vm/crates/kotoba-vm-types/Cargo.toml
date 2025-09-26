@@ -1,0 +1,5 @@
+[package]
+name = "kotoba-vm-types"
+
+[lib]
+name = "kotoba_vm_types"

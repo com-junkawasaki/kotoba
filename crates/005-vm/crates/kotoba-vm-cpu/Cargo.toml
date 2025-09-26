@@ -1,14 +1,14 @@
 [package]
-name = "vm_cpu"
+name = "kotoba-vm-cpu"
 version = "0.1.0"
 edition = "2021"
 description = "Von Neumann CPU core implementation for the Digital Computing System VM"
 license = "Apache-2.0"
 
 [lib]
-name = "vm_cpu"
+name = "kotoba_vm_cpu"
 path = "src/lib.rs"
 
 [dependencies]
-vm_types = { path = "../vm-types" }
-vm_memory = { path = "../vm-memory" }
+kotoba-vm-types = { path = "../kotoba-vm-types" }
+kotoba-vm-memory = { path = "../kotoba-vm-memory" }
