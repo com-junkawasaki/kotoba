@@ -97,7 +97,7 @@ impl DataflowRuntimeImpl {
         }
 
         // Select best tile based on load balancing
-        let selected_tile = suitable_tiles.iter().min_by_key(|tile| tile.current_load).unwrap();
+        let selected_tile = suitable_tiles.iter().min_by_key(|tile| (tile.characteristics.current_load * 1000.0) as i32).unwrap();
 
         // Simulate task execution
         // In real implementation, this would dispatch to actual hardware
@@ -126,7 +126,7 @@ impl DataflowRuntime for DataflowRuntimeImpl {
         }
 
         // Check if task exists and is ready
-        if let Some(task) = self.tasks.get(&task_id) {
+        if let Some(task) = self.tasks.get(&task_id).cloned() {
             if !self.check_dependencies(task_id) {
                 return Err("Dependencies not satisfied".to_string());
             }
@@ -135,7 +135,7 @@ impl DataflowRuntime for DataflowRuntimeImpl {
             self.update_task_status(task_id, TaskStatus::Running);
 
             // Execute on hardware
-            match self.execute_on_hardware(task) {
+            match self.execute_on_hardware(&task) {
                 Ok(result) => {
                     // Store in cache
                     self.memo_engine.store_result(task_id, result.clone());

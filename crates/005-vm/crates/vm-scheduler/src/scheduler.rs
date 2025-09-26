@@ -77,10 +77,10 @@ impl HardwareAwareScheduler {
         let suitable_tiles: Vec<_> = self.hardware_tiles.iter()
             .filter(|tile| {
                 match task.characteristics.computation_type {
-                    ComputationType::GeneralPurpose => true,
-                    ComputationType::SIMD => matches!(tile.tile_type, HardwareTileType::SIMD),
-                    ComputationType::Tensor => matches!(tile.tile_type, HardwareTileType::TensorCore),
-                    ComputationType::Custom => tile.tile_type == HardwareTileType::Custom,
+                    ComputationType::GeneralPurpose => matches!(tile.characteristics.tile_type, HardwareTileType::CPU),
+                    ComputationType::HighlyParallel => matches!(tile.characteristics.tile_type, HardwareTileType::GPU),
+                    ComputationType::Reconfigurable => matches!(tile.characteristics.tile_type, HardwareTileType::CgraFpga),
+                    ComputationType::MemoryBound => matches!(tile.characteristics.tile_type, HardwareTileType::PIM),
                 }
             })
             .collect();
@@ -92,7 +92,7 @@ impl HardwareAwareScheduler {
         match self.scheduling_policy {
             SchedulingPolicy::LoadBalancing => {
                 // Select tile with minimum current load
-                suitable_tiles.iter().min_by_key(|tile| tile.current_load).copied()
+                suitable_tiles.iter().min_by_key(|tile| (tile.characteristics.current_load * 1000.0) as i32).copied()
             }
             SchedulingPolicy::PerformanceOptimized => {
                 // Select tile with highest compute units
@@ -101,12 +101,12 @@ impl HardwareAwareScheduler {
             SchedulingPolicy::PowerEfficient => {
                 // Select tile with lowest power consumption per compute unit
                 suitable_tiles.iter().min_by_key(|tile| {
-                    (tile.characteristics.power_consumption / tile.characteristics.compute_units as f32 * 1000.0) as i32
+                    (tile.characteristics.power_efficiency * 1000.0) as i32
                 }).copied()
             }
             SchedulingPolicy::DeadlineAware => {
                 // Select tile with lowest latency for deadline-critical tasks
-                suitable_tiles.iter().min_by_key(|tile| tile.characteristics.latency).copied()
+                suitable_tiles.iter().min_by_key(|tile| (tile.characteristics.current_load * 1000.0) as i32).copied()
             }
         }
     }
@@ -117,23 +117,22 @@ impl HardwareAwareScheduler {
         let base_time = task.estimated_execution_time as f64;
 
         // Adjust for hardware characteristics
-        let compute_factor = task.characteristics.computation_type.compute_factor();
-        let hardware_factor = match tile.tile_type {
-            HardwareTileType::GeneralPurpose => 1.0,
-            HardwareTileType::SIMD => 0.25, // SIMD is faster for parallelizable tasks
-            HardwareTileType::TensorCore => 0.1, // Tensor cores are very fast for AI workloads
-            HardwareTileType::Custom => 0.5, // Custom hardware varies
+        let hardware_factor = match tile.characteristics.tile_type {
+            HardwareTileType::CPU => 1.0,
+            HardwareTileType::GPU => 0.25, // GPU is faster for parallelizable tasks
+            HardwareTileType::CgraFpga => 0.1, // CGRA/FPGA is very fast for specialized workloads
+            HardwareTileType::PIM => 0.5, // PIM varies
         };
 
         // Current load factor (more load = slower execution)
-        let load_factor = 1.0 + (tile.current_load as f64 * 0.1);
+        let load_factor = 1.0 + (tile.characteristics.current_load as f64 * 0.1);
 
-        base_time * compute_factor * hardware_factor * load_factor
+        base_time * hardware_factor * load_factor
     }
 
     /// Calculate total power consumption for a schedule
     fn calculate_power_consumption(&self, assignments: &HashMap<TaskId, &HardwareTile>) -> f64 {
-        assignments.values().map(|tile| tile.characteristics.power_consumption).sum()
+        assignments.values().map(|tile| (tile.characteristics.power_efficiency as f64) * 10.0).sum()
     }
 
     /// Optimize task ordering for better cache locality and reduced communication

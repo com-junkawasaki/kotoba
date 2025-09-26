@@ -44,6 +44,23 @@ pub struct Dag {
     pub tasks: Vec<Task>,
 }
 
+impl Dag {
+    /// Get all task IDs in the DAG
+    pub fn get_all_task_ids(&self) -> Vec<TaskId> {
+        self.tasks.iter().map(|task| task.id).collect()
+    }
+
+    /// Get a task by its ID
+    pub fn get_task(&self, task_id: TaskId) -> Option<&Task> {
+        self.tasks.iter().find(|task| task.id == task_id)
+    }
+
+    /// Get a mutable reference to a task by its ID
+    pub fn get_task_mut(&mut self, task_id: TaskId) -> Option<&mut Task> {
+        self.tasks.iter_mut().find(|task| task.id == task_id)
+    }
+}
+
 /// Represents a data packet for the virtual network.
 #[derive(Debug, Clone)]
 pub struct Packet {

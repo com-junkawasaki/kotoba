@@ -122,9 +122,9 @@ impl ExecutionEngine {
 
     /// Execute multiple DAGs in parallel
     pub fn execute_dags_parallel(&mut self, dag_ids: Vec<String>) -> Vec<Result<ExecutionResult, String>> {
-        use rayon::prelude::*;
-
-        dag_ids.into_par_iter()
+        // For now, execute sequentially to avoid Send/Sync issues
+        // TODO: Implement proper parallel execution with thread-safe components
+        dag_ids.into_iter()
             .map(|dag_id| self.execute_dag(dag_id))
             .collect()
     }
