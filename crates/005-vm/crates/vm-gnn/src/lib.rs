@@ -1191,8 +1191,8 @@ pub mod gnn_training {
             let mut node_hyperedge_membership = HashMap::new();
 
             // Count event and entity nodes
-            let event_node_count = pih.events.len();
-            let entity_node_count = pih.entities.len();
+            let edge_node_count = pih.edges.len();
+            let entity_node_count = pih.nodes.len();
 
             // Extract node features (edges and nodes)
             for edge in &pih.edges {
@@ -1224,7 +1224,7 @@ pub mod gnn_training {
             let global_features = Self::extract_global_features(pih);
 
             // Extract bipartite features
-            let bipartite_features = Self::extract_bipartite_features(pih, event_node_count, entity_node_count);
+            let bipartite_features = Self::extract_bipartite_features(pih, edge_node_count, entity_node_count);
 
             // Extract hypergraph features
             let hypergraph_features = Self::extract_hypergraph_features(pih, &node_hyperedge_membership);
@@ -1395,9 +1395,9 @@ pub mod gnn_training {
             let mut hyperedge_sizes = Vec::new();
             let mut hyperedge_degree_distribution = HashMap::new();
 
-            for event in pih.events.values() {
-                let hyperedge_size = pih.incidence.iter()
-                    .filter(|inc| inc.event == event.id)
+            for edge in &pih.edges {
+                let hyperedge_size = pih.incidences.iter()
+                    .filter(|inc| inc.edge == edge.id)
                     .count();
                 hyperedge_sizes.push(hyperedge_size);
 
@@ -1422,10 +1422,10 @@ pub mod gnn_training {
             }
 
             // Hypergraph clustering coefficient (simplified)
-            let hypergraph_clustering_coeff = if pih.events.is_empty() {
+            let hypergraph_clustering_coeff = if pih.edges.is_empty() {
                 0.0
             } else {
-                avg_hyperedge_size / pih.entities.len() as f32
+                avg_hyperedge_size / pih.nodes.len() as f32
             };
 
             HypergraphFeatures {
@@ -1502,18 +1502,18 @@ pub mod gnn_training {
             let mut patterns = Vec::new();
 
             // Analyze loop structures for spatial patterns
-            for event in pih.events.values() {
-                if event.opcode == "for" {
-                    if let Some(pattern) = Self::analyze_loop_spatial_pattern(event, pih) {
+            for edge in &pih.edges {
+                if edge.opcode.as_ref() == Some(&"for".to_string()) {
+                    if let Some(pattern) = Self::analyze_loop_spatial_pattern(edge, pih) {
                         patterns.push(pattern);
                     }
                 }
             }
 
             // Also analyze CGRA compute events
-            for event in pih.events.values() {
-                if event.opcode == "cgra_compute" {
-                    if let Some(pattern) = Self::analyze_cgra_spatial_pattern(event) {
+            for edge in &pih.edges {
+                if edge.opcode.as_ref() == Some(&"cgra_compute".to_string()) {
+                    if let Some(pattern) = Self::analyze_cgra_spatial_pattern(edge) {
                         patterns.push(pattern);
                     }
                 }
@@ -1576,8 +1576,8 @@ pub mod gnn_training {
         }
 
         fn analyze_dataflow_type(pih: &ProgramInteractionHypergraph) -> DataflowType {
-            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
-            let cgra_count = pih.events.values().filter(|e| e.opcode == "cgra_compute").count();
+            let loop_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"for".to_string())).count();
+            let cgra_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"cgra_compute".to_string())).count();
 
             if cgra_count > 0 {
                 // If we have CGRA compute events, use spatial patterns
@@ -1592,8 +1592,8 @@ pub mod gnn_training {
         }
 
         fn analyze_compute_memory_patterns(pih: &ProgramInteractionHypergraph) -> (f32, f32) {
-            let compute_ops = pih.events.values().filter(|e| e.opcode == "mul" || e.opcode == "add").count();
-            let memory_ops = pih.events.values().filter(|e| e.opcode == "load" || e.opcode == "store").count();
+            let compute_ops = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"mul".to_string()) || e.opcode.as_ref() == Some(&"add".to_string())).count();
+            let memory_ops = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"load".to_string()) || e.opcode.as_ref() == Some(&"store".to_string())).count();
 
             let memory_bandwidth = memory_ops as f32 * 64.0; // Assume 64-bit operations
             let compute_intensity = if memory_ops > 0 {
@@ -1607,7 +1607,7 @@ pub mod gnn_training {
 
         fn estimate_pipeline_depth(pih: &ProgramInteractionHypergraph) -> usize {
             // Simple estimation based on operation count
-            let operation_count = pih.events.len();
+            let operation_count = pih.edges.len();
             if operation_count > 10 {
                 4
             } else if operation_count > 5 {
@@ -1618,8 +1618,8 @@ pub mod gnn_training {
         }
 
         fn estimate_parallelism_degree(pih: &ProgramInteractionHypergraph) -> usize {
-            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
-            let array_count = pih.entities.values().filter(|e| e.entity_type.ends_with('*')).count();
+            let loop_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"for".to_string())).count();
+            let array_count = pih.nodes.iter().filter(|e| e.node_type.ends_with('*')).count();
 
             (loop_count + array_count).max(1)
         }
@@ -1628,11 +1628,11 @@ pub mod gnn_training {
             let mut patterns = Vec::new();
 
             // Detect arithmetic patterns
-            let mul_count = pih.events.values().filter(|e| e.opcode == "mul").count();
-            let add_count = pih.events.values().filter(|e| e.opcode == "add").count();
+            let mul_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"mul".to_string())).count();
+            let add_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"add".to_string())).count();
 
             // Also check for FPGA compute events
-            let fpga_count = pih.events.values().filter(|e| e.opcode == "fpga_compute").count();
+            let fpga_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"fpga_compute".to_string())).count();
 
             if fpga_count > 0 {
                 // FPGA compute events should generate RTL patterns
@@ -1684,10 +1684,10 @@ pub mod gnn_training {
         }
 
         fn estimate_resource_utilization(pih: &ProgramInteractionHypergraph) -> ResourceUtilization {
-            let total_operations = pih.events.len();
-            let memory_operations = pih.events.values().filter(|e| e.opcode == "load" || e.opcode == "store").count();
-            let compute_operations = pih.events.values().filter(|e| e.opcode == "add" || e.opcode == "mul").count();
-            let cgra_operations = pih.events.values().filter(|e| e.opcode == "cgra_compute").count();
+            let total_operations = pih.edges.len();
+            let memory_operations = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"load".to_string()) || e.opcode.as_ref() == Some(&"store".to_string())).count();
+            let compute_operations = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"add".to_string()) || e.opcode.as_ref() == Some(&"mul".to_string())).count();
+            let cgra_operations = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"cgra_compute".to_string())).count();
 
             // CGRA operations use more DSP resources
             let dsp_usage = if cgra_operations > 0 {
@@ -1705,7 +1705,7 @@ pub mod gnn_training {
         }
 
         fn analyze_timing_constraints(pih: &ProgramInteractionHypergraph) -> TimingConstraints {
-            let complexity = pih.events.len() as f32;
+            let complexity = pih.edges.len() as f32;
 
             TimingConstraints {
                 clock_frequency: 200.0 - complexity * 10.0, // Higher complexity -> lower frequency
@@ -1718,7 +1718,7 @@ pub mod gnn_training {
         fn generate_synthesis_directives(pih: &ProgramInteractionHypergraph) -> Vec<SynthesisDirective> {
             let mut directives = Vec::new();
 
-            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
+            let loop_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"for".to_string())).count();
             if loop_count > 2 {
                 directives.push(SynthesisDirective {
                     directive_type: SynthesisDirectiveType::LoopUnrolling,
@@ -1755,17 +1755,17 @@ pub mod gnn_training {
         }
 
         fn estimate_memory_usage(pih: &ProgramInteractionHypergraph) -> usize {
-            let array_entities = pih.entities.values().filter(|e| e.entity_type.ends_with('*')).count();
+            let array_entities = pih.nodes.iter().filter(|e| e.node_type.ends_with('*')).count();
             array_entities * 1024 // Assume 1KB per array entity
         }
 
         fn estimate_compute_units(pih: &ProgramInteractionHypergraph) -> usize {
-            let compute_ops = pih.events.values().filter(|e| e.opcode == "add" || e.opcode == "mul").count();
+            let compute_ops = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"add".to_string()) || e.opcode.as_ref() == Some(&"mul".to_string())).count();
             (compute_ops / 4).max(1) // One compute unit per 4 operations
         }
 
         fn estimate_bandwidth(pih: &ProgramInteractionHypergraph) -> f32 {
-            let memory_ops = pih.events.values().filter(|e| e.opcode == "load" || e.opcode == "store").count();
+            let memory_ops = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"load".to_string()) || e.opcode.as_ref() == Some(&"store".to_string())).count();
             memory_ops as f32 * 8.0 // Assume 8 bytes per memory operation
         }
 
@@ -1773,12 +1773,12 @@ pub mod gnn_training {
             let mut transformations = Vec::new();
 
             // Analyze nested loops for tiling opportunities
-            for event in pih.events.values() {
-                if event.opcode == "for" {
-                    if let Some(transform) = Self::analyze_loop_tiling(event, pih) {
+            for edge in &pih.edges {
+                if edge.opcode.as_ref() == Some(&"for".to_string()) {
+                    if let Some(transform) = Self::analyze_loop_tiling(edge, pih) {
                         transformations.push(transform);
                     }
-                    if let Some(transform) = Self::analyze_loop_unrolling(event, pih) {
+                    if let Some(transform) = Self::analyze_loop_unrolling(edge, pih) {
                         transformations.push(transform);
                     }
                 }
@@ -1841,8 +1841,8 @@ pub mod gnn_training {
 
         fn analyze_loop_fusion(pih: &ProgramInteractionHypergraph) -> Option<LoopTransformation> {
             // Find adjacent loops that could be fused
-            let mut loops = pih.events.values()
-                .filter(|e| e.opcode == "for")
+            let mut loops = pih.edges.iter()
+                .filter(|e| e.opcode.as_ref() == Some(&"for".to_string()))
                 .collect::<Vec<_>>();
 
             if loops.len() >= 2 {
@@ -1897,12 +1897,12 @@ pub mod gnn_training {
         fn find_inline_candidates(pih: &ProgramInteractionHypergraph) -> Vec<InlineCandidate> {
             let mut candidates = Vec::new();
 
-            for event in pih.events.values() {
-                if event.opcode == "call" {
-                    if let Some(callee) = event.attributes.get("callee") {
+            for edge in &pih.edges {
+                if edge.opcode.as_ref() == Some(&"call".to_string()) {
+                    if let Some(callee) = edge.attributes.get("callee") {
                         if let Some(callee_str) = callee.as_str() {
                             candidates.push(InlineCandidate {
-                                call_site: event.id.clone(),
+                                call_site: edge.id.clone(),
                                 function_id: callee_str.to_string(),
                                 profitability_score: 0.5,
                                 size_increase: 50, // Estimated size increase
@@ -1920,14 +1920,14 @@ pub mod gnn_training {
             let mut dead_functions = Vec::new();
 
             // Find function definitions
-            let function_defs: std::collections::HashMap<_, _> = pih.events.values()
-                .filter(|e| e.opcode == "function_def")
+            let function_defs: std::collections::HashMap<_, _> = pih.edges.iter()
+                .filter(|e| e.opcode.as_ref() == Some(&"function_def".to_string()))
                 .filter_map(|e| e.attributes.get("function_name").and_then(|name| name.as_str()).map(|s| (e.id.clone(), s.to_string())))
                 .collect();
 
             // Find function calls
-            let function_calls: std::collections::HashSet<_> = pih.events.values()
-                .filter(|e| e.opcode == "call")
+            let function_calls: std::collections::HashSet<_> = pih.edges.iter()
+                .filter(|e| e.opcode.as_ref() == Some(&"call".to_string()))
                 .filter_map(|e| e.attributes.get("callee").and_then(|c| c.as_str()))
                 .map(|s| s.to_string())
                 .collect();
@@ -1945,10 +1945,10 @@ pub mod gnn_training {
         fn analyze_global_variables(pih: &ProgramInteractionHypergraph) -> Vec<GlobalVariableOptimization> {
             let mut optimizations = Vec::new();
 
-            for entity in pih.entities.values() {
-                if entity.entity_type == "global" {
+            for node in &pih.nodes {
+                if node.node_type == "global" {
                     optimizations.push(GlobalVariableOptimization {
-                        variable_id: entity.id.clone(),
+                        variable_id: node.id.clone(),
                         optimization_type: GlobalVarOptimizationType::LoadStoreOptimization,
                         constant_value: None,
                         elimination_benefit: 0.4,
@@ -1990,10 +1990,10 @@ pub mod gnn_training {
         fn analyze_array_layouts(pih: &ProgramInteractionHypergraph) -> Vec<ArrayLayoutOptimization> {
             let mut layouts = Vec::new();
 
-            for entity in pih.entities.values() {
-                if entity.entity_type.ends_with('*') {
+            for node in &pih.nodes {
+                if node.node_type.ends_with('*') {
                     layouts.push(ArrayLayoutOptimization {
-                        array_id: entity.id.clone(),
+                        array_id: node.id.clone(),
                         current_layout: LayoutType::RowMajor,
                         proposed_layout: LayoutType::Blocked,
                         access_pattern: "sequential".to_string(),
@@ -2039,10 +2039,10 @@ pub mod gnn_training {
         fn analyze_vectorization_layouts(pih: &ProgramInteractionHypergraph) -> Vec<VectorizationLayout> {
             let mut layouts = Vec::new();
 
-            for entity in pih.entities.values() {
-                if entity.entity_type.ends_with('*') {
+            for node in &pih.nodes {
+                if node.node_type.ends_with('*') {
                     layouts.push(VectorizationLayout {
-                        data_structure: entity.id.clone(),
+                        data_structure: node.id.clone(),
                         simd_width: 4, // AVX width
                         alignment: 16, // SIMD alignment
                         memory_access_pattern: "linear".to_string(),
@@ -2176,12 +2176,12 @@ pub mod gnn_training {
             let mut datasets = Vec::new();
 
             // Collect datasets from PIH entities
-            for entity in pih.entities.values() {
-                if entity.entity_type.contains("benchmark") || entity.entity_type.contains("dataset") {
+            for node in &pih.nodes {
+                if node.node_type.contains("benchmark") || node.node_type.contains("dataset") {
                     datasets.push(BenchmarkDataset {
-                        name: entity.id.clone(),
+                        name: node.id.clone(),
                         dataset_type: BenchmarkType::Custom,
-                        source_path: entity.attributes.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string(),
+                        source_path: node.attributes.get("path").and_then(|p| p.as_str()).unwrap_or("").to_string(),
                         hardware_metrics: vec![],
                         optimization_targets: vec!["performance".to_string(), "power".to_string()],
                         collection_timestamp: 0,
@@ -2975,8 +2975,8 @@ pub mod gnn_training {
             // Extract all features for comprehensive analysis
             let features = FeatureExtractor::extract_features(pih);
 
-            let loop_count = pih.events.values().filter(|e| e.opcode == "for").count();
-            let compute_ops = pih.events.values().filter(|e| e.opcode == "mul" || e.opcode == "add").count();
+            let loop_count = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"for".to_string())).count();
+            let compute_ops = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"mul".to_string()) || e.opcode.as_ref() == Some(&"add".to_string())).count();
 
             // Hardware-specific optimization predictions
             let mut applied_rules = Vec::new();
@@ -3056,7 +3056,7 @@ pub mod gnn_training {
             }
 
             // Also check for CGRA compute events
-            let cgra_compute_events = pih.events.values().filter(|e| e.opcode == "cgra_compute").count();
+            let cgra_compute_events = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"cgra_compute".to_string())).count();
             if cgra_compute_events > 0 {
                 applied_rules.push("CgraSpatialMapping".to_string());
                 applied_rules.push("CgraPipelining".to_string());
@@ -3086,7 +3086,7 @@ pub mod gnn_training {
             }
 
             // Check for power-aware compute events
-            let power_aware_events = pih.events.values().filter(|e| e.opcode == "power_aware_compute").count();
+            let power_aware_events = pih.edges.iter().filter(|e| e.opcode.as_ref() == Some(&"power_aware_compute".to_string())).count();
             if power_aware_events > 0 {
                 applied_rules.push("PowerOptimization".to_string());
                 applied_rules.push("ThermalOptimization".to_string());
@@ -3189,6 +3189,7 @@ pub mod gnn_training {
                         ("resource_type".to_string(), json!("dsp_chain")),
                         ("synthesis_directive".to_string(), json!("retiming")),
                     ].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 pih.edges.push(fpga_pipeline);
@@ -3251,48 +3252,56 @@ pub mod gnn_training {
 
                 let outer_loop = Edge {
                     id: outer_loop_id.clone(),
-                    opcode: "for".to_string(),
-                    dtype: "i32".to_string(),
+                    kind: EdgeKind::Event,
+                    label: Some("for".to_string()),
+                    opcode: Some("for".to_string()),
+                    dtype: Some("i32".to_string()),
                     can_throw: false,
-            cid: None,
                     attributes: [
                         ("start".to_string(), json!(0)),
-                        ("end".to_string(), json!(100)),
+                        ("end".to_string(), json!("N")),
                         ("step".to_string(), json!(1)),
+                        ("nested_levels".to_string(), json!(3)),
                     ].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 let inner_loop = Edge {
                     id: inner_loop_id.clone(),
-                    opcode: "for".to_string(),
-                    dtype: "i32".to_string(),
+                    kind: EdgeKind::Event,
+                    label: Some("for".to_string()),
+                    opcode: Some("for".to_string()),
+                    dtype: Some("i32".to_string()),
                     can_throw: false,
-            cid: None,
                     attributes: [
                         ("start".to_string(), json!(0)),
                         ("end".to_string(), json!(100)),
                         ("step".to_string(), json!(1)),
                         ("parent_loop".to_string(), json!("outer_loop")),
                     ].iter().cloned().collect(),
+                    cid: None,
                 };
 
                 let innermost_loop = Edge {
                     id: innermost_loop_id.clone(),
-                    opcode: "for".to_string(),
-                    dtype: "i32".to_string(),
+                    kind: EdgeKind::Event,
+                    label: Some("for".to_string()),
+                    opcode: Some("for".to_string()),
+                    dtype: Some("i32".to_string()),
                     can_throw: false,
-            cid: None,
                     attributes: [
                         ("start".to_string(), json!(0)),
                         ("end".to_string(), json!(4)),
                         ("step".to_string(), json!(1)),
                         ("parent_loop".to_string(), json!("inner_loop")),
+                        ("tiling_candidate".to_string(), json!(true)),
                     ].iter().cloned().collect(),
+                    cid: None,
                 };
 
-                pih.events.insert(outer_loop_id, outer_loop);
-                pih.events.insert(inner_loop_id, inner_loop);
-                pih.events.insert(innermost_loop_id, innermost_loop);
+                pih.edges.push(outer_loop);
+                pih.edges.push(inner_loop);
+                pih.edges.push(innermost_loop);
 
                 // Add array entities for tiling analysis
                 let array_node = Node {
@@ -3362,7 +3371,7 @@ pub mod gnn_training {
         }
 
     }
-}
+
 
 /// Represents a Negative Application Condition (NAC) for DPO rewriting.
 /// A NAC specifies a pattern that, if present, prohibits the application of a rule.
@@ -3636,10 +3645,10 @@ pub enum MultibaseEncoding {
 
 impl PartialEq for ProgramInteractionHypergraph {
     fn eq(&self, other: &Self) -> bool {
-        self.events == other.events &&
-        self.entities == other.entities &&
-        self.incidence == other.incidence &&
-        self.state_edges == other.state_edges
+        self.edges == other.edges &&
+        self.nodes == other.nodes &&
+        self.incidences == other.incidences &&
+        self.meta == other.meta
         // Note: node_embeddings may not be compared for equality in rule matching
     }
 }
@@ -3973,21 +3982,21 @@ impl CidSystem {
         let mut all_cids: Vec<String> = Vec::new();
 
         // Add event CIDs
-        for event in pih.events.values() {
-            if let Some(cid) = &event.cid {
+        for edge in &pih.edges {
+            if let Some(cid) = &edge.cid {
                 all_cids.push(cid.clone());
             }
         }
 
         // Add entity CIDs
-        for entity in pih.entities.values() {
-            if let Some(cid) = &entity.cid {
+        for node in &pih.nodes {
+            if let Some(cid) = &node.cid {
                 all_cids.push(cid.clone());
             }
         }
 
         // Add incidence CIDs
-        for incidence in &pih.incidence {
+        for incidence in &pih.incidences {
             if let Some(cid) = &incidence.cid {
                 all_cids.push(cid.clone());
             }
@@ -4049,6 +4058,9 @@ pub fn convert_computation_to_pih(
         id: format!("event_{}", opcode),
         kind: EdgeKind::Event,
         label: Some(opcode.to_string()),
+        opcode: Some(opcode.to_string()),
+        dtype: Some("i32".to_string()),
+        can_throw: false,
         attributes: [
             ("opcode".to_string(), json!(opcode)),
             ("dtype".to_string(), json!("i32")), // Default to i32, can be parameterized
@@ -4065,6 +4077,7 @@ pub fn convert_computation_to_pih(
             id: id.clone(),
             kind,
             node_type: node_type.clone(),
+            entity_type: Some(node_type.clone()),
             attributes: HashMap::new(),
             cid: None,
         };
@@ -4169,14 +4182,16 @@ pub fn create_constant_folding_rule() -> DpoRule {
     let x_node = Node {
         id: "x".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let identity_node = Node {
         id: "identity".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: [
             ("is_const".to_string(), json!(true)),
             ("value".to_string(), json!(0)), // 0 for add, 1 for mul
@@ -4186,7 +4201,8 @@ pub fn create_constant_folding_rule() -> DpoRule {
     let out_node = Node {
         id: "out".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
@@ -4241,21 +4257,24 @@ pub fn create_dead_code_elimination_rule() -> DpoRule {
     let x_node = Node {
         id: "x".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let y_node = Node {
         id: "y".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let unused_node = Node {
         id: "unused".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
@@ -4329,28 +4348,32 @@ pub fn create_loop_fusion_rule() -> DpoRule {
     let i_node = Node {
         id: "i".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let a_node = Node {
         id: "a".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let b_node = Node {
         id: "b".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let c_node = Node {
         id: "c".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
@@ -4509,21 +4532,24 @@ pub fn create_vectorization_rule() -> DpoRule {
     let i_node = Node {
         id: "i".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let a_node = Node {
         id: "a".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let b_node = Node {
         id: "b".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32*".to_string(),
+        node_type: "i32*".to_string(),
+entity_type: Some("i32*".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
@@ -4558,30 +4584,29 @@ pub fn create_vectorization_rule() -> DpoRule {
         ].iter().cloned().collect(),
         cid: None,
     };
-    let vector_entity = Entity {
+    let vector_entity = Node {
         id: "vector".to_string(),
         kind: NodeKind::Val,
-        entity_type: "__m128i".to_string(), // SIMD vector type
+        node_type: "__m128i".to_string(), // SIMD vector type
+        entity_type: Some("__m128i".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
 
-    rhs.events.insert(vector_loop.id.clone(), vector_loop);
-    rhs.entities.insert(i_entity.id.clone(), i_entity);
-    rhs.entities.insert(a_entity.id.clone(), a_entity);
-    rhs.entities.insert(b_entity.id.clone(), b_entity);
-    rhs.entities.insert(vector_entity.id.clone(), vector_entity);
+    rhs.edges.push(vector_loop);
+    rhs.nodes.push(i_node);
+    rhs.nodes.push(a_node);
+    rhs.nodes.push(b_node);
+    rhs.nodes.push(vector_entity);
 
-    rhs.incidence.push(Incidence {
-        event: "vector_loop".to_string(),
-        port: "index".to_string(),
-        entity: "i".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "vector_loop".to_string(),
+        node: "i".to_string(),
         cid: None,
     });
-    rhs.incidence.push(Incidence {
-        event: "vector_loop".to_string(),
-        port: "body".to_string(),
-        entity: "simd_add".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "vector_loop".to_string(),
+        node: "simd_add".to_string(),
         cid: None,
     });
 
@@ -4626,7 +4651,8 @@ pub fn create_parallelization_rule() -> DpoRule {
     let i_node = Node {
         id: "i".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
@@ -4640,7 +4666,7 @@ pub fn create_parallelization_rule() -> DpoRule {
     };
 
     lhs.edges.push(seq_loop);
-    lhs.nodes.push(i_entity);
+    lhs.nodes.push(i_node);
     lhs.nodes.push(array_entity);
 
     lhs.incidences.push(Incidence {
@@ -4671,35 +4697,33 @@ pub fn create_parallelization_rule() -> DpoRule {
         ].iter().cloned().collect(),
         cid: None,
     };
-    let thread_id_entity = Entity {
+    let thread_id_entity = Node {
         id: "thread_id".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+        entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
 
-    rhs.events.insert(parallel_loop.id.clone(), parallel_loop);
-    rhs.entities.insert(i_entity.id.clone(), i_entity);
-    rhs.entities.insert(array_entity.id.clone(), array_entity);
-    rhs.entities.insert(thread_id_entity.id.clone(), thread_id_entity);
+    rhs.edges.push(parallel_loop);
+    rhs.nodes.push(i_node);
+    rhs.nodes.push(array_entity);
+    rhs.nodes.push(thread_id_entity);
 
-    rhs.incidence.push(Incidence {
-        event: "parallel_loop".to_string(),
-        port: "index".to_string(),
-        entity: "i".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "parallel_loop".to_string(),
+        node: "i".to_string(),
         cid: None,
     });
-    rhs.incidence.push(Incidence {
-        event: "parallel_loop".to_string(),
-        port: "thread_id".to_string(),
-        entity: "thread_id".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "parallel_loop".to_string(),
+        node: "thread_id".to_string(),
         cid: None,
     });
-    rhs.incidence.push(Incidence {
-        event: "parallel_loop".to_string(),
-        port: "body".to_string(),
-        entity: "parallel_compute".to_string(),
+    rhs.incidences.push(Incidence {
+        edge: "parallel_loop".to_string(),
+        node: "parallel_compute".to_string(),
         cid: None,
     });
 
@@ -4740,14 +4764,16 @@ pub fn create_strength_reduction_rule() -> DpoRule {
     let x_node = Node {
         id: "x".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
     let c_node = Node {
         id: "c".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: [
             ("is_const".to_string(), json!(true)),
             ("value".to_string(), json!(8)), // 2^3
@@ -4757,40 +4783,41 @@ pub fn create_strength_reduction_rule() -> DpoRule {
     let out_node = Node {
         id: "out".to_string(),
         kind: NodeKind::Val,
-        entity_type: "i32".to_string(),
+        node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
         attributes: HashMap::new(),
         cid: None,
     };
 
-    lhs.events.insert(mul_event.id.clone(), mul_event);
-    lhs.entities.insert(x_entity.id.clone(), x_entity.clone());
-    lhs.entities.insert(c_entity.id.clone(), c_entity);
-    lhs.entities.insert(out_entity.id.clone(), out_entity.clone());
+    lhs.edges.push(mul_edge);
+    lhs.nodes.push(x_node);
+    lhs.nodes.push(c_node);
+    lhs.nodes.push(out_node);
 
-        lhs.incidences.push(Incidence {
-            edge: "mul_op".to_string(),
-            node: "x".to_string(),
-            role: RoleKind::DataIn,
-            idx: Some(0),
-            attrs: HashMap::new(),
+    lhs.incidences.push(Incidence {
+        edge: "mul_op".to_string(),
+        node: "x".to_string(),
+        role: RoleKind::DataIn,
+        idx: Some(0),
+        attrs: HashMap::new(),
+        cid: None,
+    });
+    lhs.incidences.push(Incidence {
+        edge: "mul_op".to_string(),
+        node: "c".to_string(),
+        role: RoleKind::DataIn,
+        idx: Some(1),
+        attrs: HashMap::new(),
             cid: None,
         });
-        lhs.incidences.push(Incidence {
-            edge: "mul_op".to_string(),
-            node: "c".to_string(),
-            role: RoleKind::DataIn,
-            idx: Some(1),
-            attrs: HashMap::new(),
-            cid: None,
-        });
-        lhs.incidences.push(Incidence {
-            edge: "mul_op".to_string(),
-            node: "out".to_string(),
-            role: RoleKind::DataOut,
-            idx: Some(0),
-            attrs: HashMap::new(),
-            cid: None,
-        });
+    lhs.incidences.push(Incidence {
+        edge: "mul_op".to_string(),
+        node: "out".to_string(),
+        role: RoleKind::DataOut,
+        idx: Some(0),
+        attrs: HashMap::new(),
+        cid: None,
+    });
 
     // RHS: equivalent shift operation
     let mut rhs = ProgramInteractionHypergraph::new();
@@ -4798,6 +4825,7 @@ pub fn create_strength_reduction_rule() -> DpoRule {
         id: "shift_amt".to_string(),
         kind: NodeKind::Val,
         node_type: "i32".to_string(),
+        entity_type: Some("i32".to_string()),
         attributes: [
             ("is_const".to_string(), json!(true)),
             ("value".to_string(), json!(3)), // log2(8)
@@ -4808,6 +4836,9 @@ pub fn create_strength_reduction_rule() -> DpoRule {
         id: "shl_op".to_string(),
         kind: EdgeKind::Event,
         label: Some("shl".to_string()),
+        opcode: Some("shl".to_string()),
+        dtype: Some("i32".to_string()),
+        can_throw: false,
         attributes: [
             ("opcode".to_string(), json!("shl")),
             ("dtype".to_string(), json!("i32")),
@@ -5216,7 +5247,8 @@ mod tests {
         let i_node = Node {
             id: i_entity_id.clone(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: HashMap::new(),
             cid: None,
         };
@@ -5224,7 +5256,8 @@ mod tests {
         let array_node = Node {
             id: array_entity_id.clone(),
             kind: NodeKind::Val,
-            entity_type: "i32*".to_string(),
+            node_type: "i32*".to_string(),
+entity_type: Some("i32*".to_string()),
             attributes: HashMap::new(),
         };
 
@@ -5945,14 +5978,16 @@ mod tests {
         let x_node = Node {
             id: "x".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: HashMap::new(),
             cid: None,
         };
         let identity_node = Node {
             id: "identity".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: [
                 ("is_const".to_string(), json!(true)),
                 ("value".to_string(), json!(0)), // 0 for add, 1 for mul
@@ -5961,7 +5996,8 @@ mod tests {
         let out_node = Node {
             id: "out".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: HashMap::new(),
             cid: None,
         };
@@ -6018,21 +6054,24 @@ mod tests {
         let x_node = Node {
             id: "x".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: HashMap::new(),
             cid: None,
         };
         let y_node = Node {
             id: "y".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: HashMap::new(),
             cid: None,
         };
         let unused_node = Node {
             id: "unused".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+entity_type: Some("i32".to_string()),
             attributes: HashMap::new(),
             cid: None,
         };
@@ -6132,28 +6171,26 @@ mod tests {
         lhs.nodes.push(out_node.clone());
 
         lhs.incidence.push(Incidence {
-            event: "mul_op".to_string(),
-            port: "data_in[0]".to_string(),
-            entity: "x".to_string(),
+            edge: "mul_op".to_string(),
+            node: "x".to_string(),
             cid: None,
         });
         lhs.incidence.push(Incidence {
-            event: "mul_op".to_string(),
-            port: "data_in[1]".to_string(),
-            entity: "c".to_string(),
+            edge: "mul_op".to_string(),
+            node: "c".to_string(),
         });
         lhs.incidence.push(Incidence {
-            event: "mul_op".to_string(),
-            port: "data_out[0]".to_string(),
-            entity: "out".to_string(),
+            edge: "mul_op".to_string(),
+            node: "out".to_string(),
         });
 
         // RHS: equivalent shift operation
         let mut rhs = ProgramInteractionHypergraph::new();
-            let shift_amount = Node {
+        let shift_amount = Node {
             id: "shift_amt".to_string(),
             kind: NodeKind::Val,
-            entity_type: "i32".to_string(),
+            node_type: "i32".to_string(),
+            entity_type: Some("i32".to_string()),
             attributes: [
                 ("is_const".to_string(), json!(true)),
                 ("value".to_string(), json!(3)), // log2(8)
@@ -6210,4 +6247,5 @@ mod tests {
             nacs: vec![floating_point_nac],
         }
     }
+}
 }
