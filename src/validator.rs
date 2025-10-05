@@ -246,10 +246,11 @@ fn check_acyclic(graph: &Graph, layer: Layer) -> Result<(), Error> {
             continue;
         }
 
-        let sources: Vec<_> = graph.edge_incidences(&edge.id).iter()
+        let incidences = graph.edge_incidences(&edge.id);
+        let sources: Vec<_> = incidences.iter()
             .filter(|inc| inc.role == "source")
             .collect();
-        let targets: Vec<_> = graph.edge_incidences(&edge.id).iter()
+        let targets: Vec<_> = incidences.iter()
             .filter(|inc| inc.role == "target")
             .collect();
 

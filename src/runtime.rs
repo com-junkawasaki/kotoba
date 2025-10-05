@@ -6,9 +6,8 @@
 //! 3. Executing operations with capability checks
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
+use indexmap::IndexMap;
 use crate::types::*;
 use crate::Error;
 
@@ -78,7 +77,7 @@ fn map_node_to_op(node: &Node) -> Result<OpKind, Error> {
 /// Build data flow dependencies
 fn build_data_dependencies(
     graph: &Graph,
-    node_to_op: &HashMap<&String, usize>,
+    _node_to_op: &HashMap<&String, usize>,
     exec_edges: &mut Vec<ExecEdge>,
 ) -> Result<(), Error> {
     for edge in &graph.edge {
@@ -105,7 +104,7 @@ fn build_data_dependencies(
 /// Build control flow dependencies
 fn build_control_dependencies(
     graph: &Graph,
-    node_to_op: &HashMap<&String, usize>,
+    _node_to_op: &HashMap<&String, usize>,
     exec_edges: &mut Vec<ExecEdge>,
 ) -> Result<(), Error> {
     for edge in &graph.edge {
@@ -132,7 +131,7 @@ fn build_control_dependencies(
 /// Build memory dependencies (MemorySSA)
 fn build_memory_dependencies(
     graph: &Graph,
-    node_to_op: &HashMap<&String, usize>,
+    _node_to_op: &HashMap<&String, usize>,
     exec_edges: &mut Vec<ExecEdge>,
 ) -> Result<(), Error> {
     for edge in &graph.edge {
@@ -159,7 +158,7 @@ fn build_memory_dependencies(
 /// Build time dependencies (happens-before)
 fn build_time_dependencies(
     graph: &Graph,
-    node_to_op: &HashMap<&String, usize>,
+    _node_to_op: &HashMap<&String, usize>,
     exec_edges: &mut Vec<ExecEdge>,
 ) -> Result<(), Error> {
     for edge in &graph.edge {
