@@ -1,0 +1,36 @@
+[package]
+name = "eaf-ipg-runtime"
+version = "0.2.0"
+edition = "2021"
+description = "ENGI EAF-IPG Schema & Runtime - Unified IR execution engine"
+license = "Apache-2.0"
+
+[dependencies]
+# Jsonnet processing
+rs-jsonnet = "0.1.22"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Graph algorithms and data structures
+petgraph = { version = "0.6", features = ["serde-1"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Async runtime (for parallel execution)
+tokio = { version = "1.0", features = ["full"] }
+rayon = "1.8"
+
+# Logging
+tracing = "0.1"
+
+# Collections and utilities
+indexmap = "2.0"
+itertools = "0.12"
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.0"

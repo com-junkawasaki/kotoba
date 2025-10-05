@@ -1,0 +1,88 @@
+//! EAF-IPG Runtime CLI
+//!
+//! Execute Jsonnet DSL programs using the unified IR runtime.
+
+use std::fs;
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
+use eaf_ipg_runtime::{validate, lower_to_exec_dag, schedule_and_run, Error};
+
+#[derive(Parser)]
+#[command(name = "eaf-ipg")]
+#[command(about = "ENGI EAF-IPG Schema & Runtime")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Execute a Jsonnet DSL program
+    Run {
+        /// Path to the Jsonnet DSL file
+        #[arg(short, long)]
+        file: PathBuf,
+
+        /// Export mode: export JSON without execution
+        #[arg(long)]
+        export: bool,
+    },
+    /// Validate a JSON IR file
+    Validate {
+        /// Path to the JSON IR file
+        #[arg(short, long)]
+        file: PathBuf,
+    },
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::init();
+
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Run { file, export } => {
+            // Load and evaluate Jsonnet DSL
+            let jsonnet_source = fs::read_to_string(&file)?;
+            let json_output = rs_jsonnet::evaluate_to_json(&jsonnet_source)
+                .map_err(|e| Error::JsonnetEval(e.to_string()))?;
+
+            if export {
+                println!("{}", json_output);
+                return Ok(());
+            }
+
+            // Parse JSON into IR
+            let graph: eaf_ipg_runtime::Graph = serde_json::from_str(&json_output)?;
+
+            // Validate
+            validate(&graph)?;
+
+            // Lower to execution DAG
+            let exec_dag = lower_to_exec_dag(&graph)?;
+
+            // Execute
+            let mut runtime = eaf_ipg_runtime::Runtime::new();
+            schedule_and_run(&mut runtime, &exec_dag).await?;
+
+            println!("Execution completed successfully");
+        }
+
+        Commands::Validate { file } => {
+            let json_content = fs::read_to_string(&file)?;
+            let graph: eaf_ipg_runtime::Graph = serde_json::from_str(&json_content)?;
+
+            match validate(&graph) {
+                Ok(_) => println!("✓ Validation passed"),
+                Err(e) => {
+                    eprintln!("✗ Validation failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
