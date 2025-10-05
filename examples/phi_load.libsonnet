@@ -1,94 +1,57 @@
 // Example: Phi + Capability-Guarded Load
 // Merkle DAG: example_program -> dsl_construction
 
-local dsl = import "../dsl.libsonnet";
-
-// Program: conditional selection (phi) followed by capability-guarded load
 {
-  program::
-    // Phi node for conditional selection
-    dsl.N('phi', 'Phi', { inferred_type: 'Int' }) +
-
-    // True/False value nodes
-    dsl.N('x_then', 'Const', { value: 100, inferred_type: 'Int' }) +
-    dsl.N('x_else', 'Const', { value: 200, inferred_type: 'Int' }) +
-
-    // Result variable
-    dsl.N('x', 'Var', { inferred_type: 'Int' }) +
-
-    // Capability node for memory access
-    dsl.N('cap', 'Capability', {
+  node: [
+    { id: "phi", type: "Phi", properties: { inferred_type: "Int" } },
+    { id: "x_then", type: "Const", properties: { value: 100, inferred_type: "Int" } },
+    { id: "x_else", type: "Const", properties: { value: 200, inferred_type: "Int" } },
+    { id: "x", type: "Var", properties: { inferred_type: "Int" } },
+    { id: "cap", type: "Capability", properties: {
       capability: {
-        base: 'mem',
+        base: "mem",
         length: 64,
-        cursor: 'mem+0',
-        perms: ['load'],
+        cursor: "mem+0",
+        perms: ["load"],
         tag: true
       }
-    }) +
+    }},
+    { id: "ld", type: "Load", properties: { inferred_type: "Int" } },
+    { id: "cond", type: "Const", properties: { value: true, inferred_type: "Bool" } },
+    { id: "branch", type: "Branch", properties: {} },
+    { id: "result", type: "Var", properties: { attrs: { name: "result" } } }
+  ],
 
-    // Load operation
-    dsl.N('ld', 'Load', { inferred_type: 'Int' }) +
+  edge: [
+    { id: "e1", type: "arg", layer: "data", properties: { pos: 0 } },
+    { id: "e2", type: "arg", layer: "data", properties: { pos: 1 } },
+    { id: "e3", type: "result", layer: "data" },
+    { id: "e4", type: "arg", layer: "data", properties: { pos: 0 } },
+    { id: "e5", type: "result", layer: "data" },
+    { id: "c1", type: "cond", layer: "control" },
+    { id: "c2", type: "true_branch", layer: "control" },
+    { id: "c3", type: "false_branch", layer: "control" },
+    { id: "ec", type: "use", layer: "capability", properties: { check: "bounds,perm,tag" } }
+  ],
 
-    // Control flow nodes
-    dsl.N('cond', 'Const', { value: true, inferred_type: 'Bool' }) +
-    dsl.N('branch', 'Branch', {}) +
-
-    // Data flow edges
-    dsl.E('e1', 'data', 'arg', { pos: 0 }) +
-    dsl.I('x_then', 'e1', 'source', 0) +
-    dsl.I('phi', 'e1', 'target') +
-
-    dsl.E('e2', 'data', 'arg', { pos: 1 }) +
-    dsl.I('x_else', 'e2', 'source', 1) +
-    dsl.I('phi', 'e2', 'target') +
-
-    dsl.E('e3', 'data', 'result') +
-    dsl.I('phi', 'e3', 'source') +
-    dsl.I('x', 'e3', 'target') +
-
-    dsl.E('e4', 'data', 'arg', { pos: 0 }) +
-    dsl.I('x', 'e4', 'source', 0) +
-    dsl.I('ld', 'e4', 'target') +
-
-    dsl.E('e5', 'data', 'result') +
-    dsl.I('ld', 'e5', 'source') +
-    dsl.I('result', 'e5', 'target') +
-
-    // Control flow edges
-    dsl.E('c1', 'control', 'cond') +
-    dsl.I('cond', 'c1', 'source') +
-    dsl.I('branch', 'c1', 'target') +
-
-    dsl.E('c2', 'control', 'true_branch') +
-    dsl.I('branch', 'c2', 'source') +
-    dsl.I('phi', 'c2', 'target') +
-
-    dsl.E('c3', 'control', 'false_branch') +
-    dsl.I('branch', 'c3', 'source') +
-    dsl.I('phi', 'c3', 'target') +
-
-    // Capability use edge (bounds|perm|tag check)
-    dsl.E('ec', 'capability', 'use', { check: 'bounds|perm|tag' }) +
-    dsl.I('cap', 'ec', 'cap_in') +
-    dsl.I('ld', 'ec', 'cap_out'),
-
-  // Early validation
-  validateEarly(g):: dsl.assertAll(
-    std.length([n for n in g.node if n.type == 'Phi']) >= 1,
-    'Phi node required for conditional logic'
-  ) &&
-
-  dsl.assertAll(
-    std.length([n for n in g.node if n.type == 'Load']) >= 1,
-    'Load operation required'
-  ) &&
-
-  dsl.assertAll(
-    std.length([e for e in g.edge if e.layer == 'capability' && e.type == 'use']) >= 1,
-    'Capability check missing'
-  ),
-
-  // Export for execution
-  export:: self.validateEarly(self.program); self.program,
+  incidence: [
+    { node: "x_then", edge: "e1", type: "source", properties: { pos: 0 } },
+    { node: "phi", edge: "e1", type: "target" },
+    { node: "x_else", edge: "e2", type: "source", properties: { pos: 1 } },
+    { node: "phi", edge: "e2", type: "target" },
+    { node: "phi", edge: "e3", type: "source" },
+    { node: "x", edge: "e3", type: "target" },
+    { node: "x", edge: "e4", type: "source", properties: { pos: 0 } },
+    { node: "ld", edge: "e4", type: "target" },
+    { node: "ld", edge: "e5", type: "source" },
+    { node: "result", edge: "e5", type: "target" },
+    { node: "cond", edge: "c1", type: "source" },
+    { node: "branch", edge: "c1", type: "target" },
+    { node: "branch", edge: "c2", type: "source" },
+    { node: "phi", edge: "c2", type: "target" },
+    { node: "branch", edge: "c3", type: "source" },
+    { node: "phi", edge: "c3", type: "target" },
+    { node: "cap", edge: "ec", type: "cap_in" },
+    { node: "ld", edge: "ec", type: "cap_out" }
+  ]
 }

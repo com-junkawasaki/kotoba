@@ -1,0 +1,84 @@
+{
+  "node": [
+    {
+      "id": "x_then",
+      "type": "Const",
+      "properties": {
+        "value": 100,
+        "inferred_type": "Int"
+      }
+    },
+    {
+      "id": "phi",
+      "type": "Phi",
+      "properties": {
+        "inferred_type": "Int"
+      }
+    },
+    {
+      "id": "cap",
+      "type": "Capability",
+      "properties": {
+        "capability": {
+          "base": "mem",
+          "length": 64,
+          "cursor": "mem+0",
+          "perms": ["load"],
+          "tag": true
+        }
+      }
+    },
+    {
+      "id": "ld",
+      "type": "Load",
+      "properties": {
+        "inferred_type": "Int"
+      }
+    }
+  ],
+  "edge": [
+    {
+      "id": "e1",
+      "layer": "data",
+      "type": "arg",
+      "properties": {
+        "pos": 0
+      }
+    },
+    {
+      "id": "ec",
+      "layer": "capability",
+      "type": "use",
+      "properties": {
+        "check": "bounds,perm,tag"
+      }
+    }
+  ],
+  "incidence": [
+    {
+      "node": "x_then",
+      "edge": "e1",
+      "type": "source",
+      "pos": 0,
+      "properties": {}
+    },
+    {
+      "node": "phi",
+      "edge": "e1",
+      "type": "target",
+      "properties": {}
+    },
+    {
+      "node": "cap",
+      "edge": "ec",
+      "type": "cap_in",
+      "properties": {}
+    },
+    {
+      "node": "ld",
+      "edge": "ec",
+      "type": "cap_out",
+      "properties": {}
+    }
+  ]
+}

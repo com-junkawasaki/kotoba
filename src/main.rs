@@ -34,6 +34,12 @@ enum Commands {
         #[arg(short, long)]
         file: PathBuf,
     },
+    /// Test simple JSON evaluation
+    TestJson {
+        /// Path to the JSON file
+        #[arg(short, long)]
+        file: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -81,6 +87,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     std::process::exit(1);
                 }
             }
+        }
+
+        Commands::TestJson { file } => {
+            let json_content = fs::read_to_string(&file)?;
+            let value: serde_json::Value = serde_json::from_str(&json_content)?;
+            println!("✓ JSON parsed successfully: {}", value);
         }
     }
 
