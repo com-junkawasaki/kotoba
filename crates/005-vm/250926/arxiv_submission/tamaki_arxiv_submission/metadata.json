@@ -1,0 +1,26 @@
+{
+  "title": "Tamaki: An Autopoietic Computing System - EDVAC and Von Neumann Architecture-Based Digital Computing System: A Modern Approach with Data Flow and Small-World Networks",
+  "authors": [
+    {
+      "name": "Jun Kawasaki",
+      "affiliation": "Independent Researcher",
+      "email": "root@junkawasaki.com"
+    }
+  ],
+  "abstract": "This paper presents a modern digital computing system architecture that builds upon the foundational principles of EDVAC (Electronic Discrete Variable Automatic Computer) and Von Neumann architecture, while incorporating contemporary concepts such as data flow execution, heterogeneous computing tiles, and small-world network topologies. The proposed system maintains the sequential execution model of Von Neumann machines as its core, but enhances it with data flow DAG (Directed Acyclic Graph) runtime for task-level parallelism and memoization.\n\nThe architecture features a ring-tree (円相) topology with small-world shortcuts, heterogeneous computing tiles (CPU, GPU, CGRA/FPGA, and PIM), and content-addressable caching for redundancy elimination. Through critical path scheduling, NUMA-aware placement, and proximity computing, the system achieves significant performance improvements while maintaining implementation feasibility with current hardware components.\n\nWe demonstrate that this approach can reduce average hop counts by 30-70%, eliminate 10-40% of redundant computations through memoization, and provide 2-5x overall performance improvements for general DAG pipelines, with potential for even greater gains in data-intensive workloads.\n\nValidated Results: Our complete Rust prototype implementation demonstrates 5.7x faster DAG scheduling (74.1μs vs 421μs), 35x better sequential memory performance (284ns vs 9.92μs), 78-85% memoization hit rates, and 288x network efficiency improvement at 65k nodes. Large-scale simulations show 35-45% energy savings while delivering 2.3x-4.7x performance improvements across ETL pipelines, ML training, video analytics, and scientific simulation workloads.",
+  "categories": ["cs.AR", "cs.DC", "cs.PF"],
+  "keywords": [
+    "computer architecture",
+    "von neumann architecture",
+    "data flow computing",
+    "small-world networks",
+    "heterogeneous computing",
+    "dag scheduling",
+    "memoization",
+    "rust implementation",
+    "performance optimization",
+    "distributed systems"
+  ],
+  "license": "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+  "comments": "Complete implementation and validation results included. Full source code available at: https://github.com/com-junkawasaki/tamaki. Includes paper.bbl for bibliography processing as arXiv does not run bibtex."
+}

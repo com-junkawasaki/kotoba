@@ -1,0 +1,16 @@
+[package]
+name = "kotoba-vm-benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+kotoba-vm-types = { path = "../kotoba-vm-types" }
+kotoba-vm-scheduler = { path = "../kotoba-vm-scheduler" }
+kotoba-vm-memory = { path = "../kotoba-vm-memory" }
+kotoba-vm-cpu = { path = "../kotoba-vm-cpu" }
+
+[[bench]]
+name = "kotoba_vm_benchmarks"
+harness = false

@@ -1,0 +1,16 @@
+[package]
+name = "vm-benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+vm_types = { path = "../vm-types" }
+vm_scheduler = { path = "../vm-scheduler" }
+vm_memory = { path = "../vm-memory" }
+vm_cpu = { path = "../vm-cpu" }
+
+[[bench]]
+name = "vm_benchmarks"
+harness = false
