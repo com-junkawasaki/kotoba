@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KOTOBA Schema",
+  "description": "Kotoba language schema for unified AST+Dataflow+Control+Memory+Typing+Effect+Time representation.",
+  "type": "object",
+  "properties": {
+    "node": {
+      "type": "array",
+      "description": "Node collection.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Unique node identifier." },
+          "type": { "type": "string", "minLength": 1, "description": "Node type/label (e.g., Add, Lambda, Block, Call, Phi, ...)." },
+          "part": { "type": "string", "description": "Optional partition/part identifier for multi-part graphs." },
+          "properties": {
+            "type": "object",
+            "description": "Node properties (semantic annotations).",
+            "properties": {
+              "inferred_type": { "type": "string", "description": "Static or inferred type (e.g., i32, Float, a->b, ...)." },
+              "effects": {
+                "type": "array",
+                "description": "Algebraic/row effects of this node.",
+                "items": { "type": "string", "enum": ["pure", "io", "state", "async", "exception", "stm", "gpu", "custom"] },
+                "uniqueItems": true
+              },
+              "eval_strategy": { "type": "string", "enum": ["strict", "lazy", "monadic"], "description": "Evaluation strategy hint." },
+              "span": {
+                "type": "object",
+                "description": "Source mapping.",
+                "properties": {
+                  "file": { "type": "string" },
+                  "start": { "type": "integer", "minimum": 0 },
+                  "end": { "type": "integer", "minimum": 0 }
+                },
+                "required": ["start", "end"],
+                "additionalProperties": false
+              },
+              "attrs": {
+                "type": "object",
+                "description": "Node-kind specific attributes (opcodes, names, arity hints, etc.).",
+                "additionalProperties": true
+              },
+              "cost": {
+                "type": "object",
+                "description": "Optional telemetry for analysis.",
+                "properties": {
+                  "tokens": { "type": "number", "minimum": 0 },
+                  "retries": { "type": "integer", "minimum": 0 },
+                  "time_ms": { "type": "number", "minimum": 0 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": ["id", "type"],
+        "additionalProperties": false
+      }
+    },
+
+    "edge": {
+      "type": "array",
+      "description": "Edge collection. Edges carry a logical layer and free-form label.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Unique edge identifier." },
+          "type": { "type": "string", "minLength": 1, "description": "Edge label (free-form, e.g., uses, dominates, alias, ...)." },
+          "layer": {
+            "type": "string",
+            "description": "Semantic layer of this edge.",
+            "enum": ["syntax", "data", "control", "memory", "typing", "effect", "time"]
+          },
+          "properties": {
+            "type": "object",
+            "description": "Edge properties (weights, alias class, latency, etc.).",
+            "properties": {
+              "weight": { "type": "number" },
+              "alias_class": { "type": "string" },
+              "order": { "type": "string", "enum": ["sc", "rc11", "relaxed", "acqrel"] },
+              "latency": { "type": "number", "minimum": 0 },
+              "commutative": { "type": "boolean" },
+              "associative": { "type": "boolean" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": ["id", "type", "layer"],
+        "additionalProperties": false
+      }
+    },
+
+    "incidence": {
+      "type": "array",
+      "description": "Incidence list connecting nodes and edges (reified adjacency).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "node": { "type": "string", "minLength": 1, "description": "Node ID." },
+          "edge": { "type": "string", "minLength": 1, "description": "Edge ID." },
+          "type": {
+            "type": "string",
+            "description": "Incidence role on this edge.",
+            "enum": [
+              "child","parent","arg","result",
+              "source","target",
+              "from","to",
+              "incoming","outgoing",
+              "binds","refers_to"
+            ]
+          },
+          "properties": {
+            "type": "object",
+            "description": "Incidence properties (e.g., position in ordered children).",
+            "properties": {
+              "pos": { "type": "integer", "minimum": 0 },
+              "role": { "type": "string", "description": "Fine-grained role (lhs|rhs|cond|body|alt_i|env|ret|k...)" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": ["node", "edge"],
+        "additionalProperties": false
+      }
+    },
+
+    "meta": {
+      "type": "object",
+      "description": "Graph metadata and units.",
+      "properties": {
+        "schema": { "type": "string", "description": "Schema version string." },
+        "directed": { "type": "boolean", "description": "Whether the graph is directed." },
+        "units": {
+          "type": "object",
+          "description": "Unit specifications for measurements.",
+          "additionalProperties": { "type": "string" }
+        },
+        "profiles": {
+          "type": "array",
+          "description": "Active profiles (e.g., 'AST-Strict', 'SSA', 'MemorySSA').",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "constraints": {
+      "type": "array",
+      "description": "Semantic constraints to be checked by an external verifier.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "arity",
+              "exists",
+              "acyclic",
+              "typecheck",
+              "effectcheck",
+              "rolepos",
+              "domination",
+              "coherence"
+            ]
+          },
+          "target": { "type": "object", "description": "Constraint target (node/edge/layer/pattern)." },
+          "rule": { "type": "string", "description": "Human/machine-readable rule (DSL/regex/SMT snippet)." },
+          "message": { "type": "string" }
+        },
+        "required": ["kind"],
+        "additionalProperties": true
+      }
+    }
+  },
+
+  "required": ["node", "edge", "incidence"],
+  "additionalProperties": false
+}
