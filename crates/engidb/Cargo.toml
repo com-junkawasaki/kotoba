@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 kotoba-types = { path = "../kotoba-types" }
 sled = "0.34"
-cid = { version = "0.11.1", features = ["serde-codec"] }
+cid = { version = "0.11.1", default-features = false, features = ["serde-codec"] }
 serde_ipld_dagcbor = "0.4.0"
 multihash = { version = "0.19.3", default-features = false, features = ["sha2"] }
 sha2 = "0.10"
