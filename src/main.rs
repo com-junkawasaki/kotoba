@@ -168,13 +168,13 @@ enum WasmCommands {
     },
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
-    let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async_main(cli))
+    async_main(cli).await
 }
 
 async fn async_main(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
