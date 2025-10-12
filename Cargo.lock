@@ -296,6 +296,8 @@ dependencies = [
  "core2",
  "multibase",
  "multihash 0.19.3",
+ "serde",
+ "serde_bytes",
  "unsigned-varint 0.8.0",
 ]
 
@@ -1157,6 +1159,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b430e7953c29dd6a09afc29ff0bb69c6e306329ee6794700aee27b76a1aea8d"
 dependencies = [
  "core2",
+ "serde",
  "unsigned-varint 0.8.0",
 ]
 

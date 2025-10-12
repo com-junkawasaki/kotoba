@@ -37,7 +37,7 @@ itertools = "0.12"
 
 # EngiDB: Custom Graph Database
 redb = "2.1.0"
-cid = "0.11.1"
+cid = { version = "0.11.1", features = ["serde-codec"] }
 serde_ipld_dagcbor = "0.4.0"
 multihash = "0.19.3"
 blake3 = "1.5.1"

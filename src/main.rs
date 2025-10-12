@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validate, lower_to_exec_dag, schedule_and_run, Error};
+use eaf_ipg_runtime::{validate, lower_to_exec_dag, schedule_and_run, Error, storage::EngiDB};
 
 #[derive(Parser)]
 #[command(name = "eaf-ipg")]
@@ -23,6 +23,22 @@ enum Commands {
         /// Path to the Jsonnet DSL file
         #[arg(short, long)]
         file: PathBuf,
+
+        /// Path to the EngiDB database file
+        #[arg(long)]
+        db: PathBuf,
+
+        /// Branch to commit to
+        #[arg(long, default_value = "main")]
+        branch: String,
+
+        /// Commit author
+        #[arg(long, default_value = "kotoba-cli")]
+        author: String,
+
+        /// Commit message
+        #[arg(short, long)]
+        message: String,
 
         /// Export mode: export JSON without execution
         #[arg(long)]
@@ -49,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Run { file, export } => {
+        Commands::Run { file, export, db, branch, author, message } => {
             // Load and evaluate Jsonnet DSL
             let jsonnet_source = fs::read_to_string(&file)?;
             let json_output = rs_jsonnet::evaluate_to_json(&jsonnet_source)
@@ -63,17 +79,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Parse JSON into IR
             let graph: eaf_ipg_runtime::Graph = serde_json::from_str(&json_output)?;
 
-            // Validate
-            validate(&graph)?;
+            // Open the database
+            let engidb = EngiDB::open(&db)?;
 
-            // Lower to execution DAG
-            let exec_dag = lower_to_exec_dag(&graph)?;
+            // Import the graph
+            println!("Importing graph into database...");
+            engidb.import_graph(&graph)?;
+            println!("Import complete.");
 
-            // Execute
-            let mut runtime = eaf_ipg_runtime::Runtime::new();
-            schedule_and_run(&mut runtime, &exec_dag).await?;
+            // Commit the changes
+            println!("Committing to branch '{}'...", branch);
+            let commit_cid = engidb.commit(&branch, author, message)?;
+            println!("Successfully committed with CID: {}", commit_cid);
+            
+            // // Validate
+            // validate(&graph)?;
 
-            println!("Execution completed successfully");
+            // // Lower to execution DAG
+            // let exec_dag = lower_to_exec_dag(&graph)?;
+
+            // // Execute
+            // let mut runtime = eaf_ipg_runtime::Runtime::new();
+            // schedule_and_run(&mut runtime, &exec_dag).await?;
+
+            // println!("Execution completed successfully");
         }
 
         Commands::Validate { file } => {
