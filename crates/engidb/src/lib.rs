@@ -1,13 +1,41 @@
 //! EngiDB - The Unified Language Graph Database for Kotoba.
 
-use crate::{types::Node, Error, Result};
+use kotoba_types::{Node, Graph};
 use cid::Cid;
 use multihash::Multihash;
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
-use crate::Graph;
 use std::collections::HashMap;
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Redb database error: {0}")]
+    Redb(String),
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+}
+
+impl From<redb::Error> for Error {
+    fn from(err: redb::Error) -> Self { Error::Redb(err.to_string()) }
+}
+impl From<redb::DatabaseError> for Error {
+    fn from(err: redb::DatabaseError) -> Self { Error::Redb(err.to_string()) }
+}
+impl From<redb::TransactionError> for Error {
+    fn from(err: redb::TransactionError) -> Self { Error::Redb(err.to_string()) }
+}
+impl From<redb::TableError> for Error {
+    fn from(err: redb::TableError) -> Self { Error::Redb(err.to_string()) }
+}
+impl From<redb::StorageError> for Error {
+    fn from(err: redb::StorageError) -> Self { Error::Redb(err.to_string()) }
+}
+impl From<redb::CommitError> for Error {
+    fn from(err: redb::CommitError) -> Self { Error::Redb(err.to_string()) }
+}
 
 // Layer 1: IPLD Block Store
 const IPLD_BLOCKS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("ipld_blocks");
@@ -86,7 +114,7 @@ impl EngiDB {
 
             if !targets.contains(&target_id) {
                 targets.push(target_id);
-                let serialized_targets = bincode::serialize(&targets).map_err(|e| Error::Storage(e.to_string()))?;
+                let serialized_targets = bincode::serialize(&targets).map_err(|e| Error::Serialization(e.to_string()))?;
                 table.insert(key, serialized_targets.as_slice())?;
             }
         }
@@ -154,7 +182,7 @@ impl EngiDB {
         let transaction = Transaction {
             timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
         };
-        let tx_data = serde_ipld_dagcbor::to_vec(&transaction).map_err(|e| Error::Storage(e.to_string()))?;
+        let tx_data = serde_ipld_dagcbor::to_vec(&transaction).map_err(|e| Error::Serialization(e.to_string()))?;
         let tx_cid = self.calculate_cid(&tx_data)?;
         self.put_block(&tx_cid, &tx_data)?;
 
@@ -165,7 +193,7 @@ impl EngiDB {
             author,
             message,
         };
-        let commit_data = serde_ipld_dagcbor::to_vec(&commit).map_err(|e| Error::Storage(e.to_string()))?;
+        let commit_data = serde_ipld_dagcbor::to_vec(&commit).map_err(|e| Error::Serialization(e.to_string()))?;
         let commit_cid = self.calculate_cid(&commit_data)?;
         self.put_block(&commit_cid, &commit_data)?;
         
@@ -191,7 +219,7 @@ impl EngiDB {
     /// Adds a vertex to the graph from a `kotoba` Node.
     pub fn add_vertex(&self, node: &Node) -> Result<u64> {
         // 1. Serialize node and calculate CID
-        let data = serde_ipld_dagcbor::to_vec(node).map_err(|e| Error::Storage(e.to_string()))?;
+        let data = serde_ipld_dagcbor::to_vec(node).map_err(|e| Error::Serialization(e.to_string()))?;
         let cid = self.calculate_cid(&data)?;
 
         // 2. Check if vertex already exists in a read transaction.

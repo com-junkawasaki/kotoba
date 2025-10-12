@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validate, lower_to_exec_dag, schedule_and_run, Error, storage::EngiDB};
+use eaf_ipg_runtime::{validate, Error, engidb::EngiDB, Graph};
 
 #[derive(Parser)]
 #[command(name = "eaf-ipg")]
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Parse JSON into IR
-            let graph: eaf_ipg_runtime::Graph = serde_json::from_str(&json_output)?;
+            let graph: Graph = serde_json::from_str(&json_output)?;
 
             // Open the database
             let engidb = EngiDB::open(&db)?;
@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         Commands::Validate { file } => {
             let json_content = fs::read_to_string(&file)?;
-            let graph: eaf_ipg_runtime::Graph = serde_json::from_str(&json_content)?;
+            let graph: Graph = serde_json::from_str(&json_content)?;
 
             match validate(&graph) {
                 Ok(_) => println!("✓ Validation passed"),

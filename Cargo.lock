@@ -522,20 +522,16 @@ name = "eaf-ipg-runtime"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "bincode",
- "blake3",
- "cid 0.11.1",
  "clap",
  "criterion",
+ "engidb",
  "indexmap",
  "itertools 0.12.1",
- "multihash 0.19.3",
+ "kotoba-types",
  "petgraph",
  "rayon",
- "redb",
  "rs-jsonnet",
  "serde",
- "serde_ipld_dagcbor",
  "serde_json",
  "tempfile",
  "thiserror 1.0.69",
@@ -557,6 +553,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "engidb"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "blake3",
+ "cid 0.11.1",
+ "kotoba-types",
+ "multihash 0.19.3",
+ "redb",
+ "serde",
+ "serde_ipld_dagcbor",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -1033,6 +1044,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecc2af9a1119c51f12a14607e783cb977bde58bc069ff0c3da1095e635d70654"
 dependencies = [
  "cpufeatures",
+]
+
+[[package]]
+name = "kotoba-types"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

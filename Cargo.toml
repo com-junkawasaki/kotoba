@@ -1,3 +1,10 @@
+[workspace]
+members = [
+    ".",
+    "crates/engidb",
+    "crates/kotoba-types",
+]
+
 [package]
 name = "eaf-ipg-runtime"
 version = "0.2.0"
@@ -35,13 +42,8 @@ clap = { version = "4.0", features = ["derive"] }
 indexmap = { version = "2.0", features = ["serde"] }
 itertools = "0.12"
 
-# EngiDB: Custom Graph Database
-redb = "2.1.0"
-cid = { version = "0.11.1", features = ["serde-codec"] }
-serde_ipld_dagcbor = "0.4.0"
-multihash = "0.19.3"
-blake3 = "1.5.1"
-bincode = "1.3.3"
+engidb = { path = "crates/engidb" }
+kotoba-types = { path = "crates/kotoba-types" }
 
 [dev-dependencies]
 criterion = "0.5"

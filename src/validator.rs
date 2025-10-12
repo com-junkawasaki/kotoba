@@ -12,15 +12,16 @@
 //! 9. block structure well-formedness
 //! 10. MMIO time ordering
 
-use std::collections::{HashMap, HashSet};
 use petgraph::algo::toposort;
 use petgraph::{Graph as PetGraph, Directed};
+use petgraph::visit::Topo;
+use std::collections::{HashMap, HashSet};
 
-use crate::types::*;
+use kotoba_types::*;
 use crate::Error;
 
-/// Validate a complete EAF-IPG graph
-pub fn validate(graph: &Graph) -> Result<(), Error> {
+/// Validates the structural and semantic integrity of an EAF-IPG graph.
+pub fn validate(graph: &Graph) -> Result<(), String> {
     ids_unique(graph)?;
     refs_exist(graph)?;
     check_layers(graph)?;

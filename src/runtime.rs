@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use indexmap::IndexMap;
-use crate::types::*;
+use kotoba_types::*;
 use crate::Error;
 
 /// Lower multi-layer EAF-IPG graph to execution DAG
