@@ -4,7 +4,7 @@
 //! from Jsonnet DSL programs.
 
 use indexmap::IndexMap;
-use crate::types::*;
+use kotoba_types::*;
 
 /// Helper functions for common DSL patterns
 pub struct Dsl;

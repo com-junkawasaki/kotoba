@@ -21,7 +21,7 @@ use kotoba_types::*;
 use crate::Error;
 
 /// Validates the structural and semantic integrity of an EAF-IPG graph.
-pub fn validate(graph: &Graph) -> Result<(), String> {
+pub fn validate(graph: &Graph) -> Result<(), Error> {
     ids_unique(graph)?;
     refs_exist(graph)?;
     check_layers(graph)?;

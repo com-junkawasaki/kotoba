@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validate, Error, engidb::EngiDB, Graph};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph};
 
 #[derive(Parser)]
 #[command(name = "eaf-ipg")]
@@ -111,8 +111,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             match validate(&graph) {
                 Ok(_) => println!("✓ Validation passed"),
-                Err(e) => {
+                Err(Error::Validation(e)) => {
                     eprintln!("✗ Validation failed: {}", e);
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("✗ Unexpected error: {}", e);
                     std::process::exit(1);
                 }
             }
