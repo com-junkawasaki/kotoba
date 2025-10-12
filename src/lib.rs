@@ -39,4 +39,7 @@ pub enum Error {
 
     #[error("Database error: {0}")]
     Db(#[from] engidb::Error),
+
+    #[error("Storage error: {0}")]
+    Storage(String),
 }

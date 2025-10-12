@@ -405,7 +405,12 @@ pub fn mount_app(container_id: &str) -> Result<(), JsValue> {
     }
 
     fn parse_ui_properties(&self, node: &Node) -> Result<UiProperties> {
-        UiProperties::deserialize(&node.properties)
+        let value = serde_json::Value::Object(
+            node.properties.iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect()
+        );
+        serde_json::from_value(value)
             .map_err(|e| Error::Validation(format!("Failed to parse UI properties: {}", e)))
     }
 }

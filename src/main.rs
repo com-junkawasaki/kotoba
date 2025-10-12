@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler, gql::execute_gql_query};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler, gql::execute_gql_query};
 use kotoba_types::UiProperties;
 use std::collections::HashMap;
 use indexmap::IndexMap;
@@ -168,12 +168,16 @@ enum WasmCommands {
     },
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(async_main(cli))
+}
+
+async fn async_main(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::Run { file, export, db, branch, author, message } => {
             // Load JSON file
@@ -286,14 +290,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("📊 Database: {}", db.display());
             println!("🚀 Port: {}", port);
 
-            // Create tokio runtime for async server
-            let rt = tokio::runtime::Runtime::new()?;
-            rt.block_on(async {
-                if let Err(e) = start_server(db, port).await {
-                    eprintln!("❌ Server error: {}", e);
-                    std::process::exit(1);
-                }
-            });
+            start_server(db, port).await?;
         }
 
         Commands::Wasm { command } => {
@@ -339,7 +336,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     print_gql_result_as_table(&result);
                 }
                 _ => {
-                    return Err(Error::Validation(format!("Unknown format: {}", format)));
+                    return Err(Box::new(Error::Validation(format!("Unknown format: {}", format))));
                 }
             }
         }

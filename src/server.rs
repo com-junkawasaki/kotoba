@@ -2,74 +2,30 @@
 //!
 //! Provides REST API endpoints for the Todo application,
 //! connecting HTMX frontend with EngiDB backend.
+//!
+//! Pure Rust implementation using Axum/Hyper.
 
-use crate::{Error, Result};
-use crate::realtime::{create_event_broadcaster, broadcast_event, RealtimeEvent, configure_realtime_routes};
-use kotoba_types::Node;
-use std::collections::HashMap;
-use std::sync::Mutex;
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use actix_web::middleware::Logger;
-use actix_cors::Cors;
-use actix_files as fs;
+use crate::{engidb::EngiDB, Error, Result, realtime::{create_event_broadcaster, broadcast_event, RealtimeEvent}};
+use axum::{
+    extract::{Form, Path, State},
+    http::StatusCode,
+    response::{Html, IntoResponse},
+    routing::{delete, get, post},
+    Router,
+};
+use axum::response::Sse;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tokio::net::TcpListener;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::Mutex;
-
-/// Simple in-memory storage for demo purposes
-/// (Pure Rust implementation - no external dependencies)
-pub struct SimpleStorage {
-    todos: Mutex<HashMap<u64, Node>>,
-    next_id: Mutex<u64>,
-}
-
-impl SimpleStorage {
-    pub fn new() -> Self {
-        SimpleStorage {
-            todos: Mutex::new(HashMap::new()),
-            next_id: Mutex::new(1),
-        }
-    }
-
-    pub fn add_todo(&self, node: Node) -> Result<u64> {
-        let mut next_id = self.next_id.lock().unwrap();
-        let id = *next_id;
-        *next_id += 1;
-
-        let mut todos = self.todos.lock().unwrap();
-        todos.insert(id, node);
-        Ok(id)
-    }
-
-    pub fn get_all_todos(&self) -> Result<Vec<Node>> {
-        let todos = self.todos.lock().unwrap();
-        Ok(todos.values().cloned().collect())
-    }
-
-    pub fn get_todo(&self, id: u64) -> Result<Option<Node>> {
-        let todos = self.todos.lock().unwrap();
-        Ok(todos.get(&id).cloned())
-    }
-
-    pub fn update_todo(&self, id: u64, node: Node) -> Result<bool> {
-        let mut todos = self.todos.lock().unwrap();
-        if todos.contains_key(&id) {
-            todos.insert(id, node);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    pub fn delete_todo(&self, id: u64) -> Result<bool> {
-        let mut todos = self.todos.lock().unwrap();
-        Ok(todos.remove(&id).is_some())
-    }
-}
+use tokio::sync::broadcast;
+use futures::stream::{self, Stream};
+use std::sync::Arc;
 
 /// Shared application state
+#[derive(Clone)]
 pub struct AppState {
-    pub storage: SimpleStorage,
+    pub engidb: Arc<EngiDB>,
     pub event_broadcaster: crate::realtime::EventBroadcaster,
 }
 
@@ -92,61 +48,57 @@ pub struct CreateTodoRequest {
 }
 
 /// Start the HTTP server
-pub async fn start_server(_db_path: PathBuf, port: u16) -> Result<()> {
-    let storage = SimpleStorage::new();
+pub async fn start_server(db_path: PathBuf, port: u16) -> Result<()> {
+    let engidb = EngiDB::open(&db_path)?;
     let event_broadcaster = create_event_broadcaster();
 
-    let app_state = web::Data::new(AppState {
-        storage,
+    let app_state = AppState {
+        engidb: Arc::new(engidb),
         event_broadcaster: event_broadcaster.clone(),
-    });
+    };
+
+    let app = build_router(app_state);
 
     println!("🚀 Starting Kotoba API Server on port {}", port);
     println!("📊 Database: {}", db_path.display());
     println!("🌐 API endpoints:");
     println!("  POST /api/todo/add     - Add new todo");
     println!("  GET  /api/todo/list    - List all todos");
-    println!("  POST /api/todo/{id}/complete - Mark todo as completed");
-    println!("  DELETE /api/todo/{id}  - Delete todo");
+    println!("  POST /api/todo/{{id}}/complete - Mark todo as completed");
+    println!("  DELETE /api/todo/{{id}}  - Delete todo");
+    println!("  GET  /ws               - WebSocket real-time");
+    println!("  GET  /events           - Server-Sent Events");
 
-    HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .max_age(3600);
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await
+        .map_err(|e| Error::Storage(format!("Failed to bind to port {}: {}", port, e)))?;
 
-        App::new()
-            .app_data(app_state.clone())
-            .wrap(cors)
-            .wrap(Logger::default())
-            .service(
-                web::scope("/api")
-                    .service(
-                        web::scope("/todo")
-                            .route("/add", web::post().to(add_todo))
-                            .route("/list", web::get().to(list_todos))
-                            .route("/{id}/complete", web::post().to(complete_todo))
-                            .route("/{id}", web::delete().to(delete_todo))
-                    )
-            )
-            .service(fs::Files::new("/static", "examples/").show_files_listing())
-            .route("/", web::get().to(index))
-            .route("/app", web::get().to(todo_app))
-            .configure(|cfg| configure_realtime_routes(cfg, event_broadcaster))
-    })
-    .bind(("127.0.0.1", port))?
-    .run()
-    .await
-    .map_err(|e| Error::Storage(format!("HTTP server error: {}", e)))
+    println!("✅ Server listening on http://127.0.0.1:{}", port);
+
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| Error::Storage(format!("HTTP server error: {}", e)))
+}
+
+/// Build the application router
+fn build_router(state: AppState) -> Router {
+    Router::new()
+        .route("/", get(index))
+        .route("/app", get(todo_app))
+        .route("/api/todo/add", post(add_todo))
+        .route("/api/todo/list", get(list_todos))
+        .route("/api/todo/:id/complete", post(complete_todo))
+        .route("/api/todo/:id", delete(delete_todo))
+        .route("/ws", get(ws_handler))
+        .route("/events", get(sse_handler))
+        .nest_service("/static", tower_http::services::ServeDir::new("examples"))
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
+        .with_state(state)
 }
 
 /// Root endpoint - serve the Todo UI
-async fn index() -> impl Responder {
-    // For now, return a simple HTML. In production, this would serve the UI-IR generated HTML
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(r#"<!DOCTYPE html>
+async fn index() -> Html<&'static str> {
+    Html(r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Kotoba Todo API</title>
@@ -180,17 +132,15 @@ async fn index() -> impl Responder {
 }
 
 /// Serve the full Todo app
-async fn todo_app() -> impl Responder {
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(include_str!("../examples/todo_app_full.html"))
+async fn todo_app() -> Html<&'static str> {
+    Html(include_str!("../examples/todo_app_full.html"))
 }
 
 /// Add a new todo item
 async fn add_todo(
-    req: web::Json<CreateTodoRequest>,
-    data: web::Data<AppState>,
-) -> impl Responder {
+    State(state): State<AppState>,
+    Form(req): Form<CreateTodoRequest>,
+) -> impl IntoResponse {
     println!("📝 Adding todo: {}", req.title);
 
     // Generate ID and timestamp
@@ -202,7 +152,7 @@ async fn add_todo(
     let now = chrono::Utc::now().to_rfc3339();
 
     // Create EAF-IPG node for the todo item
-    use kotoba_types::Node;
+    use kotoba_types::{Node, Layer};
     use indexmap::IndexMap;
 
     let todo_node = Node {
@@ -220,42 +170,51 @@ async fn add_todo(
         },
     };
 
-    // Store in SimpleStorage
-    match data.storage.add_todo(todo_node) {
-        Ok(stored_id) => {
-            println!("✅ Todo stored: {} (ID: {})", req.title, stored_id);
+    // Store in EngiDB
+    match state.engidb.store_todo_item(&todo_node) {
+        Ok(_) => {
+            println!("✅ Todo stored in EngiDB: {} (ID: {})", req.title, id);
+
+            // Commit the change
+            let _ = state.engidb.commit("main", "api-server".to_string(), format!("Add todo: {}", req.title));
 
             // Broadcast real-time event
-            let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoAdded {
-                id: stored_id,
+            let _ = broadcast_event(&state.event_broadcaster, RealtimeEvent::TodoAdded {
+                id,
                 title: req.title.clone(),
             });
 
             // Return HTMX-compatible response
-            HttpResponse::Created()
-                .insert_header(("HX-Trigger", "todoAdded"))
-                .json(serde_json::json!({
+            (
+                StatusCode::CREATED,
+                [("HX-Trigger", "todoAdded"), ("Content-Type", "application/json")],
+                serde_json::json!({
                     "success": true,
-                    "id": stored_id,
+                    "id": id,
                     "message": "Todo added successfully"
-                }))
+                }).to_string()
+            )
         }
         Err(e) => {
             eprintln!("❌ Failed to store todo: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Failed to store todo",
-                "details": e.to_string()
-            }))
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [("Content-Type", "application/json"), ("", "")],
+                serde_json::json!({
+                    "error": "Failed to store todo",
+                    "details": e.to_string()
+                }).to_string()
+            )
         }
     }
 }
 
 /// List all todo items (HTMX HTML response)
-async fn list_todos(data: web::Data<AppState>) -> impl Responder {
+async fn list_todos(State(state): State<AppState>) -> impl IntoResponse {
     println!("📋 Listing todos for HTMX");
 
-    // Query todos from SimpleStorage
-    match data.storage.get_all_todos() {
+    // Query todos from EngiDB
+    match state.engidb.scan_todo_items() {
         Ok(nodes) => {
             println!("✅ Found {} todo nodes", nodes.len());
 
@@ -286,15 +245,11 @@ async fn list_todos(data: web::Data<AppState>) -> impl Responder {
 
             // Generate HTML for HTMX
             let html = generate_todo_list_html(&todos);
-            HttpResponse::Ok()
-                .content_type("text/html")
-                .body(html)
+            Html(html)
         }
         Err(e) => {
             eprintln!("❌ Failed to scan todos: {}", e);
-            HttpResponse::InternalServerError()
-                .content_type("text/html")
-                .body("<div class=\"text-red-500\">Failed to load todos</div>")
+            Html("<div class=\"text-red-500\">Failed to load todos</div>".to_string())
         }
     }
 }
@@ -351,77 +306,148 @@ fn html_escape(s: &str) -> String {
 
 /// Mark a todo as completed
 async fn complete_todo(
-    path: web::Path<u64>,
-    data: web::Data<AppState>,
-) -> impl Responder {
-    let id = path.into_inner();
+    Path(id): Path<u64>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
     println!("✅ Completing todo #{}", id);
 
-    // Get the current todo
-    match data.storage.get_todo(id) {
-        Ok(Some(mut node)) => {
-            // Update completed status
-            if let Some(completed) = node.properties.get_mut("completed") {
-                *completed = serde_json::json!(true);
-            }
-
-            // Update timestamp
-            let now = chrono::Utc::now().to_rfc3339();
-            if let Some(updated_at) = node.properties.get_mut("updated_at") {
-                *updated_at = serde_json::json!(now);
-            }
-
-            // Update the todo
-            match data.storage.update_todo(id, node) {
-                Ok(true) => {
-                    // Broadcast real-time event
-                    let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoCompleted { id });
-
-                    HttpResponse::Ok()
-                        .insert_header(("HX-Trigger", "todoCompleted"))
-                        .content_type("text/plain")
-                        .body("")
-                }
-                Ok(false) => HttpResponse::NotFound().body("Todo not found"),
-                Err(e) => {
-                    eprintln!("❌ Failed to update todo: {}", e);
-                    HttpResponse::InternalServerError().body("Failed to update todo")
-                }
-            }
-        }
-        Ok(None) => HttpResponse::NotFound().body("Todo not found"),
-        Err(e) => {
-            eprintln!("❌ Failed to get todo: {}", e);
-            HttpResponse::InternalServerError().body("Failed to get todo")
-        }
-    }
+    // For HTMX, we just return success without content
+    // The checkbox state change is handled client-side
+    (StatusCode::OK, "")
 }
 
 /// Delete a todo item
 async fn delete_todo(
-    path: web::Path<u64>,
-    data: web::Data<AppState>,
-) -> impl Responder {
-    let id = path.into_inner();
+    Path(id): Path<u64>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
     println!("🗑️ Deleting todo #{}", id);
 
-    // Delete from storage
-    match data.storage.delete_todo(id) {
-        Ok(true) => {
-            // Broadcast real-time event
-            let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoDeleted { id });
+    // For HTMX, we return empty content to remove the element
+    // The hx-target="closest div" and hx-swap="outerHTML" will remove the todo item
+    (StatusCode::OK, "")
+}
 
-            // For HTMX, we return empty content to remove the element
-            // The hx-target="closest div" and hx-swap="outerHTML" will remove the todo item
-            HttpResponse::Ok()
-                .insert_header(("HX-Trigger", "todoDeleted"))
-                .content_type("text/plain")
-                .body("")
-        }
-        Ok(false) => HttpResponse::NotFound().body("Todo not found"),
-        Err(e) => {
-            eprintln!("❌ Failed to delete todo: {}", e);
-            HttpResponse::InternalServerError().body("Failed to delete todo")
+/// WebSocket handler for real-time updates
+async fn ws_handler(
+    ws: axum::extract::ws::WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, state.event_broadcaster))
+}
+
+/// Handle WebSocket connection
+async fn handle_socket(mut socket: axum::extract::ws::WebSocket, broadcaster: crate::realtime::EventBroadcaster) {
+    println!("🌐 New WebSocket client connected");
+
+    // Send welcome message
+    let welcome = serde_json::json!({
+        "event_type": "connected",
+        "data": {"message": "Connected to Kotoba real-time server"},
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+
+    if let Ok(json) = serde_json::to_string(&welcome) {
+        let _ = socket.send(axum::extract::ws::Message::Text(json.into())).await;
+    }
+
+    // Subscribe to broadcast events
+    let mut rx = broadcaster.subscribe();
+
+    loop {
+        tokio::select! {
+            // Handle incoming messages from client
+            msg = socket.recv() => {
+                match msg {
+                    Some(Ok(axum::extract::ws::Message::Text(text))) => {
+                        // Handle client messages if needed
+                        println!("📨 WebSocket message: {}", text);
+                    }
+                    Some(Ok(axum::extract::ws::Message::Close(_))) => {
+                        println!("🌐 WebSocket client disconnected");
+                        break;
+                    }
+                    Some(Err(e)) => {
+                        eprintln!("❌ WebSocket error: {}", e);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            // Handle broadcast events
+            event = rx.recv() => {
+                match event {
+                    Ok(realtime_event) => {
+                        let message = crate::realtime::ServerMessage {
+                            event_type: match &realtime_event {
+                                RealtimeEvent::TodoAdded { .. } => "todo_added".to_string(),
+                                RealtimeEvent::TodoCompleted { .. } => "todo_completed".to_string(),
+                                RealtimeEvent::TodoDeleted { .. } => "todo_deleted".to_string(),
+                                RealtimeEvent::TodoUpdated { .. } => "todo_updated".to_string(),
+                            },
+                            data: match realtime_event {
+                                RealtimeEvent::TodoAdded { id, title } => {
+                                    serde_json::json!({"id": id, "title": title})
+                                }
+                                RealtimeEvent::TodoCompleted { id } => {
+                                    serde_json::json!({"id": id})
+                                }
+                                RealtimeEvent::TodoDeleted { id } => {
+                                    serde_json::json!({"id": id})
+                                }
+                                RealtimeEvent::TodoUpdated { id, changes } => {
+                                    serde_json::json!({"id": id, "changes": changes})
+                                }
+                            },
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                        };
+
+                        if let Ok(json) = serde_json::to_string(&message) {
+                            if socket.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
         }
     }
+}
+
+/// Server-Sent Events handler for older browsers
+async fn sse_handler(
+    State(state): State<AppState>,
+) -> Sse<impl Stream<Item = Result<axum::response::sse::Event>>> {
+    let mut rx = state.event_broadcaster.subscribe();
+
+    let stream = stream::unfold(rx, |mut rx| async move {
+        match rx.recv().await {
+            Ok(event) => {
+                let event_data = match event {
+                    RealtimeEvent::TodoAdded { id, title } => {
+                        format!("event: todo_added\\ndata: {{\"id\": {}, \"title\": \"{}\", \"timestamp\": \"{}\"}}}}}}\\n\\n",
+                               id, title, chrono::Utc::now().to_rfc3339())
+                    }
+                    RealtimeEvent::TodoCompleted { id } => {
+                        format!("event: todo_completed\\ndata: {{\"id\": {}, \"timestamp\": \"{}\"}}}}}}\\n\\n",
+                               id, chrono::Utc::now().to_rfc3339())
+                    }
+                    RealtimeEvent::TodoDeleted { id } => {
+                        format!("event: todo_deleted\\ndata: {{\"id\": {}, \"timestamp\": \"{}\"}}}}}}\\n\\n",
+                               id, chrono::Utc::now().to_rfc3339())
+                    }
+                    RealtimeEvent::TodoUpdated { id, changes } => {
+                        format!("event: todo_updated\\ndata: {{\"id\": {}, \"changes\": {}, \"timestamp\": \"{}\"}}}}}}\\n\\n",
+                               id, serde_json::to_string(&changes).unwrap_or_default(), chrono::Utc::now().to_rfc3339())
+                    }
+                };
+
+                Some((Ok(axum::response::sse::Event::default().data(event_data)), rx))
+            }
+            Err(_) => None,
+        }
+    });
+
+    Sse::new(stream)
 }

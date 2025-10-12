@@ -1,10 +1,10 @@
 //! EngiDB - The Unified Language Graph Database for Kotoba.
-//! Pure Rust implementation using sled.
+//! Pure Rust implementation using sled (no native dependencies).
 
 use kotoba_types::{Node, Graph};
 use cid::Cid;
 use multihash::Multihash;
-use sled;
+use sled::{Db, Tree};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -14,25 +14,21 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Sled database error: {0}")]
-    Sled(String),
+    Sled(#[from] sled::Error),
     #[error("Serialization error: {0}")]
     Serialization(String),
-    #[error("Validation error: {0}")]
-    Validation(String),
+    #[error("UTF-8 error: {0}")]
+    Utf8(#[from] std::str::Utf8Error),
 }
 
-impl From<sled::Error> for Error {
-    fn from(err: sled::Error) -> Self { Error::Sled(err.to_string()) }
-}
-
-// Key prefixes for sled-based storage
-const IPLD_BLOCK_PREFIX: &str = "ipld:";
-const VERTEX_PREFIX: &str = "vertex:";
-const CID_TO_VERTEX_PREFIX: &str = "cid_to_vertex:";
-const EDGE_PREFIX: &str = "edge:";
-const COMMIT_PREFIX: &str = "commit:";
-const TRANSACTION_PREFIX: &str = "transaction:";
-const BRANCH_PREFIX: &str = "branch:";
+// Tree names for different data layers
+const IPLD_BLOCKS: &str = "ipld_blocks";
+const VERTICES: &str = "vertices";
+const CID_TO_VERTEX: &str = "cid_to_vertex";
+const EDGES: &str = "edges";
+const COMMITS: &str = "commits";
+const TRANSACTIONS: &str = "transactions";
+const BRANCHES: &str = "branches";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
@@ -52,51 +48,58 @@ pub struct Commit {
 
 
 /// EngiDB main database structure.
+#[derive(Clone)]
 pub struct EngiDB {
     db: sled::Db,
-    next_vertex_id: sled::IVec,
 }
 
 impl EngiDB {
     /// Opens a database at the specified path.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let db = sled::open(path)?;
-        let next_vertex_id = db.get(b"next_vertex_id")?
-            .unwrap_or(sled::IVec::from(1u64.to_be_bytes().to_vec()));
-
-        Ok(EngiDB { db, next_vertex_id })
+        Ok(EngiDB { db })
     }
 
     /// Puts an IPLD block into the store.
     pub fn put_block(&self, cid: &Cid, data: &[u8]) -> Result<()> {
-        let key = format!("{}{}", IPLD_BLOCK_PREFIX, cid.to_string());
-        self.db.insert(key.as_bytes(), data)?;
+        let tree = self.db.open_tree(IPLD_BLOCKS)?;
+        tree.insert(cid.to_bytes(), data)?;
         Ok(())
     }
 
     /// Gets an IPLD block from the store.
     pub fn get_block(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
-        let key = format!("{}{}", IPLD_BLOCK_PREFIX, cid.to_string());
-        let result = self.db.get(key.as_bytes())?.map(|v| v.to_vec());
+        let tree = self.db.open_tree(IPLD_BLOCKS)?;
+        let result = tree.get(cid.to_bytes())?
+            .map(|v| v.to_vec());
         Ok(result)
     }
 
     /// Adds an edge between two vertices.
     pub fn add_edge(&self, source_id: u64, edge_type: &str, target_id: u64) -> Result<()> {
-        let key = format!("{}{}:{}:{}", EDGE_PREFIX, source_id, edge_type, target_id);
-        self.db.insert(key.as_bytes(), &[])?; // Empty value, key contains all info
+        let tree = self.db.open_tree(EDGES)?;
+        let key = format!("{}:{}:{}", source_id, edge_type, target_id);
+
+        // Check if edge already exists
+        if tree.contains_key(key.as_bytes())? {
+            return Ok(());
+        }
+
+        // Add the edge (empty value)
+        tree.insert(key.as_bytes(), &[])?;
         Ok(())
     }
 
     /// Gets all target vertex IDs for a given source vertex and edge type.
     pub fn get_edges_from(&self, source_id: u64, edge_type: &str) -> Result<Vec<u64>> {
-        let prefix = format!("{}{}:{}", EDGE_PREFIX, source_id, edge_type);
+        let tree = self.db.open_tree(EDGES)?;
+        let prefix = format!("{}:{}:", source_id, edge_type);
         let mut targets = Vec::new();
 
-        for item in self.db.scan_prefix(prefix.as_bytes()) {
-            let (key, _) = item?;
-            let key_str = String::from_utf8_lossy(&key);
-            if let Some(target_part) = key_str.split(':').nth(3) {
+        for result in tree.scan_prefix(prefix.as_bytes()) {
+            let (key, _) = result?;
+            let key_str = std::str::from_utf8(&key)?;
+            if let Some(target_part) = key_str.split(':').nth(2) {
                 if let Ok(target_id) = target_part.parse::<u64>() {
                     targets.push(target_id);
                 }
@@ -139,11 +142,10 @@ impl EngiDB {
 
     /// Creates a new commit for the current state of the database.
     pub fn commit(&self, branch: &str, author: String, message: String) -> Result<Cid> {
-        // Get parent commit if exists
-        let branch_key = format!("{}{}", BRANCH_PREFIX, branch);
-        let parent_cid_bytes = self.db.get(branch_key.as_bytes())?.map(|v| v.to_vec());
+        let branches_tree = self.db.open_tree(BRANCHES)?;
+        let parent_cid_bytes = branches_tree.get(branch.as_bytes())?;
         let parents = if let Some(bytes) = parent_cid_bytes {
-            vec![Cid::try_from(bytes).unwrap()]
+            vec![Cid::try_from(bytes.to_vec()).map_err(|e| Error::Serialization(e.to_string()))?]
         } else {
             vec![]
         };
@@ -168,7 +170,7 @@ impl EngiDB {
         self.put_block(&commit_cid, &commit_data)?;
 
         // 3. Update the branch to point to the new commit
-        self.db.insert(branch_key.as_bytes(), commit_cid.to_bytes().as_slice())?;
+        branches_tree.insert(branch.as_bytes(), commit_cid.to_bytes())?;
 
         Ok(commit_cid)
     }
@@ -188,35 +190,33 @@ impl EngiDB {
         let cid = self.calculate_cid(&data)?;
 
         // 2. Check if vertex already exists
-        let cid_to_vertex_key = format!("{}{}", CID_TO_VERTEX_PREFIX, cid.to_string());
-        if let Some(existing_id_bytes) = self.db.get(cid_to_vertex_key.as_bytes())? {
+        let cid_to_vertex_tree = self.db.open_tree(CID_TO_VERTEX)?;
+        if let Some(existing_id_bytes) = cid_to_vertex_tree.get(cid.to_bytes())? {
             let existing_id = u64::from_be_bytes(existing_id_bytes.as_ref().try_into().unwrap());
             return Ok(existing_id);
         }
 
-        // 3. Create new vertex
-        let current_id_bytes = self.db.get(b"next_vertex_id")?.unwrap_or(sled::IVec::from(1u64.to_be_bytes().to_vec()));
-        let current_id = u64::from_be_bytes(current_id_bytes.as_ref().try_into().unwrap());
-        let new_id = current_id + 1;
+        // 3. If not, create it
+        let vertices_tree = self.db.open_tree(VERTICES)?;
 
-        // Store the vertex
-        let vertex_key = format!("{}{}", VERTEX_PREFIX, new_id);
-        self.db.insert(vertex_key.as_bytes(), cid.to_bytes().as_slice())?;
-        self.db.insert(cid_to_vertex_key.as_bytes(), &new_id.to_be_bytes())?;
-        self.db.insert(b"next_vertex_id", &new_id.to_be_bytes())?;
+        // Get next vertex ID (simple counter)
+        let next_id = (vertices_tree.len() + 1) as u64;
 
-        // Store IPLD block
+        // Store the data
         self.put_block(&cid, &data)?;
+        vertices_tree.insert(&next_id.to_be_bytes(), cid.to_bytes())?;
+        cid_to_vertex_tree.insert(cid.to_bytes(), &next_id.to_be_bytes())?;
 
-        Ok(new_id)
+        Ok(next_id)
     }
 
     /// Scan all TodoItem nodes from the database
     pub fn scan_todo_items(&self) -> Result<Vec<kotoba_types::Node>> {
+        let vertices_tree = self.db.open_tree(VERTICES)?;
         let mut todos = Vec::new();
 
-        for item in self.db.scan_prefix(VERTEX_PREFIX.as_bytes()) {
-            let (key, cid_bytes) = item?;
+        for result in vertices_tree.iter() {
+            let (_id_bytes, cid_bytes) = result?;
             let cid = cid::Cid::try_from(cid_bytes.to_vec())
                 .map_err(|e| Error::Serialization(e.to_string()))?;
             if let Some(block) = self.get_block(&cid)? {

@@ -3,7 +3,8 @@
 //! ISO GQL compliant graph query language for complex data retrieval
 //! from EngiDB graph database.
 
-use crate::{engidb::EngiDB, kotoba_types::{Node, Edge, Incidence}, Error, Result};
+use crate::{engidb::EngiDB, Error, Result};
+use kotoba_types::{Node, Edge, Incidence};
 use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
@@ -216,7 +217,7 @@ impl GqlEngine {
         let node_pattern = regex::Regex::new(r"\(([a-zA-Z_][a-zA-Z0-9_]*)(?::([a-zA-Z_][a-zA-Z0-9_]*))?(?:\s*\{([^}]*)\})?\)")
             .map_err(|_| Error::Validation("Invalid regex".to_string()))?;
 
-        for cap in node_pattern.captures_iter(match_part) {
+        for cap in node_pattern.captures_iter(&match_part) {
             let variable = cap.get(1).map(|m| m.as_str().to_string());
             let label = cap.get(2).map(|m| m.as_str().to_string());
 
@@ -237,7 +238,7 @@ impl GqlEngine {
     }
 
     /// Extract MATCH clause from query
-    fn extract_match_part(&self, query: &str) -> &str {
+    fn extract_match_part<'a>(&self, query: &'a str) -> &'a str {
         let upper = query.to_uppercase();
         let start = upper.find("MATCH").unwrap_or(0) + 5;
         let end = upper.find("WHERE").or_else(|| upper.find("RETURN")).unwrap_or(query.len());
@@ -245,7 +246,7 @@ impl GqlEngine {
     }
 
     /// Extract WHERE clause
-    fn extract_where_clause(&self, query: &str) -> Option<&str> {
+    fn extract_where_clause<'a>(&self, query: &'a str) -> Option<&'a str> {
         let upper = query.to_uppercase();
         if let Some(start) = upper.find("WHERE") {
             let end = upper[start..].find("RETURN").map(|i| start + i).unwrap_or(query.len());
@@ -306,7 +307,7 @@ impl GqlEngine {
     }
 
     /// Execute MATCH patterns against EngiDB
-    fn execute_match(&self, patterns: &[MatchPattern]) -> Result<Vec<HashMap<String, serde_json::Value>>> {
+    fn execute_match(&self, patterns: &[MatchPattern]) -> Result<GqlResult> {
         let mut results = Vec::new();
 
         // For each pattern, find matching nodes
@@ -332,7 +333,10 @@ impl GqlEngine {
             }
         }
 
-        Ok(results)
+        Ok(GqlResult {
+            columns: vec!["node".to_string()], // TODO: Proper column names
+            rows: results,
+        })
     }
 
     /// Check if a node matches a pattern
@@ -376,8 +380,8 @@ impl GqlEngine {
     }
 
     /// Apply WHERE filter to result set
-    fn apply_where_filter(&self, result_set: &mut Vec<HashMap<String, serde_json::Value>>, condition: &GqlExpr) -> Result<()> {
-        result_set.retain(|row| {
+    fn apply_where_filter(&self, result_set: &mut GqlResult, condition: &GqlExpr) -> Result<()> {
+        result_set.rows.retain(|row| {
             self.evaluate_condition(row, condition).unwrap_or(false)
         });
         Ok(())
@@ -429,17 +433,20 @@ impl GqlEngine {
     }
 
     /// Apply ORDER BY to result set
-    fn apply_order_by(&self, result_set: &mut Vec<HashMap<String, serde_json::Value>>, order_by: &[OrderBy]) -> Result<()> {
+    fn apply_order_by(&self, result_set: &mut GqlResult, order_by: &[OrderBy]) -> Result<()> {
         // Simple implementation: sort by first expression
         if let Some(first_order) = order_by.first() {
-            result_set.sort_by(|a, b| {
+            result_set.rows.sort_by(|a, b| {
                 let a_val = self.evaluate_expr(a, &first_order.expr).unwrap_or(serde_json::Value::Null);
                 let b_val = self.evaluate_expr(b, &first_order.expr).unwrap_or(serde_json::Value::Null);
 
+                // Simple string-based comparison for ordering
+                let a_str = a_val.to_string();
+                let b_str = b_val.to_string();
                 if first_order.ascending {
-                    a_val.cmp(&b_val)
+                    a_str.cmp(&b_str)
                 } else {
-                    b_val.cmp(&a_val)
+                    b_str.cmp(&a_str)
                 }
             });
         }
@@ -447,7 +454,7 @@ impl GqlEngine {
     }
 
     /// Execute RETURN clause
-    fn execute_return(&self, result_set: &[HashMap<String, serde_json::Value>], expressions: &[ReturnExpr]) -> Result<GqlResult> {
+    fn execute_return(&self, result_set: &GqlResult, expressions: &[ReturnExpr]) -> Result<GqlResult> {
         let mut columns = Vec::new();
         let mut rows = Vec::new();
 
@@ -459,7 +466,7 @@ impl GqlEngine {
         }
 
         // Build rows
-        for row_data in result_set {
+        for row_data in &result_set.rows {
             let mut row = HashMap::new();
 
             for (i, expr) in expressions.iter().enumerate() {
