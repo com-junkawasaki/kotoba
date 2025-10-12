@@ -274,11 +274,9 @@ pub async fn sse_handler(
 pub fn configure_realtime_routes(
     cfg: &mut web::ServiceConfig,
     broadcaster: EventBroadcaster,
-    engidb: EngiDB,
 ) {
     cfg
         .app_data(web::Data::new(broadcaster))
-        .app_data(web::Data::new(engidb))
         .route("/ws", web::get().to(websocket_handler))
         .route("/events", web::get().to(sse_handler));
 }

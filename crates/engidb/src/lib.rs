@@ -1,9 +1,10 @@
 //! EngiDB - The Unified Language Graph Database for Kotoba.
+//! Pure Rust implementation using sled.
 
 use kotoba_types::{Node, Graph};
 use cid::Cid;
 use multihash::Multihash;
-use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use sled;
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,44 +13,26 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Redb database error: {0}")]
-    Redb(String),
+    #[error("Sled database error: {0}")]
+    Sled(String),
     #[error("Serialization error: {0}")]
     Serialization(String),
+    #[error("Validation error: {0}")]
+    Validation(String),
 }
 
-impl From<redb::Error> for Error {
-    fn from(err: redb::Error) -> Self { Error::Redb(err.to_string()) }
-}
-impl From<redb::DatabaseError> for Error {
-    fn from(err: redb::DatabaseError) -> Self { Error::Redb(err.to_string()) }
-}
-impl From<redb::TransactionError> for Error {
-    fn from(err: redb::TransactionError) -> Self { Error::Redb(err.to_string()) }
-}
-impl From<redb::TableError> for Error {
-    fn from(err: redb::TableError) -> Self { Error::Redb(err.to_string()) }
-}
-impl From<redb::StorageError> for Error {
-    fn from(err: redb::StorageError) -> Self { Error::Redb(err.to_string()) }
-}
-impl From<redb::CommitError> for Error {
-    fn from(err: redb::CommitError) -> Self { Error::Redb(err.to_string()) }
+impl From<sled::Error> for Error {
+    fn from(err: sled::Error) -> Self { Error::Sled(err.to_string()) }
 }
 
-// Layer 1: IPLD Block Store
-const IPLD_BLOCKS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("ipld_blocks");
-
-// Layer 2: Graph Logic Layer
-const VERTICES: TableDefinition<u64, &[u8]> = TableDefinition::new("vertices");
-const CID_TO_VERTEX: TableDefinition<&[u8], u64> = TableDefinition::new("cid_to_vertex");
-// redb keys can be tuples of owned types or `&str`, `&[u8]`. `u64` is owned (Copy).
-const EDGES: TableDefinition<(u64, &str), &[u8]> = TableDefinition::new("edges");
-
-// Layer 3: Time/Versioning Layer
-const COMMITS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("commits"); // Key: Commit CID, Value: Parent Commit CID
-const TRANSACTIONS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("transactions"); // Key: Tx CID, Value: Commit CID
-const BRANCHES: TableDefinition<&str, &[u8]> = TableDefinition::new("branches"); // Key: branch name, Value: head commit CID
+// Key prefixes for sled-based storage
+const IPLD_BLOCK_PREFIX: &str = "ipld:";
+const VERTEX_PREFIX: &str = "vertex:";
+const CID_TO_VERTEX_PREFIX: &str = "cid_to_vertex:";
+const EDGE_PREFIX: &str = "edge:";
+const COMMIT_PREFIX: &str = "commit:";
+const TRANSACTION_PREFIX: &str = "transaction:";
+const BRANCH_PREFIX: &str = "branch:";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
@@ -70,67 +53,55 @@ pub struct Commit {
 
 /// EngiDB main database structure.
 pub struct EngiDB {
-    db: Database,
+    db: sled::Db,
+    next_vertex_id: sled::IVec,
 }
 
 impl EngiDB {
     /// Opens a database at the specified path.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let db = Database::create(path)?;
-        Ok(EngiDB { db })
+        let db = sled::open(path)?;
+        let next_vertex_id = db.get(b"next_vertex_id")?
+            .unwrap_or(sled::IVec::from(1u64.to_be_bytes().to_vec()));
+
+        Ok(EngiDB { db, next_vertex_id })
     }
 
     /// Puts an IPLD block into the store.
     pub fn put_block(&self, cid: &Cid, data: &[u8]) -> Result<()> {
-        let write_txn = self.db.begin_write()?;
-        {
-            let mut table = write_txn.open_table(IPLD_BLOCKS)?;
-            table.insert(cid.to_bytes().as_slice(), data)?;
-        }
-        write_txn.commit()?;
+        let key = format!("{}{}", IPLD_BLOCK_PREFIX, cid.to_string());
+        self.db.insert(key.as_bytes(), data)?;
         Ok(())
     }
 
     /// Gets an IPLD block from the store.
     pub fn get_block(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
-        let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(IPLD_BLOCKS)?;
-        let result = table
-            .get(cid.to_bytes().as_slice())?
-            .map(|v| v.value().to_vec());
+        let key = format!("{}{}", IPLD_BLOCK_PREFIX, cid.to_string());
+        let result = self.db.get(key.as_bytes())?.map(|v| v.to_vec());
         Ok(result)
     }
 
     /// Adds an edge between two vertices.
     pub fn add_edge(&self, source_id: u64, edge_type: &str, target_id: u64) -> Result<()> {
-        let write_txn = self.db.begin_write()?;
-        {
-            let mut table = write_txn.open_table(EDGES)?;
-            let key = (source_id, edge_type);
-            
-            let mut targets = table.get(&key)?
-                .map(|v| bincode::deserialize(v.value()).unwrap_or_else(|_| vec![]))
-                .unwrap_or_else(Vec::new);
-
-            if !targets.contains(&target_id) {
-                targets.push(target_id);
-                let serialized_targets = bincode::serialize(&targets).map_err(|e| Error::Serialization(e.to_string()))?;
-                table.insert(key, serialized_targets.as_slice())?;
-            }
-        }
-        write_txn.commit()?;
+        let key = format!("{}{}:{}:{}", EDGE_PREFIX, source_id, edge_type, target_id);
+        self.db.insert(key.as_bytes(), &[])?; // Empty value, key contains all info
         Ok(())
     }
 
     /// Gets all target vertex IDs for a given source vertex and edge type.
     pub fn get_edges_from(&self, source_id: u64, edge_type: &str) -> Result<Vec<u64>> {
-        let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(EDGES)?;
-        let key = (source_id, edge_type);
+        let prefix = format!("{}{}:{}", EDGE_PREFIX, source_id, edge_type);
+        let mut targets = Vec::new();
 
-        let targets = table.get(&key)?
-            .map(|v| bincode::deserialize(v.value()).unwrap_or_else(|_| vec![]))
-            .unwrap_or_else(Vec::new);
+        for item in self.db.scan_prefix(prefix.as_bytes()) {
+            let (key, _) = item?;
+            let key_str = String::from_utf8_lossy(&key);
+            if let Some(target_part) = key_str.split(':').nth(3) {
+                if let Ok(target_id) = target_part.parse::<u64>() {
+                    targets.push(target_id);
+                }
+            }
+        }
 
         Ok(targets)
     }
@@ -168,15 +139,14 @@ impl EngiDB {
 
     /// Creates a new commit for the current state of the database.
     pub fn commit(&self, branch: &str, author: String, message: String) -> Result<Cid> {
-        let read_txn = self.db.begin_read()?;
-        let branches_table = read_txn.open_table(BRANCHES)?;
-        let parent_cid_bytes = branches_table.get(branch)?.map(|c| c.value().to_vec());
+        // Get parent commit if exists
+        let branch_key = format!("{}{}", BRANCH_PREFIX, branch);
+        let parent_cid_bytes = self.db.get(branch_key.as_bytes())?.map(|v| v.to_vec());
         let parents = if let Some(bytes) = parent_cid_bytes {
             vec![Cid::try_from(bytes).unwrap()]
         } else {
             vec![]
         };
-        drop(read_txn); // Explicitly drop read transaction before starting write transaction
 
         // 1. Create and store the transaction object
         let transaction = Transaction {
@@ -196,14 +166,9 @@ impl EngiDB {
         let commit_data = serde_ipld_dagcbor::to_vec(&commit).map_err(|e| Error::Serialization(e.to_string()))?;
         let commit_cid = self.calculate_cid(&commit_data)?;
         self.put_block(&commit_cid, &commit_data)?;
-        
+
         // 3. Update the branch to point to the new commit
-        let write_txn = self.db.begin_write()?;
-        {
-            let mut branches_table = write_txn.open_table(BRANCHES)?;
-            branches_table.insert(branch, commit_cid.to_bytes().as_slice())?;
-        }
-        write_txn.commit()?;
+        self.db.insert(branch_key.as_bytes(), commit_cid.to_bytes().as_slice())?;
 
         Ok(commit_cid)
     }
@@ -222,42 +187,37 @@ impl EngiDB {
         let data = serde_ipld_dagcbor::to_vec(node).map_err(|e| Error::Serialization(e.to_string()))?;
         let cid = self.calculate_cid(&data)?;
 
-        // 2. Check if vertex already exists in a read transaction.
-        let read_txn = self.db.begin_read()?;
-        let cid_to_vertex_table = read_txn.open_table(CID_TO_VERTEX)?;
-        if let Some(existing_id) = cid_to_vertex_table.get(cid.to_bytes().as_slice())? {
-            return Ok(existing_id.value());
+        // 2. Check if vertex already exists
+        let cid_to_vertex_key = format!("{}{}", CID_TO_VERTEX_PREFIX, cid.to_string());
+        if let Some(existing_id_bytes) = self.db.get(cid_to_vertex_key.as_bytes())? {
+            let existing_id = u64::from_be_bytes(existing_id_bytes.as_ref().try_into().unwrap());
+            return Ok(existing_id);
         }
-        // Drop the read transaction by letting it go out of scope.
 
-        // 3. If not, create it in a new write transaction.
-        let write_txn = self.db.begin_write()?;
-        let new_id;
-        {
-            let mut vertices_table = write_txn.open_table(VERTICES)?;
-            new_id = vertices_table.len()? + 1;
+        // 3. Create new vertex
+        let current_id_bytes = self.db.get(b"next_vertex_id")?.unwrap_or(sled::IVec::from(1u64.to_be_bytes().to_vec()));
+        let current_id = u64::from_be_bytes(current_id_bytes.as_ref().try_into().unwrap());
+        let new_id = current_id + 1;
 
-            let mut blocks_table = write_txn.open_table(IPLD_BLOCKS)?;
-            let mut cid_to_vertex_table_mut = write_txn.open_table(CID_TO_VERTEX)?;
+        // Store the vertex
+        let vertex_key = format!("{}{}", VERTEX_PREFIX, new_id);
+        self.db.insert(vertex_key.as_bytes(), cid.to_bytes().as_slice())?;
+        self.db.insert(cid_to_vertex_key.as_bytes(), &new_id.to_be_bytes())?;
+        self.db.insert(b"next_vertex_id", &new_id.to_be_bytes())?;
 
-            blocks_table.insert(cid.to_bytes().as_slice(), data.as_slice())?;
-            vertices_table.insert(new_id, cid.to_bytes().as_slice())?;
-            cid_to_vertex_table_mut.insert(cid.to_bytes().as_slice(), new_id)?;
-        }
-        write_txn.commit()?;
+        // Store IPLD block
+        self.put_block(&cid, &data)?;
+
         Ok(new_id)
     }
 
     /// Scan all TodoItem nodes from the database
     pub fn scan_todo_items(&self) -> Result<Vec<kotoba_types::Node>> {
-        use redb::ReadableTable;
-        let read_txn = self.db.begin_read()?;
-        let vertices = read_txn.open_table(VERTICES)?;
         let mut todos = Vec::new();
 
-        for entry in vertices.iter()? {
-            let (_id, cid_bytes) = entry?;
-            let cid = cid::Cid::try_from(cid_bytes.value().to_vec())
+        for item in self.db.scan_prefix(VERTEX_PREFIX.as_bytes()) {
+            let (key, cid_bytes) = item?;
+            let cid = cid::Cid::try_from(cid_bytes.to_vec())
                 .map_err(|e| Error::Serialization(e.to_string()))?;
             if let Some(block) = self.get_block(&cid)? {
                 let node: kotoba_types::Node =

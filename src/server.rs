@@ -3,7 +3,11 @@
 //! Provides REST API endpoints for the Todo application,
 //! connecting HTMX frontend with EngiDB backend.
 
-use crate::{engidb::EngiDB, Error, Result, realtime::{create_event_broadcaster, broadcast_event, RealtimeEvent, configure_realtime_routes}};
+use crate::{Error, Result};
+use crate::realtime::{create_event_broadcaster, broadcast_event, RealtimeEvent, configure_realtime_routes};
+use kotoba_types::Node;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use actix_web::middleware::Logger;
 use actix_cors::Cors;
@@ -12,9 +16,60 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+/// Simple in-memory storage for demo purposes
+/// (Pure Rust implementation - no external dependencies)
+pub struct SimpleStorage {
+    todos: Mutex<HashMap<u64, Node>>,
+    next_id: Mutex<u64>,
+}
+
+impl SimpleStorage {
+    pub fn new() -> Self {
+        SimpleStorage {
+            todos: Mutex::new(HashMap::new()),
+            next_id: Mutex::new(1),
+        }
+    }
+
+    pub fn add_todo(&self, node: Node) -> Result<u64> {
+        let mut next_id = self.next_id.lock().unwrap();
+        let id = *next_id;
+        *next_id += 1;
+
+        let mut todos = self.todos.lock().unwrap();
+        todos.insert(id, node);
+        Ok(id)
+    }
+
+    pub fn get_all_todos(&self) -> Result<Vec<Node>> {
+        let todos = self.todos.lock().unwrap();
+        Ok(todos.values().cloned().collect())
+    }
+
+    pub fn get_todo(&self, id: u64) -> Result<Option<Node>> {
+        let todos = self.todos.lock().unwrap();
+        Ok(todos.get(&id).cloned())
+    }
+
+    pub fn update_todo(&self, id: u64, node: Node) -> Result<bool> {
+        let mut todos = self.todos.lock().unwrap();
+        if todos.contains_key(&id) {
+            todos.insert(id, node);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn delete_todo(&self, id: u64) -> Result<bool> {
+        let mut todos = self.todos.lock().unwrap();
+        Ok(todos.remove(&id).is_some())
+    }
+}
+
 /// Shared application state
 pub struct AppState {
-    pub engidb: Mutex<EngiDB>,
+    pub storage: SimpleStorage,
     pub event_broadcaster: crate::realtime::EventBroadcaster,
 }
 
@@ -37,12 +92,12 @@ pub struct CreateTodoRequest {
 }
 
 /// Start the HTTP server
-pub async fn start_server(db_path: PathBuf, port: u16) -> Result<()> {
-    let engidb = EngiDB::open(&db_path)?;
+pub async fn start_server(_db_path: PathBuf, port: u16) -> Result<()> {
+    let storage = SimpleStorage::new();
     let event_broadcaster = create_event_broadcaster();
 
     let app_state = web::Data::new(AppState {
-        engidb: Mutex::new(engidb.clone()),
+        storage,
         event_broadcaster: event_broadcaster.clone(),
     });
 
@@ -78,7 +133,7 @@ pub async fn start_server(db_path: PathBuf, port: u16) -> Result<()> {
             .service(fs::Files::new("/static", "examples/").show_files_listing())
             .route("/", web::get().to(index))
             .route("/app", web::get().to(todo_app))
-            .configure(|cfg| configure_realtime_routes(cfg, event_broadcaster, engidb))
+            .configure(|cfg| configure_realtime_routes(cfg, event_broadcaster))
     })
     .bind(("127.0.0.1", port))?
     .run()
@@ -138,13 +193,6 @@ async fn add_todo(
 ) -> impl Responder {
     println!("📝 Adding todo: {}", req.title);
 
-    let engidb = match data.engidb.lock() {
-        Ok(db) => db,
-        Err(_) => return HttpResponse::InternalServerError().json(serde_json::json!({
-            "error": "Database lock error"
-        })),
-    };
-
     // Generate ID and timestamp
     let id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -154,7 +202,7 @@ async fn add_todo(
     let now = chrono::Utc::now().to_rfc3339();
 
     // Create EAF-IPG node for the todo item
-    use kotoba_types::{Node, Layer};
+    use kotoba_types::Node;
     use indexmap::IndexMap;
 
     let todo_node = Node {
@@ -172,27 +220,23 @@ async fn add_todo(
         },
     };
 
-    // Store in EngiDB
-    match engidb.store_todo_item(&todo_node) {
-        Ok(_) => {
-            println!("✅ Todo stored in EngiDB: {} (ID: {})", req.title, id);
-
-            // Commit the change
-            let _ = engidb.commit("main", "api-server".to_string(), format!("Add todo: {}", req.title));
+    // Store in SimpleStorage
+    match data.storage.add_todo(todo_node) {
+        Ok(stored_id) => {
+            println!("✅ Todo stored: {} (ID: {})", req.title, stored_id);
 
             // Broadcast real-time event
             let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoAdded {
-                id,
+                id: stored_id,
                 title: req.title.clone(),
             });
 
             // Return HTMX-compatible response
-            // HTMX will trigger the "todoAdded" event to update the list
             HttpResponse::Created()
                 .insert_header(("HX-Trigger", "todoAdded"))
                 .json(serde_json::json!({
                     "success": true,
-                    "id": id,
+                    "id": stored_id,
                     "message": "Todo added successfully"
                 }))
         }
@@ -210,15 +254,8 @@ async fn add_todo(
 async fn list_todos(data: web::Data<AppState>) -> impl Responder {
     println!("📋 Listing todos for HTMX");
 
-    let engidb = match data.engidb.lock() {
-        Ok(db) => db,
-        Err(_) => return HttpResponse::InternalServerError()
-            .content_type("text/html")
-            .body("<div class=\"text-red-500\">Database error</div>"),
-    };
-
-    // Query todos from EngiDB
-    match engidb.scan_todo_items() {
+    // Query todos from SimpleStorage
+    match data.storage.get_all_todos() {
         Ok(nodes) => {
             println!("✅ Found {} todo nodes", nodes.len());
 
@@ -320,11 +357,44 @@ async fn complete_todo(
     let id = path.into_inner();
     println!("✅ Completing todo #{}", id);
 
-    // For HTMX, we just return success without content
-    // The checkbox state change is handled client-side
-    HttpResponse::Ok()
-        .content_type("text/plain")
-        .body("")
+    // Get the current todo
+    match data.storage.get_todo(id) {
+        Ok(Some(mut node)) => {
+            // Update completed status
+            if let Some(completed) = node.properties.get_mut("completed") {
+                *completed = serde_json::json!(true);
+            }
+
+            // Update timestamp
+            let now = chrono::Utc::now().to_rfc3339();
+            if let Some(updated_at) = node.properties.get_mut("updated_at") {
+                *updated_at = serde_json::json!(now);
+            }
+
+            // Update the todo
+            match data.storage.update_todo(id, node) {
+                Ok(true) => {
+                    // Broadcast real-time event
+                    let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoCompleted { id });
+
+                    HttpResponse::Ok()
+                        .insert_header(("HX-Trigger", "todoCompleted"))
+                        .content_type("text/plain")
+                        .body("")
+                }
+                Ok(false) => HttpResponse::NotFound().body("Todo not found"),
+                Err(e) => {
+                    eprintln!("❌ Failed to update todo: {}", e);
+                    HttpResponse::InternalServerError().body("Failed to update todo")
+                }
+            }
+        }
+        Ok(None) => HttpResponse::NotFound().body("Todo not found"),
+        Err(e) => {
+            eprintln!("❌ Failed to get todo: {}", e);
+            HttpResponse::InternalServerError().body("Failed to get todo")
+        }
+    }
 }
 
 /// Delete a todo item
@@ -335,9 +405,23 @@ async fn delete_todo(
     let id = path.into_inner();
     println!("🗑️ Deleting todo #{}", id);
 
-    // For HTMX, we return empty content to remove the element
-    // The hx-target="closest div" and hx-swap="outerHTML" will remove the todo item
-    HttpResponse::Ok()
-        .content_type("text/plain")
-        .body("")
+    // Delete from storage
+    match data.storage.delete_todo(id) {
+        Ok(true) => {
+            // Broadcast real-time event
+            let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoDeleted { id });
+
+            // For HTMX, we return empty content to remove the element
+            // The hx-target="closest div" and hx-swap="outerHTML" will remove the todo item
+            HttpResponse::Ok()
+                .insert_header(("HX-Trigger", "todoDeleted"))
+                .content_type("text/plain")
+                .body("")
+        }
+        Ok(false) => HttpResponse::NotFound().body("Todo not found"),
+        Err(e) => {
+            eprintln!("❌ Failed to delete todo: {}", e);
+            HttpResponse::InternalServerError().body("Failed to delete todo")
+        }
+    }
 }

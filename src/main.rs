@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler, gql::execute_gql_query};
+use eaf_ipg_runtime::{validator::validate, Error, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler, gql::execute_gql_query};
 use kotoba_types::UiProperties;
 use std::collections::HashMap;
 use indexmap::IndexMap;

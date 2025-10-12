@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 kotoba-types = { path = "../kotoba-types" }
-redb = "2.1.0"
+sled = "0.34"  # Pure Rust embedded database
 cid = { version = "0.11.1", features = ["serde-codec"] }
 serde_ipld_dagcbor = "0.4.0"
 multihash = "0.19.3"
