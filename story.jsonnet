@@ -131,7 +131,9 @@ local story = {
       "Todo app built entirely with kotoba - demonstrating end-to-end functionality",
       "Graph-based todo management with versioning and persistence",
       "UI-IR transpiler: HTML+Tailwind+HTMX generation from graph nodes",
-      "Complete web UI generation from EAF-IPG UI-IR specifications"
+      "Complete web UI generation from EAF-IPG UI-IR specifications",
+      "Demo UI generation: Direct HTML output without database dependency",
+      "Interactive Todo app UI with modern web technologies"
     ],
 
     in_progress: [
