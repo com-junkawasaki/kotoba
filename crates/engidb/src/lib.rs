@@ -1,5 +1,6 @@
 //! EngiDB - The Unified Language Graph Database for Kotoba.
 //! Pure Rust implementation using sled (no native dependencies).
+//! Merkle DAG note: Keep storage/process node boundaries minimal for stability.
 
 use kotoba_types::{Node, Graph};
 use cid::Cid;
@@ -9,6 +10,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use sha2::{Digest, Sha256};
+
+pub mod adapter;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

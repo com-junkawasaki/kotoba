@@ -50,8 +50,12 @@ indexmap = { version = "2.0", features = ["serde"] }
 itertools = "0.12"
 regex = "1.10"
 
-# Time handling
-chrono = { version = "0.4", default-features = false, features = ["serde"] }
+# Time handling (minimize default features to avoid native libs)
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+
+# Force rustls-only websocket stack to avoid native-tls linkage
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["rustls-tls-webpki-roots"] }
+tungstenite = { version = "0.23", default-features = false }
 
 # WebAssembly support
 wasm-bindgen = "0.2"
