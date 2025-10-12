@@ -7,6 +7,7 @@ pub mod validator;
 pub mod runtime;
 pub mod dsl;
 pub mod ui;
+pub mod server;
 
 // Re-export types from the new crates
 pub use kotoba_types::*;

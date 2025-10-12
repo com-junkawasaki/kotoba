@@ -133,7 +133,10 @@ local story = {
       "UI-IR transpiler: HTML+Tailwind+HTMX generation from graph nodes",
       "Complete web UI generation from EAF-IPG UI-IR specifications",
       "Demo UI generation: Direct HTML output without database dependency",
-      "Interactive Todo app UI with modern web technologies"
+      "Interactive Todo app UI with modern web technologies",
+      "HTTP API Server: Actix Web + REST endpoints for Todo CRUD",
+      "HTMX integration: Server-driven UI updates without JavaScript",
+      "Full-stack Todo app: UI-IR → HTML → API → EngiDB"
     ],
 
     in_progress: [

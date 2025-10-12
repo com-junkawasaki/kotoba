@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server};
 use kotoba_types::UiProperties;
 use std::collections::HashMap;
 use indexmap::IndexMap;
@@ -110,6 +110,15 @@ enum Commands {
     Ui {
         #[command(subcommand)]
         command: UiCommands,
+    },
+    /// Start HTTP API server
+    Serve {
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+        /// Port to listen on
+        #[arg(short, long, default_value = "3000")]
+        port: u16,
     },
 }
 
@@ -239,6 +248,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+        }
+
+        Commands::Serve { db, port } => {
+            println!("🌐 Starting Kotoba HTTP API Server...");
+            println!("📊 Database: {}", db.display());
+            println!("🚀 Port: {}", port);
+
+            // Create tokio runtime for async server
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(async {
+                if let Err(e) = start_server(db, port).await {
+                    eprintln!("❌ Server error: {}", e);
+                    std::process::exit(1);
+                }
+            });
         }
     }
 
