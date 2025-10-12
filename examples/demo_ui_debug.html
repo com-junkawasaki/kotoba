@@ -76,10 +76,9 @@
             <div id="todo_list" hx-get="/api/todo/list" hx-trigger="load, todoAdded from:body">
                 <div class="text-center text-gray-500">
                     <div class="animate-pulse">Loading todos...</div>
-                    <div class="text-xs mt-2 text-gray-400">
-                        Note: API server implemented! Run:<br>
-                        <code class="bg-gray-200 px-1 rounded">cargo run -- serve --port 3000</code><br>
-                        Then reload this page to test HTMX integration.
+                    <div class="text-xs mt-2 text-green-600">
+                        ✅ API server integrated! Full HTMX functionality enabled.<br>
+                        Add todos above and watch them appear here instantly!
                     </div>
                 </div>
             </div>

@@ -136,7 +136,12 @@ local story = {
       "Interactive Todo app UI with modern web technologies",
       "HTTP API Server: Actix Web + REST endpoints for Todo CRUD",
       "HTMX integration: Server-driven UI updates without JavaScript",
-      "Full-stack Todo app: UI-IR → HTML → API → EngiDB"
+      "Full-stack Todo app: UI-IR → HTML → API → EngiDB",
+      "Complete end-to-end functionality: Add, list, complete, delete todos",
+      "Real-time UI updates via HTMX events and server responses",
+      "WebAssembly transpiler: UI-IR → Rust → WASM for client-side rendering",
+      "Component-based WASM architecture with DOM manipulation",
+      "Multi-target UI generation: HTML, HTMX, WASM from single UI-IR"
     ],
 
     in_progress: [

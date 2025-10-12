@@ -7,6 +7,7 @@ use crate::{engidb::EngiDB, Error, Result};
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use actix_web::middleware::Logger;
 use actix_cors::Cors;
+use actix_files as fs;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -70,7 +71,9 @@ pub async fn start_server(db_path: PathBuf, port: u16) -> Result<()> {
                             .route("/{id}", web::delete().to(delete_todo))
                     )
             )
+            .service(fs::Files::new("/static", "examples/").show_files_listing())
             .route("/", web::get().to(index))
+            .route("/app", web::get().to(todo_app))
     })
     .bind(("127.0.0.1", port))?
     .run()
@@ -111,9 +114,16 @@ async fn index() -> impl Responder {
         <span class="method">DELETE</span> /api/todo/{id} - Delete todo
     </div>
 
-    <p><a href="/static/todo.html">Open Todo App</a></p>
+    <p><a href="/app">Open Full Todo App</a> | <a href="/static/todo_app_full.html">Static Version</a></p>
 </body>
 </html>"#)
+}
+
+/// Serve the full Todo app
+async fn todo_app() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(include_str!("../examples/todo_app_full.html"))
 }
 
 /// Add a new todo item
@@ -122,9 +132,6 @@ async fn add_todo(
     data: web::Data<AppState>,
 ) -> impl Responder {
     println!("📝 Adding todo: {}", req.title);
-
-    // Note: Since we can't use the existing add_todo function due to lifetime issues,
-    // we'll implement a simplified version here. In production, this would be refactored.
 
     let engidb = match data.engidb.lock() {
         Ok(db) => db,
@@ -141,40 +148,157 @@ async fn add_todo(
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Create todo node (simplified - in production this would use proper EAF-IPG structure)
-    let todo_item = TodoItem {
-        id,
-        title: req.title.clone(),
-        description: req.description.clone().unwrap_or_default(),
-        completed: false,
-        created_at: now.clone(),
-        updated_at: now,
+    // Create EAF-IPG node for the todo item
+    use kotoba_types::{Node, Layer};
+    use indexmap::IndexMap;
+
+    let todo_node = Node {
+        id: format!("todo_{}", id),
+        kind: "TodoItem".to_string(),
+        properties: {
+            let mut props = IndexMap::new();
+            props.insert("id".to_string(), serde_json::json!(id));
+            props.insert("title".to_string(), serde_json::json!(req.title));
+            props.insert("description".to_string(), serde_json::json!(req.description.as_deref().unwrap_or("")));
+            props.insert("completed".to_string(), serde_json::json!(false));
+            props.insert("created_at".to_string(), serde_json::json!(now.clone()));
+            props.insert("updated_at".to_string(), serde_json::json!(now));
+            props
+        },
     };
 
-    // In a real implementation, this would store in EngiDB
-    // For now, we'll just return success
-    println!("✅ Todo added: {} (ID: {})", todo_item.title, todo_item.id);
+    // Store in EngiDB
+    match engidb.store_todo_item(&todo_node) {
+        Ok(_) => {
+            println!("✅ Todo stored in EngiDB: {} (ID: {})", req.title, id);
 
-    HttpResponse::Created().json(serde_json::json!({
-        "success": true,
-        "todo": todo_item,
-        "message": "Todo added successfully"
-    }))
+            // Commit the change
+            let _ = engidb.commit("main", "api-server".to_string(), format!("Add todo: {}", req.title));
+
+            // Return HTMX-compatible response
+            // HTMX will trigger the "todoAdded" event to update the list
+            HttpResponse::Created()
+                .insert_header(("HX-Trigger", "todoAdded"))
+                .json(serde_json::json!({
+                    "success": true,
+                    "id": id,
+                    "message": "Todo added successfully"
+                }))
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to store todo: {}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to store todo",
+                "details": e.to_string()
+            }))
+        }
+    }
 }
 
-/// List all todo items
+/// List all todo items (HTMX HTML response)
 async fn list_todos(data: web::Data<AppState>) -> impl Responder {
-    println!("📋 Listing todos");
+    println!("📋 Listing todos for HTMX");
 
-    // In a real implementation, this would query EngiDB
-    // For now, return empty list with a note
-    let todos: Vec<TodoItem> = vec![];
+    let engidb = match data.engidb.lock() {
+        Ok(db) => db,
+        Err(_) => return HttpResponse::InternalServerError()
+            .content_type("text/html")
+            .body("<div class=\"text-red-500\">Database error</div>"),
+    };
 
-    HttpResponse::Ok().json(serde_json::json!({
-        "todos": todos,
-        "message": "Todo listing - EngiDB integration pending",
-        "count": todos.len()
-    }))
+    // Query todos from EngiDB
+    match engidb.scan_todo_items() {
+        Ok(nodes) => {
+            println!("✅ Found {} todo nodes", nodes.len());
+
+            // Convert nodes to TodoItems
+            let mut todos = Vec::new();
+            for node in nodes {
+                if let (Some(id), Some(title), Some(completed)) = (
+                    node.properties.get("id").and_then(|v| v.as_u64()),
+                    node.properties.get("title").and_then(|v| v.as_str()),
+                    node.properties.get("completed").and_then(|v| v.as_bool()),
+                ) {
+                    todos.push(TodoItem {
+                        id,
+                        title: title.to_string(),
+                        description: node.properties.get("description")
+                            .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        completed,
+                        created_at: node.properties.get("created_at")
+                            .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        updated_at: node.properties.get("updated_at")
+                            .and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    });
+                }
+            }
+
+            // Sort by creation time (newest first)
+            todos.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+            // Generate HTML for HTMX
+            let html = generate_todo_list_html(&todos);
+            HttpResponse::Ok()
+                .content_type("text/html")
+                .body(html)
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to scan todos: {}", e);
+            HttpResponse::InternalServerError()
+                .content_type("text/html")
+                .body("<div class=\"text-red-500\">Failed to load todos</div>")
+        }
+    }
+}
+
+/// Generate HTML for todo list (HTMX response)
+fn generate_todo_list_html(todos: &[TodoItem]) -> String {
+    if todos.is_empty() {
+        return r#"<div class="text-center text-gray-500 py-8">
+            <p class="text-lg mb-2">📝 No todos yet</p>
+            <p class="text-sm">Add your first todo above!</p>
+        </div>"#.to_string();
+    }
+
+    let mut html = String::new();
+
+    for todo in todos {
+        let completed_class = if todo.completed { "completed line-through text-gray-500" } else { "" };
+        let checkbox_checked = if todo.completed { "checked" } else { "" };
+
+        html.push_str(&format!(r#"<div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg mb-3 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center space-x-3">
+                <input type="checkbox" {checked} class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                       hx-post="/api/todo/{id}/complete" hx-swap="none">
+                <span class="text-lg {completed}">{title}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs text-gray-400">{created}</span>
+                <button class="text-red-500 hover:text-red-700 p-1"
+                        hx-delete="/api/todo/{id}" hx-confirm="Delete this todo?"
+                        hx-target="closest div" hx-swap="outerHTML">
+                    🗑️
+                </button>
+            </div>
+        </div>"#,
+            checked = checkbox_checked,
+            id = todo.id,
+            completed = completed_class,
+            title = html_escape(&todo.title),
+            created = &todo.created_at[..10] // Just the date part
+        ));
+    }
+
+    html
+}
+
+/// Simple HTML escaping
+fn html_escape(s: &str) -> String {
+    s.replace("&", "&amp;")
+     .replace("<", "&lt;")
+     .replace(">", "&gt;")
+     .replace("\"", "&quot;")
+     .replace("'", "&#x27;")
 }
 
 /// Mark a todo as completed
@@ -185,12 +309,11 @@ async fn complete_todo(
     let id = path.into_inner();
     println!("✅ Completing todo #{}", id);
 
-    // In a real implementation, this would update the todo in EngiDB
-    HttpResponse::Ok().json(serde_json::json!({
-        "success": true,
-        "id": id,
-        "message": "Todo completion - EngiDB integration pending"
-    }))
+    // For HTMX, we just return success without content
+    // The checkbox state change is handled client-side
+    HttpResponse::Ok()
+        .content_type("text/plain")
+        .body("")
 }
 
 /// Delete a todo item
@@ -201,10 +324,9 @@ async fn delete_todo(
     let id = path.into_inner();
     println!("🗑️ Deleting todo #{}", id);
 
-    // In a real implementation, this would delete from EngiDB
-    HttpResponse::Ok().json(serde_json::json!({
-        "success": true,
-        "id": id,
-        "message": "Todo deletion - EngiDB integration pending"
-    }))
+    // For HTMX, we return empty content to remove the element
+    // The hx-target="closest div" and hx-swap="outerHTML" will remove the todo item
+    HttpResponse::Ok()
+        .content_type("text/plain")
+        .body("")
 }

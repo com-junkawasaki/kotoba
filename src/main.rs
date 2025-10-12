@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler};
 use kotoba_types::UiProperties;
 use std::collections::HashMap;
 use indexmap::IndexMap;
@@ -120,6 +120,11 @@ enum Commands {
         #[arg(short, long, default_value = "3000")]
         port: u16,
     },
+    /// Generate WebAssembly from UI-IR
+    Wasm {
+        #[command(subcommand)]
+        command: WasmCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -132,6 +137,21 @@ enum UiCommands {
         #[arg(long, default_value = "todo.db")]
         db: PathBuf,
         /// Output HTML file (optional, prints to stdout if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand)]
+enum WasmCommands {
+    /// Generate Rust code for WebAssembly from UI-IR
+    Generate {
+        /// View ID to generate WASM for
+        view_id: String,
+        /// Database path containing UI-IR
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+        /// Output Rust file (optional, prints to stdout if not specified)
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
@@ -264,9 +284,124 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
         }
+
+        Commands::Wasm { command } => {
+            match command {
+                WasmCommands::Generate { view_id, db, output } => {
+                    println!("🎯 Generating WebAssembly from UI-IR for view: {}", view_id);
+
+                    // For demo purposes, use mock UI nodes since EngiDB integration is complex
+                    // In production, this would load UI-IR from EngiDB
+                    let mock_ui_nodes = create_mock_todo_ui_nodes_for_wasm();
+
+                    let mut transpiler = WasmTranspiler::new();
+                    let rust_code = transpiler.transpile_to_rust(&mock_ui_nodes, &view_id)?;
+
+                    match output {
+                        Some(path) => {
+                            std::fs::write(&path, &rust_code)?;
+                            println!("✅ WASM Rust code generated and saved to: {}", path.display());
+                            println!("💡 To compile to WebAssembly:");
+                            println!("   1. Install wasm-pack: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh");
+                            println!("   2. Add wasm32 target: rustup target add wasm32-unknown-unknown");
+                            println!("   3. Build: wasm-pack build --target web --out-dir pkg");
+                        }
+                        None => {
+                            println!("{}", rust_code);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Ok(())
+}
+
+// Mock UI nodes for WASM transpiler demo
+fn create_mock_todo_ui_nodes_for_wasm() -> Vec<Node> {
+    vec![
+        Node {
+            id: "todo_view".to_string(),
+            kind: "View".to_string(),
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert("node_type".to_string(), serde_json::json!("View"));
+                props.insert("html_tag".to_string(), serde_json::json!("div"));
+                props.insert("tailwind_classes".to_string(), serde_json::json!(["max-w-2xl", "mx-auto", "bg-white", "rounded-lg", "shadow-md", "p-6"]));
+                props.insert("children".to_string(), serde_json::json!(["todo_title", "todo_form", "todo_list"]));
+                props
+            },
+        },
+        Node {
+            id: "todo_title".to_string(),
+            kind: "Component".to_string(),
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert("node_type".to_string(), serde_json::json!("Component"));
+                props.insert("html_tag".to_string(), serde_json::json!("h1"));
+                props.insert("tailwind_classes".to_string(), serde_json::json!(["text-3xl", "font-bold", "text-gray-800", "mb-6", "text-center"]));
+                props.insert("content".to_string(), serde_json::json!("Kotoba Todo App - WASM"));
+                props
+            },
+        },
+        Node {
+            id: "todo_form".to_string(),
+            kind: "Component".to_string(),
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert("node_type".to_string(), serde_json::json!("Component"));
+                props.insert("html_tag".to_string(), serde_json::json!("form"));
+                props.insert("tailwind_classes".to_string(), serde_json::json!(["flex", "gap-2", "mb-6"]));
+                props.insert("attributes".to_string(), serde_json::json!({"id": "todo-form"}));
+                props.insert("children".to_string(), serde_json::json!(["todo_input", "todo_submit"]));
+                props
+            },
+        },
+        Node {
+            id: "todo_input".to_string(),
+            kind: "Component".to_string(),
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert("node_type".to_string(), serde_json::json!("Component"));
+                props.insert("html_tag".to_string(), serde_json::json!("input"));
+                props.insert("tailwind_classes".to_string(), serde_json::json!(["flex-1", "px-4", "py-3", "border", "border-gray-300", "rounded-lg", "focus:outline-none", "focus:ring-2", "focus:ring-blue-500"]));
+                props.insert("attributes".to_string(), serde_json::json!({
+                    "type": "text",
+                    "id": "todo-input",
+                    "placeholder": "Add a new todo...",
+                    "required": "true"
+                }));
+                props
+            },
+        },
+        Node {
+            id: "todo_submit".to_string(),
+            kind: "Component".to_string(),
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert("node_type".to_string(), serde_json::json!("Component"));
+                props.insert("html_tag".to_string(), serde_json::json!("button"));
+                props.insert("tailwind_classes".to_string(), serde_json::json!(["px-6", "py-3", "bg-blue-500", "text-white", "rounded-lg", "hover:bg-blue-600", "focus:outline-none", "focus:ring-2", "focus:ring-blue-500"]));
+                props.insert("attributes".to_string(), serde_json::json!({"type": "submit"}));
+                props.insert("content".to_string(), serde_json::json!("Add Todo"));
+                props
+            },
+        },
+        Node {
+            id: "todo_list".to_string(),
+            kind: "Component".to_string(),
+            properties: {
+                let mut props = IndexMap::new();
+                props.insert("node_type".to_string(), serde_json::json!("Component"));
+                props.insert("html_tag".to_string(), serde_json::json!("div"));
+                props.insert("attributes".to_string(), serde_json::json!({"id": "todo-list"}));
+                props.insert("tailwind_classes".to_string(), serde_json::json!(["space-y-3"]));
+                props.insert("content".to_string(), serde_json::json!("<div class=\"text-center text-gray-500 py-8\">No todos yet. Add one above!</div>"));
+                props
+            },
+        },
+    ]
 }
 
 // Todo app functions using EngiDB

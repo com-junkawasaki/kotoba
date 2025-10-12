@@ -247,4 +247,31 @@ impl EngiDB {
         write_txn.commit()?;
         Ok(new_id)
     }
+
+    /// Scan all TodoItem nodes from the database
+    pub fn scan_todo_items(&self) -> Result<Vec<kotoba_types::Node>> {
+        use redb::ReadableTable;
+        let read_txn = self.db.begin_read()?;
+        let vertices = read_txn.open_table(VERTICES)?;
+        let mut todos = Vec::new();
+
+        for entry in vertices.iter()? {
+            let (_id, cid_bytes) = entry?;
+            let cid = cid::Cid::try_from(cid_bytes.value().to_vec())
+                .map_err(|e| Error::Serialization(e.to_string()))?;
+            if let Some(block) = self.get_block(&cid)? {
+                let node: kotoba_types::Node =
+                    serde_ipld_dagcbor::from_slice(&block).map_err(|e| Error::Serialization(e.to_string()))?;
+                if node.kind == "TodoItem" {
+                    todos.push(node);
+                }
+            }
+        }
+        Ok(todos)
+    }
+
+    /// Store a TodoItem node
+    pub fn store_todo_item(&self, node: &kotoba_types::Node) -> Result<u64> {
+        self.add_vertex(node)
+    }
 }
