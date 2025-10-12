@@ -8,6 +8,7 @@ use sled::{Db, Tree};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use sha2::{Digest, Sha256};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -177,9 +178,9 @@ impl EngiDB {
 
     // Helper function to calculate CID for any serializable data
     fn calculate_cid(&self, data: &[u8]) -> Result<Cid> {
-        const BLAKE3_256_CODE: u64 = 0x1e;
-        let hash = blake3::hash(data);
-        let multihash = Multihash::<64>::wrap(BLAKE3_256_CODE, hash.as_bytes()).unwrap();
+        const SHA2_256_CODE: u64 = 0x12; // SHA-256 multihash code
+        let hash = Sha256::digest(data);
+        let multihash = Multihash::<64>::wrap(SHA2_256_CODE, &hash).unwrap();
         Ok(Cid::new_v1(0x71, multihash))
     }
 
