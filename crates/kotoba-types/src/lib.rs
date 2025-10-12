@@ -246,3 +246,43 @@ impl Graph {
             .collect()
     }
 }
+
+/// UI-IR Node Types for web interface generation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UiNodeType {
+    View,
+    Component,
+    State,
+    Event,
+    Route,
+    StyleToken,
+}
+
+impl UiNodeType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "View" => Some(Self::View),
+            "Component" => Some(Self::Component),
+            "State" => Some(Self::State),
+            "Event" => Some(Self::Event),
+            "Route" => Some(Self::Route),
+            "StyleToken" => Some(Self::StyleToken),
+            _ => None,
+        }
+    }
+}
+
+/// UI-IR specific properties
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UiProperties {
+    pub node_type: UiNodeType,
+    pub html_tag: Option<String>,
+    pub tailwind_classes: Vec<String>,
+    pub htmx_attrs: IndexMap<String, String>,
+    pub content: Option<String>,
+    pub children: Vec<String>, // child node IDs
+    pub attributes: IndexMap<String, String>,
+    pub bindings: IndexMap<String, String>, // state bindings
+    pub route_path: Option<String>,
+    pub style_value: Option<String>,
+}

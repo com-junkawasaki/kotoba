@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler};
 use std::collections::HashMap;
 use indexmap::IndexMap;
 
@@ -100,6 +100,26 @@ enum Commands {
         #[command(subcommand)]
         command: TodoCommands,
     },
+    /// UI generation commands
+    Ui {
+        #[command(subcommand)]
+        command: UiCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum UiCommands {
+    /// Generate HTML from UI-IR
+    Generate {
+        /// View ID to generate
+        view_id: String,
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+        /// Output HTML file (optional, prints to stdout if not specified)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -189,6 +209,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Deleting todo #{}", id);
                     delete_todo(&db, id)?;
                     println!("✓ Todo #{} deleted!", id);
+                }
+            }
+        }
+
+        Commands::Ui { command } => {
+            match command {
+                UiCommands::Generate { view_id, db, output } => {
+                    let transpiler = UiTranspiler::new(&db)?;
+                    let html = transpiler.transpile_to_html(&view_id)?;
+
+                    match output {
+                        Some(path) => {
+                            std::fs::write(&path, &html)?;
+                            println!("✓ HTML generated and saved to: {}", path.display());
+                        }
+                        None => {
+                            println!("{}", html);
+                        }
+                    }
                 }
             }
         }

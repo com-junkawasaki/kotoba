@@ -129,7 +129,9 @@ local story = {
       "IPLD-based content addressing with BLAKE3 hashing",
       "CLI integration with database import and commit functionality",
       "Todo app built entirely with kotoba - demonstrating end-to-end functionality",
-      "Graph-based todo management with versioning and persistence"
+      "Graph-based todo management with versioning and persistence",
+      "UI-IR transpiler: HTML+Tailwind+HTMX generation from graph nodes",
+      "Complete web UI generation from EAF-IPG UI-IR specifications"
     ],
 
     in_progress: [
