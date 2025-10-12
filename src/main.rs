@@ -1,6 +1,6 @@
 //! EAF-IPG Runtime CLI
 //!
-//! Execute Jsonnet DSL programs using the unified IR runtime.
+//! Execute JSON-based graph programs using the unified IR runtime.
 
 use std::fs;
 use std::path::PathBuf;
@@ -10,7 +10,7 @@ use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph};
 
 #[derive(Parser)]
 #[command(name = "eaf-ipg")]
-#[command(about = "ENGI EAF-IPG Schema & Runtime")]
+#[command(about = "Kotoba - Language Graph Database")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -18,9 +18,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Execute a Jsonnet DSL program
+    /// Execute a JSON graph program
     Run {
-        /// Path to the Jsonnet DSL file
+        /// Path to the JSON graph file
         #[arg(short, long)]
         file: PathBuf,
 
@@ -44,13 +44,13 @@ enum Commands {
         #[arg(long)]
         export: bool,
     },
-    /// Validate a JSON IR file
+    /// Validate a JSON graph file
     Validate {
-        /// Path to the JSON IR file
+        /// Path to the JSON graph file
         #[arg(short, long)]
         file: PathBuf,
     },
-    /// Test simple JSON evaluation
+    /// Test JSON parsing
     TestJson {
         /// Path to the JSON file
         #[arg(short, long)]
@@ -66,18 +66,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Commands::Run { file, export, db, branch, author, message } => {
-            // Load and evaluate Jsonnet DSL
-            let jsonnet_source = fs::read_to_string(&file)?;
-            let json_output = rs_jsonnet::evaluate_to_json(&jsonnet_source)
-                .map_err(|e| Error::JsonnetEval(e.to_string()))?;
+            // Load JSON file
+            let json_content = fs::read_to_string(&file)?;
 
             if export {
-                println!("{}", json_output);
+                println!("{}", json_content);
                 return Ok(());
             }
 
-            // Parse JSON into IR
-            let graph: Graph = serde_json::from_str(&json_output)?;
+            // Parse JSON into Graph
+            let graph: Graph = serde_json::from_str(&json_content)?;
 
             // Open the database
             let engidb = EngiDB::open(&db)?;

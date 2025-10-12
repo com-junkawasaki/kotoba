@@ -9,12 +9,10 @@ members = [
 name = "eaf-ipg-runtime"
 version = "0.2.0"
 edition = "2021"
-description = "ENGI EAF-IPG Schema & Runtime - Unified IR execution engine"
+description = "Kotoba - Language Graph Database - Unified IR execution engine"
 license = "Apache-2.0"
 
 [dependencies]
-# Jsonnet processing
-rs-jsonnet = "0.1.22"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

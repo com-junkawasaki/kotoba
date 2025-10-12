@@ -41,7 +41,7 @@ local story = {
   process_network: {
     // Input Layer
     input: {
-      format: "Jsonnet DSL programs conforming to EAF-IPG schema",
+      format: "JSON graph programs conforming to EAF-IPG schema",
       validation: "Structural integrity via Rust types + semantic constraints",
       layers: ["syntax", "data", "control", "memory", "typing", "effect", "time", "capability"]
     },

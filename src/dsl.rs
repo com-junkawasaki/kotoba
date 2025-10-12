@@ -1,7 +1,7 @@
 //! DSL utilities for EAF-IPG
 //!
 //! Helper functions and utilities for constructing EAF-IPG graphs
-//! from Jsonnet DSL programs.
+//! from JSON program representations.
 
 use indexmap::IndexMap;
 use kotoba_types::*;
