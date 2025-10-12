@@ -1,0 +1,43 @@
+{
+  "node": [
+    {
+      "id": "todo_1",
+      "type": "TodoItem",
+      "properties": {
+        "id": "1",
+        "title": "Learn Kotoba Graph Programming",
+        "description": "Study EAF-IPG and EngiDB concepts",
+        "completed": false,
+        "created_at": "2025-10-12T10:00:00Z",
+        "updated_at": "2025-10-12T10:00:00Z"
+      }
+    },
+    {
+      "id": "user_alice",
+      "type": "User",
+      "properties": {
+        "name": "Alice",
+        "email": "alice@example.com"
+      }
+    }
+  ],
+  "edge": [
+    {
+      "id": "ownership_edge",
+      "type": "owns",
+      "layer": "data"
+    }
+  ],
+  "incidence": [
+    {
+      "node": "user_alice",
+      "edge": "ownership_edge",
+      "type": "source"
+    },
+    {
+      "node": "todo_1",
+      "edge": "ownership_edge",
+      "type": "target"
+    }
+  ]
+}

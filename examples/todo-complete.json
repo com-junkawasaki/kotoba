@@ -1,0 +1,18 @@
+{
+  "node": [
+    {
+      "id": "todo_1",
+      "type": "TodoItem",
+      "properties": {
+        "id": "1",
+        "title": "Learn Kotoba Graph Programming",
+        "description": "Study EAF-IPG and EngiDB concepts",
+        "completed": true,
+        "created_at": "2025-10-12T10:00:00Z",
+        "updated_at": "2025-10-12T11:30:00Z"
+      }
+    }
+  ],
+  "edge": [],
+  "incidence": []
+}

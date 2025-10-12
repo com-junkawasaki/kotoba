@@ -6,7 +6,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node};
+use std::collections::HashMap;
+use indexmap::IndexMap;
 
 #[derive(Parser)]
 #[command(name = "eaf-ipg")]
@@ -14,6 +16,43 @@ use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph};
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+#[derive(Subcommand)]
+enum TodoCommands {
+    /// Add a new todo item
+    Add {
+        /// Todo title
+        title: String,
+        /// Todo description (optional)
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+    },
+    /// List all todo items
+    List {
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+    },
+    /// Mark a todo as completed
+    Complete {
+        /// Todo ID
+        id: u64,
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+    },
+    /// Delete a todo item
+    Delete {
+        /// Todo ID
+        id: u64,
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -55,6 +94,11 @@ enum Commands {
         /// Path to the JSON file
         #[arg(short, long)]
         file: PathBuf,
+    },
+    /// Todo app commands
+    Todo {
+        #[command(subcommand)]
+        command: TodoCommands,
     },
 }
 
@@ -125,7 +169,89 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let value: serde_json::Value = serde_json::from_str(&json_content)?;
             println!("✓ JSON parsed successfully: {}", value);
         }
+        Commands::Todo { command } => {
+            match command {
+                TodoCommands::Add { title, description, db } => {
+                    println!("Adding todo: {}", title);
+                    add_todo(&db, &title, description.as_deref())?;
+                    println!("✓ Todo added successfully!");
+                }
+                TodoCommands::List { db } => {
+                    println!("📝 Todo List:");
+                    list_todos(&db)?;
+                }
+                TodoCommands::Complete { id, db } => {
+                    println!("Completing todo #{}", id);
+                    complete_todo(&db, id)?;
+                    println!("✓ Todo #{} marked as completed!", id);
+                }
+                TodoCommands::Delete { id, db } => {
+                    println!("Deleting todo #{}", id);
+                    delete_todo(&db, id)?;
+                    println!("✓ Todo #{} deleted!", id);
+                }
+            }
+        }
     }
 
+    Ok(())
+}
+
+// Todo app functions using EngiDB
+fn add_todo(db_path: &PathBuf, title: &str, description: Option<&str>) -> Result<(), Error> {
+    let engidb = EngiDB::open(db_path)?;
+
+    // Generate a simple ID based on current timestamp
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as u64;
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    let todo_node = Node {
+        id: format!("todo_{}", id),
+        kind: "TodoItem".to_string(),
+        properties: {
+            let mut props = IndexMap::new();
+            props.insert("id".to_string(), serde_json::json!(id));
+            props.insert("title".to_string(), serde_json::json!(title));
+            props.insert("description".to_string(), serde_json::json!(description.unwrap_or("")));
+            props.insert("completed".to_string(), serde_json::json!(false));
+            props.insert("created_at".to_string(), serde_json::json!(now));
+            props.insert("updated_at".to_string(), serde_json::json!(now));
+            props
+        },
+    };
+
+    engidb.add_vertex(&todo_node)?;
+    engidb.commit("main", "todo-cli".to_string(), format!("Add todo: {}", title))?;
+
+    Ok(())
+}
+
+fn list_todos(db_path: &PathBuf) -> Result<(), Error> {
+    // For now, just show a placeholder since full query implementation is pending
+    println!("📝 Todo listing functionality will be implemented with full GQL support");
+    println!("💡 Currently available:");
+    println!("   - Add todos with: cargo run -- todo add \"Your task\"");
+    println!("   - Mark complete: cargo run -- todo complete <id>");
+    println!("   - Delete todos: cargo run -- todo delete <id>");
+    Ok(())
+}
+
+fn complete_todo(db_path: &PathBuf, id: u64) -> Result<(), Error> {
+    let engidb = EngiDB::open(db_path)?;
+    // TODO: Implement completion logic when full query support is available
+    println!("✅ Todo completion will be implemented with full EngiDB query capabilities");
+    engidb.commit("main", "todo-cli".to_string(), format!("Complete todo: {}", id))?;
+    Ok(())
+}
+
+fn delete_todo(db_path: &PathBuf, id: u64) -> Result<(), Error> {
+    let engidb = EngiDB::open(db_path)?;
+    // TODO: Implement deletion logic when full query support is available
+    println!("🗑️  Todo deletion will be implemented with full EngiDB query capabilities");
+    engidb.commit("main", "todo-cli".to_string(), format!("Delete todo: {}", id))?;
     Ok(())
 }

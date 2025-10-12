@@ -40,6 +40,9 @@ clap = { version = "4.0", features = ["derive"] }
 indexmap = { version = "2.0", features = ["serde"] }
 itertools = "0.12"
 
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
 engidb = { path = "crates/engidb" }
 kotoba-types = { path = "crates/kotoba-types" }
 

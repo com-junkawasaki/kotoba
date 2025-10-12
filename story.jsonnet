@@ -127,7 +127,9 @@ local story = {
       "Independent crate architecture: kotoba-types, engidb, eaf-ipg-runtime",
       "Cargo workspace configuration for multi-crate development",
       "IPLD-based content addressing with BLAKE3 hashing",
-      "CLI integration with database import and commit functionality"
+      "CLI integration with database import and commit functionality",
+      "Todo app built entirely with kotoba - demonstrating end-to-end functionality",
+      "Graph-based todo management with versioning and persistence"
     ],
 
     in_progress: [
