@@ -4,8 +4,8 @@
 //! from EngiDB graph database.
 
 use crate::{engidb::EngiDB, Error, Result};
-use kotoba_types::{Node, Edge, Incidence};
-use std::collections::{HashMap, HashSet};
+use kotoba_types::Node;
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// GQL Query AST
@@ -242,7 +242,11 @@ impl GqlEngine {
         let upper = query.to_uppercase();
         let start = upper.find("MATCH").unwrap_or(0) + 5;
         let end = upper.find("WHERE").or_else(|| upper.find("RETURN")).unwrap_or(query.len());
-        &query[start..end].trim()
+        let slice = &query[start..end];
+        let trimmed = slice.trim();
+        let offset = trimmed.as_ptr() as usize - query.as_ptr() as usize;
+        let len = trimmed.len();
+        &query[offset..offset + len]
     }
 
     /// Extract WHERE clause
@@ -250,7 +254,11 @@ impl GqlEngine {
         let upper = query.to_uppercase();
         if let Some(start) = upper.find("WHERE") {
             let end = upper[start..].find("RETURN").map(|i| start + i).unwrap_or(query.len());
-            Some(&query[start + 5..end].trim())
+            let slice = &query[start + 5..end];
+            let trimmed = slice.trim();
+            let offset = trimmed.as_ptr() as usize - query.as_ptr() as usize;
+            let len = trimmed.len();
+            Some(&query[offset..offset + len])
         } else {
             None
         }
