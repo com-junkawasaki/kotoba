@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotoba Todo - Real-time Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+
+        .realtime-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 9999;
+        }
+
+        .status-connected {
+            background: rgba(34, 197, 94, 0.9);
+        }
+
+        .status-disconnected {
+            background: rgba(239, 68, 68, 0.9);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <!-- Real-time Status Indicator -->
+    <div id="realtime-status" class="realtime-status status-disconnected">
+        🔴 WebSocket: Disconnected
+    </div>
+
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">Kotoba Todo App</h1>
+        <p class="text-sm text-gray-600 mb-6 text-center">Real-time collaboration with WebSocket + HTMX</p>
+
+        <!-- Connection Info -->
+        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-blue-800">Real-time Features</h3>
+                    <p class="text-sm text-blue-600 mt-1">
+                        Multiple browser tabs will sync automatically when todos are added!
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-blue-500">WebSocket</div>
+                    <div class="text-xs text-blue-500">Server-Sent Events</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <!-- Todo Add Form -->
+            <form hx-post="/api/todo/add" hx-target="#todo_list" hx-swap="innerHTML" class="flex gap-2 mb-6">
+                <input type="text" name="title" placeholder="Add a new todo..."
+                       required="true"
+                       class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg">
+                <button type="submit" class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors">
+                    <span class="htmx-indicator">⏳</span>
+                    <span class="htmx-indicator" style="display: none;">➕ Add Todo</span>
+                </button>
+            </form>
+
+            <!-- Todo Statistics -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-50 p-3 rounded-lg text-center">
+                    <div id="total-count" class="text-2xl font-bold text-green-600">0</div>
+                    <div class="text-xs text-green-600">Total</div>
+                </div>
+                <div class="bg-yellow-50 p-3 rounded-lg text-center">
+                    <div id="active-count" class="text-2xl font-bold text-yellow-600">0</div>
+                    <div class="text-xs text-yellow-600">Active</div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg text-center">
+                    <div id="completed-count" class="text-2xl font-bold text-gray-600">0</div>
+                    <div class="text-xs text-gray-600">Completed</div>
+                </div>
+            </div>
+
+            <!-- Todo List -->
+            <div class="space-y-3">
+                <h3 class="font-semibold text-gray-700">Your Todos:</h3>
+                <div id="todo_list" hx-get="/api/todo/list" hx-trigger="load, todoAdded from:body">
+                    <div class="text-center text-gray-500 py-12">
+                        <div class="animate-pulse mb-4">
+                            <div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
+                            <div class="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div>
+                        </div>
+                        <p class="text-lg mb-2">📝 Loading your todos...</p>
+                        <p class="text-sm">Add your first todo above to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-12 pt-6 border-t border-gray-200">
+            <div class="text-center text-sm text-gray-500 space-y-1">
+                <p><strong>Kotoba</strong> - Graph-based programming language</p>
+                <p>Real-time features: WebSocket + Server-Sent Events + HTMX</p>
+                <p>Data persistence: IPLD + EngiDB + Git-like versioning</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebSocket Connection Script -->
+    <script>
+        let websocket = null;
+        let reconnectInterval = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            console.log('🔌 Connecting to WebSocket:', wsUrl);
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = function(event) {
+                console.log('🟢 WebSocket connected');
+                document.getElementById('realtime-status').className = 'realtime-status status-connected';
+                document.getElementById('realtime-status').textContent = '🟢 WebSocket: Connected';
+
+                // Send subscription message
+                websocket.send(JSON.stringify({
+                    action: 'subscribe',
+                    timestamp: new Date().toISOString()
+                }));
+
+                // Clear reconnect interval
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            websocket.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('📨 WebSocket message:', message);
+
+                    handleRealtimeEvent(message);
+                } catch (e) {
+                    console.error('❌ Failed to parse WebSocket message:', e);
+                }
+            };
+
+            websocket.onclose = function(event) {
+                console.log('🔴 WebSocket disconnected');
+                document.getElementById('realtime-status').className = 'realtime-status status-disconnected';
+                document.getElementById('realtime-status').textContent = '🔴 WebSocket: Disconnected';
+
+                // Auto-reconnect
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(() => {
+                        console.log('🔄 Attempting to reconnect...');
+                        connectWebSocket();
+                    }, 3000);
+                }
+            };
+
+            websocket.onerror = function(error) {
+                console.error('🚨 WebSocket error:', error);
+            };
+        }
+
+        function handleRealtimeEvent(message) {
+            switch (message.event_type) {
+                case 'connected':
+                    console.log('✅ Real-time connection established');
+                    break;
+
+                case 'subscribed':
+                    console.log('📡 Subscribed to real-time events');
+                    break;
+
+                case 'todo_added':
+                    console.log('🎉 Todo added by another client:', message.data);
+                    showNotification(`New todo: "${message.data.title}"`, 'success');
+
+                    // Reload todo list to sync with other clients
+                    htmx.trigger('#todo_list', 'load');
+                    break;
+
+                case 'error':
+                    console.error('🚨 Real-time error:', message.data);
+                    showNotification(`Error: ${message.data.message}`, 'error');
+                    break;
+
+                default:
+                    console.log('ℹ️ Unknown event type:', message.event_type);
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification (could be enhanced with a proper notification system)
+            console.log(`🔔 Notification [${type}]:`, message);
+
+            // For demo, just log to console
+            const colors = {
+                success: 'color: #10b981',
+                error: 'color: #ef4444',
+                info: 'color: #3b82f6'
+            };
+
+            console.log(`%c${message}`, colors[type] || colors.info);
+        }
+
+        // Initialize WebSocket connection when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Kotoba Todo App with Real-time features loaded');
+            connectWebSocket();
+        });
+
+        // Heartbeat to keep connection alive
+        setInterval(() => {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({
+                    action: 'ping',
+                    timestamp: new Date().toISOString()
+                }));
+            }
+        }, 30000); // Every 30 seconds
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (websocket) {
+                websocket.close();
+            }
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+            }
+        });
+    </script>
+</body>
+</html>

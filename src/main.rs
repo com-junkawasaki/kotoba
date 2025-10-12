@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler};
+use eaf_ipg_runtime::{validator::validate, Error, engidb::EngiDB, Graph, Node, ui::UiTranspiler, server::start_server, wasm_transpiler::WasmTranspiler, gql::execute_gql_query};
 use kotoba_types::UiProperties;
 use std::collections::HashMap;
 use indexmap::IndexMap;
@@ -124,6 +124,17 @@ enum Commands {
     Wasm {
         #[command(subcommand)]
         command: WasmCommands,
+    },
+    /// Execute Graph Query Language (GQL)
+    Gql {
+        /// GQL query string
+        query: String,
+        /// Database path
+        #[arg(long, default_value = "todo.db")]
+        db: PathBuf,
+        /// Output format (json, table)
+        #[arg(long, default_value = "table")]
+        format: String,
     },
 }
 
@@ -313,9 +324,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+
+        Commands::Gql { query, db, format } => {
+            println!("🔍 Executing GQL query: {}", query);
+
+            let engidb = EngiDB::open(&db)?;
+            let result = execute_gql_query(&engidb, &query)?;
+
+            match format.as_str() {
+                "json" => {
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                }
+                "table" => {
+                    print_gql_result_as_table(&result);
+                }
+                _ => {
+                    return Err(Error::Validation(format!("Unknown format: {}", format)));
+                }
+            }
+        }
     }
 
     Ok(())
+}
+
+/// Print GQL result as a formatted table
+fn print_gql_result_as_table(result: &eaf_ipg_runtime::gql::GqlResult) {
+    if result.rows.is_empty() {
+        println!("No results found.");
+        return;
+    }
+
+    // Print header
+    println!("{}", "=".repeat(50));
+    for (i, col) in result.columns.iter().enumerate() {
+        if i > 0 { print!(" | "); }
+        print!("{:15}", col);
+    }
+    println!();
+    println!("{}", "-".repeat(50));
+
+    // Print rows
+    for row in &result.rows {
+        for (i, col) in result.columns.iter().enumerate() {
+            if i > 0 { print!(" | "); }
+            let value = row.get(col).unwrap_or(&serde_json::Value::Null);
+            let display = match value {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Number(n) => n.to_string(),
+                serde_json::Value::Bool(b) => b.to_string(),
+                _ => value.to_string(),
+            };
+            print!("{:15}", display.chars().take(15).collect::<String>());
+        }
+        println!();
+    }
+    println!("{}", "=".repeat(50));
+    println!("Total rows: {}", result.rows.len());
 }
 
 // Mock UI nodes for WASM transpiler demo

@@ -3,7 +3,7 @@
 //! Provides REST API endpoints for the Todo application,
 //! connecting HTMX frontend with EngiDB backend.
 
-use crate::{engidb::EngiDB, Error, Result};
+use crate::{engidb::EngiDB, Error, Result, realtime::{create_event_broadcaster, broadcast_event, RealtimeEvent, configure_realtime_routes}};
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use actix_web::middleware::Logger;
 use actix_cors::Cors;
@@ -15,6 +15,7 @@ use std::sync::Mutex;
 /// Shared application state
 pub struct AppState {
     pub engidb: Mutex<EngiDB>,
+    pub event_broadcaster: crate::realtime::EventBroadcaster,
 }
 
 /// Todo item representation for API
@@ -38,8 +39,11 @@ pub struct CreateTodoRequest {
 /// Start the HTTP server
 pub async fn start_server(db_path: PathBuf, port: u16) -> Result<()> {
     let engidb = EngiDB::open(&db_path)?;
+    let event_broadcaster = create_event_broadcaster();
+
     let app_state = web::Data::new(AppState {
-        engidb: Mutex::new(engidb),
+        engidb: Mutex::new(engidb.clone()),
+        event_broadcaster: event_broadcaster.clone(),
     });
 
     println!("🚀 Starting Kotoba API Server on port {}", port);
@@ -74,6 +78,7 @@ pub async fn start_server(db_path: PathBuf, port: u16) -> Result<()> {
             .service(fs::Files::new("/static", "examples/").show_files_listing())
             .route("/", web::get().to(index))
             .route("/app", web::get().to(todo_app))
+            .configure(|cfg| configure_realtime_routes(cfg, event_broadcaster, engidb))
     })
     .bind(("127.0.0.1", port))?
     .run()
@@ -174,6 +179,12 @@ async fn add_todo(
 
             // Commit the change
             let _ = engidb.commit("main", "api-server".to_string(), format!("Add todo: {}", req.title));
+
+            // Broadcast real-time event
+            let _ = broadcast_event(&data.event_broadcaster, RealtimeEvent::TodoAdded {
+                id,
+                title: req.title.clone(),
+            });
 
             // Return HTMX-compatible response
             // HTMX will trigger the "todoAdded" event to update the list

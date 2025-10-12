@@ -141,7 +141,12 @@ local story = {
       "Real-time UI updates via HTMX events and server responses",
       "WebAssembly transpiler: UI-IR → Rust → WASM for client-side rendering",
       "Component-based WASM architecture with DOM manipulation",
-      "Multi-target UI generation: HTML, HTMX, WASM from single UI-IR"
+      "Multi-target UI generation: HTML, HTMX, WASM from single UI-IR",
+      "ISO GQL implementation: MATCH, WHERE, RETURN for complex graph queries",
+      "GQL parser and interpreter with EngiDB integration",
+      "Real-time WebSocket/SSE server for live updates",
+      "Event broadcasting system for multi-client synchronization",
+      "Full-stack real-time collaboration with HTMX + WebSocket"
     ],
 
     in_progress: [

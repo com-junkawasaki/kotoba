@@ -9,6 +9,8 @@ pub mod dsl;
 pub mod ui;
 pub mod server;
 pub mod wasm_transpiler;
+pub mod gql;
+pub mod realtime;
 
 // Re-export types from the new crates
 pub use kotoba_types::*;
