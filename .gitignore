@@ -14,3 +14,5 @@ target/
 # Temporary files
 *.tmp
 *.temp
+
+bench_db_cold/

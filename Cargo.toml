@@ -76,6 +76,19 @@ serde-wasm-bindgen = "0.6"
 engidb = { path = "crates/engidb" }
 kotoba-types = { path = "crates/kotoba-types" }
 
+# FCDB test dependencies
+fcdb-core = "0.1"
+fcdb-cas = "0.1"
+fcdb-graph = "0.1"
+
+[[bin]]
+name = "test_fcdb"
+path = "test_fcdb_api.rs"
+
+[features]
+default = []
+fcdb = ["engidb/fcdb"]
+
 [dev-dependencies]
 criterion = "0.5"
 tempfile = "3.0"

@@ -13,6 +13,9 @@ use sha2::{Digest, Sha256};
 
 pub mod adapter;
 
+#[cfg(feature = "fcdb")]
+pub use adapter::fcdb_adapter::FcdbAdapter;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]

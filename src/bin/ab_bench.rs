@@ -61,7 +61,9 @@ fn main() {
     if cold { std::fs::remove_dir_all(db_path).ok(); }
 
     #[cfg(feature = "fcdb")]
-    let adapter: Arc<dyn GraphAdapter + Send + Sync> = Arc::new(FcdbAdapter::new());
+    let adapter: Arc<dyn GraphAdapter + Send + Sync> = Arc::new(
+        FcdbAdapter::new_sync(std::path::PathBuf::from(db_path)).expect("create fcdb adapter")
+    );
     #[cfg(not(feature = "fcdb"))]
     let adapter: Arc<dyn GraphAdapter + Send + Sync> = {
         let sled = EngiDB::open(db_path).expect("open db");
