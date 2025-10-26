@@ -1,0 +1,17 @@
+[package]
+name = "kotoba-codebase"
+version = "0.1.22"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "DefRef: Function/type/rule/strategy/schema definitions with content addressing"
+
+[dependencies]
+kotoba-logic = { path = "../009-kotoba-logic" }
+kotoba-types = { path = "../010-kotoba-types" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+blake3.workspace = true

@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kotoba-ingress
+  namespace: kotoba-system
+  labels:
+    app: kotoba
+  annotations:
+    kubernetes.io/ingress.class: "gce"  # GKE ingress controller
+    kubernetes.io/ingress.global-static-ip-name: "kotoba-static-ip"  # Optional: pre-created static IP
+    networking.gke.io/managed-certificates: "kotoba-cert"  # Optional: managed SSL certificate
+    kubernetes.io/ingress.allow-http: "false"  # Force HTTPS
+spec:
+  tls:
+  - hosts:
+    - kotoba.yourdomain.com  # Replace with your domain
+    secretName: kotoba-tls
+  rules:
+  - host: kotoba.yourdomain.com  # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kotoba-external
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: kotoba-external
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: kotoba-external
+            port:
+              number: 80

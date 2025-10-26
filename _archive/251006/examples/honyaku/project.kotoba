@@ -1,0 +1,57 @@
+// project.kotoba: Main definition for the translation project.
+
+local en_strings = import 'en.kotoba';
+local ja_strings = import 'ja.kotoba';
+local users = import 'users.kotoba';
+local workflow = import 'workflow.kotoba';
+
+{
+  // Project metadata
+  project: {
+    name: 'Honyaku Example App',
+    description: 'A sample translation project to demonstrate Kotoba TMS capabilities.',
+    source_language: 'en',
+    target_languages: ['ja'],
+  },
+
+  // Language definitions
+  languages: {
+    en: {
+      code: 'en-US',
+      name: 'English',
+    },
+    ja: {
+      code: 'ja-JP',
+      name: 'Japanese',
+    },
+  },
+
+  // Users involved in the project
+  users: users,
+
+  // Workflow definition for translations
+  workflow: workflow,
+
+  // A simplified, structured representation of all translation strings.
+  // In a real implementation, this would be transformed into a graph structure.
+  strings: {
+    'app.greeting': {
+      source_string: en_strings['app.greeting'].content,
+      translations: {
+        ja: ja_strings['app.greeting'],
+      },
+    },
+    'common.buttons.save': {
+      source_string: en_strings['common.buttons.save'].content,
+      translations: {
+        ja: ja_strings['common.buttons.save'],
+      },
+    },
+    'common.buttons.cancel': {
+      source_string: en_strings['common.buttons.cancel'].content,
+      translations: {
+        ja: ja_strings['common.buttons.cancel'],
+      },
+    },
+  },
+}

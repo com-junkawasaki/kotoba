@@ -1,0 +1,36 @@
+{
+  components: {
+    Button: {
+      name: "Button",
+      props: {
+        text: { type: "string", required: true },
+        onClick: { type: "function", required: false }
+      },
+      render: "<button onClick={props.onClick}>{props.text}</button>",
+      imports: ["React"]
+    },
+
+    Header: {
+      name: "Header",
+      props: {
+        title: { type: "string", required: true }
+      },
+      render: "<header><h1>{props.title}</h1></header>",
+      imports: ["React"]
+    },
+
+    App: {
+      name: "App",
+      props: {},
+      render: "<div><Header title='Kotoba App' /><Button text='Click me' /></div>",
+      imports: ["React"]
+    }
+  },
+
+  pages: [
+    {
+      path: "/",
+      component: "App"
+    }
+  ]
+}

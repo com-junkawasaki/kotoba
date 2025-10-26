@@ -1,0 +1,43 @@
+// MERKLE: a1b2c3d4 (Project Definition)
+// This file defines the structure, commands, and type of the Kotoba project.
+// It is the central configuration file for the `kotoba` master CLI.
+{
+  // `web` type tells the CLI to enable web-related commands like `kotoba web dev`.
+  type: 'web',
+
+  // Configuration for the `kotoba package-manager` command.
+  packageManager: {
+    // Defines workspaces for monorepo-aware dependency installation.
+    workspaces: [
+      'packages/*',
+    ],
+  },
+
+  // Defines custom scripts runnable via `kotoba run <script_name>`.
+  // The `web dev` command will also use this definition internally.
+  scripts: {
+    // The 'dev' script definition for starting the development server.
+    dev: {
+      // The framework runner responsible for this command.
+      // `kotoba` CLI knows that `@kotoba/web` corresponds to `packages/web/dist/cli.js`.
+      runner: '@kotoba/web',
+      // The subcommand to pass to the runner's CLI.
+      command: 'dev',
+      // Default options for the command, can be overridden by CLI flags.
+      options: {
+        port: 3000,
+      },
+    },
+
+    // The 'build' script for creating a production build.
+    build: {
+      // Uses the standard TypeScript compiler runner.
+      runner: 'tsc',
+      command: '--build',
+      options: {
+        // You can specify which tsconfig to use, for example.
+        // project: './tsconfig.build.json',
+      },
+    },
+  },
+}

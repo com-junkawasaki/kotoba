@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2" # Use the edition 2021 resolver
+members = [
+    "crates/kotoba-vm-benchmarks",
+    "crates/kotoba-vm-cli",
+    "crates/kotoba-vm-core",
+    "crates/kotoba-vm-cpu",
+    "crates/kotoba-vm-hardware",
+    "crates/kotoba-vm-memory",
+    "crates/kotoba-vm-scheduler",
+    "crates/kotoba-vm-types",
+    "crates/kotoba-vm-gnn",
+]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
+
+[profile.bench]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[workspace.dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+twox-hash = "1.6"
+rayon = "1.8"
+tokio = { version = "1.0", features = ["full"] }

@@ -1,0 +1,176 @@
+{
+  "config": {
+    "type": "config",
+    "name": "ComplexApp",
+    "version": "1.0.0",
+    "theme": "dark"
+  },
+
+  "components": {
+    "App": {
+      "type": "component",
+      "name": "App",
+      "component_type": "div",
+      "props": {
+        "className": "app-container dark-theme",
+        "data-theme": "dark"
+      },
+      "children": ["Navigation", "MainContent", "Footer"]
+    },
+
+    "Navigation": {
+      "type": "component",
+      "name": "Navigation",
+      "component_type": "nav",
+      "props": {
+        "className": "navigation",
+        "role": "navigation"
+      },
+      "children": ["NavBrand", "NavMenu"]
+    },
+
+    "NavBrand": {
+      "type": "component",
+      "name": "NavBrand",
+      "component_type": "div",
+      "props": {
+        "className": "nav-brand",
+        "onClick": "handleBrandClick"
+      },
+      "children": ["BrandLogo", "BrandText"]
+    },
+
+    "BrandText": {
+      "type": "component",
+      "name": "BrandText",
+      "component_type": "span",
+      "props": {
+        "className": "brand-text"
+      },
+      "children": []
+    },
+
+    "MainContent": {
+      "type": "component",
+      "name": "MainContent",
+      "component_type": "main",
+      "props": {
+        "className": "main-content",
+        "role": "main"
+      },
+      "children": ["Sidebar", "ContentArea"]
+    },
+
+    "Sidebar": {
+      "type": "component",
+      "name": "Sidebar",
+      "component_type": "aside",
+      "props": {
+        "className": "sidebar",
+        "aria-label": "Sidebar navigation"
+      },
+      "children": ["MenuList"]
+    },
+
+    "ContentArea": {
+      "type": "component",
+      "name": "ContentArea",
+      "component_type": "article",
+      "props": {
+        "className": "content-area"
+      },
+      "children": ["WelcomeMessage", "ActionButtons"]
+    },
+
+    "WelcomeMessage": {
+      "type": "component",
+      "name": "WelcomeMessage",
+      "component_type": "h1",
+      "props": {
+        "className": "welcome-title"
+      },
+      "children": []
+    },
+
+    "ActionButtons": {
+      "type": "component",
+      "name": "ActionButtons",
+      "component_type": "div",
+      "props": {
+        "className": "action-buttons"
+      },
+      "children": ["PrimaryButton", "SecondaryButton"]
+    },
+
+    "PrimaryButton": {
+      "type": "component",
+      "name": "PrimaryButton",
+      "component_type": "button",
+      "props": {
+        "className": "btn btn-primary",
+        "type": "button",
+        "onClick": "handlePrimaryAction"
+      },
+      "children": []
+    },
+
+    "SecondaryButton": {
+      "type": "component",
+      "name": "SecondaryButton",
+      "component_type": "button",
+      "props": {
+        "className": "btn btn-secondary",
+        "type": "button",
+        "onClick": "handleSecondaryAction"
+      },
+      "children": []
+    },
+
+    "Footer": {
+      "type": "component",
+      "name": "Footer",
+      "component_type": "footer",
+      "props": {
+        "className": "footer",
+        "role": "contentinfo"
+      },
+      "children": ["Copyright"]
+    },
+
+    "Copyright": {
+      "type": "component",
+      "name": "Copyright",
+      "component_type": "p",
+      "props": {
+        "className": "copyright"
+      },
+      "children": []
+    }
+  },
+
+  "handlers": {
+    "handleBrandClick": {
+      "type": "handler",
+      "name": "handleBrandClick",
+      "function": "console.log('Brand clicked');"
+    },
+
+    "handlePrimaryAction": {
+      "type": "handler",
+      "name": "handlePrimaryAction",
+      "function": "console.log('Primary action triggered');"
+    },
+
+    "handleSecondaryAction": {
+      "type": "handler",
+      "name": "handleSecondaryAction",
+      "function": "console.log('Secondary action triggered');"
+    }
+  },
+
+  "states": {
+    "isMenuOpen": false,
+    "currentTheme": "dark",
+    "userAuthenticated": true
+  }
+}

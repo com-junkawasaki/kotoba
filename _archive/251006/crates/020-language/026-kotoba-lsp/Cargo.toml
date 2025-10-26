@@ -1,0 +1,32 @@
+[package]
+name = "kotoba-lsp"
+version = "0.1.16"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Language Server Protocol implementation for Kotoba programming language"
+keywords = ["lsp", "language-server", "editor", "ide", "kotoba"]
+categories = ["development-tools", "command-line-utilities"]
+documentation = "https://docs.rs/kotoba-lsp"
+homepage = "https://github.com/com-junkawasaki/kotoba"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+kotoba-rewrite-kernel = { path = "../../010-core/012-kotoba-rewrite-kernel" }
+
+# Kotoba language dependencies
+kotoba-syntax = { path = "../020-kotoba-syntax" }
+kotoba-parser = { path = "../021-kotoba-parser" }
+kotoba-analyzer = { path = "../022-kotoba-analyzer" }
+kotoba-kotobas = { path = "../023-kotoba-kotobas" }
+kotoba-jsonnet = { path = "../023-kotoba-jsonnet" }
+kotoba-formatter = { path = "../024-kotoba-formatter" }
+kotoba-linter = { path = "../025-kotoba-linter" }
+tokio = { version = "1.0", features = ["full"] }
+tower-lsp = "0.20"
+dashmap = "5.5"

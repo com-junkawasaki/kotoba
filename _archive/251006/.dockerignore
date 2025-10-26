@@ -1,0 +1,36 @@
+# Rust build artifacts
+target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Kubernetes manifests
+k8s/
+
+# Benchmarks and tests
+benches/
+tests/
+
+# Examples
+examples/
+
+# Temporary files
+*.tmp
+*.log

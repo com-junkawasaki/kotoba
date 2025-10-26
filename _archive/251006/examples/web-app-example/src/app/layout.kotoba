@@ -1,0 +1,41 @@
+// examples/web-app-example/src/app/layout.kotoba
+{
+  component: {
+    type: 'html',
+    props: { lang: "'en'" },
+    children: [
+      {
+        type: 'head',
+        children: [
+          { type: 'meta', props: { charset: "'UTF-8'" } },
+          { type: 'title', children: ["'Kotoba Web Framework'"] },
+        ],
+      },
+      {
+        type: 'body',
+        children: [
+          {
+            type: 'header',
+            children: [
+              { type: 'h1', children: ["'My Kotoba App'"] },
+              {
+                type: 'nav',
+                children: [
+                  { type: 'a', props: { href: "'/'" }, children: ["'Home'"] },
+                  { type: 'a', props: { href: "'/users/123'" }, children: ["'User 123'"] },
+                  { type: 'a', props: { href: "'/api/status'" }, children: ["'API Status'"] },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'main',
+            children: [
+              { type: 'children' }, // Page content will be rendered here
+            ],
+          },
+        ],
+      },
+    ],
+  },
+}

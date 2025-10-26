@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kotoba.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kotoba.labels" . | nindent 4 }}
+    component: storage
+spec:
+  serviceName: {{ include "kotoba.fullname" . }}
+  replicas: {{ .Values.cluster.replicas }}
+  selector:
+    matchLabels:
+      {{- include "kotoba.selectorLabels" . | nindent 6 }}
+      component: storage
+  template:
+    metadata:
+      labels:
+        {{- include "kotoba.selectorLabels" . | nindent 8 }}
+        component: storage
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kotoba.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: kotoba
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 3000
+          name: http
+        - containerPort: 8080
+          name: grpc
+        env:
+        - name: KOTOBA_NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KOTOBA_CLUSTER_SIZE
+          value: "{{ .Values.cluster.replicas }}"
+        - name: KOTOBA_NODE_INDEX
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KOTOBA_NAMESPACE
+          value: {{ .Release.Namespace }}
+        {{- with .Values.extraEnvVars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        command:
+        - "./kotoba"
+        args:
+        - "server"
+        - "--config"
+        - "/config/kotoba-config.jsonnet"
+        - "--node-id"
+        - "$(KOTOBA_NODE_ID)"
+        - "--cluster-nodes"
+        - "{{- range $i, $node := .Values.cluster.nodes }}{{ if gt $i 0 }},{{ end }}{{ tpl $node.address $ }}{{- end }}"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: data
+          mountPath: /data
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        {{- if .Values.healthCheck.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.healthCheck.path }}
+            port: {{ .Values.healthCheck.port }}
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        {{- end }}
+        {{- if .Values.readinessCheck.enabled }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.readinessCheck.path }}
+            port: {{ .Values.readinessCheck.port }}
+          initialDelaySeconds: {{ .Values.readinessCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.readinessCheck.failureThreshold }}
+        {{- end }}
+        {{- if .Values.startupProbe.enabled }}
+        startupProbe:
+          httpGet:
+            path: {{ .Values.startupProbe.path }}
+            port: {{ .Values.startupProbe.port }}
+          initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "kotoba.fullname" . }}-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "kotoba.fullname" . }}-storage-template
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podAntiAffinity }}
+      affinity:
+        podAntiAffinity:
+          {{- toYaml . | nindent 10 }}
+      {{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        {{- include "kotoba.labels" . | nindent 8 }}
+        component: storage
+    spec:
+      accessModes:
+        - {{ .Values.storage.accessMode }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.size }}
+      {{- if .Values.storage.className }}
+      storageClassName: {{ .Values.storage.className }}
+      {{- end }}

@@ -1,0 +1,15 @@
+[package]
+name = "kotoba-syntax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+
+# Standard dependencies
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

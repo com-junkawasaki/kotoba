@@ -1,0 +1,128 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "max_connections": 1000,
+    "timeout_ms": 30000
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "pattern": "/ping",
+      "handler": "ping_handler",
+      "metadata": {
+        "description": "Health check endpoint",
+        "response": "pong"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "/health",
+      "handler": "health_check",
+      "metadata": {
+        "description": "Detailed health check",
+        "checks": ["database", "cache", "external_services"]
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/status",
+      "handler": "api_status",
+      "metadata": {
+        "description": "API status information",
+        "version": "v1"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/echo",
+      "handler": "echo_handler",
+      "metadata": {
+        "description": "Echo back the request body",
+        "content_type": "application/json"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/users/{id}",
+      "handler": "get_user",
+      "metadata": {
+        "description": "Get user by ID",
+        "parameters": {
+          "id": {
+            "type": "integer",
+            "description": "User ID"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/posts",
+      "handler": "list_posts",
+      "metadata": {
+        "description": "List posts with pagination",
+        "parameters": {
+          "limit": {
+            "type": "integer",
+            "default": 10,
+            "max": 100
+          },
+          "offset": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      }
+    }
+  ],
+  "middlewares": [
+    {
+      "name": "cors",
+      "order": 10,
+      "function": "cors_middleware",
+      "metadata": {
+        "description": "Handle CORS headers",
+        "allowed_origins": ["*"],
+        "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allowed_headers": ["Content-Type", "Authorization", "X-Requested-With"]
+      }
+    },
+    {
+      "name": "rate_limit",
+      "order": 20,
+      "function": "rate_limiter",
+      "metadata": {
+        "description": "Rate limiting middleware",
+        "requests_per_minute": 60,
+        "burst_limit": 10
+      }
+    },
+    {
+      "name": "auth",
+      "order": 30,
+      "function": "auth_middleware",
+      "metadata": {
+        "description": "Authentication middleware",
+        "type": "bearer_token",
+        "required": false
+      }
+    },
+    {
+      "name": "request_logger",
+      "order": 100,
+      "function": "request_logger",
+      "metadata": {
+        "description": "Request logging middleware",
+        "format": "combined",
+        "include_body": false,
+        "exclude_paths": ["/health", "/ping"]
+      }
+    }
+  ],
+  "static_files": {
+    "root_dir": "./static",
+    "url_prefix": "/static",
+    "cache_max_age": 86400
+  }
+}

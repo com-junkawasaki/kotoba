@@ -1,0 +1,61 @@
+// Test file with linting issues
+
+// Unused variable
+let unused_var = "hello"
+
+// Shadowing
+let user_name = "Alice"
+let user_name = "Bob"
+
+// Missing semicolon
+let incomplete = "missing semicolon"
+
+// Trailing whitespace
+let trailing_space = "has space"
+
+// Long function with complexity
+fn complex_function(param1, param2, param3) {
+    if param1 == "test" {
+        if param2 == "value" {
+            if param3 == "check" {
+                return "complex"
+            }
+        }
+    }
+    if param1 != "test" {
+        if param2 != "value" {
+            if param3 != "check" {
+                return "very complex"
+            }
+        }
+    }
+    return "default"
+}
+
+// Snake case variable (should be camelCase)
+let user_email = "test@example.com"
+
+// Good code
+graph example {
+    node user {
+        name: "Alice"
+        email: "alice@example.com"
+    }
+
+    node profile {
+        age: 25
+        active: true
+    }
+
+    edge connects user -> profile
+}
+
+query find_active_users {
+    match (u:user)-[:connects]->(p:profile)
+    where p.active == true
+    return u.name, u.email
+}
+
+fn greet_user(user_name) {
+    return "Hello, " + user_name + "!"
+}

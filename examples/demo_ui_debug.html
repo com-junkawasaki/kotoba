@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotoba Todo App - Debug Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .completed { text-decoration: line-through; opacity: 0.6; }
+
+        /* Debug styles */
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 9999;
+        }
+
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <!-- Debug Panel -->
+    <div class="debug-panel">
+        <div>🧪 Debug Mode</div>
+        <div id="htmx-debug" class="text-xs mt-1"></div>
+        <div id="network-debug" class="text-xs mt-1"></div>
+    </div>
+
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Kotoba Todo App - Debug</h1>
+
+        <!-- Status Indicators -->
+        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div class="flex items-center space-x-4 text-sm">
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    <span>Tailwind CSS: <span id="tailwind-status">Loading...</span></span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2 htmx-indicator" id="htmx-indicator"></div>
+                    <span>HTMX: <span id="htmx-status">Loading...</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <!-- Todo Add Form -->
+            <form hx-post="/api/todo/add" hx-target="#todo_list" hx-swap="innerHTML" class="flex gap-2 mb-6">
+                <input type="text" name="title" placeholder="Add a new todo..." required="true"
+                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button type="submit" class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Add Todo
+                </button>
+            </form>
+
+            <!-- Todo List -->
+            <div id="todo_list" hx-get="/api/todo/list" hx-trigger="load, todoAdded from:body">
+                <div class="text-center text-gray-500">
+                    <div class="animate-pulse">Loading todos...</div>
+                    <div class="text-xs mt-2 text-green-600">
+                        ✅ API server integrated! Full HTMX functionality enabled.<br>
+                        Add todos above and watch them appear here instantly!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- UI-IR Info -->
+        <div class="mt-8 p-4 bg-gray-50 rounded border">
+            <h3 class="font-semibold mb-2">🔍 UI-IR Generated HTML</h3>
+            <div class="text-sm text-gray-600">
+                <div><strong>Source:</strong> EAF-IPG Graph Nodes</div>
+                <div><strong>Transpiler:</strong> HTML + Tailwind + HTMX</div>
+                <div><strong>Components:</strong> View, Component, State, Event</div>
+                <div><strong>Features:</strong> Responsive, Interactive, Server-driven</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Debug and status checking
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check Tailwind CSS
+            setTimeout(() => {
+                const testEl = document.createElement('div');
+                testEl.className = 'hidden md:block';
+                testEl.style.display = 'none';
+                document.body.appendChild(testEl);
+
+                const computedStyle = window.getComputedStyle(testEl);
+                const tailwindLoaded = computedStyle.display === 'none';
+                document.getElementById('tailwind-status').textContent = tailwindLoaded ? 'Loaded ✓' : 'Failed ✗';
+
+                document.body.removeChild(testEl);
+            }, 100);
+
+            // Check HTMX
+            setTimeout(() => {
+                const htmxLoaded = typeof htmx !== 'undefined';
+                document.getElementById('htmx-status').textContent = htmxLoaded ? 'Loaded ✓' : 'Failed ✗';
+
+                if (htmxLoaded) {
+                    // Add HTMX debug info
+                    document.getElementById('htmx-debug').textContent = `v${htmx.version}`;
+
+                    // HTMX event listeners for debugging
+                    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+                        document.getElementById('network-debug').textContent = `Request: ${evt.detail.requestConfig.method} ${evt.detail.requestConfig.path}`;
+                        document.getElementById('htmx-indicator').classList.add('htmx-request');
+                    });
+
+                    document.body.addEventListener('htmx:afterRequest', function(evt) {
+                        document.getElementById('network-debug').textContent = `Response: ${evt.detail.xhr.status}`;
+                        document.getElementById('htmx-indicator').classList.remove('htmx-request');
+                    });
+
+                    document.body.addEventListener('htmx:responseError', function(evt) {
+                        document.getElementById('network-debug').textContent = `Error: ${evt.detail.xhr.status}`;
+                    });
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+// シンプルなデプロイメント設定例
+// Kotoba Deploy - Deno Deployと同等の機能を提供
+// ISO GQLプロトコルとLive Graph Modelを使用
+
+{
+  // ==========================================
+  // メタデータ
+  // ==========================================
+
+  metadata: {
+    name: "simple-web-app",
+    version: "1.0.0",
+    description: "シンプルなWebアプリケーションのデプロイメント例",
+    author: "Kotoba User",
+  },
+
+  // ==========================================
+  // アプリケーション設定
+  // ==========================================
+
+  application: {
+    entry_point: "src/main.rs",
+    runtime: "http_server",
+    build: {
+      build_command: "cargo build --release",
+      build_dir: ".",
+      output_dir: "target/release",
+    },
+    static_files: {
+      directory: "public",
+      cache: {
+        max_age: 3600,
+        cache_control: "public, max-age=3600",
+      },
+    },
+  },
+
+  // ==========================================
+  // スケーリング設定
+  // ==========================================
+
+  scaling: {
+    min_instances: 1,
+    max_instances: 5,
+    cpu_threshold: 70.0,
+    memory_threshold: 80.0,
+    policy: "cpu_based",
+    cooldown_period: 300,
+  },
+
+  // ==========================================
+  // ネットワーク設定
+  // ==========================================
+
+  network: {
+    domains: [
+      {
+        domain: "simple-app.kotoba.dev",
+        ssl: {
+          cert_type: "lets_encrypt",
+        },
+        redirects: [
+          {
+            source: "/old-path",
+            target: "/new-path",
+            redirect_type: 301,
+          },
+        ],
+      },
+    ],
+    regions: [
+      "us-east-1",
+      "eu-west-1",
+      "ap-northeast-1",
+    ],
+    cdn: {
+      enabled: true,
+      provider: "auto",
+      cache_settings: {
+        default_ttl: 3600,
+        max_ttl: 86400,
+        cache_key: [
+          "host",
+          "path",
+          "query",
+        ],
+      },
+      edge_settings: {
+        locations: ["global"],
+        origins: ["simple-app.kotoba.dev"],
+      },
+    },
+    tls: {
+      min_version: "1.2",
+      cipher_suites: [
+        "ECDHE-RSA-AES128-GCM-SHA256",
+        "ECDHE-RSA-AES256-GCM-SHA384",
+      ],
+      hsts: {
+        enabled: true,
+        max_age: 31536000,
+        include_subdomains: true,
+        preload: false,
+      },
+    },
+  },
+
+  // ==========================================
+  // 環境変数
+  // ==========================================
+
+  environment: {
+    NODE_ENV: "production",
+    DATABASE_URL: "postgresql://user:pass@localhost/db",
+    REDIS_URL: "redis://localhost:6379",
+    LOG_LEVEL: "info",
+  },
+
+  // ==========================================
+  // カスタム設定
+  // ==========================================
+
+  custom: {
+    monitoring: {
+      enabled: true,
+      metrics_endpoint: "/metrics",
+      health_check_endpoint: "/health",
+    },
+    logging: {
+      level: "info",
+      format: "json",
+      destinations: ["stdout", "file"],
+    },
+    features: {
+      cors_enabled: true,
+      rate_limiting: true,
+      authentication: false,
+    },
+  },
+}
+
+// ==========================================
+// ISO GQLデプロイメントクエリ例
+// ==========================================
+
+/*
+-- デプロイメント作成
+CREATE DEPLOYMENT
+SET name = "simple-web-app",
+    entry_point = "src/main.rs",
+    runtime = "http_server"
+
+-- デプロイメント状態取得
+GET DEPLOYMENT
+WHERE id = "simple-web-app"
+RETURN id, name, status, instance_count, endpoints
+
+-- すべてのデプロイメント一覧
+LIST DEPLOYMENTS
+RETURN id, name, version, status, instance_count
+
+-- デプロイメントスケーリング
+SCALE DEPLOYMENT
+WHERE id = "simple-web-app"
+SET instances = 3
+
+-- デプロイメント削除
+DELETE DEPLOYMENT
+WHERE id = "simple-web-app"
+
+-- デプロイメントグラフクエリ
+MATCH (d:Deployment)
+WHERE d.status = "running"
+RETURN d.id, d.name, d.instance_count
+ORDER BY d.created_at DESC
+*/

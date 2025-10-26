@@ -1,0 +1,214 @@
+#!/usr/bin/env kotoba
+// Manimani AI Agent Example: ReAct Agent
+// ReAct (Reasoning + Acting) agent that thinks step-by-step and uses tools
+
+{
+  // Agent metadata
+  name: "ReActAgent",
+  version: "1.0.0",
+  description: "A ReAct agent that reasons step-by-step and uses tools to solve problems",
+
+  // Agent configuration
+  config: {
+    model: "gpt-4",
+    temperature: 0.1,  // Low temperature for more deterministic reasoning
+    max_tokens: 2000,
+    max_steps: 5,
+    system_prompt: |||
+      You are a ReAct agent. For each step, you must:
+      1. Think: Reason about what to do next
+      2. Act: Either use a tool or provide the final answer
+
+      Format your response as:
+      Thought: [your reasoning]
+      Action: [tool_name] or Final Answer: [answer]
+      Action Input: [tool parameters as JSON] (only if using a tool)
+
+      Available tools: get_weather, calculate, search_web
+    |||,
+
+    // Tool definitions
+    tools: {
+      get_weather: {
+        description: "Get current weather for a location",
+        parameters: {
+          type: "object",
+          properties: {
+            location: { type: "string", description: "City name or location" },
+          },
+          required: ["location"],
+        },
+      },
+      calculate: {
+        description: "Perform mathematical calculations",
+        parameters: {
+          type: "object",
+          properties: {
+            expression: { type: "string", description: "Mathematical expression" },
+          },
+          required: ["expression"],
+        },
+      },
+      search_web: {
+        description: "Search the web for information",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Search query" },
+          },
+          required: ["query"],
+        },
+      },
+    },
+  },
+
+  // Agent state
+  state: {
+    step_count: 0,
+    thought_history: [],
+    action_history: [],
+  },
+
+  // Initialize agent
+  init()::
+    local agent = std.agent.create("react", self.config);
+    agent,
+
+  // Parse ReAct response
+  parse_react_response(response)::
+    local lines = std.split(response, "\n");
+    local parsed = {
+      thought: null,
+      action: null,
+      action_input: null,
+    };
+
+    local parse_lines(lines, i, result) =
+      if i >= std.length(lines) then
+        result
+      else
+        local line = std.stripChars(lines[i], " ");
+        if std.startsWith(line, "Thought:") then
+          parse_lines(lines, i + 1, result { thought: std.substr(line, 8, std.length(line) - 8) })
+        else if std.startsWith(line, "Action:") then
+          local action_part = std.substr(line, 7, std.length(line) - 7);
+          if std.startsWith(action_part, "Final Answer:") then
+            parse_lines(lines, i + 1, result { action: "final_answer", action_input: std.substr(action_part, 13, std.length(action_part) - 13) })
+          else
+            parse_lines(lines, i + 1, result { action: action_part })
+        else if std.startsWith(line, "Action Input:") then
+          local input_str = std.substr(line, 13, std.length(line) - 13);
+          local input_parsed = std.parseJson(input_str);
+          parse_lines(lines, i + 1, result { action_input: input_parsed })
+        else
+          parse_lines(lines, i + 1, result);
+
+    parse_lines(lines, 0, parsed),
+
+  // Execute tool
+  execute_tool(tool_name, tool_args)::
+    if tool_name == "get_weather" then
+      // Mock weather API
+      local location = tool_args.location;
+      {
+        result: "Weather in " + location + ": 22°C, sunny, 65% humidity",
+        success: true,
+      }
+    else if tool_name == "calculate" then
+      // Simple calculator
+      local expr = tool_args.expression;
+      {
+        result: "Calculation result: " + expr + " = 42",  // Mock result
+        success: true,
+      }
+    else if tool_name == "search_web" then
+      // Mock web search
+      local query = tool_args.query;
+      {
+        result: "Search results for '" + query + "': [mock results]",
+        success: true,
+      }
+    else
+      {
+        result: "Unknown tool: " + tool_name,
+        success: false,
+      },
+
+  // Process one ReAct step
+  process_step(agent, input, current_state)::
+    local memory_key = "react_" + agent.id;
+    local history = std.memory.get(memory_key);
+
+    // Prepare messages
+    local system_message = { role: "system", content: self.config.system_prompt };
+    local user_message = { role: "user", content: input };
+    local messages = [system_message, user_message];
+
+    // Add previous thoughts and actions to context
+    local context_messages = std.map(function(entry) {
+      role: "assistant",
+      content: "Thought: " + entry.thought + "\nAction: " + entry.action +
+               (if entry.action_input != null then "\nAction Input: " + std.toString(entry.action_input) else "") +
+               (if entry.observation != null then "\nObservation: " + entry.observation else ""),
+    }, current_state.thought_history);
+
+    local all_messages = messages + context_messages;
+
+    // Call AI model
+    local response = std.ai.callModel(self.config.model, all_messages, {
+      temperature: self.config.temperature,
+      max_tokens: self.config.max_tokens,
+    });
+
+    // Parse ReAct response
+    local parsed = self.parse_react_response(response.response);
+
+    // Execute action if needed
+    local observation = if parsed.action == "final_answer" then
+      null
+    else
+      local tool_result = self.execute_tool(parsed.action, parsed.action_input);
+      tool_result.result;
+
+    // Update state
+    local new_entry = {
+      thought: parsed.thought,
+      action: parsed.action,
+      action_input: if parsed.action == "final_answer" then null else parsed.action_input,
+      observation: observation,
+    };
+
+    local updated_state = current_state {
+      step_count: current_state.step_count + 1,
+      thought_history: current_state.thought_history + [new_entry],
+    };
+
+    // Check if we should continue or finish
+    if parsed.action == "final_answer" || updated_state.step_count >= self.config.max_steps then
+      {
+        state: updated_state,
+        finished: true,
+        final_answer: if parsed.action == "final_answer" then parsed.action_input else "Max steps reached",
+      }
+    else
+      {
+        state: updated_state,
+        finished: false,
+        next_input: input,  // Continue with same input
+      },
+
+  // Main execution function
+  run(input)::
+    local agent = self.init();
+    local initial_state = self.state;
+
+    // Run ReAct loop
+    local run_loop(state, current_input) =
+      local step_result = self.process_step(agent, current_input, state);
+      if step_result.finished then
+        step_result.final_answer
+      else
+        run_loop(step_result.state, step_result.next_input);
+
+    run_loop(initial_state, input),
+}

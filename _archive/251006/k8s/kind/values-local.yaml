@@ -1,0 +1,71 @@
+# Local development values for Kotoba Helm chart on Kind
+
+# Reduce resource requirements for local development
+resources:
+  requests:
+    memory: "512Mi"    # Reduced from 2Gi for local dev
+    cpu: "500m"        # Reduced from 1000m for local dev
+  limits:
+    memory: "1Gi"      # Reduced from 4Gi for local dev
+    cpu: "1000m"       # Reduced from 2000m for local dev
+
+# Local storage configuration
+storage:
+  enabled: true
+  size: "10Gi"         # Smaller storage for local dev
+  className: "standard" # Use local-path or standard for Kind
+
+# Disable autoscaling for local development (optional)
+autoscaling:
+  enabled: false
+
+# Local service configuration
+service:
+  type: ClusterIP      # Use ClusterIP for local access
+
+# Disable ingress for local development
+ingress:
+  enabled: false
+
+# Reduce health check intervals for faster startup
+healthCheck:
+  initialDelaySeconds: 15
+  periodSeconds: 5
+
+readinessCheck:
+  initialDelaySeconds: 5
+  periodSeconds: 3
+
+startupProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 10
+
+# Local image configuration
+image:
+  repository: kotoba
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Reduced replicas for local development
+cluster:
+  replicas: 3
+
+# Enable debug logging for local development
+extraEnvVars:
+  - name: RUST_LOG
+    value: "debug,kotoba=trace"
+  - name: KOTOBA_DEBUG
+    value: "true"
+
+# Node affinity for storage nodes
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      preference:
+        matchExpressions:
+        - key: storage
+          operator: In
+          values:
+          - enabled

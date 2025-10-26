@@ -1,0 +1,347 @@
+// マイクロサービスデプロイメント設定例
+// Kotoba Deploy - 複数のマイクロサービスを統合管理
+// ISO GQLプロトコルを使用した複雑なデプロイメントトポロジー
+
+{
+  // ==========================================
+  // メタデータ
+  // ==========================================
+
+  metadata: {
+    name: "microservices-platform",
+    version: "2.0.0",
+    description: "マイクロサービスアーキテクチャのデプロイメント例",
+    author: "Kotoba Platform Team",
+  },
+
+  // ==========================================
+  // アプリケーション設定
+  // ==========================================
+
+  application: {
+    entry_point: "services/api-gateway/main.rs",
+    runtime: "microservice",
+    build: {
+      build_command: "cargo build --release --workspace",
+      build_dir: ".",
+      output_dir: "target/release",
+    },
+  },
+
+  // ==========================================
+  // スケーリング設定（マイクロサービス固有）
+  // ==========================================
+
+  scaling: {
+    min_instances: 2,
+    max_instances: 20,
+    cpu_threshold: 75.0,
+    memory_threshold: 85.0,
+    policy: "predictive",
+    cooldown_period: 180,
+  },
+
+  // ==========================================
+  // ネットワーク設定（複数サービス対応）
+  // ==========================================
+
+  network: {
+    domains: [
+      {
+        domain: "api.kotoba-platform.com",
+        ssl: {
+          cert_type: "lets_encrypt",
+        },
+      },
+      {
+        domain: "auth.kotoba-platform.com",
+        ssl: {
+          cert_type: "lets_encrypt",
+        },
+      },
+      {
+        domain: "data.kotoba-platform.com",
+        ssl: {
+          cert_type: "lets_encrypt",
+        },
+      },
+    ],
+    regions: [
+      "us-east-1",
+      "us-west-2",
+      "eu-west-1",
+      "eu-central-1",
+      "ap-northeast-1",
+      "ap-southeast-1",
+    ],
+    cdn: {
+      enabled: true,
+      provider: "cloudflare",
+      cache_settings: {
+        default_ttl: 300,
+        max_ttl: 3600,
+        cache_key: [
+          "host",
+          "path",
+          "authorization",
+        ],
+      },
+      edge_settings: {
+        locations: ["us", "eu", "asia"],
+        origins: [
+          "api.kotoba-platform.com",
+          "auth.kotoba-platform.com",
+          "data.kotoba-platform.com",
+        ],
+      },
+    },
+  },
+
+  // ==========================================
+  // 環境変数（サービス固有）
+  // ==========================================
+
+  environment: {
+    // 共通設定
+    NODE_ENV: "production",
+    LOG_LEVEL: "info",
+    METRICS_ENABLED: "true",
+
+    // データベース設定
+    DATABASE_URL: "postgresql://user:pass@db-cluster.rds.amazonaws.com/platform",
+    DATABASE_POOL_SIZE: "20",
+    REDIS_URL: "redis://cluster.redis.amazonaws.com:6379",
+
+    // メッセージング
+    KAFKA_BROKERS: "kafka-cluster.amazonaws.com:9092",
+    RABBITMQ_URL: "amqp://user:pass@rabbitmq-cluster.amazonaws.com",
+
+    // 監視・トレース
+    JAEGER_ENDPOINT: "http://jaeger-collector.platform.svc:14268/api/traces",
+    PROMETHEUS_PUSHGATEWAY: "http://prometheus-pushgateway.platform.svc:9091",
+
+    // セキュリティ
+    JWT_SECRET: "platform-jwt-secret-key",
+    API_KEYS_ENCRYPTION_KEY: "api-keys-encryption-key",
+
+    // 外部サービス
+    STRIPE_SECRET_KEY: "sk_live_...",
+    SENDGRID_API_KEY: "SG...",
+    SLACK_WEBHOOK_URL: "https://hooks.slack.com/...",
+  },
+
+  // ==========================================
+  // カスタム設定（マイクロサービス固有）
+  // ==========================================
+
+  custom: {
+    // サービスディスカバリ
+    service_discovery: {
+      provider: "kubernetes",
+      namespace: "platform",
+      dns_suffix: "svc.cluster.local",
+    },
+
+    // サービスメッシュ
+    service_mesh: {
+      enabled: true,
+      provider: "istio",
+      mutual_tls: true,
+      traffic_policies: {
+        api_gateway: {
+          load_balancing: "round_robin",
+          circuit_breaker: {
+            max_requests: 100,
+            timeout: "30s",
+          },
+        },
+        auth_service: {
+          load_balancing: "least_conn",
+          rate_limiting: {
+            requests_per_second: 1000,
+          },
+        },
+        data_service: {
+          load_balancing: "ip_hash",
+          retry_policy: {
+            attempts: 3,
+            per_try_timeout: "10s",
+          },
+        },
+      },
+    },
+
+    // APIゲートウェイ設定
+    api_gateway: {
+      routes: [
+        {
+          path: "/api/v1/*",
+          service: "api-service",
+          methods: ["GET", "POST", "PUT", "DELETE"],
+          auth_required: true,
+        },
+        {
+          path: "/auth/*",
+          service: "auth-service",
+          methods: ["POST"],
+          auth_required: false,
+        },
+        {
+          path: "/health",
+          service: "health-check",
+          methods: ["GET"],
+          auth_required: false,
+        },
+      ],
+      middlewares: [
+        "cors",
+        "rate_limiting",
+        "authentication",
+        "logging",
+        "metrics",
+      ],
+    },
+
+    // データベース設定
+    database: {
+      topology: "multi-region",
+      read_replicas: 3,
+      backup: {
+        schedule: "0 2 * * *",  // 毎日2時
+        retention_days: 30,
+      },
+      migration: {
+        strategy: "blue_green",
+        rollback_enabled: true,
+      },
+    },
+
+    // 監視設定
+    monitoring: {
+      dashboards: {
+        grafana: {
+          enabled: true,
+          url: "https://grafana.platform.com",
+        },
+      },
+      alerts: {
+        slack: {
+          enabled: true,
+          channel: "#platform-alerts",
+          webhook_url: "https://hooks.slack.com/...",
+        },
+        pagerduty: {
+          enabled: true,
+          service_key: "pd-service-key",
+        },
+      },
+      metrics: {
+        collection_interval: 15,  // 秒
+        exporters: ["prometheus", "cloudwatch"],
+      },
+    },
+
+    // セキュリティ設定
+    security: {
+      network_policies: {
+        enabled: true,
+        default_deny: true,
+      },
+      secrets_management: {
+        provider: "aws_secrets_manager",
+        rotation: {
+          enabled: true,
+          schedule: "0 0 1 * *",  // 月1回
+        },
+      },
+      audit_logging: {
+        enabled: true,
+        log_group: "/platform/audit",
+        retention_days: 365,
+      },
+    },
+
+    // デプロイメント戦略
+    deployment: {
+      strategy: "canary",
+      canary: {
+        steps: [
+          { percentage: 5, duration: "5m" },
+          { percentage: 20, duration: "15m" },
+          { percentage: 40, duration: "30m" },
+          { percentage: 100, duration: "60m" },
+        ],
+        metrics: [
+          "error_rate",
+          "response_time_p95",
+          "cpu_usage",
+        ],
+        rollback_triggers: {
+          error_rate_threshold: 5.0,
+          response_time_threshold: 2000,  // ms
+        },
+      },
+    },
+  },
+}
+
+// ==========================================
+// ISO GQLマイクロサービスデプロイメントクエリ例
+// ==========================================
+
+/*
+-- マイクロサービスデプロイメント作成
+CREATE DEPLOYMENT
+SET name = "microservices-platform",
+    entry_point = "services/api-gateway/main.rs",
+    runtime = "microservice",
+    services = [
+      {
+        name: "api-gateway",
+        image: "platform/api-gateway:v2.0.0",
+        ports: [8080],
+        dependencies: ["auth-service", "data-service"],
+      },
+      {
+        name: "auth-service",
+        image: "platform/auth-service:v2.0.0",
+        ports: [8081],
+        dependencies: ["data-service"],
+      },
+      {
+        name: "data-service",
+        image: "platform/data-service:v2.0.0",
+        ports: [8082],
+        dependencies: [],
+      }
+    ]
+
+-- サービス間の依存関係クエリ
+MATCH (s1:Service)-[:DEPENDS_ON]->(s2:Service)
+RETURN s1.name, s2.name, s1.status, s2.status
+
+-- サービスの健全性チェック
+MATCH (s:Service)
+WHERE s.status = "running"
+RETURN s.name, s.health_score, s.response_time
+ORDER BY s.health_score DESC
+
+-- トラフィック分散の最適化
+MATCH (gw:Service {name: "api-gateway"})-[:ROUTES_TO]->(svc:Service)
+RETURN gw.name, svc.name, svc.current_load, svc.capacity
+ORDER BY svc.current_load ASC
+
+-- デプロイメントロールバック
+ROLLBACK DEPLOYMENT
+WHERE id = "microservices-platform"
+TO version = "1.9.0"
+WITH canary_rollback = true
+
+-- クロスサービスメトリクス集計
+MATCH (s:Service)
+RETURN
+  count(s) as total_services,
+  avg(s.cpu_usage) as avg_cpu,
+  avg(s.memory_usage) as avg_memory,
+  sum(s.request_count) as total_requests
+*/

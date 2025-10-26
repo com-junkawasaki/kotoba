@@ -1,0 +1,50 @@
+// examples/web-app-example/src/app/users/[id]/page.kotoba
+{
+  // 1. Server-side data loading workflow
+  load: {
+    steps: [
+      {
+        id: 'fetch_user_data',
+        type: 'custom', // This would be 'db_query' in a real app
+        // The workflow engine would execute this and get the user data.
+        // For this mock, we assume the engine can look at `params.id`
+        // and return a corresponding user object. Let's imagine it returns:
+        // { name: "User " + params.id, email: "user" + params.id + "@example.com" }
+      },
+      {
+        id: 'return_props',
+        type: 'return',
+        // The result of this step becomes the `props` for the component.
+        // We are assuming the result of the previous step is in the context.
+        // This is a placeholder for `context.fetch_user_data.result`.
+        body: {
+          user: {
+            name: "'User ' + props.params.id",
+            email: "'user' + props.params.id + '@example.com'",
+          },
+        },
+      },
+    ],
+  },
+
+  // 2. UI Component Definition
+  component: {
+    type: 'div',
+    children: [
+      {
+        type: 'h2',
+        children: ["'User Profile'"],
+      },
+      {
+        type: 'p',
+        // Here we use the `props` that were loaded by the `load` workflow.
+        // The `interpolate` function will evaluate these Jsonnet expressions.
+        children: ["'Name: ' + props.user.name"],
+      },
+      {
+        type: 'p',
+        children: ["'Email: ' + props.user.email"],
+      },
+    ],
+  },
+}

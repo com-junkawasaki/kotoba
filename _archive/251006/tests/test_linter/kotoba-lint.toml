@@ -1,0 +1,34 @@
+# Kotoba Linter Configuration for Testing
+
+[linter]
+# Enable specific rules for testing
+enabled_rules = [
+    "no-unused-vars",
+    "no-shadowing",
+    "consistent-indentation",
+    "trailing-whitespace",
+    "missing-semicolons",
+    "naming-convention",
+    "complexity"
+]
+
+# Disable some rules for testing
+disabled_rules = []
+
+# Exclude patterns
+exclude_patterns = [
+    "node_modules",
+    ".git",
+    "target",
+    "build"
+]
+
+# Output format
+output_format = "pretty"
+
+# Rule-specific configuration
+[rule_config."complexity"]
+max_lines = 20
+
+[rule_config."naming-convention"]
+style = "camelCase"

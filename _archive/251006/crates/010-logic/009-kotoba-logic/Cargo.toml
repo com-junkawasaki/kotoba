@@ -1,0 +1,15 @@
+[package]
+name = "kotoba-logic"
+version = "0.1.22"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
+description = "Foundational logic system for Kotoba - reasoning, proof theory, type theory, predicate logic, model theory"
+keywords = ["logic", "reasoning", "proof-theory", "type-theory", "predicate-logic", "model-theory"]
+categories = ["mathematics", "algorithms", "science"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

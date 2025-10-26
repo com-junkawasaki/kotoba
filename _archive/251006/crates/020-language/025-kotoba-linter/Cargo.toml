@@ -1,0 +1,42 @@
+[package]
+name = "kotoba-linter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kotoba Code Linter - Static analysis tool for .kotoba files"
+keywords = ["linter", "static-analysis", "code-quality", "kotoba", "diagnostics"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "kotoba-lint"
+path = "src/main.rs"
+
+[dependencies]
+# Kotoba core dependencies
+kotoba-logic = { path = "../../010-core/009-kotoba-logic" }
+kotoba-types = { path = "../../010-core/010-kotoba-types" }
+kotoba-ir = { path = "../../010-core/011-kotoba-ir" }
+
+# Kotoba language dependencies
+kotoba-syntax = { path = "../020-kotoba-syntax" }
+kotoba-parser = { path = "../021-kotoba-parser" }
+kotoba-analyzer = { path = "../022-kotoba-analyzer" }
+kotoba-formatter = { path = "../024-kotoba-formatter" }
+thiserror = { workspace = true }
+anyhow = "1.0"
+serde = { workspace = true }
+serde_json = "1.0"
+regex = "1.0"
+tracing = "0.1"
+futures = "0.3"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4"
+tower-lsp = "0.20"
+dashmap = "5.5"
+url = "2.5"
+ropey = "1.6"
+glob = "0.3"
+
+[dev-dependencies]
+tokio-test = "0.4"

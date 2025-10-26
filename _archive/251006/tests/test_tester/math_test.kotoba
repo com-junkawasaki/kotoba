@@ -1,0 +1,60 @@
+// Math utilities tests
+
+describe("Math Functions", () => {
+    it("should calculate sum correctly", () => {
+        // Test basic arithmetic
+        let a = 5;
+        let b = 3;
+        let sum = a + b;
+
+        assert sum == 8
+        assert a > 0
+        assert b > 0
+    });
+
+    it("should handle zero values", () => {
+        // Test with zero
+        let zero = 0;
+        let positive = 10;
+
+        assert zero == 0
+        assert positive > zero
+        assert positive != zero
+    });
+
+    it("should work with negative numbers", () => {
+        // Test negative numbers
+        let negative = -5;
+        let positive = 10;
+
+        assert negative < 0
+        assert positive > 0
+        assert negative < positive
+    });
+});
+
+test_prime_numbers() {
+    // Test prime number detection
+    let primes = [2, 3, 5, 7, 11];
+    let composites = [4, 6, 8, 9, 10];
+
+    // Check prime numbers
+    assert primes.length == 5
+    assert primes.contains(2)
+    assert primes.contains(3)
+
+    // Check composite numbers
+    assert composites.length == 5
+    assert composites.contains(4)
+    assert composites.contains(6)
+}
+
+test_factorial() {
+    // Test factorial calculation
+    let n = 5;
+    let result = 120; // 5! = 120
+
+    assert n > 0
+    assert result > 0
+    assert n <= 10 // Reasonable limit
+}

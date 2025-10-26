@@ -1,0 +1,246 @@
+[workspace]
+members = [
+    "crates/100-storage/kotoba-storage",
+    "crates/100-storage/kotoba-storage-rocksdb",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.22"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
+
+[workspace.dependencies]
+# Common dependencies can be defined here
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+thiserror = "2.0"
+anyhow = "1.0"
+uuid = { version = "1.18", features = ["v4", "serde"] }
+sha2 = { version = "0.10", features = ["std"] }
+hex = "0.4"
+hmac = "0.12"
+parking_lot = "0.12"
+regex = "1.10"
+rocksdb = "0.21"
+tempfile = "3.0"
+dirs = "5.0"
+chrono = { version = "0.4", features = ["serde"] }
+url = "2.5"
+tokio = { version = "1.0", features = ["full"] }
+wasmtime = "0.35"
+rand = "0.8"
+futures = "0.3"
+base64 = "0.21"
+reqwest = { version = "0.11", features = ["json", "multipart"] }
+schemars = { version = "0.8", features = ["uuid1"] }
+jsonschema = "0.17"
+blake3 = "1.5"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+async-trait = "0.1"
+redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
+hyper = { version = "1.0", features = ["full"] }
+
+# Kotoba workspace crates
+kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
+kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
+kotoba-cid = { path = "crates/kotoba-cid", version = "0.1.21" }
+# kotoba-graph temporarily disabled
+# kotoba-graph = { path = "crates/kotoba-graph", version = "0.1.21" }
+kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
+# kotoba-execution temporarily disabled
+# kotoba-execution = { path = "crates/kotoba-execution", version = "0.1.21" }
+kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
+kotoba-jsonnet = { path = "crates/kotoba-jsonnet", version = "0.1.16" }
+kotoba-routing = { path = "crates/kotoba-routing", version = "0.1.16" }
+kotoba-workflow-core = { path = "crates/kotoba-workflow-core", version = "0.1.21" }
+kotoba-db-core = { path = "crates/kotoba-db-core", version = "0.1.16" }
+
+# Fix digest version conflict
+digest = "0.10.7"
+
+# Core crates (local workspace paths for development)
+# These are workspace members, not external dependencies
+# kotoba-core = { path = "crates/kotoba-core", version = "0.1.21" }
+# kotoba-errors = { path = "crates/kotoba-errors", version = "0.1.2" }
+# kotoba-graph moved to optional dependencies
+# kotoba-storage = { path = "crates/kotoba-storage", version = "0.1.21" }
+# kotoba-execution moved to optional dependencies below
+# kotoba-rewrite = { path = "crates/kotoba-rewrite", version = "0.1.21" }
+
+# Root crate configuration
+[package]
+name = "kotoba-main"
+version = "0.1.22"
+edition = "2021"
+description = "GP2-based Graph Rewriting Language - ISO GQL-compliant queries, MVCC+Merkle persistence, and distributed execution"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
+keywords = ["graph", "database", "gql", "rewrite", "distributed"]
+categories = ["database", "data-structures", "algorithms"]
+authors = ["Jun Kawasaki <jun784@example.com>"]
+readme = "README.md"
+documentation = "https://docs.rs/kotoba"
+homepage = "https://github.com/com-junkawasaki/kotoba"
+exclude = ["examples/**/*", "tests/**/*", "src/topology.rs"]
+
+[[bin]]
+name = "kotoba"
+path = "src/main.rs"
+
+
+[profile.bench]
+opt-level = 3
+debug = false
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[dependencies]
+# Core crates - workspace versions
+# kotoba-core = { path = "crates/kotoba-core" } # Temporarily disabled to avoid confusion
+# kotoba-graph moved to optional dependencies
+kotoba-storage = { path = "crates/kotoba-storage" }
+kotoba-schema = { path = "crates/kotoba-schema" }
+# kotoba-execution moved to optional dependencies
+kotoba-rewrite = { path = "crates/kotoba-rewrite" }
+# kotoba-security.workspace = true
+kotoba-server = { path = "crates/kotoba-server" }
+
+# Core crates only (published versions)
+# Optional crates are disabled for stable core focus
+kotoba-package-manager = { path = "crates/kotoba-package-manager" }
+# kotoba-execution temporarily disabled
+# kotoba-execution = { path = "crates/kotoba-execution" }
+# kotoba-graph temporarily disabled
+# kotoba-graph = { path = "crates/kotoba-graph" }
+# kotoba-kotobas temporarily disabled
+# kotoba-kotobas = { path = "crates/kotoba-kotobas" }
+kotoba-repl = { path = "crates/kotoba-repl" }
+# kotoba-formatter temporarily disabled
+# kotoba-formatter = { path = "crates/kotoba-formatter" }
+# kotoba-linter = { path = "crates/kotoba-linter" } # CLIバイナリとして独立実行
+# kotoba-tester = { path = "crates/kotoba-tester" } # CLIバイナリとして独立実行
+# kotoba-build = { path = "crates/kotoba-build" } # CLIバイナリとして独立実行
+# kotoba-deploy-cli = { path = "crates/kotoba-deploy-cli" }  # 依存関係の問題があるため一時的に無効化
+# kotoba-backup = { path = "crates/kotoba-backup" }  # 動作確認のため一時的に無効化
+
+# Schema and CID dependencies
+schemars.workspace = true
+jsonschema.workspace = true
+blake3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+hmac = "0.12"
+regex.workspace = true
+thiserror.workspace = true
+tempfile.workspace = true
+
+# For binary
+clap = { version = "4.0", features = ["derive"] }
+rustc_version = "0.4"
+# colored = "2.0" # サブプロセス経由で実行するため不要
+# indicatif = "0.17" # サブプロセス経由で実行するため不要
+# serde_yaml = "0.9" # サブプロセス経由で実行するため不要
+
+# Optional crates for different use cases
+tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+env_logger = "0.11"
+uuid = { version = "1.0", features = ["v4"] }
+
+# Vercel deployment
+vercel_runtime = { version = "1.0", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+
+[features]
+default = []
+# full = ["tokio", "log", "env_logger", "examples", "binary", "server", "package-manager", "execution", "graph", "kotobas", "repl", "formatter"]
+# binary = ["clap"]
+examples = []
+types = []
+ir = []
+# graph moved to line 183
+storage = []
+# execution moved to line 182
+planner = []
+rewrite = []
+http = []
+frontend = []
+wasm = []
+deploy = []
+# server = ["kotoba-server"]
+# package-manager = ["kotoba-package-manager"]
+# execution = ["kotoba-execution"]
+# graph = ["kotoba-graph"]
+# kotobas = ["kotoba-kotobas"]
+# repl = ["kotoba-repl"]
+# formatter = ["kotoba-formatter"]
+vercel = ["vercel_runtime", "reqwest"]
+lsm = []
+
+# Platform-specific features
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+js-sys = "0.3"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.0"
+quickcheck = "1.0"
+rand = "0.8"
+uuid = { version = "1.0", features = ["v4"] }
+rayon = "1.7"
+
+[[bench]]
+name = "graph_operations"
+path = "benches/graph_operations.rs"
+harness = false
+
+[[bench]]
+name = "query_execution"
+path = "benches/query_execution.rs"
+harness = false
+
+[[bench]]
+name = "rewrite_operations"
+path = "benches/rewrite_operations.rs"
+harness = false
+
+[[bench]]
+name = "storage_operations"
+path = "benches/storage_operations.rs"
+harness = false
+
+[[bench]]
+name = "jsonnet_benchmark"
+path = "benches/jsonnet_benchmark.rs"
+harness = false
+
+[[bench]]
+name = "parallel_processing"
+path = "benches/parallel_processing.rs"
+harness = false
+
+[[bench]]
+name = "advanced_algorithms"
+path = "benches/advanced_algorithms.rs"
+harness = false
+
+# Examples are excluded from publish to avoid dependency issues
+# [[example]]
+# name = "http_server"
+# path = "examples/http_server/main.rs"
+
+# Jsonnet benchmark binary removed due to compilation issues
+
+# [[example]]
+# name = "tauri_react_app"
+# path = "examples/tauri_react_app/src-tauri/src/main.rs"

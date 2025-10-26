@@ -1,0 +1,15 @@
+[package]
+name = "kotoba-ir"
+version = "0.1.22"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/com-junkawasaki/kotoba"
+description = "Intermediate Representation (IR) system for Kotoba - catalog-IR, rule-IR, query-IR, patch-IR, strategy-IR"
+keywords = ["ir", "intermediate", "representation", "graph", "rewrite"]
+categories = ["data-structures", "algorithms"]
+
+[dependencies]
+kotoba-types = { path = "../010-kotoba-types" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

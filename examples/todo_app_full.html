@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotoba Todo App - Full</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Kotoba Todo App</h1>
+
+        <!-- Status indicator -->
+        <div class="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center justify-center space-x-2 text-sm text-blue-700">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>Connected to Kotoba API Server</span>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <!-- Todo Add Form -->
+            <form hx-post="/api/todo/add" hx-target="#todo_list" hx-swap="innerHTML" class="flex gap-2 mb-6">
+                <input type="text" name="title" placeholder="Add a new todo..."
+                       required="true"
+                       class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg">
+                <button type="submit" class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors">
+                    <span class="htmx-indicator">Adding...</span>
+                    <span class="htmx-indicator" style="display: none;">Add Todo</span>
+                </button>
+            </form>
+
+            <!-- Todo List -->
+            <div id="todo_list" hx-get="/api/todo/list" hx-trigger="load, todoAdded from:body">
+                <div class="text-center text-gray-500 py-12">
+                    <div class="animate-pulse mb-4">
+                        <div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
+                        <div class="h-4 bg-gray-300 rounded w-1/2 mx-auto"></div>
+                    </div>
+                    <p class="text-lg mb-2">📝 Loading your todos...</p>
+                    <p class="text-sm">Add your first todo above to get started!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-12 pt-6 border-t border-gray-200">
+            <div class="text-center text-sm text-gray-500">
+                <p>Built with <strong>Kotoba</strong> - Graph-based programming language</p>
+                <p class="mt-1">UI-IR → HTML+Tailwind+HTMX → EngiDB persistence</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HTMX Configuration -->
+    <script>
+        // Configure HTMX
+        document.body.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Kotoba Todo App loaded');
+
+            // Add loading indicators
+            document.body.addEventListener('htmx:beforeRequest', function(evt) {
+                console.log('📡 HTMX Request:', evt.detail.requestConfig.method, evt.detail.requestConfig.path);
+            });
+
+            document.body.addEventListener('htmx:afterRequest', function(evt) {
+                console.log('✅ HTMX Response:', evt.detail.xhr.status);
+            });
+
+            document.body.addEventListener('htmx:responseError', function(evt) {
+                console.error('❌ HTMX Error:', evt.detail.xhr.status, evt.detail.xhr.responseText);
+            });
+        });
+
+        // Global error handler
+        window.addEventListener('error', function(e) {
+            console.error('🚨 Global error:', e.error);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+[
+  {
+    "scenario": "point_lookup",
+    "threads": 8,
+    "cold": true,
+    "iters": 200,
+    "stat": {
+      "p50_ms": 0.001583,
+      "p95_ms": 0.0027080000000000003
+    }
+  },
+  {
+    "scenario": "fanout_adjacent",
+    "threads": 8,
+    "cold": true,
+    "iters": 200,
+    "stat": {
+      "p50_ms": 0.6479170000000001,
+      "p95_ms": 2.69625
+    }
+  },
+  {
+    "scenario": "hop_2",
+    "threads": 8,
+    "cold": true,
+    "iters": 200,
+    "stat": {
+      "p50_ms": 0.002833,
+      "p95_ms": 0.006208
+    }
+  },
+  {
+    "scenario": "hop_3",
+    "threads": 8,
+    "cold": true,
+    "iters": 200,
+    "stat": {
+      "p50_ms": 0.007208,
+      "p95_ms": 0.010625
+    }
+  },
+  {
+    "scenario": "hop_4",
+    "threads": 8,
+    "cold": true,
+    "iters": 200,
+    "stat": {
+      "p50_ms": 0.010166000000000001,
+      "p95_ms": 0.01325
+    }
+  },
+  {
+    "scenario": "write_burst_10k",
+    "threads": 8,
+    "cold": true,
+    "iters": 1,
+    "stat": {
+      "p50_ms": 41.055084,
+      "p95_ms": 41.077707999999994
+    }
+  },
+  {
+    "scenario": "write_burst_100k",
+    "threads": 8,
+    "cold": true,
+    "iters": 1,
+    "stat": {
+      "p50_ms": 417.127,
+      "p95_ms": 417.14025
+    }
+  }
+]

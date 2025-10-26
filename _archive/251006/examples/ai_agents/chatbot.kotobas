@@ -1,0 +1,126 @@
+#!/usr/bin/env kotoba
+// Manimani AI Agent Example: Simple Chatbot
+// This is a Jsonnet-only AI agent implementation
+
+{
+  // Agent metadata
+  name: "SimpleChatbot",
+  version: "1.0.0",
+  description: "A simple conversational AI chatbot using OpenAI GPT",
+
+  // Agent configuration
+  config: {
+    model: "gpt-3.5-turbo",
+    temperature: 0.7,
+    max_tokens: 1000,
+    system_prompt: "You are a helpful AI assistant. Be friendly and informative.",
+  },
+
+  // Memory configuration
+  memory: {
+    type: "conversation",
+    max_history: 10,
+  },
+
+  // Available tools
+  tools: [
+    {
+      name: "get_weather",
+      description: "Get current weather for a location",
+      parameters: {
+        type: "object",
+        properties: {
+          location: {
+            type: "string",
+            description: "City name or location",
+          },
+        },
+        required: ["location"],
+      },
+    },
+    {
+      name: "calculate",
+      description: "Perform mathematical calculations",
+      parameters: {
+        type: "object",
+        properties: {
+          expression: {
+            type: "string",
+            description: "Mathematical expression to evaluate",
+          },
+        },
+        required: ["expression"],
+      },
+    },
+  ],
+
+  // Agent behavior functions (implemented in Jsonnet)
+
+  // Initialize agent
+  init()::
+    local agent = std.agent.create("chatbot", self.config);
+    agent,
+
+  // Process user input
+  process(agent, input)::
+    local memory_key = "conversation_" + agent.id;
+    local history = std.memory.get(memory_key);
+
+    // Add user message to history
+    local user_message = { role: "user", content: input };
+    local updated_history = if history.status == "pending" then
+      [user_message]
+    else
+      history.value + [user_message];
+
+    // Store updated history
+    local _ = std.memory.set(memory_key, updated_history);
+
+    // Create messages for AI
+    local system_message = { role: "system", content: self.config.system_prompt };
+    local messages = [system_message] + updated_history;
+
+    // Call AI model
+    local response = std.ai.callModel(self.config.model, messages, {
+      temperature: self.config.temperature,
+      max_tokens: self.config.max_tokens,
+    });
+
+    // Add AI response to history
+    local ai_message = { role: "assistant", content: response.response };
+    local final_history = updated_history + [ai_message];
+    local _ = std.memory.set(memory_key, final_history);
+
+    // Return response
+    response.response,
+
+  // Handle tool calls
+  handle_tool_call(agent, tool_call)::
+    local tool_name = tool_call.function.name;
+    local tool_args = std.parseJson(tool_call.function.arguments);
+
+    if tool_name == "get_weather" then
+      // Mock weather API call
+      local weather_data = {
+        location: tool_args.location,
+        temperature: 22,
+        condition: "sunny",
+        humidity: 65,
+      };
+      "The weather in " + weather_data.location + " is " +
+      std.toString(weather_data.temperature) + "°C and " + weather_data.condition + "."
+
+    else if tool_name == "calculate" then
+      // Simple calculator (in real implementation, this would call an external calculator)
+      local result = std.toString(std.parseInt(tool_args.expression));  // Simplified
+      "The result of " + tool_args.expression + " is " + result + "."
+
+    else
+      "Unknown tool: " + tool_name,
+
+  // Main execution function
+  run(input)::
+    local agent = self.init();
+    local response = self.process(agent, input);
+    response,
+}

@@ -1,9 +1,0 @@
-[alias]
-# Coverage alias for 80% target
-coverage = "tarpaulin --out Html --output-dir ./target/coverage --exclude-files **/tests/** --exclude-files **/benches/** --exclude-files **/examples/** --line --branch --fail-under 80"
-
-# Coverage with detailed report
-coverage-detailed = "tarpaulin --out Html --output-dir ./target/coverage --exclude-files **/tests/** --exclude-files **/benches/** --exclude-files **/examples/** --line --branch --fail-under 80 --verbose"
-
-# Coverage for CI
-coverage-ci = "tarpaulin --out Lcov --output-dir ./target/coverage --exclude-files **/tests/** --exclude-files **/benches/** --exclude-files **/examples/** --line --branch --fail-under 80"

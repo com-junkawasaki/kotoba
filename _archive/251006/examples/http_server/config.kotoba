@@ -1,0 +1,162 @@
+// Kotoba HTTP Server Configuration (Jsonnet format)
+// Structured configuration using Jsonnet's object and array syntax
+
+// ==========================================
+// Configuration Variables
+// ==========================================
+
+local apiVersion = "v1";
+local defaultTimeout = 30000;
+local maxConnections = 1000;
+
+// ==========================================
+// Utility Functions
+// ==========================================
+
+// Create a route object
+local makeRoute = function(method, pattern, handler, description=null, version=apiVersion) {
+  type: "route",
+  method: method,
+  pattern: pattern,
+  handler: handler,
+  metadata: {
+    description: description,
+    version: version,
+  } + (if description == null then {} else {}),
+};
+
+// Create a middleware object
+local makeMiddleware = function(name, order, func, metadata={}) {
+  type: "middleware",
+  name: name,
+  order: order,
+  handler: func,
+  metadata: metadata,
+};
+
+// ==========================================
+// Server Configuration
+// ==========================================
+
+{
+  // Main server configuration
+  config: {
+    type: "config",
+    host: "127.0.0.1",
+    port: 8080,
+    max_connections: maxConnections,
+    timeout_ms: defaultTimeout,
+    metadata: {
+      description: "HTTP server configuration",
+      environment: "development",
+    },
+  },
+
+  // ==========================================
+  // Routes Configuration
+  // ==========================================
+
+  routes: [
+    makeRoute("GET", "/ping", "ping_handler", "Simple ping endpoint"),
+    makeRoute("GET", "/health", "health_check", "Health check with detailed status"),
+    makeRoute("GET", "/api/" + apiVersion + "/status", "api_status", "API status endpoint"),
+    makeRoute("POST", "/api/" + apiVersion + "/echo", "echo_handler", "Echo endpoint"),
+    makeRoute("GET", "/api/" + apiVersion + "/users/{id}", "get_user", "Get user by ID"),
+    makeRoute("GET", "/api/" + apiVersion + "/posts", "list_posts", "List posts"),
+  ],
+
+  // ==========================================
+  // Middlewares Configuration (applied in order)
+  // ==========================================
+
+  middlewares: [
+    {
+      type: "middleware",
+      name: "cors",
+      order: 10,
+      handler: "cors_middleware",
+      metadata: {
+        description: "CORS handling middleware",
+        allowed_origins: ["*"],
+      },
+    },
+    {
+      type: "middleware",
+      name: "rate_limit",
+      order: 20,
+      handler: "rate_limiter",
+      metadata: {
+        description: "Rate limiting middleware",
+        rpm: 60,
+      },
+    },
+    {
+      type: "middleware",
+      name: "auth",
+      order: 30,
+      handler: "auth_middleware",
+      metadata: {
+        description: "Authentication middleware",
+        type: "bearer",
+      },
+    },
+    {
+      type: "middleware",
+      name: "logger",
+      order: 100,
+      handler: "request_logger",
+      metadata: {
+        description: "Request logging middleware",
+        format: "combined",
+      },
+    },
+  ],
+
+  // ==========================================
+  // Computed Properties
+  // ==========================================
+
+  // All routes with their full paths
+  allRoutes:: [
+    r + { fullPath: r.pattern }
+    for r in self.routes
+  ],
+
+  // All middlewares sorted by order
+  sortedMiddlewares:: std.sort(self.middlewares, function(x) x.order),
+
+  // Server info
+  serverInfo:: {
+    host: self.config.host,
+    port: self.config.port,
+    routes_count: std.length(self.routes),
+    middlewares_count: std.length(self.middlewares),
+    api_version: apiVersion,
+  },
+
+  // ==========================================
+  // Validation Functions
+  // ==========================================
+
+  // Validate route patterns
+  validateRoutes:: function()
+    local allPatterns = [r.pattern for r in self.routes];
+    local duplicatePatterns = [
+      p
+      for p in std.set(allPatterns)
+      if std.count(allPatterns, p) > 1
+    ];
+    if std.length(duplicatePatterns) > 0 then
+      error "Duplicate route patterns found: " + std.join(", ", duplicatePatterns)
+    else
+      "Routes validation passed",
+
+  // Validate middleware orders
+  validateMiddlewares:: function()
+    local orders = [m.order for m in self.middlewares];
+    local uniqueOrders = std.set(orders);
+    if std.length(orders) != std.length(uniqueOrders) then
+      error "Duplicate middleware orders found"
+    else
+      "Middlewares validation passed",
+}

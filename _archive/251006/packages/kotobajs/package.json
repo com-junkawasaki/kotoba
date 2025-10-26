@@ -1,0 +1,30 @@
+{
+  "name": "@kotoba/kotobajs",
+  "version": "0.1.0",
+  "description": "Isomorphic JS/TS SDK for Kotoba",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "kotobajs": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "commander": "^12.0.0"
+  }
+}

@@ -1,0 +1,23 @@
+// users.kotoba - User definitions
+[
+  {
+    id: 'user_alice',
+    name: 'Alice',
+    role: 'admin',
+    email: 'alice@example.com',
+  },
+  {
+    id: 'user_bob',
+    name: 'Bob',
+    role: 'translator',
+    email: 'bob@example.com',
+    languages: ['en', 'ja'],
+  },
+  {
+    id: 'user_charlie',
+    name: 'Charlie',
+    role: 'reviewer',
+    email: 'charlie@example.com',
+    languages: ['ja'],
+  },
+]

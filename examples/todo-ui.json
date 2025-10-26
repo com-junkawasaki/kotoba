@@ -1,0 +1,81 @@
+{
+  "node": [
+    {
+      "id": "todo_view",
+      "type": "View",
+      "properties": {
+        "node_type": "View",
+        "html_tag": "div",
+        "tailwind_classes": ["space-y-4"],
+        "children": ["todo_form", "todo_list"]
+      }
+    },
+    {
+      "id": "todo_form",
+      "type": "Component",
+      "properties": {
+        "node_type": "Component",
+        "html_tag": "form",
+        "tailwind_classes": ["flex", "gap-2", "mb-6"],
+        "htmx_attrs": {
+          "hx-post": "/api/todo/add",
+          "hx-target": "#todo_list",
+          "hx-swap": "innerHTML"
+        },
+        "children": ["todo_input", "todo_submit"]
+      }
+    },
+    {
+      "id": "todo_input",
+      "type": "Component",
+      "properties": {
+        "node_type": "Component",
+        "html_tag": "input",
+        "tailwind_classes": [
+          "flex-1", "px-4", "py-2", "border", "border-gray-300",
+          "rounded-lg", "focus:outline-none", "focus:ring-2", "focus:ring-blue-500"
+        ],
+        "attributes": {
+          "type": "text",
+          "name": "title",
+          "placeholder": "Add a new todo...",
+          "required": "true"
+        }
+      }
+    },
+    {
+      "id": "todo_submit",
+      "type": "Component",
+      "properties": {
+        "node_type": "Component",
+        "html_tag": "button",
+        "tailwind_classes": [
+          "px-6", "py-2", "bg-blue-500", "text-white", "rounded-lg",
+          "hover:bg-blue-600", "focus:outline-none", "focus:ring-2", "focus:ring-blue-500"
+        ],
+        "attributes": {
+          "type": "submit"
+        },
+        "content": "Add Todo"
+      }
+    },
+    {
+      "id": "todo_list",
+      "type": "Component",
+      "properties": {
+        "node_type": "Component",
+        "html_tag": "div",
+        "attributes": {
+          "id": "todo_list"
+        },
+        "htmx_attrs": {
+          "hx-get": "/api/todo/list",
+          "hx-trigger": "load, todoAdded from:body"
+        },
+        "content": "<div class=\"text-center text-gray-500\">Loading todos...</div>"
+      }
+    }
+  ],
+  "edge": [],
+  "incidence": []
+}
