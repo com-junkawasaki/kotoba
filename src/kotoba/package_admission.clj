@@ -25,6 +25,7 @@
             [clojure.pprint :as pprint]
             [clojure.string :as str]
             [kotoba.lang.package-contract :as package-contract]
+            [kotoba.security.abac :as abac]
             [multiformats.core :as mf])
   (:import [java.time Instant]))
 
@@ -58,6 +59,8 @@
    "signature verification failed" :package/signature-verification-failed
    "manifest cid does not match manifest content" :package/manifest-cid-mismatch
    local-path-message :package/local-path-dependency})
+
+(def abac-denied-message "ABAC policy denies package admission")
 
 (defn problem-code
   [message]
@@ -265,6 +268,19 @@
   accept and reject."
   [{:keys [lock lock-path manifest manifest-path trust]}]
   (let [tc (trust-context trust manifest)
+        capabilities (into #{} (mapcat #(or (:dep/grants %) [])) (:deps lock))
+        supplied (:abac/attributes trust)
+        abac-attributes
+        (-> supplied
+            (assoc :resource
+                   (merge {:id (or (get-in manifest [:kotoba.package/source :manifest-cid])
+                                   lock-path)
+                           :effects capabilities}
+                          (:resource supplied)))
+            (assoc :action
+                   (merge {:id :package/admit :capabilities capabilities}
+                          (:action supplied))))
+        abac-result (abac/evaluate abac-attributes (:abac/policy trust))
         manifest-error (when manifest (package-contract/package-manifest-error manifest))
         ;; Only check integrity once the shape check passed -- a missing or
         ;; malformed :manifest-cid is manifest-error's problem to report, not
@@ -274,6 +290,13 @@
         lock-error (lock-level-error lock)
         dep-results (mapv (fn [dep] [dep (dep-error dep tc)]) (:deps lock))
         problems (vec (concat
+                       (when-not (:abac/allowed? abac-result)
+                         [{:kotoba.package/input :admission-context
+                           :kotoba.package/problem :package/abac-denied
+                           :kotoba.package/message abac-denied-message
+                           :kotoba.package/data
+                           {:abac/policy-id (:abac/policy-id abac-result)
+                            :abac/violations (:abac/violations abac-result)}}])
                        (when manifest-error
                          [(->problem {:kotoba.package/input :manifest
                                       :kotoba.package/path manifest-path}
@@ -296,6 +319,7 @@
      :kotoba.package/lock-path lock-path
      :kotoba.package/manifest-path manifest-path
      :kotoba.package/checked-at (checked-at)
+     :kotoba.package/abac abac-result
      :kotoba.package/problems problems
      :kotoba.package/entries (mapv (fn [[dep error]] (dep-entry dep error)) dep-results)}))
 

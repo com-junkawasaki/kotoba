@@ -37,6 +37,7 @@
             [kotoba.kgraph :as kgraph]
             [kotoba.lang.capability-host :as capability-host]
             [kotoba.lang.capability-values :as capability-values]
+            [kotoba.security.information-flow :as flow]
             [kotoba.runtime :as runtime]))
 
 (def op->kind
@@ -244,10 +245,12 @@
   in the intersection; the local policy side still derives from POLICY, so an
   explicit policy narrows the chain's resource set."
   ([policy] (host-call policy nil))
-  ([policy {:keys [record! now handlers cacao-grants]}]
+  ([policy {:keys [record! now handlers cacao-grants information-flow-context]}]
    (let [grants (or cacao-grants (policy-grants policy))
          allow (local-policy policy)
          now (or now (str (java.time.LocalDate/now)))
+         information-flow-context
+         (or information-flow-context (:kotoba.policy/information-flow policy))
          handlers (or handlers default-handlers)]
      (fn guarded-host-call [op args]
        (let [kind (get op->kind op)
@@ -255,6 +258,20 @@
          (when-not (and kind handler)
            (throw (ex-info "host op has no capability guard"
                            {:kotoba.host/op op})))
+         (when information-flow-context
+           (let [decision (flow/evaluate-egress
+                           (assoc information-flow-context :now
+                                  (or (:now information-flow-context) now)))]
+             (when-not (:information-flow/allowed? decision)
+               (let [receipt {:receipt/call (keyword "kotoba.host" (str op))
+                              :receipt/outcome :denied
+                              :receipt/denied :information-flow
+                              :receipt/information-flow decision}]
+                 (when record! (record! receipt))
+                 (throw (ex-info "host call denied by information-flow policy"
+                                 {:kotoba.host/denied :information-flow
+                                  :kotoba.host/call op
+                                  :kotoba.host/receipt receipt}))))))
          (let [outcome (capability-host/guard-call
                         {:call (keyword "kotoba.host" (str op))
                          :requested (capability-values/make-cap kind :any)

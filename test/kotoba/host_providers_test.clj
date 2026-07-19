@@ -120,6 +120,28 @@
     (is (= :host/ledger-append (:cap/kind @seen)))
     (is (= "ledger:main" (:cap/resource @seen)))))
 
+(deftest host-effect-denies-classification-downgrade-before-provider
+  (let [calls (atom 0)
+        receipts (atom [])
+        policy {:kotoba.policy/capabilities #{:ledger/append}
+                :kotoba.policy/information-flow
+                {:subject :runtime/service :purpose :audit-export
+                 :input-classifications [:confidential]
+                 :output-classification :public}}
+        host-call (host-providers/host-call
+                   policy
+                   {:now "2026-07-19T12:00:00Z"
+                    :record! #(swap! receipts conj %)
+                    :handlers {'host-i64-roundtrip
+                               (fn [_ _] (swap! calls inc) 0)}})
+        denied (try (host-call 'host-i64-roundtrip [41]) nil
+                    (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+    (is (= :information-flow (:kotoba.host/denied denied)))
+    (is (zero? @calls))
+    (is (= :information-flow (:receipt/denied (first @receipts))))
+    (is (false? (get-in @receipts [0 :receipt/information-flow
+                                   :information-flow/allowed?])))))
+
 (deftest kgraph-handlers-real-eavt-round-trip
   (testing "kgraph-handlers (kotoba.kgraph-backed, not a 0-returning stub) really stores and queries"
     (let [store (atom [])

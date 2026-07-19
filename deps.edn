@@ -1,5 +1,6 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/data.json {:mvn/version "2.5.1"}
+        io.github.kotoba-lang/security {:local/root "../security"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
         org.clojure/clojurescript {:mvn/version "1.12.134"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}

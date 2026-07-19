@@ -57,6 +57,35 @@
     (is (true? (:kotoba.package/verified? (receipt result))))
     (is (= [] (:kotoba.package/problems (receipt result))))))
 
+(deftest package-admission-enforces-shared-abac
+  (let [lock (edn/read-string (slurp positive-lock))
+        attributes {:subject {:id :release-bot :tenant "alpha"}
+                    :resource {:tenant "alpha" :trust :verified}
+                    :environment {:surface :ci :device-trusted? true}}
+        policy {:policy/id :package/release
+                :subject/ids #{:release-bot}
+                :resource/trust #{:verified}
+                :action/ids #{:package/admit}
+                :environment/surfaces #{:ci}
+                :environment/require-device-trust? true
+                :tenant/isolation? true}
+        trust-base (edn/read-string (slurp trust))
+        accepted (admission/verify-lock
+                  {:lock lock :lock-path positive-lock
+                   :trust (assoc trust-base :abac/policy policy
+                                :abac/attributes attributes)})
+        rejected (admission/verify-lock
+                  {:lock lock :lock-path positive-lock
+                   :trust (assoc trust-base :abac/policy policy
+                                 :abac/attributes
+                                 (assoc-in attributes [:environment :surface]
+                                           :developer-laptop))})]
+    (is (true? (:kotoba.package/verified? accepted)))
+    (is (true? (get-in accepted [:kotoba.package/abac :abac/allowed?])))
+    (is (false? (:kotoba.package/verified? rejected)))
+    (is (= :package/abac-denied
+           (get-in rejected [:kotoba.package/problems 0 :kotoba.package/problem])))))
+
 (deftest positive-lock-with-manifest-declares-capabilities
   ;; With no trust file, declared capabilities come from the package manifest.
   (let [result (verify-argv "--lock" positive-lock "--manifest" positive-manifest)]
