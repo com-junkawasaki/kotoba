@@ -1,0 +1,101 @@
+(ns kotoba.providers.pg-pool-reset-consumer)
+
+(defn reset-message-length [ptr]
+  (+ (* (mem-byte-at ptr 1) 16777216)
+     (* (mem-byte-at ptr 2) 65536)
+     (* (mem-byte-at ptr 3) 256)
+     (mem-byte-at ptr 4)))
+
+(defn reset-find-tag [ptr len offset target]
+  (if (>= offset len)
+    -1
+    (let [message (+ ptr offset)
+          total (+ (reset-message-length message) 1)]
+      (if (= (mem-byte-at message 0) target)
+        message
+        (reset-find-tag ptr len (+ offset total) target)))))
+
+(defn reset-row-empty? [ptr len]
+  (let [row (reset-find-tag ptr len 0 68)]
+    (if (and (> row 0)
+             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
+             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
+             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 0)) 1 0)))
+
+(defn reset-row-is-byte? [ptr len expected]
+  (let [row (reset-find-tag ptr len 0 68)]
+    (if (and (> row 0)
+             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
+             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
+             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 1)
+             (= (mem-byte-at row 11) expected)) 1 0)))
+
+(defn reset-empty-params! [ptr]
+  (let [w0 (byte-store! ptr 0 0)
+        w1 (byte-store! ptr 1 0)
+        w2 (byte-store! ptr 2 0)
+        w3 (byte-store! ptr 3 0)
+        w4 (byte-store! ptr 4 0)
+        w5 (byte-store! ptr 5 0)] 6))
+
+(defn run [port]
+  (let [channel (pg-open-scram-random
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary"))]
+    (let [out (alloc 4096)
+          meta (alloc 7)
+          set-name (pg-query-state
+                    channel (str-ptr "set application_name = 'dirty-lease'")
+                    (str-len "set application_name = 'dirty-lease'")
+                    out 4096 meta 7)
+          temporary (pg-query-state
+                     channel (str-ptr "create temporary table pool_dirty(v int4)")
+                     (str-len "create temporary table pool_dirty(v int4)")
+                     out 4096 meta 7)
+          prepared (pg-prepare channel
+                               (str-ptr "dirty_stmt") (str-len "dirty_stmt")
+                               (str-ptr "select 99") (str-len "select 99")
+                               out 4096 meta 7)
+          begun (pg-query-state channel (str-ptr "BEGIN") (str-len "BEGIN")
+                                out 4096 meta 7)
+          inserted (pg-query-state
+                    channel (str-ptr "insert into pool_dirty values (7)")
+                    (str-len "insert into pool_dirty values (7)")
+                    out 4096 meta 7)
+          reset (pg-session-reset channel out 4096 meta 7)
+          shown (pg-query-state
+                 channel (str-ptr "show application_name")
+                 (str-len "show application_name") out 4096 meta 7)
+          name-reset (reset-row-empty? out shown)
+          temp-check (pg-query-state
+                      channel
+                      (str-ptr "select to_regclass('pg_temp.pool_dirty') is null")
+                      (str-len "select to_regclass('pg_temp.pool_dirty') is null")
+                      out 4096 meta 7)
+          temp-reset (reset-row-is-byte? out temp-check 116)
+          params (alloc 6)
+          params-len (reset-empty-params! params)
+          missing-statement (pg-execute-params
+                             channel (str-ptr "dirty_stmt") (str-len "dirty_stmt")
+                             params params-len out 4096 meta 7)
+          deallocated (if (and (> missing-statement 0)
+                               (= (mem-byte-at meta 0) 1)
+                               (= (mem-byte-at meta 1) 73)
+                               (= (mem-byte-at meta 2) 50)
+                               (= (mem-byte-at meta 3) 54)
+                               (= (mem-byte-at meta 4) 48)
+                               (= (mem-byte-at meta 5) 48)
+                               (= (mem-byte-at meta 6) 48)) 1 0)
+          reused (pg-query-state channel (str-ptr "select 42") (str-len "select 42")
+                                 out 4096 meta 7)
+          reuse-ok (if (and (> reused 0) (= (mem-byte-at meta 0) 0)
+                            (= (mem-byte-at meta 1) 73)) 1 0)
+          closed (pg-close-scram channel)]
+      (if (and (> set-name 0) (> temporary 0) (> prepared 0)
+               (> begun 0) (> inserted 0) (> reset 0)
+               (= name-reset 1) (= temp-reset 1) (= deallocated 1)
+               (= reuse-ok 1) (= closed 0)) 1 0))))
+
+(defn main [] 0)

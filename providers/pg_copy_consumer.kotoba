@@ -1,0 +1,79 @@
+(ns kotoba.providers.pg-copy-consumer)
+
+(defn copy-message-length [ptr]
+  (+ (* (mem-byte-at ptr 1) 16777216)
+     (* (mem-byte-at ptr 2) 65536)
+     (* (mem-byte-at ptr 3) 256)
+     (mem-byte-at ptr 4)))
+
+(defn copy-count-tag [ptr len offset target count]
+  (if (>= offset len)
+    count
+    (let [message (+ ptr offset)
+          total (+ (copy-message-length message) 1)]
+      (copy-count-tag ptr len (+ offset total) target
+                      (+ count (if (= (mem-byte-at message 0) target) 1 0))))))
+
+(defn copy-find-tag [ptr len offset target]
+  (if (>= offset len)
+    -1
+    (let [message (+ ptr offset)
+          total (+ (copy-message-length message) 1)]
+      (if (= (mem-byte-at message 0) target)
+        message
+        (copy-find-tag ptr len (+ offset total) target)))))
+
+(defn copy-single-text-row-is-6? [ptr len]
+  (let [row (copy-find-tag ptr len 0 68)]
+    (if (and (> row 0)
+             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
+             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
+             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 1)
+             (= (mem-byte-at row 11) 54)) 1 0)))
+
+(defn run [port]
+  (let [channel (pg-open-scram-random
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary"))]
+    (let [out (alloc 4096)
+          meta (alloc 7)
+          created (pg-query-state
+                   channel
+                   (str-ptr "create temporary table copy_values(value int4)")
+                   (str-len "create temporary table copy_values(value int4)")
+                   out 4096 meta 7)
+          copied-in (pg-copy-in
+                     channel
+                     (str-ptr "copy copy_values(value) from stdin")
+                     (str-len "copy copy_values(value) from stdin")
+                     (str-ptr "1\n2\n3\n") (str-len "1\n2\n3\n")
+                     out 4096 meta 7)
+          copied-in-ok (if (and (> copied-in 0)
+                                (= (mem-byte-at meta 0) 0)
+                                (= (mem-byte-at meta 1) 73)) 1 0)
+          copied-out (pg-copy-out
+                      channel
+                      (str-ptr "copy (select value from copy_values order by value) to stdout")
+                      (str-len "copy (select value from copy_values order by value) to stdout")
+                      out 4096 meta 7)
+          copied-out-ok (if (and (> copied-out 0)
+                                 (= (mem-byte-at meta 0) 0)
+                                 (= (mem-byte-at meta 1) 73)
+                                 (= (copy-count-tag out copied-out 0 72 0) 1)
+                                 (= (copy-count-tag out copied-out 0 100 0) 3)
+                                 (= (copy-count-tag out copied-out 0 99 0) 1)
+                                 (= (copy-count-tag out copied-out 0 67 0) 1)) 1 0)
+          sum-result (pg-query-state
+                      channel (str-ptr "select sum(value) from copy_values")
+                      (str-len "select sum(value) from copy_values")
+                      out 4096 meta 7)
+          sum-ok (if (and (> sum-result 0)
+                          (= (mem-byte-at meta 0) 0)
+                          (= (copy-single-text-row-is-6? out sum-result) 1)) 1 0)
+          closed (pg-close-scram channel)]
+      (if (and (> created 0) (= copied-in-ok 1)
+               (= copied-out-ok 1) (= sum-ok 1) (= closed 0)) 1 0))))
+
+(defn main [] 0)

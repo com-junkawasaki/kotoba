@@ -1,0 +1,8 @@
+(ns kotoba.providers.pg-consumer)
+
+(defn run [port]
+  (let [out (alloc 256)]
+    (pg-simple-query (str-ptr "localhost") (str-len "localhost") port
+                     (str-ptr "select 1") (str-len "select 1") out 256)))
+
+(defn main [] (run 443))

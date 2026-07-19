@@ -1,0 +1,79 @@
+(ns kotoba.providers.pg-portal-consumer)
+
+(defn portal-message-length [ptr]
+  (+ (* (mem-byte-at ptr 1) 16777216)
+     (* (mem-byte-at ptr 2) 65536)
+     (* (mem-byte-at ptr 3) 256)
+     (mem-byte-at ptr 4)))
+
+(defn portal-count-tag [ptr len offset target count]
+  (if (>= offset len)
+    count
+    (let [message (+ ptr offset)
+          total (+ (portal-message-length message) 1)]
+      (portal-count-tag ptr len (+ offset total) target
+                        (+ count (if (= (mem-byte-at message 0) target) 1 0))))))
+
+(defn portal-empty-params! [ptr]
+  (let [w0 (byte-store! ptr 0 0)
+        w1 (byte-store! ptr 1 0)
+        w2 (byte-store! ptr 2 0)
+        w3 (byte-store! ptr 3 0)
+        w4 (byte-store! ptr 4 0)
+        w5 (byte-store! ptr 5 0)] 6))
+
+(defn run [port]
+  (let [channel (pg-open-scram-random
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary"))]
+    (let [out (alloc 2048)
+          meta (alloc 7)
+          params (alloc 6)
+          params-len (portal-empty-params! params)
+          prepared (pg-prepare channel
+                               (str-ptr "series3") (str-len "series3")
+                               (str-ptr "select generate_series(1,3)")
+                               (str-len "select generate_series(1,3)")
+                               out 2048 meta 7)
+          begun (pg-query-state channel (str-ptr "BEGIN") (str-len "BEGIN")
+                                out 2048 meta 7)
+          bound (pg-bind-portal channel
+                                (str-ptr "page") (str-len "page")
+                                (str-ptr "series3") (str-len "series3")
+                                params params-len out 2048 meta 7)
+          first (pg-fetch-portal channel
+                                 (str-ptr "page") (str-len "page") 2
+                                 out 2048 meta 7)
+          first-ok (if (and (> first 0)
+                            (= (mem-byte-at meta 0) 0)
+                            (= (mem-byte-at meta 1) 84)
+                            (= (portal-count-tag out first 0 68 0) 2)
+                            (= (portal-count-tag out first 0 115 0) 1)
+                            (= (portal-count-tag out first 0 67 0) 0)) 1 0)
+          second (pg-fetch-portal channel
+                                  (str-ptr "page") (str-len "page") 2
+                                  out 2048 meta 7)
+          second-ok (if (and (> second 0)
+                             (= (mem-byte-at meta 0) 0)
+                             (= (mem-byte-at meta 1) 84)
+                             (= (portal-count-tag out second 0 68 0) 1)
+                             (= (portal-count-tag out second 0 115 0) 0)
+                             (= (portal-count-tag out second 0 67 0) 1)) 1 0)
+          portal-closed (pg-close-portal channel
+                                          (str-ptr "page") (str-len "page")
+                                          out 2048 meta 7)
+          committed (pg-query-state channel
+                                    (str-ptr "COMMIT") (str-len "COMMIT")
+                                    out 2048 meta 7)
+          statement-closed (pg-close-statement
+                            channel (str-ptr "series3") (str-len "series3")
+                            out 2048 meta 7)
+          channel-closed (pg-close-scram channel)]
+      (if (and (> prepared 0) (> begun 0) (> bound 0)
+               (= first-ok 1) (= second-ok 1) (> portal-closed 0)
+               (> committed 0) (> statement-closed 0) (= channel-closed 0))
+        1 0))))
+
+(defn main [] 0)

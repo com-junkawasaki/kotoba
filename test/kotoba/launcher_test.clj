@@ -99,7 +99,7 @@
     (is (re-find #"こんにちは" generated))
     (is (false? (:kotoba.cli/ok? wasm)))
     (is (= :compile/failed (:kotoba.cli/code wasm)))
-    (is (re-find #"typed string values currently require"
+    (is (re-find #"(typed string values|entryless libraries) currently require"
                  (:kotoba.cli/message wasm)))))
 
 (deftest compile-cljc-selects-kotoba-reader-branch

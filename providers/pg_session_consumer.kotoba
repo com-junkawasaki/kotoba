@@ -1,0 +1,13 @@
+(ns kotoba.providers.pg-session-consumer)
+
+(defn run [port]
+  (let [channel (pg-open (str-ptr "localhost") (str-len "localhost") port
+                         (str-ptr "kotoba") (str-len "kotoba")
+                         (str-ptr "kotoba") (str-len "kotoba"))
+        out (alloc 256)
+        result (pg-query channel (str-ptr "select 1") (str-len "select 1")
+                         out 256)
+        closed (db-close channel)]
+    result))
+
+(defn main [] (run 5432))

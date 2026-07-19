@@ -1,0 +1,19 @@
+(ns kotoba.providers.pg-explicit-scram-consumer)
+
+(defn run [port]
+  (let [channel (pg-open-scram
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary")
+                 (str-ptr "AAECAwQFBgcICQoLDA0ODxAR")
+                 (str-len "AAECAwQFBgcICQoLDA0ODxAR"))]
+    (let [out (alloc 256)
+          meta (alloc 7)
+          result (pg-query-state channel (str-ptr "select 1") (str-len "select 1")
+                                 out 256 meta 7)
+          closed (pg-close-scram channel)]
+      (if (and (> result 0) (= (mem-byte-at meta 0) 0)
+               (= (mem-byte-at meta 1) 73) (= closed 0)) 1 0))))
+
+(defn main [] 0)

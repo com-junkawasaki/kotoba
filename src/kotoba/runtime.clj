@@ -180,6 +180,54 @@
    'clipboard-write :host/clipboard-write
    'clipboard-write-str :host/clipboard-write
    'http-fetch :host/http
+   'transport-connect :net/connect
+   'tls-open :crypto/tls
+   'tls-server-end-point :crypto/tls
+   'transport-write :net/transport
+   'transport-read :net/transport
+   'transport-close :net/transport
+   'http-open :component/http
+   'http-write :component/http
+   'http-read :component/http
+   'http-close :component/http
+   'http-get :component/http
+   'db-open :component/database
+   'db-write :component/database
+   'db-read :component/database
+   'db-close :component/database
+   'db-exchange :component/database
+   'pg-simple-query :component/database
+   'pg-open :component/database
+   'pg-query :component/database
+   'pg-query-state :component/database
+   'pg-prepare :component/database
+   'pg-prepare-typed :component/database
+   'pg-execute-params2 :component/database
+   'pg-execute-params :component/database
+   'pg-bind-portal :component/database
+   'pg-fetch-portal :component/database
+   'pg-close-portal :component/database
+   'pg-copy-out :component/database
+   'pg-copy-in :component/database
+   'pg-execute-batch :component/database
+   'pg-session-reset :component/database
+   'pg-pool-open :component/database
+   'pg-pool-acquire :component/database
+   'pg-pool-query :component/database
+   'pg-pool-release :component/database
+   'pg-pool-stats :component/database
+   'pg-pool-health :component/database
+   'pg-pool-drain :component/database
+   'pg-pool-close :component/database
+   'pg-close-statement :component/database
+   'pg-open-scram :component/database
+   'pg-open-scram-random :component/database
+   'pg-open-scram-cancellable-random :component/database
+   'pg-cancel-authority-use :component/database
+   'pg-close-scram :component/database
+   'scram-sha256 :secret/use-scram-sha256
+   'pg-cancel-register :secret/use-postgresql-cancel
+   'pg-cancel :secret/use-postgresql-cancel
    'keychain-read :host/keychain-read
    'keychain-write :host/keychain-write
    'fs-read :host/fs-read
@@ -1513,6 +1561,23 @@
 
 (declare validate-portable-value-ids!)
 
+(defn- check-form-depth!
+  "Reject deeply nested reader output before recursive lowering passes run."
+  [forms]
+  (loop [pending (mapv #(vector % 0) forms)]
+    (when-let [[form depth] (peek pending)]
+      (when (> depth 256)
+        (throw (ex-info "form nesting exceeds admission limit"
+                        {:phase :lowering :depth depth :limit 256})))
+      (let [pending (pop pending)
+            children (cond
+                       (map? form) (mapcat identity form)
+                       (coll? form) form
+                       :else nil)]
+        (recur (if children
+                 (into pending (map #(vector % (inc depth))) children)
+                 pending))))))
+
 (defn lower-language-forms
   "Lower Kotoba-only surface forms into the compiler core. This pass is
   shared by IR and Wasm so the two paths cannot silently diverge.
@@ -1521,6 +1586,7 @@
   ADR-2607180900 (L2): multi-body `when` → `if`+`do`; bare string literals
   on string-head host ops → str-ptr/str-len."
   [forms]
+  (check-form-depth! forms)
   (validate-portable-value-ids! forms)
   (let [forms (-> forms expand-pure-desugars expand-multi-arity-forms expand-record-protocol-forms
                   expand-lazy-forms expand-match-forms expand-fuel-collection-forms
@@ -2798,6 +2864,19 @@
                           (step (list 'pair-second cur) (dec depth))))))]
     (step map-expr max-get-unroll-depth)))
 
+(defn- reserve-internal-locals
+  "Extend the compile-time local table with already-emitted anonymous locals.
+  Branches are compiled sequentially into one Wasm function-local namespace;
+  without these reservations, a later branch can reuse an earlier branch's
+  index with a different value type and produce an invalid module."
+  [locals types]
+  (let [base (count locals)]
+    (reduce (fn [table [offset type]]
+              (assoc table [:kotoba.wasm/internal-local (+ base offset)]
+                     {:idx (+ base offset) :type type}))
+            locals
+            (map-indexed vector types))))
+
 (defn compile-wasm-expr
   "Compile one Kotoba expression to a WASM instruction sequence. Returns
   `{:bytes :local-count :local-types :result-type}` on success, or
@@ -2891,14 +2970,26 @@
                   (let [compiled (compile-wasm-expr value locals fns)]
                     (if (:problem compiled)
                       compiled
-                      (recur (next pairs)
-                             (assoc locals (symbol-key name)
-                                    {:idx next-local
-                                     :type (compiled-result-type compiled)})
-                             (inc next-local)
-                             (conj (into local-types (merge-local-types compiled))
-                                   (compiled-result-type compiled))
-                             (bcat out (:bytes compiled) [0x21] (uleb next-local)))))
+                      (let [nested-types (merge-local-types compiled)
+                            binding-index (+ next-local (count nested-types))
+                            locals-with-nested
+                            (reduce (fn [table [offset type]]
+                                      (assoc table
+                                             [:kotoba.wasm/internal-local
+                                              (+ next-local offset)]
+                                             {:idx (+ next-local offset)
+                                              :type type}))
+                                    locals
+                                    (map-indexed vector nested-types))]
+                        (recur (next pairs)
+                               (assoc locals-with-nested (symbol-key name)
+                                      {:idx binding-index
+                                       :type (compiled-result-type compiled)})
+                               (inc binding-index)
+                               (conj (into local-types nested-types)
+                                     (compiled-result-type compiled))
+                               (bcat out (:bytes compiled)
+                                     [0x21] (uleb binding-index))))))
                   (let [compiled (compile-wasm-expr (cons 'do body) locals fns)]
                     (if (:problem compiled)
                       compiled
@@ -2910,8 +3001,12 @@
 
         if (let [[test then else] args
                  test-compiled (compile-wasm-expr test locals fns)
-                 then-compiled (compile-wasm-expr then locals fns)
-                 else-compiled (compile-wasm-expr else locals fns)]
+                 test-types (merge-local-types test-compiled)
+                 then-locals (reserve-internal-locals locals test-types)
+                 then-compiled (compile-wasm-expr then then-locals fns)
+                 then-types (merge-local-types then-compiled)
+                 else-locals (reserve-internal-locals then-locals then-types)
+                 else-compiled (compile-wasm-expr else else-locals fns)]
              (cond
                (:problem test-compiled) test-compiled
                (:problem then-compiled) then-compiled
@@ -2922,9 +3017,9 @@
                                    [0x05]
                                    (:bytes else-compiled)
                                    [0x0b])
-                      :local-count (max (:local-count test-compiled 0)
-                                        (:local-count then-compiled 0)
-                                        (:local-count else-compiled 0))
+                      :local-count (+ (count test-types)
+                                      (count then-types)
+                                      (count (merge-local-types else-compiled)))
                       :local-types (merge-local-types test-compiled then-compiled else-compiled)
                       :result-type (compiled-result-type then-compiled)}))
 

@@ -1,0 +1,93 @@
+(ns kotoba.providers.pg-prepared-consumer)
+
+(defn prepared-message-length [ptr]
+  (+ (* (mem-byte-at ptr 1) 16777216)
+     (* (mem-byte-at ptr 2) 65536)
+     (* (mem-byte-at ptr 3) 256)
+     (mem-byte-at ptr 4)))
+
+(defn prepared-find-tag [ptr len offset target]
+  (if (>= offset len)
+    -1
+    (let [message (+ ptr offset)
+          total (+ (prepared-message-length message) 1)]
+      (if (= (mem-byte-at message 0) target)
+        message
+        (prepared-find-tag ptr len (+ offset total) target)))))
+
+(defn prepared-bytes-equal? [a-ptr b-ptr len index]
+  (if (>= index len)
+    1
+    (if (= (mem-byte-at a-ptr index) (mem-byte-at b-ptr index))
+      (prepared-bytes-equal? a-ptr b-ptr len (+ index 1))
+      0)))
+
+(defn prepared-single-text-row-equals? [response-ptr response-len expected-ptr expected-len]
+  (let [row (prepared-find-tag response-ptr response-len 0 68)]
+    (if (and (> row 0)
+             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
+             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
+             (= (mem-byte-at row 9) 0)
+             (= (mem-byte-at row 10) expected-len))
+      (prepared-bytes-equal? (+ row 11) expected-ptr expected-len 0)
+      0)))
+
+(defn run [port]
+  (let [channel (pg-open-scram-random
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary"))]
+    (let [out (alloc 2048)
+          meta (alloc 7)
+          prepared (pg-prepare channel
+                               (str-ptr "sum2") (str-len "sum2")
+                               (str-ptr "select $1::int4 + $2::int4")
+                               (str-len "select $1::int4 + $2::int4")
+                               out 2048 meta 7)
+          prepared-ok (if (and (> prepared 0)
+                               (= (mem-byte-at meta 0) 0)
+                               (= (mem-byte-at meta 1) 73)) 1 0)
+          first (pg-execute-params2 channel
+                                    (str-ptr "sum2") (str-len "sum2")
+                                    (str-ptr "20") (str-len "20")
+                                    (str-ptr "22") (str-len "22")
+                                    out 2048 meta 7)
+          first-ok (if (and (> first 0)
+                            (= (mem-byte-at meta 0) 0)
+                            (= (prepared-single-text-row-equals?
+                                out first (str-ptr "42") (str-len "42")) 1)) 1 0)
+          separated (pg-execute-params2 channel
+                                        (str-ptr "sum2") (str-len "sum2")
+                                        (str-ptr "1;select 99")
+                                        (str-len "1;select 99")
+                                        (str-ptr "2") (str-len "2")
+                                        out 2048 meta 7)
+          separated-ok (if (and (> separated 0)
+                                (= (mem-byte-at meta 0) 1)
+                                (= (mem-byte-at meta 1) 73)
+                                (= (mem-byte-at meta 2) 50)
+                                (= (mem-byte-at meta 3) 50)
+                                (= (mem-byte-at meta 4) 80)
+                                (= (mem-byte-at meta 5) 48)
+                                (= (mem-byte-at meta 6) 50)) 1 0)
+          second (pg-execute-params2 channel
+                                     (str-ptr "sum2") (str-len "sum2")
+                                     (str-ptr "40") (str-len "40")
+                                     (str-ptr "2") (str-len "2")
+                                     out 2048 meta 7)
+          second-ok (if (and (> second 0)
+                             (= (mem-byte-at meta 0) 0)
+                             (= (prepared-single-text-row-equals?
+                                 out second (str-ptr "42") (str-len "42")) 1)) 1 0)
+          closed-statement (pg-close-statement
+                            channel (str-ptr "sum2") (str-len "sum2")
+                            out 2048 meta 7)
+          statement-ok (if (and (> closed-statement 0)
+                                (= (mem-byte-at meta 0) 0)
+                                (= (mem-byte-at meta 1) 73)) 1 0)
+          closed (pg-close-scram channel)]
+      (if (and (= prepared-ok 1) (= first-ok 1) (= separated-ok 1)
+               (= second-ok 1) (= statement-ok 1) (= closed 0)) 1 0))))
+
+(defn main [] 0)

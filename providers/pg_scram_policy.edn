@@ -1,0 +1,3 @@
+{:kotoba.policy/capabilities
+ #{:net/connect :crypto/tls :net/transport :host/random-bytes
+   :secret/use-scram-sha256 :secret/use-postgresql-cancel}}

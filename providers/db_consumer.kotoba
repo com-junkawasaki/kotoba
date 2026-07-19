@@ -1,0 +1,8 @@
+(ns kotoba.providers.db-consumer)
+
+(defn run [port]
+  (let [out (alloc 256)]
+    (db-exchange (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "ping") (str-len "ping") out 256)))
+
+(defn main [] (run 443))

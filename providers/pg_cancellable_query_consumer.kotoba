@@ -1,0 +1,32 @@
+(ns kotoba.providers.pg-cancellable-query-consumer)
+
+(defn ^:i64 open [port cancel-out-ptr cancel-out-cap]
+  (pg-open-scram-cancellable-random
+   (str-ptr "localhost") (str-len "localhost") port
+   (str-ptr "kotoba") (str-len "kotoba")
+   (str-ptr "kotoba") (str-len "kotoba")
+   (str-ptr "db/primary") (str-len "db/primary")
+   cancel-out-ptr cancel-out-cap))
+
+(defn sleep-query [^:i64 channel]
+  (let [out (alloc 1024)
+        meta (alloc 7)
+        result (pg-query-state channel
+                               (str-ptr "select pg_sleep(10)")
+                               (str-len "select pg_sleep(10)")
+                               out 1024 meta 7)]
+    (if (and (> result 0)
+             (= (mem-byte-at meta 0) 1)
+             (= (mem-byte-at meta 1) 73)
+             (= (mem-byte-at meta 2) 53)
+             (= (mem-byte-at meta 3) 55)
+             (= (mem-byte-at meta 4) 48)
+             (= (mem-byte-at meta 5) 49)
+             (= (mem-byte-at meta 6) 52))
+      1
+      0)))
+
+(defn close [^:i64 channel]
+  (pg-close-scram channel))
+
+(defn main [] 0)

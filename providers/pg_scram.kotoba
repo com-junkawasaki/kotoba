@@ -1,0 +1,853 @@
+(ns kotoba.providers.pg-scram)
+
+(defn pg-scram-message-length [message-ptr message-len]
+  (if (>= message-len 5)
+    (+ (* (mem-byte-at message-ptr 1) 16777216)
+       (* (mem-byte-at message-ptr 2) 65536)
+       (* (mem-byte-at message-ptr 3) 256)
+       (mem-byte-at message-ptr 4))
+    -1))
+
+(defn pg-scram-message-valid? [message-ptr message-len]
+  (let [declared (pg-scram-message-length message-ptr message-len)]
+    (if (and (>= declared 4) (= (+ declared 1) message-len)) 1 0)))
+
+(defn pg-scram-auth-code? [message-ptr message-len code]
+  (if (and (>= message-len 9)
+           (= (mem-byte-at message-ptr 0) 82)
+           (= (pg-scram-message-valid? message-ptr message-len) 1)
+           (= (mem-byte-at message-ptr 5) 0)
+           (= (mem-byte-at message-ptr 6) 0)
+           (= (mem-byte-at message-ptr 7) 0)
+           (= (mem-byte-at message-ptr 8) code)) 1 0))
+
+(defn pg-scram-ascii-equal? [actual-ptr expected-ptr len index]
+  (if (>= index len)
+    1
+    (if (= (mem-byte-at actual-ptr index) (mem-byte-at expected-ptr index))
+      (pg-scram-ascii-equal? actual-ptr expected-ptr len (+ index 1))
+      0)))
+
+(defn pg-authentication-sasl-mechanism [message-ptr message-len]
+  (if (= (pg-scram-auth-code? message-ptr message-len 10) 0)
+    0
+    (let [base (str-ptr "SCRAM-SHA-256")
+          plus (str-ptr "SCRAM-SHA-256-PLUS")]
+      (if (and (= message-len 24)
+               (= (pg-scram-ascii-equal? (+ message-ptr 9) base 13 0) 1)
+               (= (mem-byte-at message-ptr 22) 0)
+               (= (mem-byte-at message-ptr 23) 0))
+        1
+        (if (and (= message-len 43)
+                 (= (pg-scram-ascii-equal? (+ message-ptr 9) plus 18 0) 1)
+                 (= (mem-byte-at message-ptr 27) 0)
+                 (= (pg-scram-ascii-equal? (+ message-ptr 28) base 13 0) 1)
+                 (= (mem-byte-at message-ptr 41) 0)
+                 (= (mem-byte-at message-ptr 42) 0)) 2 0)))))
+
+(defn pg-authentication-sasl? [message-ptr message-len]
+  (if (> (pg-authentication-sasl-mechanism message-ptr message-len) 0) 1 0))
+
+(defn pg-authentication-sasl-continue? [message-ptr message-len]
+  (if (and (> message-len 9)
+           (<= message-len 4096)
+           (= (pg-scram-auth-code? message-ptr message-len 11) 1)) 1 0))
+
+(defn pg-authentication-sasl-final? [message-ptr message-len]
+  (if (and (> message-len 9)
+           (<= message-len 1024)
+           (= (pg-scram-auth-code? message-ptr message-len 12) 1)) 1 0))
+
+(defn pg-scram-nonce-byte-valid? [b]
+  (if (and (>= b 33) (<= b 126) (not (= b 44))) 1 0))
+
+(defn pg-scram-nonce-valid-from? [ptr len index]
+  (if (>= index len)
+    1
+    (if (= (pg-scram-nonce-byte-valid? (mem-byte-at ptr index)) 1)
+      (pg-scram-nonce-valid-from? ptr len (+ index 1))
+      0)))
+
+(defn pg-scram-client-nonce-valid? [ptr len]
+  (if (and (>= len 18) (<= len 128)
+           (= (pg-scram-nonce-valid-from? ptr len 0) 1)) 1 0))
+
+(defn pg-scram-server-nonce-valid? [client-ptr client-len server-ptr server-len index]
+  (if (or (<= server-len client-len) (> server-len 256))
+    0
+    (if (>= index server-len)
+      1
+      (if (= (pg-scram-nonce-byte-valid? (mem-byte-at server-ptr index)) 0)
+        0
+        (if (< index client-len)
+          (if (= (mem-byte-at client-ptr index) (mem-byte-at server-ptr index))
+            (pg-scram-server-nonce-valid? client-ptr client-len
+                                          server-ptr server-len (+ index 1))
+            0)
+          (pg-scram-server-nonce-valid? client-ptr client-len
+                                        server-ptr server-len (+ index 1)))))))
+
+(defn pg-scram-base64-value [b]
+  (if (and (>= b 65) (<= b 90))
+    (- b 65)
+    (if (and (>= b 97) (<= b 122))
+      (+ 26 (- b 97))
+      (if (and (>= b 48) (<= b 57))
+        (+ 52 (- b 48))
+        (if (= b 43) 62 (if (= b 47) 63 (if (= b 61) -2 -1)))))))
+
+(defn pg-scram-base64-decode-from! [in-ptr in-len in-index out-ptr out-cap out-index]
+  (if (>= in-index in-len)
+    out-index
+    (let [a (pg-scram-base64-value (mem-byte-at in-ptr in-index))
+          b (pg-scram-base64-value (mem-byte-at in-ptr (+ in-index 1)))
+          c (pg-scram-base64-value (mem-byte-at in-ptr (+ in-index 2)))
+          d (pg-scram-base64-value (mem-byte-at in-ptr (+ in-index 3)))
+          final (= (+ in-index 4) in-len)]
+      (if (or (< a 0) (< b 0)
+              (= c -1) (= d -1)
+              (and (= c -2) (not (= d -2)))
+              (and (= c -2) (> (mod b 16) 0))
+              (and (= d -2) (> c -1) (> (mod c 4) 0))
+              (and (or (= c -2) (= d -2)) (not final)))
+        -1
+        (let [needed (if (= c -2) 1 (if (= d -2) 2 3))]
+          (if (> (+ out-index needed) out-cap)
+            -1
+            (let [w0 (byte-store! out-ptr out-index (+ (* a 4) (quot b 16)))
+                  w1 (if (> needed 1)
+                       (byte-store! out-ptr (+ out-index 1)
+                                    (+ (* (mod b 16) 16) (quot c 4))) 0)
+                  w2 (if (> needed 2)
+                       (byte-store! out-ptr (+ out-index 2)
+                                    (+ (* (mod c 4) 64) d)) 0)]
+              (pg-scram-base64-decode-from! in-ptr in-len (+ in-index 4)
+                                             out-ptr out-cap (+ out-index needed)))))))))
+
+(defn pg-scram-base64-decode! [in-ptr in-len out-ptr out-cap]
+  (if (and (> in-len 0) (<= in-len 1368) (= (mod in-len 4) 0))
+    (pg-scram-base64-decode-from! in-ptr in-len 0 out-ptr out-cap 0)
+    -1))
+
+(defn pg-scram-base64-char [value]
+  (if (< value 26)
+    (+ 65 value)
+    (if (< value 52)
+      (+ 97 (- value 26))
+      (if (< value 62) (+ 48 (- value 52)) (if (= value 62) 43 47)))))
+
+(defn pg-scram-base64-encode-from! [in-ptr in-len in-index out-ptr out-cap out-index]
+  (if (>= in-index in-len)
+    out-index
+    (let [remaining (- in-len in-index)
+          a (mem-byte-at in-ptr in-index)
+          b (if (> remaining 1) (mem-byte-at in-ptr (+ in-index 1)) 0)
+          c (if (> remaining 2) (mem-byte-at in-ptr (+ in-index 2)) 0)]
+      (if (> (+ out-index 4) out-cap)
+        -1
+        (let [w0 (byte-store! out-ptr out-index
+                              (pg-scram-base64-char (quot a 4)))
+              w1 (byte-store! out-ptr (+ out-index 1)
+                              (pg-scram-base64-char
+                               (+ (* (mod a 4) 16) (quot b 16))))
+              w2 (byte-store! out-ptr (+ out-index 2)
+                              (if (> remaining 1)
+                                (pg-scram-base64-char
+                                 (+ (* (mod b 16) 4) (quot c 64)))
+                                61))
+              w3 (byte-store! out-ptr (+ out-index 3)
+                              (if (> remaining 2)
+                                (pg-scram-base64-char (mod c 64))
+                                61))]
+          (pg-scram-base64-encode-from! in-ptr in-len (+ in-index 3)
+                                         out-ptr out-cap (+ out-index 4)))))))
+
+(defn pg-scram-base64-encode! [in-ptr in-len out-ptr out-cap]
+  (if (and (> in-len 0) (<= in-len 1024))
+    (pg-scram-base64-encode-from! in-ptr in-len 0 out-ptr out-cap 0)
+    -1))
+
+(defn pg-scram-copy! [from-ptr from-len to-ptr to-offset index]
+  (if (>= index from-len)
+    (+ to-offset from-len)
+    (let [written (byte-store! to-ptr (+ to-offset index)
+                               (mem-byte-at from-ptr index))]
+      (pg-scram-copy! from-ptr from-len to-ptr to-offset (+ index 1)))))
+
+(defn pg-scram-client-first-bare! [nonce-ptr nonce-len out-ptr out-cap]
+  (if (or (= (pg-scram-client-nonce-valid? nonce-ptr nonce-len) 0)
+          (> (+ nonce-len 5) out-cap))
+    -1
+    (let [w0 (byte-store! out-ptr 0 110)
+          w1 (byte-store! out-ptr 1 61)
+          w2 (byte-store! out-ptr 2 44)
+          w3 (byte-store! out-ptr 3 114)
+          w4 (byte-store! out-ptr 4 61)]
+      (pg-scram-copy! nonce-ptr nonce-len out-ptr 5 0))))
+
+(defn pg-scram-gs2-header! [mechanism out-ptr out-cap]
+  (if (= mechanism 2)
+    (if (< out-cap 24)
+      -1
+      (pg-scram-copy! (str-ptr "p=tls-server-end-point,,") 24 out-ptr 0 0))
+    (if (< out-cap 3)
+      -1
+      (let [w0 (byte-store! out-ptr 0 110)
+            w1 (byte-store! out-ptr 1 44)
+            w2 (byte-store! out-ptr 2 44)] 3))))
+
+(defn pg-scram-client-first-for! [mechanism nonce-ptr nonce-len out-ptr out-cap]
+  (let [header-len (if (= mechanism 2) 24 3)]
+  (if (> (+ nonce-len header-len 5) out-cap)
+    -1
+    (let [header (pg-scram-gs2-header! mechanism out-ptr out-cap)
+          bare (pg-scram-client-first-bare! nonce-ptr nonce-len
+                                            (+ out-ptr header-len)
+                                            (- out-cap header-len))]
+      (if (and (= header header-len) (> bare 0))
+        (+ bare header-len) -1)))))
+
+(defn pg-scram-client-first! [nonce-ptr nonce-len out-ptr out-cap]
+  (pg-scram-client-first-for! 1 nonce-ptr nonce-len out-ptr out-cap))
+
+(defn pg-scram-client-final-without-proof-for!
+  [mechanism channel-binding-ptr channel-binding-len
+   server-nonce-ptr server-nonce-len out-ptr out-cap]
+  (if (= mechanism 2)
+    (let [raw (alloc 88)
+          header-len (pg-scram-gs2-header! mechanism raw 88)
+          raw-len (if (and (= header-len 24)
+                           (>= channel-binding-len 32)
+                           (<= channel-binding-len 64))
+                    (pg-scram-copy! channel-binding-ptr channel-binding-len
+                                    raw header-len 0)
+                    -1)
+          encoded-len (if (> raw-len 0)
+                        (pg-scram-base64-encode! raw raw-len
+                                                 (+ out-ptr 2) (- out-cap 2))
+                        -1)]
+      (if (or (< out-cap 4) (< encoded-len 0)
+              (> (+ 2 encoded-len 3 server-nonce-len) out-cap))
+        -1
+        (let [c (byte-store! out-ptr 0 99)
+              eq (byte-store! out-ptr 1 61)
+              comma (byte-store! out-ptr (+ 2 encoded-len) 44)
+              r (byte-store! out-ptr (+ 3 encoded-len) 114)
+              req (byte-store! out-ptr (+ 4 encoded-len) 61)]
+          (pg-scram-copy! server-nonce-ptr server-nonce-len
+                          out-ptr (+ 5 encoded-len) 0))))
+    (pg-scram-client-final-without-proof! server-nonce-ptr server-nonce-len
+                                           out-ptr out-cap)))
+
+(defn pg-scram-client-final-without-proof! [server-nonce-ptr server-nonce-len
+                                             out-ptr out-cap]
+  (if (> (+ server-nonce-len 9) out-cap)
+    -1
+    (let [w0 (byte-store! out-ptr 0 99)
+          w1 (byte-store! out-ptr 1 61)
+          w2 (byte-store! out-ptr 2 98)
+          w3 (byte-store! out-ptr 3 105)
+          w4 (byte-store! out-ptr 4 119)
+          w5 (byte-store! out-ptr 5 115)
+          w6 (byte-store! out-ptr 6 44)
+          w7 (byte-store! out-ptr 7 114)
+          w8 (byte-store! out-ptr 8 61)]
+      (pg-scram-copy! server-nonce-ptr server-nonce-len out-ptr 9 0))))
+
+(defn pg-scram-auth-message! [client-nonce-ptr client-nonce-len
+                               server-first-ptr server-first-len
+                               server-nonce-ptr server-nonce-len
+                               out-ptr out-cap]
+  (let [bare (pg-scram-client-first-bare! client-nonce-ptr client-nonce-len
+                                           out-ptr out-cap)]
+    (if (or (< bare 0) (> (+ bare 1 server-first-len 1 9 server-nonce-len) out-cap))
+      -1
+      (let [comma1 (byte-store! out-ptr bare 44)
+            after-server (pg-scram-copy! server-first-ptr server-first-len
+                                         out-ptr (+ bare 1) 0)
+            comma2 (byte-store! out-ptr after-server 44)
+            final-len (pg-scram-client-final-without-proof!
+                       server-nonce-ptr server-nonce-len
+                       (+ out-ptr (+ after-server 1))
+                       (- out-cap (+ after-server 1)))]
+        (if (> final-len 0) (+ after-server 1 final-len) -1)))))
+
+(defn pg-scram-auth-message-for!
+  [mechanism channel-binding-ptr channel-binding-len
+   client-nonce-ptr client-nonce-len server-first-ptr server-first-len
+   server-nonce-ptr server-nonce-len out-ptr out-cap]
+  (let [bare (pg-scram-client-first-bare! client-nonce-ptr client-nonce-len
+                                           out-ptr out-cap)]
+    (if (or (< bare 0) (> (+ bare 1 server-first-len 1) out-cap))
+      -1
+      (let [comma1 (byte-store! out-ptr bare 44)
+            after-server (pg-scram-copy! server-first-ptr server-first-len
+                                         out-ptr (+ bare 1) 0)
+            comma2 (byte-store! out-ptr after-server 44)
+            final-len (pg-scram-client-final-without-proof-for!
+                       mechanism channel-binding-ptr channel-binding-len
+                       server-nonce-ptr server-nonce-len
+                       (+ out-ptr (+ after-server 1))
+                       (- out-cap (+ after-server 1)))]
+        (if (> final-len 0) (+ after-server 1 final-len) -1)))))
+
+(defn pg-scram-client-final! [server-nonce-ptr server-nonce-len
+                               proof-ptr proof-len out-ptr out-cap]
+  (let [without (pg-scram-client-final-without-proof!
+                 server-nonce-ptr server-nonce-len out-ptr out-cap)]
+    (if (or (< without 0) (not (= proof-len 32))
+            (> (+ without 3 44) out-cap))
+      -1
+      (let [comma (byte-store! out-ptr without 44)
+            p (byte-store! out-ptr (+ without 1) 112)
+            equals (byte-store! out-ptr (+ without 2) 61)
+            encoded (pg-scram-base64-encode! proof-ptr proof-len
+                                              (+ out-ptr (+ without 3))
+                                              (- out-cap (+ without 3)))]
+        (if (= encoded 44) (+ without 3 encoded) -1)))))
+
+(defn pg-scram-client-final-for!
+  [mechanism channel-binding-ptr channel-binding-len
+   server-nonce-ptr server-nonce-len proof-ptr proof-len out-ptr out-cap]
+  (let [without (pg-scram-client-final-without-proof-for!
+                 mechanism channel-binding-ptr channel-binding-len
+                 server-nonce-ptr server-nonce-len out-ptr out-cap)]
+    (if (or (< without 0) (not (= proof-len 32))
+            (> (+ without 3 44) out-cap))
+      -1
+      (let [comma (byte-store! out-ptr without 44)
+            p (byte-store! out-ptr (+ without 1) 112)
+            equals (byte-store! out-ptr (+ without 2) 61)
+            encoded (pg-scram-base64-encode! proof-ptr proof-len
+                                              (+ out-ptr (+ without 3))
+                                              (- out-cap (+ without 3)))]
+        (if (= encoded 44) (+ without 3 encoded) -1)))))
+
+(defn pg-scram-store-i32-be! [ptr offset value]
+  (let [w0 (byte-store! ptr offset (quot value 16777216))
+        w1 (byte-store! ptr (+ offset 1) (mod (quot value 65536) 256))
+        w2 (byte-store! ptr (+ offset 2) (mod (quot value 256) 256))
+        w3 (byte-store! ptr (+ offset 3) (mod value 256))]
+    value))
+
+(defn pg-scram-sasl-initial-for! [mechanism nonce-ptr nonce-len out-ptr out-cap]
+  (let [mechanism-ptr (if (= mechanism 2)
+                        (str-ptr "SCRAM-SHA-256-PLUS")
+                        (str-ptr "SCRAM-SHA-256"))
+        mechanism-len (if (= mechanism 2) 18 13)
+        header-len (if (= mechanism 2) 24 3)
+        client-first-len (+ nonce-len 5 header-len)
+        client-offset (+ mechanism-len 10)
+        total (+ client-first-len client-offset)
+        declared (- total 1)]
+    (if (or (= (pg-scram-client-nonce-valid? nonce-ptr nonce-len) 0)
+            (> total out-cap))
+      -1
+      (let [tag (byte-store! out-ptr 0 112)
+            length (pg-scram-store-i32-be! out-ptr 1 declared)
+            copied (pg-scram-copy! mechanism-ptr mechanism-len out-ptr 5 0)
+            zero (byte-store! out-ptr (+ 5 mechanism-len) 0)
+            response-length (pg-scram-store-i32-be! out-ptr
+                                                     (+ 6 mechanism-len)
+                                                     client-first-len)
+            built (pg-scram-client-first-for! mechanism nonce-ptr nonce-len
+                                               (+ out-ptr client-offset)
+                                               (- out-cap client-offset))]
+        (if (= built client-first-len) total -1)))))
+
+(defn pg-scram-sasl-initial! [nonce-ptr nonce-len out-ptr out-cap]
+  (pg-scram-sasl-initial-for! 1 nonce-ptr nonce-len out-ptr out-cap))
+
+(defn pg-scram-sasl-response-for!
+  [mechanism channel-binding-ptr channel-binding-len
+   server-nonce-ptr server-nonce-len proof-ptr proof-len out-ptr out-cap]
+  (if (< out-cap 5)
+      -1
+      (let [tag (byte-store! out-ptr 0 112)
+            built (pg-scram-client-final-for!
+                   mechanism channel-binding-ptr channel-binding-len
+                   server-nonce-ptr server-nonce-len proof-ptr proof-len
+                   (+ out-ptr 5) (- out-cap 5))
+            length (if (> built 0)
+                     (pg-scram-store-i32-be! out-ptr 1 (+ built 4)) -1)]
+        (if (> built 0) (+ built 5) -1))))
+
+(defn pg-scram-sasl-response! [server-nonce-ptr server-nonce-len
+                                proof-ptr proof-len out-ptr out-cap]
+  (pg-scram-sasl-response-for! 1 0 0 server-nonce-ptr server-nonce-len
+                                proof-ptr proof-len out-ptr out-cap))
+
+(defn pg-scram-find-byte [ptr len index target]
+  (if (>= index len)
+    -1
+    (if (= (mem-byte-at ptr index) target)
+      index
+      (pg-scram-find-byte ptr len (+ index 1) target))))
+
+(defn pg-scram-parse-iterations-from [ptr len index value]
+  (if (>= index len)
+    (if (and (>= value 4096) (<= value 1000000)) value -1)
+    (let [b (mem-byte-at ptr index)]
+      (if (or (< b 48) (> b 57) (> value 100000))
+        -1
+        (pg-scram-parse-iterations-from ptr len (+ index 1)
+                                        (+ (* value 10) (- b 48)))))))
+
+(defn pg-scram-server-first-valid? [message-ptr message-len
+                                     client-nonce-ptr client-nonce-len
+                                     salt-out-ptr salt-out-cap]
+  (if (= (pg-authentication-sasl-continue? message-ptr message-len) 0)
+    -1
+    (let [payload-ptr (+ message-ptr 9)
+          payload-len (- message-len 9)
+          comma1 (pg-scram-find-byte payload-ptr payload-len 2 44)]
+      (if (or (< comma1 3)
+              (not (= (mem-byte-at payload-ptr 0) 114))
+              (not (= (mem-byte-at payload-ptr 1) 61)))
+        -1
+        (let [salt-key (+ comma1 1)
+              comma2 (pg-scram-find-byte payload-ptr payload-len (+ salt-key 2) 44)]
+          (if (or (< comma2 (+ salt-key 3))
+                  (not (= (mem-byte-at payload-ptr salt-key) 115))
+                  (not (= (mem-byte-at payload-ptr (+ salt-key 1)) 61))
+                  (>= (+ comma2 3) payload-len)
+                  (not (= (mem-byte-at payload-ptr (+ comma2 1)) 105))
+                  (not (= (mem-byte-at payload-ptr (+ comma2 2)) 61)))
+            -1
+            (let [server-nonce-ptr (+ payload-ptr 2)
+                  server-nonce-len (- comma1 2)
+                  salt-ptr (+ payload-ptr (+ salt-key 2))
+                  salt-len (- comma2 (+ salt-key 2))
+                  iteration-ptr (+ payload-ptr (+ comma2 3))
+                  iteration-len (- payload-len (+ comma2 3))
+                  iterations (pg-scram-parse-iterations-from iteration-ptr
+                                                             iteration-len 0 0)
+                  decoded (pg-scram-base64-decode! salt-ptr salt-len
+                                                   salt-out-ptr salt-out-cap)]
+              (if (and (> iterations 0) (> decoded 0)
+                       (= (pg-scram-client-nonce-valid?
+                           client-nonce-ptr client-nonce-len) 1)
+                       (= (pg-scram-server-nonce-valid?
+                           client-nonce-ptr client-nonce-len
+                           server-nonce-ptr server-nonce-len 0) 1))
+                iterations
+                -1))))))))
+
+(defn pg-scram-bytes-equal-count [a-ptr b-ptr len index mismatches]
+  (if (>= index len)
+    (if (= mismatches 0) 1 0)
+    (pg-scram-bytes-equal-count
+     a-ptr b-ptr len (+ index 1)
+     (+ mismatches
+        (if (= (mem-byte-at a-ptr index) (mem-byte-at b-ptr index)) 0 1)))))
+
+(defn pg-scram-server-final-valid? [message-ptr message-len expected-signature-ptr]
+  (if (or (= (pg-authentication-sasl-final? message-ptr message-len) 0)
+          (<= message-len 11)
+          (not (= (mem-byte-at message-ptr 9) 118))
+          (not (= (mem-byte-at message-ptr 10) 61)))
+    0
+    (let [decoded (alloc 32)
+          decoded-len (pg-scram-base64-decode! (+ message-ptr 11)
+                                               (- message-len 11)
+                                               decoded 32)]
+      (if (= decoded-len 32)
+        (pg-scram-bytes-equal-count decoded expected-signature-ptr 32 0 0)
+        0))))
+
+(defn pg-scram-read-exact [^:i64 channel out-ptr target offset]
+  (if (>= offset target)
+    offset
+    (let [n (transport-read channel (+ out-ptr offset) (- target offset))]
+      (if (> n 0)
+        (pg-scram-read-exact channel out-ptr target (+ offset n))
+        -1))))
+
+(defn pg-scram-read-message [^:i64 channel out-ptr out-cap]
+  (if (< out-cap 9)
+    -1
+    (let [header-read (pg-scram-read-exact channel out-ptr 5 0)
+          declared (pg-scram-message-length out-ptr 5)
+          total (+ declared 1)]
+      (if (or (not (= header-read 5)) (< declared 4) (> total out-cap))
+        -1
+        (pg-scram-read-exact channel out-ptr total 5)))))
+
+(defn pg-scram-authenticate [^:i64 channel
+                              credential-ptr credential-len
+                              nonce-ptr nonce-len]
+  (if (= (pg-scram-client-nonce-valid? nonce-ptr nonce-len) 0)
+    0
+    (let [sasl (alloc 43)
+          sasl-len (pg-scram-read-message channel sasl 43)]
+      (if (= (pg-authentication-sasl? sasl sasl-len) 0)
+        0
+        (let [mechanism (pg-authentication-sasl-mechanism sasl sasl-len)
+              channel-binding (alloc 64)
+              channel-binding-len (if (= mechanism 2)
+                                    (tls-server-end-point channel channel-binding 64)
+                                    0)
+              initial (alloc 512)
+              initial-len (if (or (= mechanism 1)
+                                  (and (= mechanism 2)
+                                       (>= channel-binding-len 32)
+                                       (<= channel-binding-len 64)))
+                            (pg-scram-sasl-initial-for!
+                             mechanism nonce-ptr nonce-len initial 512)
+                            -1)
+              initial-written (transport-write channel initial initial-len)
+              server-first (alloc 4096)
+              server-first-len (if (= initial-written initial-len)
+                                 (pg-scram-read-message channel server-first 4096)
+                                 -1)
+              salt (alloc 1024)
+              iterations (pg-scram-server-first-valid?
+                          server-first server-first-len nonce-ptr nonce-len salt 1024)]
+          (if (< iterations 0)
+            0
+            (let [payload-ptr (+ server-first 9)
+                  payload-len (- server-first-len 9)
+                  comma1 (pg-scram-find-byte payload-ptr payload-len 2 44)
+                  salt-key (+ comma1 1)
+                  comma2 (pg-scram-find-byte payload-ptr payload-len (+ salt-key 2) 44)
+                  server-nonce-ptr (+ payload-ptr 2)
+                  server-nonce-len (- comma1 2)
+                  salt-b64-ptr (+ payload-ptr (+ salt-key 2))
+                  salt-b64-len (- comma2 (+ salt-key 2))
+                  salt-len (pg-scram-base64-decode! salt-b64-ptr salt-b64-len salt 1024)
+                  auth-message (alloc 8192)
+                  auth-message-len (pg-scram-auth-message-for!
+                                    mechanism channel-binding channel-binding-len
+                                    nonce-ptr nonce-len payload-ptr payload-len
+                                    server-nonce-ptr server-nonce-len
+                                    auth-message 8192)
+                  proof (alloc 64)
+                  proof-len (if (and (> salt-len 0) (> auth-message-len 0))
+                              (scram-sha256 credential-ptr credential-len
+                                            salt salt-len iterations
+                                            auth-message auth-message-len proof 64)
+                              -1)
+                  response (alloc 512)
+                  response-len (if (= proof-len 64)
+                                 (pg-scram-sasl-response-for!
+                                  mechanism channel-binding channel-binding-len
+                                  server-nonce-ptr server-nonce-len
+                                  proof 32 response 512)
+                                 -1)
+                  response-written (if (> response-len 0)
+                                     (transport-write channel response response-len)
+                                     -1)
+                  server-final (alloc 1024)
+                  server-final-len (if (= response-written response-len)
+                                     (pg-scram-read-message channel server-final 1024)
+                                     -1)
+                  decoded-signature (alloc 32)
+                  decoded-signature-len
+                  (if (and (= (pg-authentication-sasl-final?
+                               server-final server-final-len) 1)
+                           (> server-final-len 11)
+                           (= (mem-byte-at server-final 9) 118)
+                           (= (mem-byte-at server-final 10) 61))
+                    (pg-scram-base64-decode! (+ server-final 11)
+                                             (- server-final-len 11)
+                                             decoded-signature 32)
+                    -1)]
+              (if (and (= decoded-signature-len 32)
+                       (= (pg-scram-bytes-equal-count
+                           decoded-signature (+ proof 32) 32 0 0) 1))
+                1
+                0))))))))
+
+(defn pg-scram-parameter-status-valid? [message-ptr message-len index zero-count]
+  (if (>= index message-len)
+    (if (and (= zero-count 2)
+             (= (mem-byte-at message-ptr (- message-len 1)) 0)) 1 0)
+    (if (= (mem-byte-at message-ptr index) 0)
+      (if (or (= index 5) (>= zero-count 2))
+        0
+        (pg-scram-parameter-status-valid? message-ptr message-len
+                                           (+ index 1) (+ zero-count 1)))
+      (pg-scram-parameter-status-valid? message-ptr message-len
+                                         (+ index 1) zero-count))))
+
+(defn pg-scram-ready-for-query? [message-ptr message-len]
+  (if (and (= message-len 6)
+           (= (mem-byte-at message-ptr 0) 90)
+           (= (pg-scram-message-valid? message-ptr message-len) 1)
+           (or (= (mem-byte-at message-ptr 5) 73)
+               (= (mem-byte-at message-ptr 5) 84)
+               (= (mem-byte-at message-ptr 5) 69))) 1 0))
+
+(defn pg-scram-authentication-ok? [message-ptr message-len]
+  (if (and (= message-len 9)
+           (= (pg-scram-auth-code? message-ptr message-len 0) 1)) 1 0))
+
+(defn pg-scram-read-startup-tail [^:i64 channel message-ptr count auth-ok-seen]
+  (if (>= count 64)
+    0
+    (let [message-len (pg-scram-read-message channel message-ptr 4096)
+          tag (if (> message-len 0) (mem-byte-at message-ptr 0) 0)]
+      (if (= tag 90)
+        (if (and (= auth-ok-seen 1)
+                 (= (pg-scram-ready-for-query? message-ptr message-len) 1)) 1 0)
+        (if (= tag 82)
+          (if (and (= count 0) (= auth-ok-seen 0)
+                   (= (pg-scram-authentication-ok? message-ptr message-len) 1))
+            (pg-scram-read-startup-tail channel message-ptr (+ count 1) 1)
+            0)
+          (if (= tag 83)
+            (if (and (= auth-ok-seen 1) (>= message-len 8)
+                   (= (pg-scram-parameter-status-valid?
+                       message-ptr message-len 5 0) 1))
+              (pg-scram-read-startup-tail channel message-ptr (+ count 1) 1)
+              0)
+            (if (= tag 75)
+              (if (and (= auth-ok-seen 1) (= message-len 13))
+                (pg-scram-read-startup-tail channel message-ptr (+ count 1) 1)
+                0)
+              0)))))))
+
+(defn pg-scram-i32-be [ptr offset]
+  (+ (* (mem-byte-at ptr offset) 16777216)
+     (* (mem-byte-at ptr (+ offset 1)) 65536)
+     (* (mem-byte-at ptr (+ offset 2)) 256)
+     (mem-byte-at ptr (+ offset 3))))
+
+(defn pg-scram-read-startup-tail-cancellable
+  [^:i64 channel message-ptr count auth-ok-seen cancel-seen
+   cancel-out-ptr cancel-out-cap]
+  (if (>= count 64)
+    0
+    (let [message-len (pg-scram-read-message channel message-ptr 4096)
+          tag (if (> message-len 0) (mem-byte-at message-ptr 0) 0)]
+      (if (= tag 90)
+        (if (and (= auth-ok-seen 1) (= cancel-seen 1)
+                 (= (pg-scram-ready-for-query? message-ptr message-len) 1)) 1 0)
+        (if (= tag 82)
+          (if (and (= count 0) (= auth-ok-seen 0)
+                   (= (pg-scram-authentication-ok? message-ptr message-len) 1))
+            (pg-scram-read-startup-tail-cancellable
+             channel message-ptr (+ count 1) 1 cancel-seen
+             cancel-out-ptr cancel-out-cap)
+            0)
+          (if (= tag 83)
+            (if (and (= auth-ok-seen 1) (>= message-len 8)
+                     (= (pg-scram-parameter-status-valid?
+                         message-ptr message-len 5 0) 1))
+              (pg-scram-read-startup-tail-cancellable
+               channel message-ptr (+ count 1) 1 cancel-seen
+               cancel-out-ptr cancel-out-cap)
+              0)
+            (if (= tag 75)
+              (if (and (= auth-ok-seen 1) (= cancel-seen 0)
+                       (= message-len 13) (>= cancel-out-cap 4))
+                (let [pid (pg-scram-i32-be message-ptr 5)
+                      secret (pg-scram-i32-be message-ptr 9)
+                      token (pg-cancel-register channel pid secret)
+                      stored (if (> token 0)
+                               (pg-scram-store-i32-be! cancel-out-ptr 0 token) -1)]
+                  (if (> token 0)
+                    (pg-scram-read-startup-tail-cancellable
+                     channel message-ptr (+ count 1) 1 1
+                     cancel-out-ptr cancel-out-cap)
+                    0))
+                0)
+              0)))))))
+
+(defn pg-scram-bytes-no-zero? [ptr len index]
+  (if (>= index len)
+    1
+    (if (= (mem-byte-at ptr index) 0)
+      0
+      (pg-scram-bytes-no-zero? ptr len (+ index 1)))))
+
+(defn pg-scram-startup-field-valid? [ptr len]
+  (if (and (> len 0) (<= len 63)
+           (= (pg-scram-bytes-no-zero? ptr len 0) 1)) 1 0))
+
+(defn ^:i64 pg-scram-open-tls [^:i64 transport host-ptr host-len
+                                user-ptr user-len database-ptr database-len
+                                credential-ptr credential-len nonce-ptr nonce-len]
+  (let [channel (tls-open transport host-ptr host-len)
+        startup-length (+ 25 user-len database-len)
+        header (alloc 8)
+        hlen (pg-scram-store-i32-be! header 0 startup-length)
+        h4 (byte-store! header 4 0)
+        h5 (byte-store! header 5 3)
+        h6 (byte-store! header 6 0)
+        h7 (byte-store! header 7 0)
+        zero (alloc 1)
+        z0 (byte-store! zero 0 0)
+        w0 (transport-write channel header 8)
+        w1 (transport-write channel (str-ptr "user") (str-len "user"))
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel user-ptr user-len)
+        w4 (transport-write channel zero 1)
+        w5 (transport-write channel (str-ptr "database") (str-len "database"))
+        w6 (transport-write channel zero 1)
+        w7 (transport-write channel database-ptr database-len)
+        w8 (transport-write channel zero 1)
+        w9 (transport-write channel zero 1)
+        auth (if (and (= w0 8) (= w1 4) (= w2 1) (= w3 user-len)
+                      (= w4 1) (= w5 8) (= w6 1) (= w7 database-len)
+                      (= w8 1) (= w9 1))
+               (pg-scram-authenticate channel credential-ptr credential-len
+                                      nonce-ptr nonce-len)
+               0)
+        tail-message (alloc 4096)
+        ready (if (= auth 1)
+                (pg-scram-read-startup-tail channel tail-message 0 0)
+                0)]
+    (if (= ready 1)
+      channel
+      (let [closed (transport-close channel)] (i64 0)))))
+
+(defn ^:i64 pg-scram-open-tls-cancellable
+  [^:i64 transport host-ptr host-len user-ptr user-len
+   database-ptr database-len credential-ptr credential-len nonce-ptr nonce-len
+   cancel-out-ptr cancel-out-cap]
+  (let [channel (tls-open transport host-ptr host-len)
+        startup-length (+ 25 user-len database-len)
+        header (alloc 8)
+        hlen (pg-scram-store-i32-be! header 0 startup-length)
+        h4 (byte-store! header 4 0)
+        h5 (byte-store! header 5 3)
+        h6 (byte-store! header 6 0)
+        h7 (byte-store! header 7 0)
+        zero (alloc 1)
+        z0 (byte-store! zero 0 0)
+        w0 (transport-write channel header 8)
+        w1 (transport-write channel (str-ptr "user") (str-len "user"))
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel user-ptr user-len)
+        w4 (transport-write channel zero 1)
+        w5 (transport-write channel (str-ptr "database") (str-len "database"))
+        w6 (transport-write channel zero 1)
+        w7 (transport-write channel database-ptr database-len)
+        w8 (transport-write channel zero 1)
+        w9 (transport-write channel zero 1)
+        auth (if (and (= w0 8) (= w1 4) (= w2 1) (= w3 user-len)
+                      (= w4 1) (= w5 8) (= w6 1) (= w7 database-len)
+                      (= w8 1) (= w9 1))
+               (pg-scram-authenticate channel credential-ptr credential-len
+                                      nonce-ptr nonce-len) 0)
+        tail-message (alloc 4096)
+        ready (if (= auth 1)
+                (pg-scram-read-startup-tail-cancellable
+                 channel tail-message 0 0 0 cancel-out-ptr cancel-out-cap) 0)]
+    (if (= ready 1)
+      channel
+      (let [closed (transport-close channel)] (i64 0)))))
+
+(defn ^:i64 pg-open-scram-valid [host-ptr host-len port
+                                 user-ptr user-len database-ptr database-len
+                                 credential-ptr credential-len nonce-ptr nonce-len]
+  (let [transport (transport-connect host-ptr host-len port)
+        ssl-request (alloc 8)
+        length (pg-scram-store-i32-be! ssl-request 0 8)
+        s4 (byte-store! ssl-request 4 4)
+        s5 (byte-store! ssl-request 5 210)
+        s6 (byte-store! ssl-request 6 22)
+        s7 (byte-store! ssl-request 7 47)
+        ssl-written (transport-write transport ssl-request 8)
+        ssl-answer (alloc 1)
+        ssl-read (pg-scram-read-exact transport ssl-answer 1 0)]
+    (if (and (= ssl-written 8) (= ssl-read 1)
+             (= (mem-byte-at ssl-answer 0) 83))
+      (pg-scram-open-tls transport host-ptr host-len
+                         user-ptr user-len database-ptr database-len
+                         credential-ptr credential-len nonce-ptr nonce-len)
+      (let [closed (transport-close transport)] (i64 0)))))
+
+(defn ^:i64 pg-open-scram-cancellable-valid
+  [host-ptr host-len port user-ptr user-len database-ptr database-len
+   credential-ptr credential-len nonce-ptr nonce-len cancel-out-ptr cancel-out-cap]
+  (let [transport (transport-connect host-ptr host-len port)
+        ssl-request (alloc 8)
+        length (pg-scram-store-i32-be! ssl-request 0 8)
+        s4 (byte-store! ssl-request 4 4)
+        s5 (byte-store! ssl-request 5 210)
+        s6 (byte-store! ssl-request 6 22)
+        s7 (byte-store! ssl-request 7 47)
+        ssl-written (transport-write transport ssl-request 8)
+        ssl-answer (alloc 1)
+        ssl-read (pg-scram-read-exact transport ssl-answer 1 0)]
+    (if (and (= ssl-written 8) (= ssl-read 1)
+             (= (mem-byte-at ssl-answer 0) 83))
+      (pg-scram-open-tls-cancellable
+       transport host-ptr host-len user-ptr user-len database-ptr database-len
+       credential-ptr credential-len nonce-ptr nonce-len
+       cancel-out-ptr cancel-out-cap)
+      (let [closed (transport-close transport)] (i64 0)))))
+
+(defn ^:i64 pg-open-scram-internal [host-ptr host-len port
+                                    user-ptr user-len database-ptr database-len
+                                    credential-ptr credential-len nonce-ptr nonce-len]
+  (if (and (= (pg-scram-startup-field-valid? user-ptr user-len) 1)
+           (= (pg-scram-startup-field-valid? database-ptr database-len) 1)
+           (> credential-len 0) (<= credential-len 255)
+           (= (pg-scram-client-nonce-valid? nonce-ptr nonce-len) 1))
+    (pg-open-scram-valid host-ptr host-len port
+                         user-ptr user-len database-ptr database-len
+                         credential-ptr credential-len nonce-ptr nonce-len)
+    (i64 0)))
+
+(defn ^:i64 pg-open-scram [host-ptr host-len port
+                           user-ptr user-len database-ptr database-len
+                           credential-ptr credential-len nonce-ptr nonce-len]
+  (pg-open-scram-internal host-ptr host-len port
+                          user-ptr user-len database-ptr database-len
+                          credential-ptr credential-len nonce-ptr nonce-len))
+
+(defn ^:i64 pg-open-scram-random [host-ptr host-len port
+                                  user-ptr user-len database-ptr database-len
+                                  credential-ptr credential-len]
+  (let [random (alloc 18)
+        random-len (random-bytes random 18)
+        nonce (alloc 24)
+        nonce-len (if (= random-len 18)
+                    (pg-scram-base64-encode! random 18 nonce 24)
+                    -1)]
+    (if (= nonce-len 24)
+      (pg-open-scram-internal host-ptr host-len port
+                              user-ptr user-len database-ptr database-len
+                              credential-ptr credential-len nonce nonce-len)
+      (i64 0))))
+
+(defn ^:i64 pg-open-scram-cancellable-random
+  [host-ptr host-len port user-ptr user-len database-ptr database-len
+   credential-ptr credential-len cancel-out-ptr cancel-out-cap]
+  (let [random (alloc 18)
+        random-len (random-bytes random 18)
+        nonce (alloc 24)
+        nonce-len (if (= random-len 18)
+                    (pg-scram-base64-encode! random 18 nonce 24) -1)]
+    (if (and (= nonce-len 24)
+             (= (pg-scram-startup-field-valid? user-ptr user-len) 1)
+             (= (pg-scram-startup-field-valid? database-ptr database-len) 1)
+             (> credential-len 0) (<= credential-len 255)
+             (>= cancel-out-cap 4))
+      (pg-open-scram-cancellable-valid
+       host-ptr host-len port user-ptr user-len database-ptr database-len
+       credential-ptr credential-len nonce nonce-len
+       cancel-out-ptr cancel-out-cap)
+      (i64 0))))
+
+(defn pg-cancel-authority-use [cancel-token]
+  (pg-cancel cancel-token))
+
+(defn pg-close-scram [^:i64 channel]
+  (transport-close channel))
+
+;; Password material remains behind the host's purpose-bound credential
+;; handle. This component only forwards bounded SCRAM transcript inputs and
+;; receives client-proof || expected-server-signature.
+(defn pg-scram-proof [credential-ptr credential-len
+                       salt-ptr salt-len iterations
+                       auth-message-ptr auth-message-len
+                       out-ptr out-cap]
+  (scram-sha256 credential-ptr credential-len
+                salt-ptr salt-len iterations
+                auth-message-ptr auth-message-len out-ptr out-cap))
+
+(defn main [] 0)

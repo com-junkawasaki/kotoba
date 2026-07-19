@@ -1,0 +1,6 @@
+(ns kotoba.providers.pg-cancel-consumer)
+
+(defn run [cancel-token]
+  (pg-cancel-authority-use cancel-token))
+
+(defn main [] 0)

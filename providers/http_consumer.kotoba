@@ -1,0 +1,8 @@
+(ns kotoba.providers.http-consumer)
+
+(defn run [port]
+  (let [out (alloc 256)]
+    (http-get (str-ptr "localhost") (str-len "localhost") port
+              (str-ptr "/") (str-len "/") out 256)))
+
+(defn main [] (run 443))

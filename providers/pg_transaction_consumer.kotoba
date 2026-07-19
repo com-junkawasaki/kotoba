@@ -1,0 +1,41 @@
+(ns kotoba.providers.pg-transaction-consumer)
+
+(defn run [port]
+  (let [channel (pg-open-scram-random
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary"))]
+    (let [out (alloc 1024)
+          meta (alloc 7)
+          begun (pg-query-state channel
+                                (str-ptr "begin") (str-len "begin")
+                                out 1024 meta 7)
+          begin-kind (mem-byte-at meta 0)
+          begin-state (mem-byte-at meta 1)
+          failed (pg-query-state channel
+                                 (str-ptr "select 1/0") (str-len "select 1/0")
+                                 out 1024 meta 7)
+          error-kind (mem-byte-at meta 0)
+          error-state (mem-byte-at meta 1)
+          sqlstate0 (mem-byte-at meta 2)
+          sqlstate1 (mem-byte-at meta 3)
+          sqlstate2 (mem-byte-at meta 4)
+          sqlstate3 (mem-byte-at meta 5)
+          sqlstate4 (mem-byte-at meta 6)
+          rolled-back (pg-query-state channel
+                                      (str-ptr "rollback") (str-len "rollback")
+                                      out 1024 meta 7)
+          rollback-kind (mem-byte-at meta 0)
+          rollback-state (mem-byte-at meta 1)
+          closed (pg-close-scram channel)]
+      (if (and (> begun 0) (= begin-kind 0) (= begin-state 84)
+               (> failed 0) (= error-kind 1) (= error-state 69)
+               (= sqlstate0 50) (= sqlstate1 50) (= sqlstate2 48)
+               (= sqlstate3 49) (= sqlstate4 50)
+               (> rolled-back 0) (= rollback-kind 0) (= rollback-state 73)
+               (= closed 0))
+        1
+        0))))
+
+(defn main [] 0)

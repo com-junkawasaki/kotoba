@@ -1,0 +1,83 @@
+(ns kotoba.providers.pg-pool-consumer)
+
+(defn pool-message-length [ptr]
+  (+ (* (mem-byte-at ptr 1) 16777216)
+     (* (mem-byte-at ptr 2) 65536)
+     (* (mem-byte-at ptr 3) 256)
+     (mem-byte-at ptr 4)))
+
+(defn pool-find-tag [ptr len offset target]
+  (if (>= offset len)
+    -1
+    (let [message (+ ptr offset)
+          total (+ (pool-message-length message) 1)]
+      (if (= (mem-byte-at message 0) target)
+        message
+        (pool-find-tag ptr len (+ offset total) target)))))
+
+(defn pool-row-empty? [ptr len]
+  (let [row (pool-find-tag ptr len 0 68)]
+    (if (and (> row 0)
+             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
+             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
+             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 0)) 1 0)))
+
+(defn pool-row-is-t? [ptr len]
+  (let [row (pool-find-tag ptr len 0 68)]
+    (if (and (> row 0)
+             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
+             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
+             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 1)
+             (= (mem-byte-at row 11) 116)) 1 0)))
+
+(defn run [port]
+  (let [pool (pg-pool-open
+              (str-ptr "localhost") (str-len "localhost") port
+              (str-ptr "kotoba") (str-len "kotoba")
+              (str-ptr "kotoba") (str-len "kotoba")
+              (str-ptr "db/primary") (str-len "db/primary"))
+        lease1 (pg-pool-acquire pool)
+        out (alloc 4096)
+        meta (alloc 7)
+        dirty-setting (pg-pool-query
+                       lease1 (str-ptr "set application_name = 'lease-one'")
+                       (str-len "set application_name = 'lease-one'")
+                       out 4096 meta 7)
+        dirty-temp (pg-pool-query
+                    lease1 (str-ptr "create temporary table leased_temp(v int4)")
+                    (str-len "create temporary table leased_temp(v int4)")
+                    out 4096 meta 7)
+        dirty-begin (pg-pool-query lease1 (str-ptr "BEGIN") (str-len "BEGIN")
+                                   out 4096 meta 7)
+        dirty-write (pg-pool-query
+                     lease1 (str-ptr "insert into leased_temp values (9)")
+                     (str-len "insert into leased_temp values (9)")
+                     out 4096 meta 7)
+        released1 (pg-pool-release lease1)
+        double-release (pg-pool-release lease1)
+        stale-query (pg-pool-query lease1 (str-ptr "select 1") (str-len "select 1")
+                                   out 4096 meta 7)
+        lease2 (pg-pool-acquire pool)
+        rotated (if (and (> lease2 0) (not (= lease2 lease1))) 1 0)
+        close-while-leased (pg-pool-close pool)
+        shown (pg-pool-query lease2
+                             (str-ptr "show application_name")
+                             (str-len "show application_name")
+                             out 4096 meta 7)
+        setting-clean (pool-row-empty? out shown)
+        temp-check (pg-pool-query
+                    lease2
+                    (str-ptr "select to_regclass('pg_temp.leased_temp') is null")
+                    (str-len "select to_regclass('pg_temp.leased_temp') is null")
+                    out 4096 meta 7)
+        temp-clean (pool-row-is-t? out temp-check)
+        released2 (pg-pool-release lease2)
+        closed (pg-pool-close pool)
+        acquire-closed (pg-pool-acquire pool)]
+    (if (and (> pool 0) (> lease1 0) (> dirty-setting 0) (> dirty-temp 0)
+             (> dirty-begin 0) (> dirty-write 0) (= released1 0)
+             (= double-release -1) (= stale-query -1) (= rotated 1)
+             (= close-while-leased -1) (= setting-clean 1) (= temp-clean 1)
+             (= released2 0) (= closed 0) (= acquire-closed -1)) 1 0)))
+
+(defn main [] 0)

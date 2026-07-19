@@ -1,0 +1,64 @@
+(ns kotoba.providers.pg-pool-multi-consumer)
+
+(defn open-pool [port]
+  (pg-pool-open
+   (str-ptr "localhost") (str-len "localhost") port
+   (str-ptr "kotoba") (str-len "kotoba")
+   (str-ptr "kotoba") (str-len "kotoba")
+   (str-ptr "db/primary") (str-len "db/primary")))
+
+(defn acquire-release [pool]
+  (let [lease (pg-pool-acquire pool)]
+    (if (and (> lease 0) (= (pg-pool-release lease) 0)) lease -1)))
+
+(defn acquire [pool] (pg-pool-acquire pool))
+
+(defn query-sleep [lease]
+  (let [out (alloc 4096)
+        meta (alloc 7)]
+    (pg-pool-query lease
+                   (str-ptr "select pg_sleep(0.4)")
+                   (str-len "select pg_sleep(0.4)")
+                   out 4096 meta 7)))
+
+(defn query-release-race [lease]
+  (let [out (alloc 4096)
+        meta (alloc 7)]
+    (pg-pool-query lease
+                   (str-ptr "select pg_sleep(0.6)")
+                   (str-len "select pg_sleep(0.6)")
+                   out 4096 meta 7)))
+
+(defn query-one [lease]
+  ;; Reused bounded scratch: soak loops must not consume guest linear memory.
+  (pg-pool-query lease (str-ptr "select 1") (str-len "select 1")
+                 8192 4096 12288 7))
+
+(defn release [lease] (pg-pool-release lease))
+
+(defn stats [pool] (pg-pool-stats pool 16384 32))
+
+(defn health [pool] (pg-pool-health pool))
+
+(defn drain [pool] (pg-pool-drain pool))
+
+(defn close-pool [pool] (pg-pool-close pool))
+
+(defn run [port]
+  (let [pool (open-pool port)
+        lease1 (pg-pool-acquire pool)
+        lease2 (pg-pool-acquire pool)
+        saturated (pg-pool-acquire pool)
+        close-busy (pg-pool-close pool)
+        release1 (pg-pool-release lease1)
+        lease3 (pg-pool-acquire pool)
+        fresh-token (if (and (> lease3 0) (not (= lease3 lease1))) 1 0)
+        release2 (pg-pool-release lease2)
+        release3 (pg-pool-release lease3)
+        closed (pg-pool-close pool)]
+    (if (and (> pool 0) (> lease1 0) (> lease2 0)
+             (not (= lease1 lease2)) (= saturated -1) (= close-busy -1)
+             (= release1 0) (= fresh-token 1) (= release2 0)
+             (= release3 0) (= closed 0)) 1 0)))
+
+(defn main [] 0)

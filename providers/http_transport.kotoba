@@ -1,0 +1,291 @@
+(ns kotoba.providers.http-transport)
+
+(defn ^:i64 http-open [host-ptr host-len port]
+  (let [transport (transport-connect host-ptr host-len port)]
+    (tls-open transport host-ptr host-len)))
+
+(defn http-write [^:i64 channel request-ptr request-len]
+  (transport-write channel request-ptr request-len))
+
+(defn http-read [^:i64 channel out-ptr out-cap]
+  (transport-read channel out-ptr out-cap))
+
+(defn http-close [^:i64 channel]
+  (transport-close channel))
+
+(defn http-status-code [response-ptr response-len]
+  (if (and (>= response-len 12)
+           (= (mem-byte-at response-ptr 0) 72)
+           (= (mem-byte-at response-ptr 1) 84)
+           (= (mem-byte-at response-ptr 2) 84)
+           (= (mem-byte-at response-ptr 3) 80)
+           (= (mem-byte-at response-ptr 4) 47)
+           (= (mem-byte-at response-ptr 5) 49)
+           (= (mem-byte-at response-ptr 6) 46)
+           (= (mem-byte-at response-ptr 8) 32)
+           (>= (mem-byte-at response-ptr 9) 49)
+           (<= (mem-byte-at response-ptr 9) 53)
+           (>= (mem-byte-at response-ptr 10) 48)
+           (<= (mem-byte-at response-ptr 10) 57)
+           (>= (mem-byte-at response-ptr 11) 48)
+           (<= (mem-byte-at response-ptr 11) 57))
+    (+ (* (- (mem-byte-at response-ptr 9) 48) 100)
+       (* (- (mem-byte-at response-ptr 10) 48) 10)
+       (- (mem-byte-at response-ptr 11) 48))
+    -1))
+
+(defn http-find-header-end [response-ptr response-len index]
+  (if (>= (+ index 3) response-len)
+    -1
+    (if (and (= (mem-byte-at response-ptr index) 13)
+             (= (mem-byte-at response-ptr (+ index 1)) 10)
+             (= (mem-byte-at response-ptr (+ index 2)) 13)
+             (= (mem-byte-at response-ptr (+ index 3)) 10))
+      (+ index 4)
+      (http-find-header-end response-ptr response-len (+ index 1)))))
+
+(defn http-parse-content-length-digits [response-ptr header-end index value digits]
+  (if (>= index header-end)
+    -1
+    (let [b (mem-byte-at response-ptr index)]
+      (if (= b 13)
+        (if (> digits 0) value -1)
+        (if (and (>= b 48) (<= b 57) (< digits 9))
+          (http-parse-content-length-digits response-ptr header-end (+ index 1)
+                                            (+ (* value 10) (- b 48))
+                                            (+ digits 1))
+          -1)))))
+
+(defn http-skip-content-length-spaces [response-ptr header-end index]
+  (if (>= index header-end)
+    -1
+    (if (= (mem-byte-at response-ptr index) 32)
+      (http-skip-content-length-spaces response-ptr header-end (+ index 1))
+      (http-parse-content-length-digits response-ptr header-end index 0 0))))
+
+(defn http-ascii-ci-byte=? [actual upper lower]
+  (if (or (= actual upper) (= actual lower)) 1 0))
+
+(defn http-header-line-start? [response-ptr index]
+  (if (and (>= index 2)
+           (= (mem-byte-at response-ptr (- index 2)) 13)
+           (= (mem-byte-at response-ptr (- index 1)) 10))
+    1
+    0))
+
+(defn http-content-length-name-at? [response-ptr header-end index]
+  (if (and (= (http-header-line-start? response-ptr index) 1)
+           (< (+ index 15) header-end)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr index) 67 99) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 1)) 79 111) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 2)) 78 110) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 3)) 84 116) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 4)) 69 101) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 5)) 78 110) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 6)) 84 116) 1)
+           (= (mem-byte-at response-ptr (+ index 7)) 45)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 8)) 76 108) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 9)) 69 101) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 10)) 78 110) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 11)) 71 103) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 12)) 84 116) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 13)) 72 104) 1)
+           (= (mem-byte-at response-ptr (+ index 14)) 58))
+    1
+    0))
+
+(defn http-transfer-encoding-name-at? [response-ptr header-end index]
+  (if (and (= (http-header-line-start? response-ptr index) 1)
+           (< (+ index 18) header-end)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr index) 84 116) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 1)) 82 114) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 2)) 65 97) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 3)) 78 110) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 4)) 83 115) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 5)) 70 102) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 6)) 69 101) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 7)) 82 114) 1)
+           (= (mem-byte-at response-ptr (+ index 8)) 45)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 9)) 69 101) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 10)) 78 110) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 11)) 67 99) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 12)) 79 111) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 13)) 68 100) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 14)) 73 105) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 15)) 78 110) 1)
+           (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ index 16)) 71 103) 1)
+           (= (mem-byte-at response-ptr (+ index 17)) 58))
+    1
+    0))
+
+(defn http-find-content-length-from [response-ptr header-end index]
+  (if (>= (+ index 15) header-end)
+    -1
+    (if (= (http-content-length-name-at? response-ptr header-end index) 1)
+      (let [parsed (http-skip-content-length-spaces response-ptr header-end (+ index 15))]
+        (if (< parsed 0) -2 parsed))
+      (http-find-content-length-from response-ptr header-end (+ index 1)))))
+
+(defn http-has-transfer-encoding? [response-ptr header-end index]
+  (if (>= (+ index 18) header-end)
+    0
+    (if (= (http-transfer-encoding-name-at? response-ptr header-end index) 1)
+      1
+      (http-has-transfer-encoding? response-ptr header-end (+ index 1)))))
+
+(defn http-find-transfer-encoding [response-ptr header-end index]
+  (if (>= (+ index 18) header-end)
+    -1
+    (if (= (http-transfer-encoding-name-at? response-ptr header-end index) 1)
+      index
+      (http-find-transfer-encoding response-ptr header-end (+ index 1)))))
+
+(defn http-count-content-length [response-ptr header-end index count]
+  (if (>= (+ index 15) header-end)
+    count
+    (if (= (http-content-length-name-at? response-ptr header-end index) 1)
+      (http-count-content-length response-ptr header-end (+ index 15) (+ count 1))
+      (http-count-content-length response-ptr header-end (+ index 1) count))))
+
+(defn http-find-content-length [response-ptr header-end index]
+  (if (> (http-count-content-length response-ptr header-end index 0) 1)
+    -2
+    (http-find-content-length-from response-ptr header-end index)))
+
+(defn http-skip-spaces [response-ptr limit index]
+  (if (>= index limit)
+    -1
+    (if (= (mem-byte-at response-ptr index) 32)
+      (http-skip-spaces response-ptr limit (+ index 1))
+      index)))
+
+(defn http-transfer-encoding-is-chunked? [response-ptr header-end field-index]
+  (let [value-index (http-skip-spaces response-ptr header-end (+ field-index 18))]
+    (if (and (>= value-index 0)
+             (< (+ value-index 8) header-end)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr value-index) 67 99) 1)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ value-index 1)) 72 104) 1)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ value-index 2)) 85 117) 1)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ value-index 3)) 78 110) 1)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ value-index 4)) 75 107) 1)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ value-index 5)) 69 101) 1)
+             (= (http-ascii-ci-byte=? (mem-byte-at response-ptr (+ value-index 6)) 68 100) 1)
+             (= (mem-byte-at response-ptr (+ value-index 7)) 13)
+             (= (mem-byte-at response-ptr (+ value-index 8)) 10))
+      1
+      0)))
+
+(defn http-hex-value [b]
+  (if (and (>= b 48) (<= b 57))
+    (- b 48)
+    (if (and (>= b 65) (<= b 70))
+      (+ 10 (- b 65))
+      (if (and (>= b 97) (<= b 102))
+        (+ 10 (- b 97))
+        -1))))
+
+(defn http-find-crlf [response-ptr response-len index]
+  (if (>= (+ index 1) response-len)
+    -1
+    (if (and (= (mem-byte-at response-ptr index) 13)
+             (= (mem-byte-at response-ptr (+ index 1)) 10))
+      index
+      (http-find-crlf response-ptr response-len (+ index 1)))))
+
+(defn http-parse-chunk-size [response-ptr line-end index value digits]
+  (if (= index line-end)
+    (if (> digits 0) value -1)
+    (if (or (> index line-end) (>= digits 8))
+      -1
+      (let [digit (http-hex-value (mem-byte-at response-ptr index))]
+        (if (< digit 0)
+          -1
+          (http-parse-chunk-size response-ptr line-end (+ index 1)
+                                 (+ (* value 16) digit) (+ digits 1)))))))
+
+(defn http-copy-bytes! [response-ptr source-ptr target-ptr count index]
+  (if (>= index count)
+    count
+    (let [stored (byte-store! target-ptr index
+                              (mem-byte-at source-ptr index))]
+      (http-copy-bytes! response-ptr source-ptr target-ptr count (+ index 1)))))
+
+(defn http-decode-chunks! [response-ptr response-len read-index write-index]
+  (let [line-end (http-find-crlf response-ptr response-len read-index)
+        chunk-size (if (>= line-end 0)
+                     (http-parse-chunk-size response-ptr line-end read-index 0 0)
+                     -1)
+        data-start (+ line-end 2)
+        data-end (+ data-start chunk-size)]
+    (if (< chunk-size 0)
+      -1
+      (if (= chunk-size 0)
+        (if (and (= (+ data-start 2) response-len)
+                 (= (mem-byte-at response-ptr data-start) 13)
+                 (= (mem-byte-at response-ptr (+ data-start 1)) 10))
+          write-index
+          -1)
+        (if (and (<= (+ data-end 2) response-len)
+                 (= (mem-byte-at response-ptr data-end) 13)
+                 (= (mem-byte-at response-ptr (+ data-end 1)) 10))
+          (let [copied (http-copy-bytes! response-ptr
+                                         (+ response-ptr data-start)
+                                         (+ response-ptr write-index)
+                                         chunk-size 0)]
+            (http-decode-chunks! response-ptr response-len
+                                 (+ data-end 2) (+ write-index chunk-size)))
+          -1)))))
+
+(defn http-normalize-response! [response-ptr response-len]
+  (let [status (http-status-code response-ptr response-len)
+        header-end (http-find-header-end response-ptr response-len 0)
+        content-length (if (> header-end 0)
+                         (http-find-content-length response-ptr header-end 0)
+                         -1)
+        transfer-index (if (> header-end 0)
+                         (http-find-transfer-encoding response-ptr header-end 0)
+                         -1)]
+    (if (or (< status 100) (<= header-end 0))
+      -1
+      (if (>= transfer-index 0)
+        (if (and (= content-length -1)
+                 (= (http-transfer-encoding-is-chunked?
+                     response-ptr header-end transfer-index) 1))
+          (let [decoded-end (http-decode-chunks! response-ptr response-len
+                                                 header-end header-end)]
+            decoded-end)
+          -1)
+        (if (or (= content-length -1)
+                (and (>= content-length 0)
+                     (<= content-length (- response-len header-end))))
+          response-len
+          -1)))))
+
+(defn http-response-valid? [response-ptr response-len]
+  (if (>= (http-normalize-response! response-ptr response-len) 0) 1 0))
+
+(defn http-read-bounded [^:i64 channel out-ptr out-cap offset]
+  (if (>= offset out-cap)
+    offset
+    (let [n (transport-read channel (+ out-ptr offset) (- out-cap offset))]
+      (if (> n 0)
+        (http-read-bounded channel out-ptr out-cap (+ offset n))
+        (if (= n 0) offset -1)))))
+
+(defn http-get [host-ptr host-len port path-ptr path-len out-ptr out-cap]
+  (let [transport (transport-connect host-ptr host-len port)
+        channel (tls-open transport host-ptr host-len)
+        method-written (transport-write channel (str-ptr "GET ") (str-len "GET "))
+        path-written (transport-write channel path-ptr path-len)
+        version-written (transport-write channel
+                                         (str-ptr " HTTP/1.1\r\nHost: ")
+                                         (str-len " HTTP/1.1\r\nHost: "))
+        host-written (transport-write channel host-ptr host-len)
+        headers-written (transport-write channel
+                                         (str-ptr "\r\nConnection: close\r\n\r\n")
+                                         (str-len "\r\nConnection: close\r\n\r\n"))
+        read-count (http-read-bounded channel out-ptr out-cap 0)
+        closed (transport-close channel)]
+    (http-normalize-response! out-ptr read-count)))
+
+(defn main [] 0)

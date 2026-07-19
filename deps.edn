@@ -5,7 +5,7 @@
         org.clojure/tools.reader {:mvn/version "1.5.2"}
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/compiler
-        {:git/sha "dc9b74adb4e2dd5416b62dd7f916f6392770b531"}
+        {:git/sha "94f29b24cdf5c5aa92b35cf2dd41c1d56b8205c1"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
@@ -54,8 +54,7 @@
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
-  :dev {:override-deps {io.github.kotoba-lang/compiler {:local/root "../../kotoba-lang/compiler"}
-                        io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}
+  :dev {:override-deps {io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}
                         io.github.kotoba-lang/kotoba-selfhost-contracts {:local/root "../../kotoba-lang/kotoba-selfhost-contracts"}
                         io.github.kotoba-lang/kotoba-lang {:local/root "../../kotoba-lang/kotoba-lang"}
                         io.github.kotoba-lang/org-chainagnostic-cacao {:local/root "../../kotoba-lang/org-chainagnostic-cacao"}

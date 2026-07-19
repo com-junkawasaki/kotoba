@@ -1,0 +1,1266 @@
+(ns kotoba.providers.db-transport)
+
+(defn ^:i64 db-open [host-ptr host-len port]
+  (let [transport (transport-connect host-ptr host-len port)]
+    (tls-open transport host-ptr host-len)))
+
+(defn db-write [^:i64 channel frame-ptr frame-len]
+  (transport-write channel frame-ptr frame-len))
+
+(defn db-read [^:i64 channel out-ptr out-cap]
+  (transport-read channel out-ptr out-cap))
+
+(defn db-close [^:i64 channel]
+  (transport-close channel))
+
+(defn db-frame-length [frame-ptr frame-len]
+  (if (>= frame-len 4)
+    (+ (* (mem-byte-at frame-ptr 0) 16777216)
+       (* (mem-byte-at frame-ptr 1) 65536)
+       (* (mem-byte-at frame-ptr 2) 256)
+       (mem-byte-at frame-ptr 3))
+    -1))
+
+(defn db-frame-valid? [frame-ptr frame-len]
+  (let [payload-len (db-frame-length frame-ptr frame-len)]
+    (if (and (>= payload-len 0) (<= payload-len (- frame-len 4))) 1 0)))
+
+(defn db-read-bounded [^:i64 channel out-ptr out-cap offset]
+  (if (>= offset out-cap)
+    offset
+    (let [n (transport-read channel (+ out-ptr offset) (- out-cap offset))]
+      (if (> n 0)
+        (db-read-bounded channel out-ptr out-cap (+ offset n))
+        (if (= n 0) offset -1)))))
+
+(defn db-exchange [host-ptr host-len port payload-ptr payload-len out-ptr out-cap]
+  (let [transport (transport-connect host-ptr host-len port)
+        channel (tls-open transport host-ptr host-len)
+        header (alloc 4)
+        b0 (byte-store! header 0 (quot payload-len 16777216))
+        b1 (byte-store! header 1 (mod (quot payload-len 65536) 256))
+        b2 (byte-store! header 2 (mod (quot payload-len 256) 256))
+        b3 (byte-store! header 3 (mod payload-len 256))
+        header-written (transport-write channel header 4)
+        payload-written (transport-write channel payload-ptr payload-len)
+        read-count (db-read-bounded channel out-ptr out-cap 0)
+        closed (transport-close channel)]
+    (if (= (db-frame-valid? out-ptr read-count) 1) read-count -1)))
+
+(defn pg-message-length [message-ptr message-len]
+  (if (>= message-len 5)
+    (+ (* (mem-byte-at message-ptr 1) 16777216)
+       (* (mem-byte-at message-ptr 2) 65536)
+       (* (mem-byte-at message-ptr 3) 256)
+       (mem-byte-at message-ptr 4))
+    -1))
+
+(defn pg-message-valid? [message-ptr message-len]
+  (let [declared (pg-message-length message-ptr message-len)]
+    (if (and (>= declared 4) (= (+ declared 1) message-len)) 1 0)))
+
+(defn pg-authentication-ok? [message-ptr message-len]
+  (if (and (= message-len 9)
+           (= (mem-byte-at message-ptr 0) 82)
+           (= (pg-message-valid? message-ptr message-len) 1)
+           (= (mem-byte-at message-ptr 5) 0)
+           (= (mem-byte-at message-ptr 6) 0)
+           (= (mem-byte-at message-ptr 7) 0)
+           (= (mem-byte-at message-ptr 8) 0))
+    1
+    0))
+
+(defn pg-ready-for-query? [message-ptr message-len]
+  (if (and (= message-len 6)
+           (= (mem-byte-at message-ptr 0) 90)
+           (= (pg-message-valid? message-ptr message-len) 1)
+           (or (= (mem-byte-at message-ptr 5) 73)
+               (= (mem-byte-at message-ptr 5) 84)
+               (= (mem-byte-at message-ptr 5) 69)))
+    1
+    0))
+
+(defn pg-auth-ready-response? [response-ptr response-len]
+  (if (and (= response-len 15)
+           (= (pg-authentication-ok? response-ptr 9) 1)
+           (= (pg-ready-for-query? (+ response-ptr 9) 6) 1))
+    1
+    0))
+
+(defn pg-parameter-status-valid? [message-ptr message-len index zero-count]
+  (if (>= index message-len)
+    (if (and (= zero-count 2)
+             (= (mem-byte-at message-ptr (- message-len 1)) 0)) 1 0)
+    (if (= (mem-byte-at message-ptr index) 0)
+      (if (or (= index 5) (>= zero-count 2))
+        0
+        (pg-parameter-status-valid? message-ptr message-len
+                                    (+ index 1) (+ zero-count 1)))
+      (pg-parameter-status-valid? message-ptr message-len
+                                  (+ index 1) zero-count))))
+
+(defn pg-backend-key-data? [message-ptr message-len]
+  (if (and (= message-len 13)
+           (= (mem-byte-at message-ptr 0) 75)
+           (= (pg-message-length message-ptr message-len) 12)) 1 0))
+
+(defn pg-startup-response-valid-from? [response-ptr response-len offset auth-seen]
+  (if (>= offset response-len)
+    0
+    (let [remaining (- response-len offset)
+          message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr remaining)
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)]
+      (if (or (< declared 4) (> total remaining))
+        0
+        (if (= tag 82)
+          (if (and (= auth-seen 0)
+                   (= (pg-authentication-ok? message-ptr total) 1))
+            (pg-startup-response-valid-from? response-ptr response-len
+                                             (+ offset total) 1)
+            0)
+          (if (= tag 83)
+            (if (and (= auth-seen 1) (>= total 8)
+                     (= (pg-parameter-status-valid? message-ptr total 5 0) 1))
+              (pg-startup-response-valid-from? response-ptr response-len
+                                               (+ offset total) 1)
+              0)
+            (if (= tag 75)
+              (if (and (= auth-seen 1)
+                       (= (pg-backend-key-data? message-ptr total) 1))
+                (pg-startup-response-valid-from? response-ptr response-len
+                                                 (+ offset total) 1)
+                0)
+              (if (= tag 90)
+                (if (and (= auth-seen 1) (= total remaining))
+                  (pg-ready-for-query? message-ptr total)
+                  0)
+                0))))))))
+
+(defn pg-startup-response-valid? [response-ptr response-len]
+  (pg-startup-response-valid-from? response-ptr response-len 0 0))
+
+(defn pg-read-auth-ready-exact [^:i64 channel out-ptr offset]
+  (if (>= offset 15)
+    offset
+    (let [n (transport-read channel (+ out-ptr offset) (- 15 offset))]
+      (if (> n 0)
+        (pg-read-auth-ready-exact channel out-ptr (+ offset n))
+        -1))))
+
+(defn pg-simple-query [host-ptr host-len port query-ptr query-len out-ptr out-cap]
+  (let [transport (transport-connect host-ptr host-len port)
+        ssl-request (alloc 8)
+        ssl0 (byte-store! ssl-request 0 0)
+        ssl1 (byte-store! ssl-request 1 0)
+        ssl2 (byte-store! ssl-request 2 0)
+        ssl3 (byte-store! ssl-request 3 8)
+        ssl4 (byte-store! ssl-request 4 4)
+        ssl5 (byte-store! ssl-request 5 210)
+        ssl6 (byte-store! ssl-request 6 22)
+        ssl7 (byte-store! ssl-request 7 47)
+        ssl-written (transport-write transport ssl-request 8)
+        ssl-answer (alloc 1)
+        ssl-read (if (= ssl-written 8) (transport-read transport ssl-answer 1) -1)
+        channel (if (and (= ssl-read 1) (= (mem-byte-at ssl-answer 0) 83))
+                  (tls-open transport host-ptr host-len) (i64 0))
+        header (alloc 5)
+        tag (byte-store! header 0 81)
+        frame-len (+ query-len 5)
+        b0 (byte-store! header 1 (quot frame-len 16777216))
+        b1 (byte-store! header 2 (mod (quot frame-len 65536) 256))
+        b2 (byte-store! header 3 (mod (quot frame-len 256) 256))
+        b3 (byte-store! header 4 (mod frame-len 256))
+        terminator (alloc 1)
+        zero (byte-store! terminator 0 0)
+        header-written (transport-write channel header 5)
+        query-written (if (= header-written 5) (transport-write channel query-ptr query-len) -1)
+        zero-written (if (= query-written query-len) (transport-write channel terminator 1) -1)
+        read-count (if (and (= zero-written 1) (>= out-cap 15))
+                     (pg-read-auth-ready-exact channel out-ptr 0) -1)
+        closed (transport-close channel)]
+    (if (= (pg-auth-ready-response? out-ptr read-count) 1) read-count -1)))
+
+(defn pg-read-exact [^:i64 channel out-ptr target offset]
+  (if (>= offset target)
+    offset
+    (let [n (transport-read channel (+ out-ptr offset) (- target offset))]
+      (if (> n 0)
+        (pg-read-exact channel out-ptr target (+ offset n))
+        -1))))
+
+(defn pg-bytes-no-zero? [ptr len index]
+  (if (>= index len)
+    1
+    (if (= (mem-byte-at ptr index) 0)
+      0
+      (pg-bytes-no-zero? ptr len (+ index 1)))))
+
+(defn pg-startup-field-valid? [ptr len]
+  (if (and (> len 0) (<= len 63) (= (pg-bytes-no-zero? ptr len 0) 1)) 1 0))
+
+(defn pg-query-text-valid? [ptr len]
+  (if (and (> len 0) (<= len 65535) (= (pg-bytes-no-zero? ptr len 0) 1)) 1 0))
+
+(defn ^:i64 pg-open-tls [^:i64 transport host-ptr host-len
+                         user-ptr user-len database-ptr database-len]
+  (let [channel (tls-open transport host-ptr host-len)
+        startup-length (+ 25 user-len database-len)
+        header (alloc 8)
+        h0 (byte-store! header 0 (quot startup-length 16777216))
+        h1 (byte-store! header 1 (mod (quot startup-length 65536) 256))
+        h2 (byte-store! header 2 (mod (quot startup-length 256) 256))
+        h3 (byte-store! header 3 (mod startup-length 256))
+        h4 (byte-store! header 4 0)
+        h5 (byte-store! header 5 3)
+        h6 (byte-store! header 6 0)
+        h7 (byte-store! header 7 0)
+        zero (alloc 1)
+        z0 (byte-store! zero 0 0)
+        w0 (transport-write channel header 8)
+        w1 (transport-write channel (str-ptr "user") (str-len "user"))
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel user-ptr user-len)
+        w4 (transport-write channel zero 1)
+        w5 (transport-write channel (str-ptr "database") (str-len "database"))
+        w6 (transport-write channel zero 1)
+        w7 (transport-write channel database-ptr database-len)
+        w8 (transport-write channel zero 1)
+        w9 (transport-write channel zero 1)
+        response (alloc 4096)
+        response-len (pg-read-until-ready channel response 4096 0)]
+    (if (= (pg-startup-response-valid? response response-len) 1)
+      channel
+      (let [closed (transport-close channel)] (i64 0)))))
+
+(defn ^:i64 pg-open-valid [host-ptr host-len port
+                           user-ptr user-len database-ptr database-len]
+  (let [transport (transport-connect host-ptr host-len port)
+        ssl-request (alloc 8)
+        s0 (byte-store! ssl-request 0 0)
+        s1 (byte-store! ssl-request 1 0)
+        s2 (byte-store! ssl-request 2 0)
+        s3 (byte-store! ssl-request 3 8)
+        s4 (byte-store! ssl-request 4 4)
+        s5 (byte-store! ssl-request 5 210)
+        s6 (byte-store! ssl-request 6 22)
+        s7 (byte-store! ssl-request 7 47)
+        ssl-written (transport-write transport ssl-request 8)
+        ssl-answer (alloc 1)
+        ssl-read (pg-read-exact transport ssl-answer 1 0)]
+    (if (and (= ssl-written 8) (= ssl-read 1)
+             (= (mem-byte-at ssl-answer 0) 83))
+      (pg-open-tls transport host-ptr host-len
+                   user-ptr user-len database-ptr database-len)
+      (let [closed (transport-close transport)] (i64 0)))))
+
+(defn ^:i64 pg-open [host-ptr host-len port user-ptr user-len database-ptr database-len]
+  (if (and (= (pg-startup-field-valid? user-ptr user-len) 1)
+           (= (pg-startup-field-valid? database-ptr database-len) 1))
+    (pg-open-valid host-ptr host-len port
+                   user-ptr user-len database-ptr database-len)
+    (i64 0)))
+
+(defn pg-tail-ready? [response-ptr response-len]
+  (if (>= response-len 6)
+    (pg-ready-for-query? (+ response-ptr (- response-len 6)) 6)
+    0))
+
+(defn pg-read-until-ready [^:i64 channel out-ptr out-cap offset]
+  (if (or (>= offset out-cap) (= (pg-tail-ready? out-ptr offset) 1))
+    offset
+    (let [n (transport-read channel (+ out-ptr offset) (- out-cap offset))]
+      (if (> n 0)
+        (pg-read-until-ready channel out-ptr out-cap (+ offset n))
+        -1))))
+
+(defn pg-query-tag-allowed? [tag]
+  (if (or (= tag 84) (= tag 68) (= tag 67) (= tag 73) (= tag 90)) 1 0))
+
+(defn pg-error-find-zero [ptr len index]
+  (if (>= index len)
+    -1
+    (if (= (mem-byte-at ptr index) 0)
+      index
+      (pg-error-find-zero ptr len (+ index 1)))))
+
+(defn pg-error-copy-bytes! [from-ptr len to-ptr index]
+  (if (>= index len)
+    len
+    (let [written (byte-store! to-ptr index (mem-byte-at from-ptr index))]
+      (pg-error-copy-bytes! from-ptr len to-ptr (+ index 1)))))
+
+(defn pg-error-fields-valid-from? [message-ptr message-len index fields]
+  (if (>= index message-len)
+    0
+    (let [code (mem-byte-at message-ptr index)]
+      (if (= code 0)
+        (if (and (= (+ index 1) message-len) (> fields 0)) 1 0)
+        (let [zero (pg-error-find-zero message-ptr message-len (+ index 1))]
+          (if (or (= zero -1) (= zero (+ index 1)))
+            0
+            (pg-error-fields-valid-from? message-ptr message-len
+                                          (+ zero 1) (+ fields 1))))))))
+
+(defn pg-error-response-valid? [message-ptr message-len]
+  (if (and (>= message-len 8)
+           (= (mem-byte-at message-ptr 0) 69)
+           (= (pg-message-valid? message-ptr message-len) 1))
+    (pg-error-fields-valid-from? message-ptr message-len 5 0)
+    0))
+
+(defn pg-notice-response-valid? [message-ptr message-len]
+  (if (and (>= message-len 8)
+           (= (mem-byte-at message-ptr 0) 78)
+           (= (pg-message-valid? message-ptr message-len) 1))
+    (pg-error-fields-valid-from? message-ptr message-len 5 0)
+    0))
+
+(defn pg-error-copy-field! [message-ptr message-len index target out-ptr out-cap]
+  (if (>= index message-len)
+    -1
+    (let [code (mem-byte-at message-ptr index)]
+      (if (= code 0)
+        -1
+        (let [zero (pg-error-find-zero message-ptr message-len (+ index 1))
+              value-len (- zero (+ index 1))]
+          (if (or (= zero -1) (= value-len 0))
+            -1
+            (if (= code target)
+              (if (> value-len out-cap)
+                -1
+                (pg-error-copy-bytes! (+ message-ptr (+ index 1)) value-len
+                                      out-ptr 0))
+              (pg-error-copy-field! message-ptr message-len (+ zero 1)
+                                    target out-ptr out-cap))))))))
+
+(defn pg-error-count-field [message-ptr message-len index target count]
+  (if (>= index message-len)
+    count
+    (let [code (mem-byte-at message-ptr index)]
+      (if (= code 0)
+        count
+        (let [zero (pg-error-find-zero message-ptr message-len (+ index 1))]
+          (if (= zero -1)
+            -1
+            (pg-error-count-field message-ptr message-len (+ zero 1) target
+                                  (+ count (if (= code target) 1 0)))))))))
+
+(defn pg-query-result-copy-sqlstate-from!
+  [response-ptr response-len offset out-ptr out-cap]
+  (if (>= offset response-len)
+    -1
+    (let [message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr (- response-len offset))
+          total (+ declared 1)]
+      (if (= (mem-byte-at message-ptr 0) 69)
+        (if (= (pg-error-count-field message-ptr total 5 67 0) 1)
+          (pg-error-copy-field! message-ptr total 5 67 out-ptr out-cap)
+          -1)
+        (pg-query-result-copy-sqlstate-from!
+         response-ptr response-len (+ offset total) out-ptr out-cap)))))
+
+(defn pg-query-result-tag-allowed? [tag]
+  (if (or (= (pg-query-tag-allowed? tag) 1) (= tag 69) (= tag 78) (= tag 83)) 1 0))
+
+(defn pg-query-result-valid-from? [response-ptr response-len offset errors]
+  (if (>= offset response-len)
+    0
+    (let [remaining (- response-len offset)
+          message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr remaining)
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)]
+      (if (or (< declared 4) (> total remaining)
+              (= (pg-query-result-tag-allowed? tag) 0)
+              (and (= tag 69) (= (pg-error-response-valid? message-ptr total) 0))
+              (and (= tag 78) (= (pg-notice-response-valid? message-ptr total) 0))
+              (and (= tag 83) (= (pg-parameter-status-valid? message-ptr total 5 0) 0))
+              (and (> errors 0) (not (or (= tag 69) (= tag 90)))))
+        0
+        (if (= total remaining)
+          (if (= tag 90) (pg-ready-for-query? message-ptr total) 0)
+          (if (= tag 90)
+            0
+            (pg-query-result-valid-from? response-ptr response-len
+                                          (+ offset total)
+                                          (+ errors (if (= tag 69) 1 0)))))))))
+
+(defn pg-query-result-has-error-from? [response-ptr response-len offset]
+  (if (>= offset response-len)
+    0
+    (let [message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr (- response-len offset))
+          total (+ declared 1)]
+      (if (= (mem-byte-at message-ptr 0) 69)
+        1
+        (pg-query-result-has-error-from? response-ptr response-len
+                                          (+ offset total))))))
+
+(defn pg-query-ready-status [response-ptr response-len]
+  (if (= (pg-tail-ready? response-ptr response-len) 1)
+    (mem-byte-at response-ptr (- response-len 1))
+    -1))
+
+(defn pg-query-response-valid-from? [response-ptr response-len offset]
+  (if (>= offset response-len)
+    0
+    (let [remaining (- response-len offset)
+          message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr remaining)
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)]
+      (if (or (< declared 4) (> total remaining)
+              (= (pg-query-tag-allowed? tag) 0))
+        0
+        (if (= total remaining)
+          (if (= tag 90) (pg-ready-for-query? message-ptr total) 0)
+          (if (= tag 90)
+            0
+            (pg-query-response-valid-from? response-ptr response-len
+                                           (+ offset total))))))))
+
+(defn pg-query-valid [^:i64 channel query-ptr query-len out-ptr out-cap]
+  (let [header (alloc 5)
+        tag (byte-store! header 0 81)
+        frame-len (+ query-len 5)
+        b0 (byte-store! header 1 (quot frame-len 16777216))
+        b1 (byte-store! header 2 (mod (quot frame-len 65536) 256))
+        b2 (byte-store! header 3 (mod (quot frame-len 256) 256))
+        b3 (byte-store! header 4 (mod frame-len 256))
+        terminator (alloc 1)
+        zero (byte-store! terminator 0 0)
+        w0 (transport-write channel header 5)
+        w1 (transport-write channel query-ptr query-len)
+        w2 (transport-write channel terminator 1)
+        read-count (pg-read-until-ready channel out-ptr out-cap 0)]
+    (if (= (pg-query-response-valid-from? out-ptr read-count 0) 1)
+      read-count
+      -1)))
+
+(defn pg-query [^:i64 channel query-ptr query-len out-ptr out-cap]
+  (if (= (pg-query-text-valid? query-ptr query-len) 1)
+    (pg-query-valid channel query-ptr query-len out-ptr out-cap)
+    -1))
+
+(defn pg-query-state-valid [^:i64 channel query-ptr query-len
+                             out-ptr out-cap meta-ptr meta-cap]
+  (let [header (alloc 5)
+        tag (byte-store! header 0 81)
+        frame-len (+ query-len 5)
+        b0 (byte-store! header 1 (quot frame-len 16777216))
+        b1 (byte-store! header 2 (mod (quot frame-len 65536) 256))
+        b2 (byte-store! header 3 (mod (quot frame-len 256) 256))
+        b3 (byte-store! header 4 (mod frame-len 256))
+        terminator (alloc 1)
+        zero (byte-store! terminator 0 0)
+        w0 (transport-write channel header 5)
+        w1 (transport-write channel query-ptr query-len)
+        w2 (transport-write channel terminator 1)
+        read-count (if (and (= w0 5) (= w1 query-len) (= w2 1))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (and (>= meta-cap 7) (> read-count 0)
+             (= (pg-query-result-valid-from? out-ptr read-count 0 0) 1))
+      (let [error-kind (pg-query-result-has-error-from? out-ptr read-count 0)
+            kind (byte-store! meta-ptr 0 error-kind)
+            state (byte-store! meta-ptr 1
+                               (pg-query-ready-status out-ptr read-count))
+            sqlstate (if (= error-kind 1)
+                       (pg-query-result-copy-sqlstate-from!
+                        out-ptr read-count 0 (+ meta-ptr 2) 5)
+                       (let [s0 (byte-store! meta-ptr 2 0)
+                             s1 (byte-store! meta-ptr 3 0)
+                             s2 (byte-store! meta-ptr 4 0)
+                             s3 (byte-store! meta-ptr 5 0)
+                             s4 (byte-store! meta-ptr 6 0)] 5))]
+        (if (= sqlstate 5) read-count -1))
+      -1)))
+
+(defn pg-query-state [^:i64 channel query-ptr query-len
+                       out-ptr out-cap meta-ptr meta-cap]
+  (if (= (pg-query-text-valid? query-ptr query-len) 1)
+    (pg-query-state-valid channel query-ptr query-len
+                          out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-store-i16-be! [ptr value]
+  (let [w0 (byte-store! ptr 0 (mod (quot value 256) 256))
+        w1 (byte-store! ptr 1 (mod value 256))]
+    value))
+
+(defn pg-store-i32-be! [ptr value]
+  (let [w0 (byte-store! ptr 0 (quot value 16777216))
+        w1 (byte-store! ptr 1 (mod (quot value 65536) 256))
+        w2 (byte-store! ptr 2 (mod (quot value 256) 256))
+        w3 (byte-store! ptr 3 (mod value 256))]
+    value))
+
+(defn pg-statement-name-valid? [ptr len]
+  (if (and (> len 0) (<= len 63)
+           (= (pg-bytes-no-zero? ptr len 0) 1)) 1 0))
+
+(defn pg-parameter-valid? [ptr len]
+  (if (and (>= len 0) (<= len 1024)
+           (= (pg-bytes-no-zero? ptr len 0) 1)) 1 0))
+
+(defn pg-i16-be [ptr]
+  (+ (* (mem-byte-at ptr 0) 256) (mem-byte-at ptr 1)))
+
+(defn pg-i32-be [ptr]
+  (+ (* (mem-byte-at ptr 0) 16777216)
+     (* (mem-byte-at ptr 1) 65536)
+     (* (mem-byte-at ptr 2) 256)
+     (mem-byte-at ptr 3)))
+
+(defn pg-null-length? [ptr]
+  (if (and (= (mem-byte-at ptr 0) 255)
+           (= (mem-byte-at ptr 1) 255)
+           (= (mem-byte-at ptr 2) 255)
+           (= (mem-byte-at ptr 3) 255)) 1 0))
+
+(defn pg-format-codes-valid? [ptr count index]
+  (if (>= index count)
+    1
+    (let [format (pg-i16-be (+ ptr (* index 2)))]
+      (if (or (= format 0) (= format 1))
+        (pg-format-codes-valid? ptr count (+ index 1))
+        0))))
+
+(defn pg-bind-values-end [params-ptr params-len formats-ptr
+                           count index offset]
+  (if (>= index count)
+    offset
+    (if (> (+ offset 4) params-len)
+      -1
+      (let [length-ptr (+ params-ptr offset)
+            null-kind (pg-null-length? length-ptr)
+            value-len (if (= null-kind 1) 0 (pg-i32-be length-ptr))
+            value-offset (+ offset 4)
+            value-end (+ value-offset value-len)
+            format (pg-i16-be (+ formats-ptr (* index 2)))]
+        (if (or (> value-len 1024) (> value-end params-len)
+                (and (= null-kind 0) (= format 0)
+                     (= (pg-bytes-no-zero? (+ params-ptr value-offset)
+                                           value-len 0) 0)))
+          -1
+          (pg-bind-values-end params-ptr params-len formats-ptr
+                              count (+ index 1) value-end))))))
+
+(defn pg-bind-params-valid? [params-ptr params-len]
+  (if (or (< params-len 6) (> params-len 4096))
+    0
+    (let [format-count (pg-i16-be params-ptr)
+          formats-ptr (+ params-ptr 2)
+          count-offset (+ 2 (* format-count 2))]
+      (if (or (> format-count 16) (> (+ count-offset 2) params-len)
+              (= (pg-format-codes-valid? formats-ptr format-count 0) 0))
+        0
+        (let [parameter-count (pg-i16-be (+ params-ptr count-offset))
+              values-offset (+ count-offset 2)
+              values-end (if (= parameter-count format-count)
+                           (pg-bind-values-end params-ptr params-len formats-ptr
+                                               parameter-count 0 values-offset)
+                           -1)]
+          (if (and (>= values-end 0) (= (+ values-end 2) params-len)
+                   (= (pg-i16-be (+ params-ptr values-end)) 0)) 1 0))))))
+
+(defn pg-oid-list-valid? [oids-ptr oids-len oid-count]
+  (if (and (>= oid-count 0) (<= oid-count 16)
+           (= oids-len (* oid-count 4))) 1 0))
+
+(defn pg-extended-fixed-message-valid? [tag total]
+  (if (or (and (= tag 49) (= total 5))
+          (and (= tag 50) (= total 5))
+          (and (= tag 51) (= total 5))
+          (and (= tag 110) (= total 5))
+          (and (= tag 115) (= total 5))) 1 0))
+
+(defn pg-extended-tag-valid? [message-ptr total]
+  (let [tag (mem-byte-at message-ptr 0)]
+    (if (or (= tag 49) (= tag 50) (= tag 51) (= tag 110) (= tag 115))
+      (pg-extended-fixed-message-valid? tag total)
+      (if (or (= tag 116) (= tag 84) (= tag 68) (= tag 67))
+        (if (>= total 7) 1 0)
+        (if (= tag 69)
+          (pg-error-response-valid? message-ptr total)
+          (if (= tag 90) (pg-ready-for-query? message-ptr total) 0))))))
+
+(defn pg-extended-result-valid-from? [response-ptr response-len offset errors]
+  (if (>= offset response-len)
+    0
+    (let [remaining (- response-len offset)
+          message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr remaining)
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)]
+      (if (or (< declared 4) (> total remaining)
+              (= (pg-message-valid? message-ptr total) 0)
+              (= (pg-extended-tag-valid? message-ptr total) 0)
+              (and (> errors 0) (not (or (= tag 69) (= tag 90)))))
+        0
+        (if (= total remaining)
+          (if (= tag 90) 1 0)
+          (if (= tag 90)
+            0
+            (pg-extended-result-valid-from?
+             response-ptr response-len (+ offset total)
+             (+ errors (if (= tag 69) 1 0)))))))))
+
+(defn pg-result-count-tag-from [response-ptr response-len offset target count]
+  (if (>= offset response-len)
+    count
+    (let [message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr (- response-len offset))
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)]
+      (pg-result-count-tag-from response-ptr response-len (+ offset total)
+                                target (+ count (if (= tag target) 1 0))))))
+
+(defn pg-result-write-meta! [response-ptr response-len meta-ptr meta-cap]
+  (if (< meta-cap 7)
+    -1
+    (let [error-kind (pg-query-result-has-error-from? response-ptr response-len 0)
+          kind (byte-store! meta-ptr 0 error-kind)
+          state (byte-store! meta-ptr 1
+                             (pg-query-ready-status response-ptr response-len))
+          sqlstate (if (= error-kind 1)
+                     (pg-query-result-copy-sqlstate-from!
+                      response-ptr response-len 0 (+ meta-ptr 2) 5)
+                     (let [s0 (byte-store! meta-ptr 2 0)
+                           s1 (byte-store! meta-ptr 3 0)
+                           s2 (byte-store! meta-ptr 4 0)
+                           s3 (byte-store! meta-ptr 5 0)
+                           s4 (byte-store! meta-ptr 6 0)] 5))]
+      (if (= sqlstate 5) 7 -1))))
+
+(defn pg-prepare-valid [^:i64 channel name-ptr name-len query-ptr query-len
+                         out-ptr out-cap meta-ptr meta-cap]
+  (let [zero (alloc 1)
+        z (byte-store! zero 0 0)
+        u16zero (alloc 2)
+        z16 (pg-store-i16-be! u16zero 0)
+        parse-header (alloc 5)
+        ptag (byte-store! parse-header 0 80)
+        plen (pg-store-i32-be! (+ parse-header 1) (+ 8 name-len query-len))
+        describe (alloc 6)
+        dtag (byte-store! describe 0 68)
+        dlen (pg-store-i32-be! (+ describe 1) (+ 6 name-len))
+        dtype (byte-store! describe 5 83)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel parse-header 5)
+        w1 (transport-write channel name-ptr name-len)
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel query-ptr query-len)
+        w4 (transport-write channel zero 1)
+        w5 (transport-write channel u16zero 2)
+        w6 (transport-write channel describe 6)
+        w7 (transport-write channel name-ptr name-len)
+        w8 (transport-write channel zero 1)
+        w9 (transport-write channel sync 5)
+        read-count (if (and (= w0 5) (= w1 name-len) (= w2 1)
+                            (= w3 query-len) (= w4 1) (= w5 2)
+                            (= w6 6) (= w7 name-len) (= w8 1) (= w9 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 49 0) 1)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 50 0) 0)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-prepare [^:i64 channel name-ptr name-len query-ptr query-len
+                   out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-statement-name-valid? name-ptr name-len) 1)
+           (= (pg-query-text-valid? query-ptr query-len) 1))
+    (pg-prepare-valid channel name-ptr name-len query-ptr query-len
+                      out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-prepare-typed-valid [^:i64 channel name-ptr name-len
+                               query-ptr query-len oids-ptr oids-len oid-count
+                               out-ptr out-cap meta-ptr meta-cap]
+  (let [zero (alloc 1)
+        z (byte-store! zero 0 0)
+        count-bytes (alloc 2)
+        count-written (pg-store-i16-be! count-bytes oid-count)
+        parse-header (alloc 5)
+        ptag (byte-store! parse-header 0 80)
+        plen (pg-store-i32-be! (+ parse-header 1)
+                               (+ 8 name-len query-len oids-len))
+        describe (alloc 6)
+        dtag (byte-store! describe 0 68)
+        dlen (pg-store-i32-be! (+ describe 1) (+ 6 name-len))
+        dtype (byte-store! describe 5 83)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel parse-header 5)
+        w1 (transport-write channel name-ptr name-len)
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel query-ptr query-len)
+        w4 (transport-write channel zero 1)
+        w5 (transport-write channel count-bytes 2)
+        w6 (transport-write channel oids-ptr oids-len)
+        w7 (transport-write channel describe 6)
+        w8 (transport-write channel name-ptr name-len)
+        w9 (transport-write channel zero 1)
+        w10 (transport-write channel sync 5)
+        read-count (if (and (= w0 5) (= w1 name-len) (= w2 1)
+                            (= w3 query-len) (= w4 1) (= w5 2)
+                            (= w6 oids-len) (= w7 6) (= w8 name-len)
+                            (= w9 1) (= w10 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 49 0) 1)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 50 0) 0)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-prepare-typed [^:i64 channel name-ptr name-len
+                         query-ptr query-len oids-ptr oids-len oid-count
+                         out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-statement-name-valid? name-ptr name-len) 1)
+           (= (pg-query-text-valid? query-ptr query-len) 1)
+           (= (pg-oid-list-valid? oids-ptr oids-len oid-count) 1))
+    (pg-prepare-typed-valid channel name-ptr name-len query-ptr query-len
+                            oids-ptr oids-len oid-count
+                            out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-execute-params2-valid
+  [^:i64 channel name-ptr name-len p1-ptr p1-len p2-ptr p2-len
+   out-ptr out-cap meta-ptr meta-cap]
+  (let [zero (alloc 1)
+        z (byte-store! zero 0 0)
+        u16zero (alloc 2)
+        z16 (pg-store-i16-be! u16zero 0)
+        u16two (alloc 2)
+        two (pg-store-i16-be! u16two 2)
+        bind-header (alloc 5)
+        btag (byte-store! bind-header 0 66)
+        blen (pg-store-i32-be! (+ bind-header 1)
+                               (+ 20 name-len p1-len p2-len))
+        p1-size (alloc 4)
+        p1s (pg-store-i32-be! p1-size p1-len)
+        p2-size (alloc 4)
+        p2s (pg-store-i32-be! p2-size p2-len)
+        execute (alloc 10)
+        etag (byte-store! execute 0 69)
+        elen (pg-store-i32-be! (+ execute 1) 9)
+        ezero (byte-store! execute 5 0)
+        emax (pg-store-i32-be! (+ execute 6) 0)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel bind-header 5)
+        w1 (transport-write channel zero 1)
+        w2 (transport-write channel name-ptr name-len)
+        w3 (transport-write channel zero 1)
+        w4 (transport-write channel u16zero 2)
+        w5 (transport-write channel u16two 2)
+        w6 (transport-write channel p1-size 4)
+        w7 (transport-write channel p1-ptr p1-len)
+        w8 (transport-write channel p2-size 4)
+        w9 (transport-write channel p2-ptr p2-len)
+        w10 (transport-write channel u16zero 2)
+        w11 (transport-write channel execute 10)
+        w12 (transport-write channel sync 5)
+        read-count (if (and (= w0 5) (= w1 1) (= w2 name-len) (= w3 1)
+                            (= w4 2) (= w5 2) (= w6 4) (= w7 p1-len)
+                            (= w8 4) (= w9 p2-len) (= w10 2)
+                            (= w11 10) (= w12 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 50 0) 1)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 67 0) 1)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-execute-params2
+  [^:i64 channel name-ptr name-len p1-ptr p1-len p2-ptr p2-len
+   out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-statement-name-valid? name-ptr name-len) 1)
+           (= (pg-parameter-valid? p1-ptr p1-len) 1)
+           (= (pg-parameter-valid? p2-ptr p2-len) 1))
+    (pg-execute-params2-valid channel name-ptr name-len
+                              p1-ptr p1-len p2-ptr p2-len
+                              out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-execute-params-valid [^:i64 channel name-ptr name-len
+                                params-ptr params-len
+                                out-ptr out-cap meta-ptr meta-cap]
+  (let [zero (alloc 1)
+        z (byte-store! zero 0 0)
+        bind-header (alloc 5)
+        btag (byte-store! bind-header 0 66)
+        blen (pg-store-i32-be! (+ bind-header 1)
+                               (+ 6 name-len params-len))
+        execute (alloc 10)
+        etag (byte-store! execute 0 69)
+        elen (pg-store-i32-be! (+ execute 1) 9)
+        ezero (byte-store! execute 5 0)
+        emax (pg-store-i32-be! (+ execute 6) 0)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel bind-header 5)
+        w1 (transport-write channel zero 1)
+        w2 (transport-write channel name-ptr name-len)
+        w3 (transport-write channel zero 1)
+        w4 (transport-write channel params-ptr params-len)
+        w5 (transport-write channel execute 10)
+        w6 (transport-write channel sync 5)
+        read-count (if (and (= w0 5) (= w1 1) (= w2 name-len) (= w3 1)
+                            (= w4 params-len) (= w5 10) (= w6 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 50 0) 1)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 67 0) 1)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-execute-params [^:i64 channel name-ptr name-len
+                          params-ptr params-len
+                          out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-statement-name-valid? name-ptr name-len) 1)
+           (= (pg-bind-params-valid? params-ptr params-len) 1))
+    (pg-execute-params-valid channel name-ptr name-len params-ptr params-len
+                             out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-bind-portal-valid [^:i64 channel portal-ptr portal-len
+                             name-ptr name-len params-ptr params-len
+                             out-ptr out-cap meta-ptr meta-cap]
+  (let [zero (alloc 1)
+        z (byte-store! zero 0 0)
+        bind-header (alloc 5)
+        btag (byte-store! bind-header 0 66)
+        blen (pg-store-i32-be! (+ bind-header 1)
+                               (+ 6 portal-len name-len params-len))
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel bind-header 5)
+        w1 (transport-write channel portal-ptr portal-len)
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel name-ptr name-len)
+        w4 (transport-write channel zero 1)
+        w5 (transport-write channel params-ptr params-len)
+        w6 (transport-write channel sync 5)
+        read-count (if (and (= w0 5) (= w1 portal-len) (= w2 1)
+                            (= w3 name-len) (= w4 1) (= w5 params-len)
+                            (= w6 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 50 0) 1)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 67 0) 0)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-bind-portal [^:i64 channel portal-ptr portal-len
+                       name-ptr name-len params-ptr params-len
+                       out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-statement-name-valid? portal-ptr portal-len) 1)
+           (= (pg-statement-name-valid? name-ptr name-len) 1)
+           (= (pg-bind-params-valid? params-ptr params-len) 1))
+    (pg-bind-portal-valid channel portal-ptr portal-len name-ptr name-len
+                          params-ptr params-len out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-fetch-portal-valid [^:i64 channel portal-ptr portal-len max-rows
+                              out-ptr out-cap meta-ptr meta-cap]
+  (let [header (alloc 5)
+        tag (byte-store! header 0 69)
+        len (pg-store-i32-be! (+ header 1) (+ 9 portal-len))
+        zero (alloc 1)
+        z (byte-store! zero 0 0)
+        rows (alloc 4)
+        row-count (pg-store-i32-be! rows max-rows)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel header 5)
+        w1 (transport-write channel portal-ptr portal-len)
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel rows 4)
+        w4 (transport-write channel sync 5)
+        read-count (if (and (= w0 5) (= w1 portal-len) (= w2 1)
+                            (= w3 4) (= w4 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)
+            suspended (pg-result-count-tag-from out-ptr read-count 0 115 0)
+            completed (pg-result-count-tag-from out-ptr read-count 0 67 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (or (and (= suspended 1) (= completed 0))
+                              (and (= suspended 0) (= completed 1)))))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-fetch-portal [^:i64 channel portal-ptr portal-len max-rows
+                        out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-statement-name-valid? portal-ptr portal-len) 1)
+           (> max-rows 0) (<= max-rows 1024))
+    (pg-fetch-portal-valid channel portal-ptr portal-len max-rows
+                           out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-close-portal-valid [^:i64 channel portal-ptr portal-len
+                              out-ptr out-cap meta-ptr meta-cap]
+  (let [header (alloc 6)
+        tag (byte-store! header 0 67)
+        len (pg-store-i32-be! (+ header 1) (+ 6 portal-len))
+        type (byte-store! header 5 80)
+        zero (alloc 1)
+        z (byte-store! zero 0 0)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel header 6)
+        w1 (transport-write channel portal-ptr portal-len)
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel sync 5)
+        read-count (if (and (= w0 6) (= w1 portal-len) (= w2 1) (= w3 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 51 0) 1)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-close-portal [^:i64 channel portal-ptr portal-len
+                        out-ptr out-cap meta-ptr meta-cap]
+  (if (= (pg-statement-name-valid? portal-ptr portal-len) 1)
+    (pg-close-portal-valid channel portal-ptr portal-len
+                           out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-close-statement-valid [^:i64 channel name-ptr name-len
+                                 out-ptr out-cap meta-ptr meta-cap]
+  (let [header (alloc 6)
+        tag (byte-store! header 0 67)
+        len (pg-store-i32-be! (+ header 1) (+ 6 name-len))
+        type (byte-store! header 5 83)
+        zero (alloc 1)
+        z (byte-store! zero 0 0)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        w0 (transport-write channel header 6)
+        w1 (transport-write channel name-ptr name-len)
+        w2 (transport-write channel zero 1)
+        w3 (transport-write channel sync 5)
+        read-count (if (and (= w0 6) (= w1 name-len) (= w2 1) (= w3 5))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 51 0) 1)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-close-statement [^:i64 channel name-ptr name-len
+                           out-ptr out-cap meta-ptr meta-cap]
+  (if (= (pg-statement-name-valid? name-ptr name-len) 1)
+    (pg-close-statement-valid channel name-ptr name-len
+                              out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-copy-format-codes-valid? [message-ptr count index]
+  (if (>= index count)
+    1
+    (let [format (pg-i16-be (+ message-ptr 8 (* index 2)))]
+      (if (or (= format 0) (= format 1))
+        (pg-copy-format-codes-valid? message-ptr count (+ index 1))
+        0))))
+
+(defn pg-copy-response-valid? [message-ptr total expected-tag]
+  (if (and (>= total 8) (= (mem-byte-at message-ptr 0) expected-tag)
+           (= (pg-message-valid? message-ptr total) 1))
+    (let [overall-format (mem-byte-at message-ptr 5)
+          column-count (pg-i16-be (+ message-ptr 6))]
+      (if (and (or (= overall-format 0) (= overall-format 1))
+               (<= column-count 64) (= total (+ 8 (* column-count 2)))
+               (= (pg-copy-format-codes-valid? message-ptr column-count 0) 1))
+        1 0))
+    0))
+
+(defn pg-copy-out-result-valid-from? [response-ptr response-len offset phase]
+  (if (>= offset response-len)
+    0
+    (let [remaining (- response-len offset)
+          message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr remaining)
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)
+          next-phase (if (= phase 0)
+                       (if (= tag 72) 1 (if (= tag 69) 4 -1))
+                       (if (= phase 1)
+                         (if (= tag 100) 1 (if (= tag 99) 2 -1))
+                         (if (= phase 2)
+                           (if (= tag 67) 3 -1)
+                           (if (= phase 3)
+                             (if (= tag 90) 5 -1)
+                             (if (= phase 4)
+                               (if (= tag 90) 5 -1) -1)))))]
+      (if (or (< declared 4) (> total remaining) (< next-phase 0)
+              (= (pg-message-valid? message-ptr total) 0)
+              (and (= tag 72) (= (pg-copy-response-valid? message-ptr total 72) 0))
+              (and (= tag 99) (not (= total 5)))
+              (and (= tag 69) (= (pg-error-response-valid? message-ptr total) 0))
+              (and (= tag 90) (= (pg-ready-for-query? message-ptr total) 0)))
+        0
+        (if (= total remaining)
+          (if (= next-phase 5) 1 0)
+          (if (= next-phase 5)
+            0
+            (pg-copy-out-result-valid-from? response-ptr response-len
+                                            (+ offset total) next-phase)))))))
+
+(defn pg-copy-in-final-valid-from? [response-ptr response-len offset phase]
+  (if (>= offset response-len)
+    0
+    (let [remaining (- response-len offset)
+          message-ptr (+ response-ptr offset)
+          declared (pg-message-length message-ptr remaining)
+          total (+ declared 1)
+          tag (mem-byte-at message-ptr 0)
+          next-phase (if (= phase 0)
+                       (if (= tag 67) 1 (if (= tag 69) 2 -1))
+                       (if (or (= phase 1) (= phase 2))
+                         (if (= tag 90) 3 -1) -1))]
+      (if (or (< declared 4) (> total remaining) (< next-phase 0)
+              (= (pg-message-valid? message-ptr total) 0)
+              (and (= tag 69) (= (pg-error-response-valid? message-ptr total) 0))
+              (and (= tag 90) (= (pg-ready-for-query? message-ptr total) 0)))
+        0
+        (if (= total remaining)
+          (if (= next-phase 3) 1 0)
+          (if (= next-phase 3)
+            0
+            (pg-copy-in-final-valid-from? response-ptr response-len
+                                          (+ offset total) next-phase)))))))
+
+(defn pg-copy-out-valid [^:i64 channel query-ptr query-len
+                          out-ptr out-cap meta-ptr meta-cap]
+  (let [header (alloc 5)
+        tag (byte-store! header 0 81)
+        frame-len (+ query-len 5)
+        len (pg-store-i32-be! (+ header 1) frame-len)
+        zero (alloc 1)
+        z (byte-store! zero 0 0)
+        w0 (transport-write channel header 5)
+        w1 (transport-write channel query-ptr query-len)
+        w2 (transport-write channel zero 1)
+        read-count (if (and (= w0 5) (= w1 query-len) (= w2 1))
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (and (> read-count 0)
+             (= (pg-copy-out-result-valid-from? out-ptr read-count 0 0) 1)
+             (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+      read-count -1)))
+
+(defn pg-copy-out [^:i64 channel query-ptr query-len
+                    out-ptr out-cap meta-ptr meta-cap]
+  (if (= (pg-query-text-valid? query-ptr query-len) 1)
+    (pg-copy-out-valid channel query-ptr query-len
+                       out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-copy-in-valid [^:i64 channel query-ptr query-len data-ptr data-len
+                         out-ptr out-cap meta-ptr meta-cap]
+  (let [query-header (alloc 5)
+        qtag (byte-store! query-header 0 81)
+        qlen (pg-store-i32-be! (+ query-header 1) (+ query-len 5))
+        zero (alloc 1)
+        z (byte-store! zero 0 0)
+        q0 (transport-write channel query-header 5)
+        q1 (transport-write channel query-ptr query-len)
+        q2 (transport-write channel zero 1)
+        first-five (if (and (= q0 5) (= q1 query-len) (= q2 1))
+                     (pg-read-exact channel out-ptr 5 0) -1)
+        declared (if (= first-five 5) (pg-message-length out-ptr 5) -1)
+        first-total (+ declared 1)
+        first-read (if (and (>= declared 4) (<= first-total out-cap))
+                     (pg-read-exact channel out-ptr first-total 5) -1)
+        first-tag (if (= first-read first-total) (mem-byte-at out-ptr 0) -1)]
+    (if (= first-tag 69)
+      (let [read-count (pg-read-until-ready channel out-ptr out-cap first-total)]
+        (if (and (> read-count first-total)
+                 (= (pg-copy-in-final-valid-from? out-ptr read-count 0 0) 1)
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      (if (and (= first-tag 71)
+               (= (pg-copy-response-valid? out-ptr first-total 71) 1))
+        (let [data-header (alloc 5)
+              dtag (byte-store! data-header 0 100)
+              dlen (pg-store-i32-be! (+ data-header 1) (+ data-len 4))
+              done (alloc 5)
+              ctag (byte-store! done 0 99)
+              clen (pg-store-i32-be! (+ done 1) 4)
+              w0 (transport-write channel data-header 5)
+              w1 (transport-write channel data-ptr data-len)
+              w2 (transport-write channel done 5)
+              read-count (if (and (= w0 5) (= w1 data-len) (= w2 5))
+                           (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+          (if (and (> read-count 0)
+                   (= (pg-copy-in-final-valid-from? out-ptr read-count 0 0) 1)
+                   (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+            read-count -1))
+        -1))))
+
+(defn pg-copy-in [^:i64 channel query-ptr query-len data-ptr data-len
+                   out-ptr out-cap meta-ptr meta-cap]
+  (if (and (= (pg-query-text-valid? query-ptr query-len) 1)
+           (>= data-len 0) (<= data-len 4096))
+    (pg-copy-in-valid channel query-ptr query-len data-ptr data-len
+                      out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-batch-items-end [batch-ptr batch-len item-count index offset]
+  (if (>= index item-count)
+    offset
+    (if (> (+ offset 2) batch-len)
+      -1
+      (let [name-len (pg-i16-be (+ batch-ptr offset))
+            name-offset (+ offset 2)
+            params-len-offset (+ name-offset name-len)]
+        (if (or (> (+ params-len-offset 2) batch-len)
+                (= (pg-statement-name-valid? (+ batch-ptr name-offset)
+                                             name-len) 0))
+          -1
+          (let [params-len (pg-i16-be (+ batch-ptr params-len-offset))
+                params-offset (+ params-len-offset 2)
+                next-offset (+ params-offset params-len)]
+            (if (or (> next-offset batch-len) (> params-len 4096)
+                    (= (pg-bind-params-valid? (+ batch-ptr params-offset)
+                                             params-len) 0))
+              -1
+              (pg-batch-items-end batch-ptr batch-len item-count
+                                  (+ index 1) next-offset))))))))
+
+(defn pg-batch-valid? [batch-ptr batch-len item-count]
+  (if (and (> item-count 0) (<= item-count 8)
+           (> batch-len 0) (<= batch-len 8192)
+           (= (pg-batch-items-end batch-ptr batch-len item-count 0 0)
+              batch-len)) 1 0))
+
+(defn pg-batch-write-items [^:i64 channel batch-ptr item-count index offset]
+  (if (>= index item-count)
+    1
+    (let [name-len (pg-i16-be (+ batch-ptr offset))
+          name-ptr (+ batch-ptr offset 2)
+          params-len-offset (+ offset 2 name-len)
+          params-len (pg-i16-be (+ batch-ptr params-len-offset))
+          params-ptr (+ batch-ptr params-len-offset 2)
+          next-offset (+ params-len-offset 2 params-len)
+          zero (alloc 1)
+          z (byte-store! zero 0 0)
+          bind-header (alloc 5)
+          btag (byte-store! bind-header 0 66)
+          blen (pg-store-i32-be! (+ bind-header 1)
+                                 (+ 6 name-len params-len))
+          execute (alloc 10)
+          etag (byte-store! execute 0 69)
+          elen (pg-store-i32-be! (+ execute 1) 9)
+          ezero (byte-store! execute 5 0)
+          emax (pg-store-i32-be! (+ execute 6) 0)
+          w0 (transport-write channel bind-header 5)
+          w1 (transport-write channel zero 1)
+          w2 (transport-write channel name-ptr name-len)
+          w3 (transport-write channel zero 1)
+          w4 (transport-write channel params-ptr params-len)
+          w5 (transport-write channel execute 10)]
+      (if (and (= w0 5) (= w1 1) (= w2 name-len) (= w3 1)
+               (= w4 params-len) (= w5 10))
+        (pg-batch-write-items channel batch-ptr item-count
+                              (+ index 1) next-offset)
+        0))))
+
+(defn pg-execute-batch-valid [^:i64 channel batch-ptr batch-len item-count
+                               out-ptr out-cap meta-ptr meta-cap]
+  (let [written (pg-batch-write-items channel batch-ptr item-count 0 0)
+        sync (alloc 5)
+        stag (byte-store! sync 0 83)
+        slen (pg-store-i32-be! (+ sync 1) 4)
+        sync-written (if (= written 1) (transport-write channel sync 5) -1)
+        read-count (if (= sync-written 5)
+                     (pg-read-until-ready channel out-ptr out-cap 0) -1)]
+    (if (> read-count 0)
+      (let [valid (pg-extended-result-valid-from? out-ptr read-count 0 0)
+            error-kind (pg-query-result-has-error-from? out-ptr read-count 0)]
+        (if (and (= valid 1)
+                 (or (= error-kind 1)
+                     (and (= error-kind 0)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 50 0)
+                             item-count)
+                          (= (pg-result-count-tag-from out-ptr read-count 0 67 0)
+                             item-count)))
+                 (= (pg-result-write-meta! out-ptr read-count meta-ptr meta-cap) 7))
+          read-count -1))
+      -1)))
+
+(defn pg-execute-batch [^:i64 channel batch-ptr batch-len item-count
+                         out-ptr out-cap meta-ptr meta-cap]
+  (if (= (pg-batch-valid? batch-ptr batch-len item-count) 1)
+    (pg-execute-batch-valid channel batch-ptr batch-len item-count
+                            out-ptr out-cap meta-ptr meta-cap)
+    -1))
+
+(defn pg-session-reset [^:i64 channel out-ptr out-cap meta-ptr meta-cap]
+  (let [rolled-back (pg-query-state-valid
+                     channel (str-ptr "ROLLBACK") (str-len "ROLLBACK")
+                     out-ptr out-cap meta-ptr meta-cap)]
+    (if (and (> rolled-back 0) (= (mem-byte-at meta-ptr 0) 0))
+      (let [discarded (pg-query-state-valid
+                       channel (str-ptr "DISCARD ALL") (str-len "DISCARD ALL")
+                       out-ptr out-cap meta-ptr meta-cap)]
+        (if (and (> discarded 0) (= (mem-byte-at meta-ptr 0) 0)) discarded -1))
+      -1)))
+
+(defn main [] 0)

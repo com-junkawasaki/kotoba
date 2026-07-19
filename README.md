@@ -408,6 +408,76 @@ split, Rust-free self-hosting means moving authoritative language/admission
 semantics into confined Kotoba components slice by slice, while Rust remains
 the bootstrap/emitter/oracle for unfinished slices.
 
+The first HTTP/DB provider slices now live in `providers/*.kotoba`. They import
+only the bounded `transport-connect`, `tls-open`, `tls-server-end-point`,
+`transport-read`, `transport-write`, and `transport-close` ABI; writing the provider in Kotoba
+does not grant ambient network access. The source, manifest validation, and
+reference lowering are implemented as a prototype. The JVM tender now has an
+opt-in native socket/TLS provider and a fail-closed linker between independent
+Wasm memories, exercised by compiled `.kotoba` HTTP and framed DB components.
+Browser raw transport remains unavailable. Node now has an opt-in worker/SAB
+transport with exact endpoint and resolved-address allowlists, finite quotas
+and mandatory TLS verification. It compiles the `.kotoba` HTTP provider and
+links its exports to a separate consumer Wasm memory through bounded explicit
+buffer copies; the end-to-end fixture performs a real local TLS exchange.
+
+The PostgreSQL provider additionally performs SCRAM-SHA-256 and
+SCRAM-SHA-256-PLUS in `.kotoba`. PLUS obtains only the RFC 5929
+`tls-server-end-point` digest from its affine TLS channel; it cannot request a
+certificate private key, raw socket, trust-store bypass, or root credential.
+The password remains behind the purpose-bound `scram-sha256` host operation.
+The database component also exposes a bounded `pg-query-state` operation. It
+validates ErrorResponse framing and returns the ReadyForQuery transaction state
+without granting the consumer direct transport access; released-server
+qualification covers `BEGIN -> error -> ROLLBACK` as `T -> E -> I`.
+Cancellation uses a separate one-shot opaque authority. Backend PID/secret
+bytes never cross into consumer memory; the native TCB can emit only the fixed
+PostgreSQL CancelRequest to the authenticated session's pinned peer. Released
+PostgreSQL qualification covers `pg_sleep(10)` cancellation, SQLSTATE `57014`,
+idle recovery, double-use denial, and handle cleanup.
+Named prepared statements are also lifted into `.kotoba`: bounded
+`pg-prepare`, two-independent-parameter `pg-execute-params2`, and
+`pg-close-statement` component operations. Released PostgreSQL qualification
+prepares `select $1::int4 + $2::int4`, reuses it twice, proves SQL text supplied
+as a parameter remains data via SQLSTATE `22P02`, and closes the statement.
+The generalized bounded path accepts up to sixteen explicit type OIDs and
+sixteen independently validated text, binary, or NULL values. Its released
+server proof combines three `int4` parameters in text/NULL/binary formats,
+then recovers and reuses the statement after a rejected SQL-looking value.
+Named portals provide bounded cursor semantics inside an explicit transaction:
+Bind uses the same validated parameter fragment, each Fetch is capped at 1024
+rows, PortalSuspended and CommandComplete are distinguished, and portal Close
+is explicit. Released PostgreSQL qualification fetches a three-row series as
+two rows followed by one row and releases every statement/session handle.
+COPY IN and COPY OUT use separate bounded protocol state machines. COPY IN
+accepts one independently scoped buffer of at most 4096 bytes only after a
+valid CopyInResponse; COPY OUT requires CopyOutResponse, zero or more CopyData
+frames, CopyDone, CommandComplete and ReadyForQuery in exact order. Released
+server qualification imports and exports three rows and verifies their sum.
+Bounded batch execution accepts at most eight named statement descriptors and
+their validated parameter fragments. The provider emits Bind/Execute pairs
+followed by one Sync, requires one completion pair per successful item, drains
+mid-batch errors through ReadyForQuery, and proves same-session recovery after
+PostgreSQL's ignore-until-Sync behavior.
+Pool return is guarded by `pg-session-reset`: ROLLBACK is drained first, then
+DISCARD ALL clears prepared statements, portals, temporary relations, session
+settings, LISTEN registrations, advisory locks and cached plans. Any malformed
+or error response makes the channel ineligible for reuse. Released-server
+qualification dirties all representative state, resets it and proves a clean
+subsequent query on the same affine channel.
+The pool table exposes only opaque pool and monotonic lease tokens. Consumer
+components cannot import or observe the underlying i64 channel, TLS, SCRAM,
+query parser or reset operation. The native table owns only mutable membership
+and lease freshness; it delegates all PostgreSQL protocol work to compiled
+`.kotoba` providers. Release removes the token before reset, and reset failure
+closes and evicts the physical channel.
+SCRAM credential and TLS trust material are fresh-resolved for every new proof
+and TLS open. A trusted control-plane generation swap affects only new
+connections; an existing authenticated channel remains bound to its original
+credential and peer certificate. Guest components cannot access either
+resolver or trigger rotation, and retired password character arrays are
+zeroed after replacement.
+
 ## Current repositories (CLJC, post-migration)
 
 This repo (`kotoba-lang/kotoba`) is the launcher + host-adapter substrate. Its

@@ -1,0 +1,15 @@
+(ns kotoba.providers.pg-scram-consumer)
+
+(defn run [port]
+  (let [channel (pg-open-scram-random
+                 (str-ptr "localhost") (str-len "localhost") port
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "kotoba") (str-len "kotoba")
+                 (str-ptr "db/primary") (str-len "db/primary"))]
+    (let [out (alloc 256)
+          result (pg-query channel (str-ptr "select 1") (str-len "select 1")
+                           out 256)
+          closed (pg-close-scram channel)]
+      result)))
+
+(defn main [] 0)
