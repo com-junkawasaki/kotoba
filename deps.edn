@@ -5,7 +5,7 @@
         org.clojure/tools.reader {:mvn/version "1.5.2"}
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/compiler
-        {:git/sha "94f29b24cdf5c5aa92b35cf2dd41c1d56b8205c1"}
+        {:git/sha "d4d4e26a4e392df67d0f01a6346c4d139d53a479"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
@@ -24,9 +24,9 @@
         ;; real signature under this pin or verify-lock now genuinely fails
         ;; it). org-chainagnostic-cacao bumped for PR #4 (nonce/replay
         ;; protection).
-        io.github.kotoba-lang/kotoba-core-contracts {:git/sha "35cfcfe89b3fd69802776f6fd98007eb3b1df6a3"}
+        io.github.kotoba-lang/kotoba-core-contracts {:git/sha "3689b1253c94c3a03d5ba5ae6cbe32a094f966eb"}
         io.github.kotoba-lang/kotoba-selfhost-contracts {:git/sha "ea3bc8233720ad81ea0b6e2387e45dabc9231a7f"}
-        io.github.kotoba-lang/kotoba-lang {:git/sha "8a8b832d6819730ddb3cef66affde0da7be566b8"}
+        io.github.kotoba-lang/kotoba-lang {:git/sha "99a6da4159dca0f01f47ec81fab06f6aa4c74a0f"}
         io.github.kotoba-lang/org-chainagnostic-cacao {:git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}
         ;; canonical datom model — kotoba.kgraph (the language's in-mem EAVT view)
         ;; and kotobase (the datom database) share this one [e a v] / entity↔eavt
