@@ -1,0 +1,5 @@
+(ns demo-real-fs-atomic)
+
+(defn main []
+  (fs-write-atomic (str-ptr "piece.bin") (str-len "piece.bin")
+                   (str-ptr "verified") (str-len "verified")))

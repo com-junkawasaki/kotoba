@@ -1,0 +1,2 @@
+{:kotoba.policy/capabilities #{:fs/app-data}
+ :kotoba.policy/capability-resources {:fs/app-data #{"piece.bin"}}}

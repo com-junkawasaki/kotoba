@@ -188,7 +188,7 @@ package admission gate always runs first, and a missing or rejected lock aborts
 the build/run with the admission receipt in the error payload — there is no way
 to opt out (F-001).
 
-`cljs emit` compiles a NARROW subset of `.kotoba` (arithmetic/comparison/
+`cljs emit` currently compiles a NARROW backend slice of `.kotoba` (arithmetic/comparison/
 boolean forms, `pair`, map `get`/`assoc` — the ops ADR-2607150000's
 narrow-slice governor ports actually use) to plain ClojureScript source text,
 not a WASM binary — a second execution target alongside `wasm`, added in
@@ -198,6 +198,15 @@ executed in-process by this JVM launcher. i64/f32/bitwise/string/memory/
 capability ops are valid `.kotoba` (and pass the same `check` gate `wasm emit`
 uses) but are rejected by `cljs emit` specifically — see `kotoba.runtime/
 compile-cljs-expr`'s docstring for the exact scope.
+
+That backend limitation is not the language's application-scope ceiling.
+Kotoba defines a safe **Application Profile** for host orchestration, UI, LLM
+workflows, explicit state machines, and actors. Observable effects go through
+typed, deny-by-default capabilities; the profile does not admit ambient
+DOM/SDK/network/filesystem access or process-global mutation. See
+[`docs/lang/application-profile.md`](docs/lang/application-profile.md). A
+capability family is documented as implemented only after its compiler,
+provider, denial, quota/audit, and cross-runtime conformance gates pass.
 
 Looking for things to run? [`docs/DEMONSTRATIONS.md`](docs/DEMONSTRATIONS.md)
 indexes every real program built with `.kotoba` so far — the mesh apps, the

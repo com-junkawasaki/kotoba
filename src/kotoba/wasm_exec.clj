@@ -46,7 +46,7 @@
            (com.dylibso.chicory.wasm.types FunctionType ValType)
            (java.net URI)
            (java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers HttpResponse$BodyHandlers)
-           (java.nio.file Files)
+           (java.nio.file Files StandardCopyOption)
            (java.security MessageDigest SecureRandom)))
 
 (defn- read-str
@@ -492,6 +492,29 @@
                    (Files/write (.toPath file) ^bytes data (into-array java.nio.file.OpenOption []))
                    0)
                -1))))
+       (catch Exception _ -1)))
+   'fs-write-atomic
+   (fn [instance args]
+     (try
+       (let [path (read-str instance (aget args 0) (aget args 1))
+             data (read-bytes instance (aget args 2) (aget args 3))]
+         (if-not (resource-permitted? *concrete-cap* path)
+           -1
+           (let [file (safe-path fs-root path)]
+             (if-not file
+               -1
+               (let [parent (.getParentFile file)]
+                 (.mkdirs parent)
+                 (let [tmp (Files/createTempFile (.toPath parent) ".kotoba-" ".piece"
+                                                 (make-array java.nio.file.attribute.FileAttribute 0))]
+                   (try
+                     (Files/write tmp ^bytes data (into-array java.nio.file.OpenOption []))
+                     (Files/move tmp (.toPath file)
+                                 (into-array java.nio.file.CopyOption
+                                             [StandardCopyOption/ATOMIC_MOVE
+                                              StandardCopyOption/REPLACE_EXISTING]))
+                     0
+                     (finally (Files/deleteIfExists tmp)))))))))
        (catch Exception _ -1)))
 
    'log-write

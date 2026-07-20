@@ -11,6 +11,7 @@
   not just that the call links and returns without throwing."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [kotoba.runtime :as runtime]
             [kotoba.wasm-exec :as wasm-exec])
@@ -106,6 +107,15 @@
       (is (= 4 (run-main instance)) "fs-read wrote back \"data\"'s 4 bytes")
       (is (= "data" (slurp (str (:fs-root state) "/state.txt")))
           "the file genuinely exists on disk under the sandbox root, not just in an in-memory illusion"))))
+
+(deftest fs-write-atomic-commits-under-the-sandbox-root
+  (let [{:keys [instance state]}
+        (compile-and-instantiate "src/demo_real_fs_atomic.kotoba"
+                                 "src/demo_real_fs_atomic_policy.edn")]
+    (is (= 0 (run-main instance)))
+    (is (= "verified" (slurp (io/file (:fs-root state) "piece.bin"))))
+    (is (empty? (filter #(str/starts-with? (.getName %) ".kotoba-")
+                        (.listFiles (io/file (:fs-root state))))))))
 
 (deftest fs-resource-scope-denies-a-different-path-and-permits-the-exact-one
   (testing "a policy scoping :host/fs-read (fs-write shares the same

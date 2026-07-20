@@ -232,6 +232,7 @@
    'keychain-write :host/keychain-write
    'fs-read :host/fs-read
    'fs-write :host/fs-write
+   'fs-write-atomic :host/fs-write
    'host-i64-roundtrip :host/ledger-append
    'kgraph-assert! :host/graph-assert
    'kgraph-retract! :host/graph-retract
