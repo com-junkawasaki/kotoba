@@ -517,11 +517,33 @@
 
 (declare eval-form)
 
+(def ^:dynamic *interpreter-step-budget*
+  "Nil for the compatibility/debug interpreter, or
+  `{:limit positive-int :used atom}` for a bounded run."
+  nil)
+
+(def default-interpreter-step-limit
+  "Fail-closed budget used by every policy-guarded interpreter run. Debug
+  callers may invoke `run` without policy/options and remain unbounded."
+  100000)
+
+(defn- consume-interpreter-step! []
+  (when *interpreter-step-budget*
+    (let [{:keys [limit used]} *interpreter-step-budget*
+          n (swap! used inc)]
+      (when (> n limit)
+        (throw (ex-info "Kotoba interpreter step limit exhausted"
+                        {:kotoba.runtime/problem :interpreter-step-exhausted
+                         :kotoba.runtime/step-limit limit
+                         :kotoba.runtime/steps-used n}))))))
+
 (defn truthy?
-  "Kotoba truthiness: only nil and false are falsy, everything else
-  (including 0) is truthy."
+  "Kotoba KIR truthiness: nil, false, and the canonical i32 false value 0
+  are falsy. This follows the portable Wasm/CLJS representation rather than
+  JVM Clojure's host-language truthiness."
   [value]
-  (not (or (false? value) (nil? value))))
+  (not (or (false? value) (nil? value)
+           (and (number? value) (zero? value)))))
 
 (defn bind-params
   "Zip a fn's params to call args into an env map. Throws ex-info on arity
@@ -557,10 +579,10 @@
   fns (user-defined functions). Handles literals, symbol lookup
   (env -> fns -> builtin-fns), and the special forms ns/quote/do/let/if
   /when/and/or/def/defn; anything else is treated as a function call.
-  when/and/or use `truthy?` (nil/false falsy), mirroring `if` -- note the
-  known backend divergence: the WASM compiler's `if`/`when`/`and`/`or`
-  operate on i32 where 0 is falsy, while here integer 0 is truthy."
+  when/and/or use `truthy?`, mirroring `if` and the Wasm/CLJS KIR
+  convention where the canonical false value is i32 0."
   [form env fns]
+  (consume-interpreter-step!)
   (cond
     (symbol? form)
     (cond
@@ -595,10 +617,11 @@
                (eval-form then env fns)
                (eval-form else env fns)))
         when (let [[test & body] args]
-               (when (truthy? (eval-form test env fns))
-                 (eval-body body env fns)))
+               (if (truthy? (eval-form test env fns))
+                 (eval-body body env fns)
+                 0))
         and (loop [remaining args
-                   value true]
+                   value 1]
               (if (seq remaining)
                 (let [v (eval-form (first remaining) env fns)]
                   (if (truthy? v)
@@ -611,7 +634,7 @@
                  (if (truthy? v)
                    v
                    (recur (next remaining))))
-               nil))
+               0))
         def (let [[_name value] args]
               (eval-form value env fns))
         defn nil
@@ -2251,6 +2274,7 @@
 
   The optional OPTS map enables the capability-guarded host path (issue #263):
   {:policy           <policy EDN, used for the static capability check>
+   :step-limit       <positive interpreter expression budget>
    :host-call        <fn [op args] -> result; every capability-bearing
                       host-import op is dispatched through it>
    :capability-query <fn [cap] -> boolean, bound as has-capability?>
@@ -2263,9 +2287,20 @@
   (ex-info carrying :kotoba.host/denied) fails the run closed with a
   :host-call-denied problem; the provider is never invoked."
   ([safe-facts source-plan forms] (run safe-facts source-plan forms nil))
-  ([safe-facts source-plan forms {:keys [policy host-call capability-query host-fns]}]
+  ([safe-facts source-plan forms
+    {:keys [policy host-call capability-query host-fns step-limit]}]
    (let [{:kotoba.runtime/keys [ok? problems ir]} (check safe-facts source-plan forms policy)
          fns (into {} (keep function-def forms))
+         step-budget (when (some? step-limit)
+                       (do
+                         (when-not (and (integer? step-limit)
+                                        (pos? step-limit))
+                           (throw (ex-info "interpreter step limit must be positive"
+                                           {:kotoba.runtime/problem
+                                            :invalid-interpreter-step-limit
+                                            :kotoba.runtime/step-limit
+                                            step-limit})))
+                         {:limit step-limit :used (atom 0)}))
          env-fns (cond-> fns
                    host-call (merge (guarded-host-fns forms host-call))
                    host-fns (merge host-fns)
@@ -2276,31 +2311,49 @@
         :kotoba.runtime/problems problems
         :kotoba.runtime/ir ir}
        (try
-         (let [expressions (vec (remove #(and (seq? %) (#{'ns 'defn} (first %))) forms))
-               value (cond
-                       (contains? fns 'main)
-                       (call-fn (get fns 'main) [] env-fns)
+         (let [expressions
+               (vec (remove #(and (seq? %)
+                                  (#{'ns 'defn} (first %)))
+                            forms))
+               value
+               (binding [*interpreter-step-budget* step-budget]
+                 (cond
+                   (contains? fns 'main)
+                   (call-fn (get fns 'main) [] env-fns)
 
-                       (seq expressions)
-                       (eval-body expressions {} env-fns)
+                   (seq expressions)
+                   (eval-body expressions {} env-fns)
 
-                       :else
-                       nil)]
+                   :else
+                   nil))]
            {:kotoba.runtime/ok? true
             :kotoba.runtime/value value
+            :kotoba.runtime/steps-used (some-> step-budget :used deref)
+            :kotoba.runtime/step-limit (some-> step-budget :limit)
             :kotoba.runtime/ir ir})
          (catch clojure.lang.ExceptionInfo e
-           (if (and host-call (:kotoba.host/denied (ex-data e)))
+           (cond
+             (= :interpreter-step-exhausted
+                (:kotoba.runtime/problem (ex-data e)))
+             {:kotoba.runtime/ok? false
+              :kotoba.runtime/problems
+              [(select-keys
+                (ex-data e)
+                [:kotoba.runtime/problem
+                 :kotoba.runtime/step-limit
+                 :kotoba.runtime/steps-used])]
+              :kotoba.runtime/ir ir}
+
+             (and host-call (:kotoba.host/denied (ex-data e)))
              {:kotoba.runtime/ok? false
               :kotoba.runtime/problems [{:kotoba.runtime/problem :host-call-denied
                                          :kotoba.runtime/call (:kotoba.host/call (ex-data e))
                                          :kotoba.runtime/denied (:kotoba.host/denied (ex-data e))}]
               :kotoba.runtime/ir ir}
+
+             :else
              (throw e)))
-         ;; The interpreter (eval-form/eval-body/call-fn) is a plain
-         ;; tree-walker with no tail-call optimization and no step/fuel
-         ;; budget of its own (unlike the WASM path's `kotoba.wasm-exec/
-         ;; fuel-listener`, a real per-instruction cap): an unboundedly
+         ;; The compatibility path may still omit :step-limit. An unboundedly
          ;; self-recursive `defn` (e.g. src/demo_loop_forever.kotoba's
          ;; `spin`) grows the JVM call stack one frame per recursive call
          ;; until the JVM throws `StackOverflowError` -- a `java.lang.Error`,
@@ -2310,14 +2363,12 @@
          ;; kotoba.launcher's `-main`, the whole `kotoba run` process) with a
          ;; raw Java stack trace instead of the clean
          ;; `{:kotoba.runtime/ok? false ...}` shape every other failure mode
-         ;; here produces. Caught narrowly (StackOverflowError, not a
+         ;; here produces. Production/guarded profiles supply :step-limit and
+         ;; stop before this fallback. Caught narrowly (StackOverflowError, not a
          ;; blanket Throwable) so unrelated JVM-level failures (e.g.
          ;; OutOfMemoryError, a genuine AssertionError bug) still surface
          ;; instead of being silently reclassified as a clean interpreter
-         ;; result. This is deliberately just "catch and report cleanly" --
-         ;; NOT a step-count/instruction-budget fuel mechanism matching the
-         ;; WASM path's `fuel-listener`; that would be a larger feature and
-         ;; is out of scope here."
+         ;; result."
          (catch StackOverflowError _e
            {:kotoba.runtime/ok? false
             :kotoba.runtime/problems [{:kotoba.runtime/problem :stack-overflow}]

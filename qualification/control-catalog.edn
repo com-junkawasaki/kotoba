@@ -1,0 +1,4 @@
+{:kotoba.control-catalog/version 1
+ :controls #{:capability-intersection :sealed-egress :bounded-input
+             :signed-audit :key-lifecycle :recovery-readiness
+             :supply-chain-pinning :vulnerability-response}}

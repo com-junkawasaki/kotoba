@@ -79,6 +79,16 @@
   module's own f32 ops -- see kotoba.wasm-exec/call-main's header comment;
   this repo's host-import contract never returns more than one value)."
   [field params result f]
+  (when-not (and (string? field)
+                 (every? #(instance? ValType %) params)
+                 (instance? ValType result)
+                 (ifn? f))
+    (throw (ex-info "invalid Kotoba host-function descriptor"
+                    {:kotoba.wasm/problem :invalid-host-function-descriptor
+                     :field field
+                     :params params
+                     :result result
+                     :handler? (ifn? f)})))
   (HostFunction. "kotoba" field
                  (FunctionType/of params [result])
                  (reify WasmFunctionHandle
@@ -635,9 +645,14 @@
   ([effects policy] (guarded-host-functions effects policy nil))
   ([effects policy opts]
    (mapv (fn [[op effect]]
-           (let [{:keys [field params result]} (get runtime/host-imports op)]
+           (let [descriptor (get runtime/host-imports op)]
+             (when-not descriptor
+               (throw (ex-info "real host provider has no ABI descriptor"
+                               {:kotoba.wasm/problem :missing-host-import-descriptor
+                                :operation op})))
+             (let [{:keys [field params result]} descriptor]
              (host-fn field (mapv valtype params) (valtype result)
-                      (guard-host-call op effect (assoc opts :policy policy)))))
+                      (guard-host-call op effect (assoc opts :policy policy))))))
          effects)))
 
 (defn real-host-functions

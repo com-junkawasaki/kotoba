@@ -10,6 +10,17 @@
             [kotoba.runtime :as runtime]
             [kotoba.wasm-exec :as wasm-exec]))
 
+(deftest every-real-host-provider-has-a-complete-abi-descriptor
+  (testing "a genuine provider may never drift ahead of the pinned ABI contract"
+    (doseq [op wasm-exec/real-op-ids]
+      (let [{:keys [field params result] :as descriptor}
+            (get runtime/host-imports op)]
+        (is (some? descriptor) (str op " is missing from runtime/host-imports"))
+        (is (string? field) (str op " has no wire field"))
+        (is (vector? params) (str op " must declare its parameter vector"))
+        (is (contains? #{:i32 :i64 :f32} result)
+            (str op " has an unsupported result type"))))))
+
 (deftest wasm-binary-actually-executes
   (testing "a trivial (no-import) module runs through Chicory and returns the interpreted value"
     (let [forms (runtime/read-file "src/demo.kotoba" :kotoba)
@@ -20,6 +31,24 @@
       (is (:kotoba.wasm/ok? wasm))
       (is (= (:kotoba.runtime/value interpreted)
              (wasm-exec/run-main (:kotoba.wasm/binary wasm) []))))))
+
+(deftest interpreter-wasm-and-kir-truthiness-are-identical
+  (doseq [[form expected]
+          [['(if 0 11 22) 22]
+           ['(if 7 11 22) 11]
+           ['(or 0 7) 7]
+           ['(and 0 (quot 1 0)) 0]
+           ['(when 0 (quot 1 0)) 0]
+           ['(and) 1]
+           ['(or) 0]]]
+    (let [source (str "(defn main [] " (pr-str form) ")")
+          forms (runtime/read-forms source :kotoba)
+          wasm (runtime/wasm-binary forms)
+          interpreted (runtime/eval-form form {} {})]
+      (is (:kotoba.wasm/ok? wasm) (pr-str (:kotoba.wasm/problems wasm)))
+      (is (= expected interpreted) (str "interpreter " form))
+      (is (= expected (wasm-exec/run-main (:kotoba.wasm/binary wasm) []))
+          (str "Wasm " form)))))
 
 (deftest run-export-invokes-parameterized-language-functions
   (let [forms (runtime/read-forms

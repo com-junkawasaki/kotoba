@@ -1,0 +1,9 @@
+{:kotoba.origin-edge-assertion/version 1
+ :algorithm :ed25519
+ :required-claims [:version :issuer :subject :audience :method :path
+                   :body-sha256 :nonce :issued-at-ms :expires-at-ms]
+ :maximum-lifetime-ms 60000
+ :clock-skew-ms 5000
+ :nonce-single-use true
+ :request-binding #{:method :path :body-sha256}
+ :unknown-issuer :deny}

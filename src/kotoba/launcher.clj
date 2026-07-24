@@ -21,6 +21,7 @@
             [kotoba.package-admission :as package-admission]
             [kotoba.runtime :as runtime]
             [kotoba.semantic-code :as semantic-code]
+            [kotoba.semantic-codebase :as semantic-codebase]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.wasm-exec :as wasm-exec])
   (:gen-class))
@@ -53,6 +54,7 @@
   (first argv))
 
 (declare source-plan source-extension accepted-source? selfhost-result runtime-result wasm-result cljs-result
+         codebase-result
          compile-result package-result contract-exports)
 
 (def source-commands
@@ -70,6 +72,12 @@
     "--reader-target"
     "--receipt"
     "--source-path"
+    "--store"
+    "--namespace"
+    "--expected-head"
+    "--base"
+    "--left"
+    "--right"
     "--target"
     "--trust"
     "--host-command"
@@ -219,6 +227,7 @@
                                "wasm" (wasm-result argv)
                                "cljs" (cljs-result argv)
                                "package" (package-result argv)
+                               "codebase" (codebase-result argv)
                                nil)]
       launcher-result
       (let [contract (read-cli-contract-resource "lang/cli.edn")
@@ -239,6 +248,89 @@
                   :kotoba.launcher/authority-request
                   (authority-request argv normalized-argv plan))
           (adapter-result (command-name argv) result)))))))
+
+(defn- codebase-error [code error]
+  {:kotoba.cli/ok? false
+   :kotoba.cli/code code
+   :kotoba.cli/message (.getMessage ^Exception error)
+   :kotoba.cli/data (ex-data error)})
+
+(defn codebase-result
+  "C5 local codebase commands.  They persist semantic blocks only; source Git
+  remains the authoring workflow and no network synchronization is implied.
+
+  `codebase import <source> --store <dir> --namespace <name>` creates a new
+  immutable namespace commit from the source's semantic definitions."
+  [argv]
+  (let [[_ action subject] argv
+        root (option-value argv "--store")
+        namespace (option-value argv "--namespace")
+        expected-head (option-value argv "--expected-head")
+        base (option-value argv "--base")
+        left (option-value argv "--left")
+        right (option-value argv "--right")]
+    (cond
+      (not (#{"init" "import" "inspect" "resolve" "merge"} action))
+      {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
+
+      (nil? root)
+      {:kotoba.cli/ok? false :kotoba.cli/code :codebase/store-required}
+
+      (= action "init")
+      {:kotoba.cli/ok? true :kotoba.cli/code :codebase/initialized
+       :kotoba.cli/data (semantic-codebase/initialize! root)}
+
+      (= action "inspect")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/cid-required}
+        (try
+          {:kotoba.cli/ok? true :kotoba.cli/code :codebase/inspected
+           :kotoba.cli/data {:cid subject :block (semantic-codebase/get-block root subject)}}
+          (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/inspect-failed error))))
+
+      (= action "resolve")
+      (if-not (and namespace subject)
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-and-name-required}
+        (try
+          {:kotoba.cli/ok? true :kotoba.cli/code :codebase/resolved
+           :kotoba.cli/data (semantic-codebase/resolve-name root namespace subject)}
+          (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/resolve-failed error))))
+
+      (= action "merge")
+      (if-not (and namespace base left right)
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/merge-input-required}
+        (try
+          (let [merged (semantic-codebase/merge-namespace!
+                        root namespace base left right expected-head)]
+            {:kotoba.cli/ok? (:merged? merged)
+             :kotoba.cli/code (if (:merged? merged) :codebase/merged :codebase/merge-conflict)
+             :kotoba.cli/data merged})
+          (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/merge-failed error))))
+
+      :else
+      (if-not (and namespace subject (.isFile (io/file subject)))
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/import-input-invalid}
+        (try
+          (let [plan (source-plan subject (reader-target-option argv))
+                forms (runtime/read-file subject (:kotoba.source/reader-target plan))
+                source-text (slurp (io/file subject))
+                profile-text (slurp (io/resource "lang/profile.edn"))
+                code (semantic-code/compile-definitions
+                      forms {:source-cid (semantic-code/source-cid source-text)
+                             :profile-cid (semantic-code/source-cid profile-text)})
+                _ (doseq [[_ {:keys [cid block type-cid type-block group-cid group-block]}]
+                           (:definitions code)]
+                    (semantic-codebase/put-block! root type-cid type-block)
+                    (when group-cid (semantic-codebase/put-block! root group-cid group-block))
+                    (semantic-codebase/put-block! root cid block))
+                bindings (into (sorted-map)
+                               (map (fn [[name {:keys [cid]}]] [(str name) cid]))
+                               (:definitions code))
+                commit (semantic-codebase/commit-namespace! root namespace bindings expected-head)]
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/imported
+             :kotoba.cli/data {:namespace namespace :head (:cid commit)
+                               :definitions bindings}})
+          (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/import-failed error)))))))
 
 (defn- write-bytes! [path bytes]
   (some-> (io/file path) .getParentFile .mkdirs)
@@ -547,6 +639,9 @@
          cap-fns (host-providers/capability-passing-fns cap-table policy opts)
          ran (runtime/run safe-facts plan forms
                           {:policy policy
+                           :step-limit
+                           (or (:kotoba.policy/interpreter-step-limit policy)
+                               runtime/default-interpreter-step-limit)
                            :host-call host-call
                            :capability-query (host-providers/capability-query-fn policy)
                            :host-fns cap-fns})]

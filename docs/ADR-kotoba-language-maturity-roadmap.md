@@ -55,23 +55,16 @@ usual promise of O(1) stack space, which is a materially bigger change than
 `cond`. Recommend splitting: ship `cond` first (fast, self-contained), scope
 `loop`/`recur` as its own follow-up once `cond` lands.
 
-### 3. Unify `truthy?` semantics between the WASM and interpreter backends
+### 3. Unify `truthy?` semantics between backends — closed 2026-07-23
 
-Documented, acknowledged inconsistency: the WASM compiler's `if`/`when`/
-`and`/`or` treat a literal i32 `0` as falsy (the WASM/C convention), while
-the interpreter's `truthy?` only treats `nil`/`false` as falsy (the Lisp/
-Clojure convention). A program using an integer result in boolean position
-can silently branch differently depending on which backend runs it — this
-is a correctness hazard, and since capability-gated code paths can be
-conditional, it is *adjacent* to (though distinct from) the security surface
-already hardened. Recommend picking the Lisp convention (`nil`/`false` only)
-as canonical, since that's what a Clojure-family language's users will
-expect, and fixing the WASM backend to match rather than the reverse (this
-plausibly touches less code, since dedicated i32-zero-check paths in the
-WASM emitter are a narrower blast radius than are all the language's
-existing boolean-context call sites, but that should be confirmed by reading
-the actual `compile-wasm-expr` `if`-emission code before committing to the
-direction).
+The portable KIR convention is now normative: `nil`, `false`, and i32 `0` are
+falsy; non-zero values are truthy. The interpreter, Wasm and CLJS backends
+therefore agree for `if`, `when`, `and`, and `or`, including empty combinators
+(`(and)` → 1, `(or)` → 0). This chooses the already-published Wasm/CLJS ABI
+over JVM Clojure host truthiness: without a tagged-value ABI, Wasm cannot
+distinguish numeric zero from the canonical false representation. A
+differential regression test executes the same forms in the interpreter and
+Chicory/Wasm so this security-adjacent divergence cannot return silently.
 
 ### 4. `non-integer` `main` support
 
@@ -88,18 +81,17 @@ The second explicit negative in `docs/lang/coverage.edn`
 (`:wasm-policy-not-readable`). Not investigated in detail during the
 maturity assessment — needs its own short investigation to scope.
 
-### 6. Interpreter execution-resource limit (partially closed)
+### 6. Interpreter execution-resource limit (bounded path implemented)
 
-The security audit's PR #304 added a narrow `StackOverflowError` catch to
-the interpreter (`kotoba.runtime/run`), converting a crash into a clean
-error result — but this is explicitly scoped as "catch and report," not "add
-a fuel/step-budget system to the interpreter" the way `kotoba.wasm-exec/
-fuel-listener` already does for the WASM path. If the interpreter is meant
-to remain a first-class execution path (not just a debug/reference
-implementation), giving it real step-budget parity with the WASM path is a
-legitimate follow-up — but confirm the interpreter's intended long-term role
-first (its own docstring currently frames it as "debug only," which may mean
-this isn't worth the investment).
+`kotoba.runtime/run` now accepts a positive `:step-limit`, counts every
+evaluated expression, and returns
+`:kotoba.runtime/problem :interpreter-step-exhausted` at the exact boundary.
+Guarded runs obtain this from
+`:kotoba.policy/interpreter-step-limit`, defaulting fail-closed to 100,000
+evaluated expressions when the policy omits it. The old narrow
+`StackOverflowError` conversion remains only as a compatibility fallback for
+debug callers that omit a policy. Calibration against Wasm instruction fuel
+and a wall-clock deadline remain follow-ups.
 
 ### 7. Release cadence / versioning
 

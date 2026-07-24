@@ -125,6 +125,27 @@
     (is (false? (:kotoba.cli/ok? result)))
     (is (= 1 (launcher/result->exit result)))))
 
+(deftest local-codebase-cli-imports-inspects-and-resolves-semantic-definitions
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "kotoba-codebase-cli-" (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (doto (java.io.File/createTempFile "kotoba-codebase" ".kotoba")
+                 (.deleteOnExit))]
+    (try
+      (spit source "(defn increment [x] (+ x 1))")
+      (is (= :codebase/initialized
+             (:kotoba.cli/code (launcher/dispatch ["codebase" "init" "--store" (.getPath root)]))))
+      (let [imported (launcher/dispatch ["codebase" "import" (.getPath source)
+                                         "--store" (.getPath root) "--namespace" "scratch"])
+            cid (get-in imported [:kotoba.cli/data :definitions "increment"])
+            resolved (launcher/dispatch ["codebase" "resolve" "increment"
+                                         "--store" (.getPath root) "--namespace" "scratch"])
+            inspected (launcher/dispatch ["codebase" "inspect" cid "--store" (.getPath root)])]
+        (is (:kotoba.cli/ok? imported))
+        (is (= cid (get-in resolved [:kotoba.cli/data :cid])))
+        (is (= cid (get-in inspected [:kotoba.cli/data :cid]))))
+      (finally
+        (doseq [f (reverse (file-seq root))] (.delete ^java.io.File f))))))
+
 (deftest loads-safe-analyzer-fact-seed-from-clj-resources
   (let [seed (launcher/safe-analyzer-fact-classification)]
     (is (= "kotoba.selfhost.safe-analyzer-facts.v0" (:schema seed)))

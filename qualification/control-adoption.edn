@@ -1,0 +1,18 @@
+{:kotoba.control-adoption/version 1
+ :catalog/sha256 "b28960b4967db943a9579bfb7665a40f80632f57815269daabc6db57b6f7b09a"
+ :adoptions
+ {:kotoba {:controls #{:capability-intersection :sealed-egress :bounded-input
+                       :signed-audit :key-lifecycle :recovery-readiness
+                       :supply-chain-pinning :vulnerability-response}}
+  :kototama {:controls #{:capability-intersection :sealed-egress :bounded-input
+                         :signed-audit :key-lifecycle :recovery-readiness
+                         :supply-chain-pinning :vulnerability-response}}
+  :aiueos {:controls #{:capability-intersection :sealed-egress :bounded-input
+                       :signed-audit :key-lifecycle :recovery-readiness
+                       :supply-chain-pinning :vulnerability-response}}
+  :kotoba-lang {:controls #{:capability-intersection :sealed-egress :bounded-input
+                            :signed-audit :key-lifecycle :recovery-readiness
+                            :supply-chain-pinning :vulnerability-response}}
+  :kotobase {:controls #{:capability-intersection :sealed-egress :bounded-input
+                         :signed-audit :key-lifecycle :recovery-readiness
+                         :supply-chain-pinning :vulnerability-response}}}}

@@ -67,6 +67,36 @@
              (:kotoba.runtime/problems result)))
       (is (not (contains? result :kotoba.runtime/value))))))
 
+(deftest interpreter-step-budget-stops-unbounded-recursion-before-stack-overflow
+  (let [forms (runtime/read-file "src/demo_loop_forever.kotoba" :kotoba)
+        result (runtime/run
+                (launcher/safe-analyzer-fact-classification)
+                (launcher/source-plan "src/demo_loop_forever.kotoba")
+                forms
+                {:step-limit 100})]
+    (is (false? (:kotoba.runtime/ok? result)))
+    (is (= :interpreter-step-exhausted
+           (get-in result [:kotoba.runtime/problems 0
+                           :kotoba.runtime/problem])))
+    (is (= 100
+           (get-in result [:kotoba.runtime/problems 0
+                           :kotoba.runtime/step-limit])))
+    (is (= 101
+           (get-in result [:kotoba.runtime/problems 0
+                           :kotoba.runtime/steps-used])))))
+
+(deftest interpreter-step-budget-rejects-invalid-limits
+  (let [forms (runtime/read-forms "(defn main [] 1)" :kotoba)]
+    (doseq [limit [0 -1 "100"]]
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo
+           #"interpreter step limit must be positive"
+           (runtime/run
+            (launcher/safe-analyzer-fact-classification)
+            (launcher/source-plan "inline.kotoba")
+            forms
+            {:step-limit limit}))))))
+
 (deftest cli-run-reports-stack-overflow-cleanly-not-a-process-crash
   (testing "the same guard through the actual `kotoba run` CLI entry point
             (kotoba.launcher/dispatch), confirming the clean shape survives

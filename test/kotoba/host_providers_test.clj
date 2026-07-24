@@ -47,6 +47,11 @@
     (is (= :run/completed (:kotoba.cli/code result)))
     (is (= 41 (get-in result [:kotoba.cli/data :kotoba.runtime/result
                               :kotoba.runtime/value])))
+    (is (= runtime/default-interpreter-step-limit
+           (get-in result [:kotoba.cli/data :kotoba.runtime/result
+                           :kotoba.runtime/step-limit])))
+    (is (pos? (get-in result [:kotoba.cli/data :kotoba.runtime/result
+                              :kotoba.runtime/steps-used])))
     (is (= 1 (count receipts)))
     (is (= :ok (:receipt/outcome receipt)))
     (is (= :kotoba.host/host-i64-roundtrip (:receipt/call receipt)))

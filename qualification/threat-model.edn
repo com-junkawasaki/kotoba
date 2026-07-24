@@ -1,0 +1,137 @@
+{:kotoba.threat-model/version 1
+ :as-of "2026-07-23"
+ :profile :grade-a-candidate
+ :scope #{:kotoba :kototama :aiueos :kotoba-lang :kotobase
+          :kotobase.net :composed-deployment}
+ :assets
+ [{:id :asset/source :classification :integrity}
+  {:id :asset/package :classification :integrity}
+  {:id :asset/component :classification :integrity}
+  {:id :asset/signing-keys :classification :secret}
+  {:id :asset/block-key :classification :secret}
+  {:id :asset/private-data :classification :confidential}
+  {:id :asset/tenant-authority :classification :confidential}
+  {:id :asset/audit-receipts :classification :integrity}
+  {:id :asset/availability :classification :operational}]
+ :actors
+ [{:id :actor/user :trust :authenticated}
+  {:id :actor/operator :trust :privileged}
+  {:id :actor/release-authority :trust :privileged}
+  {:id :actor/edge :trust :untrusted-until-origin-verified}
+  {:id :actor/guest :trust :hostile}
+  {:id :actor/dependency :trust :untrusted}
+  {:id :actor/tenant :trust :mutually-hostile}
+  {:id :actor/network :trust :hostile}
+  {:id :actor/storage-provider :trust :honest-but-curious}]
+ :trust-boundaries
+ [{:id :boundary/source-reader :from :actor/dependency :to :kotoba-lang}
+  {:id :boundary/compiler-artifact :from :kotoba-lang :to :kotoba}
+  {:id :boundary/package-admission :from :actor/dependency :to :kotoba}
+  {:id :boundary/component-tender :from :actor/guest :to :kototama}
+  {:id :boundary/host-import :from :kototama :to :aiueos}
+  {:id :boundary/hardware :from :aiueos :to :physical-device}
+  {:id :boundary/data-plane :from :actor/tenant :to :kotobase}
+  {:id :boundary/edge-origin :from :actor/edge :to :kotobase.net}
+  {:id :boundary/public-storage :from :kotoba :to :actor/storage-provider}
+  {:id :boundary/release :from :actor/release-authority
+   :to :composed-deployment}]
+ :threats
+ [{:id :T-spoof-edge :category :spoofing
+   :assets #{:asset/tenant-authority}
+   :boundaries #{:boundary/edge-origin}
+   :controls #{:control/origin-assertion}}
+  {:id :T-tamper-source :category :tampering
+   :assets #{:asset/source :asset/package :asset/component}
+   :boundaries #{:boundary/source-reader :boundary/compiler-artifact
+                 :boundary/package-admission}
+   :controls #{:control/content-pins :control/signatures
+               :control/normative-conformance}}
+  {:id :T-repudiate-effect :category :repudiation
+   :assets #{:asset/audit-receipts}
+   :boundaries #{:boundary/component-tender :boundary/host-import}
+   :controls #{:control/receipts :control/anchor-relayer}}
+  {:id :T-disclose-storage :category :information-disclosure
+   :assets #{:asset/private-data :asset/block-key}
+   :boundaries #{:boundary/public-storage}
+   :controls #{:control/sealed-egress :control/key-lifecycle}}
+  {:id :T-cross-tenant :category :information-disclosure
+   :assets #{:asset/private-data :asset/tenant-authority}
+   :boundaries #{:boundary/data-plane :boundary/edge-origin}
+   :controls #{:control/abac :control/scoped-capability}}
+  {:id :T-resource-exhaustion :category :denial-of-service
+   :assets #{:asset/availability}
+   :boundaries #{:boundary/source-reader :boundary/component-tender
+                 :boundary/data-plane}
+   :controls #{:control/parser-bounds :control/runtime-bounds}}
+  {:id :T-ambient-authority :category :elevation-of-privilege
+   :assets #{:asset/tenant-authority :asset/private-data}
+   :boundaries #{:boundary/package-admission :boundary/component-tender
+                 :boundary/host-import}
+   :controls #{:control/scoped-capability :control/no-wildcard}}
+  {:id :T-side-channel :category :side-channel
+   :assets #{:asset/signing-keys :asset/block-key :asset/private-data}
+   :boundaries #{:boundary/host-import :boundary/hardware}
+   :controls #{:control/side-channel-profile}}
+  {:id :T-supply-chain :category :supply-chain
+   :assets #{:asset/source :asset/package :asset/component}
+   :boundaries #{:boundary/release :boundary/package-admission}
+   :controls #{:control/sbom-provenance :control/signatures}}
+  {:id :T-key-loss-compromise :category :recovery
+   :assets #{:asset/signing-keys :asset/block-key :asset/availability}
+   :boundaries #{:boundary/release :boundary/public-storage}
+   :controls #{:control/key-lifecycle :control/restore-drill}}
+  {:id :T-malicious-hardware-input :category :tampering
+   :assets #{:asset/private-data :asset/availability}
+   :boundaries #{:boundary/hardware}
+   :controls #{:control/iommu :control/device-admission}}]
+ :controls
+ {:control/origin-assertion
+  {:owner "kotoba" :evidence "test/kotoba/origin_assertion_test.clj"}
+  :control/content-pins
+  {:owner "kotoba" :evidence "test/kotoba/package_admission_test.clj"}
+  :control/signatures
+  {:owner "kotoba" :evidence "test/kotoba/package_key_revoke_e2e_test.clj"}
+  :control/normative-conformance
+  {:owner "kotoba-lang" :evidence "../kotoba-lang/lang/normative-coverage.edn"}
+  :control/receipts
+  {:owner "kototama" :evidence "../kototama/test/kototama/tender_test.clj"}
+  :control/anchor-relayer
+  {:owner "kotoba" :evidence "test/kotoba/anchor_relayer_test.clj"}
+  :control/sealed-egress
+  {:owner "kotoba" :evidence "test/kotoba/sealed_egress_test.clj"}
+  :control/key-lifecycle
+  {:owner "aiueos" :evidence "../aiueos/test/aiueos/key_lifecycle_test.clj"}
+  :control/abac
+  {:owner "kotobase" :evidence "../kotobase/test/kotobase/store_test.cljc"}
+  :control/scoped-capability
+  {:owner "kotoba" :evidence "test/kotoba/capability_cross_layer_test.clj"}
+  :control/parser-bounds
+  {:owner "kotoba" :evidence "test/kotoba/security_boundary_fuzz_test.clj"}
+  :control/runtime-bounds
+  {:owner "kototama" :evidence "../kototama/test/kototama/fleet_store_test.clj"}
+  :control/no-wildcard
+  {:owner "kotoba" :evidence "test/kotoba/capability_cross_layer_test.clj"}
+  :control/side-channel-profile
+  {:owner "aiueos" :evidence "../aiueos/docs/threat-models/side-channels-v1.md"}
+  :control/sbom-provenance
+  {:owner "kototama" :evidence "../kototama/test/kototama/release_evidence_test.clj"}
+  :control/restore-drill
+  {:owner "aiueos" :evidence "../aiueos/test/aiueos/sealed_state_test.clj"}
+  :control/iommu
+  {:owner "aiueos" :status :gap :gap :A-08}
+  :control/device-admission
+  {:owner "aiueos" :status :gap :gap :A-08}}
+ :assumptions
+ [{:id :assumption/runtime-engine
+   :statement "Qualified Wasm engines and JVM remain in the TCB."
+   :owner "kototama"}
+  {:id :assumption/operator
+   :statement "Privileged operator compromise is mitigated but not eliminated."
+   :owner "security"}]
+ :residual-risks
+ [{:id :risk/hardware-adapters :severity :high :gap :A-08
+   :owner "aiueos" :expiry "2026-10-21"}
+  {:id :risk/independent-audit :severity :high :gap :K-10
+   :owner "security" :expiry "2026-10-21"}
+  {:id :risk/production-soak :severity :high :gap :A-10
+   :owner "operations" :expiry "2026-10-21"}]}

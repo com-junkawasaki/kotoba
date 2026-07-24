@@ -2,35 +2,51 @@
   "Aggregate test entry point for `clojure -M:test`."
   (:require [clojure.test :refer [run-tests]]
             [kotoba.actor-host-test]
+            [kotoba.anchor-relayer-test]
             [kotoba.backend-qualification-test]
+            [kotoba.bounded-cbor-test]
             [kotoba.aiueos-kernel-caps-test]
             [kotoba.cacao-run-test]
             [kotoba.cap-affine-test]
             [kotoba.cap-passing-test]
             [kotoba.cap-table-test]
+            [kotoba.capability-cross-layer-test]
+            [kotoba.compositional-negative-test]
             [kotoba.cap-typed-test]
             [kotoba.cljs-backend-test]
+            [kotoba.cold-tier-admission-test]
+            [kotoba.control-adoption-test]
+            [kotoba.crypto-qualification-test]
             [kotoba.did-adapter-test]
             [kotoba.doc-examples-test]
             [kotoba.guest-maturity-l2-test]
             [kotoba.guest-maturity-p0-p1-test]
             [kotoba.git-adapter-test]
+            [kotoba.grade-a-test]
             [kotoba.host-providers-test]
             [kotoba.kami-game-test]
             [kotoba.kgraph-test]
+            [kotoba.key-hierarchy-test]
             [kotoba.launcher-test]
             [kotoba.language-conformance-test]
             [kotoba.mesh-drama-profile-test]
             [kotoba.mesh-node-test]
+            [kotoba.origin-assertion-test]
             [kotoba.package-admission-test]
             [kotoba.package-key-revoke-e2e-test]
             [kotoba.rad-adapter-test]
             [kotoba.real-host-providers-test]
             [kotoba.runtime-test]
             [kotoba.security-kaizen-test]
+            [kotoba.security-boundary-fuzz-test]
+            [kotoba.sealed-egress-test]
             [kotoba.sensing-host-test]
             [kotoba.semantic-code-test]
+            [kotoba.semantic-codebase-test]
+            [kotoba.threat-model-test]
+            [kotoba.supply-chain-test]
             [kotoba.type-contract-adapter-test]
+            [kotoba.vulnerability-response-test]
             [kotoba.transport-component-test]
             [kotoba.wasm-and-or-when-test]
             [kotoba.wasm-exec-test]
@@ -38,33 +54,49 @@
 
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests 'kotoba.actor-host-test
+                                        'kotoba.anchor-relayer-test
                                         'kotoba.backend-qualification-test
+                                        'kotoba.bounded-cbor-test
                                         'kotoba.aiueos-kernel-caps-test
                                         'kotoba.cacao-run-test
                                         'kotoba.cap-affine-test
                                         'kotoba.cap-passing-test
                                         'kotoba.cap-table-test
+                                        'kotoba.capability-cross-layer-test
+                                        'kotoba.compositional-negative-test
                                         'kotoba.cap-typed-test
                                         'kotoba.cljs-backend-test
+                                        'kotoba.cold-tier-admission-test
+                                        'kotoba.control-adoption-test
+                                        'kotoba.crypto-qualification-test
                                         'kotoba.did-adapter-test
                                         'kotoba.doc-examples-test
                                         'kotoba.git-adapter-test
+                                        'kotoba.grade-a-test
                                         'kotoba.host-providers-test
                                         'kotoba.kami-game-test
                                         'kotoba.kgraph-test
+                                        'kotoba.key-hierarchy-test
                                         'kotoba.launcher-test
                                         'kotoba.language-conformance-test
                                         'kotoba.mesh-drama-profile-test
                                         'kotoba.mesh-node-test
+                                        'kotoba.origin-assertion-test
                                         'kotoba.package-admission-test
                                         'kotoba.package-key-revoke-e2e-test
                                         'kotoba.rad-adapter-test
                                         'kotoba.real-host-providers-test
                                         'kotoba.runtime-test
                                         'kotoba.security-kaizen-test
+                                        'kotoba.security-boundary-fuzz-test
+                                        'kotoba.sealed-egress-test
                                         'kotoba.sensing-host-test
                                         'kotoba.semantic-code-test
+                                        'kotoba.semantic-codebase-test
+                                        'kotoba.threat-model-test
+                                        'kotoba.supply-chain-test
                                         'kotoba.type-contract-adapter-test
+                                        'kotoba.vulnerability-response-test
                                         'kotoba.transport-component-test
                                         'kotoba.wasm-and-or-when-test
                                         'kotoba.wasm-exec-test

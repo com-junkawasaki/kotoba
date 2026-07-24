@@ -1,0 +1,22 @@
+{:kotoba.supply-chain/version 1
+ :products
+ [{:product/id :kotoba
+   :source/revision "53394fd826647c35fafe68702536f6bf3bf390da"
+   :dependency/file "deps.edn"
+   :dependency/sha256 "55e7c179836ac167ddc0b4d806ece943bc50f660dc51debcfa3d98bf19029a8e"}
+  {:product/id :kototama
+   :source/revision "51dd4e5d240adfbf636d4c246bc8b43a2ceffff4"
+   :dependency/file "deps.edn"
+   :dependency/sha256 "5e1c74e21359f35d69f1146722f977170dbf0a294b813c9c070bbc646eae8b3a"}
+  {:product/id :aiueos
+   :source/revision "d8a39b84e3899f4817ce49155838914bdaa0f332"
+   :dependency/file "deps.edn"
+   :dependency/sha256 "4aa844fc59562c14c69c6906be58f109ea7f71c61f84750e68fe0383c4c08892"}
+  {:product/id :kotoba-lang
+   :source/revision "99a6da4159dca0f01f47ec81fab06f6aa4c74a0f"
+   :dependency/file "deps.edn"
+   :dependency/sha256 "713a598bc07ead7ff18cf76bb8f4dcc64b9e3c646a06314bde5788f55c53b20d"}
+  {:product/id :kotobase
+   :source/revision "2f77d4444ddbf6f9f13dd84eba34a20217412299"
+   :dependency/file "deps.edn"
+   :dependency/sha256 "7f7ce3730a17ff8b31ca2f8fe8601b88da506c724c3ef95bcd5c80c7f3d49a73"}]}

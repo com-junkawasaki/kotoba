@@ -1,6 +1,7 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/data.json {:mvn/version "2.5.1"}
-        io.github.kotoba-lang/security {:local/root "../security"}
+        io.github.kotoba-lang/security
+        {:git/sha "b13c5e12b488c6e5438f2a2a647f1853ebebd4bf"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
         org.clojure/clojurescript {:mvn/version "1.12.134"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}
@@ -25,7 +26,11 @@
         ;; real signature under this pin or verify-lock now genuinely fails
         ;; it). org-chainagnostic-cacao bumped for PR #4 (nonce/replay
         ;; protection).
-        io.github.kotoba-lang/kotoba-core-contracts {:git/sha "3689b1253c94c3a03d5ba5ae6cbe32a094f966eb"}
+        ;; 50de59b adds the fs-write-atomic host-import descriptor consumed by
+        ;; real-op-effects.  Keeping the older transport-only pin made every
+        ;; real host-provider construction fail inside Chicory with an opaque
+        ;; FunctionType NPE because the missing descriptor lowered to nil.
+        io.github.kotoba-lang/kotoba-core-contracts {:git/sha "50de59bf026f1de4be4cf76fe0517bf77646db5a"}
         io.github.kotoba-lang/kotoba-selfhost-contracts {:git/sha "ea3bc8233720ad81ea0b6e2387e45dabc9231a7f"}
         io.github.kotoba-lang/kotoba-lang {:git/sha "99a6da4159dca0f01f47ec81fab06f6aa4c74a0f"}
         io.github.kotoba-lang/org-chainagnostic-cacao {:git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}
@@ -55,7 +60,8 @@
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
-  :dev {:override-deps {io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}
+  :dev {:override-deps {io.github.kotoba-lang/security {:local/root "../security"}
+                        io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}
                         io.github.kotoba-lang/kotoba-selfhost-contracts {:local/root "../../kotoba-lang/kotoba-selfhost-contracts"}
                         io.github.kotoba-lang/kotoba-lang {:local/root "../../kotoba-lang/kotoba-lang"}
                         io.github.kotoba-lang/org-chainagnostic-cacao {:local/root "../../kotoba-lang/org-chainagnostic-cacao"}
@@ -69,6 +75,15 @@
                                   io.github.kotoba-lang/kotoba-lang
                                   {:local/root "../../kotoba-lang/kotoba-lang"}}
                   :main-opts ["-m" "kotoba.backend-qualification-test"]}
+  :grade-a-check {:main-opts ["-m" "kotoba.grade-a" "check"]}
+  :grade-a-attest {:main-opts ["-m" "kotoba.grade-a" "attest"]}
+  :crypto-check {:main-opts ["-m" "kotoba.crypto-qualification"]}
+  :threat-model-check {:main-opts ["-m" "kotoba.threat-model"]}
+  :supply-chain-check {:main-opts ["-m" "kotoba.supply-chain"]}
+  :key-hierarchy-check {:main-opts ["-m" "kotoba.key-hierarchy"]}
+  :control-adoption-check {:main-opts ["-m" "kotoba.control-adoption"]}
+  :vulnerability-response-check
+  {:main-opts ["-m" "kotoba.vulnerability-response"]}
   :semantic-cljs
   {:extra-paths ["test-cljs"]
    :extra-deps {org.clojure/clojurescript {:mvn/version "1.12.42"}}

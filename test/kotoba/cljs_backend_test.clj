@@ -95,7 +95,7 @@
 
 ;; ───────────────────────── if / comparisons / logic ─────────────────────────
 
-(deftest if-treats-zero-as-false-not-clojures-own-truthy-zero
+(deftest if-treats-zero-as-canonical-kir-false
   (is (= 0 (run "(defn main [] (if (= 1 2) 42 0))"))
       "(= 1 2) -> 0 -> KIR-false -> else branch")
   (is (= 42 (run "(defn main [] (if (= 1 1) 42 0))"))))
