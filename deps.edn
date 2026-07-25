@@ -34,7 +34,7 @@
         ;; ADR-2607252500: package admission binds resolved semantic
         ;; definition CIDs and Component abilities through this immutable
         ;; language-contract revision.
-        io.github.kotoba-lang/kotoba-lang {:git/sha "12d0016712a4eb767aa51b46ae31828cd13f70bd"}
+        io.github.kotoba-lang/kotoba-lang {:git/sha "b30e6d57e6280080e9ed40e29b59d6b195db38e4"}
         io.github.kotoba-lang/org-chainagnostic-cacao {:git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}
         ;; canonical datom model — kotoba.kgraph (the language's in-mem EAVT view)
         ;; and kotobase (the datom database) share this one [e a v] / entity↔eavt
