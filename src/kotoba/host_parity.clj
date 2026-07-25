@@ -6,8 +6,7 @@
   kotoba-lang/lang/host-parity.edn. Prefer kotoba.lang.host-parity when the
   language pin is current; this ns remains a self-contained launcher mirror."
   (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [kotoba.lang.host-parity :as lang-parity]))
+            [clojure.java.io :as io]))
 
 (def ^:private catalog*
   (delay
@@ -26,6 +25,7 @@
   "Call an optional language-kernel parity API without making an absent older
   compatibility var a namespace-load failure."
   [symbol & args]
+  (require 'kotoba.lang.host-parity)
   (when-let [f (ns-resolve 'kotoba.lang.host-parity symbol)]
     (apply f args)))
 
