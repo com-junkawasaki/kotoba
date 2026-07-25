@@ -309,7 +309,7 @@
         left (option-value argv "--left")
         right (option-value argv "--right")]
     (cond
-      (not (#{"init" "import" "inspect" "resolve" "merge"} action))
+      (not (#{"init" "import" "inspect" "resolve" "merge" "list" "search" "log" "gc"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
@@ -334,6 +334,31 @@
           {:kotoba.cli/ok? true :kotoba.cli/code :codebase/resolved
            :kotoba.cli/data (semantic-codebase/resolve-name root namespace subject)}
           (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/resolve-failed error))))
+
+      (= action "list")
+      (try {:kotoba.cli/ok? true :kotoba.cli/code :codebase/listed
+            :kotoba.cli/data {:namespaces (semantic-codebase/namespaces root)}}
+           (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/list-failed error)))
+
+      (= action "search")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/query-required}
+        (try {:kotoba.cli/ok? true :kotoba.cli/code :codebase/searched
+              :kotoba.cli/data {:query subject :results (semantic-codebase/search-names root subject)}}
+             (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/search-failed error))))
+
+      (= action "log")
+      (if-not namespace
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-required}
+        (try {:kotoba.cli/ok? true :kotoba.cli/code :codebase/history
+              :kotoba.cli/data {:namespace namespace :commits (semantic-codebase/namespace-history root namespace)}}
+             (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/log-failed error))))
+
+      (= action "gc")
+      (try (let [result (semantic-codebase/gc! root (boolean (some #{"--apply"} argv)))]
+             {:kotoba.cli/ok? true :kotoba.cli/code (if (:deleted result) :codebase/gc-applied :codebase/gc-planned)
+              :kotoba.cli/data result})
+           (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/gc-failed error)))
 
       (= action "merge")
       (if-not (and namespace base left right)
@@ -752,6 +777,7 @@
    :manifest-path (option-value argv "--manifest")
    :trust-path (option-value argv "--trust")
    :key-register-path (option-value argv "--key-register")
+   :resolved-definitions-path (option-value argv "--resolved-definitions")
    :receipt-path (option-value argv "--receipt")})
 
 (defn package-verify-result

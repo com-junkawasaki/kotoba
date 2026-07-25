@@ -72,6 +72,7 @@
    "manifest cid does not match manifest content" :package/manifest-cid-mismatch
    "component cid required" :package/component-cid-required
    "component cid does not match component content" :package/component-cid-mismatch
+   "definition identity lock verification failed" :package/definition-identity-mismatch
    "dependency manifest required" :package/dependency-manifest-required
    "unexpected dependency manifest" :package/unexpected-dependency-manifest
    "dependency manifest does not match lock entry" :package/dependency-manifest-mismatch
@@ -300,7 +301,8 @@
 
   OPTS may carry `:component-bytes-by-dep` {dep-name bytes} for L3 component
   content integrity (CID guest packages)."
-  [{:keys [lock lock-path manifest manifest-path trust component-bytes-by-dep]}]
+  [{:keys [lock lock-path manifest manifest-path trust component-bytes-by-dep
+           resolved-definitions]}]
   (let [tc (trust-context trust manifest)
         capabilities (into #{} (mapcat #(or (:dep/grants %) [])) (:deps lock))
         supplied (:abac/attributes trust)
@@ -326,6 +328,10 @@
         integrity-error (when (and manifest (not manifest-error))
                           (manifest-integrity-error manifest))
         lock-error (lock-level-error lock)
+        definition-error
+        (when (seq resolved-definitions)
+          (package-contract/lockfile-error
+           lock tc {:resolved-definitions resolved-definitions}))
         dep-results (mapv (fn [dep]
                             [dep (dep-error dep tc
                                             {:component-bytes
@@ -357,6 +363,10 @@
                          [(->problem {:kotoba.package/input :lock
                                       :kotoba.package/path lock-path}
                                      lock-error)])
+                       (when definition-error
+                         [(->problem {:kotoba.package/input :definition-resolution
+                                      :kotoba.package/path "--resolved-definitions"}
+                                     definition-error)])
                        (keep (fn [[dep error]]
                                (when error
                                  (->problem {:kotoba.package/input :lock-entry
@@ -657,7 +667,7 @@
     (spit file (with-out-str (pprint/pprint receipt)))))
 
 (def usage
-  (str "kotoba package verify --lock <kotoba.lock.edn> [--manifest <package-manifest.edn>] [--trust <trust.edn>] [--key-register <key-register.edn>] [--receipt <out.edn>] [--json]\n"
+  (str "kotoba package verify --lock <kotoba.lock.edn> [--manifest <package-manifest.edn>] [--trust <trust.edn>] [--key-register <key-register.edn>] [--resolved-definitions <definitions.edn>] [--receipt <out.edn>] [--json]\n"
        "kotoba package resolve --registry-cid <cid> --requests <requests.edn> [--trust <trust.edn>] [--gateway <url>] [--timeout-ms <ms>] [--lock-output <kotoba.lock.edn>] [--receipt <out.edn>] [--json]"))
 
 (defn not-readable
@@ -677,7 +687,8 @@
 
   Optional key-register-path folds non-active key statuses into trust
   revoked-signers (R-002)."
-  [{:keys [lock-path manifest-path trust-path key-register-path receipt-path]}]
+  [{:keys [lock-path manifest-path trust-path key-register-path receipt-path
+           resolved-definitions-path]}]
   (if-not lock-path
     {:kotoba.admission/ok? false
      :kotoba.admission/code :package/missing-lock-option
@@ -685,7 +696,8 @@
     (let [lock (read-edn-file lock-path)
           manifest (some-> manifest-path read-edn-file)
           trust (some-> trust-path read-edn-file)
-          key-reg (some-> key-register-path read-edn-file)]
+          key-reg (some-> key-register-path read-edn-file)
+          resolved (some-> resolved-definitions-path read-edn-file)]
       (cond
         (not (:ok? lock))
         (not-readable :package/lock-not-readable lock-path lock)
@@ -699,6 +711,15 @@
         (and key-reg (not (:ok? key-reg)))
         (not-readable :package/key-register-not-readable key-register-path key-reg)
 
+        (and resolved (not (:ok? resolved)))
+        (not-readable :package/resolved-definitions-not-readable resolved-definitions-path resolved)
+
+        (and resolved (not (vector? (:value resolved))))
+        {:kotoba.admission/ok? false
+         :kotoba.admission/code :package/resolved-definitions-invalid
+         :kotoba.admission/error {:kotoba.package/path resolved-definitions-path
+                                  :kotoba.package/error "resolved definitions vector required"}}
+
         :else
         (let [trust-value (cond-> (or (:value trust) {})
                             (:ok? key-reg)
@@ -707,7 +728,8 @@
                                     :lock-path lock-path
                                     :manifest (:value manifest)
                                     :manifest-path manifest-path
-                                    :trust trust-value})
+                                    :trust trust-value
+                                    :resolved-definitions (:value resolved)})
               verified? (:kotoba.package/verified? receipt)]
           (when receipt-path
             (write-receipt! receipt-path receipt))

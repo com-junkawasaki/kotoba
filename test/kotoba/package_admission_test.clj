@@ -523,6 +523,19 @@
       (is (= "missing-trust.edn"
              (get-in bad-trust [:kotoba.cli/data :kotoba.package/error :kotoba.package/path]))))))
 
+(deftest resolved-definition-input-must-be-a-readable-vector-before-safe-build
+  (let [bad (verify-argv "--lock" positive-lock "--trust" trust
+                         "--resolved-definitions"
+                         (fixture "resolved-definitions-not-vector.edn")
+                         "--json")
+        unreadable (verify-argv "--lock" positive-lock "--trust" trust
+                                "--resolved-definitions" "missing-definitions.edn"
+                                "--json")]
+    (is (false? (:kotoba.cli/ok? bad)))
+    (is (= :package/resolved-definitions-invalid (:kotoba.cli/code bad)))
+    (is (false? (:kotoba.cli/ok? unreadable)))
+    (is (= :package/resolved-definitions-not-readable (:kotoba.cli/code unreadable)))))
+
 (deftest lock-level-error-rejects-wrong-version-and-non-vector-deps
   (testing "lock-level-error's two branches -- every existing lock fixture in
             this repo happens to already declare a valid
