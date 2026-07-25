@@ -243,7 +243,11 @@
   reconstruct its namespaced entity map. Collection-valued attributes were
   serialized with pr-str by the contract repository's datomizer."
   [path]
-  (let [tx-data (-> path io/resource slurp edn/read-string)]
+  (let [decoded (-> path io/resource slurp edn/read-string)
+        entity (cond (map? decoded) decoded
+                     (and (sequential? decoded) (map? (first decoded))) (first decoded)
+                     :else (throw (ex-info "CLI contract resource has no entity map"
+                                           {:path path :value-type (type decoded)})))]
     (into {}
           (map (fn [[k v]]
                  [k (if (string? v)
@@ -252,7 +256,7 @@
                           (if (coll? decoded) decoded v))
                         (catch Exception _ v))
                       v)]))
-          (dissoc (first tx-data) :db/id))))
+          (dissoc entity :db/id))))
 
 (defn dispatch
   "Dispatch argv through the CLJC authority and return a result map."
