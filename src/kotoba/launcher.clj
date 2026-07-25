@@ -1475,13 +1475,16 @@
   kototama Component admission; this compatibility executor is reachable
   only through an explicit trusted-maintenance flag."
   [argv]
-  (if-not (some #{"--trusted-legacy-wasm"} argv)
-    {:kotoba.cli/ok? false
-     :kotoba.cli/code :wasm/component-runtime-required
-     :kotoba.cli/data {:kotoba.wasm/message
-                        "normal execution requires kototama Component admission"
-                        :kotoba.wasm/legacy-flag "--trusted-legacy-wasm"}}
-    (admission-gated argv "--package-lock" :wasm/package-rejected wasm-run-result*)))
+  (admission-gated
+   argv "--package-lock" :wasm/package-rejected
+   (fn [admitted-argv]
+     (if-not (some #{"--trusted-legacy-wasm"} admitted-argv)
+       {:kotoba.cli/ok? false
+        :kotoba.cli/code :wasm/component-runtime-required
+        :kotoba.cli/data {:kotoba.wasm/message
+                           "normal execution requires kototama Component admission"
+                           :kotoba.wasm/legacy-flag "--trusted-legacy-wasm"}}
+       (wasm-run-result* admitted-argv)))))
 
 (defn wasm-result
   "Handle launcher-owned Wasm-facing commands."

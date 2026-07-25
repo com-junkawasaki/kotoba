@@ -247,7 +247,7 @@
                                      "--policy" "src/demo_cap_passing_policy.edn"
                                      "--package-lock" positive-lock
                                      "--trust" trust
-                                     "--json"])]
+                                     "--json" "--trusted-legacy-wasm"])]
       (is (false? (:kotoba.cli/ok? result)))
       (is (= :wasm/cap-passing-unimplemented (:kotoba.cli/code result)))
       (is (= ["cap-acquire" "host-i64-roundtrip-with"]

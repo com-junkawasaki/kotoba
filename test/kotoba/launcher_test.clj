@@ -13,6 +13,9 @@
 (def positive-lock "test/fixtures/package/positive-lock.edn")
 (def trust "test/fixtures/package/trust.edn")
 
+(defn- legacy-wasm-dispatch [argv]
+  (launcher/dispatch (conj (vec argv) "--trusted-legacy-wasm")))
+
 (deftest exception-chain-is-bounded-and-path-free
   (let [cause (ClassNotFoundException. "clojure.lang.RT")
         wrapper (ex-info "project admission failed" {:path "/ambient/private"} cause)
@@ -1019,14 +1022,14 @@
       (is (= "nonexistent-file.kotoba" (get-in run-missing-file [:kotoba.cli/data :kotoba.source/path]))))))
 
 (deftest wasm-run-actually-executes-a-trivial-module
-  (let [result (launcher/dispatch ["wasm" "run" "src/demo.kotoba" "--json" "--package-lock" positive-lock "--trust" trust])]
+  (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo.kotoba" "--json" "--package-lock" positive-lock "--trust" trust])]
     (is (:kotoba.cli/ok? result))
     (is (= :wasm/run-completed (:kotoba.cli/code result)))
     (is (= 42 (get-in result [:kotoba.cli/data :kotoba.wasm/value])))
     (is (zero? (get-in result [:kotoba.cli/data :kotoba.wasm/import-count])))))
 
 (deftest wasm-run-executes-kgraph-round-trip-end-to-end
-  (let [result (launcher/dispatch ["wasm" "run" "src/demo_kgraph.kotoba"
+  (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo_kgraph.kotoba"
                                    "--policy" "src/demo_kgraph_policy.edn"
                                    "--json" "--package-lock" positive-lock "--trust" trust])]
     (is (:kotoba.cli/ok? result))
@@ -1036,7 +1039,7 @@
     (is (= 2 (get-in result [:kotoba.cli/data :kotoba.wasm/import-count])))))
 
 (deftest wasm-run-requires-policy-for-host-capability-import
-  (let [result (launcher/dispatch ["wasm" "run" "src/demo_kgraph.kotoba" "--json" "--package-lock" positive-lock "--trust" trust])]
+  (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo_kgraph.kotoba" "--json" "--package-lock" positive-lock "--trust" trust])]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :wasm/check-failed (:kotoba.cli/code result)))))
 
@@ -1046,7 +1049,7 @@
             the module actually made are receipted and surfaced as :kotoba.host/receipts -- the
             gap PR #279 deliberately left open (receipts were collectible via :record! but never
             attached to the wasm-run-result* CLI result)"
-    (let [result (launcher/dispatch ["wasm" "run" "src/demo_kgraph.kotoba"
+    (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo_kgraph.kotoba"
                                      "--policy" "src/demo_kgraph_policy.edn"
                                      "--json" "--package-lock" positive-lock "--trust" trust])
           receipts (get-in result [:kotoba.cli/data :kotoba.host/receipts])]
@@ -1068,7 +1071,7 @@
             absent entirely -- matching the interpreter run path's (when effective-policy ...)
             convention (see kotoba.host-providers-test/legacy-no-policy-run-is-unchanged), not
             merely an empty vector"
-    (let [result (launcher/dispatch ["wasm" "run" "src/demo.kotoba" "--json" "--package-lock" positive-lock "--trust" trust])]
+    (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo.kotoba" "--json" "--package-lock" positive-lock "--trust" trust])]
       (is (:kotoba.cli/ok? result))
       (is (= :wasm/run-completed (:kotoba.cli/code result)))
       (is (not (contains? (:kotoba.cli/data result) :kotoba.host/receipts))))))
@@ -1086,7 +1089,7 @@
             :kotoba.cli/ok? false result every other error path in this launcher returns.
             This must now come back as :wasm/run-denied, mirroring kotoba.runtime/run's
             interpreter-path handling of the exact same :kotoba.host/denied ex-data shape."
-    (let [result (launcher/dispatch ["wasm" "run" "src/demo_kgraph.kotoba"
+    (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo_kgraph.kotoba"
                                      "--policy" "src/demo_kgraph_expired_policy.edn"
                                      "--json" "--package-lock" positive-lock "--trust" trust])
           receipts (get-in result [:kotoba.cli/data :kotoba.host/receipts])]
@@ -1112,7 +1115,7 @@
             mistaken for a capability denial and swallowed into a false :wasm/run-denied
             result. A catch-too-broad here would hide real bugs."
     (let [thrown (try
-                   (launcher/dispatch ["wasm" "run" "src/demo.kotoba"
+                   (legacy-wasm-dispatch ["wasm" "run" "src/demo.kotoba"
                                        "--policy" "src/demo_fuel_exhausted_policy.edn"
                                        "--json" "--package-lock" positive-lock "--trust" trust])
                    ::not-thrown
@@ -1136,14 +1139,14 @@
            (get-in result [:kotoba.cli/data :kotoba.package/admission-code])))))
 
 (deftest wasm-run-rejects-missing-package-lock
-  (let [result (launcher/dispatch ["wasm" "run" "src/demo.kotoba" "--json"])]
+  (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo.kotoba" "--json"])]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :wasm/package-rejected (:kotoba.cli/code result)))
     (is (= :package/missing-lock-option
            (get-in result [:kotoba.cli/data :kotoba.package/admission-code])))))
 
 (deftest wasm-run-rejects-rejected-package-lock
-  (let [result (launcher/dispatch ["wasm" "run" "src/demo.kotoba" "--json"
+  (let [result (legacy-wasm-dispatch ["wasm" "run" "src/demo.kotoba" "--json"
                                    "--package-lock" "test/fixtures/package/version-only-lock.edn"])]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :wasm/package-rejected (:kotoba.cli/code result)))
@@ -1154,7 +1157,7 @@
 (deftest wasm-emit-and-run-proceed-with-admitted-package-lock
   (let [emitted (launcher/dispatch ["wasm" "emit" "src/demo.kotoba" "--json"
                                     "--package-lock" positive-lock "--trust" trust])
-        run (launcher/dispatch ["wasm" "run" "src/demo.kotoba" "--json"
+        run (legacy-wasm-dispatch ["wasm" "run" "src/demo.kotoba" "--json"
                                 "--package-lock" positive-lock "--trust" trust])]
     (is (:kotoba.cli/ok? emitted))
     (is (= :wasm/binary-emitted (:kotoba.cli/code emitted)))
