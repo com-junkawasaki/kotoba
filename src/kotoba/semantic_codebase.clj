@@ -105,6 +105,23 @@
                                                      :namespace namespace})))
         cid))))
 
+(defn- decode-head-name [^java.io.File head]
+  (let [encoded (subs (.getName head) 0 (- (count (.getName head)) (count ".head")))]
+    (String. (.decode (Base64/getUrlDecoder) encoded) StandardCharsets/UTF_8)))
+
+(defn namespaces
+  "List selected local namespaces and their verified head CIDs."
+  [root]
+  (require-store! root)
+  (->> (.listFiles (file root "heads"))
+       (filter #(and (.isFile ^java.io.File %)
+                     (.endsWith (.getName ^java.io.File %) ".head")))
+       (map (fn [head-file]
+              (let [name (decode-head-name head-file)]
+                {:namespace name :head (head root name)})))
+       (sort-by :namespace)
+       vec))
+
 (defn- replace-head! [root namespace expected next-cid]
   (let [lock-path (.toPath (file root "heads" ".lock"))
         target (.toPath (head-file root namespace))]
