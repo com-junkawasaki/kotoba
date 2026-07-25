@@ -22,6 +22,13 @@
 
 (defn catalog [] @catalog*)
 
+(defn- language-call
+  "Call an optional language-kernel parity API without making an absent older
+  compatibility var a namespace-load failure."
+  [symbol & args]
+  (when-let [f (ns-resolve 'kotoba.lang.host-parity symbol)]
+    (apply f args)))
+
 (defn matrix
   []
   (mapv (fn [[id row]]
@@ -54,7 +61,8 @@
   "Delegate to language kernel when available; local catalog as fallback."
   [import host]
   (try
-    (lang-parity/availability import host)
+    (or (language-call 'availability import host)
+        (throw (ex-info "language parity availability API is unavailable" {})))
     (catch Throwable _
       (let [st (get-in (catalog) [:imports import host])
             linkable (get-in (catalog) [:conformance :linkable-statuses]
@@ -69,7 +77,8 @@
 (defn guard-host-import
   [import host]
   (try
-    (lang-parity/guard-host-import import host)
+    (or (language-call 'guard-host-import import host)
+        (throw (ex-info "language parity guard API is unavailable" {})))
     (catch Throwable _
       (let [st (availability import host)]
         (if (= :available st)
@@ -83,7 +92,8 @@
 (defn run-conformance
   []
   (try
-    (lang-parity/run-conformance)
+    (or (language-call 'run-conformance)
+        (throw (ex-info "language parity conformance API is unavailable" {})))
     (catch Throwable _
       {:ok? false :total 0 :passed 0 :failed [] :results []
        :error "kotoba.lang.host-parity not available on classpath"})))
