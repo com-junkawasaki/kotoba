@@ -365,7 +365,15 @@
    'audio-play :host/audio-io
    'audio-record :host/audio-io
    'ble-scan :host/ble-scan
-   'wifi-info :host/wifi-info})
+   'wifi-info :host/wifi-info
+   ;; web-wide crawl (com-junkawasaki/root ADR-2607252400)。対応する
+   ;; effect-for-kind は kotoba-lang 側に同時に入れてある — 片方だけ入れると
+   ;; guard-call が :unsupported-kind で fail closed し、policy が capability を
+   ;; 与えていても呼べない(このファイルの kami-* コメントが記録している実事故と同型)。
+   'cc-cdx-query :host/cc-cdx-query
+   'cc-warc-extract :host/cc-warc-extract
+   'corpus-append :host/corpus-append
+   'corpus-publish :host/corpus-publish})
 
 (def with-op->op
   "Capability-passing use variant (`<op>-with`, leading argument a capability

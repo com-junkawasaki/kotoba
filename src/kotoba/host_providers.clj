@@ -65,7 +65,14 @@
   missing `:kotoba.policy/capability-resources` entry fails closed
   (empty set) unless the policy explicitly sets
   `:kotoba.policy/http-require-allowlist false` (legacy opt-out)."
-  #{"http/fetch" "http/post"})
+  ;; web-wide crawl (com-junkawasaki/root ADR-2607252400): cdx 照会と WARC 取得は
+  ;; commoncrawl.org への egress、corpus/publish は B2 への egress。ここに載せる
+  ;; ことで :kotoba.policy/capability-resources の allowlist が無い限り
+  ;; resource-scope が #{} を返して **全 URL 拒否** になる(fail closed)。
+  ;; これが「egress は commoncrawl.org のみ / push 先は product-corpus のみ」を
+  ;; policy で強制できる根拠で、汎用 shell-exec capability では表現できない。
+  #{"http/fetch" "http/post"
+    "cc/cdx-query" "cc/warc-extract" "corpus/publish"})
 
 (defn http-require-allowlist?
   "True when POLICY requires network resource allowlists (safe default).
@@ -253,6 +260,15 @@
                    (spit f (str content))
                    (count (str content)))))
    'host-i64-roundtrip (fn [_cap args] (first args))
+   ;; web-wide crawl (ADR-2607252400)。このインタプリタスライスには実メモリが
+   ;; 無く str-ptr が常に 0 なので、他の ptr/len ABI provider と同じく決定論
+   ;; スタブ。実装は kotoba.wasm-exec の Chicory host functions 側(sandboxed
+   ;; fs-root 付きの実 fs-read/http-fetch と同じ経路)に置き、:handlers で差す。
+   ;; **ここを実装で埋めない**のは、guard-call を通らない裏口を作らないため。
+   'cc-cdx-query (fn [_cap _args] 0)
+   'cc-warc-extract (fn [_cap _args] 0)
+   'corpus-append (fn [_cap _args] 0)
+   'corpus-publish (fn [_cap _args] 0)
    'kgraph-assert! (fn [_cap _args] 0)
    'kgraph-retract! (fn [_cap _args] 0)
    'kgraph-get-objects (fn [_cap _args] 0)
