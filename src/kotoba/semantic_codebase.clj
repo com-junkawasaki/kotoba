@@ -393,3 +393,72 @@
                                                       :namespace namespace :name name})))
     (get-block root cid)
     {:head head-cid :name name :cid cid}))
+            [clojure.set :as set]
+            [clojure.string :as string]
+            [ed25519.core :as ed]
+
+(defn namespace-history
+  "Walk an immutable namespace history from its selected head.  Merge commits
+  retain both parents, so the result is a graph-safe breadth-first listing."
+  [root namespace]
+  (let [start (or (head root namespace)
+                  (throw (ex-info "namespace has no selected head"
+                                  {:problem :codebase/head-not-found :namespace namespace})))]
+    (loop [pending [start] seen #{} out []]
+      (if-let [cid (first pending)]
+        (if (contains? seen cid)
+          (recur (next pending) seen out)
+          (let [{:keys [parents bindings]} (namespace-view root cid)]
+            (recur (into (vec (next pending)) parents) (conj seen cid)
+                   (conj out {:cid cid :parents parents :binding-count (count bindings)}))))
+        out))))
+
+(defn search-names
+  "Search names across selected namespace heads. QUERY is a literal substring;
+  results include the namespace head that supplied each binding."
+  [root query]
+  (when-not (string? query)
+    (throw (ex-info "search query must be a string" {:problem :codebase/invalid-query})))
+  (->> (namespaces root)
+       (mapcat (fn [{:keys [namespace head]}]
+                 (for [[name cid] (:bindings (namespace-view root head))
+                       :when (.contains ^String name query)]
+                   {:namespace namespace :head head :name name :cid cid})))
+       (sort-by (juxt :namespace :name))
+       vec))
+
+(defn- reachable-block-cids [root roots]
+  (loop [pending (vec roots) seen #{}]
+    (if-let [cid (first pending)]
+      (if (contains? seen cid)
+        (recur (subvec pending 1) seen)
+        (let [block (get-block root cid)]
+          (recur (into (subvec pending 1) (block-links block)) (conj seen cid))))
+      seen)))
+
+(defn gc-plan
+  "Compute, but never apply, a block GC plan from selected namespace heads.
+  Missing referenced blocks fail closed instead of being mistaken for garbage."
+  [root]
+  (require-store! root)
+  (let [roots (mapv :head (namespaces root))
+        reachable (reachable-block-cids root roots)
+        stored (->> (.listFiles (file root "blocks"))
+                    (filter #(and (.isFile ^java.io.File %)
+                                  (.endsWith (.getName ^java.io.File %) ".cbor")))
+                    (map #(subs (.getName ^java.io.File %) 0 (- (count (.getName ^java.io.File %)) 5)))
+                    set)
+        collect (sort (set/difference stored reachable))]
+    {:roots roots :reachable-count (count reachable) :stored-count (count stored)
+     :collect (vec collect)}))
+
+(defn gc!
+  "Apply a previously inspected GC plan.  The exact candidate set is recomputed
+  immediately before deletion; callers must explicitly pass true."
+  [root apply?]
+  (let [plan (gc-plan root)]
+    (if-not apply?
+      plan
+      (do (doseq [cid (:collect plan)]
+            (Files/delete (.toPath (block-file root cid))))
+          (assoc plan :deleted (:collect plan))))))
