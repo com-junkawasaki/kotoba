@@ -393,9 +393,6 @@
                                                       :namespace namespace :name name})))
     (get-block root cid)
     {:head head-cid :name name :cid cid}))
-            [clojure.set :as set]
-            [clojure.string :as string]
-            [ed25519.core :as ed]
 
 (defn namespace-history
   "Walk an immutable namespace history from its selected head.  Merge commits
