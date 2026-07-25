@@ -445,7 +445,7 @@
                                   (.endsWith (.getName ^java.io.File %) ".cbor")))
                     (map #(subs (.getName ^java.io.File %) 0 (- (count (.getName ^java.io.File %)) 5)))
                     set)
-        collect (sort (set/difference stored reachable))]
+        collect (sort (set (remove reachable stored)))]
     {:roots roots :reachable-count (count reachable) :stored-count (count stored)
      :collect (vec collect)}))
 
