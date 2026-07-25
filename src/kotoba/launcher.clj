@@ -1467,14 +1467,17 @@
                   (throw e))))))))))
 
 (defn wasm-run-result
-  "Safe-build entry point for `wasm run`. Same mandatory package-admission
-  gate as `wasm-emit-result` (see `admission-gated`) — `wasm run` actually
-  executes the compiled module against real host capabilities, so it is at
-  least as sensitive to unverified package inputs as `wasm emit`, and must
-  not be reachable without admission (F-001: previously `wasm run` did not
-  consult package admission at all, regardless of `--package-lock`)."
+  "Legacy raw-Wasm executor. ADR-2607252500 reserves normal execution for
+  kototama Component admission; this compatibility executor is reachable
+  only through an explicit trusted-maintenance flag."
   [argv]
-  (admission-gated argv "--package-lock" :wasm/package-rejected wasm-run-result*))
+  (if-not (some #{"--trusted-legacy-wasm"} argv)
+    {:kotoba.cli/ok? false
+     :kotoba.cli/code :wasm/component-runtime-required
+     :kotoba.cli/data {:kotoba.wasm/message
+                        "normal execution requires kototama Component admission"
+                        :kotoba.wasm/legacy-flag "--trusted-legacy-wasm"}}
+    (admission-gated argv "--package-lock" :wasm/package-rejected wasm-run-result*)))
 
 (defn wasm-result
   "Handle launcher-owned Wasm-facing commands."
