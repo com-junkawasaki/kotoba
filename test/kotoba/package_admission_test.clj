@@ -3,7 +3,7 @@
             [clojure.test :refer [deftest is run-tests testing]]
             [ed25519.core :as ed]
             [kotoba.launcher :as launcher]
-            [kotoba.package-admission :as admission]
+            [kotoba.security.package-admission :as admission]
             [kotoba.lang.package-contract :as package-contract])
   (:import (java.security SecureRandom)
            (java.util Base64)))
@@ -294,7 +294,7 @@
 
 (deftest compute-manifest-cid-matches-the-fixtures-own-self-declared-cid
   (testing "positive-manifest.edn's :manifest-cid genuinely IS its own content's real CID
-            (kotoba.package-admission/compute-manifest-cid, canonical DAG-CBOR + CIDv1) --
+            (kotoba.security.package-admission/compute-manifest-cid, canonical DAG-CBOR + CIDv1) --
             not just a CID-shaped placeholder that happens to pass the structural check"
     (let [manifest (edn/read-string (slurp positive-manifest))]
       (is (= (get-in manifest [:kotoba.package/source :manifest-cid])
@@ -592,6 +592,6 @@
                                 :kotoba.package/entries]))))))
 
 (defn -main [& _]
-  (let [{:keys [fail error]} (run-tests 'kotoba.package-admission-test)]
+  (let [{:keys [fail error]} (run-tests 'kotoba.security.package-admission-test)]
     (when (pos? (+ (or fail 0) (or error 0)))
       (System/exit 1))))

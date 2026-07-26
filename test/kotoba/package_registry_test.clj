@@ -5,7 +5,7 @@
             [clojure.test :refer [deftest is]]
             [kotoba.lang.package-registry :as package-registry]
             [kotoba.lang.package-registry-network :as package-registry-network]
-            [kotoba.package-admission :as package-admission]))
+            [kotoba.security.package-admission :as package-admission]))
 
 (def example-registry
   (edn/read-string

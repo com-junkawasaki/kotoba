@@ -1,9 +1,0 @@
-;; mesh_bad_route.kotoba — a mesh_node.clj test fixture: a guest that
-;; fails to compile (calls an op the compiler doesn't recognize), so
-;; `compile-route` hits its throw branch -- a route this node can't
-;; actually serve is a startup-time configuration error, not a per-request
-;; one (see compile-route's own docstring).
-(ns mesh-bad-route)
-
-(defn main []
-  (totally-unrecognized-op 1 2))

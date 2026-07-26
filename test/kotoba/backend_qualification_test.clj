@@ -3,7 +3,7 @@
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
-            [kotoba.compiler.ir :as compiler-ir]
+            [kotoba.kir :as kir]
             [kotoba.launcher :as launcher]
             [kotoba.qualification-reference-oracle :as oracle]
             [kotoba.runtime :as runtime]
@@ -42,7 +42,13 @@
   (edn/read-string (slurp (io/file q8-report-path))))
 
 (defn read-local-edn [path]
-  (edn/read-string (slurp (io/file path))))
+  (edn/read-string
+   (slurp (let [local (io/file path)]
+            (if (.isFile local)
+              local
+              (or (io/resource path)
+                  (throw (ex-info "qualification authority not found"
+                                  {:path path}))))))))
 
 (defn evidence-paths [report]
   (concat (map #(get-in report [% :evidence]) [:q1 :q2 :q3 :q4 :q5 :q6])
@@ -172,7 +178,7 @@
 
 (defn compiler-result [source]
   (let [artifact (compiler/compile-source source :wasm32-kotoba-v1 {:allow #{}})]
-    {:result (compiler-ir/execute (:kir artifact) 'main [])
+    {:result (kir/execute (:kir artifact) 'main [])
      :effects (get-in artifact [:hir :effects])}))
 
 (defn rejects? [f source]

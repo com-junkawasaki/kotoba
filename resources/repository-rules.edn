@@ -1,0 +1,20 @@
+{:schema "kotoba.repository-role-rules.v0"
+ :this-repo
+ {:name "kotoba"
+  :tier :t2
+  :role :runtime
+  :owns ["language runtime" "capability host" "host adapters"]
+  :depends-on ["kotoba-lang/kgraph"
+               "kotoba-lang/grammar"
+               "kotoba-lang/codebase"
+               "kotoba-lang/security"
+               "kotoba-lang/compiler"
+               "kotoba-lang/kotoba-core-contracts"
+               "kotoba-lang/kotoba-selfhost-contracts"
+               "kotoba-lang/kotoba-lang"
+               "kotoba-lang/org-chainagnostic-cacao"
+               "kotoba-lang/datom"
+               "kotoba-lang/org-w3-did"
+               "kotoba-lang/ed25519"
+               "kotoba-lang/dag-cbor"
+               "kotoba-lang/io-multiformats"]}}

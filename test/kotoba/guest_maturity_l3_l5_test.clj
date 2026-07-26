@@ -6,7 +6,7 @@
             [kotoba.lang.capability-values :as capability-values]
             [kotoba.lang.host-parity :as lang-parity]
             [kotoba.lang.package-contract :as package-contract]
-            [kotoba.package-admission :as package-admission]
+            [kotoba.security.package-admission :as package-admission]
             [multiformats.core :as mf]))
 
 (def ^:private real-cids

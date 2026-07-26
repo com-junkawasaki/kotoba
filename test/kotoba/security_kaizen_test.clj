@@ -8,7 +8,7 @@
             [kotoba.cap-table :as cap-table]
             [kotoba.host-providers :as host-providers]
             [kotoba.launcher :as launcher]
-            [kotoba.package-admission :as package-admission]
+            [kotoba.security.package-admission :as package-admission]
             [kotoba.runtime :as runtime]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io File]))

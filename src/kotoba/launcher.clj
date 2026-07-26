@@ -19,10 +19,10 @@
             [kotoba.git-adapter :as git-adapter]
             [kotoba.host-providers :as host-providers]
             [kotoba.rad-adapter :as rad-adapter]
-            [kotoba.package-admission :as package-admission]
+            [kotoba.security.package-admission :as package-admission]
             [kotoba.runtime :as runtime]
-            [kotoba.semantic-code :as semantic-code]
-            [kotoba.semantic-codebase :as semantic-codebase]
+            [kotoba.codebase.semantic-code :as semantic-code]
+            [kotoba.codebase.store :as semantic-codebase]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io ByteArrayOutputStream FileInputStream]
@@ -243,7 +243,8 @@
   reconstruct its namespaced entity map. Collection-valued attributes were
   serialized with pr-str by the contract repository's datomizer."
   [path]
-  (let [tx-data (-> path io/resource slurp edn/read-string)]
+  (let [data (-> path io/resource slurp edn/read-string)
+        entity (if (map? data) data (first data))]
     (into {}
           (map (fn [[k v]]
                  [k (if (string? v)
@@ -252,7 +253,7 @@
                           (if (coll? decoded) decoded v))
                         (catch Exception _ v))
                       v)]))
-          (dissoc (first tx-data) :db/id))))
+          (dissoc entity :db/id))))
 
 (defn dispatch
   "Dispatch argv through the CLJC authority and return a result map."

@@ -4,18 +4,22 @@
         ;; gate moved out; the language repo consumes them instead of owning them.
         io.github.kotoba-lang/kgraph
         {:git/url "https://github.com/kotoba-lang/kgraph.git"
-         :git/sha "ab06c3a0d75952f2c92bff85b30d70a19bbd6ac4"}
+         :git/sha "c0cb9332c540e7205b78dff00b82b813097fbb9c"}
         io.github.kotoba-lang/grammar
         {:git/url "https://github.com/kotoba-lang/grammar.git"
-         :git/sha "5ab2aa300f6ae0f4b0db5737491cb10c46c60536"}
+         :git/sha "8e56fc64ea04d4159f3951195664d503ee46c982"}
+        io.github.kotoba-lang/codebase
+        {:git/url "https://github.com/kotoba-lang/codebase.git"
+         :git/sha "1cc92ff34592e269a2bf921971809f3972ba50a6"}
         io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
-                                        :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
+                                        :git/sha "f409dbade106df076cefe640781b12db558f4135"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
         org.clojure/clojurescript {:mvn/version "1.12.134"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/compiler
-        {:git/sha "87031c99f72eda8cdb8b2ea2cf8ed9fc76c29bb9"}
+        {:git/url "https://github.com/kotoba-lang/compiler.git"
+         :git/sha "3a47501190d906cb0c3995025d2fe0309db47add"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
@@ -37,18 +41,30 @@
         ;; Includes the fs-write-atomic ABI descriptor required by the real
         ;; host-provider surface.  A newer incompatible pin left the provider
         ;; ahead of its contract and broke the launcher gate in CI.
-        io.github.kotoba-lang/kotoba-core-contracts {:git/sha "50de59bf026f1de4be4cf76fe0517bf77646db5a"}
-        io.github.kotoba-lang/kotoba-selfhost-contracts {:git/sha "ea3bc8233720ad81ea0b6e2387e45dabc9231a7f"}
-        io.github.kotoba-lang/kotoba-lang {:git/sha "f5a70a9b8b0c95d3bb90172132ffe848c708948d"}
-        io.github.kotoba-lang/org-chainagnostic-cacao {:git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}
+        io.github.kotoba-lang/kotoba-core-contracts
+        {:git/url "https://github.com/kotoba-lang/kotoba-core-contracts.git"
+         :git/sha "2baa2c0f598ea7e9bcc394114780537ee37ed3ab"}
+        io.github.kotoba-lang/kotoba-selfhost-contracts
+        {:git/url "https://github.com/kotoba-lang/kotoba-selfhost-contracts.git"
+         :git/sha "ea3bc8233720ad81ea0b6e2387e45dabc9231a7f"}
+        io.github.kotoba-lang/kotoba-lang
+        {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
+         :git/sha "0405a21ec19a43889fcc5b6188594d3bcf8ddc71"}
+        io.github.kotoba-lang/org-chainagnostic-cacao
+        {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
+         :git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}
         ;; canonical datom model — kotoba.kgraph (the language's in-mem EAVT view)
         ;; and kotobase (the datom database) share this one [e a v] / entity↔eavt
         ;; representation. kotoba : kotobase = Clojure : Datomic (ADR-2607032500).
-        io.github.kotoba-lang/datom {:git/sha "d27a5833d59d909367956705f2ec931399c891ee"}
+        io.github.kotoba-lang/datom
+        {:git/url "https://github.com/kotoba-lang/datom.git"
+         :git/sha "d27a5833d59d909367956705f2ec931399c891ee"}
         ;; did:key/did:web document construction + local resolution
         ;; (kotoba.did-adapter, ADR-2607050100) — this library's first
         ;; consumer in the org.
-        io.github.kotoba-lang/org-w3-did {:git/sha "f286e0a40739c6326a5af831efc224992d9ec159"}
+        io.github.kotoba-lang/org-w3-did
+        {:git/url "https://github.com/kotoba-lang/org-w3-did.git"
+         :git/sha "f286e0a40739c6326a5af831efc224992d9ec159"}
         ;; pure-JVM WASM runtime (no native toolchain) — actually EXECUTES the
         ;; bytes runtime/wasm-binary emits (kotoba.wasm-exec), closing the
         ;; compile -> emit -> run loop instead of stopping at byte-shape checks.
@@ -57,29 +73,38 @@
         ;; real gen-keypair/sign/verify host-import implementations
         ;; (kotoba.wasm-exec/real-op-effects) -- same pin kotoba-lang/kototama's
         ;; tender.clj already uses for the identical algorithm choice.
-        io.github.kotoba-lang/ed25519 {:git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
+        io.github.kotoba-lang/ed25519
+        {:git/url "https://github.com/kotoba-lang/ed25519.git"
+         :git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
         ;; org-chainagnostic-cacao still names the same upstream repository by
         ;; its historical artifact coordinate. Pin that coordinate too: a
         ;; legacy core.clj otherwise shadows the Graal-static core.cljc merely
         ;; because Clojure prefers .clj resources for the same namespace.
         io.github.kotoba-lang/org-ietf-ed25519
-        {:git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
+        {:git/url "https://github.com/kotoba-lang/ed25519.git"
+         :git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
         ;; real package manifest integrity verification
-        ;; (kotoba.package-admission/manifest-integrity-error): canonical
+        ;; (kotoba.security.package-admission/manifest-integrity-error): canonical
         ;; DAG-CBOR encoding + CIDv1, matching kotoba-core-contracts'
         ;; package-contract cid? shape (kotoba-lang/kotoba-lang#13).
-        io.github.kotoba-lang/dag-cbor {:git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
+        io.github.kotoba-lang/dag-cbor
+        {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
+         :git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
         ;; org-chainagnostic-cacao names the same CBOR repository by its IETF
         ;; coordinate. Pin both coordinates so an older cbor/core.cljc cannot
         ;; shadow the Graal-static canonical key comparator above.
         io.github.kotoba-lang/org-ietf-cbor
-        {:git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
-        io.github.kotoba-lang/io-multiformats {:git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}}
+        {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
+         :git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
+        io.github.kotoba-lang/io-multiformats
+        {:git/url "https://github.com/kotoba-lang/io-multiformats.git"
+         :git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}}
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
   :dev {:override-deps {io.github.kotoba-lang/compiler {:local/root "../../kotoba-lang/compiler"}
                          io.github.kotoba-lang/security {:local/root "../security"}
+                        io.github.kotoba-lang/codebase {:local/root "../codebase"}
                         io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}
                         io.github.kotoba-lang/kotoba-selfhost-contracts {:local/root "../../kotoba-lang/kotoba-selfhost-contracts"}
                         io.github.kotoba-lang/kotoba-lang {:local/root "../../kotoba-lang/kotoba-lang"}
@@ -93,21 +118,15 @@
                   ;; pins above. Sibling checkouts are evidence inputs, not a
                   ;; reproducible runtime classpath for this report.
                   :main-opts ["-m" "kotoba.backend-qualification-test"]}
-  :grade-a-check {:main-opts ["-m" "kotoba.grade-a" "check"]}
-  :grade-a-attest {:main-opts ["-m" "kotoba.grade-a" "attest"]}
-  :crypto-check {:main-opts ["-m" "kotoba.crypto-qualification"]}
-  :threat-model-check {:main-opts ["-m" "kotoba.threat-model"]}
-  :supply-chain-check {:main-opts ["-m" "kotoba.supply-chain"]}
-  :key-hierarchy-check {:main-opts ["-m" "kotoba.key-hierarchy"]}
-  :control-adoption-check {:main-opts ["-m" "kotoba.control-adoption"]}
+  :grade-a-check {:main-opts ["-m" "kotoba.security.grade-a" "check"]}
+  :grade-a-attest {:main-opts ["-m" "kotoba.security.grade-a" "attest"]}
+  :crypto-check {:main-opts ["-m" "kotoba.security.crypto-qualification"]}
+  :threat-model-check {:main-opts ["-m" "kotoba.security.threat-model"]}
+  :supply-chain-check {:main-opts ["-m" "kotoba.security.supply-chain"]}
+  :key-hierarchy-check {:main-opts ["-m" "kotoba.security.key-hierarchy"]}
+  :control-adoption-check {:main-opts ["-m" "kotoba.security.control-adoption"]}
   :vulnerability-response-check
-  {:main-opts ["-m" "kotoba.vulnerability-response"]}
-  :semantic-cljs
-  {:extra-paths ["test-cljs"]
-   :extra-deps {org.clojure/clojurescript {:mvn/version "1.12.42"}}
-   :main-opts ["-m" "cljs.main"
-               "-co" "{:target :nodejs, :output-to \"target/semantic-cljs.js\", :optimizations :none}"
-               "-m" "kotoba.semantic-code-portable-test"]}
+  {:main-opts ["-m" "kotoba.security.vulnerability-response"]}
   ;; clj-kondo as a Clojars lib (no Homebrew/system install needed).
   :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2024.09.27"}}
          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"]}}}

@@ -9,7 +9,7 @@
 ;; `wasm emit`/`wasm run` require a mandatory package-admission gate (F-001);
 ;; every dispatch call below that reaches those subcommands must supply an
 ;; admitted lock, so all such tests share this one fixture pair (mirrors
-;; kotoba.package-admission-test's positive-lock/trust).
+;; kotoba.security.package-admission-test's positive-lock/trust).
 (def positive-lock "test/fixtures/package/positive-lock.edn")
 (def trust "test/fixtures/package/trust.edn")
 
@@ -143,10 +143,9 @@
     (is (= :kotoba-script (get-in web [:kotoba.cli/data :backend])))
     (is (re-find #"entry:null" (slurp output)))
     (is (re-find #"Object\.freeze\(\{'add1':k\$add1\}\)" (slurp output)))
-    (is (false? (:kotoba.cli/ok? wasm)))
-    (is (= :compile/failed (:kotoba.cli/code wasm)))
-    (is (re-find #"require the kotoba-script web target"
-                 (:kotoba.cli/message wasm)))))
+    (is (:kotoba.cli/ok? wasm))
+    (is (= :compile/emitted (:kotoba.cli/code wasm)))
+    (is (= :kotoba-wasm (get-in wasm [:kotoba.cli/data :backend])))))
 
 (deftest compile-web-preserves-bounded-typed-strings
   (let [output (doto (java.io.File/createTempFile "kotoba-web-string" ".mjs")
@@ -165,10 +164,10 @@
                         :string-value-bytes])))
     (is (re-find #"valueProfile:'typed-v1'" generated))
     (is (re-find #"こんにちは" generated))
-    (is (false? (:kotoba.cli/ok? wasm)))
-    (is (= :compile/failed (:kotoba.cli/code wasm)))
-    (is (re-find #"(typed Wasm operation is not qualified|(typed string values|entryless libraries) currently require)"
-                 (:kotoba.cli/message wasm)))))
+    (is (:kotoba.cli/ok? wasm))
+    (is (= :compile/emitted (:kotoba.cli/code wasm)))
+    (is (= :kotoba.value/typed-v1
+           (get-in wasm [:kotoba.cli/data :value-profile])))))
 
 (deftest compile-closed-multi-module-kotoba-project
   (let [directory (.toFile (java.nio.file.Files/createTempDirectory
