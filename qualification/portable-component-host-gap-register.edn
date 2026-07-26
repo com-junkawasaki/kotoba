@@ -1,0 +1,87 @@
+{:portable-component-host/version 2
+ :portable-component-host/as-of "2026-07-26"
+ :portable-component-host/adr
+ "docs/ADR-portable-component-host-execution-identity.md"
+
+ :portable-component-host/invariant
+ {:format :kotoba.execution-identity/v1
+  :required
+  #{:plan-cid :code-closure-cid :artifact-cid :compiler-contract
+    :component-cid :wit-world-cid :package-lock-cid :policy-cid
+    :policy-decision-cid :db-basis :grant-cids :approval-cids
+    :runtime-identity :input-cid :outcome-cid :host-receipt-cids}
+  :rules
+  #{:no-ambient-wasi :no-runtime-escalation :closed-descriptors
+    :opaque-host-capabilities :basis-bound-query :immutable-receipts}}
+
+ :portable-component-host/gaps
+ {:G-01
+  {:status :pass
+   :control :shared-portable-execution-abi
+   :evidence
+   ["kotoba-lang/abi:schemas/portable-execution-v1.schema.json"
+    "kotoba-lang/abi:src/kotoba/abi/contract.cljc"
+    "kotoba-lang/abi:test/kotoba/abi/contract_test.cljc"]
+   :qualification "closed plan, decision, approval, lease and identity shapes; positive and mutation vectors"}
+
+  :G-02
+  {:status :pass
+   :control :single-execution-identity
+   :evidence
+   ["kotoba-lang/kototama:src/kototama/component_platform.clj"
+    "kotoba-lang/aiueos:src/aiueos/contract.cljc"
+    "kotoba-lang/kotobase:src/kotobase/code_graph.cljc"]
+   :qualification "link-time validation, broker/receipt validation, CID verification and immutable fact projection"}
+
+  :G-03
+  {:status :pass
+   :control :host-managed-capability-lifecycle
+   :evidence
+   ["kotoba-lang/kototama:test/kototama/tender_test.clj"
+    "kotoba-lang/kototama:test/kototama/component_authority_test.clj"
+    "kotoba-lang/wasm-webcomponent:test/verify-actor-host.mjs"]
+   :qualification "identity/component binding, expiry, atomic bounded use, revoke/drop and live control-plane epoch"}
+
+  :G-04
+  {:status :pass
+   :control :exact-component-execution
+   :evidence
+   ["kotoba-lang/compiler:src/kotoba/compiler/core.clj"
+    "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
+    "kotoba-lang/kototama:test/kototama/component_e2e_test.clj"]
+   :qualification "compiler-produced Component executes in Wasmtime with exact named imports, no general WASI, fuel and memory bounds"}
+
+  :G-05
+  {:status :pass
+   :control :typed-basis-bound-admission
+   :evidence
+   ["kotoba-lang/compiler:src/kotoba/compiler/plan.cljc"
+    "kotoba-lang/aiueos:src/aiueos/execution_decision.cljc"
+    "kotoba-lang/abi:src/kotoba/abi/contract.cljc"]
+   :qualification "KIR-derived effects, deterministic permit/deny, exact approval binding and no caller-selected result"}
+
+  :G-06
+  {:status :pass
+   :control :authorized-query-gateway
+   :evidence
+   ["kotoba-lang/kotobase:src/kotobase/authorized_query.cljc"
+    "kotoba-lang/kotobase:src/kotobase/code_graph.cljc"
+    "kotoba-lang/kotobase:test/kotobase/authorized_query_test.cljc"]
+   :qualification "bounded AST, projection narrowing, immutable basis, query/result receipt and execution-identity reverse binding"}
+
+  :G-07
+  {:status :in-progress
+   :control :cross-host-qualification
+   :evidence
+   ["kotoba-lang/kototama:test/kototama/runtime_conformance_test.clj"
+    "kotoba-lang/kototama:web/verify-actor-host.mjs"
+    "kotoba-lang/compiler:.github/workflows/browser-matrix.yml"]
+   :closed
+   ["identical host-free Wasm across Chicory, Wasmtime and Node"
+    "shared actor-host use/revoke semantics across JVM and browser"
+    "compiler provider qualification across native Wasmtime and ClojureScript"]
+   :remaining
+   ["port or explicitly waive browser http-fetch and http-post-headers"
+    "compare the same effectful Component decision and execution-identity receipt across two independent Component Model hosts"]}}
+
+ :portable-component-host/open-gaps [:G-07]}
