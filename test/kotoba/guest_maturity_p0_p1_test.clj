@@ -6,7 +6,7 @@
             [kotoba.host-parity :as host-parity]
             [kotoba.lang.capability-host :as capability-host]
             [kotoba.lang.capability-values :as capability-values]
-            [kotoba.package-admission :as package-admission]
+            [kotoba.security.package-admission :as package-admission]
             [kotoba.runtime :as runtime]
             [kotoba.wasm-exec :as wasm-exec]))
 

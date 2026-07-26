@@ -6,7 +6,7 @@
   (public material placeholders only — no private keys)."
   (:require [clojure.edn :as edn]
             [clojure.test :refer [deftest is testing]]
-            [kotoba.package-admission :as admission]))
+            [kotoba.security.package-admission :as admission]))
 
 (defn- fixture [name]
   (str "test/fixtures/package/" name))

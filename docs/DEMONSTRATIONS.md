@@ -31,8 +31,8 @@ The first *applications* — as opposed to capability demos — ported to
 
 | program | what it is | executed by |
 |---|---|---|
-| [`src/mesh_drama_profile.kotoba`](../src/mesh_drama_profile.kotoba) | **First real mesh app in `.kotoba`** (ADR-2607082400): the port of minidrama's ON-MESH `drama-profile` component — asserts an actor's public identity facts (handle / did / registry) into kgraph and serves them back via `kgraph-query`. The "thin, non-censorable" half of minidrama's mesh surface (ADR-2607071500). | `kotoba.wasm-exec` (Chicory) via `test/kotoba/mesh_drama_profile_test.clj`; served as a mesh route by `kotoba.mesh-node` (`mesh_node_test.clj`) |
-| [`src/mesh_no_answer.kotoba`](../src/mesh_no_answer.kotoba) | Assert-only mesh guest — exercises the HTTP 204 ("ran, nothing to answer") branch of `mesh_node`'s dispatch that `mesh_drama_profile` can't reach. | `mesh_node_test.clj` |
+| [`mesh/examples/mesh_drama_profile.kotoba`](https://github.com/kotoba-lang/mesh/blob/main/examples/mesh_drama_profile.kotoba) | **First real mesh app in `.kotoba`** (ADR-2607082400): now owned and tested by the dedicated `kotoba-lang/mesh` runtime. | `kotoba-lang/mesh` compiles, executes, and serves the route over real HTTP |
+| [`mesh/examples/mesh_no_answer.kotoba`](https://github.com/kotoba-lang/mesh/blob/main/examples/mesh_no_answer.kotoba) | Assert-only mesh guest covering the HTTP 204 branch. | `kotoba-lang/mesh` owner tests |
 | [`src/mesh_bad_route.kotoba`](../src/mesh_bad_route.kotoba) | Deliberately non-compiling mesh guest — proves `compile-route` treats an unservable route as a startup-time configuration error. | `mesh_node_test.clj` |
 | [`src/demo_kgraph.kotoba`](../src/demo_kgraph.kotoba) | Minimal datom tool: `kgraph-assert!` an EAVT fact, `kgraph-query` it back with a Datalog-style query — the language's in-memory `[e a v]` graph exercised from inside WASM. | `wasm_exec_test.clj` (Chicory); browser port in wasm-webcomponent's `examples/kgraph` |
 

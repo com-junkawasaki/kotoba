@@ -1,13 +1,17 @@
 (ns kotoba.security-boundary-fuzz-test
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.test :refer [deftest is]]
-            [kotoba.bounded-cbor :as bounded-cbor]
+            [kotoba.security.bounded-cbor :as bounded-cbor]
             [kotoba.lang.package-contract :as package-contract]
             [kotoba.runtime :as runtime])
   (:import [java.util Random]))
 
 (def corpus
-  (edn/read-string (slurp "qualification/security-fuzz-corpus.edn")))
+  (edn/read-string
+   (slurp (or (io/resource "qualification/security-fuzz-corpus.edn")
+              (throw (ex-info "security fuzz authority is missing"
+                              {:resource "qualification/security-fuzz-corpus.edn"}))))))
 
 (defn random-bytes [^Random rng]
   (let [bytes (byte-array (.nextInt rng

@@ -3,10 +3,10 @@
   (:require [clojure.test :refer [deftest is]]
             [ed25519.core :as ed]
             [kotoba.lang.type-system :as types]
-            [kotoba.package-admission :as package-admission]
-            [kotoba.release-evidence :as release-evidence]
+            [kotoba.security.package-admission :as package-admission]
+            [kotoba.security.release-evidence :as release-evidence]
             [kotoba.runtime :as runtime]
-            [kotoba.signed-module :as signed-module]
+            [kotoba.security.signed-module :as signed-module]
             [multiformats.core :as mf])
   (:import [java.security SecureRandom]))
 
@@ -91,7 +91,7 @@
                                       {:trusted-signers #{did}
                                        :revoked-signers #{did}}
                                       {:now "2026-07-18"})]
-    (is (= :kotoba.signed-module/v1 (:format envelope)))
+    (is (= :kotoba.security.signed-module/v1 (:format envelope)))
     (is (true? (:ok? ok)))
     (is (= did (:signer ok)))
     (is (false? (:ok? bad-bytes)))
