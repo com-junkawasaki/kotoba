@@ -67,3 +67,19 @@ The compiler emits legacy scalar source `cap-call` as an explicit named typed
 Component import and compiles both fuel and maximum memory pages into the
 artifact. Kototama rejects any artifact/world budget mismatch before either
 engine observes the bytes.
+
+## Qualification tranche 4 (2026-07-26)
+
+Capability calls may now use WIT `own<resource>` values: the host issues a
+resource and the guest moves it into the consuming operation. Kototama adds a
+durable claim journal for parallel calls and crash recovery; an uncertain
+effect is spent, never replayed.
+
+The third web surface is a compiler-produced Component transpiled by pinned jco
+and executed in Chromium. Browsers cannot yet execute Component binaries
+natively, so the register deliberately makes no native-browser-engine claim.
+
+Kotobase adds witnessed transparency checkpoints, key epochs, legal holds,
+retention classes and checkpoint-gated crypto-shredding. A scheduled workflow
+detects Component Model toolchain drift and starts requalification before any
+pin is changed.

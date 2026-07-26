@@ -1,4 +1,4 @@
-{:portable-component-host/version 3
+{:portable-component-host/version 4
  :portable-component-host/as-of "2026-07-26"
  :portable-component-host/adr
  "docs/ADR-portable-component-host-execution-identity.md"
@@ -12,7 +12,10 @@
     :runtime-identity :input-cid :outcome-cid :host-receipt-cids}
   :rules
   #{:no-ambient-wasi :no-runtime-escalation :closed-descriptors
-    :opaque-host-capabilities :basis-bound-query :immutable-receipts}}
+    :opaque-host-capabilities :basis-bound-query :immutable-receipts
+    :wit-owned-capabilities :durable-at-most-once-consumption
+    :witnessed-transparency :key-epoch-rotation
+    :retention-legal-hold :scheduled-requalification}}
 
  :portable-component-host/gaps
  {:G-01
@@ -87,6 +90,52 @@
     "the same compiler-produced effectful Component executes in independent Wasmtime and jco hosts"
     "portable receipts match decision semantics, execution identity, abilities, resource bounds, capability consumption and outcome"
     "concrete host executable hashes remain distinct and pinned in full receipts"
-    "policy denial, live epoch revocation and one-shot exhaustion reject equivalently"]}}
+    "policy denial, live epoch revocation and one-shot exhaustion reject equivalently"]}
+
+  :G-08
+  {:status :pass
+   :control :wit-owned-linear-capability
+   :evidence
+   ["kotoba-lang/compiler:src/kotoba/compiler/component_wit.clj"
+    "kotoba-lang/compiler:src/kotoba/compiler/component_core.clj"
+    "kotoba-lang/compiler:test/kotoba/compiler/effectful_component_source_test.clj"
+    "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
+    "kotoba-lang/kototama:native/jco-component-host.mjs"]
+   :qualification "issue returns own<resource>; execute moves and consumes it; artifacts declare the capability mode"}
+
+  :G-09
+  {:status :pass
+   :control :third-browser-component-surface
+   :evidence
+   ["kotoba-lang/kototama:qualification/browser-component.kotoba"
+    "kotoba-lang/kototama:web/verify-component-browser.html"
+    "kotoba-lang/kototama:.github/workflows/ci.yml"]
+   :qualification "the compiler-produced Component is jco-transpiled and executed in Chromium; explicitly not claimed as browser-native Component support"}
+
+  :G-10
+  {:status :pass
+   :control :concurrent-crash-safe-linearity
+   :evidence
+   ["kotoba-lang/kototama:src/kototama/linear_journal.clj"
+    "kotoba-lang/kototama:test/kototama/linear_journal_test.clj"
+    "kotoba-lang/kototama:src/kototama/aiueos_adapter.clj"]
+   :qualification "independent budgets for multiple capability imports survive concurrent claims; claims serialize and fsync before effects, and recovery spends an indeterminate claim instead of replaying it"}
+
+  :G-11
+  {:status :pass
+   :control :transparency-key-retention
+   :evidence
+   ["kotoba-lang/kotobase:src/kotobase/transparency_log.clj"
+    "kotoba-lang/kotobase:qualification/transparency-policy.edn"
+    "kotoba-lang/kotobase:test/kotobase/transparency_log_test.clj"]
+   :qualification "witnessed append-only checkpoints, cross-signed monotonic key epochs, legal holds, class retention and post-checkpoint crypto-shredding"}
+
+  :G-12
+  {:status :pass
+   :control :component-model-requalification
+   :evidence
+   ["kotoba-lang/kototama:qualification/component-requalification.edn"
+    "kotoba-lang/kototama:.github/workflows/component-requalification.yml"]
+   :qualification "weekly upstream drift detection opens a deduplicated qualification issue; pin changes require the complete host and negative matrix"}}
 
  :portable-component-host/open-gaps []}
