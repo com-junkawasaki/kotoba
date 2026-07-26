@@ -2,7 +2,7 @@
   "ADR-2607180900 P0/P1: strict-grammar, F-001 safe-release-ready?,
   S4b forbid-wildcard, host-parity matrix."
   (:require [clojure.test :refer [deftest is]]
-            [kotoba.guest-grammar :as guest-grammar]
+            [kotoba.grammar :as guest-grammar]
             [kotoba.host-parity :as host-parity]
             [kotoba.lang.capability-host :as capability-host]
             [kotoba.lang.capability-values :as capability-values]
