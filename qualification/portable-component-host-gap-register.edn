@@ -1,4 +1,4 @@
-{:portable-component-host/version 2
+{:portable-component-host/version 3
  :portable-component-host/as-of "2026-07-26"
  :portable-component-host/adr
  "docs/ADR-portable-component-host-execution-identity.md"
@@ -70,18 +70,23 @@
    :qualification "bounded AST, projection narrowing, immutable basis, query/result receipt and execution-identity reverse binding"}
 
   :G-07
-  {:status :in-progress
+  {:status :pass
    :control :cross-host-qualification
    :evidence
-   ["kotoba-lang/kototama:test/kototama/runtime_conformance_test.clj"
-    "kotoba-lang/kototama:web/verify-actor-host.mjs"
-    "kotoba-lang/compiler:.github/workflows/browser-matrix.yml"]
-   :closed
+   ["kotoba-lang/wasm-webcomponent:src/actor-host.js"
+    "kotoba-lang/wasm-webcomponent:src/http-post-bridge.js"
+    "kotoba-lang/wasm-webcomponent:test/verify-actor-host.mjs"
+    "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
+    "kotoba-lang/kototama:native/jco-component-host.mjs"
+    "kotoba-lang/kototama:test/kototama/component_e2e_test.clj"
+    "kotoba-lang/kototama:docs/adr/0010-independent-component-host-qualification.md"
+    "kotoba-lang/compiler:test/kotoba/compiler/effectful_component_source_test.clj"]
+   :qualification
    ["identical host-free Wasm across Chicory, Wasmtime and Node"
-    "shared actor-host use/revoke semantics across JVM and browser"
-    "compiler provider qualification across native Wasmtime and ClojureScript"]
-   :remaining
-   ["port or explicitly waive browser http-fetch and http-post-headers"
-    "compare the same effectful Component decision and execution-identity receipt across two independent Component Model hosts"]}}
+    "14/14 actor-host imports share browser use/revoke/drop/exhaust semantics"
+    "the same compiler-produced effectful Component executes in independent Wasmtime and jco hosts"
+    "portable receipts match decision semantics, execution identity, abilities, resource bounds, capability consumption and outcome"
+    "concrete host executable hashes remain distinct and pinned in full receipts"
+    "policy denial, live epoch revocation and one-shot exhaustion reject equivalently"]}}
 
- :portable-component-host/open-gaps [:G-07]}
+ :portable-component-host/open-gaps []}
