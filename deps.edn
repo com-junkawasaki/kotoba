@@ -1,5 +1,13 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/data.json {:mvn/version "2.5.1"}
+        ;; ADR-2607266000 Phase B: the datom model and the safe-subset grammar
+        ;; gate moved out; the language repo consumes them instead of owning them.
+        io.github.kotoba-lang/kgraph
+        {:git/url "https://github.com/kotoba-lang/kgraph.git"
+         :git/sha "ab06c3a0d75952f2c92bff85b30d70a19bbd6ac4"}
+        io.github.kotoba-lang/grammar
+        {:git/url "https://github.com/kotoba-lang/grammar.git"
+         :git/sha "5ab2aa300f6ae0f4b0db5737491cb10c46c60536"}
         io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}

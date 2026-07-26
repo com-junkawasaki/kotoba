@@ -11,7 +11,7 @@
             ;; silently shadow every one of those call sites.
             [clojure.string :as cstr]
             [clojure.walk :as walk]
-            [kotoba.guest-grammar :as guest-grammar]
+            [kotoba.grammar :as guest-grammar]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.lang.capability-values :as capability-values]
             [clojure.tools.reader :as reader]

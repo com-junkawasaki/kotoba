@@ -3,7 +3,7 @@
   multi-body when/do, diagnostic hints. Safety invariant: no ambient
   Clojure (eval/require/atom) is admitted."
   (:require [clojure.test :refer [deftest is testing]]
-            [kotoba.guest-grammar :as guest-grammar]
+            [kotoba.grammar :as guest-grammar]
             [kotoba.runtime :as runtime]
             [kotoba.wasm-exec :as wasm-exec]))
 
