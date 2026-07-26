@@ -49,3 +49,21 @@ credential access.
 The machine-readable evidence and remaining portability work are tracked in
 `qualification/portable-component-host-gap-register.edn`.
 
+## Qualification closure (2026-07-26)
+
+G-07 is closed. `wasm-webcomponent` implements all 14 `actor:host` imports
+under one browser session authority. Kototama executes the same
+compiler-produced effectful Component in two independent Component Model
+engines: Rust/Wasmtime and pinned Bytecode Alliance jco under Node.js.
+
+The cross-host gate compares the semantic policy decision, complete execution
+identity, exact abilities, admitted fuel/memory/deadline bounds, host-managed
+one-shot consumption and outcome. It also requires equivalent rejection for
+policy denial, live epoch revocation and exhausted authority. The portable
+projection is identical; each full receipt still carries its distinct pinned
+host executable hash.
+
+The compiler emits legacy scalar source `cap-call` as an explicit named typed
+Component import and compiles both fuel and maximum memory pages into the
+artifact. Kototama rejects any artifact/world budget mismatch before either
+engine observes the bytes.
