@@ -533,15 +533,49 @@
     {:root root :sources sources :manifest (.getPath manifest-file)
      :supply-chain supply-chain :package-receipt package-receipt}))
 
+(defn compile-policy-result
+  "Load `--policy <path>` for the `compile` verb.
+
+  Deliberately NOT `policy-result`: that one normalizes into the legacy
+  runtime's `{:kotoba.policy/capabilities #{...}}` shape for `wasm emit`,
+  whereas kotoba-lang/compiler admits effects against its own
+  `{:allow #{[:cap/call <id>] ...}}` shape (see the compiler repo's
+  examples/capability-policy.edn). Feeding one shape to the other silently
+  denies every effect, which is exactly the bug this function exists to fix:
+  `compile` used to hand the compiler a hardcoded `{}`, so any source using a
+  capability failed with \"capability policy denies required effects\" and
+  effectful programs were unreachable through the CLI entirely.
+
+  Absent option means an empty policy -- unchanged deny-by-default behaviour
+  for every existing caller."
+  [argv]
+  (if-let [path (option-value argv "--policy")]
+    (try
+      (let [data (-> path io/file slurp edn/read-string)]
+        (if (map? data)
+          {:kotoba.policy/ok? true :kotoba.policy/path path :kotoba.policy/data data}
+          {:kotoba.policy/ok? false :kotoba.policy/path path
+           :kotoba.policy/error "compile policy must be a map, e.g. {:allow #{[:cap/call 9]}}"}))
+      (catch Exception e
+        {:kotoba.policy/ok? false :kotoba.policy/path path
+         :kotoba.policy/error (.getMessage e)}))
+    {:kotoba.policy/ok? true :kotoba.policy/data {}}))
+
 (defn compile-result
   "Compile Kotoba-owned source through kotoba-lang/compiler. Web output is
   restricted ESM emitted from checked KIR by kotoba-script; it never routes
-  through the legacy ClojureScript backend."
+  through the legacy ClojureScript backend.
+
+  `--policy <path>` supplies the compiler's admission policy
+  (`{:allow #{[:cap/call <id>]}}`); without it the policy is empty and every
+  effect is denied."
   [argv]
   (let [project-path (option-value argv "--project")
         source-root (option-value argv "--source-path")
         entry (first-source-arg argv)
         extension (some-> entry source-extension)
+        policy-result (compile-policy-result argv)
+        policy (:kotoba.policy/data policy-result)
         target-name (or (option-value argv "--target") "wasm")
         target (case target-name "web" :js-kotoba-v1 "wasm" :wasm32-kotoba-v1 nil)
         output (or (option-value argv "--output")
@@ -552,6 +586,10 @@
                        (str (subs input 0 (- (count input) (count suffix)))
                             (if (= target-name "web") ".mjs" ".wasm")))))]
     (cond
+      (not (:kotoba.policy/ok? policy-result))
+      {:kotoba.cli/ok? false :kotoba.cli/code :compile/policy-not-readable
+       :kotoba.cli/data policy-result}
+
       (and entry project-path)
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/ambiguous-input}
 
@@ -581,8 +619,8 @@
               project (or manifest-project discovered-project)
               compiled (if project
                          (compiler/compile-project (:sources project) (:root project) target
-                                                   {} (or (:supply-chain project) {}))
-                         (compiler/compile-source (slurp entry) target))]
+                                                   policy (or (:supply-chain project) {}))
+                         (compiler/compile-source (slurp entry) target policy))]
           (if (= target :js-kotoba-v1)
             (do
               (some-> (io/file output) .getParentFile .mkdirs)
@@ -592,6 +630,7 @@
           {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
            :kotoba.cli/data {:entry (or entry (:root project))
                              :project project-path :source-path source-root
+                             :policy (:kotoba.policy/path policy-result)
                              :output output :target target-name
                              :backend (if (= target :js-kotoba-v1)
                                         :kotoba-script :kotoba-wasm)
