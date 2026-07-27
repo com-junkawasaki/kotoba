@@ -1256,3 +1256,60 @@
   (let [{:keys [fail error]} (run-tests 'kotoba.launcher-test)]
     (when (pos? (+ (or fail 0) (or error 0)))
       (System/exit 1))))
+
+;; `compile` used to hand kotoba-lang/compiler a hardcoded `{}` policy, so any
+;; source naming a capability failed with "capability policy denies required
+;; effects" and effectful programs were unreachable through the CLI entirely.
+;; `--policy` now carries the compiler's own `{:allow #{[:cap/call <id>]}}`
+;; admission shape -- deliberately not `policy-result`'s legacy
+;; `{:kotoba.policy/capabilities ...}` normalization, which would deny
+;; everything if fed to this plane.
+
+(deftest compile-passes-an-explicit-policy-to-the-compiler
+  (let [source (doto (java.io.File/createTempFile "kotoba-policy" ".kotoba")
+                 (.deleteOnExit))
+        policy (doto (java.io.File/createTempFile "kotoba-policy" ".edn")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-policy" ".mjs")
+                 (.deleteOnExit))]
+    (spit source "(ns signer (:capabilities #{:identity/sign}))
+                  (defn main [] (cap-call :identity/sign 7))")
+    (spit policy (pr-str {:allow #{[:cap/call 1]}}))
+    (testing "an effect the policy allows compiles"
+      (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "web"
+                                       "--policy" (.getPath policy)
+                                       "--output" (.getPath output)])]
+        (is (:kotoba.cli/ok? result))
+        (is (= :compile/emitted (:kotoba.cli/code result)))
+        (is (= (.getPath policy) (get-in result [:kotoba.cli/data :policy])))
+        (is (re-find #"requiredCapabilities" (slurp output)))))
+    (testing "the same source without --policy is still denied"
+      (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "web"
+                                       "--output" (.getPath output)])]
+        (is (not (:kotoba.cli/ok? result)))
+        (is (re-find #"policy denies" (str (:kotoba.cli/message result))))))
+    (testing "a policy that allows a different capability is still denied"
+      (spit policy (pr-str {:allow #{[:cap/call 2]}}))
+      (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "web"
+                                       "--policy" (.getPath policy)
+                                       "--output" (.getPath output)])]
+        (is (not (:kotoba.cli/ok? result)))
+        (is (re-find #"policy denies" (str (:kotoba.cli/message result))))))))
+
+(deftest compile-rejects-an-unreadable-or-malformed-policy
+  (let [source (doto (java.io.File/createTempFile "kotoba-policy-bad" ".kotoba")
+                 (.deleteOnExit))
+        policy (doto (java.io.File/createTempFile "kotoba-policy-bad" ".edn")
+                 (.deleteOnExit))]
+    (spit source "(defn main [] 42)")
+    (testing "a non-map policy is refused rather than silently ignored"
+      (spit policy (pr-str [:allow]))
+      (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "web"
+                                       "--policy" (.getPath policy)])]
+        (is (not (:kotoba.cli/ok? result)))
+        (is (= :compile/policy-not-readable (:kotoba.cli/code result)))))
+    (testing "a missing policy file is refused"
+      (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "web"
+                                       "--policy" "/nonexistent/kotoba-policy.edn"])]
+        (is (not (:kotoba.cli/ok? result)))
+        (is (= :compile/policy-not-readable (:kotoba.cli/code result)))))))
