@@ -78,7 +78,7 @@
         ;; own (they carry the truncated-input and unsigned-key-comparator
         ;; fixes); io-ipld's suite is green against these newer pins.
         io.github.kotoba-lang/io-ipld
-        {:git/sha "b363e59a910d5bc3177abeb9331ec13e19e20881"}}
+        {:git/sha "e08dc3b2ab705be292e388cd1ad136381544a041"}}
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
