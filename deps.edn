@@ -7,7 +7,7 @@
          :git/sha "c0cb9332c540e7205b78dff00b82b813097fbb9c"}
         io.github.kotoba-lang/grammar
         {:git/url "https://github.com/kotoba-lang/grammar.git"
-         :git/sha "8e56fc64ea04d4159f3951195664d503ee46c982"}
+         :git/sha "9a34c133a8fd840cc7cbf3af9f6732c73bf8afd5"}
         io.github.kotoba-lang/codebase
         {:git/url "https://github.com/kotoba-lang/codebase.git"
          :git/sha "b3964338fbf3819c32bb0db8016d7ec563abfe18"}
@@ -98,7 +98,15 @@
          :git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
         io.github.kotoba-lang/io-multiformats
         {:git/url "https://github.com/kotoba-lang/io-multiformats.git"
-         :git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}}
+         :git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}
+        ;; kotoba.value.v1 (ADR-kotoba-canonical-value-codec). VC5 lowers a
+        ;; constant collection literal in host-argument position to the
+        ;; canonical bytes of that value; the host decodes the same codec.
+        ;; Already present transitively through codebase -- declared directly
+        ;; because this repo now uses it in its own emit path.
+        io.github.kotoba-lang/io-ipld
+        {:git/url "https://github.com/kotoba-lang/io-ipld.git"
+         :git/sha "e08dc3b2ab705be292e388cd1ad136381544a041"}}
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}

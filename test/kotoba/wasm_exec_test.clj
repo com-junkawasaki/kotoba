@@ -8,6 +8,7 @@
             [clojure.test :refer [deftest is testing]]
             [kotoba.launcher :as launcher]
             [kotoba.runtime :as runtime]
+            [ipld.value :as value]
             [kotoba.wasm-exec :as wasm-exec]))
 
 (deftest every-real-host-provider-has-a-complete-abi-descriptor
@@ -494,3 +495,70 @@
       (is (= 0 (run1 '(neg? 0))))
       (is (= 0 (run1 '(neg? 5))))
       (is (= 3 (run1 '(if (and (pos? 2) (neg? -2)) 3 4)))))))
+
+;; -- VC5: structured host arguments (ADR-kotoba-canonical-value-codec) -------
+
+(deftest wasm-binary-runs-kgraph-round-trip-with-structured-data-arguments
+  (testing "a constant collection literal in host-arg position crosses the ABI as canonical kotoba.value.v1 bytes, not as EDN text"
+    (let [forms (runtime/read-file "src/demo_kgraph_data.kotoba" :kotoba)
+          policy (edn/read-string (slurp "src/demo_kgraph_data_policy.edn"))
+          checked (runtime/check (launcher/safe-analyzer-fact-classification)
+                                 (launcher/source-plan "src/demo_kgraph_data.kotoba")
+                                 forms policy)
+          wasm (runtime/wasm-binary forms policy)
+          store (atom [])
+          instance (wasm-exec/instantiate (:kotoba.wasm/binary wasm)
+                                          (wasm-exec/kgraph-host-functions store policy)
+                                          policy)
+          result (.apply (.export instance "main") (long-array 0))
+          written (aget ^longs result 0)
+          buf-ptr (:kotoba.wasm/heap-base wasm)]
+      (is (:kotoba.runtime/ok? checked) "static capability check is unchanged by the argument shape")
+      (is (:kotoba.wasm/ok? wasm))
+      (is (= [{:module "kotoba" :field "kgraph_assert" :capability "graph/kotoba"
+               :params [:i32 :i32] :result :i32}
+              {:module "kotoba" :field "kgraph_query" :capability "graph/kotoba"
+               :params [:i32 :i32 :i32 :i32] :result :i32}]
+             (:kotoba.wasm/imports wasm))
+          "same (ptr,len) ABI as the string form -- no new import, no new call head")
+      (is (= [[1 :name "Aoi"]] @store)
+          "the host received the datom as TYPED data: :name is a keyword because the codec carried it, not because the host re-parsed text")
+      (is (keyword? (second (first @store))))
+      (is (pos? written) "kgraph_query wrote a real result into the guest buffer")
+      (is (= [["Aoi"]]
+             (edn/read-string (wasm-exec/read-memory-string instance buf-ptr written)))
+          "the query -- written as a map literal, not a quoted string -- really ran"))))
+
+(deftest structured-host-arguments-lower-to-canonical-value-bytes
+  (let [lowered (first (runtime/lower-language-forms
+                        '[(defn main [] (kgraph-query {:find [?v] :where [[1 :name ?v]]} 0 0))]))
+        call (nth lowered 3)
+        [_op ptr len & _] call
+        bytes (second ptr)]
+    (testing "the literal becomes the same (ptr,len) pair a string literal would"
+      (is (= 'bytes-ptr (first ptr)))
+      (is (= 'bytes-len (first len)))
+      (is (= bytes (second len)) "ptr and len describe one identical literal"))
+    (testing "the payload is canonical kotoba.value.v1 and decodes back exactly"
+      (is (= 0x82 (first bytes))
+          "every value encodes as a CBOR 2-element array -- this is the byte the host discriminates on")
+      (is (= '{:find [?v] :where [[1 :name ?v]]}
+             (value/decode-value (byte-array (map unchecked-byte bytes))))))
+    (testing "it is no longer bounded by the 127-UTF-8-byte portable-string limit"
+      (let [big (into {} (map (fn [i] [(keyword (str "k" i)) i])) (range 40))
+            lowered-big (first (runtime/lower-language-forms
+                                (list (list 'defn 'main [] (list 'kgraph-assert! big)))))
+            big-bytes (second (second (nth lowered-big 3)))]
+        (is (< 127 (count big-bytes)))
+        (is (= big (value/decode-value (byte-array (map unchecked-byte big-bytes)))))))))
+
+(deftest a-raw-byte-vector-literal-is-not-re-encoded
+  ;; `[0 0 0 0]` is already bytes-ptr/bytes-len's raw-byte literal. Silently
+  ;; re-encoding it as a canonical value would change the bytes an existing
+  ;; guest hands its host.
+  (is (not (runtime/data-host-arg-literal? [0 0 0 0])))
+  (is (not (runtime/data-host-arg-literal? "a string")))
+  (is (runtime/data-host-arg-literal? {:a 1}))
+  (is (runtime/data-host-arg-literal? #{:a}))
+  (is (runtime/data-host-arg-literal? [1 :name "Aoi"])
+      "a mixed vector is data, not raw bytes"))
