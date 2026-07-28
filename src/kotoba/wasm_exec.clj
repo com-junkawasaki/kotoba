@@ -45,6 +45,7 @@
   bounds execution against a runaway/looping guest instead of hanging or
   blowing the JVM stack uncontrolled."
   (:require [clojure.edn :as edn]
+            [ipld.value :as value-codec]
             [ed25519.core :as ed]
             [kotoba.host-providers :as host-providers]
             [kotoba.kgraph :as kgraph]
@@ -71,6 +72,35 @@
   (clipboard/keychain/fs/log content, HTTP request/response bodies)."
   [instance ptr len]
   (.readBytes (.memory instance) (int ptr) (int len)))
+
+(defn- read-host-value
+  "One structured `kgraph-*` argument at [ptr, ptr+len).
+
+  Two wire forms reach this ABI and they are distinguished by the FIRST BYTE,
+  not by a mode flag:
+
+    0x82  canonical `kotoba.value.v1` (ADR-kotoba-canonical-value-codec VC5) --
+          every value encodes as a CBOR 2-element array, whose head byte is
+          0x82. This is what a constant collection literal in host-argument
+          position now lowers to.
+    else  the legacy EDN text form, still emitted for a bare string literal.
+
+  The discriminator is exact rather than heuristic: 0x82 is a UTF-8
+  CONTINUATION byte, so no valid UTF-8 text -- and therefore no valid EDN text
+  -- can begin with it. A guest cannot construct either form at run time
+  (`quote` is not a core special form and keyword literals lower to an FNV-1a
+  integer identity), so both are compile-time constants.
+
+  An empty payload is rejected rather than read as `nil`."
+  [instance ptr len]
+  (let [n (int len)]
+    (when (zero? n)
+      (throw (ex-info "empty structured host argument"
+                      {:problem :host/empty-value-argument})))
+    (let [bs (read-bytes instance (int ptr) n)]
+      (if (= 0x82 (bit-and (aget ^bytes bs 0) 0xff))
+        (value-codec/decode-value bs)
+        (edn/read-string (String. ^bytes bs "UTF-8"))))))
 
 (defn- write-bytes!
   "Write BS into INSTANCE's memory at PTR (capacity CAP bytes); returns the
@@ -268,21 +298,21 @@
   [store]
   {'kgraph-assert!
    (fn [instance args]
-     (let [datom (edn/read-string (read-str instance (aget args 0) (aget args 1)))]
+     (let [datom (read-host-value instance (aget args 0) (aget args 1))]
        (if-not (resource-permitted? *concrete-cap* (pr-str (first datom)))
          -1
          (do (swap! store kgraph/assert-datom datom)
              0))))
    'kgraph-retract!
    (fn [instance args]
-     (let [datom (edn/read-string (read-str instance (aget args 0) (aget args 1)))]
+     (let [datom (read-host-value instance (aget args 0) (aget args 1))]
        (if-not (resource-permitted? *concrete-cap* (pr-str (first datom)))
          -1
          (do (swap! store kgraph/retract-datom datom)
              0))))
    'kgraph-get-objects
    (fn [instance args]
-     (let [e (edn/read-string (read-str instance (aget args 0) (aget args 1)))]
+     (let [e (read-host-value instance (aget args 0) (aget args 1))]
        (if-not (resource-permitted? *concrete-cap* (pr-str e))
          -1
          (let [bs (.getBytes (pr-str (kgraph/get-objects @store e)) "UTF-8")]
@@ -292,7 +322,7 @@
      (let [scope (:cap/resource *concrete-cap*)]
        (if-not (or (nil? *concrete-cap*) (= :any scope))
          -1
-         (let [q (edn/read-string (read-str instance (aget args 0) (aget args 1)))
+         (let [q (read-host-value instance (aget args 0) (aget args 1))
                bs (.getBytes (pr-str (kgraph/query @store q)) "UTF-8")]
            (write-bytes! instance (aget args 2) (aget args 3) bs)))))})
 

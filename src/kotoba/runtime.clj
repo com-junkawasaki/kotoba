@@ -11,6 +11,7 @@
             ;; silently shadow every one of those call sites.
             [clojure.string :as cstr]
             [clojure.walk :as walk]
+            [ipld.value :as value-codec]
             [kotoba.grammar :as guest-grammar]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.lang.capability-values :as capability-values]
@@ -2176,7 +2177,20 @@
                        :else form))
                    forms))))))
 
-(declare string->i32 portable-string-substring)
+(declare string->i32 portable-string-substring literal-bytes)
+
+(defn data-host-arg-literal?
+  "Whether VALUE is a constant collection literal admissible as a structured
+  host argument (ADR-kotoba-canonical-value-codec VC5).
+
+  Deliberately narrow. A vector of all integers is EXCLUDED: that is already
+  `bytes-ptr`/`bytes-len`'s raw-byte literal, and silently re-encoding it as a
+  canonical value would change the bytes an existing guest hands its host.
+  Everything else collection-shaped is data with no competing meaning in
+  first-argument position."
+  [value]
+  (and (or (map? value) (set? value) (vector? value))
+       (not (literal-bytes value))))
 
 (defn lower-language-forms
   "Lower Kotoba-only surface forms into the compiler core. This pass is
@@ -2210,6 +2224,7 @@
                                   [(second form) (nth form 2)])))
                         forms)
         string-head-ops (guest-grammar/string-head-host-ops)
+        data-head-ops (guest-grammar/data-head-host-ops)
         string-args (fn [op s & args]
                       (list* op (list 'str-ptr s) (list 'str-len s) args))
         lower-cond (fn lower-cond [clauses]
@@ -2311,16 +2326,51 @@
                   else-form (if when? 0 (if (= 2 (count bodies)) (second bodies) 0))]
               (list 'let [tmp value]
                     (list 'if tmp (list 'let [pattern tmp] then-form) else-form)))))
+        ;; ADR-kotoba-canonical-value-codec VC5, `:data-host-arg`. A CONSTANT
+        ;; collection literal in the same first-argument position a bare
+        ;; string literal already occupies lowers to the identical (ptr,len)
+        ;; pair, over the canonical `kotoba.value.v1` bytes of that value
+        ;; instead of its UTF-8 text.
+        ;;
+        ;; This adds no call head, so the strict-grammar catalog is untouched:
+        ;; it is the same host op with a differently-shaped first argument, and
+        ;; in host-argument position a collection literal cannot be anything
+        ;; but data. It also introduces no runtime construction -- `quote` is
+        ;; not a core special form and keyword literals lower to an FNV-1a
+        ;; integer identity, so a guest cannot rebuild an EDN value at run
+        ;; time. Only compile-time constants reach here, deliberately.
+        ;;
+        ;; Two things this buys, both of which the string form cannot:
+        ;;   - the argument leaves the 127-UTF-8-byte portable-string bound,
+        ;;     which truncates any non-trivial datalog query today;
+        ;;   - the argument survives into the typed KIR as structured data,
+        ;;     where `semantic-code`'s literal normalization already gives it a
+        ;;     definition identity at no added hash-contract cost.
+        ;; The emitted `(bytes-ptr V)`/`(bytes-len V)` need no new machinery:
+        ;; `memory-layout` runs AFTER this pass and already lays out every
+        ;; all-integer vector literal as a data segment.
+        data-host-arg
+        (fn [value]
+          (let [bytes (mapv #(bit-and % 0xff) (seq (value-codec/encode-value value)))]
+            [(list 'bytes-ptr bytes) (list 'bytes-len bytes)]))
         lower-string-head
         (fn [op args]
-          (if (and (contains? string-head-ops op)
-                   (seq args)
-                   (string? (first args)))
+          (cond
+            (and (contains? string-head-ops op)
+                 (seq args)
+                 (string? (first args)))
             (list* op
                    (list 'str-ptr (first args))
                    (list 'str-len (first args))
                    (rest args))
-            (list* op args)))
+
+            (and (contains? data-head-ops op)
+                 (seq args)
+                 (data-host-arg-literal? (first args)))
+            (let [[ptr len] (data-host-arg (first args))]
+              (list* op ptr len (rest args)))
+
+            :else (list* op args)))
         lower-portable-string
         (fn [op args form]
           (case op

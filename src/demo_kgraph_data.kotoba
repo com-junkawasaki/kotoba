@@ -1,0 +1,16 @@
+;; VC5 (ADR-kotoba-canonical-value-codec): the same kgraph round-trip as
+;; demo_kgraph.kotoba, but the structured arguments are written as DATA rather
+;; than as hand-quoted EDN text inside a string literal.
+;;
+;; A constant collection literal in first position of a data-head host op
+;; lowers to (bytes-ptr V) (bytes-len V) over the canonical kotoba.value.v1
+;; bytes of that value -- the same (ptr,len) ABI the string form uses. Two
+;; things that buys: the argument is no longer bounded by the 127-UTF-8-byte
+;; portable-string limit, and a keyword stays a keyword instead of being
+;; re-parsed out of text on the host side.
+(ns demo-kgraph-data)
+
+(defn main []
+  (let [_status (kgraph-assert! [1 :name "Aoi"])
+        buf (alloc 64)]
+    (kgraph-query {:find [?v] :where [[1 :name ?v]]} buf 64)))
