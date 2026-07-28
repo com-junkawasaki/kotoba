@@ -185,3 +185,80 @@
            (try
              (semantic/compile-definitions '[(defrecord Ambient [value])])
              (catch clojure.lang.ExceptionInfo e e)))))))
+
+;; -- VC4: literals delegate to kotoba.value.v1 -------------------------------
+;; ADR-kotoba-canonical-value-codec. The literal vocabulary is no longer this
+;; namespace's own, so a value hashed into a definition and the same value
+;; persisted as a datom agree by construction.
+
+(deftest a-literal-carries-its-type-into-the-definition-identity
+  (testing "a keyword and the string it prints as are different definitions"
+    (is (not= (:cid (compile-one '(def k :admin)))
+              (:cid (compile-one '(def k "admin"))))))
+  (testing "a symbol is distinct from both"
+    (is (= 3 (count (set (map #(:cid (compile-one %))
+                              ['(def k :admin) '(def k "admin") '(def k (quote admin))]))))))
+  (testing "a namespaced keyword keeps its namespace"
+    (is (not= (:cid (compile-one '(def k :kotoba/one)))
+              (:cid (compile-one '(def k :one)))))))
+
+(deftest float-literals-are-admitted-and-distinct-from-the-integer
+  ;; Previously rejected outright, while :f32 was already a semantic metadata
+  ;; key and a semantic-type-block value type -- a checked f32 definition could
+  ;; not contain an f32 literal.
+  (is (string? (:cid (compile-one '(def ratio 0.25)))))
+  (is (not= (:cid (compile-one '(def n 1.0)))
+            (:cid (compile-one '(def n 1))))
+      "1.0 and 1 are different values, not one number")
+  (testing "non-finite literals stay rejected, by name"
+    (let [data (try (compile-one (list 'def 'bad (/ 0.0 0.0))) nil
+                    (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+      (is (= :semantic/unsupported-literal (:problem data)))
+      (is (= :value/float-nan (:codec-problem data))))))
+
+(deftest quoted-forms-are-data-not-references
+  ;; The bug: `'[a b]` reached the collection branch, which recurses through
+  ;; `normalize-expr`, so `a`/`b` resolved as global REFERENCES -- linking an
+  ;; unrelated definition or failing as unresolved. `'(a b)` had no branch at
+  ;; all and was rejected outright.
+  (testing "a quoted symbol vector no longer resolves its elements"
+    (is (string? (:cid (compile-one '(def q (quote [a b])))))))
+  (testing "a quoted list is accepted at all"
+    (is (string? (:cid (compile-one '(def q (quote (a b))))))))
+  (testing "quoted data does not pick up a dependency on a same-named definition"
+    (let [{:keys [definitions]}
+          (semantic/compile-definitions '[(defn a [x] x) (def q (quote [a]))])]
+      (is (empty? (:dependency-cids (get definitions 'q))))))
+  (testing "a quoted datalog-shaped query is expressible as one value"
+    (is (string? (:cid (compile-one
+                        '(def query (quote {:find [?v] :where [[1 :name ?v]]}))))))))
+
+(deftest set-and-map-literal-order-does-not-depend-on-byte-signedness
+  ;; `(vec (cbor/encode x))` yields SIGNED bytes on the JVM, so 0x80-0xff
+  ;; sorted before 0x00 here and after it on ClojureScript -- the same literal
+  ;; hashing to two definition CIDs depending on which runtime compiled it.
+  ;; U+00FF encodes to the high bytes 0xc3 0xbf in UTF-8.
+  (let [high "ÿ" low " "]
+    (is (= (:cid (compile-one (list 'def 's #{high low})))
+           (:cid (compile-one (list 'def 's #{low high}))))
+        "a set literal has one identity regardless of construction order")
+    (is (= (:cid (compile-one (list 'def 'm (array-map high 1 low 2))))
+           (:cid (compile-one (list 'def 'm (array-map low 2 high 1)))))
+        "a map literal has one identity regardless of key insertion order")))
+
+(deftest the-contract-identity-names-the-value-codec
+  ;; A block's hashContract is hashed INTO the block, so a definition
+  ;; normalized with kotoba.value.v1 can never claim the identity of one
+  ;; normalized with the previous hand-rolled literal vocabulary.
+  (is (not= (semantic/source-cid
+             "kotoba.semantic-definition.v1|debruijn|dag-cbor|sha2-256|recursive-scc-v1")
+            (semantic/default-contract-cid))
+      "the pre-VC4 contract string is a different identity"))
+
+(deftest unadmitted-literals-still-fail-closed-with-the-semantic-problem-key
+  (let [data (try (compile-one (list 'def 'bad (java.util.Date.))) nil
+                  (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+    (is (= :semantic/unsupported-literal (:problem data))
+        "callers keep the semantic problem key")
+    (is (= :value/unsupported-type (:codec-problem data))
+        "with the codec's own reason attached")))

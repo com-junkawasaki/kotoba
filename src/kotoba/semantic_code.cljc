@@ -11,6 +11,7 @@
   makes ordinary forward references deterministic; a remaining local cycle is
   rejected closed until the recursive-group/SCC codec is implemented."
   (:require [cbor.core :as cbor]
+            [ipld.value :as value]
             [multiformats.core :as mf]))
 
 (def contract-version 1)
@@ -72,26 +73,76 @@
 
 (declare normalize-expr block-cid source-cid)
 
+(defn- float-literal?
+  "Whether the READER produced a floating-point value for this token.
+
+  Answerable only where the host preserves float-ness. On ClojureScript a
+  source `1.0` and a source `1` are the same runtime value, so this returns
+  false there and a non-integral literal is rejected by the codec rather than
+  guessed — fail-closed, never two encodings for one source program (see
+  ADR-kotoba-canonical-value-codec §3)."
+  [x]
+  #?(:clj (or (instance? Double x) (instance? Float x))
+     :cljs false))
+
+(defn- codec-form
+  "One value position in canonical `kotoba.value.v1` form.
+
+  The literal vocabulary is no longer this namespace's own: admitted types,
+  their tags, and the rejection policy come from the shared codec, so a value
+  hashed into a definition and the same value persisted as a datom agree by
+  construction instead of by two hand-maintained lists that had already
+  drifted (this one had no float case at all while `:f32` was already a
+  semantic type)."
+  [x]
+  (try
+    (value/value->form (if (float-literal? x) (value/float64 x) x))
+    (catch #?(:clj Exception :cljs :default) e
+      (throw (ex-info "unsupported semantic literal"
+                      {:problem :semantic/unsupported-literal
+                       :value x
+                       :type (type x)
+                       :codec-problem (:problem (ex-data e))})))))
+
+(defn- order-key
+  "Canonical sort position for a normalized IR node.
+
+  UNSIGNED bytes: `(vec (cbor/encode x))` on the JVM yields signed bytes, so
+  0x80-0xff sorted BEFORE 0x00 there and after it on ClojureScript — the same
+  set literal would hash to two different definition CIDs depending on which
+  runtime compiled it. That is precisely the class of divergence the shared
+  hash contract exists to prevent, and it was live here."
+  [form]
+  (mapv #(bit-and % 0xff) (seq (cbor/encode form))))
+
+(defn- quoted-value
+  "`(quote x)` is DATA, not an expression.
+
+  It previously reached `normalize-literal`, whose collection branches recurse
+  through `normalize-expr` — so `'[a b]` resolved `a` and `b` as global
+  REFERENCES and either linked an unrelated definition or failed as an
+  unresolved reference, and `'(a b)` had no branch at all and was rejected.
+  Quoted data now goes to the codec whole, which is also what makes a constant
+  structured host argument (VC5) expressible."
+  [x]
+  {"op" "literal" "value" (codec-form x)})
+
 (defn- normalize-literal [value env]
   (cond
-    (nil? value)     {"op" "literal" "type" "nil"}
-    (true? value)    {"op" "literal" "type" "boolean" "value" true}
-    (false? value)   {"op" "literal" "type" "boolean" "value" false}
-    (integer? value) {"op" "literal" "type" "integer" "value" value}
-    (string? value)  {"op" "literal" "type" "string" "value" value}
-    (keyword? value) {"op" "literal" "type" "keyword" "value" (stable-name value)}
-    (symbol? value)  {"op" "literal" "type" "symbol" "value" (stable-name value)}
-    (vector? value)  {"op" "vector" "items" (mapv #(normalize-expr % env) value)}
-    (set? value)     (let [items (map #(normalize-expr % env) value)]
-                       {"op" "set"
-                        "items" (vec (sort-by #(vec (cbor/encode %)) items))})
-    (map? value)     (let [entries (map (fn [[k v]] [(normalize-expr k env)
-                                                       (normalize-expr v env)]) value)]
-                       {"op" "map"
-                        "entries" (vec (sort-by #(vec (cbor/encode (first %))) entries))})
-    :else (throw (ex-info "unsupported semantic literal"
-                          {:problem :semantic/unsupported-literal
-                           :value value :type (type value)}))))
+    ;; Collection LITERALS stay expression-shaped: `[x (+ 1 2)]` is a vector
+    ;; whose elements are expressions, not a data value. Only quoted forms are
+    ;; data (see `quoted-value`).
+    (vector? value) {"op" "vector" "items" (mapv #(normalize-expr % env) value)}
+    (set? value)    {"op" "set"
+                     "items" (vec (sort-by order-key
+                                           (map #(normalize-expr % env) value)))}
+    (map? value)    {"op" "map"
+                     "entries" (vec (sort-by (comp order-key first)
+                                             (map (fn [[k v]]
+                                                    [(normalize-expr k env)
+                                                     (normalize-expr v env)])
+                                                  value)))}
+    :else {"op" "literal" "value" (codec-form value)}))
 
 (defn- resolve-symbol [sym {:keys [locals definitions local-definition-names
                                    group-indices intrinsics dependencies]}]
@@ -157,7 +208,7 @@
                 (when-not (= 1 (count args))
                   (throw (ex-info "quote requires one argument"
                                   {:problem :semantic/invalid-quote})))
-                (normalize-literal (first args) env))
+                (quoted-value (first args)))
         if {"op" "if" "args" (mapv #(normalize-expr % env) args)}
         do {"op" "do" "body" (mapv #(normalize-expr % env) args)}
         and {"op" "and" "args" (mapv #(normalize-expr % env) args)}
@@ -240,9 +291,18 @@
      :actual-cid actual
      :problem (when-not (= expected-cid actual) :semantic/cid-mismatch)}))
 
+;; The value codec is named IN the contract identity, not assumed. A block's
+;; `hashContract` is hashed into the block itself, so a definition normalized
+;; with `kotoba.value.v1` declares a different contract than one normalized
+;; with the previous hand-rolled literal vocabulary. The two can never claim
+;; the same identity, and an old CID is never silently reinterpreted under the
+;; new codec (ADR-kotoba-canonical-value-codec §6). Old blocks stay verifiable
+;; under their own recorded contract; what fails — loudly — is recompiling old
+;; source and expecting the old CID back.
 (defn default-contract-cid []
   (source-cid
-   "kotoba.semantic-definition.v1|debruijn|dag-cbor|sha2-256|recursive-scc-v1"))
+   (str "kotoba.semantic-definition.v1|debruijn|dag-cbor|sha2-256|"
+        "recursive-scc-v1|kotoba.value.v1")))
 
 (defn default-profile-cid []
   (source-cid "kotoba.lang.profile.v3"))

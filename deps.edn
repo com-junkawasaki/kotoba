@@ -69,11 +69,21 @@
         ;; shadow the Graal-static canonical key comparator above.
         io.github.kotoba-lang/org-ietf-cbor
         {:git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
-        io.github.kotoba-lang/io-multiformats {:git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}}
+        io.github.kotoba-lang/io-multiformats {:git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}
+        ;; kotoba.value.v1, the shared canonical VALUE codec
+        ;; (ADR-kotoba-canonical-value-codec, VC4): semantic-code's literal
+        ;; vocabulary is no longer its own. This coordinate is only the codec
+        ;; -- io-ipld's node codec (ipld.core/encode) is NOT used here, and the
+        ;; cbor/multiformats pins above deliberately stay NEWER than io-ipld's
+        ;; own (they carry the truncated-input and unsigned-key-comparator
+        ;; fixes); io-ipld's suite is green against these newer pins.
+        io.github.kotoba-lang/io-ipld
+        {:git/sha "b363e59a910d5bc3177abeb9331ec13e19e20881"}}
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
-  :dev {:override-deps {io.github.kotoba-lang/compiler {:local/root "../../kotoba-lang/compiler"}
+  :dev {:override-deps {io.github.kotoba-lang/io-ipld {:local/root "../../kotoba-lang/io-ipld"}
+                        io.github.kotoba-lang/compiler {:local/root "../../kotoba-lang/compiler"}
                          io.github.kotoba-lang/security {:local/root "../security"}
                         io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}
                         io.github.kotoba-lang/kotoba-selfhost-contracts {:local/root "../../kotoba-lang/kotoba-selfhost-contracts"}
