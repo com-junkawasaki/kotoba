@@ -1,5 +1,5 @@
-{:adoption/version 2 :consumer/id :kotoba
- :security/git-sha "49fc4ce359752e9fe6e547e9071b5b9b40da937a"
+{:adoption/version 3 :consumer/id :kotoba
+ :security/git-sha "f409dbade106df076cefe640781b12db558f4135"
  :required-control-namespaces [kotoba.security.abac kotoba.security.crypto-policy kotoba.security.information-flow]
  :security-sensitive-entrypoints
  {kotoba.package-admission [kotoba.security.abac kotoba.security.crypto-policy]
