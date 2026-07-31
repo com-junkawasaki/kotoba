@@ -19,7 +19,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/compiler
         {:git/url "https://github.com/kotoba-lang/compiler.git"
-         :git/sha "892d3ddb84e4c7b4f824276a0c24ffd46bf7b89c"}
+         :git/sha "77093b8715f2429b671b91c54e84b6622cf17b9a"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
@@ -49,7 +49,7 @@
          :git/sha "ea3bc8233720ad81ea0b6e2387e45dabc9231a7f"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "0405a21ec19a43889fcc5b6188594d3bcf8ddc71"}
+         :git/sha "9c76285e7bae2137fefeb47966ac2e10eb71d1e4"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}

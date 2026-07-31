@@ -48,6 +48,15 @@ jobs:
           git clone --depth 1 https://github.com/kotoba-lang/cacao ../../kotoba-lang/cacao
           git clone --depth 1 https://github.com/kotoba-lang/ed25519 ../../kotoba-lang/ed25519
           git clone --depth 1 https://github.com/kotoba-lang/dag-cbor ../../kotoba-lang/dag-cbor
+          # q8-report-is-machine-checkable-and-does-not-overclaim asserts that
+          # every evidence path the backend-qualification report cites really
+          # exists, and six of them live in these two siblings. Without the
+          # clones the test fails in CI for a reason that has nothing to do with
+          # the report -- measured locally: 6 failures without them, 0 with.
+          # It has been invisible because the security-adoption step above exits
+          # first, so the suite never runs.
+          git clone --depth 1 https://github.com/kotoba-lang/compiler ../compiler
+          git clone --depth 1 https://github.com/kotoba-lang/kototama ../kototama
       - name: Verify shared security adoption
         run: clojure -M -m kotoba.security.adoption
       - name: Test CLJ launcher
