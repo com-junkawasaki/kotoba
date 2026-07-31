@@ -2,6 +2,11 @@
   "Aggregate test entry point for `clojure -M:test`."
   (:require [clojure.test :refer [run-tests]]
             [kotoba.actor-host-test]
+            [kotoba.test-runner-completeness-test]
+            [kotoba.kagi-boundary-test]
+            [kotoba.package-admission-test]
+            [kotoba.wasm-multi-source-map-test]
+            [kotoba.wasm-string-literal-operation-test]
             [kotoba.backend-qualification-test]
             [kotoba.aiueos-kernel-caps-test]
             [kotoba.cacao-run-test]
@@ -49,6 +54,11 @@
 
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests 'kotoba.actor-host-test
+                                        'kotoba.test-runner-completeness-test
+                                        'kotoba.kagi-boundary-test
+                                        'kotoba.package-admission-test
+                                        'kotoba.wasm-multi-source-map-test
+                                        'kotoba.wasm-string-literal-operation-test
                                         'kotoba.backend-qualification-test
                                         'kotoba.aiueos-kernel-caps-test
                                         'kotoba.cacao-run-test
