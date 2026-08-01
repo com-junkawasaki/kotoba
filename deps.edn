@@ -126,6 +126,9 @@
                   ;; pins above. Sibling checkouts are evidence inputs, not a
                   ;; reproducible runtime classpath for this report.
                   :main-opts ["-m" "kotoba.backend-qualification-test"]}
+  ;; Cross-machine reproducibility of `wasm emit`: verify the checked-in
+  ;; digests, or `regenerate` after an intended emitter change.
+  :reproducible-emit {:main-opts ["-m" "kotoba.reproducible-emit"]}
   :grade-a-check {:main-opts ["-m" "kotoba.security.grade-a" "check"]}
   :grade-a-attest {:main-opts ["-m" "kotoba.security.grade-a" "attest"]}
   :crypto-check {:main-opts ["-m" "kotoba.security.crypto-qualification"]}

@@ -32,6 +32,7 @@
             [kotoba.package-key-revoke-e2e-test]
             [kotoba.rad-adapter-test]
             [kotoba.real-host-providers-test]
+            [kotoba.reproducible-emit-test]
             [kotoba.runtime-test]
             [kotoba.security-kaizen-test]
             [kotoba.security-boundary-fuzz-test]
@@ -84,6 +85,7 @@
                                         'kotoba.package-key-revoke-e2e-test
                                         'kotoba.rad-adapter-test
                                         'kotoba.real-host-providers-test
+                                        'kotoba.reproducible-emit-test
                                         'kotoba.runtime-test
                                         'kotoba.security-kaizen-test
                                         'kotoba.security-boundary-fuzz-test
