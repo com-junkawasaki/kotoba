@@ -1,7 +1,8 @@
 (ns kotoba.kagi-boundary
   "Reference-only boundary to kagi/kagitaba. Kotoba facts and capabilities must
   never carry secret values. Resolution belongs to an injected kagi runtime adapter."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [kotoba.security.information-flow :as flow]))
 
 (def allowed-schemes #{"kagi" "keychain" "pkcs11" "passkey"})
 
@@ -20,10 +21,31 @@
                                                        :key-epoch key-epoch})))
   #:kotoba.secret{:ref ref :category category :purpose purpose :key-epoch key-epoch})
 
+(def secret-value-keys
+  "Keys whose presence means the record carries a secret itself, not a pointer
+  to one."
+  [:secret :value :plaintext :private-key :password :token])
+
+(defn reference-classification
+  "The record's classification on the shared lattice.
+
+  A kagi *reference* is `:confidential` — it names where a secret lives, which
+  helps an attacker but is not the secret. A record carrying one of
+  `secret-value-keys` is `:restricted`, and `flow/join` makes that the whole
+  record's classification: the output of a computation inherits the highest
+  input classification. The decision this namespace already made by hand now
+  goes through the control that owns it."
+  [record]
+  (flow/join (cons :confidential
+                   (keep #(when (contains? record %) :restricted)
+                         secret-value-keys))))
+
 (defn assert-reference-only! [record]
-  (when (some #(contains? record %) [:secret :value :plaintext :private-key :password :token])
-    (throw (ex-info "secret value crossed the kotoba/kagi boundary"
-                    {:keys (vec (keys record))})))
+  (let [classification (reference-classification record)]
+    (when-not (= :confidential classification)
+      (throw (ex-info "secret value crossed the kotoba/kagi boundary"
+                      {:keys (vec (keys record))
+                       :information-flow/classification classification}))))
   (when-not (secret-ref? (:kotoba.secret/ref record))
     (throw (ex-info "missing kagi secret reference" {})))
   record)
