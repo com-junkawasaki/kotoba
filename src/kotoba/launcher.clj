@@ -21,8 +21,13 @@
             [kotoba.rad-adapter :as rad-adapter]
             [kotoba.security.package-admission :as package-admission]
             [kotoba.runtime :as runtime]
+            [kotoba.codebase.authoring :as authoring]
+            [kotoba.codebase.evaluator :as evaluator]
+            [kotoba.codebase.names :as codebase-names]
+            [kotoba.codebase.render :as codebase-render]
             [kotoba.codebase.semantic-code :as semantic-code]
             [kotoba.codebase.store :as semantic-codebase]
+            [kotoba.codebase-routing :as codebase-routing]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io ByteArrayOutputStream FileInputStream]
@@ -295,12 +300,32 @@
    :kotoba.cli/message (.getMessage ^Exception error)
    :kotoba.cli/data (ex-data error)})
 
-(defn codebase-result
-  "C5 local codebase commands.  They persist semantic blocks only; source Git
-  remains the authoring workflow and no network synchronization is implied.
+(defn- read-arguments
+  "Positional arguments after `--` for `codebase run`.
 
-  `codebase import <source> --store <dir> --namespace <name>` creates a new
-  immutable namespace commit from the source's semantic definitions."
+  A definition's arguments are read as Kotoba source, not as strings: `run f 1`
+  should pass the number one."
+  [argv]
+  (when-let [tail (next (drop-while #(not= "--" %) argv))]
+    (mapv #(edn/read-string %) tail)))
+
+(defn codebase-result
+  "Hash-native codebase commands.
+
+  A definition is addressed by CID; a name is a lookup, not an identity. That
+  shapes the whole surface: `run` and `view` accept a name, a full CID, or a
+  `#`-abbreviation interchangeably, and nothing here needs the source that
+  produced a definition to still exist.
+
+  - `init` / `inspect` / `resolve` / `merge`  local store and namespace commits
+  - `add <scratch>`      compile a scratch buffer against the namespace, then
+                         commit it, propagating the update to dependents
+  - `plan <scratch>`     the same, reported without writing anything
+  - `view <name|#hash>`  render a stored definition back to source
+  - `run <name|#hash> [-- args]`  evaluate it, hydrating dependencies by CID
+  - `list` / `find <q>`  what the namespace selects
+  - `dependents <name>`  what an update to it would carry along
+  - `pull <cid>...`      discover providers globally and hydrate the closure"
   [argv]
   (let [[_ action subject] argv
         root (option-value argv "--store")
@@ -310,11 +335,116 @@
         left (option-value argv "--left")
         right (option-value argv "--right")]
     (cond
-      (not (#{"init" "import" "inspect" "resolve" "merge"} action))
+      (not (#{"init" "import" "inspect" "resolve" "merge" "add" "plan" "view"
+              "run" "list" "find" "dependents" "pull"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/store-required}
+
+      (#{"add" "plan"} action)
+      (if-not (and namespace subject (.isFile (io/file subject)))
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/scratch-input-invalid}
+        (try
+          (let [plan-source (source-plan subject (reader-target-option argv))
+                forms (runtime/read-file subject (:kotoba.source/reader-target plan-source))
+                planned (authoring/plan root namespace forms)
+                summary (fn [plan]
+                          {:namespace namespace
+                           :head (:head plan)
+                           :changed? (boolean (:changed? plan))
+                           :definitions (:definitions plan)
+                           :propagated (:propagated plan)})]
+            (if (= "plan" action)
+              {:kotoba.cli/ok? true :kotoba.cli/code :codebase/planned
+               :kotoba.cli/data (summary planned)}
+              {:kotoba.cli/ok? true :kotoba.cli/code :codebase/updated
+               :kotoba.cli/data (summary (authoring/commit! root planned))}))
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/update-failed error))))
+
+      (= action "view")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
+        (try
+          (let [{:keys [cid name]} (codebase-names/resolve-token root namespace subject)
+                rendered (codebase-render/view root cid {:namespace namespace :name name})]
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/viewed
+             :kotoba.cli/data {:cid cid
+                               :name (:name rendered)
+                               :source (pr-str (:form rendered))}})
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/view-failed error))))
+
+      (= action "run")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
+        (try
+          (let [{:keys [cid name]} (codebase-names/resolve-token root namespace subject)
+                result (evaluator/invoke root cid (or (read-arguments argv) []))]
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/run-completed
+             :kotoba.cli/data {:cid cid :name name
+                               :value (:value result)
+                               :fuel-remaining (:fuel-remaining result)}})
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/run-failed error))))
+
+      (= action "list")
+      (try
+        {:kotoba.cli/ok? true :kotoba.cli/code :codebase/listed
+         :kotoba.cli/data {:namespace namespace
+                           :head (semantic-codebase/head root namespace)
+                           :bindings (codebase-names/search root namespace "")}}
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :codebase/list-failed error)))
+
+      (= action "find")
+      (try
+        {:kotoba.cli/ok? true :kotoba.cli/code :codebase/found
+         :kotoba.cli/data {:namespace namespace :query subject
+                           :bindings (codebase-names/search root namespace (or subject ""))}}
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :codebase/find-failed error)))
+
+      (= action "dependents")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
+        (try
+          (let [{:keys [cid]} (codebase-names/resolve-token root namespace subject)]
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/dependents
+             :kotoba.cli/data {:cid cid
+                               :dependents (codebase-names/dependents root namespace cid)
+                               :dependencies (codebase-names/dependencies root namespace cid)}})
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/dependents-failed error))))
+
+      (= action "pull")
+      ;; Every remaining positional is a CID to pull. Options are dropped
+      ;; WITH their values -- scanning for `--` prefixes alone would leave
+      ;; `--store /path` behind and try to hydrate a directory name.
+      (let [roots (loop [remaining (drop 2 argv) roots []]
+                    (if-let [token (first remaining)]
+                      (if (str/starts-with? token "--")
+                        (recur (drop 2 remaining) roots)
+                        (recur (rest remaining) (conj roots token)))
+                      roots))]
+        (if (empty? roots)
+          {:kotoba.cli/ok? false :kotoba.cli/code :codebase/cid-required}
+          (try
+            (let [result (codebase-routing/pull!
+                          root roots
+                          (cond-> {}
+                            (option-value argv "--router")
+                            (assoc :router (option-value argv "--router"))
+                            (option-value argv "--gateway")
+                            (assoc :gateways (option-values argv "--gateway"))))]
+              {:kotoba.cli/ok? (boolean (:complete? result))
+               :kotoba.cli/code (if (:complete? result)
+                                  :codebase/pulled
+                                  :codebase/pull-incomplete)
+               :kotoba.cli/data result})
+            (catch clojure.lang.ExceptionInfo error
+              (codebase-error :codebase/pull-failed error)))))
 
       (= action "init")
       {:kotoba.cli/ok? true :kotoba.cli/code :codebase/initialized

@@ -1,9 +1,11 @@
 # ADR — Content-addressed codebase: current Unison-like slice and remaining gaps
 
-- **Status**: Accepted — staged evolution; C1–C8 local kernels implemented;
-  distributed service, runner integration, and user-facing codebase workflow
-  remain incomplete
+- **Status**: Accepted — staged evolution; hash-native authoring, evaluation,
+  view, CID-pinned module resolution, and delegated-routing discovery are
+  implemented; publication to a global network and a browsing UX remain
+  incomplete
 - **Date**: 2026-07-23
+- **Last updated**: 2026-08-04
 - **Related**: `ADR-kotoba-package-cid-lock.md`,
   `ADR-safe-capability-language.md`,
   `kotoba-lang/kotoba-lang/docs/adr/ADR-kotoba-package-cid-lock.md`
@@ -43,6 +45,59 @@ Unison-style codebase experience.  Conflating those two levels would make
 current guarantees unclear and would imply storage, synchronization, and
 interactive tooling that do not yet exist.
 
+### 2026-08-04 — the codebase became hash-native
+
+Identity alone was not a codebase. Running a definition still went through an
+*executable source witness* — the original text, stored per definition CID and
+re-compiled before evaluation — so source, not the definition graph, was what
+had to be transferred and trusted, and a definition whose dependencies were all
+present still could not run without its file. Authoring was ordinary file
+editing, and a dependency was found by turning a namespace into a path.
+
+Four things changed (`kotoba-lang/codebase` @ `484f1a8`,
+`kotoba-lang/compiler` module-lock, `kotoba-lang/kotoba` CLI):
+
+- **Evaluation** (`kotoba.codebase.evaluator`) runs a definition from its block
+  and hydrates every dependency BY CID. No file, no namespace, no name. The
+  source witness is gone; a missing dependency fails closed rather than falling
+  back to a name. Bounded by fuel *and* independently by call depth, because a
+  runaway recursion exhausts the host stack long before a generous fuel budget
+  runs out and `StackOverflowError` is an Error, not a fail-closed result. The
+  capability intrinsics are rejected rather than dispatched, so reachability
+  never becomes authority.
+- **Authoring** (`kotoba.codebase.authoring`) is a scratch-buffer loop: compile
+  against the names the namespace selects, classify added/updated/unchanged,
+  then propagate by **rewriting** each dependent's dependency CID. Rewriting,
+  not recompiling — a dependent's meaning is already in its stored IR, and
+  recompiling its source would require that source to still exist and to still
+  resolve the same names, the two properties this whole design avoids relying
+  on. `kotoba.codebase.render` projects a definition back to source for `view`;
+  binder names are generated because they were never hashed, and a dependency
+  renders under whatever name the *reader* selects, or as its hash when none
+  does.
+- **Compilation** (`kotoba.compiler.module-lock`) resolves `(:require ...)`
+  through a lock naming every module by CID, read from a content-addressed
+  block directory and rejected unless the bytes hash to what was asked for.
+  There is no path search and no fallback: a `:require` the lock does not pin
+  is an error. This is the Nix-shaped half — pinned, verified, reproducible
+  inputs — and is deliberately distinct from semantic definition CIDs. A
+  source-tree CID says which bytes were compiled; a definition CID says what a
+  definition means.
+- **Discovery** (`kotoba.codebase-routing`) asks the IPFS Delegated Routing
+  HTTP API v1 who provides a CID and fetches raw blocks from trustless
+  gateways, verifying every byte against the requested CID and checking that
+  the bytes are the canonical encoding of what they decode to — otherwise a
+  provider could ship a non-canonical encoding that decodes equal, and the
+  store would hold bytes filed under a CID they do not re-encode to. Measured
+  against the live network on 2026-08-04: six HTTP-reachable providers returned
+  for a sample CID, raw-block fetch verified.
+
+What did **not** change: publication. Announcing a CID to the DHT requires a
+libp2p node, so a Kotoba definition becomes globally discoverable only once
+something that has it provides it. Discovery being possible is not the same as
+content being there, and `pull` reports an empty provider set rather than
+implying otherwise.
+
 ## Decision
 
 Treat `kotoba.semantic-code` as Kotoba's canonical semantic-identity layer.
@@ -57,8 +112,10 @@ The following boundary is normative:
 | Definition identity | Implemented and tested | Definitions have content-addressed semantic identities. |
 | Names and history | Local immutable store, selected heads, CAS, and merge exist | Local namespaces can be imported, resolved, and merged by CID. |
 | Package supply chain | CID-lock contract and initial safe-build enforcement | Dependencies can be content-pinned and capability constrained. |
-| Developer codebase | Local C5–C8 kernels exist | Do not claim hash-native authoring, browse-by-hash, or a full semantic VCS UX. |
-| Distributed sharing | Verified transfer and publication kernels exist | Do not claim a deployed codebase network, signed-record distribution, or availability guarantees. |
+| Module resolution | `module-lock` resolves `:require` by CID with no path fallback | Compilation inputs can be pinned, verified, and reproduced. |
+| Evaluation | Definitions run from their CID, hydrating dependencies by hash | Claim hash-native evaluation with no source witness. |
+| Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
+| Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim publication, announcement, pinning, or availability guarantees. |
 
 Package CIDs and semantic definition CIDs solve different problems.  Package
 locks authorize and reproduce a source/package release.  Semantic CIDs name a
