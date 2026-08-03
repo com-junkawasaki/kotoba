@@ -204,17 +204,35 @@ kotoba package resolve --registry-cid bafkrei... --requests requests.edn \
 kotoba wasm emit cell.kotoba --policy policy.edn --package-lock lock.edn -o cell.wasm  # capability-confined build, see Language below
 kotoba wasm run cell.kotoba --policy policy.edn --package-lock lock.edn                # check + emit + execute
 kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs                      # ClojureScript source, see Language below
-kotoba codebase init --store dir                                       # C5 content-addressed codebase store
-kotoba codebase import src.kotoba --store dir --namespace ns           # import semantic blocks (git remains authoring)
+kotoba codebase init --store dir                                       # content-addressed codebase store
+kotoba codebase add scratch.kotoba --store dir --namespace ns          # compile a scratch buffer in, propagating to dependents
+kotoba codebase plan scratch.kotoba --store dir --namespace ns         # what `add` would do, without doing it
+kotoba codebase view <name|#hash> --store dir --namespace ns           # render a stored definition back to source
+kotoba codebase run <name|#hash> --store dir --namespace ns -- 3       # evaluate it, hydrating dependencies by CID
+kotoba codebase list --store dir --namespace ns                        # what the namespace selects
+kotoba codebase find <query> --store dir --namespace ns                # names containing a substring
+kotoba codebase dependents <name|#hash> --store dir --namespace ns     # what an update would carry along
+kotoba codebase pull <cid>... --store dir                              # discover providers globally, hydrate, verify
+kotoba codebase import src.kotoba --store dir --namespace ns           # import semantic blocks from a source file
 kotoba codebase inspect <cid> --store dir                              # inspect one semantic block
 kotoba codebase resolve --store dir --namespace ns <name>              # resolve a name to its current CID
 kotoba codebase merge --store dir --namespace ns --base <cid> --left <cid> --right <cid>  # three-way merge
 ```
 
-`codebase` persists semantic blocks only (see
-[`docs/ADR-kotoba-content-addressed-codebase-gap.md`](docs/ADR-kotoba-content-addressed-codebase-gap.md));
-source Git remains the authoring workflow, and no network synchronization is
-implied.
+`codebase` is hash-native: `run` and `view` read the stored definition and
+hydrate its dependencies BY CID, so a definition runs with no source file, no
+namespace, and no name — and a name, a full CID, and a `#`-abbreviation are
+interchangeable ways of saying one. `add` propagates an update by rewriting each
+dependent's dependency CID, which is why a dependent that was authored in a
+scratch buffer you no longer have still moves forward.
+
+`pull` asks the IPFS delegated-routing HTTP API who provides a CID and fetches
+raw blocks from trustless gateways. Every byte is verified against the CID that
+was requested before it is persisted, so a router that lies and a gateway that
+serves the wrong bytes are both merely unhelpful. Publishing is not implemented:
+announcing to the DHT needs a libp2p node, so discovery being possible is not
+the same as content being there (see
+[`docs/ADR-kotoba-content-addressed-codebase-gap.md`](docs/ADR-kotoba-content-addressed-codebase-gap.md)).
 
 Multi-module projects use an explicit closed manifest; the compiler never scans
 the filesystem or delegates module lookup to JavaScript:

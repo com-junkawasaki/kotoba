@@ -26,6 +26,7 @@
             [kotoba.host-providers-test]
             [kotoba.kami-game-test]
             [kotoba.kgraph-test]
+            [kotoba.codebase-cli-test]
             [kotoba.launcher-test]
             [kotoba.language-conformance-test]
             [kotoba.package-registry-test]
@@ -80,6 +81,7 @@
                                         'kotoba.host-providers-test
                                         'kotoba.kami-game-test
                                         'kotoba.kgraph-test
+                                        'kotoba.codebase-cli-test
                                         'kotoba.launcher-test
                                         'kotoba.language-conformance-test
                                         'kotoba.package-registry-test
