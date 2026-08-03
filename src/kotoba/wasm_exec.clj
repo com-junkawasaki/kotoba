@@ -14,6 +14,11 @@
   surface in its own runtime; this namespace is the JVM one, used here to
   prove — not just assert — that emitted modules run.
 
+  A host implementing this ABI MUST validate the output window before
+  depositing a result: `out-ptr`/`out-cap` are guest-supplied, so a host that
+  checks only that the payload fits `out-cap` will write wherever it is told.
+  See `writable-output-window` for the bounds and why each one is there.
+
   Not a duplicate of `kotoba-lang/kototama`'s `kototama.tender` (also
   JVM/Chicory): that is a *separate* repo's production/compat runtime,
   hosting already-emitted `.wasm` under capability grants `aiueos` decides
@@ -102,13 +107,77 @@
         (value-codec/decode-value bs)
         (edn/read-string (String. ^bytes bs "UTF-8"))))))
 
+(def ^:private instance-heap-base
+  "Instance -> the value of global 0 (the bump-allocator pointer) captured
+  immediately after instantiation, i.e. before any guest code has run, which
+  makes it the module's heap base. `kotoba.runtime/wasm-binary` emits it as
+  global 0's initializer and every `alloc` bumps that same global, so the
+  live global is the allocation high-water mark and this snapshot is the
+  floor. Weak keys: an Instance that goes away takes its entry with it."
+  (java.util.Collections/synchronizedMap (java.util.WeakHashMap.)))
+
+(defn- writable-output-window
+  "nil when [PTR, PTR+CAP) is a legitimate output buffer in INSTANCE, or a
+  keyword naming why it is not.
+
+  The (ptr,len,out-ptr,out-cap) host ABI lets the GUEST name where a host
+  import deposits its result, and until this check the host validated only
+  that the payload fit `cap`. Both `ptr` and `cap` are guest values, so
+  `(fs-read path-ptr path-len 0 65536)` -- a bare literal 0 -- had the host
+  write a file's contents over the module's own data segments. That is the
+  same corruption `kotoba.runtime/raw-memory-problems` denies user source
+  directly (T1); denying `byte-store!` while the host would store anywhere on
+  request only moves the primitive rather than removing it, and it needs no
+  denied op or even `alloc` to reach.
+
+  The window must lie at or above the heap base and inside linear memory.
+  Below the heap base are the module's data segments: every string literal
+  and constant the compiler placed, which `str-ptr` hands out addresses into.
+  Those become unwritable, so a host import can no longer rewrite the
+  constants a module was compiled with.
+
+  Deliberately NOT required: that the buffer was `alloc`ed. This ABI treats
+  everything above the heap base as the guest's own scratch and `alloc` is
+  optional -- `demo_actor_host_sha256.kotoba` is `(sha256-hex 0 0 2048 64)`,
+  writing at exactly the heap base having allocated nothing. An earlier
+  revision here demanded `ptr + cap <= ` the live bump pointer and broke that
+  demo; the rule was wrong, not the demo.
+
+  So this bounds WHICH REGION a host write can reach, not which object. One
+  live heap object can still be named in place of another, because the bump
+  allocator records no per-allocation extents to check against. See
+  docs/threat-model.md."
+  [instance ptr cap]
+  (let [heap-base (.get instance-heap-base instance)
+        memory-bytes (* (long (.pages (.memory instance)))
+                        (long com.dylibso.chicory.runtime.Memory/PAGE_SIZE))]
+    (cond
+      ;; An instance this namespace did not build has no recorded floor, so
+      ;; the floor cannot be enforced. Fail closed rather than silently
+      ;; downgrading to the checks that remain available.
+      (nil? heap-base) :unregistered-instance
+      (or (neg? ptr) (neg? cap)) :negative-window
+      ;; A zero-capacity window writes nothing, so its address is not a
+      ;; write primitive and constraining it would be theatre. `write-bytes!`
+      ;; has already rejected any non-empty payload against this same cap.
+      ;; demo_actor_host_log_read.kotoba is `(log-read 0 0)`: reading an
+      ;; empty log back cleanly, which must keep working.
+      (zero? cap) nil
+      (> ptr (- Long/MAX_VALUE cap)) :window-overflow
+      (< ptr (long heap-base)) :below-heap-base
+      (> (+ ptr cap) memory-bytes) :outside-linear-memory
+      :else nil)))
+
 (defn- write-bytes!
   "Write BS into INSTANCE's memory at PTR (capacity CAP bytes); returns the
   byte count written, or -1 when BS would overflow CAP (the caller's buffer
-  was too small — mirrors the existing result-err?/negative-status ABI)."
+  was too small — mirrors the existing result-err?/negative-status ABI) or
+  when [PTR, PTR+CAP) is not a legitimate output window (see
+  `writable-output-window`, which reuses that same -1 status so a guest sees
+  one uniform failure rather than a new error channel)."
   [instance ptr cap bs]
   (let [n (count bs)]
-    (if (> n cap)
+    (if (or (> n cap) (writable-output-window instance ptr cap))
       -1
       (do (.write (.memory instance) (int ptr) (byte-array bs) 0 n)
           n))))
@@ -724,11 +793,19 @@
                      (.addFunction (into-array ImportFunction
                                                (cons (has-capability-fn policy) extra-host-fns)))
                      .build)
-         module (Parser/parse ^bytes wasm-bytes)]
-     (-> (Instance/builder module)
-         (.withImportValues imports)
-         (.withUnsafeExecutionListener (fuel-listener (fuel-limit policy)))
-         .build))))
+         module (Parser/parse ^bytes wasm-bytes)
+         instance (-> (Instance/builder module)
+                      (.withImportValues imports)
+                      (.withUnsafeExecutionListener (fuel-listener (fuel-limit policy)))
+                      .build)]
+     ;; Global 0 is the bump-allocator pointer and no guest code has run yet
+     ;; (these modules emit no start section), so its value here is the heap
+     ;; base -- the floor `writable-output-window` needs to keep host writes
+     ;; off the data segments. Recorded at build time because a host import
+     ;; only ever receives the Instance, and by the time one is called the
+     ;; global has already moved.
+     (.put instance-heap-base instance (.getValue (.global instance 0)))
+     instance)))
 
 (defn call-export
   "Invoke exported FUNCTION-NAME with integer ARGS and decode its single

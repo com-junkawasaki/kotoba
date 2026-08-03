@@ -1,4 +1,7 @@
 (ns demo-actor-host-keypair)
 
+;; The output buffer is allocated rather than named as a bare address: 0 is
+;; below this module's heap base, i.e. in its data segments, which the host
+;; refuses to write (kotoba.wasm-exec/writable-output-window).
 (defn main []
-  (gen-keypair 0 64))
+  (gen-keypair (alloc 64) 64))
