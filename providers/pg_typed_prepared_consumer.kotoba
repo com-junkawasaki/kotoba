@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-typed-prepared-consumer)
+(ns kotoba.providers.pg-typed-prepared-consumer {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn typed-copy! [out-ptr out-offset in-ptr in-len index]
   (if (>= index in-len)

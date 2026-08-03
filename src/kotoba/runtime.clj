@@ -583,6 +583,116 @@
        form))
     @problems)))
 
+;; ---------------------------------------------------------------------------
+;; T1 Memory Safety -- raw linear-memory primitives are denied in user source.
+;;
+;; ADR-safe-capability-language.md claims this gate as "T1 部分" and cites
+;; `subset.rs`, a Rust file removed with the rest of the Rust tree
+;; (ADR-2607072000). Nothing replaced it: `alloc`/`mem-*-at`/`*-store!` sit in
+;; the grammar catalog's `:admitted-builtins`, absent from both
+;; `:forbidden-heads` and safe_analyzer_facts.edn's `:non-executable-forms`,
+;; and `compile-wasm-expr` lowers them straight to `i32.load`/`i32.store` with
+;; a guest-computed address and no bounds check. So between the Rust removal
+;; and this gate, any `.kotoba` source could read and write every byte of its
+;; own linear memory -- forging pair handles, string (ptr,len) headers, and
+;; container internals at will. Wasm's own sandbox bounds the module, not the
+;; abstractions inside it, so no runtime check recovers this; only keeping the
+;; address out of user hands does.
+;;
+;; The denied set is exactly the ops that DEREFERENCE an address: the raw
+;; loads and stores. Everything else stays admitted, deliberately:
+;;
+;;   - `alloc`/`alloc-checked`/`str-ptr`/`bytes-ptr` produce an address, but
+;;     with dereference denied that address is an opaque token whose only use
+;;     is being handed to a host import -- which is the designed buffer-ABI
+;;     pattern (allocate a result area, let the host fill it under its own
+;;     bounds contract). Denying them too would have put the escape hatch on
+;;     nearly every file that calls a host op, making the marker meaningless.
+;;   - `byte-at` is literal-indexed and already statically bounds-checked;
+;;     `str-len`/`bytes-len` return lengths; `memory-pages` returns a size;
+;;     `memory-grow` zero-fills new pages and cannot reach existing data.
+;;
+;; So this set is the minimum that makes the language's own values unforgeable
+;; from user source, and no larger.
+(def default-raw-memory-ops
+  '#{mem-byte-at mem-i32-at byte-store! i32-store!})
+
+(defn raw-memory-ops
+  "The denied raw-memory op set. Prefers the grammar catalog's
+  `:raw-memory-ops` so the authority (kotoba-lang/grammar) can take ownership
+  of the list later without a change here; falls back to
+  `default-raw-memory-ops` until it does."
+  []
+  (let [declared (:raw-memory-ops (guest-grammar/catalog))]
+    (if (seq declared)
+      (into #{} (map #(if (symbol? %) % (symbol (str %)))) declared)
+      default-raw-memory-ops)))
+
+(defn raw-memory-declared?
+  "True when FORMS carry a module-level raw-memory declaration:
+  `(ns name {:kotoba/raw-memory <reason>})`.
+
+  This is the localize-don't-eliminate escape hatch (Rust's `unsafe` block,
+  and the same role the ADR's prelude exemption played): the container/wire
+  layer that must build byte buffers keeps working, but it has to say so in
+  the file, where review and `grep -l :kotoba/raw-memory` can see it. Ordinary
+  application code that never makes the declaration cannot touch raw memory at
+  all, which is the property T1 actually names."
+  [forms]
+  (boolean
+   (some (fn [form]
+           (and (seq? form) (= 'ns (list-head form))
+                (some #(and (map? %) (contains? % :kotoba/raw-memory)) form)))
+         forms)))
+
+(defn raw-memory-problems
+  "Problems for raw linear-memory ops in user SURFACE source.
+
+  Deny by default. Two grants, both explicit and auditable: the module-level
+  `(ns _ {:kotoba/raw-memory ...})` declaration, or a deployment-level policy
+  `:kotoba.policy/allow-raw-memory`. A deployment that must prove no raw
+  memory anywhere sets `:kotoba.policy/forbid-raw-memory`, which overrides
+  both grants -- so hardening never depends on auditing 40 source files.
+
+  Runs on SURFACE forms, before `lower-language-forms`: string/container sugar
+  legitimately lowers INTO these ops (`bounded-dynamic-string-expr`,
+  `string-concat`, pair cells), and gating post-lowering would reject ordinary
+  string code. The surface is exactly what the author wrote, which is what the
+  ADR's \"user source のみ検査\" means."
+  ([forms] (raw-memory-problems forms nil))
+  ([forms policy]
+   (let [forbid? (boolean (or (:kotoba.policy/forbid-raw-memory policy)
+                              (:forbid-raw-memory policy)))
+         granted? (and (not forbid?)
+                       (or (:kotoba.policy/allow-raw-memory policy)
+                           (:allow-raw-memory policy)
+                           (raw-memory-declared? forms)))]
+     (if granted?
+       []
+       (let [denied (raw-memory-ops)
+             seen (atom #{})
+             problems (atom [])]
+         (doseq [form forms]
+           (walk-forms
+            (fn [node]
+              (when-let [head (list-head node)]
+                (when (and (contains? denied head) (not (@seen head)))
+                  (swap! seen conj head)
+                  (swap! problems conj
+                         {:kotoba.runtime/problem :raw-memory-denied
+                          :kotoba.runtime/form (str head)
+                          :kotoba.lang/hint
+                          (if forbid?
+                            (str "raw linear-memory access is forbidden by policy "
+                                 ":kotoba.policy/forbid-raw-memory")
+                            (str "raw linear-memory access is denied in user source "
+                                 "(T1 memory safety); use the bounds-respecting "
+                                 "accessors, or declare "
+                                 "(ns _ {:kotoba/raw-memory <reason>}) if this "
+                                 "module implements containers or a wire protocol"))}))))
+            form))
+         @problems)))))
+
 (declare eval-form)
 
 (def ^:dynamic *interpreter-step-budget*
@@ -2708,11 +2818,12 @@
 ;; "borrow checker (S2, deterministic drop, no implicit clone)").
 ;;
 ;; This is NOT a general Rust-style ownership/borrow/lifetime system over
-;; every value in the language. T1 Memory Safety is already achieved without
-;; one (raw memory ops denied, byte-at/byte-append! bounds-checked, the bump
-;; allocator never frees so use-after-free/double-free are structurally
-;; absent, concurrency primitives are denied so data races are structurally
-;; absent). The ONLY thing scoped here is capability-typed values: a
+;; every value in the language. T1 Memory Safety is achieved without one:
+;; raw memory dereference is denied in user source (`raw-memory-problems`
+;; above), `byte-at` is literal-indexed and statically bounds-checked, the
+;; bump allocator never frees so use-after-free/double-free are structurally
+;; absent, and concurrency primitives are denied so data races are
+;; structurally absent. The ONLY thing scoped here is capability-typed values: a
 ;; `^{:cap <kind>}` param, the direct result of `(cap-acquire ...)`, or a
 ;; let-bound alias of either. "Deterministic drop" means an unused
 ;; capability-typed binding is fine (no linear must-use requirement); "no
@@ -3101,6 +3212,9 @@
   (let [surface-forms forms
         forms (lower-language-forms forms)
         static-problems (vec (concat (source-problems safe-facts forms policy)
+                                     ;; surface, not lowered: string/container
+                                     ;; sugar lowers INTO the denied ops.
+                                     (raw-memory-problems surface-forms policy)
                                      (cap-typed-problems forms)
                                      (cap-affine-problems forms)
                                      (cap-effect-problems forms)
@@ -5085,8 +5199,12 @@
   command programs require zero-arity `main`, while game modules may expose
   `init` and/or `*-tick` systems instead."
   ([forms] (wasm-binary forms nil))
-  ([forms _policy]
-  (let [forms (lower-language-forms forms)
+  ([forms policy]
+  (let [;; Defense in depth: the CLI always runs `check` first, but a direct
+        ;; emitter call must not be a way around the T1 gate. Computed on the
+        ;; surface forms, before `lower-language-forms` introduces the ops.
+        raw-memory-denied (raw-memory-problems forms policy)
+        forms (lower-language-forms forms)
         defs (function-defs forms)
         unsupported-top-level (first
                                (remove #(and (seq? %)
@@ -5114,6 +5232,14 @@
                                   (cstr/ends-with? (str name) "-tick")))
                             defs)]
     (cond
+      (seq raw-memory-denied)
+      {:kotoba.wasm/ok? false
+       :kotoba.wasm/problems (mapv (fn [problem]
+                                     {:kotoba.wasm/problem :raw-memory-denied
+                                      :kotoba.wasm/op (:kotoba.runtime/form problem)
+                                      :kotoba.lang/hint (:kotoba.lang/hint problem)})
+                                   raw-memory-denied)}
+
       unsupported-top-level
       {:kotoba.wasm/ok? false
        :kotoba.wasm/problems [{:kotoba.wasm/problem :unsupported-top-level-form

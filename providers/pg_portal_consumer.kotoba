@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-portal-consumer)
+(ns kotoba.providers.pg-portal-consumer {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn portal-message-length [ptr]
   (+ (* (mem-byte-at ptr 1) 16777216)

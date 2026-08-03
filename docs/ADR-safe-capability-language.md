@@ -4,6 +4,15 @@ Status: **Accepted・実装進行中** — gating 層は実装完了（capabilit
 Date: 2026-06-25（設計）/ 実装更新: 2026-06-26
 Implemented: `crates/kotoba-clj`（`policy.rs` / `subset.rs` / `effects.rs` / `ty.rs` / `cli.rs`、safe-mode tests 約 170）
 Crate: `crates/kotoba-clj`（front-end 拡張）+ `kotoba-runtime` / `kotoba-lattice`（runtime 側 enforcement）
+
+> **⚠ 本文中の `crates/kotoba-clj/**`（`subset.rs` / `safe_*.rs` 等）への参照は
+> すべて歴史的記録である。** その Rust ツリーは ADR-2607072000 で撤去済みで、
+> ここに書かれた gate が現行実装にも存在するとは**限らない** —— 各主張は
+> 現行の `.clj` 実装で裏が取れているかを確認してから引用すること。
+> 実測 2026-08-03: T1 の raw メモリ deny（下表）はこの撤去の際に一緒に消えており、
+> `subset.rs` を根拠に「実装済み」と読める状態が約1年続いていた。現在は
+> `kotoba.runtime/raw-memory-problems`（`test/kotoba/raw_memory_test.clj`）で
+> 再実装済み。
 関連: `docs/ADR-kotoba-wasm.md`, `docs/ADR-kotoba-word.md`, `docs/ADR-kotoba-mesh-wasm-hosting.md`, `docs/SECURITY-ARCHITECTURE.md`, `docs/ADR-sealed-cold-tier.md`
 
 ## 0. 一行で
@@ -41,7 +50,7 @@ Crate: `crates/kotoba-clj`（front-end 拡張）+ `kotoba-runtime` / `kotoba-lat
 | `:memory-pages` を emit module の memory max に適用（engine が物理的に enforce、static data 超過 / wasm32 max 65536 超過は compile error） | ✅ | — | `codegen.rs` / `lib.rs` / `policy.rs` |
 | **関数 signature 推論（cross-function, 両方向・連結）**: ①戻り値型を call graph fixpoint（Jacobi）で閉じ（name+arity keyed・相互再帰収束）`Call` 結果を callee signature で型付け（**`Str` のみ境界越し伝播** — `Num`/`Bytes` 戻り値は算術構築ハンドルと区別不能なため `Unknown` collapse）。②各 param の要求型を本体内の直接 builtin 使用から推論（shadow-safe・多態使用は Any）。③**両者を call site で連結**（`Ctx{rets,reqs}` を forward `infer` パスに統合）: リテラル引数は両方向照合、**非リテラル引数は推論型が concretely `Str`（genuine 文字列ハンドル）の時のみ**要求型と照合（`Num`/`Bytes`/`Unknown` 引数は handle-pun のため無制約）。`(add1 (greet))` / `(let [s "x"] (add1 s))` 等の文字列→数値 param 流入を捕捉、prelude false positive なし | ✅ | — | `ty_infer.rs::{infer_return_types,infer_param_reqs,check_arg}` |
 | 型付き HIR 本体: `Option`/`Result`・no-nil（S1b 残） | ⬜ | — | — |
-| **raw メモリ primitive を deny（T1 部分）**: `alloc`/`load64`/`store64!`/`load32`/`store32!` を subset gate に追加。user safe Kotoba はモジュール内任意オフセットの read/write 不可（自前 heap・string ハンドル・container record を `store64!` で破壊する唯一の経路を封鎖）。メモリは境界尊重の accessor（`bytes-*`/`byte-at`/`str-len`・vector/map prelude）経由のみ。prelude は免除（user source のみ検査）で container 実装は継続 | ✅ | **T1 部分** | `subset.rs` |
+| **raw メモリ primitive を deny（T1 部分）**: user safe Kotoba はモジュール内任意オフセットの read/write 不可（自前 heap・string ハンドル・container record を破壊する唯一の経路を封鎖）。メモリは境界尊重の accessor（`bytes-*`/`byte-at`/`str-len`・vector/map prelude）経由のみ。**現行実装（2026-08-03 再実装）**: deny 対象は「アドレスを**逆参照**する op」＝ `mem-byte-at`/`mem-i32-at`/`byte-store!`/`i32-store!` の4つ。`alloc`/`str-ptr`/`bytes-ptr` はアドレスを**作る**だけで、逆参照が塞がれていれば host import に渡す不透明トークンにしかならないので admit のまま（これらまで deny すると host op を呼ぶほぼ全ファイルに例外宣言が付き、marker が無意味になる）。sugar は逆参照 op へ lower されるため検査は**surface 側**で行う（＝旧 ADR の「prelude は免除、user source のみ検査」と同じ意味）。container/wire 実装は `(ns _ {:kotoba/raw-memory <reason>})` で局所化して継続（現在 16 module） | ✅ | **T1 部分** | `kotoba.runtime/raw-memory-problems`, `test/kotoba/raw_memory_test.clj`, `tools/raw_memory_audit.clj` |
 | **`byte-at` 境界チェック（静的 + 実行時）（T1）**: ①`(byte-at <文字列リテラル> <整数リテラル>)` で OOB なら compile error（静的、偽陽性なし）。②**実行時**: codegen が `byte-at` に境界チェックを emit — `index >=u (handle & 0xFFFFFFFF = len)` なら trap（unsigned 比較で負 index も捕捉）。変数 index の OOB 読みも封鎖し、`byte-at` は完全に bounds-respecting に。OOB literal は静的に弾かれ codegen に届かない | ✅ | **T1** | `ty.rs` / `codegen.rs` |
 | **`byte-append!` 容量チェック（実行時）（T1）**: codegen が書き込み前に `len >=u cap`（ヘッダ `[cap@0,len@4]`）なら trap。バッファを `bytes-alloc` の cap を超えて追記＝隣接 linear memory への buffer overflow を封鎖。正しくサイズした buffer は trap せず（cbor 等の prelude エンコーダで検証） | ✅ | **T1** | `codegen.rs` |
 | **`bytes-alloc` 負容量ガード（静的 + 実行時）（T1）**: 負 cap は header に巨大 unsigned `cap` として格納され byte-append! の overflow ガードを無効化（かつ `cap+8` が wrap して微小確保）。①負 literal は ty.rs で静的拒否、②実行時は codegen が `cap < 0` で trap。byte-append! 防御を回避する経路を封鎖（回帰テストで「負 cap → append 前に trap」を固定） | ✅ | **T1** | `ty.rs` / `codegen.rs` |
@@ -52,7 +61,7 @@ Crate: `crates/kotoba-clj`（front-end 拡張）+ `kotoba-runtime` / `kotoba-lat
 | capability の値渡し（S4b）・signed module（S5 残） | ⬜ | — | — |
 
 達成: **T2 Effect Soundness ✅ / T3 Capability Confinement ✅（instance 粒度、バイト列検証済み）**。
-**T1 Memory Safety は大部分達成**: ①raw メモリ primitive（`alloc`/`load*`/`store*`）を user code で deny（モジュール内任意 read/write 封鎖）、②`byte-at` は静的（literal OOB）+ 実行時（`index >=u len` で trap、負 index 含む）に bounds-respecting、③`byte-append!` は実行時容量 trap（`len >=u cap`）で buffer overflow 封鎖、④bump allocator は free 不実施で use-after-free/double-free 構造的に不在、⑤並行 primitive deny で data race 不在。**残**: 値レベルの borrow/ownership（S2）。テスト: safe-mode 約 200（`crates/kotoba-clj/tests/safe_*.rs` + `confinement_property.rs` + `safe_confinement_matrix.rs` + `safe_reproducible.rs`）+ 実行時 trap（`compile_run.rs`）+ ast meta-guard + **実在の agent cell end-to-end**（`safe_integration.rs`）、full suite green（41 groups）、clippy clean（default + cli）。
+**T1 Memory Safety は大部分達成**: ①raw メモリ逆参照 op（`mem-*-at`/`*-store!`）を user code で deny（モジュール内任意 read/write 封鎖。**2026-08-03 に `.clj` で再実装** —— Rust 撤去時に一度失われていた。`kotoba.runtime/raw-memory-problems`、admission と emitter の両方に配線、deployment 側の `:kotoba.policy/forbid-raw-memory` で module 宣言ごと無効化可能）、②`byte-at` は静的（literal OOB）+ 実行時（`index >=u len` で trap、負 index 含む）に bounds-respecting、③`byte-append!` は実行時容量 trap（`len >=u cap`）で buffer overflow 封鎖、④bump allocator は free 不実施で use-after-free/double-free 構造的に不在、⑤並行 primitive deny で data race 不在。**残**: 値レベルの borrow/ownership（S2）。テスト: safe-mode 約 200（`crates/kotoba-clj/tests/safe_*.rs` + `confinement_property.rs` + `safe_confinement_matrix.rs` + `safe_reproducible.rs`）+ 実行時 trap（`compile_run.rs`）+ ast meta-guard + **実在の agent cell end-to-end**（`safe_integration.rs`）、full suite green（41 groups）、clippy clean（default + cli）。
 
 ### 0.1 語彙整理と self-hosting 境界（2026-06-29）
 

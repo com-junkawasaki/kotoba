@@ -1,4 +1,4 @@
-(ns demo-buffer-abi)
+(ns demo-buffer-abi {:kotoba/raw-memory :implements-buffer-abi})
 
 (defn main []
   (let [buf (bytes-ptr [0 0 0 0])]
