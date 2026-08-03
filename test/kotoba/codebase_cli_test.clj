@@ -5,7 +5,6 @@
   full CID, and a hash abbreviation are interchangeable ways of saying one
   definition, and none of them is what the definition IS."
   (:require [cbor.core :as cbor]
-            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.codebase-routing :as routing]
             [kotoba.codebase.store :as store]
