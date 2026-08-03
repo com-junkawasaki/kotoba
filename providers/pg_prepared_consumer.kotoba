@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-prepared-consumer)
+(ns kotoba.providers.pg-prepared-consumer {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn prepared-message-length [ptr]
   (+ (* (mem-byte-at ptr 1) 16777216)

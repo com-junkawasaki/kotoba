@@ -31,6 +31,7 @@
             [kotoba.package-registry-test]
             [kotoba.package-key-revoke-e2e-test]
             [kotoba.rad-adapter-test]
+            [kotoba.raw-memory-test]
             [kotoba.real-host-providers-test]
             [kotoba.reproducible-emit-test]
             [kotoba.runtime-test]
@@ -84,6 +85,7 @@
                                         'kotoba.package-registry-test
                                         'kotoba.package-key-revoke-e2e-test
                                         'kotoba.rad-adapter-test
+                                        'kotoba.raw-memory-test
                                         'kotoba.real-host-providers-test
                                         'kotoba.reproducible-emit-test
                                         'kotoba.runtime-test

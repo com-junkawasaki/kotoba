@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-scram)
+(ns kotoba.providers.pg-scram {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn pg-scram-message-length [message-ptr message-len]
   (if (>= message-len 5)

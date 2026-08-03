@@ -1,4 +1,4 @@
-(ns demo-alloc)
+(ns demo-alloc {:kotoba/raw-memory :implements-buffer-abi})
 
 (defn main []
   (let [buf (alloc 4)]

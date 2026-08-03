@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-pool-consumer)
+(ns kotoba.providers.pg-pool-consumer {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn pool-message-length [ptr]
   (+ (* (mem-byte-at ptr 1) 16777216)

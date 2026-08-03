@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-explicit-scram-consumer)
+(ns kotoba.providers.pg-explicit-scram-consumer {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn run [port]
   (let [channel (pg-open-scram

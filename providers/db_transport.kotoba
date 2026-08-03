@@ -1,4 +1,4 @@
-(ns kotoba.providers.db-transport)
+(ns kotoba.providers.db-transport {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn ^:i64 db-open [host-ptr host-len port]
   (let [transport (transport-connect host-ptr host-len port)]

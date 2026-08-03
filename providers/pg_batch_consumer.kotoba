@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-batch-consumer)
+(ns kotoba.providers.pg-batch-consumer {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn batch-store-i16! [ptr offset value]
   (let [w0 (byte-store! ptr offset (quot value 256))

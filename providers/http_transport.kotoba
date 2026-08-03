@@ -1,4 +1,4 @@
-(ns kotoba.providers.http-transport)
+(ns kotoba.providers.http-transport {:kotoba/raw-memory :implements-wire-protocol})
 
 (defn ^:i64 http-open [host-ptr host-len port]
   (let [transport (transport-connect host-ptr host-len port)]
