@@ -8,7 +8,8 @@
   protects. ADR-safe-capability-language.md has claimed this gate since the
   Rust tree; these tests are the first ones that hold the CURRENT
   implementation to it."
-  (:require [clojure.string :as str]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.launcher :as launcher]
             [kotoba.runtime :as runtime]))
@@ -104,8 +105,8 @@
 (deftest declared-modules-are-the-audited-exception-list
   (testing "every first-party module that dereferences raw memory declares it"
     (let [offenders
-          (for [path (->> (file-seq (clojure.java.io/file "providers"))
-                          (concat (file-seq (clojure.java.io/file "src")))
+          (for [path (->> (file-seq (io/file "providers"))
+                          (concat (file-seq (io/file "src")))
                           (filter #(.isFile ^java.io.File %))
                           (map #(.getPath ^java.io.File %))
                           (filter #(str/ends-with? % ".kotoba"))
