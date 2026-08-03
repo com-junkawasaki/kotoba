@@ -1,0 +1,4 @@
+;; Grants exactly :graph/kotoba, the single capability behind kgraph-assert!.
+;; Without it this source recorded as :capability-not-granted in
+;; qualification/emit-digests.edn -- a policy gap read as an emitter gap.
+{:kotoba.policy/capabilities #{:graph/kotoba}}

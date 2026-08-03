@@ -45,8 +45,17 @@ sibling-file convention (`demo_x.kotoba` -> `demo_x_policy.edn`) covers 40 of
 the demos but not all — several share `demo_provider_policy.edn`, and
 `demo_cap`/`demo_notify` share `demo_policy.edn`. Inferring it wrongly records
 a source as uncompilable when it compiles fine. Emitting without the policy
-recorded 44 of 74 sources as "unsupported"; with the recorded policies, 71 of
+recorded 44 of 74 sources as "unsupported"; with the recorded policies, 72 of
 74 emit.
+
+A recorded policy overriding the convention is the point, but recording one
+**while the source's own sibling exists** has only ever been a mistake, and it
+was made here: `demo_string_host_sugar.kotoba` was pinned to
+`demo_provider_policy.edn` while `demo_string_host_sugar_policy.edn` sat next
+to it granting exactly what the source needs. The entry then recorded
+`:capability-not-granted`, and the first version of this ADR repeated that as
+"no policy in the repo grants it" — which was not true, and nothing checked it.
+`verify` now reports `:policy-shadows-sibling` for that shape.
 
 ### Every source is recorded, including those that do not emit
 
@@ -55,19 +64,24 @@ emitting successfully without the manifest being updated. A gate that silently
 skips what it cannot compile reports coverage it does not have.
 
 A non-reproducible entry must say *why* — `:problem-kinds` and, where relevant,
-`:ungranted-capabilities` — not just `:wasm/check-failed`. The three that do
-not emit today:
+`:ungranted-capabilities` and `:unknown-forms` — not just `:wasm/check-failed`.
+The two that do not emit today:
 
 | source | reason |
 | --- | --- |
-| `src/demo_kbb_fs_report.kotoba` | `:unknown-form` — a checker limitation, not a policy question |
-| `src/demo_string_host_sugar.kotoba` | needs `hash/sha256`; no policy in the repo grants it |
-| `src/q8_capability_port.kotoba` | needs `graph/kotoba`; same |
+| `src/demo_kbb_fs_report.kotoba` | `:unknown-form "str"` — the legacy emitter has no number-to-string primitive, so `(str n)` cannot lower. A language gap, not a policy question |
+| `src/demo_string_host_sugar.kotoba` | `:wasm/binary-unsupported` — the checker **passes** and the L2 sugar lowers to `(sha256-hex (str-ptr "") (str-len ""))`; the full `sha256-hex` ABI still needs out-buffer params after the input head, which is what the source's own comment says |
+
+`src/q8_capability_port.kotoba` emits since `q8_capability_port_policy.edn`
+granted the `graph/kotoba` its `kgraph-assert!` needs.
 
 These are recorded, not hidden. "This source needs `fs/app-data` and nothing
 grants it" and "this source hits `:unknown-form`" are different facts with
 different owners; an opaque code collapses them, and that is how a gate ends up
-locking in a baseline nobody reviewed.
+locking in a baseline nobody reviewed. `:unknown-forms` extends the same
+reasoning one level down: `[:unknown-form]` says a primitive is missing without
+saying which, so the record cannot tell anyone what to implement — `["str"]`
+can.
 
 ### Usage
 

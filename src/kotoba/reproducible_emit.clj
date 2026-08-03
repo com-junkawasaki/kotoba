@@ -90,21 +90,27 @@
 (defn failure-detail
   "Why a check failed, as reviewable data rather than a bare `:wasm/check-failed`.
 
-  `{:problem-kinds [...] :ungranted-capabilities [...]}`. \"This source needs
-  `fs/app-data` and no policy here grants it\" and \"this source hits
-  `:unknown-form` in the checker\" are different facts with different owners;
-  an opaque code collapses them, and that is how a gate ends up locking in a
-  baseline nobody reviewed."
+  `{:problem-kinds [...] :ungranted-capabilities [...] :unknown-forms [...]}`.
+  \"This source needs `fs/app-data` and no policy here grants it\" and \"this
+  source hits `:unknown-form` in the checker\" are different facts with
+  different owners; an opaque code collapses them, and that is how a gate ends
+  up locking in a baseline nobody reviewed.
+
+  `:unknown-forms` names the forms themselves for the same reason the
+  capabilities are named: `[:unknown-form]` says a primitive is missing without
+  saying which, so the record cannot tell anyone what to implement."
   [result]
-  (let [ps (problems result)]
+  (let [ps (problems result)
+        collect (fn [detail k attr]
+                  (let [vs (->> ps (keep attr) distinct sort vec)]
+                    (cond-> detail (seq vs) (assoc k vs))))]
     (cond-> {}
       (seq ps)
       (assoc :problem-kinds (->> ps (keep :kotoba.runtime/problem) distinct sort vec))
 
       (seq ps)
-      (as-> detail
-            (let [caps (->> ps (keep :kotoba.runtime/capability) distinct sort vec)]
-              (cond-> detail (seq caps) (assoc :ungranted-capabilities caps)))))))
+      (-> (collect :ungranted-capabilities :kotoba.runtime/capability)
+          (collect :unknown-forms :kotoba.runtime/form)))))
 
 (defn emit-outcome
   "Emit SOURCE under POLICY through the safe-build entry point. Returns
@@ -145,6 +151,18 @@
 
       (and policy (not (.exists (io/file policy))))
       [{:kind :missing-policy :source source :policy policy}]
+
+      ;; A recorded policy beats the sibling convention on purpose (several
+      ;; demos share one policy file), but recording one *while the source's
+      ;; own sibling exists* has only ever been a mistake: the sibling grants
+      ;; what the source needs and the shadowing entry does not, so the source
+      ;; records as capability-blocked and the gate reports a language gap that
+      ;; is really a bookkeeping gap. Measured once, on
+      ;; demo_string_host_sugar.kotoba.
+      (and (sibling-policy source)
+           (not= policy (sibling-policy source)))
+      [{:kind :policy-shadows-sibling :source source
+        :recorded policy :sibling (sibling-policy source)}]
 
       :else
       (let [actual (emit-outcome source policy)]
