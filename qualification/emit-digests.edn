@@ -16,7 +16,7 @@
                 "src/demo_actor_host_keypair.kotoba"
                 {:policy "src/demo_actor_host_keypair_policy.edn",
                  :digest
-                 "sha256:3d311b02f018848088a78c306794469e21a8499a3352d3b0e620b3188b500b02"},
+                 "sha256:d492b5cb132e997f6555d3b5eb1e647c40e189861171be97406e4064c8d6b0b8"},
                 "src/demo_actor_host_log_read.kotoba"
                 {:policy "src/demo_actor_host_log_read_policy.edn",
                  :digest
