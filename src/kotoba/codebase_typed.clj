@@ -14,6 +14,8 @@
             [kotoba.codebase.typed-code :as typed]
             [kotoba.codebase.typed-eval :as typed-eval]
             [kotoba.compiler.core :as compiler]
+            [kotoba.compiler.module-lock :as module-lock]
+            [kotoba.compiler.project :as project]
             [kotoba.kir :as kir]))
 
 (defn source->kir
@@ -34,6 +36,33 @@
    (let [module (source->kir source policy)]
      (authoring/plan-with root namespace
                           #(typed/compile-module module {:definitions %})))))
+
+(defn plan-locked
+  "Plan an update from a CID-PINNED module graph rather than a source file.
+
+  This is where the two content-addressed halves meet. `module-lock` pins the
+  compilation INPUTS by source CID -- which bytes were compiled -- and
+  `typed-code` hashes the resulting definitions -- what they mean. Neither
+  implies the other: the same pinned bytes under a different compiler contract
+  produce different definitions, and two different sources can produce the same
+  definition. Linking them here means a namespace update can name the exact
+  input set it came from, and the returned `:lock-cid` is what a receipt binds
+  so that claim is checkable later.
+
+  The linked project is compiled as one module, so a `:require` across the
+  locked graph becomes an ordinary intra-module call and then a dependency CID
+  like any other."
+  ([root namespace lock-path blocks-path] (plan-locked root namespace lock-path blocks-path {}))
+  ([root namespace lock-path blocks-path policy]
+   (let [{:keys [sources root-namespace lock-cid modules]}
+         (let [loaded (module-lock/load-locked-graph lock-path blocks-path)]
+           (assoc loaded :root-namespace (:root loaded)))
+         linked (project/link-source sources root-namespace)
+         module (source->kir (:source linked) policy)]
+     (assoc (authoring/plan-with root namespace
+                                 #(typed/compile-module module {:definitions %}))
+            :lock-cid lock-cid
+            :modules modules))))
 
 (defn update-namespace!
   "Plan and commit in one step."

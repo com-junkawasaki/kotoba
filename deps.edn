@@ -10,7 +10,7 @@
          :git/sha "6597500afa5607f8114309ab5a33003a893715d2"}
         io.github.kotoba-lang/codebase
         {:git/url "https://github.com/kotoba-lang/codebase.git"
-         :git/sha "da66ee4c71f3be6dbb84f3f0b3bf49aafabc2852"}
+         :git/sha "cf8f28e352d792af98d43eec6fbd0f0cd8cef4f3"}
         io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "f409dbade106df076cefe640781b12db558f4135"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
@@ -19,7 +19,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/compiler
         {:git/url "https://github.com/kotoba-lang/compiler.git"
-         :git/sha "77093b8715f2429b671b91c54e84b6622cf17b9a"}
+         :git/sha "d3e3f6864a2a6c1ea2cfdb2b136c7bf2d1dcfa67"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not

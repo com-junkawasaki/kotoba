@@ -127,6 +127,40 @@ propagates to a `quadruple` whose source is not in the scratch at all; and a
 definition runs from its hash after its source is deleted and every name is
 unbound from the namespace.
 
+### 2026-08-04 (fourth pass) — artifacts, effects, pinned inputs, and reading a typed definition
+
+Four gaps that were left open, closed together because they share one seam.
+
+**Compilation from a hash.** `codebase-compile` hands the assembled KIR module
+to the wasm backend, stores the artifact under its own raw CID, and keys the
+build cache the descriptor was always written for. The key is a property of the
+definition graph, so a hit survives a rename and crosses machines; a changed
+dependency misses because the dependent's identity moved. An effectful
+definition is never cached, because reuse asserts sameness that no outside call
+can promise. One limitation is recorded rather than papered over: the compiler
+contract names the emitter and the IR contract and does **not** bind the
+compiler's exact revision, so a hit survives a compiler upgrade that changes
+emitted bytes.
+
+**Effects with a ceiling.** `codebase-effects` admits providers through the
+compiler's own `reference-runtime/instantiate` -- allow-set membership plus
+exact request/result contract equality with the guest's sealed contract --
+rather than re-deriving what a capability is. Quota is per capability and per
+run, because fuel bounds computation and says nothing about how often the
+outside world was touched. The receipt is written on success, denial and trap
+alike: a record that only exists on success is advertising, not evidence.
+
+**Pinned inputs joined to definition identity.** `codebase add --module-lock`
+authors a namespace from a CID-pinned module graph and carries the `lock-cid`.
+The lock says which bytes were compiled; the definition CID says what they mean;
+neither implies the other, and now a namespace update can name both.
+
+**Reading a typed definition.** `render/typed-view` shows the checked KIR with
+dependency hashes rendered as the names the reader selects. Deliberately not
+surface source: the stored object IS the checked IR, and printing back the
+`.kotoba` someone typed would mean reconstructing a form that no longer exists
+and implying it round-trips.
+
 ### 2026-08-04 (third pass) — publication, signed
 
 Discovery could find and verify blocks somebody already provided, and nothing
@@ -174,8 +208,9 @@ The following boundary is normative:
 | Package supply chain | CID-lock contract and initial safe-build enforcement | Dependencies can be content-pinned and capability constrained. |
 | Module resolution | `module-lock` resolves `:require` by CID with no path fallback | Compilation inputs can be pinned, verified, and reproduced. |
 | Evaluation | Definitions run from their CID, hydrating dependencies by hash | Claim hash-native evaluation with no source witness. |
-| Identity vs. compilation | `typed-code` hashes the checked KIR the backends consume | Claim one definition identity shared by the codebase and the compiler. Do NOT claim the codebase emits target artifacts — it runs the oracle, it does not compile. |
-| Effects | Declared in the typed interface; `typed-cap-call` traps without an injected dispatcher | Claim effect-aware identity and deny-by-default execution. Do NOT claim a policy engine, provider registry, quota, or receipt. |
+| Identity vs. compilation | `typed-code` hashes the checked KIR; `codebase-compile` emits from it and caches on the definition graph | Claim one definition identity shared by the codebase and the compiler, and compilation from a hash. Do NOT claim the compiler's exact revision is bound into the cache key — it is not. |
+| Effects | Providers admitted by `reference-runtime`, per-capability quota, receipt on ok/denied/trap | Claim deny-by-default execution with bounded, receipted effects. Do NOT claim a policy language, capability delegation, or attenuation. |
+| Reading | `view` renders both layers; typed definitions render as checked KIR | Claim view-by-hash for both identity layers. Do NOT claim surface-source reconstruction or a browsing UI. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
 | Publication | Signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed namespace publication between nodes that know each other's endpoints. Do NOT claim a public network presence, a name registry, or key distribution. |

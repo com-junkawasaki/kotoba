@@ -207,6 +207,9 @@ kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs               
 kotoba codebase init --store dir                                       # content-addressed codebase store
 kotoba codebase add scratch.kotoba --store dir --namespace ns          # compile a scratch buffer in, propagating to dependents
 kotoba codebase add scratch.kotoba --typed --store dir --namespace ns  # hash the definition from the compiler's checked KIR
+kotoba codebase add --module-lock lock.edn --blocks dir --store dir --namespace ns  # author from a CID-pinned module graph
+kotoba codebase compile <name|#hash> --store dir --namespace ns --output f.wasm    # emit a target artifact, cached and receipted
+kotoba codebase artifact <cid> --store dir --output f.wasm              # read a stored artifact back by its CID
 kotoba codebase plan scratch.kotoba --store dir --namespace ns         # what `add` would do, without doing it
 kotoba codebase view <name|#hash> --store dir --namespace ns           # render a stored definition back to source
 kotoba codebase run <name|#hash> --store dir --namespace ns -- 3       # evaluate it, hydrating dependencies by CID
@@ -233,6 +236,21 @@ Prefer `--typed` for anything that will also be compiled: it is what makes
 `kotoba codebase run f` and `kotoba compile` the same definition rather than two
 that happen to agree. `run` reads which layer a definition belongs to from its
 block, so the flag is only needed when writing.
+
+`compile` starts from a CID, not a file: the closure is hydrated into one KIR
+module whose functions are named by their own hashes, and the backend consumes
+it exactly as it consumes one lowered from source. The build cache is keyed on
+the definition graph — code closure, compiler contract, target ABI, package
+lock, policy — so a hit is safe across machines, checkouts and namespaces, and
+renaming a definition invalidates nothing. An **effectful** definition is never
+cached: reuse means "the answer is the same", which no call to the outside world
+can promise. Every compilation writes an execution receipt binding what it
+depended on.
+
+`--module-lock` is where the two content-addressed halves meet. The lock pins
+*which bytes were compiled*; `typed-code` hashes *what they mean*. Neither
+implies the other, and an update authored this way carries the `lock-cid` of the
+exact input set it came from.
 
 `codebase` is hash-native: `run` and `view` read the stored definition and
 hydrate its dependencies BY CID, so a definition runs with no source file, no

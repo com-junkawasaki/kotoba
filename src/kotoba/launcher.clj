@@ -30,6 +30,8 @@
             [kotoba.codebase.semantic-code :as semantic-code]
             [kotoba.codebase.store :as semantic-codebase]
             [kotoba.codebase-routing :as codebase-routing]
+            [kotoba.codebase-compile :as codebase-compile]
+            [kotoba.codebase-effects :as codebase-effects]
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.selfhost.contracts :as selfhost]
@@ -301,6 +303,11 @@
                   (authority-request argv normalized-argv plan))
           (adapter-result (command-name argv) result)))))))
 
+(defn- write-bytes! [path bytes]
+  (some-> (io/file path) .getParentFile .mkdirs)
+  (with-open [out (io/output-stream path)]
+    (.write out ^bytes bytes)))
+
 (defn signing-seed-hex
   "The Ed25519 seed used to sign namespace heads, as hex, or nil.
 
@@ -353,31 +360,45 @@
     (cond
       (not (#{"init" "import" "inspect" "resolve" "merge" "add" "plan" "view"
               "run" "list" "find" "dependents" "pull" "publish" "follow"
-              "identity" "serve" "unfollow"} action))
+              "identity" "serve" "unfollow" "compile" "artifact"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/store-required}
 
       (#{"add" "plan"} action)
-      (if-not (and namespace subject (.isFile (io/file subject)))
+      ;; A pinned graph names its own root, so there is no scratch file to
+      ;; point at -- requiring one would mean naming a path in the one mode
+      ;; that exists to stop depending on paths.
+      (if-not (and namespace (or (option-value argv "--module-lock")
+                                 (and subject (.isFile (io/file subject)))))
         {:kotoba.cli/ok? false :kotoba.cli/code :codebase/scratch-input-invalid}
         (try
-          (let [plan-source (source-plan subject (reader-target-option argv))
+          (let [plan-source (when (and subject (.isFile (io/file subject)))
+                              (source-plan subject (reader-target-option argv)))
                 ;; `--typed` hashes the definition from the compiler's checked
                 ;; KIR instead of the surface IR: the same object the backends
                 ;; consume, so what the codebase stores and what a target
                 ;; compiles cannot drift apart.
                 typed? (boolean (some #{"--typed"} argv))
-                planned (if typed?
-                          (codebase-typed/plan root namespace (slurp (io/file subject)))
-                          (authoring/plan
-                           root namespace
-                           (runtime/read-file
-                            subject (:kotoba.source/reader-target plan-source))))
+                lock (option-value argv "--module-lock")
+                planned (cond
+                          ;; A pinned input graph: which bytes were compiled is
+                          ;; then part of the record, not an assumption.
+                          lock (codebase-typed/plan-locked
+                                root namespace lock
+                                (or (option-value argv "--blocks")
+                                    (throw (ex-info "--module-lock requires --blocks <dir>"
+                                                    {:phase :usage}))))
+                          typed? (codebase-typed/plan root namespace (slurp (io/file subject)))
+                          :else (authoring/plan
+                                 root namespace
+                                 (runtime/read-file
+                                  subject (:kotoba.source/reader-target plan-source))))
                 summary (fn [plan]
                           {:namespace namespace
-                           :identity (if typed? :kir :semantic)
+                           :identity (if (or typed? lock) :kir :semantic)
+                           :lock-cid (:lock-cid plan)
                            :head (:head plan)
                            :changed? (boolean (:changed? plan))
                            :definitions (:definitions plan)
@@ -389,6 +410,37 @@
                :kotoba.cli/data (summary (authoring/commit! root planned))}))
           (catch clojure.lang.ExceptionInfo error
             (codebase-error :codebase/update-failed error))))
+
+      (= action "compile")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
+        (try
+          (let [{:keys [cid name]} (codebase-names/resolve-token root namespace subject)
+                result (codebase-compile/compile! root cid {})]
+            (when-let [output (option-value argv "--output")]
+              (write-bytes! output (:bytes result)))
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/compiled
+             :kotoba.cli/data {:cid cid :name name
+                               :artifact-cid (:artifact-cid result)
+                               :receipt-cid (:receipt-cid result)
+                               :cached? (:cached? result)
+                               :bytes (count (:bytes result))}})
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/compile-failed error))))
+
+      (= action "artifact")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/cid-required}
+        (try
+          (let [bytes (semantic-codebase/get-artifact root subject)]
+            (if-not bytes
+              {:kotoba.cli/ok? false :kotoba.cli/code :codebase/artifact-not-found}
+              (do (when-let [output (option-value argv "--output")]
+                    (write-bytes! output bytes))
+                  {:kotoba.cli/ok? true :kotoba.cli/code :codebase/artifact
+                   :kotoba.cli/data {:cid subject :bytes (count bytes)}})))
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/artifact-failed error))))
 
       (= action "view")
       (if-not subject
@@ -592,11 +644,6 @@
              :kotoba.cli/data {:namespace namespace :head (:cid commit)
                                :definitions bindings}})
           (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/import-failed error)))))))
-
-(defn- write-bytes! [path bytes]
-  (some-> (io/file path) .getParentFile .mkdirs)
-  (with-open [out (io/output-stream path)]
-    (.write out ^bytes bytes)))
 
 (defn- reject-project-file! [message data]
   (throw (ex-info message (assoc data :phase :project-manifest))))
