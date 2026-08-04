@@ -143,7 +143,7 @@
         started (System/nanoTime)
         deadline-at (when (:deadline-ms held)
                       (+ started (* 1000000 (long (:deadline-ms held)))))
-        dispatch (metered (fn [id request-type result-type request]
+        dispatch (metered (fn [id _request-type _result-type request]
                             (let [provider (get providers id)]
                               (when-not provider
                                 (fail! :effects/provider-not-installed {:capability id}))

@@ -114,7 +114,7 @@
 
   Returns `{:artifact-cid :bytes :cached? :descriptor}`."
   ([root cid] (compile-definition! root cid {}))
-  ([root cid {:keys [target policy] :or {target default-target} :as opts}]
+  ([root cid {:keys [target] :or {target default-target} :as opts}]
    (let [{:keys [kir effects toolchain] :as prepared} (descriptor root cid opts)
          cache-descriptor (:descriptor prepared)
          ;; No reuse under a toolchain that cannot say what it is. Compiling

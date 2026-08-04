@@ -32,7 +32,6 @@
             [kotoba.codebase.store :as semantic-codebase]
             [kotoba.codebase-routing :as codebase-routing]
             [kotoba.codebase-compile :as codebase-compile]
-            [kotoba.codebase-effects :as codebase-effects]
             [kotoba.codebase-ipns :as codebase-ipns]
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
