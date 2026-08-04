@@ -249,7 +249,10 @@
   serialized with pr-str by the contract repository's datomizer."
   [path]
   (let [data (-> path io/resource slurp edn/read-string)
-        entity (if (map? data) data (first data))]
+        entity (cond (map? data) data
+                     (and (sequential? data) (map? (first data))) (first data)
+                     :else (throw (ex-info "CLI contract resource has no entity map"
+                                           {:path path :value-type (type data)})))]
     (into {}
           (map (fn [[k v]]
                  [k (if (string? v)
