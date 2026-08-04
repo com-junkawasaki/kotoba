@@ -241,15 +241,28 @@
         response (.send (client timeout-ms) request (HttpResponse$BodyHandlers/ofByteArray))]
     (when (= 200 (.statusCode response)) (.body response))))
 
-(defn publish!
-  "Sign NAMESPACE's head, push its closure, then push the record.
+(defn fetch-block
+  "Fetch one block's canonical bytes from a node, or nil.
+
+  Exposed because resolving a namespace through IPNS still has to get the head
+  RECORD from somewhere: the DHT says which CID is current and holds no bytes."
+  [endpoint cid timeout-ms]
+  (get-bytes endpoint (str "/ipfs/" cid) timeout-ms))
+
+(defn push!
+  "Push an ALREADY-SIGNED head record and its closure to a node.
+
+  Separate from signing because signing advances the sequence, and a caller
+  that wants the same head both hosted here and named in the DHT must sign once
+  and send twice -- signing per transport produces two records claiming to be
+  the same head, and the second one breaks the chain of the first.
 
   Blocks first, record last, and deliberately so: a follower that saw the record
   before the blocks arrived would be told to point at a commit nobody could
   serve it yet."
-  [root namespace ^bytes seed {:keys [endpoint timeout-ms] :or {timeout-ms default-timeout-ms}}]
+  [root record {:keys [endpoint timeout-ms] :or {timeout-ms default-timeout-ms}}]
   (when-not (string? endpoint) (fail! :publish/endpoint-required {}))
-  (let [record (publication/publish! root namespace seed)
+  (let [namespace (:namespace record)
         {:keys [blocks]} (store/export-closure root [(:head record)])
         pushed (mapv (fn [{:keys [cid bytes]}]
                        (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes timeout-ms)]
@@ -266,6 +279,11 @@
      :publisher (:publisher record) :sequence (:sequence record)
      :head (:head record) :record-cid (:record-cid record)
      :blocks (count pushed)}))
+
+(defn publish!
+  "Sign NAMESPACE's head and push it to a node."
+  [root namespace ^bytes seed opts]
+  (push! root (publication/publish! root namespace seed) opts))
 
 (defn follow!
   "Fetch NAMESPACE's signed head from ENDPOINT, hydrate it, and accept it.

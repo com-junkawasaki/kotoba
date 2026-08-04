@@ -222,7 +222,9 @@ kotoba codebase diff --before <commit> --after <commit> --store dir    # authore
 kotoba codebase diff --base <c> --left <c> --right <c> --store dir     # list merge conflicts as data
 kotoba codebase serve --store dir --port 8080                          # host: trustless gateway + signed heads + browse-by-hash
 kotoba codebase publish --namespace ns --endpoint URL --store dir      # sign the head, push the closure, push the record
+kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir  # …and name it in the DHT under your key
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
+kotoba codebase follow-name k51… --endpoint URL --store dir            # resolve a name through the DHT; no publisher argument
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
 kotoba codebase identity --store dir                                   # the DID your signing seed derives
 kotoba codebase import src.kotoba --store dir --namespace ns           # import semantic blocks from a source file
@@ -289,11 +291,27 @@ different name); did the *interface* change or only the body. `rebase` replays
 what a branch authored onto a new base and re-derives what it merely carried.
 Conflicts come back as data and are never resolved by guessing.
 
-`announce` asks an IPFS pinning service to store and provide a CID, then asks a
-router whether the network can actually find it — separately, because the
-service's own reply cannot answer that. Announcing to the DHT still needs a
-libp2p node; this asks something that has one, which is a smaller claim and is
-reported as one (`queued` is not `pinned`).
+`publish --ipns` names the head in the **real DHT**. `io-libp2p-specs-kad-dht`
+speaks `/routing/v1` with multi-router quorum and `tech-ipfs-specs-ipns`
+produces the record any IPFS implementation validates, so publishing through a
+delegated router — which *is* a DHT node — writes the same record at the same
+DHT key a Kubo node would. Verified against `delegated-ipfs.dev`: published and
+resolved back, record CID matching.
+
+An IPNS name is derived from the publisher's public key, which removes two
+things at once: there is **no registry** (`k51…` *is* the key) and **no key
+distribution** (a follower that knows the name knows the key). `follow-name`
+therefore takes no `--publisher` argument, and the endpoint is only where blocks
+are fetched from.
+
+This process is still **not a DHT node** — it holds no routing table and answers
+nobody's queries. `announce` remains for asking a pinning service to provide
+block bytes, which is a different problem from naming.
+
+The codebase's own signed head record is not replaced by the IPNS record: IPNS
+says which head is current, and the head record carries the sequence and
+predecessor link that make a rollback detectable. Two signatures over two
+different claims, both checked.
 
 The signing seed is read from `KOTOBA_CODEBASE_SEED` (32-byte hex) and is never
 echoed; `identity` prints only the DID it derives. Announcing to the IPFS DHT
