@@ -864,6 +864,22 @@
     (when-not (and protocol (symbol? type-name) (seq method-forms))
       (throw (ex-info "protocol extension requires a declared protocol, type, and methods"
                       {:form whole-form})))
+    (when-not (every? #(and (seq? %) (symbol? (first %))
+                            (vector? (second %))) method-forms)
+      (throw (ex-info "protocol extension methods require (method [params] body)"
+                      {:form whole-form :record type-name})))
+    (let [declared-methods (set (keys (:methods protocol)))
+          implemented-methods (mapv first method-forms)]
+      (when-not (= (count implemented-methods)
+                   (count (distinct implemented-methods)))
+        (throw (ex-info "protocol extension implements a method more than once"
+                        {:form whole-form :record type-name})))
+      (when-not (= declared-methods (set implemented-methods))
+        (throw (ex-info "protocol extension must implement every declared method exactly once"
+                        {:form whole-form
+                         :record type-name
+                         :declared declared-methods
+                         :implemented (set implemented-methods)}))))
     (mapv (fn [[method-name params & body :as method-form]]
             (when-not (and (= 1 (count body)) (vector? params)
                            (every? symbol? params)
@@ -917,10 +933,11 @@
                      matches #(and (= protocol-name (:protocol %))
                                    (= method-name (:method %)))
                      candidates (filter #(and (matches %) (not= 'default (:record %))) named)
-                     default-impl (first (filter #(and (matches %) (= 'default (:record %))) named))
-                     fallback (if default-impl
-                                (apply list (:impl-name default-impl) params)
-                                0)
+                     ;; Protocol dispatch is a closed table. A miss must trap on
+                     ;; every primary backend instead of manufacturing the old
+                     ;; integer-zero sentinel. `extend-protocol/default` has
+                     ;; already been specialized to declared records below.
+                     fallback (list 'quot 1 0)
                      body (reduce (fn [otherwise {:keys [record impl-name]}]
                                     (list 'if
                                           (list '= (list 'get self :kotoba.record/type)
@@ -1051,8 +1068,12 @@
             (throw (ex-info "duplicate protocol name" {:forms forms})))
         record-infos (mapv (partial record-form->info protocols)
                            (filter #(and (seq? %) (= 'defrecord (first %))) forms))
+        record-names (set (map :name record-infos))
         extend-type-impls
         (mapcat (fn [[_ type-name protocol-name & methods :as form]]
+                  (when-not (contains? record-names type-name)
+                    (throw (ex-info "extend-type requires a record declared in the sealed module"
+                                    {:form form :record type-name})))
                   (extension-implementations protocols protocol-name type-name methods form))
                 (filter #(and (seq? %) (= 'extend-type (first %))) forms))
         extend-protocol-impls
@@ -1062,11 +1083,36 @@
                       out
                       (let [type-name (first remaining)
                             [methods tail] (split-with seq? (rest remaining))]
+                        (when-not (or (= 'default type-name)
+                                      (contains? record-names type-name))
+                          (throw (ex-info
+                                  "extend-protocol requires records declared in the sealed module"
+                                  {:form form :record type-name})))
                         (recur tail (into out (extension-implementations
                                                protocols protocol-name type-name methods form)))))))
                 (filter #(and (seq? %) (= 'extend-protocol (first %))) forms))
-        implementations (vec (concat (mapcat :implementations record-infos)
-                                     extend-type-impls extend-protocol-impls))
+        raw-implementations (vec (concat (mapcat :implementations record-infos)
+                                         extend-type-impls extend-protocol-impls))
+        raw-identities (map (juxt :protocol :method :record) raw-implementations)
+        _ (when-not (= (count raw-identities) (count (distinct raw-identities)))
+            (throw (ex-info "duplicate protocol method implementation" {:forms forms})))
+        defaults (filterv #(= 'default (:record %)) raw-implementations)
+        _ (when (and (seq defaults) (empty? record-names))
+            (throw (ex-info
+                    "extend-protocol default requires records declared in the sealed module"
+                    {:forms forms})))
+        explicit (filterv #(not= 'default (:record %)) raw-implementations)
+        explicit-identities (set (map (juxt :protocol :method :record) explicit))
+        specialized-defaults
+        (mapcat (fn [implementation]
+                  (for [record-name (sort-by str record-names)
+                        :when (not (contains? explicit-identities
+                                             [(:protocol implementation)
+                                              (:method implementation)
+                                              record-name]))]
+                    (assoc implementation :record record-name)))
+                defaults)
+        implementations (vec (concat explicit specialized-defaults))
         identities (map (juxt :protocol :method :record) implementations)]
     (when-not (= (count identities) (count (distinct identities)))
       (throw (ex-info "duplicate protocol method implementation" {:forms forms})))

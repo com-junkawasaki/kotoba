@@ -211,15 +211,15 @@
   (with-store
     (fn [root]
       (let [added (add! root module-source)
-            cid (get-in added [:bindings "quadruple"])]
-        ;; The cid is captured BEFORE redefining: calling the redefined fn to
-        ;; build its own return value is an infinite loop, not a stub.
-        (let [known (:cid (compile/contract))]
-          (with-redefs [compile/contract (fn [] {:revisions {:compiler nil} :bound? false
-                                                 :cid known})]
-            (is (false? (:cached? (compile/compile! root cid))))
-            (is (false? (:cached? (compile/compile! root cid)))
-                "compiling again costs time; wrong bytes cost correctness")))))))
+            cid (get-in added [:bindings "quadruple"])
+            ;; The cid is captured BEFORE redefining: calling the redefined fn to
+            ;; build its own return value is an infinite loop, not a stub.
+            known (:cid (compile/contract))]
+        (with-redefs [compile/contract (fn [] {:revisions {:compiler nil} :bound? false
+                                               :cid known})]
+          (is (false? (:cached? (compile/compile! root cid))))
+          (is (false? (:cached? (compile/compile! root cid)))
+              "compiling again costs time; wrong bytes cost correctness"))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Delegation and attenuation

@@ -235,6 +235,26 @@
                   (extend-type Box Value (value [this] (get this :x)))
                   (defn main [] (value (->Box 9)))"))))
 
+(deftest extend-protocol-default-is-sealed-record-specialization-in-cljs-backend
+  (is (= 109
+         (run "(defprotocol Value (value [this]))
+               (defrecord Special [x])
+               (defrecord Ordinary [x])
+               (extend-protocol Value
+                 Special (value [this] (+ 100 (get this :x)))
+                 default (value [this] (get this :x)))
+               (defn main [] (+ (value (->Special 4))
+                                (value (->Ordinary 5))))"))))
+
+(deftest protocol-dispatch-miss-traps-instead-of-returning-zero-in-cljs-backend
+  (is (thrown-with-msg?
+       clojure.lang.ExceptionInfo #"division-by-zero"
+       (run "(defprotocol Value (value [this]))
+             (defrecord Box [x])
+             (extend-protocol Value default (value [this] (get this :x)))
+             (defn main []
+               (value {:kotoba.record/type :Ghost :x 9}))"))))
+
 (deftest named-multi-arity-and-variadic-functions-run-in-cljs-backend
   (is (= 12 (run "(defn choose ([x] x) ([x y] (+ x y)))
                    (defn main [] (+ (choose 3) (choose 4 5)))")))
