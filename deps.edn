@@ -8,6 +8,17 @@
         io.github.kotoba-lang/grammar
         {:git/url "https://github.com/kotoba-lang/grammar.git"
          :git/sha "6597500afa5607f8114309ab5a33003a893715d2"}
+        ;; The DHT half was already built in this workspace and I had missed
+        ;; it: `kad.routing` speaks /routing/v1 with multi-router quorum, and
+        ;; `ipns.record` is the real IPNS record format. Publishing a namespace
+        ;; head as an IPNS record puts it in the actual DHT and makes the
+        ;; publisher's KEY the name -- which is also why no registry is needed.
+        io.github.kotoba-lang/io-libp2p-specs-kad-dht
+        {:git/url "https://github.com/kotoba-lang/io-libp2p-specs-kad-dht.git"
+         :git/sha "7c4de6d971ce7c14adc6d07d3b4e3b1eeac68eae"}
+        io.github.kotoba-lang/tech-ipfs-specs-ipns
+        {:git/url "https://github.com/kotoba-lang/tech-ipfs-specs-ipns.git"
+         :git/sha "ba5c9696c1d3474e52c6a3cdc4d92ed5f7985fa3"}
         io.github.kotoba-lang/codebase
         {:git/url "https://github.com/kotoba-lang/codebase.git"
          :git/sha "c2a46bb8c5e6b1b2f57afa0feaad10f00439b083"}

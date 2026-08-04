@@ -33,6 +33,7 @@
             [kotoba.codebase-routing :as codebase-routing]
             [kotoba.codebase-compile :as codebase-compile]
             [kotoba.codebase-effects :as codebase-effects]
+            [kotoba.codebase-ipns :as codebase-ipns]
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.selfhost.contracts :as selfhost]
@@ -362,7 +363,7 @@
       (not (#{"init" "import" "inspect" "resolve" "merge" "add" "plan" "view"
               "run" "list" "find" "dependents" "pull" "publish" "follow"
               "identity" "serve" "unfollow" "compile" "artifact" "diff"
-              "announce"} action))
+              "announce" "follow-name"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
@@ -592,7 +593,8 @@
 
           (= action "identity")
           {:kotoba.cli/ok? true :kotoba.cli/code :codebase/identity
-           :kotoba.cli/data {:publisher (ed25519/did-key-from-seed-hex hex)}}
+           :kotoba.cli/data {:publisher (ed25519/did-key-from-seed-hex hex)
+                             :ipns-name (codebase-ipns/name-of (ed25519/unhex hex))}}
 
           (nil? namespace)
           {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-required}
@@ -600,9 +602,20 @@
           :else
           (try
             {:kotoba.cli/ok? true :kotoba.cli/code :codebase/published
-             :kotoba.cli/data (codebase-publish/publish!
-                               root namespace (ed25519/unhex hex)
-                               {:endpoint (option-value argv "--endpoint")})}
+             :kotoba.cli/data
+             (if (some #{"--ipns"} argv)
+               ;; One signature, two destinations: hosted on a node if one was
+               ;; given, and named in the DHT under this key.
+               (codebase-ipns/publish-namespace!
+                root namespace (ed25519/unhex hex)
+                (cond-> {}
+                  (option-value argv "--endpoint")
+                  (assoc :endpoint (option-value argv "--endpoint"))
+                  (seq (option-values argv "--router"))
+                  (assoc :routers (vec (option-values argv "--router")))))
+               (codebase-publish/publish!
+                root namespace (ed25519/unhex hex)
+                {:endpoint (option-value argv "--endpoint")}))}
             (catch clojure.lang.ExceptionInfo error
               (codebase-error :codebase/publish-failed error)))))
 
@@ -615,6 +628,22 @@
                              root namespace
                              {:endpoint (option-value argv "--endpoint")
                               :publisher (option-value argv "--publisher")})}
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/follow-failed error))))
+
+      (= action "follow-name")
+      ;; No `--publisher`: the name IS the key.
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/name-required}
+        (try
+          {:kotoba.cli/ok? true :kotoba.cli/code :codebase/followed
+           :kotoba.cli/data (codebase-ipns/follow-name!
+                             root subject
+                             (cond-> {:endpoint (option-value argv "--endpoint")}
+                               (seq (option-values argv "--router"))
+                               (assoc :routers (vec (option-values argv "--router")))
+                               (option-value argv "--quorum")
+                               (assoc :quorum (Integer/parseInt (option-value argv "--quorum")))))}
           (catch clojure.lang.ExceptionInfo error
             (codebase-error :codebase/follow-failed error))))
 

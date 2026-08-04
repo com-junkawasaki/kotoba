@@ -127,6 +127,40 @@ propagates to a `quadruple` whose source is not in the scratch at all; and a
 definition runs from its hash after its source is deleted and every name is
 unbound from the namespace.
 
+### 2026-08-04 (sixth pass) — the DHT half was already built here
+
+The fifth pass concluded that announcing needed a libp2p node this workspace
+does not have, and settled for asking a pinning service. **That was wrong about
+the workspace, not about libp2p.** `kotoba-lang/io-libp2p-specs-kad-dht` already
+implements the Kademlia keyspace, the `/ipfs/kad/1.0.0` messages, the iterative
+lookup, the k-bucket table, and an HTTP delegated-routing client with
+multi-router quorum; `kotoba-lang/tech-ipfs-specs-ipns` already implements the
+IPNS record format any IPFS implementation validates. A delegated router *is* a
+DHT node, so publishing through one writes the same record at the same DHT key
+a Kubo node would.
+
+`kotoba.codebase-ipns` publishes a namespace head as an IPNS record whose value
+is the head RECORD's CID — not the namespace commit's, because a resolver that
+landed straight on the commit would have the right bytes and no way to check
+the sequence or the chain. Measured against the live network on 2026-08-04:
+published to `delegated-ipfs.dev` and resolved back, record CID matching.
+
+Two further gaps closed as a consequence rather than by separate work, because
+an IPNS name is derived from the publisher's public key: **no name registry** is
+needed (`k51…` is the key, not a row in someone's table) and **no key
+distribution** (a follower that knows the name knows the key). `follow-name`
+takes no publisher argument, and the endpoint is demoted to "where blocks happen
+to be".
+
+A design flaw surfaced while wiring it: signing advances the sequence, so
+publishing to a node and to the DHT separately produced two records claiming the
+same head, and the second broke the first's chain. Signing is now separate from
+transport — one signature, two destinations.
+
+Still not claimed: this process is not a DHT node. It holds no routing table and
+answers nobody's queries, which is the distinction
+`io-libp2p-specs-kad-dht`'s own README insists on.
+
 ### 2026-08-04 (fifth pass) — review, toolchain identity, delegation, announcement
 
 - **Semantic diff / rebase / conflicts** (`kotoba.codebase.diff`). The
@@ -242,7 +276,8 @@ The following boundary is normative:
 | Identity vs. compilation | `typed-code` hashes the checked KIR; `codebase-compile` emits from it, keyed on the definition graph and the toolchain revisions | Claim compilation from a hash with a cache that refuses to reuse under an unidentifiable toolchain. |
 | Effects | Providers admitted by `reference-runtime`; grants attenuable in one direction; per-capability quota and deadline checked at the call; receipt on ok/denied/trap | Claim deny-by-default execution with delegable, attenuable, bounded, receipted effects. Do NOT claim a policy DSL or revocation. |
 | Reading and review | `view` renders both layers; `diff` separates authored from propagated, reports renames and interface breaks; conflicts are data; `rebase` replays authored work | Claim hash-native review and rebase. Do NOT claim an interactive merge UI. |
-| Announcement | Pinning Service API request, verified against a router | Claim delegated announcement with independent verification. Do NOT claim running a libp2p node or a DHT presence of our own. |
+| Naming | IPNS record published through delegated routers, quorum-resolved and validated against the key the name encodes | Claim real DHT naming, no registry, no key distribution. Do NOT claim being a DHT node — no routing table, no queries answered. |
+| Block availability | Pinning Service API request, verified against a router | Claim delegated provision with independent verification. Naming and availability are different problems. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
 | Publication | Signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed namespace publication between nodes that know each other's endpoints. Do NOT claim a public network presence, a name registry, or key distribution. |

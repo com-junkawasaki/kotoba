@@ -29,6 +29,7 @@
             [kotoba.kgraph-test]
             [kotoba.codebase-cli-test]
             [kotoba.codebase-compile-test]
+            [kotoba.codebase-ipns-test]
             [kotoba.codebase-publish-test]
             [kotoba.codebase-typed-test]
             [kotoba.launcher-test]
@@ -88,6 +89,7 @@
                                         'kotoba.kgraph-test
                                         'kotoba.codebase-cli-test
                                         'kotoba.codebase-compile-test
+                                        'kotoba.codebase-ipns-test
                                         'kotoba.codebase-publish-test
                                         'kotoba.codebase-typed-test
                                         'kotoba.launcher-test
