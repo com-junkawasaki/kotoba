@@ -92,6 +92,41 @@ Four things changed (`kotoba-lang/codebase` @ `484f1a8`,
   against the live network on 2026-08-04: six HTTP-reachable providers returned
   for a sample CID, raw-block fetch verified.
 
+### 2026-08-04 (later the same day) — the two definition identities converged
+
+The gap the first pass left open was that the workspace still had TWO answers to
+*what is this definition*: `semantic-code`'s own normalized IR, and the checked
+KIR the compiler lowers to a target. Nothing tied them together, so a definition
+could be stored under one identity and compiled from another, and neither could
+invalidate the other. That also capped language coverage at a hand-maintained
+subset — `defmacro`/`deftype`/`defrecord`/`defprotocol` were rejected outright,
+and the type vocabulary was `i64`/`f32`/`cap`/`dynamic` while the compiler
+already had maps, records, variants, options, results and documents.
+
+`kotoba.codebase.typed-code` makes the checked KIR the identity, and
+`kotoba.codebase.typed-eval` runs it through `kotoba.kir/execute` — the same
+oracle the AOT and JIT backends qualify against. `kotoba.codebase-typed` joins
+the two halves (it is the only place both are on the classpath), and
+`kotoba codebase add --typed` uses it.
+
+What participates in identity: the alpha-normalized body, the typed interface
+(parameter types, result, **declared effects**) as its own block, and direct
+dependencies as CID links. What does not: the definition's own name, or the
+names of the functions it calls. Alpha-normalization is *verified* rather than
+assumed — KIR has five binding forms, and a sixth added later would silently
+leave a source-chosen name inside a hash, so a binder that survives renaming
+fails the compile closed.
+
+Effects are now expressible without being granted: a definition may declare and
+perform `typed-cap-call`, and without an injected dispatcher it traps as denied
+rather than being skipped. Reachability still never becomes authority.
+
+Measured: `kotoba codebase run quadruple -- 3` and `kir/execute` over the same
+source's module return the same value, from the same CID; an update to `double`
+propagates to a `quadruple` whose source is not in the scratch at all; and a
+definition runs from its hash after its source is deleted and every name is
+unbound from the namespace.
+
 What did **not** change: publication. Announcing a CID to the DHT requires a
 libp2p node, so a Kotoba definition becomes globally discoverable only once
 something that has it provides it. Discovery being possible is not the same as
@@ -114,6 +149,8 @@ The following boundary is normative:
 | Package supply chain | CID-lock contract and initial safe-build enforcement | Dependencies can be content-pinned and capability constrained. |
 | Module resolution | `module-lock` resolves `:require` by CID with no path fallback | Compilation inputs can be pinned, verified, and reproduced. |
 | Evaluation | Definitions run from their CID, hydrating dependencies by hash | Claim hash-native evaluation with no source witness. |
+| Identity vs. compilation | `typed-code` hashes the checked KIR the backends consume | Claim one definition identity shared by the codebase and the compiler. Do NOT claim the codebase emits target artifacts — it runs the oracle, it does not compile. |
+| Effects | Declared in the typed interface; `typed-cap-call` traps without an injected dispatcher | Claim effect-aware identity and deny-by-default execution. Do NOT claim a policy engine, provider registry, quota, or receipt. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim publication, announcement, pinning, or availability guarantees. |
 

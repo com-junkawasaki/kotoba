@@ -206,6 +206,7 @@ kotoba wasm run cell.kotoba --policy policy.edn --package-lock lock.edn         
 kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs                      # ClojureScript source, see Language below
 kotoba codebase init --store dir                                       # content-addressed codebase store
 kotoba codebase add scratch.kotoba --store dir --namespace ns          # compile a scratch buffer in, propagating to dependents
+kotoba codebase add scratch.kotoba --typed --store dir --namespace ns  # hash the definition from the compiler's checked KIR
 kotoba codebase plan scratch.kotoba --store dir --namespace ns         # what `add` would do, without doing it
 kotoba codebase view <name|#hash> --store dir --namespace ns           # render a stored definition back to source
 kotoba codebase run <name|#hash> --store dir --namespace ns -- 3       # evaluate it, hydrating dependencies by CID
@@ -218,6 +219,15 @@ kotoba codebase inspect <cid> --store dir                              # inspect
 kotoba codebase resolve --store dir --namespace ns <name>              # resolve a name to its current CID
 kotoba codebase merge --store dir --namespace ns --base <cid> --left <cid> --right <cid>  # three-way merge
 ```
+
+`--typed` selects the identity layer. Without it a definition is hashed from
+the surface IR the codebase normalizes for itself; with it the identity is the
+**checked KIR** the compiler produces and the backends consume, binding the
+typed interface (parameter types, result, declared effects) alongside the body.
+Prefer `--typed` for anything that will also be compiled: it is what makes
+`kotoba codebase run f` and `kotoba compile` the same definition rather than two
+that happen to agree. `run` reads which layer a definition belongs to from its
+block, so the flag is only needed when writing.
 
 `codebase` is hash-native: `run` and `view` read the stored definition and
 hydrate its dependencies BY CID, so a definition runs with no source file, no

@@ -28,6 +28,7 @@
             [kotoba.kami-game-test]
             [kotoba.kgraph-test]
             [kotoba.codebase-cli-test]
+            [kotoba.codebase-typed-test]
             [kotoba.launcher-test]
             [kotoba.language-conformance-test]
             [kotoba.package-registry-test]
@@ -84,6 +85,7 @@
                                         'kotoba.kami-game-test
                                         'kotoba.kgraph-test
                                         'kotoba.codebase-cli-test
+                                        'kotoba.codebase-typed-test
                                         'kotoba.launcher-test
                                         'kotoba.language-conformance-test
                                         'kotoba.package-registry-test
