@@ -127,11 +127,36 @@ propagates to a `quadruple` whose source is not in the scratch at all; and a
 definition runs from its hash after its source is deleted and every name is
 unbound from the namespace.
 
-What did **not** change: publication. Announcing a CID to the DHT requires a
-libp2p node, so a Kotoba definition becomes globally discoverable only once
-something that has it provides it. Discovery being possible is not the same as
-content being there, and `pull` reports an empty provider set rather than
-implying otherwise.
+### 2026-08-04 (third pass) — publication, signed
+
+Discovery could find and verify blocks somebody already provided, and nothing
+could make a definition BE provided. `kotoba.codebase.publication` and
+`kotoba.codebase-publish` close that without pretending to be a peer-to-peer
+network.
+
+A publishing node is a trustless gateway plus a follower that also serves. The
+trust model is deliberately small, because the alternative is inventing a PKI:
+a follower pins a publisher DID on first follow and refuses anything else
+afterwards; every record carries a monotonic sequence and links its
+predecessor, so an attacker who cannot forge a signature still cannot re-serve
+an older genuinely-signed record to revert a follower; and a record is accepted
+only once its commit is present and verified locally, because a signature says
+who is speaking and never conjures the bytes spoken about. The publisher DID is
+derived from the signing seed rather than taken as an argument.
+
+Nine unit tests each name an attack (imposter key, tampered record, replay,
+absent commit, skipped chain link, unpinned first follow, re-follow after
+retirement) and seven integration tests run the same against a real HTTP node.
+
+A defect this exposed and fixed: two traversals each carried their own list of
+which fields hold links, and both were wrong. Hydrating from a namespace commit
+— what following a published namespace does — fetched exactly one block and
+stopped. `ir/block-links` now enumerates the links that are present rather than
+the ones a reader remembered.
+
+What still does **not** exist: DHT announcement. A namespace is reachable at the
+nodes that host it, not from the public network, and that is a smaller claim
+than `published`.
 
 ## Decision
 
@@ -152,7 +177,8 @@ The following boundary is normative:
 | Identity vs. compilation | `typed-code` hashes the checked KIR the backends consume | Claim one definition identity shared by the codebase and the compiler. Do NOT claim the codebase emits target artifacts — it runs the oracle, it does not compile. |
 | Effects | Declared in the typed interface; `typed-cap-call` traps without an injected dispatcher | Claim effect-aware identity and deny-by-default execution. Do NOT claim a policy engine, provider registry, quota, or receipt. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
-| Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim publication, announcement, pinning, or availability guarantees. |
+| Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
+| Publication | Signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed namespace publication between nodes that know each other's endpoints. Do NOT claim a public network presence, a name registry, or key distribution. |
 
 Package CIDs and semantic definition CIDs solve different problems.  Package
 locks authorize and reproduce a source/package release.  Semantic CIDs name a
