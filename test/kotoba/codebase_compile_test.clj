@@ -196,3 +196,98 @@
                                   "--namespace" "demo" "--" "3"])
                                 [:kotoba.cli/data :value])))))
           (finally (delete-tree work)))))))
+
+;; ---------------------------------------------------------------------------
+;; Toolchain identity
+
+(deftest the-cache-key-binds-the-revisions-that-decide-the-bytes
+  (let [{:keys [revisions bound?]} (compile/contract)]
+    (is (true? bound?))
+    (is (= #{:compiler :wasm-emitter} (set (keys revisions))))
+    (is (every? #(re-matches #"[0-9a-f]{40}" %) (vals revisions))
+        "read from where the code came from, not from a declared pin")))
+
+(deftest nothing-is-reused-under-a-toolchain-that-cannot-say-what-it-is
+  (with-store
+    (fn [root]
+      (let [added (add! root module-source)
+            cid (get-in added [:bindings "quadruple"])]
+        ;; The cid is captured BEFORE redefining: calling the redefined fn to
+        ;; build its own return value is an infinite loop, not a stub.
+        (let [known (:cid (compile/contract))]
+          (with-redefs [compile/contract (fn [] {:revisions {:compiler nil} :bound? false
+                                                 :cid known})]
+            (is (false? (:cached? (compile/compile! root cid))))
+            (is (false? (:cached? (compile/compile! root cid)))
+                "compiling again costs time; wrong bytes cost correctness")))))))
+
+;; ---------------------------------------------------------------------------
+;; Delegation and attenuation
+
+(deftest a-grant-can-only-be-narrowed
+  (let [held (effects/grant {:capabilities #{9 10} :quota 100 :deadline-ms 1000})]
+    (testing "dropping capabilities, quota and deadline are all allowed"
+      (let [weaker (effects/attenuate held {:capabilities #{9} :quota 10 :deadline-ms 500})]
+        (is (= #{9} (:capabilities weaker)))
+        (is (= 10 (:quota weaker)))
+        (is (= 500 (:deadline-ms weaker)))))
+    (testing "asking for a capability that is not held is refused"
+      (is (= :effects/attenuation-widens
+             (:problem (ex-data (try (effects/attenuate held {:capabilities #{9 11}})
+                                     (catch clojure.lang.ExceptionInfo e e)))))))
+    (testing "asking for more quota or a later deadline is refused"
+      (is (= :effects/attenuation-widens
+             (:problem (ex-data (try (effects/attenuate held {:quota 1000})
+                                     (catch clojure.lang.ExceptionInfo e e))))))
+      (is (= :effects/attenuation-widens
+             (:problem (ex-data (try (effects/attenuate held {:deadline-ms 5000})
+                                     (catch clojure.lang.ExceptionInfo e e)))))))
+    (testing "and no chain of derivations climbs back"
+      (let [chain (-> held
+                      (effects/attenuate {:quota 10})
+                      (effects/attenuate {:quota 5}))]
+        (is (= 5 (:quota chain)))
+        (is (= :effects/attenuation-widens
+               (:problem (ex-data (try (effects/attenuate chain {:quota 10})
+                                       (catch clojure.lang.ExceptionInfo e e)))))))))) 
+
+(deftest an-attenuated-grant-bounds-the-run-it-is-passed-to
+  (with-store
+    (fn [root]
+      (let [cid (get (effectful-cids root) "emit")
+            held (effects/grant {:capabilities #{9} :quota 100})
+            delegated (effects/attenuate held {:quota 0})
+            result (effects/execute! root cid [1]
+                                     {:grant delegated
+                                      :providers {9 (log-provider (atom []))}})]
+        (is (= :denied (:outcome result)))
+        (is (= 0 (get-in result [:grant :quota])))))))
+
+(deftest a-capability-outside-the-grant-is-denied-at-the-call
+  (with-store
+    (fn [root]
+      (let [cid (get (effectful-cids root) "emit")
+            ;; No provider is installed for 9 either -- installing one for a
+            ;; capability the grant does not contain is a caller error and
+            ;; `reference-runtime` rejects it up front, which is a different
+            ;; (and correct) failure from the one under test here.
+            result (effects/execute! root cid [1]
+                                     {:grant (effects/grant {:capabilities #{10}})
+                                      :providers {}})]
+        (is (= :denied (:outcome result)))
+        (is (= :effects/capability-not-granted (:problem (:error result))))))))
+
+(deftest the-receipt-records-the-bounds-the-run-actually-had
+  (with-store
+    (fn [root]
+      (let [cid (get (effectful-cids root) "emit")
+            loose (effects/execute! root cid [1]
+                                    {:grant (effects/grant {:capabilities #{9} :quota 100})
+                                     :providers {9 (log-provider (atom []))}})
+            tight (effects/execute! root cid [1]
+                                    {:grant (effects/grant {:capabilities #{9} :quota 1})
+                                     :providers {9 (log-provider (atom []))}})]
+        (is (= :ok (:outcome loose)))
+        (is (= :ok (:outcome tight)))
+        (testing "same code, same capability, different bounds -- different receipt"
+          (is (not= (:receipt-cid loose) (:receipt-cid tight))))))))

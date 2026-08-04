@@ -17,8 +17,12 @@
   - an effectful definition is not cached at all. `store/cache-key` returns nil
     for a descriptor with declared effects, and that is deliberate: reuse means
     'the answer is the same', which is a claim nobody can make about a call
-    that talks to the outside world."
-  (:require [clojure.string :as str]
+    that talks to the outside world;
+  - neither is anything, when the toolchain cannot say which revision it is.
+    Compiling again costs time; handing back bytes emitted by a different
+    compiler is a wrong answer."
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [kotoba.codebase.semantic-code :as semantic]
             [kotoba.codebase.store :as store]
             [kotoba.codebase.typed-eval :as typed-eval]
@@ -29,18 +33,44 @@
 (defn- fail! [problem data]
   (throw (ex-info (name problem) (assoc data :problem problem))))
 
-(def compiler-contract
-  "What the emitted bytes depend on besides the definition itself.
+(def contract-sources
+  "The libraries whose exact code decides what bytes come out.
 
-  Bound as a string rather than assembled from build metadata because it must
-  be honest about its own coverage: this names the emitter and the IR contract,
-  and does NOT yet bind the compiler's exact revision. A cache hit therefore
-  survives a compiler upgrade that changes emitted bytes, which is a real
-  limitation and is recorded as one rather than papered over with a value that
-  looks precise."
-  "kotoba.compiler/wasm-emit|kir-v3-v4|no-revision-binding")
+  Not `every dependency`: a change in a namespace that never runs during
+  emission cannot change the artifact, and binding it would evict a cache for
+  reasons that are not real. These two do run."
+  [["kotoba/compiler/core.clj" :compiler]
+   ["kotoba/wasm/core.cljc" :wasm-emitter]])
 
-(defn contract-cid [] (semantic/source-cid compiler-contract))
+(defn- resource-revision
+  "The git revision a namespace was loaded from, or nil.
+
+  Read from where the code actually came from rather than from a declared pin:
+  a deps.edn says what was ASKED for, and the question here is what is running."
+  [resource-path]
+  (when-let [url (io/resource resource-path)]
+    (second (re-find #"/([0-9a-f]{40})/" (str url)))))
+
+(defn contract
+  "The identity of the toolchain that will emit, and whether it is fully known.
+
+  `:bound?` is false when any revision could not be determined -- a local
+  development checkout, or a jar with no revision in its path. That is not a
+  reason to invent a value: an unbound contract that still looked like a
+  contract would let a cache hit survive a compiler change that alters the
+  emitted bytes, which is exactly the failure this replaces."
+  []
+  (let [revisions (into {} (map (fn [[path key]] [key (resource-revision path)])) contract-sources)
+        bound? (every? some? (vals revisions))]
+    {:revisions revisions
+     :bound? bound?
+     :cid (semantic/source-cid
+           (pr-str {:schema "kotoba.compiler-contract.v2"
+                    :emitter "kotoba.wasm/emit"
+                    :ir "kir-v3-v4"
+                    :revisions (into (sorted-map) revisions)}))}))
+
+(defn contract-cid [] (:cid (contract)))
 
 (defn- policy-cid [policy]
   (semantic/source-cid (pr-str (into (sorted-map) (or policy {})))))
@@ -65,11 +95,13 @@
   [root cid {:keys [target policy package-lock-cid]
              :or {target default-target}}]
   (let [{:keys [kir interface]} (typed-eval/assemble root cid)
-        effects (:effects interface)]
+        effects (:effects interface)
+        toolchain (contract)]
     {:kir kir
      :effects effects
+     :toolchain toolchain
      :descriptor {:code-closure-cid (semantic/closure-cid (closure-of kir))
-                  :compiler-contract-cid (contract-cid)
+                  :compiler-contract-cid (:cid toolchain)
                   :target-abi (str target)
                   :package-lock-cid (or package-lock-cid (semantic/source-cid "no-package-lock"))
                   :policy-cid (policy-cid policy)
@@ -83,21 +115,26 @@
   Returns `{:artifact-cid :bytes :cached? :descriptor}`."
   ([root cid] (compile-definition! root cid {}))
   ([root cid {:keys [target policy] :or {target default-target} :as opts}]
-   (let [{:keys [kir effects] :as prepared} (descriptor root cid opts)
+   (let [{:keys [kir effects toolchain] :as prepared} (descriptor root cid opts)
          cache-descriptor (:descriptor prepared)
-         cached (store/cache-get root cache-descriptor)
+         ;; No reuse under a toolchain that cannot say what it is. Compiling
+         ;; again is a cost; returning bytes emitted by something else is a
+         ;; wrong answer.
+         reusable? (:bound? toolchain)
+         cached (when reusable? (store/cache-get root cache-descriptor))
          artifact (when cached (get cached "artifactCid"))
          bytes (when artifact (store/get-artifact root artifact))]
      (if bytes
        {:artifact-cid artifact :bytes bytes :cached? true
-        :descriptor cache-descriptor :effects effects}
+        :descriptor cache-descriptor :effects effects :toolchain toolchain}
        (let [emitted (wasm/emit kir target {})
              artifact-cid (store/put-artifact! root emitted)]
          ;; `cache-put!` itself refuses an effectful descriptor; calling it
-         ;; unconditionally keeps that rule in one place instead of two.
-         (store/cache-put! root cache-descriptor {"artifactCid" artifact-cid})
+         ;; through one guard keeps both rules in one place instead of four.
+         (when reusable?
+           (store/cache-put! root cache-descriptor {"artifactCid" artifact-cid}))
          {:artifact-cid artifact-cid :bytes emitted :cached? false
-          :descriptor cache-descriptor :effects effects})))))
+          :descriptor cache-descriptor :effects effects :toolchain toolchain})))))
 
 (defn receipt!
   "Bind a compilation to everything it depended on and persist the receipt.

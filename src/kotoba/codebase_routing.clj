@@ -180,6 +180,77 @@
                      (recur (next remaining))))))))
        {:discovered discovered :attempts attempts}))))
 
+;; ---------------------------------------------------------------------------
+;; Announcement
+;;
+;; Announcing a CID to the DHT requires a libp2p node. What plain HTTP can do
+;; is ask something that HAS one -- the IPFS Pinning Service API is exactly
+;; that interface, and a pinning service both stores a block and advertises
+;; itself as a provider of it.
+;;
+;; This is a smaller claim than "we announce", and the difference matters: the
+;; announcement is made by a third party, on their schedule, and can be
+;; withdrawn by them. What it is not is a promise dressed up as an
+;; implementation -- `announced?` re-asks the router rather than trusting the
+;; service's own reply.
+
+(def pin-statuses #{"queued" "pinning" "pinned" "failed"})
+
+(defn- json-request ^HttpRequest [url method body token timeout-ms]
+  (let [builder (-> (HttpRequest/newBuilder (URI/create url))
+                    (.timeout (Duration/ofMillis timeout-ms))
+                    (.header "Accept" "application/json"))
+        builder (if token (.header builder "Authorization" (str "Bearer " token)) builder)]
+    (-> (case method
+          :post (-> builder
+                    (.header "Content-Type" "application/json")
+                    (.POST (java.net.http.HttpRequest$BodyPublishers/ofString body)))
+          :get (.GET builder))
+        (.build))))
+
+(defn request-pin!
+  "Ask a pinning service to store and provide CID.
+
+  The service's own status is reported, not believed: `queued` and `pinning`
+  are not `pinned`, and even `pinned` is a claim about their store, which is
+  why `announced?` exists as a separate check against a router."
+  [cid {:keys [endpoint token name timeout-ms]
+        :or {timeout-ms default-timeout-ms}}]
+  (when-not (string? endpoint) (fail! :routing/pin-endpoint-required {}))
+  (let [body (json/write-str (cond-> {"cid" cid} name (assoc "name" name)))
+        response (.send (client timeout-ms)
+                        (json-request (str endpoint "/pins") :post body token timeout-ms)
+                        (HttpResponse$BodyHandlers/ofString))
+        status (.statusCode response)]
+    (if-not (#{200 202} status)
+      {:cid cid :endpoint endpoint :accepted? false :status status :body (.body response)}
+      (let [parsed (json/read-str (.body response) :key-fn keyword)]
+        {:cid cid :endpoint endpoint :accepted? true :status status
+         :request-id (:requestid parsed)
+         :pin-status (:status parsed)
+         :pinned? (= "pinned" (:status parsed))}))))
+
+(defn announced?
+  "Whether a router can now name a provider for CID.
+
+  Asked of the routing layer, not of whoever was asked to pin: the question is
+  whether the network can find it, and only the network answers that."
+  ([cid] (announced? cid {}))
+  ([cid opts]
+   (let [{:keys [providers status]} (providers cid opts)]
+     {:cid cid :status status :providers providers
+      :announced? (boolean (seq providers))})))
+
+(defn announce!
+  "Request a pin, then verify by asking a router who provides the CID.
+
+  Verification is deliberately not retried here. How long a service takes to
+  pin and advertise is its business, and a loop that waited would turn a
+  reported fact into an implied guarantee."
+  [cid opts]
+  (let [requested (request-pin! cid opts)]
+    (assoc requested :verification (announced? cid opts))))
+
 (defn pull!
   "Discover and hydrate the closure rooted at ROOTS into the local store.
 

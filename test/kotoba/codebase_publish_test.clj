@@ -10,6 +10,7 @@
             [clojure.test :refer [deftest is testing]]
             [ed25519.core :as ed]
             [kotoba.codebase-publish :as publish]
+            [kotoba.codebase-routing :as routing]
             [kotoba.codebase.authoring :as authoring]
             [kotoba.codebase.publication :as publication]
             [kotoba.codebase.store :as store]
@@ -178,3 +179,78 @@
               page (get-text (str url "/def/" (get bindings "double")))]
           (is (= 200 (:status page)))
           (is (clojure.string/includes? (:body page) (get bindings "double"))))))))
+
+;; ---------------------------------------------------------------------------
+;; Announcement
+;;
+;; Announcing needs a libp2p node. What is testable over HTTP is the part that
+;; is actually implemented: asking a pinning service, and then asking a router
+;; whether the network can find it -- separately, because the second must not
+;; be answered by the first.
+
+(defn- pinning-service
+  "A pinning-service-and-router shaped server. RESPONSES decides what it says."
+  [{:keys [pin-status providers]}]
+  (let [server (com.sun.net.httpserver.HttpServer/create
+                (java.net.InetSocketAddress. "127.0.0.1" 0) 0)
+        respond (fn [^com.sun.net.httpserver.HttpExchange exchange status ^String body]
+                  (let [bytes (.getBytes body "UTF-8")]
+                    (.sendResponseHeaders exchange status (alength bytes))
+                    (with-open [out (.getResponseBody exchange)] (.write out bytes))))]
+    (.createContext server "/pins"
+                    (reify com.sun.net.httpserver.HttpHandler
+                      (^void handle [_ ^com.sun.net.httpserver.HttpExchange exchange]
+                        (respond exchange 202
+                                 (str "{\"requestid\":\"r1\",\"status\":\"" pin-status "\"}"))
+                        nil)))
+    (.createContext server "/routing/v1/providers/"
+                    (reify com.sun.net.httpserver.HttpHandler
+                      (^void handle [_ ^com.sun.net.httpserver.HttpExchange exchange]
+                        (respond exchange 200
+                                 (str "{\"Providers\":"
+                                      (if providers
+                                        "[{\"Addrs\":[\"/dns/example.com/tcp/443/https\"]}]"
+                                        "[]")
+                                      "}"))
+                        nil)))
+    (.start server)
+    {:stop (fn [] (.stop server 0))
+     :url (str "http://127.0.0.1:" (.getPort (.getAddress server)))}))
+
+(deftest a-pin-request-is-reported-and-verified-separately
+  (let [{:keys [url stop]} (pinning-service {:pin-status "queued" :providers false})]
+    (try
+      (let [result (routing/announce! "bafkreiexample" {:endpoint url :router url})]
+        (is (true? (:accepted? result)))
+        (is (= "queued" (:pin-status result)))
+        (is (false? (:pinned? result))
+            "queued is not pinned, and reporting it as such would be a lie")
+        (is (false? (get-in result [:verification :announced?]))
+            "the service's own reply must not answer whether the network can find it"))
+      (finally (stop)))))
+
+(deftest an-announcement-counts-only-when-a-router-can-name-a-provider
+  (let [{:keys [url stop]} (pinning-service {:pin-status "pinned" :providers true})]
+    (try
+      (let [result (routing/announce! "bafkreiexample" {:endpoint url :router url})]
+        (is (true? (:pinned? result)))
+        (is (true? (get-in result [:verification :announced?])))
+        (is (= ["https://example.com"] (get-in result [:verification :providers]))))
+      (finally (stop)))))
+
+(deftest a-refused-pin-request-is-reported-as-refused
+  (let [server (com.sun.net.httpserver.HttpServer/create
+                (java.net.InetSocketAddress. "127.0.0.1" 0) 0)]
+    (.createContext server "/pins"
+                    (reify com.sun.net.httpserver.HttpHandler
+                      (^void handle [_ ^com.sun.net.httpserver.HttpExchange exchange]
+                        (.sendResponseHeaders exchange 401 -1)
+                        (.close (.getResponseBody exchange))
+                        nil)))
+    (.start server)
+    (try
+      (let [url (str "http://127.0.0.1:" (.getPort (.getAddress server)))
+            result (routing/request-pin! "bafkreiexample" {:endpoint url})]
+        (is (false? (:accepted? result)))
+        (is (= 401 (:status result))))
+      (finally (.stop server 0)))))

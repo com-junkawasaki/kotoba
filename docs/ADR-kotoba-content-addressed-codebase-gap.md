@@ -127,6 +127,37 @@ propagates to a `quadruple` whose source is not in the scratch at all; and a
 definition runs from its hash after its source is deleted and every name is
 unbound from the namespace.
 
+### 2026-08-04 (fifth pass) — review, toolchain identity, delegation, announcement
+
+- **Semantic diff / rebase / conflicts** (`kotoba.codebase.diff`). The
+  distinction that makes review possible: a definition that was *authored*
+  versus one that only moved because a dependency did. Decidable from two
+  hashes — rewrite the old block's dependencies to the new ones and see whether
+  it becomes the new block. Renames are reported as renames (identical CID),
+  interface changes separately from body changes. Conflicts return as data;
+  an unresolved one keeps the merge unresolved. Rebase replays what a branch
+  authored and drops what it carried, because transplanting a carried dependent
+  pins it to a graph that no longer exists.
+- **Toolchain identity in the cache key.** The compiler and wasm-emitter
+  revisions are now read from where the code was actually loaded from, not from
+  a declared pin. When either cannot be determined — a local checkout, a jar
+  with no revision in its path — **nothing is cached at all**. Compiling again
+  costs time; returning bytes emitted by a different compiler is a wrong answer.
+  This closes the limitation the fourth pass recorded.
+- **Delegation and attenuation** (`codebase-effects/grant`, `attenuate`). A
+  grant is a value, which is what makes delegation expressible: capabilities may
+  only be dropped, quota may only fall, a deadline may only come sooner, and no
+  chain of derivations climbs back. Bounds are checked at the CALL, since a
+  grant inspected once and never consulted again bounds nothing. The receipt
+  binds the bounds the run actually had, so the same code under different
+  bounds produces different receipts.
+- **Announcement** (`codebase-routing/announce!`). The IPFS Pinning Service API
+  is what plain HTTP can reach: a pinning service both stores a block and
+  advertises itself as a provider. The service's own status is reported, not
+  believed — `queued` is not `pinned` — and `announced?` re-asks a router,
+  because whether the network can find something is only answerable by the
+  network. Still not the same as running a libp2p node, and the ADR says so.
+
 ### 2026-08-04 (fourth pass) — artifacts, effects, pinned inputs, and reading a typed definition
 
 Four gaps that were left open, closed together because they share one seam.
@@ -208,9 +239,10 @@ The following boundary is normative:
 | Package supply chain | CID-lock contract and initial safe-build enforcement | Dependencies can be content-pinned and capability constrained. |
 | Module resolution | `module-lock` resolves `:require` by CID with no path fallback | Compilation inputs can be pinned, verified, and reproduced. |
 | Evaluation | Definitions run from their CID, hydrating dependencies by hash | Claim hash-native evaluation with no source witness. |
-| Identity vs. compilation | `typed-code` hashes the checked KIR; `codebase-compile` emits from it and caches on the definition graph | Claim one definition identity shared by the codebase and the compiler, and compilation from a hash. Do NOT claim the compiler's exact revision is bound into the cache key — it is not. |
-| Effects | Providers admitted by `reference-runtime`, per-capability quota, receipt on ok/denied/trap | Claim deny-by-default execution with bounded, receipted effects. Do NOT claim a policy language, capability delegation, or attenuation. |
-| Reading | `view` renders both layers; typed definitions render as checked KIR | Claim view-by-hash for both identity layers. Do NOT claim surface-source reconstruction or a browsing UI. |
+| Identity vs. compilation | `typed-code` hashes the checked KIR; `codebase-compile` emits from it, keyed on the definition graph and the toolchain revisions | Claim compilation from a hash with a cache that refuses to reuse under an unidentifiable toolchain. |
+| Effects | Providers admitted by `reference-runtime`; grants attenuable in one direction; per-capability quota and deadline checked at the call; receipt on ok/denied/trap | Claim deny-by-default execution with delegable, attenuable, bounded, receipted effects. Do NOT claim a policy DSL or revocation. |
+| Reading and review | `view` renders both layers; `diff` separates authored from propagated, reports renames and interface breaks; conflicts are data; `rebase` replays authored work | Claim hash-native review and rebase. Do NOT claim an interactive merge UI. |
+| Announcement | Pinning Service API request, verified against a router | Claim delegated announcement with independent verification. Do NOT claim running a libp2p node or a DHT presence of our own. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
 | Publication | Signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed namespace publication between nodes that know each other's endpoints. Do NOT claim a public network presence, a name registry, or key distribution. |

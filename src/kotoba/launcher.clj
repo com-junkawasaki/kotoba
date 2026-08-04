@@ -24,6 +24,7 @@
             [kotoba.codebase.authoring :as authoring]
             [kotoba.codebase.evaluator :as evaluator]
             [kotoba.codebase.names :as codebase-names]
+            [kotoba.codebase.diff :as codebase-diff]
             [kotoba.codebase.publication :as publication]
             [ed25519.core :as ed25519]
             [kotoba.codebase.render :as codebase-render]
@@ -360,7 +361,8 @@
     (cond
       (not (#{"init" "import" "inspect" "resolve" "merge" "add" "plan" "view"
               "run" "list" "find" "dependents" "pull" "publish" "follow"
-              "identity" "serve" "unfollow" "compile" "artifact"} action))
+              "identity" "serve" "unfollow" "compile" "artifact" "diff"
+              "announce"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
@@ -410,6 +412,49 @@
                :kotoba.cli/data (summary (authoring/commit! root planned))}))
           (catch clojure.lang.ExceptionInfo error
             (codebase-error :codebase/update-failed error))))
+
+      (= action "diff")
+      ;; Two commits, or `--base`/`--left`/`--right` for a conflict listing.
+      (try
+        (if (and base left right)
+          (let [found (codebase-diff/conflicts root base left right)]
+            {:kotoba.cli/ok? (empty? found)
+             :kotoba.cli/code (if (empty? found) :codebase/no-conflicts :codebase/conflicts)
+             :kotoba.cli/data {:conflicts found}})
+          (let [after (or (option-value argv "--after") (semantic-codebase/head root namespace))
+                before (or (option-value argv "--before")
+                           (first (:parents (semantic-codebase/namespace-view root after))))]
+            (if-not (and before after)
+              {:kotoba.cli/ok? false :kotoba.cli/code :codebase/diff-input-required}
+              (let [changes (codebase-diff/diff root before after)]
+                {:kotoba.cli/ok? true :kotoba.cli/code :codebase/diffed
+                 :kotoba.cli/data {:before before :after after
+                                   :summary (codebase-diff/describe changes)
+                                   :authored (:authored changes)
+                                   :propagated (:propagated changes)
+                                   :renamed (:renamed changes)
+                                   :added (vec (keys (:added changes)))
+                                   :removed (vec (keys (:removed changes)))}}))))
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :codebase/diff-failed error)))
+
+      (= action "announce")
+      (if-not subject
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/cid-required}
+        (try
+          (let [{:keys [cid]} (codebase-names/resolve-token root namespace subject)]
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/announced
+             :kotoba.cli/data (codebase-routing/announce!
+                               cid
+                               (cond-> {}
+                                 (option-value argv "--pinning-endpoint")
+                                 (assoc :endpoint (option-value argv "--pinning-endpoint"))
+                                 (System/getenv "KOTOBA_PINNING_TOKEN")
+                                 (assoc :token (System/getenv "KOTOBA_PINNING_TOKEN"))
+                                 (option-value argv "--router")
+                                 (assoc :router (option-value argv "--router"))))})
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/announce-failed error))))
 
       (= action "compile")
       (if-not subject
