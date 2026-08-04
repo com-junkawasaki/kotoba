@@ -217,6 +217,9 @@ kotoba codebase list --store dir --namespace ns                        # what th
 kotoba codebase find <query> --store dir --namespace ns                # names containing a substring
 kotoba codebase dependents <name|#hash> --store dir --namespace ns     # what an update would carry along
 kotoba codebase pull <cid>... --store dir                              # discover providers globally, hydrate, verify
+kotoba codebase announce <name|#hash> --pinning-endpoint URL --store dir  # ask a pinning service to provide it, then verify
+kotoba codebase diff --before <commit> --after <commit> --store dir    # authored vs propagated vs renamed
+kotoba codebase diff --base <c> --left <c> --right <c> --store dir     # list merge conflicts as data
 kotoba codebase serve --store dir --port 8080                          # host: trustless gateway + signed heads + browse-by-hash
 kotoba codebase publish --namespace ns --endpoint URL --store dir      # sign the head, push the closure, push the record
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
@@ -279,6 +282,18 @@ A serving node also browses: `/browse/{namespace}` lists what each name
 currently selects and `/def/{cid}` renders the stored definition with its
 dependencies and dependents as links. Every link is a hash, so following one
 navigates the actual graph rather than a site-shaped copy of it.
+
+`diff` asks the questions the CIDs make answerable: was a definition *authored*
+or did it only move because a dependency moved; was it *renamed* (identical CID,
+different name); did the *interface* change or only the body. `rebase` replays
+what a branch authored onto a new base and re-derives what it merely carried.
+Conflicts come back as data and are never resolved by guessing.
+
+`announce` asks an IPFS pinning service to store and provide a CID, then asks a
+router whether the network can actually find it — separately, because the
+service's own reply cannot answer that. Announcing to the DHT still needs a
+libp2p node; this asks something that has one, which is a smaller claim and is
+reported as one (`queued` is not `pinned`).
 
 The signing seed is read from `KOTOBA_CODEBASE_SEED` (32-byte hex) and is never
 echoed; `identity` prints only the DID it derives. Announcing to the IPFS DHT
