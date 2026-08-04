@@ -138,3 +138,43 @@
       (is (= :publication/publisher-required
              (:problem (ex-data (try (publish/follow! follower "demo" {:endpoint url})
                                      (catch clojure.lang.ExceptionInfo e e)))))))))
+
+;; ---------------------------------------------------------------------------
+;; Browsing
+
+(defn- get-text [url]
+  (let [response (.send (java.net.http.HttpClient/newHttpClient)
+                        (-> (java.net.http.HttpRequest/newBuilder (java.net.URI/create url))
+                            (.GET) (.build))
+                        (java.net.http.HttpResponse$BodyHandlers/ofString))]
+    {:status (.statusCode response) :body (.body response)}))
+
+(deftest a-namespace-browses-by-name-and-every-link-is-a-hash
+  (with-nodes
+    (fn [{:keys [author url]}]
+      (authoring/update-namespace! author "demo" '[(defn double [x] (* x 2))
+                                                   (defn quadruple [x] (double (double x)))])
+      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (let [listing (get-text (str url "/browse/demo"))]
+        (is (= 200 (:status listing)))
+        (is (clojure.string/includes? (:body listing) "quadruple"))
+        (testing "names link to CIDs, so following one navigates the real graph"
+          (is (re-find #"/def/bafyrei[a-z0-9]+\?ns=demo" (:body listing))))))))
+
+(deftest a-definition-page-renders-it-with-its-dependencies-and-dependents
+  (with-nodes
+    (fn [{:keys [author host url]}]
+      (authoring/update-namespace! author "demo" '[(defn double [x] (* x 2))
+                                                   (defn quadruple [x] (double (double x)))])
+      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (let [bindings (:bindings (store/namespace-view host (store/head host "demo")))
+            page (get-text (str url "/def/" (get bindings "quadruple") "?ns=demo"))]
+        (is (= 200 (:status page)))
+        (is (clojure.string/includes? (:body page) "(defn quadruple [a] (double (double a)))"))
+        (is (clojure.string/includes? (:body page) "depends on"))
+        (is (clojure.string/includes? (:body page) (get bindings "double"))))
+      (testing "and a definition browsed without a namespace still renders, by hash"
+        (let [bindings (:bindings (store/namespace-view host (store/head host "demo")))
+              page (get-text (str url "/def/" (get bindings "double")))]
+          (is (= 200 (:status page)))
+          (is (clojure.string/includes? (:body page) (get bindings "double"))))))))
