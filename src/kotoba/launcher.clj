@@ -28,6 +28,7 @@
             [kotoba.codebase.semantic-code :as semantic-code]
             [kotoba.codebase.store :as semantic-codebase]
             [kotoba.codebase-routing :as codebase-routing]
+            [kotoba.codebase-typed :as codebase-typed]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io ByteArrayOutputStream FileInputStream]
@@ -350,10 +351,20 @@
         {:kotoba.cli/ok? false :kotoba.cli/code :codebase/scratch-input-invalid}
         (try
           (let [plan-source (source-plan subject (reader-target-option argv))
-                forms (runtime/read-file subject (:kotoba.source/reader-target plan-source))
-                planned (authoring/plan root namespace forms)
+                ;; `--typed` hashes the definition from the compiler's checked
+                ;; KIR instead of the surface IR: the same object the backends
+                ;; consume, so what the codebase stores and what a target
+                ;; compiles cannot drift apart.
+                typed? (boolean (some #{"--typed"} argv))
+                planned (if typed?
+                          (codebase-typed/plan root namespace (slurp (io/file subject)))
+                          (authoring/plan
+                           root namespace
+                           (runtime/read-file
+                            subject (:kotoba.source/reader-target plan-source))))
                 summary (fn [plan]
                           {:namespace namespace
+                           :identity (if typed? :kir :semantic)
                            :head (:head plan)
                            :changed? (boolean (:changed? plan))
                            :definitions (:definitions plan)
@@ -384,11 +395,21 @@
         {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
         (try
           (let [{:keys [cid name]} (codebase-names/resolve-token root namespace subject)
-                result (evaluator/invoke root cid (or (read-arguments argv) []))]
+                args (or (read-arguments argv) [])
+                ;; Which layer a definition belongs to is a property OF the
+                ;; stored block, not a flag the caller has to remember.
+                typed? (codebase-typed/typed-block? (semantic-codebase/get-block root cid))
+                result (if typed?
+                         (codebase-typed/invoke root cid args)
+                         (evaluator/invoke root cid args))]
             {:kotoba.cli/ok? true :kotoba.cli/code :codebase/run-completed
-             :kotoba.cli/data {:cid cid :name name
-                               :value (:value result)
-                               :fuel-remaining (:fuel-remaining result)}})
+             :kotoba.cli/data (cond-> {:cid cid :name name
+                                       :identity (if typed? :kir :semantic)
+                                       :value (:value result)}
+                                (:fuel-remaining result)
+                                (assoc :fuel-remaining (:fuel-remaining result))
+                                (seq (:effects result))
+                                (assoc :effects (:effects result)))})
           (catch clojure.lang.ExceptionInfo error
             (codebase-error :codebase/run-failed error))))
 
