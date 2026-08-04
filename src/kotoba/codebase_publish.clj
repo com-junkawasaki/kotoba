@@ -26,7 +26,9 @@
             [clojure.string :as str]
             [kotoba.codebase-routing :as routing]
             [kotoba.codebase.fetch :as fetch]
+            [kotoba.codebase.names :as names]
             [kotoba.codebase.publication :as publication]
+            [kotoba.codebase.render :as render]
             [kotoba.codebase.store :as store])
   (:import [com.sun.net.httpserver HttpExchange HttpHandler HttpServer]
            [java.io ByteArrayOutputStream]
@@ -120,6 +122,83 @@
                  (respond! exchange 201 (.getBytes (pr-str accepted) "UTF-8")))
          (respond! exchange 405 nil))))))
 
+;; ---------------------------------------------------------------------------
+;; Browsing
+;;
+;; The smallest surface that makes a hash-addressed codebase legible: a name
+;; list that says what each name currently SELECTS, and a definition page that
+;; renders the stored block with its dependencies as links. Every link is a
+;; hash, so following one is navigating the actual graph rather than a
+;; site-shaped copy of it.
+
+(defn- escape [text]
+  (-> (str text)
+      (str/replace "&" "&amp;") (str/replace "<" "&lt;") (str/replace ">" "&gt;")))
+
+(defn- page [title & body]
+  (str "<!doctype html><meta charset=\"utf-8\"><title>" (escape title) "</title>"
+       "<style>body{font:14px/1.6 ui-monospace,monospace;max-width:60rem;margin:2rem auto;"
+       "padding:0 1rem;color:#111;background:#fff}"
+       "@media(prefers-color-scheme:dark){body{color:#e6e6e6;background:#111}a{color:#7ab7ff}}"
+       "a{color:#0645ad}pre{overflow-x:auto;padding:.75rem;background:#0001;border-radius:6px}"
+       "@media(prefers-color-scheme:dark){pre{background:#fff1}}"
+       "h1{font-size:1.1rem}li{margin:.15rem 0}code{opacity:.7}</style>"
+       (apply str body)))
+
+(defn- definition-link [namespace cid label]
+  (str "<a href=\"/def/" cid "?ns=" (or namespace "") "\">" (escape label) "</a>"))
+
+(defn- browse-handler [root]
+  (handler
+   (fn [^HttpExchange exchange]
+     (let [namespace (path-tail exchange "/browse/")
+           bindings (names/search root namespace "")
+           body (page (str "codebase: " namespace)
+                      "<h1>" (escape namespace) "</h1><ul>"
+                      (apply str
+                             (map (fn [[name cid]]
+                                    (str "<li>" (definition-link namespace cid name)
+                                         " <code>" (subs cid 0 12) "…</code></li>"))
+                                  bindings))
+                      "</ul>")]
+       (respond! exchange 200 (.getBytes ^String body "UTF-8"))))))
+
+(defn- definition-handler [root]
+  (handler
+   (fn [^HttpExchange exchange]
+     (let [cid (path-tail exchange "/def/")
+           query (or (.getQuery (.getRequestURI exchange)) "")
+           namespace (second (re-find #"ns=([^&]*)" query))
+           namespace (when (seq namespace) namespace)
+           reader-names (into {} (map (fn [[name bound]] [bound name]))
+                              (if namespace (names/search root namespace "") {}))
+           viewed (render/view root cid {:names reader-names})
+           dependencies (names/dependencies root namespace cid)
+           dependents (if namespace (names/dependents root namespace cid) [])
+           body (page (str "definition " (subs cid 0 12))
+                      "<h1>" (escape (:name viewed)) "</h1>"
+                      "<p><code>" (escape cid) "</code></p>"
+                      "<pre>" (escape (pr-str (:form viewed))) "</pre>"
+                      "<h2>depends on</h2><ul>"
+                      (apply str (map (fn [{:keys [cid names]}]
+                                        (str "<li>"
+                                             (definition-link namespace cid
+                                                              (or (first names) (subs cid 0 12)))
+                                             "</li>"))
+                                      dependencies))
+                      "</ul><h2>depended on by</h2><ul>"
+                      (apply str (map (fn [name]
+                                        (str "<li>"
+                                             (definition-link namespace
+                                                              (get (names/search root namespace "") name)
+                                                              name)
+                                             "</li>"))
+                                      dependents))
+                      "</ul>"
+                      (when namespace
+                        (str "<p><a href=\"/browse/" (escape namespace) "\">← " (escape namespace) "</a></p>")))]
+       (respond! exchange 200 (.getBytes ^String body "UTF-8"))))))
+
 (defn serve!
   "Start a publishing node over ROOT. Returns `{:server :url :stop}`."
   ([root] (serve! root {}))
@@ -127,6 +206,8 @@
    (let [server (HttpServer/create (InetSocketAddress. ^String host ^int (int port)) 0)]
      (.createContext server "/ipfs/" (block-handler root))
      (.createContext server "/heads/" (head-handler root))
+     (.createContext server "/browse/" (browse-handler root))
+     (.createContext server "/def/" (definition-handler root))
      (.start server)
      (let [bound (.getPort (.getAddress server))]
        {:server server

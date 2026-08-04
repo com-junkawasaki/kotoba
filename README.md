@@ -217,7 +217,7 @@ kotoba codebase list --store dir --namespace ns                        # what th
 kotoba codebase find <query> --store dir --namespace ns                # names containing a substring
 kotoba codebase dependents <name|#hash> --store dir --namespace ns     # what an update would carry along
 kotoba codebase pull <cid>... --store dir                              # discover providers globally, hydrate, verify
-kotoba codebase serve --store dir --port 8080                          # host: trustless gateway + signed head endpoint
+kotoba codebase serve --store dir --port 8080                          # host: trustless gateway + signed heads + browse-by-hash
 kotoba codebase publish --namespace ns --endpoint URL --store dir      # sign the head, push the closure, push the record
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
@@ -274,6 +274,11 @@ predecessor, and a follower pins the key on first follow. Serving grants nobody
 anything: the host verifies every pushed block against its CID, and the follower
 verifies everything again, which is why the record is signed rather than the
 connection trusted.
+
+A serving node also browses: `/browse/{namespace}` lists what each name
+currently selects and `/def/{cid}` renders the stored definition with its
+dependencies and dependents as links. Every link is a hash, so following one
+navigates the actual graph rather than a site-shaped copy of it.
 
 The signing seed is read from `KOTOBA_CODEBASE_SEED` (32-byte hex) and is never
 echoed; `identity` prints only the DID it derives. Announcing to the IPFS DHT
