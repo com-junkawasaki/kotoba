@@ -214,6 +214,11 @@ kotoba codebase list --store dir --namespace ns                        # what th
 kotoba codebase find <query> --store dir --namespace ns                # names containing a substring
 kotoba codebase dependents <name|#hash> --store dir --namespace ns     # what an update would carry along
 kotoba codebase pull <cid>... --store dir                              # discover providers globally, hydrate, verify
+kotoba codebase serve --store dir --port 8080                          # host: trustless gateway + signed head endpoint
+kotoba codebase publish --namespace ns --endpoint URL --store dir      # sign the head, push the closure, push the record
+kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
+kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
+kotoba codebase identity --store dir                                   # the DID your signing seed derives
 kotoba codebase import src.kotoba --store dir --namespace ns           # import semantic blocks from a source file
 kotoba codebase inspect <cid> --store dir                              # inspect one semantic block
 kotoba codebase resolve --store dir --namespace ns <name>              # resolve a name to its current CID
@@ -239,9 +244,23 @@ scratch buffer you no longer have still moves forward.
 `pull` asks the IPFS delegated-routing HTTP API who provides a CID and fetches
 raw blocks from trustless gateways. Every byte is verified against the CID that
 was requested before it is persisted, so a router that lies and a gateway that
-serves the wrong bytes are both merely unhelpful. Publishing is not implemented:
-announcing to the DHT needs a libp2p node, so discovery being possible is not
-the same as content being there (see
+serves the wrong bytes are both merely unhelpful.
+
+`serve` / `publish` / `follow` are the other half. A publishing node is a
+trustless gateway (`GET /ipfs/{cid}?format=raw`, the same interface the public
+network speaks) plus a follower that also serves: it pins a publisher DID per
+namespace on first push and applies the same signature, sequence and chain
+checks a private follower does. A namespace head is the one mutable claim in the
+system, so it is signed — the record carries a monotonic sequence and links its
+predecessor, and a follower pins the key on first follow. Serving grants nobody
+anything: the host verifies every pushed block against its CID, and the follower
+verifies everything again, which is why the record is signed rather than the
+connection trusted.
+
+The signing seed is read from `KOTOBA_CODEBASE_SEED` (32-byte hex) and is never
+echoed; `identity` prints only the DID it derives. Announcing to the IPFS DHT
+still needs a libp2p node, so a namespace is reachable at the nodes that host it
+rather than from the public network (see
 [`docs/ADR-kotoba-content-addressed-codebase-gap.md`](docs/ADR-kotoba-content-addressed-codebase-gap.md)).
 
 Multi-module projects use an explicit closed manifest; the compiler never scans

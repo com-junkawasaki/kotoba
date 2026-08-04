@@ -24,10 +24,13 @@
             [kotoba.codebase.authoring :as authoring]
             [kotoba.codebase.evaluator :as evaluator]
             [kotoba.codebase.names :as codebase-names]
+            [kotoba.codebase.publication :as publication]
+            [ed25519.core :as ed25519]
             [kotoba.codebase.render :as codebase-render]
             [kotoba.codebase.semantic-code :as semantic-code]
             [kotoba.codebase.store :as semantic-codebase]
             [kotoba.codebase-routing :as codebase-routing]
+            [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.wasm-exec :as wasm-exec])
@@ -298,6 +301,15 @@
                   (authority-request argv normalized-argv plan))
           (adapter-result (command-name argv) result)))))))
 
+(defn signing-seed-hex
+  "The Ed25519 seed used to sign namespace heads, as hex, or nil.
+
+  Read through a function rather than inline so it has one definition and one
+  place to look: a seed that could be supplied by several routes would be a
+  seed with several places to leak from."
+  []
+  (System/getenv "KOTOBA_CODEBASE_SEED"))
+
 (defn- codebase-error [code error]
   {:kotoba.cli/ok? false
    :kotoba.cli/code code
@@ -340,7 +352,8 @@
         right (option-value argv "--right")]
     (cond
       (not (#{"init" "import" "inspect" "resolve" "merge" "add" "plan" "view"
-              "run" "list" "find" "dependents" "pull"} action))
+              "run" "list" "find" "dependents" "pull" "publish" "follow"
+              "identity" "serve" "unfollow"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
@@ -469,6 +482,60 @@
                :kotoba.cli/data result})
             (catch clojure.lang.ExceptionInfo error
               (codebase-error :codebase/pull-failed error)))))
+
+      (#{"publish" "identity"} action)
+      ;; The signing seed is read from the environment and never echoed: the
+      ;; DID it derives is the only part of a key anyone should ever see in a
+      ;; terminal or a log.
+      (let [hex (signing-seed-hex)]
+        (cond
+          (not (and hex (= 64 (count hex))))
+          {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
+           :kotoba.cli/data {:hint "set KOTOBA_CODEBASE_SEED to a 32-byte hex Ed25519 seed"}}
+
+          (= action "identity")
+          {:kotoba.cli/ok? true :kotoba.cli/code :codebase/identity
+           :kotoba.cli/data {:publisher (ed25519/did-key-from-seed-hex hex)}}
+
+          (nil? namespace)
+          {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-required}
+
+          :else
+          (try
+            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/published
+             :kotoba.cli/data (codebase-publish/publish!
+                               root namespace (ed25519/unhex hex)
+                               {:endpoint (option-value argv "--endpoint")})}
+            (catch clojure.lang.ExceptionInfo error
+              (codebase-error :codebase/publish-failed error)))))
+
+      (= action "follow")
+      (if-not namespace
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-required}
+        (try
+          {:kotoba.cli/ok? true :kotoba.cli/code :codebase/followed
+           :kotoba.cli/data (codebase-publish/follow!
+                             root namespace
+                             {:endpoint (option-value argv "--endpoint")
+                              :publisher (option-value argv "--publisher")})}
+          (catch clojure.lang.ExceptionInfo error
+            (codebase-error :codebase/follow-failed error))))
+
+      (= action "unfollow")
+      (if-not namespace
+        {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-required}
+        {:kotoba.cli/ok? true :kotoba.cli/code :codebase/unfollowed
+         :kotoba.cli/data (publication/retire! root namespace)})
+
+      (= action "serve")
+      ;; Blocking on purpose: `serve` is the process, not a step in one.
+      (let [{:keys [url stop]} (codebase-publish/serve!
+                                root {:port (Integer/parseInt
+                                             (or (option-value argv "--port") "0"))})]
+        (println (pr-str {:kotoba.cli/code :codebase/serving :url url}))
+        (try @(promise)
+             (finally (stop)))
+        {:kotoba.cli/ok? true :kotoba.cli/code :codebase/served})
 
       (= action "init")
       {:kotoba.cli/ok? true :kotoba.cli/code :codebase/initialized
