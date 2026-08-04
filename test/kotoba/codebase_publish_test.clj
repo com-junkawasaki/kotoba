@@ -6,6 +6,7 @@
   closure and a signed head, and must refuse both a hostile host and a second
   key."
   (:require [cbor.core :as cbor]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [ed25519.core :as ed]
             [kotoba.codebase-publish :as publish]
@@ -107,6 +108,7 @@
       (let [next (publish/publish! author "demo" (seed 1) {:endpoint url})
             followed (publish/follow! follower "demo" {:endpoint url})]
         (is (= 1 (:sequence next)))
+        (is (true? (:accepted? followed)))
         (is (= (:head next) (store/head follower "demo")))
         (testing "the propagated dependent came across and runs with the new dependency"
           (is (= 18 (get-in (launcher/dispatch
@@ -120,7 +122,7 @@
         result (with-redefs [launcher/signing-seed-hex (constantly hex)]
                  (launcher/dispatch ["codebase" "identity" "--store" "."]))]
     (is (= did (get-in result [:kotoba.cli/data :publisher])))
-    (is (not (clojure.string/includes? (pr-str result) hex))
+    (is (not (str/includes? (pr-str result) hex))
         "the seed must not appear anywhere in what the CLI hands back")))
 
 (deftest an-unfollowed-namespace-requires-naming-the-key-again
