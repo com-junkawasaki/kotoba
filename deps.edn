@@ -4,10 +4,10 @@
         ;; gate moved out; the language repo consumes them instead of owning them.
         io.github.kotoba-lang/kgraph
         {:git/url "https://github.com/kotoba-lang/kgraph.git"
-         :git/sha "c0cb9332c540e7205b78dff00b82b813097fbb9c"}
+         :git/sha "609dc37885927853d8bb79c15b2edf5e35ef721a"}
         io.github.kotoba-lang/grammar
         {:git/url "https://github.com/kotoba-lang/grammar.git"
-         :git/sha "6597500afa5607f8114309ab5a33003a893715d2"}
+         :git/sha "c3735a0f91eabd760d80fd287ccb6a7bf95bfc6d"}
         ;; The DHT half was already built in this workspace and I had missed
         ;; it: `kad.routing` speaks /routing/v1 with multi-router quorum, and
         ;; `ipns.record` is the real IPNS record format. Publishing a namespace
@@ -23,14 +23,14 @@
         {:git/url "https://github.com/kotoba-lang/codebase.git"
          :git/sha "7392c25f112964e8859c07df8859a7ff98b6f453"}
         io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
-                                        :git/sha "f409dbade106df076cefe640781b12db558f4135"}
+                                        :git/sha "0f2f4d13d2643be4f580b8ddb4eb495049602603"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
         org.clojure/clojurescript {:mvn/version "1.12.134"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/compiler
         {:git/url "https://github.com/kotoba-lang/compiler.git"
-         :git/sha "d3e3f6864a2a6c1ea2cfdb2b136c7bf2d1dcfa67"}
+         :git/sha "36bedf88ceb54e2444d8efe15e9d0cd8fe56d9cb"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
@@ -54,28 +54,28 @@
         ;; ahead of its contract and broke the launcher gate in CI.
         io.github.kotoba-lang/kotoba-core-contracts
         {:git/url "https://github.com/kotoba-lang/kotoba-core-contracts.git"
-         :git/sha "2baa2c0f598ea7e9bcc394114780537ee37ed3ab"}
+         :git/sha "30426bada38f8056343633d49bb852300197a3e5"}
         io.github.kotoba-lang/kotoba-selfhost-contracts
         {:git/url "https://github.com/kotoba-lang/kotoba-selfhost-contracts.git"
-         :git/sha "ea3bc8233720ad81ea0b6e2387e45dabc9231a7f"}
+         :git/sha "92bb5794444cb147766dc98c08b9fec0bae74edf"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
          :git/sha "9c76285e7bae2137fefeb47966ac2e10eb71d1e4"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
-         :git/sha "68fe618ddf2933035a78e68701cf632fdc18c4bf"}
+         :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}
         ;; canonical datom model — kotoba.kgraph (the language's in-mem EAVT view)
         ;; and kotobase (the datom database) share this one [e a v] / entity↔eavt
         ;; representation. kotoba : kotobase = Clojure : Datomic (ADR-2607032500).
         io.github.kotoba-lang/datom
         {:git/url "https://github.com/kotoba-lang/datom.git"
-         :git/sha "d27a5833d59d909367956705f2ec931399c891ee"}
+         :git/sha "3a45462b3b6da018e24c65d12f8f3d3250a0c38e"}
         ;; did:key/did:web document construction + local resolution
         ;; (kotoba.did-adapter, ADR-2607050100) — this library's first
         ;; consumer in the org.
         io.github.kotoba-lang/org-w3-did
         {:git/url "https://github.com/kotoba-lang/org-w3-did.git"
-         :git/sha "f286e0a40739c6326a5af831efc224992d9ec159"}
+         :git/sha "c430e98024675a0873f49889049b4909e85fa860"}
         ;; pure-JVM WASM runtime (no native toolchain) — actually EXECUTES the
         ;; bytes runtime/wasm-binary emits (kotoba.wasm-exec), closing the
         ;; compile -> emit -> run loop instead of stopping at byte-shape checks.
@@ -100,16 +100,16 @@
         ;; package-contract cid? shape (kotoba-lang/kotoba-lang#13).
         io.github.kotoba-lang/dag-cbor
         {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
-         :git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
+         :git/sha "4a8a08efb8668fae9c1884d390a6610ca42890d8"}
         ;; org-chainagnostic-cacao names the same CBOR repository by its IETF
         ;; coordinate. Pin both coordinates so an older cbor/core.cljc cannot
         ;; shadow the Graal-static canonical key comparator above.
         io.github.kotoba-lang/org-ietf-cbor
         {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
-         :git/sha "58144e81ccdf7a82367085c66ea21ca84a1a7ddb"}
+         :git/sha "4a8a08efb8668fae9c1884d390a6610ca42890d8"}
         io.github.kotoba-lang/io-multiformats
         {:git/url "https://github.com/kotoba-lang/io-multiformats.git"
-         :git/sha "310724803db65840f00d2d98d7887f2b6a512bd3"}
+         :git/sha "b3b157e683a943d4f2e9362d9366cceefff3f656"}
         ;; kotoba.value.v1 (ADR-kotoba-canonical-value-codec). VC5 lowers a
         ;; constant collection literal in host-argument position to the
         ;; canonical bytes of that value; the host decodes the same codec.
@@ -117,7 +117,7 @@
         ;; because this repo now uses it in its own emit path.
         io.github.kotoba-lang/io-ipld
         {:git/url "https://github.com/kotoba-lang/io-ipld.git"
-         :git/sha "e08dc3b2ab705be292e388cd1ad136381544a041"}}
+         :git/sha "14b53ae08e0db906355d2ceaa1f9d8288e07f797"}}
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
