@@ -18,4 +18,6 @@
                "kotoba-lang/ed25519"
                "kotoba-lang/dag-cbor"
                "kotoba-lang/io-ipld"
-               "kotoba-lang/io-multiformats"]}}
+               "kotoba-lang/io-multiformats"
+               "kotoba-lang/io-libp2p-specs-kad-dht"
+               "kotoba-lang/tech-ipfs-specs-ipns"]}}
