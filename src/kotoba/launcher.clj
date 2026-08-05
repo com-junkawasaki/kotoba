@@ -12,23 +12,34 @@
             [clojure.string :as str]
             [kotoba.cap-table :as cap-table]
             [kotoba.compiler.core :as compiler]
+            [kotoba.compiler.frontend :as compiler-frontend]
+            [kotoba.compiler.ir :as compiler-ir]
+            [kotoba.compiler.project :as compiler-project]
             [kotoba.compiler.project-files :as project-files]
             [kotoba.lang.capability-cacao :as capability-cacao]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.cli :as cli]
+            [kotoba.deploy-adapter :as deploy-adapter]
             [kotoba.git-adapter :as git-adapter]
             [kotoba.host-providers :as host-providers]
+            [kotoba.ipld-block-store :as ipld-blocks]
             [kotoba.rad-adapter :as rad-adapter]
             [kotoba.package-admission :as package-admission]
             [kotoba.runtime :as runtime]
+            [kotoba.codebase-network-cli :as codebase-network-cli]
             [kotoba.semantic-code :as semantic-code]
             [kotoba.semantic-codebase :as semantic-codebase]
+            [kotoba.semantic-build-cache :as semantic-build-cache]
+            [kotoba.semantic-supply-chain :as semantic-supply-chain]
+            [kotoba.semantic-test-runner :as semantic-test-runner]
+            [kotoba.shared-semantic-cache :as shared-semantic-cache]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io ByteArrayOutputStream FileInputStream]
            [java.nio ByteBuffer]
            [java.nio.charset CodingErrorAction StandardCharsets]
-           [java.nio.file Path])
+           [java.nio.file Path]
+           [java.util Base64])
   (:gen-class))
 
 (defn result->exit
@@ -94,13 +105,16 @@
   (first argv))
 
 (declare source-plan source-extension accepted-source? selfhost-result runtime-result wasm-result cljs-result
-         codebase-result compile-result project-check-result package-result contract-exports)
+         codebase-result compile-result deploy-result project-check-result package-result
+         semantic-test-result contract-exports)
 
 (def source-commands
   #{"run" "check" "compile"})
 
 (def value-options
-  #{"--cacao"
+  #{"--artifact-manifest"
+    "--artifact"
+    "--cacao"
     "--kind"
     "--lock"
     "--manifest"
@@ -110,17 +124,28 @@
     "--project"
     "--reader-target"
     "--receipt"
+    "--semantic-receipt"
+    "--signing-key"
+    "--spdx"
     "--source-path"
     "--store"
     "--namespace"
     "--expected-head"
+    "--expected-semantic-receipt-cid"
+    "--deploy-root"
+    "--deployment-signing-key"
+    "--expected-deployment-head"
     "--base"
+    "--build-cache"
     "--left"
     "--right"
     "--target"
+    "--test-manifest"
+    "--test-receipt"
     "--trust"
     "--host-command"
     "--host-arg"
+    "--op"
     "--provider-command"
     "--text"
     "-S"
@@ -264,13 +289,22 @@
   (let [argv (vec argv)]
     (if-let [launcher-result (case (command-name argv)
                                "selfhost" (selfhost-result argv)
-                               "check" (when (option-value argv "--project")
-                                         (project-check-result argv))
+                               "check"
+                               (cond
+                                 (= "semantic-test"
+                                    (option-value argv "--kind"))
+                                 (semantic-test-result argv)
+
+                                 (option-value argv "--project")
+                                 (project-check-result argv))
                                "compile" (compile-result argv)
                                "wasm" (wasm-result argv)
                                "cljs" (cljs-result argv)
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
+                               "deploy" (when (or (option-value argv "--semantic-receipt")
+                                                  (option-value argv "--deploy-root"))
+                                          (deploy-result argv))
                                nil)]
       launcher-result
       (let [contract (read-cli-contract-resource "lang/cli.edn")
@@ -298,9 +332,68 @@
    :kotoba.cli/message (.getMessage ^Exception error)
    :kotoba.cli/data (ex-data error)})
 
+(declare safe-analyzer-fact-classification)
+
+(defn- codebase-target
+  [root namespace subject]
+  (try
+    {:cid subject :block (semantic-codebase/get-block root subject)}
+    (catch clojure.lang.ExceptionInfo direct-error
+      (if namespace
+        (try
+          (let [resolved (semantic-codebase/resolve-name root namespace subject)]
+            (assoc resolved :block (semantic-codebase/get-block root (:cid resolved))))
+          (catch clojure.lang.ExceptionInfo _ (throw direct-error)))
+        (throw direct-error)))))
+
+(defn- codebase-run-result
+  [argv root namespace subject]
+  (if-not subject
+    {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
+    (try
+      (let [{:keys [cid block]} (codebase-target root namespace subject)
+            source (semantic-codebase/get-executable-source root cid)]
+        (when-not source
+          (throw (ex-info "definition has no local executable source witness"
+                          {:problem :codebase/executable-source-not-found :cid cid})))
+        (let [plan (source-plan (str "codebase/" cid ".kotoba")
+                                (reader-target-option argv))
+              forms (runtime/read-forms source (:kotoba.source/reader-target plan))
+              profile-text (slurp (io/resource "lang/profile.edn"))
+              compiled (semantic-code/compile-definitions
+                        forms {:source-cid (semantic-code/source-cid source)
+                               :profile-cid (semantic-code/source-cid profile-text)})
+              target-name (some (fn [[name definition]]
+                                  (when (= cid (:cid definition)) name))
+                                (:definitions compiled))]
+          (when-not (and (= semantic-code/schema (get block "schema")) target-name)
+            (throw (ex-info "executable source does not reproduce requested definition CID"
+                            {:problem :codebase/executable-source-mismatch :cid cid})))
+          (let [definition (semantic-code/top-definition
+                            (first (filter #(and (seq? %) (= target-name (second %))) forms)))]
+            (when-not (or (nil? (:params definition)) (empty? (:params definition)))
+              (throw (ex-info "codebase run currently requires a zero-arity definition"
+                              {:problem :codebase/arguments-not-supported
+                               :cid cid :name (str target-name)})))
+            (let [run-forms (if (= 'main target-name)
+                              forms
+                              (conj (vec forms) (list 'defn 'main [] (list target-name))))
+                  ran (runtime/run (safe-analyzer-fact-classification) plan run-forms)]
+              {:kotoba.cli/ok? (:kotoba.runtime/ok? ran)
+               :kotoba.cli/code (if (:kotoba.runtime/ok? ran)
+                                  :codebase/run-completed
+                                  :codebase/run-failed)
+               :kotoba.cli/data {:kotoba.codebase/cid cid
+                                  :kotoba.codebase/name (str target-name)
+                                  :kotoba.codebase/namespace namespace
+                                  :kotoba.runtime/result ran}}))))
+      (catch clojure.lang.ExceptionInfo error
+        (codebase-error :codebase/run-failed error)))))
+
 (defn codebase-result
-  "C5 local codebase commands.  They persist semantic blocks only; source Git
-  remains the authoring workflow and no network synchronization is implied.
+  "Local codebase commands. They persist semantic blocks plus a CID-checked
+  local executable-source witness; source Git remains the authoring workflow
+  and no network synchronization is implied.
 
   `codebase import <source> --store <dir> --namespace <name>` creates a new
   immutable namespace commit from the source's semantic definitions."
@@ -313,11 +406,31 @@
         left (option-value argv "--left")
         right (option-value argv "--right")]
     (cond
-      (not (#{"init" "import" "inspect" "resolve" "merge" "list" "search" "log" "gc"} action))
+      (not (#{"init" "import" "inspect" "resolve" "merge" "list" "search" "log" "gc" "run"
+              "network-init" "network-publish" "network-private-publish"
+              "network-keyset" "network-head" "network-sync"
+              "network-private-sync" "network-replicate"
+              "cache-publish" "cache-fetch" "provider-discover"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
 
       (nil? root)
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/store-required}
+
+      (str/starts-with? action "network-")
+      (try
+        {:kotoba.cli/ok? true
+         :kotoba.cli/code (keyword "codebase" action)
+         :kotoba.cli/data (codebase-network-cli/execute argv)}
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :codebase/network-failed error)))
+
+      (#{"cache-publish" "cache-fetch" "provider-discover"} action)
+      (try
+        {:kotoba.cli/ok? true
+         :kotoba.cli/code (keyword "codebase" action)
+         :kotoba.cli/data (codebase-network-cli/execute argv)}
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :codebase/cache-failed error)))
 
       (= action "init")
       {:kotoba.cli/ok? true :kotoba.cli/code :codebase/initialized
@@ -364,6 +477,9 @@
               :kotoba.cli/data result})
            (catch clojure.lang.ExceptionInfo error (codebase-error :codebase/gc-failed error)))
 
+      (= action "run")
+      (codebase-run-result argv root namespace subject)
+
       (= action "merge")
       (if-not (and namespace base left right)
         {:kotoba.cli/ok? false :kotoba.cli/code :codebase/merge-input-required}
@@ -390,7 +506,8 @@
                            (:definitions code)]
                     (semantic-codebase/put-block! root type-cid type-block)
                     (when group-cid (semantic-codebase/put-block! root group-cid group-block))
-                    (semantic-codebase/put-block! root cid block))
+                    (semantic-codebase/put-block! root cid block)
+                    (semantic-codebase/put-executable-source! root cid source-text))
                 bindings (into (sorted-map)
                                (map (fn [[name {:keys [cid]}]] [(str name) cid]))
                                (:definitions code))
@@ -559,7 +676,756 @@
                                                   {:input :module :module namespace})]))
               modules)]
     {:root root :sources sources :manifest (.getPath manifest-file)
+     :package-lock (:value lock-input)
+     :trust-policy (:value trust-input)
      :supply-chain supply-chain :package-receipt package-receipt}))
+
+(defn- read-signing-seed
+  ([path]
+   (read-signing-seed path
+                      :semantic-build/signing-key-required
+                      :semantic-build/signing-key-invalid))
+  ([path required-problem invalid-problem]
+   (when-not path
+     (throw (ex-info "signing key path is required"
+                     {:problem required-problem})))
+   (let [key-file (io/file path)
+        _ (when-not (and (.isFile key-file)
+                         (<= (.length key-file) 4096)
+                         (not (java.nio.file.Files/isSymbolicLink
+                               (.toPath key-file))))
+            (throw (ex-info "signing key must be a bounded regular non-symlink file"
+                            {:problem invalid-problem})))
+        key-data (edn/read-string
+                  {:readers {}
+                   :default (fn [tag _]
+                              (throw
+                               (ex-info "tagged signing key value rejected"
+                                        {:problem invalid-problem
+                                         :tag tag})))}
+                  (slurp key-file))
+        encoded (:kotoba.signing/seed-base64 key-data)
+        seed (try
+               (.decode (Base64/getDecoder) ^String encoded)
+               (catch Exception _
+                 (throw (ex-info "signing key seed is not valid base64"
+                                 {:problem invalid-problem}))))]
+    (when-not (= 32 (count seed))
+      (throw (ex-info "signing key seed must decode to 32 bytes"
+                      {:problem invalid-problem})))
+    seed)))
+
+(declare elaboration-profile-contract)
+
+(defn- compile-project-semantic
+  [project compiled]
+  (let [linked (compiler-project/link-source (:sources project) (:root project))
+        codebase
+        (semantic-code/compile-elaborated-definitions
+         (:kir compiled)
+         {:source-cid (semantic-code/source-cid (:source linked))
+          :profile-contract (elaboration-profile-contract compiled)})
+        all-definitions (:definitions codebase)
+        module-order (:module-order linked)
+        source-digests
+        (get-in compiled [:manifest :kotoba.artifact/module-source-digests])
+        modules
+        (into
+         (sorted-map)
+         (map-indexed
+          (fn [module-index namespace]
+            (let [source (get (:sources project) namespace)
+                  module-forms (runtime/read-forms source :kotoba)
+                  info (compiler-project/module-info module-forms)
+                  local-names (mapv :name
+                                    (keep semantic-code/top-definition
+                                          module-forms))
+                  internal
+                  (into
+                   (sorted-map)
+                   (keep-indexed
+                    (fn [function-index original-name]
+                      (let [linked-name
+                            (symbol
+                             (str "kotoba_module__" module-index "__"
+                                  function-index))
+                            cid (get-in all-definitions [linked-name :cid])]
+                        (when cid [(str original-name) cid])))
+                    local-names))
+                  root-exports
+                  (when (= namespace (:root project))
+                    (into
+                     {}
+                     (keep (fn [export]
+                             (when-let [cid
+                                        (get-in all-definitions [export :cid])]
+                               [(str export) cid])))
+                     (:exports info)))
+                  definitions (merge internal root-exports)]
+              (when-not (= (count local-names) (count internal))
+                (throw
+                 (ex-info "linked module lacks a semantic definition identity"
+                          {:problem :semantic-build/module-definition-missing
+                           :module namespace})))
+              [(str namespace)
+               {:source-cid (semantic-code/source-cid source)
+                :source-sha256 (get source-digests namespace)
+                :definitions definitions}]))
+          module-order))]
+    {:root (str (:root project))
+     :profile-cid (:profile-cid codebase)
+     :hash-contract-cid (:hash-contract-cid codebase)
+     :modules modules}))
+
+(defn- elaboration-profile-contract
+  [compiled]
+  {:kotoba.elaboration/version 1
+   :pipeline
+   [:closed-reader :bounded-pure-desugar :name-and-module-resolution
+    :type-and-schema-inference :interprocedural-effect-inference
+    :implicit-ability-parameter-elaboration :typed-hir-kir :definition-cid]
+   :compiler-version (get-in compiled [:manifest :kotoba.artifact/compiler-version])
+   :compatibility (:compatibility compiled)
+   :floating-point-policy (:floating-point-policy compiled)
+   :hir-format (get-in compiled [:hir :format])
+   :kir-format (get-in compiled [:kir :format])})
+
+(defn- compile-single-semantic
+  [source-text compiled]
+  (let [codebase (semantic-code/compile-elaborated-definitions
+                  (:kir compiled)
+                  {:source-cid (semantic-code/source-cid source-text)
+                   :profile-contract (elaboration-profile-contract compiled)})
+        definitions
+        (into (sorted-map)
+              (map (fn [[name {:keys [cid]}]] [(str name) cid]))
+              (:definitions codebase))]
+    {:root "main"
+     :profile-cid (:profile-cid codebase)
+     :hash-contract-cid (:hash-contract-cid codebase)
+     :modules
+     {"main" {:source-cid (:source-cid codebase)
+              :source-sha256
+              (package-admission/sha256-text source-text)
+              :definitions definitions}}}))
+
+(defn- semantic-v2-receipt
+  [project source-text compiled target-name artifact-manifest artifact-bytes seed]
+  (let [semantic (if project
+                   (compile-project-semantic project compiled)
+                   (compile-single-semantic source-text compiled))]
+    (semantic-supply-chain/build-receipt
+     {:semantic semantic
+      :lock (or (:package-lock project)
+                {:kotoba.lock/version 1 :deps []})
+      :trust (or (:trust-policy project) {})
+      :package-receipt (or (:package-receipt project)
+                           {:kotoba.package/verified? true
+                            :kotoba.package/packages []})
+      :artifact-manifest artifact-manifest
+      :artifact-bytes artifact-bytes
+      :target target-name
+      :name (:root semantic)
+      :seed seed})))
+
+(defn semantic-build-receipt
+  "Derive and CID-bind semantic definition identities to an emitted artifact.
+
+  This gate is deliberately separate from ordinary compilation while the
+  semantic codec remains a restricted v1 slice. Callers that request it get
+  fail-closed behavior: unsupported semantic forms abort before any artifact
+  is written."
+  [source-text target-name artifact-manifest]
+  (let [forms (runtime/read-forms source-text :kotoba)
+        profile-text (slurp (io/resource "lang/profile.edn"))
+        codebase (semantic-code/compile-definitions
+                  forms {:source-cid (semantic-code/source-cid source-text)
+                         :profile-cid (semantic-code/source-cid profile-text)})
+        definitions (into (sorted-map)
+                          (map (fn [[name {:keys [cid]}]] [(str name) cid]))
+                          (:definitions codebase))
+        artifact-digest (:kotoba.artifact/output-digest artifact-manifest)
+        _ (when-not (string? artifact-digest)
+            (throw (ex-info "compiled artifact has no stable output digest"
+                            {:problem :semantic-build/artifact-digest-missing})))
+        block {"schema" "kotoba.semantic-build-receipt.v1"
+               "version" 1
+               "semanticSchema" (:schema codebase)
+               "source" (semantic-code/cid-link (:source-cid codebase))
+               "profile" (semantic-code/cid-link (:profile-cid codebase))
+               "hashContract" (semantic-code/cid-link
+                               (:hash-contract-cid codebase))
+               "definitions" (into (sorted-map)
+                                   (map (fn [[name cid]]
+                                          [name (semantic-code/cid-link cid)]))
+                                   definitions)
+               "artifactDigest" artifact-digest
+               "target" target-name}
+        receipt-cid (semantic-code/block-cid block)]
+    {:kotoba.semantic-build/schema "kotoba.semantic-build-receipt.v1"
+     :kotoba.semantic-build/receipt-cid receipt-cid
+     :kotoba.semantic-build/semantic-schema (:schema codebase)
+     :kotoba.semantic-build/source-cid (:source-cid codebase)
+     :kotoba.semantic-build/profile-cid (:profile-cid codebase)
+     :kotoba.semantic-build/hash-contract-cid (:hash-contract-cid codebase)
+     :kotoba.semantic-build/definitions definitions
+     :kotoba.semantic-build/artifact-digest artifact-digest
+     :kotoba.semantic-build/target target-name}))
+
+(defn verify-semantic-build-receipt
+  "Verify a semantic build receipt against its artifact manifest and optional
+  externally pinned receipt CID. Returns the verified admission summary or
+  throws a fail-closed diagnostic."
+  [receipt artifact-manifest expected-cid]
+  (let [schema (:kotoba.semantic-build/schema receipt)
+        definitions (:kotoba.semantic-build/definitions receipt)
+        artifact-digest (:kotoba.semantic-build/artifact-digest receipt)
+        declared-cid (:kotoba.semantic-build/receipt-cid receipt)
+        manifest-digest (:kotoba.artifact/output-digest artifact-manifest)
+        manifest-cid (:kotoba.artifact/semantic-receipt-cid artifact-manifest)]
+    (when-not (and (= "kotoba.semantic-build-receipt.v1" schema)
+                   (string? (:kotoba.semantic-build/semantic-schema receipt))
+                   (string? (:kotoba.semantic-build/source-cid receipt))
+                   (string? (:kotoba.semantic-build/profile-cid receipt))
+                   (string? (:kotoba.semantic-build/hash-contract-cid receipt))
+                   (map? definitions)
+                   (every? string? (keys definitions))
+                   (every? string? (vals definitions))
+                   (string? artifact-digest)
+                   (string? (:kotoba.semantic-build/target receipt))
+                   (string? declared-cid))
+      (throw (ex-info "invalid semantic build receipt"
+                      {:problem :deploy/invalid-semantic-receipt})))
+    (let [block {"schema" schema
+                 "version" 1
+                 "semanticSchema"
+                 (:kotoba.semantic-build/semantic-schema receipt)
+                 "source" (semantic-code/cid-link
+                           (:kotoba.semantic-build/source-cid receipt))
+                 "profile" (semantic-code/cid-link
+                            (:kotoba.semantic-build/profile-cid receipt))
+                 "hashContract" (semantic-code/cid-link
+                                 (:kotoba.semantic-build/hash-contract-cid
+                                  receipt))
+                 "definitions" (into (sorted-map)
+                                     (map (fn [[name cid]]
+                                            [name (semantic-code/cid-link cid)]))
+                                     definitions)
+                 "artifactDigest" artifact-digest
+                 "target" (:kotoba.semantic-build/target receipt)}
+          computed-cid (semantic-code/block-cid block)]
+      (when-not (= declared-cid computed-cid)
+        (throw (ex-info "semantic build receipt CID mismatch"
+                        {:problem :deploy/semantic-receipt-cid-mismatch
+                         :declared declared-cid :computed computed-cid})))
+      (when-not (= artifact-digest manifest-digest)
+        (throw (ex-info "semantic receipt artifact digest mismatch"
+                        {:problem :deploy/artifact-digest-mismatch
+                         :receipt artifact-digest :manifest manifest-digest})))
+      (when-not (= declared-cid manifest-cid)
+        (throw (ex-info "artifact manifest semantic receipt mismatch"
+                        {:problem :deploy/artifact-receipt-mismatch
+                         :receipt declared-cid :manifest manifest-cid})))
+      (when (and expected-cid (not= expected-cid declared-cid))
+        (throw (ex-info "semantic receipt does not match deployment pin"
+                        {:problem :deploy/semantic-receipt-pin-mismatch
+                         :expected expected-cid :actual declared-cid})))
+      {:kotoba.deploy/semantic-verified? true
+       :kotoba.deploy/semantic-receipt-cid declared-cid
+       :kotoba.deploy/artifact-digest artifact-digest
+       :kotoba.deploy/definitions definitions})))
+
+(defn- deploy-operation [argv]
+  (keyword
+   (or (option-value argv "--op")
+       (first (source-positionals argv))
+       "plan")))
+
+(defn deploy-result
+  "Verify semantic admission, then optionally execute the concrete local
+  content-addressed deploy adapter. Status and rollback operate only on an
+  initialized deploy store and its signed deployment receipts."
+  [argv]
+  (let [operation (deploy-operation argv)
+        receipt-path (option-value argv "--semantic-receipt")
+        manifest-path (option-value argv "--artifact-manifest")
+        artifact-path (option-value argv "--artifact")
+        trust-path (option-value argv "--trust")
+        deploy-root (option-value argv "--deploy-root")
+        target (option-value argv "--target")
+        expected-cid (option-value argv "--expected-semantic-receipt-cid")
+        expected-head (option-value argv "--expected-deployment-head")
+        deployment-key (option-value argv "--deployment-signing-key")
+        revision (option-value argv "--revision")
+        dry-run? (boolean (some #{"--dry-run"} argv))]
+    (try
+      (cond
+        (= :status operation)
+        (do
+          (when-not deploy-root
+            (throw (ex-info "deploy status requires --deploy-root"
+                            {:problem :deploy/root-required})))
+          {:kotoba.cli/ok? true
+           :kotoba.cli/code :deploy/status
+           :kotoba.cli/data
+           (deploy-adapter/status! deploy-root target)})
+
+        (= :rollback operation)
+        (do
+          (when-not deploy-root
+            (throw (ex-info "deploy rollback requires --deploy-root"
+                            {:problem :deploy/root-required})))
+          {:kotoba.cli/ok? true
+           :kotoba.cli/code :deploy/rolled-back
+           :kotoba.cli/data
+           (deploy-adapter/rollback!
+            {:root deploy-root
+             :target target
+             :revision revision
+             :expected-head expected-head
+             :seed
+             (read-signing-seed
+              deployment-key
+              :deploy/signing-key-required
+              :deploy/signing-key-invalid)})})
+
+        (#{:plan :apply} operation)
+        (do
+          (when-not manifest-path
+            (throw (ex-info "deploy requires --artifact-manifest"
+                            {:problem :deploy/artifact-manifest-required})))
+          (let [receipt (edn/read-string (slurp (io/file receipt-path)))
+                manifest (edn/read-string (slurp (io/file manifest-path)))
+                v2? (= semantic-supply-chain/schema
+                       (:kotoba.semantic-build/schema receipt))
+                _ (when (and (not v2?)
+                             (not (some
+                                   #{"--allow-legacy-semantic-receipt"}
+                                   argv)))
+                    (throw
+                     (ex-info
+                      "unsigned legacy semantic receipt rejected by default"
+                      {:problem
+                       :deploy/legacy-semantic-receipt-rejected})))
+                _ (when (and v2? (nil? artifact-path))
+                    (throw
+                     (ex-info "v2 deployment requires --artifact bytes"
+                              {:problem :deploy/artifact-required})))
+                _ (when (and v2? (nil? trust-path))
+                    (throw
+                     (ex-info "v2 deployment requires --trust"
+                              {:problem :deploy/semantic-trust-required})))
+                artifact-file (when v2? (io/file artifact-path))
+                _ (when
+                    (and
+                     v2?
+                     (not
+                      (and
+                       (.isFile ^java.io.File artifact-file)
+                       (<= (.length ^java.io.File artifact-file)
+                           deploy-adapter/max-artifact-bytes)
+                       (not
+                        (java.nio.file.Files/isSymbolicLink
+                         (.toPath ^java.io.File artifact-file))))))
+                    (throw
+                     (ex-info
+                      "artifact must be a bounded regular non-symlink file"
+                      {:problem :deploy/artifact-invalid})))
+                artifact-bytes
+                (when v2?
+                  (java.nio.file.Files/readAllBytes
+                   (.toPath ^java.io.File artifact-file)))
+                trust-file (when v2? (io/file trust-path))
+                _ (when
+                    (and
+                     v2?
+                     (not
+                      (and
+                       (.isFile ^java.io.File trust-file)
+                       (<= (.length ^java.io.File trust-file)
+                           (* 1024 1024))
+                       (not
+                        (java.nio.file.Files/isSymbolicLink
+                         (.toPath ^java.io.File trust-file))))))
+                    (throw
+                     (ex-info
+                      "receipt trust must be a bounded regular non-symlink file"
+                      {:problem :deploy/semantic-trust-invalid})))
+                receipt-trust
+                (when v2?
+                  (edn/read-string
+                   {:readers {}
+                    :default
+                    (fn [tag _]
+                      (throw
+                       (ex-info "tagged receipt trust value rejected"
+                                {:problem :deploy/semantic-trust-invalid
+                                 :tag tag})))}
+                   (slurp trust-file)))
+                admission
+                (if v2?
+                  (semantic-supply-chain/verify-receipt
+                   receipt manifest artifact-bytes expected-cid
+                   receipt-trust)
+                  (verify-semantic-build-receipt
+                   receipt manifest expected-cid))
+                apply? (and (= :apply operation) (not dry-run?))
+                _ (when (and apply? (not v2?))
+                    (throw
+                     (ex-info
+                      "local deploy adapter requires a signed v2 receipt"
+                      {:problem :deploy/signed-receipt-required})))
+                _ (when (and apply? (nil? deploy-root))
+                    (throw
+                     (ex-info "deploy apply requires --deploy-root"
+                              {:problem :deploy/root-required})))
+                deployed
+                (when apply?
+                  (deploy-adapter/apply!
+                   {:root deploy-root
+                    :target target
+                    :expected-head expected-head
+                    :seed
+                    (read-signing-seed
+                     deployment-key
+                     :deploy/signing-key-required
+                     :deploy/signing-key-invalid)
+                    :receipt receipt
+                    :manifest manifest
+                    :artifact-bytes artifact-bytes
+                    :receipt-trust receipt-trust}))]
+            {:kotoba.cli/ok? true
+             :kotoba.cli/code
+             (if deployed :deploy/applied :deploy/semantic-verified)
+             :kotoba.cli/data
+             (cond-> {:command :deploy
+                      :request (cli/parse-argv (rest argv))
+                      :host-action
+                      (if deployed :completed :adapter-required)
+                      :semantic-admission admission}
+               deployed (assoc :deployment deployed))}))
+
+        :else
+        (throw
+         (ex-info "unknown deployment operation"
+                  {:problem :deploy/unknown-operation
+                   :operation operation})))
+      (catch Exception error
+        {:kotoba.cli/ok? false
+         :kotoba.cli/code
+         (if (#{:status :rollback} operation)
+           :deploy/adapter-failed
+           :deploy/semantic-rejected)
+         :kotoba.cli/message (ex-message error)
+         :kotoba.cli/data
+         (select-keys
+          (ex-data error)
+          [:problem :declared :computed :receipt :manifest
+           :expected :actual :field :signer :target :operation
+           :release :event-cid])}))))
+
+(defn- read-build-cache-config [path]
+  (let [file (io/file path)]
+    (when-not (and (.isFile file)
+                   (<= (.length file) (* 1024 1024))
+                   (not (java.nio.file.Files/isSymbolicLink (.toPath file))))
+      (throw (ex-info "build cache config must be a bounded regular file"
+                      {:problem :cache/config-invalid})))
+    (let [value
+          (edn/read-string
+           {:readers {}
+            :default
+            (fn [tag _]
+              (throw (ex-info "tagged build cache config rejected"
+                              {:problem :cache/config-tagged :tag tag})))}
+           (slurp file))]
+      (when-not (and (map? value) (string? (:block-store value)))
+        (throw (ex-info "build cache config requires :block-store"
+                        {:problem :cache/config-invalid})))
+      value)))
+
+(defn- precompile-semantic [project source-text target]
+  (if project
+    (let [compiled
+          (compiler/compile-project
+           (:sources project) (:root project) target
+           {} (or (:supply-chain project) {}))]
+      (compile-project-semantic project compiled))
+    (let [compiled (compiler/compile-source source-text target)]
+      (compile-single-semantic source-text compiled))))
+
+(defn- build-cache-material
+  [project source-text target target-name]
+  (let [semantic (precompile-semantic project source-text target)]
+    (merge
+     {:semantic semantic
+      :lock (or (:package-lock project)
+                {:kotoba.lock/version 1 :deps []})
+      :trust (or (:trust-policy project) {})
+      :package-receipt
+      (or (:package-receipt project)
+          {:kotoba.package/verified? true
+           :kotoba.package/packages []})
+      :target target
+      :target-name target-name}
+     (semantic-build-cache/descriptor
+      {:semantic semantic
+       :lock (or (:package-lock project)
+                 {:kotoba.lock/version 1 :deps []})
+       :trust (or (:trust-policy project) {})
+       :package-receipt
+       (or (:package-receipt project)
+           {:kotoba.package/verified? true
+            :kotoba.package/packages []})
+       :target target
+       :target-name target-name}))))
+
+(defn- cache-lookup-options [config]
+  (cond-> {}
+    (:now config) (assoc :now (:now config))
+    (:repair-min-replicas config)
+    (assoc :repair-min-replicas (:repair-min-replicas config))))
+
+(defn- cache-miss-problem? [problem]
+  (contains? #{:cache/no-provider :cache/all-providers-failed} problem))
+
+(defn- read-bounded-edn [path problem]
+  (let [file (io/file path)]
+    (when-not (and (.isFile file)
+                   (<= (.length file) (* 1024 1024))
+                   (not (java.nio.file.Files/isSymbolicLink (.toPath file))))
+      (throw (ex-info "EDN input must be a bounded regular file"
+                      {:problem problem})))
+    (edn/read-string
+     {:readers {}
+      :default
+      (fn [tag _]
+        (throw (ex-info "tagged EDN input rejected"
+                        {:problem problem :tag tag})))}
+     (slurp file))))
+
+(defn- semantic-test-suite [path]
+  (let [suite (read-bounded-edn path :test/manifest-invalid)
+        tests (:kotoba.test/tests suite)
+        names (map :name tests)]
+    (when-not
+     (and (= 1 (:kotoba.test/version suite))
+          (vector? tests) (seq tests) (<= (count tests) 1024)
+          (= (count names) (count (set names)))
+          (every?
+           (fn [{:keys [name function args]}]
+             (and (string? name) (not (str/blank? name))
+                  (symbol? function) (nil? (namespace function))
+                  (vector? args) (<= (count args) 5)))
+           tests))
+      (throw (ex-info "invalid semantic test manifest"
+                      {:problem :test/manifest-invalid})))
+    suite))
+
+(defn- semantic-test-material [source-text suite]
+  (let [forms (runtime/read-forms source-text :kotoba)
+        profile-text (slurp (io/resource "lang/profile.edn"))
+        codebase
+        (semantic-code/compile-definitions
+         forms {:source-cid (semantic-code/source-cid source-text)
+                :profile-cid (semantic-code/source-cid profile-text)})
+        declared-effects (->> (:definitions codebase)
+                              vals
+                              (mapcat :effects)
+                              set)
+        _ (when (seq declared-effects)
+            (throw
+             (ex-info
+              "semantic test v1 accepts only effect-free definition closures"
+              {:problem :test/effectful-suite-not-cacheable
+               :effects declared-effects})))
+        definition-names (vec (sort (keys (:definitions codebase))))
+        analysis-source
+        (str (pr-str
+              (list 'ns 'kotoba.semantic-test
+                    (list :export definition-names)))
+             "\n"
+             source-text)
+        hir (compiler-frontend/analyze analysis-source)
+        compiled {:hir hir
+                  :kir (compiler-ir/lower hir)
+                  :compatibility {:mode :semantic-test}
+                  :floating-point-policy compiler/floating-point-policy
+                  :manifest {:kotoba.artifact/compiler-version
+                             compiler/compiler-version}}
+        effects (set (get-in compiled [:kir :effects]))
+        material
+        (semantic-test-runner/descriptor
+         {:semantic (compile-single-semantic source-text compiled)
+          :suite suite
+          :effects effects})]
+    (when (seq effects)
+      (throw
+       (ex-info
+        "semantic test v1 accepts only effect-free definition closures"
+        {:problem :test/effectful-suite-not-cacheable
+         :effects effects})))
+    (assoc material :forms forms :definition-names (set definition-names))))
+
+(defn- execute-semantic-tests
+  [source-path forms definition-names suite]
+  (mapv
+   (fn [{:keys [name function args expect]}]
+     (if-not (contains? definition-names function)
+       {:name name :function (str function) :expected expect
+        :passed? false :problems [{:problem :test/function-not-found}]}
+       (let [test-forms
+             (conj (vec forms)
+                   (list 'defn 'main [] (cons function args)))
+             ran
+             (runtime/run
+              (safe-analyzer-fact-classification)
+              (source-plan source-path)
+              test-forms
+              {:step-limit 100000})
+             actual (:kotoba.runtime/value ran)
+             passed? (and (:kotoba.runtime/ok? ran)
+                          (= expect actual))]
+         (cond-> {:name name
+                  :function (str function)
+                  :expected expect
+                  :actual actual
+                  :passed? passed?}
+           (not (:kotoba.runtime/ok? ran))
+           (assoc :problems (:kotoba.runtime/problems ran))))))
+   (:kotoba.test/tests suite)))
+
+(defn semantic-test-result
+  "Execute or reuse a signed, effect-free semantic test suite."
+  [argv]
+  (let [source-path (first-source-arg argv)
+        manifest-path (option-value argv "--test-manifest")
+        receipt-path (option-value argv "--test-receipt")
+        signing-key-path (option-value argv "--signing-key")
+        cache-path (option-value argv "--build-cache")]
+    (try
+      (when-not (and source-path manifest-path receipt-path)
+        (throw
+         (ex-info
+          "semantic-test requires source, --test-manifest, and --test-receipt"
+          {:problem :test/arguments-required})))
+      (let [source-text (slurp (io/file source-path))
+            suite (semantic-test-suite manifest-path)
+            material (semantic-test-material source-text suite)
+            descriptor-data (:descriptor material)
+            descriptor-cid (semantic-codebase/cache-key descriptor-data)
+            cache-config (when cache-path (read-build-cache-config cache-path))
+            cache-root (:block-store cache-config)
+            _ (when cache-root (ipld-blocks/initialize! cache-root))
+            lookup
+            (when cache-config
+              (if (seq (:provider-records cache-config))
+                (try
+                  {:hit
+                   (semantic-test-runner/lookup!
+                    cache-root (:provider-records cache-config)
+                    descriptor-data (:trust cache-config)
+                    (cache-lookup-options cache-config)
+                    (select-keys material
+                                 [:semantic-root-cid :suite-cid]))}
+                  (catch clojure.lang.ExceptionInfo error
+                    (let [problem (:problem (ex-data error))]
+                      (if (and (cache-miss-problem? problem)
+                               (not (:required? cache-config)))
+                        {:miss problem}
+                        (throw error)))))
+                {:miss :cache/no-provider}))
+            cached (:hit lookup)
+            outcomes
+            (if cached
+              (get-in cached [:receipt :statement :outcomes])
+              (execute-semantic-tests
+               source-path (:forms material)
+               (:definition-names material) suite))
+            receipt
+            (if cached
+              (:receipt cached)
+              (semantic-test-runner/sign-receipt
+               (read-signing-seed
+                signing-key-path
+                :test/signing-key-required
+                :test/signing-key-invalid)
+               {:descriptor-cid descriptor-cid
+                :semantic-root-cid (:semantic-root-cid material)
+                :suite-cid (:suite-cid material)
+                :outcomes outcomes
+                :issued-at (get-in cache-config [:publish :issued-at])}))
+            cache-published
+            (when (and cache-config (not cached) (:publish cache-config))
+              (let [publish-config (:publish cache-config)
+                    seed
+                    (read-signing-seed
+                     signing-key-path
+                     :test/signing-key-required
+                     :test/signing-key-invalid)
+                    published
+                    (semantic-test-runner/publish!
+                     cache-root descriptor-data receipt seed
+                     (select-keys publish-config
+                                  [:issued-at :expires-at]))
+                    provider-config (:provider publish-config)
+                    provider-record
+                    (when provider-config
+                      (shared-semantic-cache/sign-provider-record
+                       (read-signing-seed
+                        (:signing-key provider-config)
+                        :cache/provider-signing-key-required
+                        :cache/provider-signing-key-invalid)
+                       (assoc
+                        (select-keys provider-config
+                                     [:url :sequence :issued-at :expires-at])
+                        :entries
+                        {(:descriptor-cid published)
+                         (:entry-cid published)})))
+                    record-output
+                    (:provider-record-output publish-config)]
+                (when (and record-output provider-record)
+                  (some-> (io/file record-output) .getParentFile .mkdirs)
+                  (spit record-output (pr-str provider-record)))
+                (cond-> published
+                  provider-record (assoc :provider-record provider-record)
+                  record-output
+                  (assoc :provider-record-output record-output))))
+            failed (count (remove :passed? outcomes))]
+        (some-> (io/file receipt-path) .getParentFile .mkdirs)
+        (spit receipt-path (pr-str receipt))
+        {:kotoba.cli/ok? (zero? failed)
+         :kotoba.cli/code
+         (if (zero? failed)
+           :test/semantic-passed
+           :test/semantic-failed)
+         :kotoba.cli/data
+         {:descriptor-cid descriptor-cid
+          :semantic-root-cid (:semantic-root-cid material)
+          :suite-cid (:suite-cid material)
+          :receipt-cid (:receipt-cid receipt)
+          :receipt-path receipt-path
+          :passed (count (filter :passed? outcomes))
+          :failed failed
+          :outcomes outcomes
+          :cache
+          (when cache-config
+            {:hit? (boolean cached)
+             :miss-problem (:miss lookup)
+             :bundle-cid (:bundle-cid cached)
+             :providers-verified
+             (get-in cached [:cache :providers-verified])
+             :published cache-published})}})
+      (catch Exception error
+        {:kotoba.cli/ok? false
+         :kotoba.cli/code :test/semantic-rejected
+         :kotoba.cli/message (ex-message error)
+         :kotoba.cli/data
+         (assoc
+          (select-keys
+           (ex-data error)
+           [:problem :effects :signer :expected :actual])
+          :exception-chain (exception-chain error))}))))
 
 (defn compile-result
   "Compile Kotoba-owned source through kotoba-lang/compiler. Web output is
@@ -570,6 +1436,12 @@
         source-root (option-value argv "--source-path")
         entry (first-source-arg argv)
         extension (some-> entry source-extension)
+        semantic-receipt-path (option-value argv "--semantic-receipt")
+        signing-key-path (option-value argv "--signing-key")
+        spdx-path (option-value argv "--spdx")
+        build-cache-path (option-value argv "--build-cache")
+        semantic? (boolean (or semantic-receipt-path
+                               (some #{"--semantic"} argv)))
         target-name (or (option-value argv "--target") "wasm")
         target (case target-name "web" :js-kotoba-v1 "wasm" :wasm32-kotoba-v1 nil)
         output (or (option-value argv "--output")
@@ -585,6 +1457,16 @@
 
       (and project-path source-root)
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/ambiguous-project-source}
+
+      (and spdx-path (nil? semantic-receipt-path))
+      {:kotoba.cli/ok? false
+       :kotoba.cli/code :compile/semantic-receipt-required
+       :kotoba.cli/message "--spdx requires --semantic-receipt"}
+
+      (and build-cache-path (nil? semantic-receipt-path))
+      {:kotoba.cli/ok? false
+       :kotoba.cli/code :compile/semantic-receipt-required
+       :kotoba.cli/message "--build-cache requires --semantic-receipt"}
 
       (and (nil? entry) (nil? project-path))
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/entry-required}
@@ -607,35 +1489,169 @@
               discovered-project (when source-root
                                    (project-files/load-closed-graph entry source-root))
               project (or manifest-project discovered-project)
-              compiled (if project
-                         (compiler/compile-project (:sources project) (:root project) target
-                                                   {} (or (:supply-chain project) {}))
-                         (compiler/compile-source (slurp entry) target))]
-          (if (= target :js-kotoba-v1)
-            (do
-              (some-> (io/file output) .getParentFile .mkdirs)
-              (spit output (:source compiled))
-              (spit (str output ".manifest.edn") (pr-str (:manifest compiled))))
-            (write-bytes! output (:bytes compiled)))
+              source-text (when entry (slurp entry))
+              cache-config
+              (when build-cache-path
+                (read-build-cache-config build-cache-path))
+              cache-root (:block-store cache-config)
+              _ (when cache-root (ipld-blocks/initialize! cache-root))
+              cache-material
+              (when cache-config
+                (build-cache-material project source-text target target-name))
+              lookup
+              (when cache-config
+                (if (seq (:provider-records cache-config))
+                  (try
+                    {:hit
+                     (semantic-build-cache/lookup-build!
+                      cache-root
+                      (:provider-records cache-config)
+                      (:descriptor cache-material)
+                      (:trust cache-config)
+                      (cache-lookup-options cache-config)
+                      (select-keys cache-material
+                                   [:semantic-root-cid :target-name]))}
+                    (catch clojure.lang.ExceptionInfo error
+                      (let [problem (:problem (ex-data error))]
+                        (if (and (cache-miss-problem? problem)
+                                 (not (:required? cache-config)))
+                          {:miss problem}
+                          (throw error)))))
+                  {:miss :cache/no-provider}))
+              cached (:hit lookup)
+              compiled
+              (when-not cached
+                (if project
+                  (compiler/compile-project
+                   (:sources project) (:root project) target
+                   {} (or (:supply-chain project) {}))
+                  (compiler/compile-source source-text target)))
+              artifact-bytes
+              (if cached
+                (:artifact-bytes cached)
+                (if (= target :js-kotoba-v1)
+                  (.getBytes ^String (:source compiled) StandardCharsets/UTF_8)
+                  (:bytes compiled)))
+              semantic-receipt
+              (cond
+                cached (:receipt cached)
+
+                semantic-receipt-path
+                (semantic-v2-receipt
+                 project source-text compiled target-name
+                 (:manifest compiled) artifact-bytes
+                 (read-signing-seed signing-key-path))
+
+                semantic?
+                (if project
+                  (do
+                    (compile-project-semantic project compiled)
+                    nil)
+                  (semantic-build-receipt
+                   source-text target-name (:manifest compiled)))
+
+                :else nil)
+              manifest
+              (if cached
+                (:manifest cached)
+                (cond-> (:manifest compiled)
+                  semantic-receipt
+                  (assoc :kotoba.artifact/semantic-receipt-cid
+                         (:kotoba.semantic-build/receipt-cid
+                          semantic-receipt))))
+              spdx-json
+              (when semantic-receipt
+                (semantic-supply-chain/spdx-json
+                 (:kotoba.semantic-build/spdx semantic-receipt)))
+              cache-published
+              (when (and cache-config (not cached) (:publish cache-config))
+                (let [publish-config (:publish cache-config)
+                      published
+                      (semantic-build-cache/publish-build!
+                       cache-root
+                       (:descriptor cache-material)
+                       {:artifact-bytes artifact-bytes
+                        :manifest manifest
+                        :receipt semantic-receipt
+                        :spdx-json spdx-json}
+                       (read-signing-seed signing-key-path)
+                       (select-keys publish-config
+                                    [:issued-at :expires-at]))
+                      provider-config (:provider publish-config)
+                      provider-record
+                      (when provider-config
+                        (shared-semantic-cache/sign-provider-record
+                         (read-signing-seed
+                          (:signing-key provider-config)
+                          :cache/provider-signing-key-required
+                          :cache/provider-signing-key-invalid)
+                         (assoc
+                          (select-keys provider-config
+                                       [:url :sequence :issued-at :expires-at])
+                          :entries
+                          {(:descriptor-cid published)
+                           (:entry-cid published)})))
+                      record-output (:provider-record-output publish-config)]
+                  (when (and record-output provider-record)
+                    (some-> (io/file record-output) .getParentFile .mkdirs)
+                    (spit record-output (pr-str provider-record)))
+                  (cond-> published
+                    provider-record (assoc :provider-record provider-record)
+                    record-output (assoc :provider-record-output record-output))))]
+          (write-bytes! output artifact-bytes)
+          (when manifest
+            (spit (str output ".manifest.edn") (pr-str manifest)))
+          (when semantic-receipt-path
+            (some-> (io/file semantic-receipt-path) .getParentFile .mkdirs)
+            (spit semantic-receipt-path (pr-str semantic-receipt)))
+          (when spdx-path
+            (some-> (io/file spdx-path) .getParentFile .mkdirs)
+            (spit spdx-path spdx-json))
           {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
            :kotoba.cli/data {:entry (or entry (:root project))
                              :project project-path :source-path source-root
                              :output output :target target-name
                              :backend (if (= target :js-kotoba-v1)
                                         :kotoba-script :kotoba-wasm)
-                             :value-profile (:value-profile compiled)
-                             :value-abi (:value-abi compiled)
-                             :wasm-features (:wasm-features compiled)
-                             :project-digest (:project-digest compiled)
-                             :compatibility (:compatibility compiled)
-                             :manifest (:manifest compiled)
-                             :package-receipt (:package-receipt project)}})
+                             :value-profile
+                             (or (:value-profile compiled)
+                                 (:kotoba.artifact/value-profile manifest))
+                             :value-abi
+                             (or (:value-abi compiled)
+                                 (:kotoba.artifact/value-abi manifest))
+                             :wasm-features
+                             (or (:wasm-features compiled)
+                                 (:kotoba.artifact/wasm-features manifest))
+                             :project-digest
+                             (or (:project-digest compiled)
+                                 (:kotoba.artifact/project-digest manifest))
+                             :compatibility
+                             (or (:compatibility compiled)
+                                 (:kotoba.artifact/compatibility manifest))
+                             :manifest manifest
+                             :semantic-receipt semantic-receipt
+                             :semantic-receipt-path semantic-receipt-path
+                             :spdx-path spdx-path
+                             :package-receipt (:package-receipt project)
+                             :build-cache
+                             (when cache-config
+                               {:hit? (boolean cached)
+                                :miss-problem (:miss lookup)
+                                :descriptor-cid
+                                (semantic-codebase/cache-key
+                                 (:descriptor cache-material))
+                                :bundle-cid (:bundle-cid cached)
+                                :providers-verified
+                                (get-in cached
+                                        [:cache :providers-verified])
+                                :published cache-published})}})
         (catch Exception error
           {:kotoba.cli/ok? false :kotoba.cli/code :compile/failed
            :kotoba.cli/message (ex-message error)
            :kotoba.cli/data (assoc
                              (select-keys (ex-data error)
-                                          [:phase :reason :target :module :dependency :problems])
+                                          [:problem :phase :reason :target :module
+                                           :dependency :problems])
                              :exception-chain (exception-chain error))})))))
 
 (defn project-check-result

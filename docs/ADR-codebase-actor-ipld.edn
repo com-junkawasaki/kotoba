@@ -1,0 +1,97 @@
+{:adr/id :adr-codebase-actor-ipld
+ :adr/status :accepted-implemented-p0-p1-complete
+ :adr/date "2026-07-26"
+ :adr/title "Actor-controlled heads over an IPLD codebase data plane"
+ :adr/context "CID-addressed code and source witnesses must remain independently replicable; a mutable namespace name needs explicit authority without making an actor the block store or execution host."
+ :adr/decision {:data-plane {:format :ipld-dag-cbor
+                             :transport :explicit-peer-ipfs-path
+                             :integrity [:canonical-decode-reencode
+                                         :recompute-cid-on-every-read]
+                             :durability [:fsync-temp :atomic-rename :fsync-directory]
+                             :replication {:unit :complete-manifest-dag
+                                           :admission :minimum-verified-replicas
+                                           :proof [:peer-pinned-ed25519-receipt
+                                                   :byte-identical-readback]}}
+                :control-plane {:actor :signed-namespace-head
+                                :identity :genesis-controller-policy-cid
+                                :operational-authority
+                                {:model :controller-signed-keyset
+                                 :controllers :threshold-set
+                                 :policy-update :authorized-by-current-quorum
+                                 :recovery :replace-lost-controller-with-current-quorum
+                                 :break-glass :immutable-genesis-guardian-quorum
+                                 :delegation :multiple-active-signers
+                                 :rotation :monotonic-keyset-epoch
+                                 :revocation [:revoked :retired :compromised]
+                                 :head-binding [:controller :keyset-epoch]}
+                                :ordering :per-namespace-monotonic-sequence
+                                :conflict :previous-head-cas
+                                :replay :sequence-and-record-cid
+                                :journal [:immutable-record-by-cid
+                                          :locked-atomic-latest-ref]
+                                :discovery
+                                {:latest :signed-latest-from-explicit-peer
+                                 :bootstrap :previous-cid-chains-oldest-first
+                                 :incremental :stop-at-locally-known-cid}}
+                :branches {:merge-head
+                           [:target-previous-cas
+                            :two-or-more-verified-parent-record-cids
+                            :parent-codebase-head-cids]}
+                :privacy {:cipher :aes-256-gcm
+                          :peer-visible [:ciphertext-cids :encrypted-block-count]
+                          :encrypted [:namespace :semantic-cids
+                                      :source-witnesses :commit]
+                          :key-delivery :out-of-band}
+                :cli [:network-init :network-publish :network-private-publish
+                      :network-keyset :network-head :network-sync
+                      :network-private-sync :network-replicate]
+                :execution {:requires [:verified-actor-record :verified-ipld-closure
+                                      :source-witness-reproduces-definition-cid
+                                      :capability-policy]}}
+ :adr/non-goals [:actor-as-block-store :actor-as-unrestricted-runner
+                 :cid-as-authority :provider-discovery]
+ :adr/persistence-layout
+ {:semantic-codebase "<--store>/"
+  :ipld-blocks "<--block-store>/blocks/<cid>.cbor"
+  :actor-head-records "<--actor-store>/records/<cid>.edn"
+  :actor-head-refs "<--actor-store>/refs/*.head"
+  :actor-keyset-records "<--actor-store>/key-records/<cid>.edn"
+  :actor-keyset-refs "<--actor-store>/key-refs/*.keys"
+  :secret-material :not-persisted-by-codebase-stores}
+ :adr/compatibility
+ {:legacy-single-controller :read-and-admit-v1
+  :threshold-controller-policy :v2
+  :public-manifest "kotoba.codebase-ipld-head.v2"
+  :private-manifest "kotoba.codebase-private-manifest.v1"}
+ :adr/remaining-gaps {:p1 []
+                      :p2 [:loss-of-controller-and-guardian-quorums
+                           :external-key-distribution-and-rekey
+                           :libp2p-bitswap
+                           :provider-discovery
+                           :car-import-export
+                           :garbage-collection-and-pinning
+                           :resource-abuse-controls
+                           :cross-platform-crash-fault-injection]}
+ :adr/session-checkpoint
+ {:closed-at "2026-07-26"
+  :scope-complete [:p0 :p1]
+  :workspace :uncommitted
+  :targeted-verification {:tests 12 :assertions 48
+                          :failures 0 :errors 0}
+  :post-hardening-verification {:suite :codebase-actor
+                                :tests 7 :assertions 25
+                                :failures 0 :errors 0}
+  :aggregate-verification
+  {:last-run {:tests 509 :assertions 8608 :failures 5 :errors 0}
+   :resolved-after-run [:four-codebase-run-failures]
+   :remaining-observation :supply-chain/dependency-digest
+   :rerun-after-p1 false}
+  :handoff :p2}
+ :adr/implementation ["src/kotoba/ipld_block_store.clj"
+                      "src/kotoba/codebase_ipld.clj"
+                      "src/kotoba/codebase_actor.clj"
+                      "src/kotoba/codebase_actor_keys.clj"
+                      "src/kotoba/codebase_actor_store.clj"
+                      "src/kotoba/codebase_resolver.clj"
+                      "src/kotoba/codebase_private.clj"
+                      "src/kotoba/codebase_network_cli.clj"]}

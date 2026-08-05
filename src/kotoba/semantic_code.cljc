@@ -174,17 +174,40 @@
 
     :else (normalize-literal form env)))
 
+(defn- typed-params
+  [params]
+  (if (and (vector? params)
+           (even? (count params))
+           (every? keyword? (take-nth 2 (rest params))))
+    (mapv (fn [[param value-type]]
+            (if (symbol? param)
+              (with-meta param (assoc (meta param) :tag value-type))
+              param))
+          (partition 2 params))
+    params))
+
+(defn- parse-defn
+  [[_ name params & raw-body]]
+  (let [[result-type body] (if (keyword? (first raw-body))
+                             [(first raw-body) (rest raw-body)]
+                             [nil raw-body])
+        name (if result-type
+               (with-meta name (assoc (meta name) :tag result-type))
+               name)
+        params (typed-params params)]
+    {:name name :kind "term"
+     :meta (or (semantic-meta name) {})
+     :params (vec params)
+     :expr (list* 'fn params body)}))
+
 (defn top-definition
   "Parse a supported top-level def/defn. Returns a source-name-bearing staging
   record; the name is never copied into the hashed semantic block."
   [form]
   (when (seq? form)
     (case (first form)
-      defn (let [[_ name params & body] form]
-             {:name name :kind "term"
-              :meta (or (semantic-meta name) {})
-              :params (vec params)
-              :expr (list* 'fn params body)})
+      defn (parse-defn form)
+      defn- (parse-defn form)
       def (let [[_ name value] form]
             {:name name :kind "term"
              :meta (or (semantic-meta name) {}) :expr value})
@@ -244,6 +267,11 @@
   (source-cid
    "kotoba.semantic-definition.v1|debruijn|dag-cbor|sha2-256|recursive-scc-v1"))
 
+(defn elaborated-contract-cid []
+  (source-cid
+   (str "kotoba.semantic-definition.v2|checked-typed-kir|debruijn|dag-cbor|"
+        "sha2-256|recursive-scc-v1|profile+desugar+type+effect+dependencies")))
+
 (defn default-profile-cid []
   (source-cid "kotoba.lang.profile.v3"))
 
@@ -255,6 +283,22 @@
      #?(:clj (.getBytes ^String source "UTF-8")
         :cljs (.encode (js/TextEncoder.) source))
      source)))
+
+(defn- canonical-data
+  [value]
+  (cond
+    (map? value)
+    (into (sorted-map-by #(compare (pr-str %1) (pr-str %2)))
+          (map (fn [[key child]] [(canonical-data key) (canonical-data child)]))
+          value)
+    (set? value)
+    (into (sorted-set-by #(compare (pr-str %1) (pr-str %2)))
+          (map canonical-data)
+          value)
+    (vector? value) (mapv canonical-data value)
+    (list? value) (apply list (map canonical-data value))
+    (seq? value) (doall (map canonical-data value))
+    :else value))
 
 (defn- definition-references
   "Top-level definition names referenced by EXPR, respecting the lexical
@@ -488,6 +532,57 @@
                         (into resolved (map (fn [[name value]] [name (:cid value)]))
                               group-defs)
                         (into output group-defs)))))))))))
+
+(defn compile-elaborated-definitions
+  "Compute definition identities from the compiler's checked, desugared,
+  typed KIR rather than reparsing source semantics.
+
+  KIR must be a closed compiler result. Function names remain aliases and are
+  removed by the existing de-Bruijn/reference normalization. Parameter/result
+  types and inferred effects are attached as semantic metadata, while direct
+  function references become definition-CID links. PROFILE-CONTRACT is the
+  versioned compiler/profile/desugar/type/effect descriptor and therefore
+  participates in every definition identity."
+  [kir {source-witness-cid :source-cid
+        profile-contract :profile-contract}]
+  (when-not (and (map? kir)
+                 (keyword? (:format kir))
+                 (vector? (:functions kir))
+                 (map? profile-contract))
+    (throw (ex-info "checked typed KIR and profile contract required"
+                    {:problem :semantic/elaborated-kir-required})))
+  (let [function-names (set (map :name (:functions kir)))
+        symbols-in (fn [value]
+                     (into #{}
+                           (filter symbol?)
+                           (tree-seq coll? seq value)))
+        intrinsics
+        (reduce
+         (fn [result {:keys [params body]}]
+           (into result
+                 (remove (set (concat function-names params)))
+                 (symbols-in body)))
+         default-intrinsics
+         (:functions kir))
+        forms
+        (mapv
+         (fn [{:keys [name params param-types result effects body]}]
+           (let [params (mapv (fn [param type]
+                                (with-meta param {:tag (or type :i64)}))
+                              params
+                              (concat (or param-types [])
+                                      (repeat :i64)))
+                 name (with-meta name {:tag (or result :i64)
+                                       :effects (set effects)})]
+             (list 'defn name params body)))
+         (:functions kir))
+        profile-cid (source-cid (pr-str (canonical-data profile-contract)))]
+    (compile-definitions
+     forms
+     {:source-cid source-witness-cid
+      :profile-cid profile-cid
+      :hash-contract-cid (elaborated-contract-cid)
+      :intrinsics intrinsics})))
 
 (defn attach-to-ir
   "Attach semantic identities to the existing runtime EDN IR without changing

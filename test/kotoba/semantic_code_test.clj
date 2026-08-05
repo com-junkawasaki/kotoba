@@ -6,6 +6,35 @@
             [kotoba.runtime :as runtime]
             [kotoba.semantic-code :as semantic]))
 
+(deftest elaborated-definition-identity-includes-types-effects-and-profile
+  (let [kir {:format :kotoba.kir/v4
+             :functions
+             [{:name 'helper :params ['x] :param-types [:i64] :result :i64
+               :effects #{} :body '(+ x 1)}
+              {:name 'main :params [] :param-types [] :result :i64
+               :effects #{} :body '(helper 41)}]}
+        compile #(semantic/compile-elaborated-definitions
+                  %1 {:source-cid (semantic/source-cid "(source witness)")
+                      :profile-contract %2})
+        base (compile kir {:compiler "a" :profile 4})
+        renamed (compile (-> kir
+                            (assoc-in [:functions 0 :name] 'increment)
+                            (assoc-in [:functions 1 :body] '(increment 41)))
+                         {:compiler "a" :profile 4})
+        effectful (compile (assoc-in kir [:functions 0 :effects] #{[:cap/call 4]})
+                           {:compiler "a" :profile 4})
+        reprofiled (compile kir {:compiler "b" :profile 4})]
+    (is (= (-> base :definitions (get 'helper) :cid)
+           (-> renamed :definitions (get 'increment) :cid)))
+    (is (= (-> base :definitions (get 'main) :cid)
+           (-> renamed :definitions (get 'main) :cid)))
+    (is (not= (-> base :definitions (get 'helper) :cid)
+              (-> effectful :definitions (get 'helper) :cid)))
+    (is (not= (-> base :definitions (get 'helper) :cid)
+              (-> reprofiled :definitions (get 'helper) :cid)))
+    (is (= [(-> base :definitions (get 'helper) :cid)]
+           (-> base :definitions (get 'main) :dependency-cids)))))
+
 (defn compile-one [form]
   (-> (semantic/compile-definitions [form]) :definitions vals first))
 

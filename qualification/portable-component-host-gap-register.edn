@@ -1,0 +1,137 @@
+{:portable-component-host/version 1
+ :portable-component-host/as-of "2026-07-25"
+ :portable-component-host/adr
+ "docs/ADR-portable-component-host-execution-identity.md"
+ :portable-component-host/status-values #{:open :in-progress :pass :accepted-risk}
+
+ :portable-component-host/invariant
+ {:format :kotoba.execution-identity/v1
+  :summary
+  "Every effectful production run is bound to one immutable identity containing the plan, code closure, artifact/component and WIT contract, policy decision, immutable data basis, scoped grants, approvals, runtime identity, inputs, outcome and host receipts."
+  :required-fields #{:plan-cid :code-closure-cid :artifact-cid :compiler-contract
+                     :package-lock-cid :policy-cid :policy-decision-cid :db-basis
+                     :grant-cids :approval-cids :runtime-identity :input-cid
+                     :outcome-cid :host-receipt-cids}
+  :component-required-fields #{:component-cid :wit-world-cid}
+  :production-rules #{:no-ambient-wasi
+                       :no-runtime-permission-escalation
+                       :opaque-host-managed-capabilities
+                       :basis-bound-query
+                       :receipt-before-effect-outcome}}
+
+ :portable-component-host/gaps
+ {:G-01
+  {:status :in-progress
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/compiler" "kotoba-lang/abi"
+             "kotoba-lang/kototama" "kotoba-lang/aiueos" "kotoba-lang/kotobase"}
+   :summary "No single versioned cross-repository schema defines plan, policy decision, capability resource, execution identity, and receipt linkage."
+   :existing-foundation #{:abi-portable-execution-v1
+                          :kotoba-semantic-closure-cid :compiler-artifact-provenance
+                          :aiueos-run-plan :kototama-session :kotobase-execution-receipt}
+   :evidence
+   {:command "cd orgs/kotoba-lang/abi && clojure -M:test"
+    :result "5 tests, 24 assertions, 0 failures, 0 errors"
+    :artifacts ["../abi/src/kotoba/abi/contract.cljc"
+                "../abi/schemas/portable-execution-v1.schema.json"
+                "../abi/test/kotoba/abi/contract_test.cljc"]}
+   :exit-criteria
+   ["Publish canonical EDN/DAG-CBOR schemas and CID rules in kotoba-lang/abi."
+    "Reject unknown fields and incompatible versions in every production host."
+    "Provide positive, mutation, and cross-language conformance vectors."]}
+
+  :G-02
+  {:status :in-progress
+   :depends-on #{:G-01}
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/compiler" "kotoba-lang/kotobase"
+             "kotoba-lang/kototama" "kotoba-lang/aiueos"}
+   :summary "Semantic execution receipts, compiler provenance, host receipts, and data facts are not yet one canonical execution identity."
+   :existing-foundation #{:kototama-link-time-execution-identity-validation
+                          :aiueos-plan-and-receipt-identity-validation
+                          :kotobase-execution-identity-fact-projection}
+   :evidence
+   {:artifacts ["../kototama/src/kototama/component_platform.clj"
+                "../aiueos/src/aiueos/contract.cljc"
+                "../kotobase/src/kotobase/code_graph.cljc"]}
+   :exit-criteria
+   ["Every effectful production path emits one CID-addressed kotoba.execution-identity/v1 object."
+    "The object binds code, artifact, component/WIT when present, policy decision, db basis, grants, approvals, runtime, input, outcome, and host receipts."
+    "Kotobase stores its fields as immutable facts and can reconstruct an execution by identity CID."
+    "Changing any bound field invalidates the receipt or yields a distinct CID."]}
+
+  :G-03
+  {:status :in-progress
+   :depends-on #{:G-01}
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/kototama" "kotoba-lang/aiueos"
+             "kotoba-lang/compiler"}
+   :summary "One-shot consumption, session revocation, and capability provenance exist in slices, but no common resource lifecycle covers every host import and transfer boundary."
+   :existing-foundation #{:kotoba-cap-table-consume-on-use
+                          :kototama-session-revoke-drop
+                          :kototama-capability-lease-use-budget
+                          :aiueos-broker-grant-deny}
+   :exit-criteria
+   ["Define resource scope, purpose, expiry, transfer policy, delegation depth, and use-budget fields in the shared schema."
+    "Component profiles represent destructive authority with WIT resource and own<resource>."
+    "Compatibility profiles expose only opaque session handles with equivalent observable semantics."
+    "A table-driven suite proves every host import rejects forged, expired, revoked, cross-run, cross-component, and exhausted handles."
+    "Control-plane revocation reaches already running sessions without restart."]}
+
+  :G-04
+  {:status :in-progress
+   :depends-on #{:G-01 :G-03}
+   :owners #{"kotoba-lang/compiler" "kotoba-lang/kototama" "kotoba-lang/abi"}
+   :summary "Component/WIT admission exists, but production Component Model execution and import lifecycle qualification are not complete; Chicory/core-Wasm remains compatibility evidence."
+   :existing-foundation #{:compiler-wasm-component-kotoba-v1
+                          :kototama-exact-wit-admission
+                          :wasi-0-3-component-baseline}
+   :exit-criteria
+   ["Execute compiler-produced Components in a qualified Component Model engine."
+    "Prove inspected imports equal compiler descriptor, WIT world, and policy/grant intersection."
+    "Prove absence of undeclared and ambient WASI imports."
+    "Enforce fuel, memory, deadline, I/O bytes, output bytes, concurrency, and cancellation on malicious-component fixtures."
+    "Keep core-Wasm/Chicory explicitly versioned as compatibility, never fallback."]}
+
+  :G-05
+  {:status :open
+   :depends-on #{:G-01 :G-02 :G-03 :G-04}
+   :owners #{"kotoba-lang/compiler" "kotoba-lang/kotoba" "kotoba-lang/kototama"
+             "kotoba-lang/aiueos" "kotoba-lang/kotobase"}
+   :summary "KIR effects, manifests, broker decisions, and approvals are not yet a single typed, basis-bound plan and canonical policy-decision object."
+   :exit-criteria
+   ["Compile a bounded plan from KIR effects, resource requirements, and requested domain actions."
+    "Evaluate it against a policy CID and immutable db basis, producing a canonical decision CID with reasons."
+    "Bind approval facts to plan, resource scope, policy, basis, expiry, and execution-identity inputs."
+    "Reject runtime permission escalation; an authority change creates a new plan and run."
+    "Test permit, deny, expiry, stale-basis, policy-substitution, approval-substitution, and confused-deputy cases."]}
+
+  :G-06
+  {:status :in-progress
+   :depends-on #{:G-01 :G-02 :G-05}
+   :owners #{"kotoba-lang/kotobase" "kotoba-lang/kotoba" "kotoba-lang/kototama"}
+   :summary "Kotobase has operation/ABAC gates but not a shared authorization-aware query AST compiler that binds every data read to scope, purpose, projection, limit, and immutable basis."
+   :existing-foundation #{:kotobase-authorized-query-gateway}
+   :exit-criteria
+   ["Define a bounded query AST with tenant, resource scope, purpose, projection, limit, and basis."
+    "Compile it through a policy membrane before Datalog evaluation; unrestricted guest Datalog is unavailable."
+    "Record query/result provenance CIDs in execution identity and immutable facts."
+    "Test tenant escape, over-broad projection, unbounded result, stale basis, and query-rewrite attacks."]}
+
+  :G-07
+  {:status :open
+   :depends-on #{:G-02 :G-03 :G-04 :G-05 :G-06}
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/compiler" "kotoba-lang/kotobase"
+             "kotoba-lang/kototama" "kotoba-lang/aiueos"}
+   :summary "The portable host contract has no end-to-end cross-host qualification proving equivalent authority and receipt semantics across browser, server, and device profiles."
+   :exit-criteria
+   ["Publish shared positive and negative component fixtures."
+    "Run the same fixtures through at least two independent host implementations."
+    "Compare decisions, denied imports, resource exhaustion, revocation behavior, and execution-identity fields."
+    "Publish versioned evidence per supported deployment profile."]}}
+
+ :portable-component-host/sequence
+ [[:G-01 :shared-schema]
+  [:G-02 :execution-identity]
+  [:G-03 :capability-resource-lifecycle]
+  [:G-04 :component-execution]
+  [:G-05 :typed-plan-admission]
+  [:G-06 :basis-bound-query]
+  [:G-07 :cross-host-qualification]]}
