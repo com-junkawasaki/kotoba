@@ -937,6 +937,20 @@
       (and project-path source-root)
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/ambiguous-project-source}
 
+      ;; `--source-path` resolves `(:require [app.util])` by turning a namespace
+      ;; into a PATH, so what gets compiled depends on what happens to be on
+      ;; disk and the build cannot say which inputs it actually used. The
+      ;; compiler's own CLI stopped defaulting to that in ADR-2608580000 S5 --
+      ;; but THIS is the command people run, and it reaches
+      ;; `project-files/load-closed-graph` directly, so the gate there never
+      ;; fired here. A default that only holds on the path nobody takes is not
+      ;; a default.
+      (and source-root (not (some #{"--unpinned"} argv)))
+      {:kotoba.cli/ok? false :kotoba.cli/code :compile/unpinned-inputs
+       :kotoba.cli/data {:source-path source-root
+                         :pin "kotoba codebase add --module-lock <lock> --blocks <dir>"
+                         :override "--unpinned"}}
+
       (and (nil? entry) (nil? project-path))
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/entry-required}
 
@@ -970,6 +984,9 @@
             (write-bytes! output (:bytes compiled)))
           {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
            :kotoba.cli/data {:entry (or entry (:root project))
+                             :kotoba.compile/inputs (cond manifest-project :project-manifest
+                                                          source-root :unpinned-source-path
+                                                          :else :single-file)
                              :project project-path :source-path source-root
                              :policy (:kotoba.policy/path policy-result)
                              :output output :target target-name

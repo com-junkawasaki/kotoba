@@ -83,7 +83,7 @@
            (defn main [] (value/answer))")
     (let [result (launcher/dispatch
                   ["compile" (.getPath app) "--source-path" (.getPath source-directory)
-                   "--target" "web" "--output" (.getPath output)])]
+                   "--target" "web" "--output" (.getPath output) "--unpinned"])]
       (is (:kotoba.cli/ok? result))
       (is (= (.getPath source-directory)
              (get-in result [:kotoba.cli/data :source-path])))
@@ -101,9 +101,11 @@
         web-output (io/file directory "app.mjs")
         wasm-output (io/file directory "app.wasm")
         web (launcher/dispatch ["compile" entry "--source-path" source-path
-                                "--target" "web" "--output" (.getPath web-output)])
+                                "--target" "web" "--output" (.getPath web-output)
+                                "--unpinned"])
         wasm (launcher/dispatch ["compile" entry "--source-path" source-path
-                                 "--target" "wasm" "--output" (.getPath wasm-output)])]
+                                 "--target" "wasm" "--output" (.getPath wasm-output)
+                                 "--unpinned"])]
     (is (:kotoba.cli/ok? web))
     (is (:kotoba.cli/ok? wasm))
     (is (= :kotoba-script (get-in web [:kotoba.cli/data :backend])))
@@ -1313,3 +1315,51 @@
                                        "--policy" "/nonexistent/kotoba-policy.edn"])]
         (is (not (:kotoba.cli/ok? result)))
         (is (= :compile/policy-not-readable (:kotoba.cli/code result)))))))
+
+(deftest compile-refuses-path-resolved-requires-unless-asked-for
+  (testing "the gate the compiler's own CLI grew must also hold on the command
+            people actually run -- this one reaches project-files directly"
+    (let [directory (.toFile (java.nio.file.Files/createTempDirectory
+                              "kotoba-unpinned-"
+                              (make-array java.nio.file.attribute.FileAttribute 0)))
+          source-directory (io/file directory "src")
+          dependency (io/file source-directory "shared/value.kotoba")
+          app (io/file source-directory "shared/app.kotoba")
+          output (io/file directory "app.mjs")]
+      (.mkdirs (.getParentFile dependency))
+      (spit dependency
+            "(ns shared.value \"bounded project documentation\" (:export [answer]))
+             (defn answer [] 42)")
+      (spit app
+            "(ns shared.app (:require [shared.value :as value]) (:export [main]))
+             (defn main [] (value/answer))")
+      (let [refused (launcher/dispatch
+                     ["compile" (.getPath app) "--source-path" (.getPath source-directory)
+                      "--target" "web" "--output" (.getPath output)])]
+        (is (false? (:kotoba.cli/ok? refused)))
+        (is (= :compile/unpinned-inputs (:kotoba.cli/code refused)))
+        (is (= "--unpinned" (get-in refused [:kotoba.cli/data :override]))
+            "the refusal names the way through")
+        (is (not (.exists output))
+            "and nothing was emitted"))
+      (let [allowed (launcher/dispatch
+                     ["compile" (.getPath app) "--source-path" (.getPath source-directory)
+                      "--target" "web" "--output" (.getPath output) "--unpinned"])]
+        (is (:kotoba.cli/ok? allowed))
+        (is (= :unpinned-source-path
+               (get-in allowed [:kotoba.cli/data :kotoba.compile/inputs]))
+            "and the choice is on the result rather than inferred later")))))
+
+(deftest a-single-file-compile-needs-no-pin
+  (testing "nothing to resolve means nothing to refuse"
+    (let [directory (.toFile (java.nio.file.Files/createTempDirectory
+                              "kotoba-solo-"
+                              (make-array java.nio.file.attribute.FileAttribute 0)))
+          entry (io/file directory "solo.kotoba")
+          output (io/file directory "solo.mjs")]
+      (spit entry "(ns solo (:export [main])) (defn main [] 1)")
+      (let [result (launcher/dispatch
+                    ["compile" (.getPath entry) "--target" "web"
+                     "--output" (.getPath output)])]
+        (is (:kotoba.cli/ok? result))
+        (is (= :single-file (get-in result [:kotoba.cli/data :kotoba.compile/inputs])))))))
