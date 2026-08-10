@@ -1,1 +1,4 @@
-{:kotoba.policy/capabilities #{:net/connect :crypto/tls :net/transport}}
+{:kotoba.policy/capabilities #{:net/connect :crypto/tls :net/transport}
+ ;; demo policy: 明示的に allowlist を要求しない。既定は deny なので
+ ;; この 1 行が無いと接続を張る capability は resources #{} になる。
+ :kotoba.policy/http-require-allowlist false}

@@ -71,8 +71,23 @@
   ;; resource-scope が #{} を返して **全 URL 拒否** になる(fail closed)。
   ;; これが「egress は commoncrawl.org のみ / push 先は product-corpus のみ」を
   ;; policy で強制できる根拠で、汎用 shell-exec capability では表現できない。
+  ;;
+  ;; ⚠ この集合は「どの capability が egress か」という分類を **手で複製した
+  ;; もの**で、正本ではない。capability contract
+  ;; (kotoba-core-contracts の capability_contract.edn) は id と ABI を持つが
+  ;; egress かどうかを持たないので、新しい egress capability を足した人が
+  ;; ここに書き忘れると resource-scope が #{} ではなく #{:any} を返す ——
+  ;; **ドリフトの失敗方向が fail-open** である。実際 2026-08-10 に
+  ;; net/connect (contract id 238) と component/http (241) と
+  ;; component/database (242) が漏れていて、resources 無しの policy が
+  ;; 全ホストへの接続を得ていた。撤去条件: 分類が capability contract 側に
+  ;; 入って、ここが contract の導出値になったとき。
   #{"http/fetch" "http/post"
-    "cc/cdx-query" "cc/warc-extract" "corpus/publish"})
+    "cc/cdx-query" "cc/warc-extract" "corpus/publish"
+    ;; 接続を張る側だけを載せる。net/transport と crypto/tls は既に許可された
+    ;; handle の上で動くので、ここで #{} にしても許可の判断は増えず、
+    ;; transport を使う全構成が壊れるだけになる。
+    "net/connect" "component/http" "component/database"})
 
 (defn http-require-allowlist?
   "True when POLICY requires network resource allowlists (safe default).
