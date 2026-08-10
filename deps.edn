@@ -28,8 +28,8 @@
         org.clojure/clojurescript {:mvn/version "1.12.134"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
-        io.github.kotoba-lang/compiler
-        {:git/url "https://github.com/kotoba-lang/compiler.git"
+        io.github.kotoba-lang/amu
+        {:git/url "https://github.com/kotoba-lang/amu.git"
          :git/sha "36bedf88ceb54e2444d8efe15e9d0cd8fe56d9cb"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
@@ -121,7 +121,7 @@
  :aliases
  {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
           :ns-default build}
-  :dev {:override-deps {io.github.kotoba-lang/compiler {:local/root "../../kotoba-lang/compiler"}
+  :dev {:override-deps {io.github.kotoba-lang/amu {:local/root "../../kotoba-lang/amu"}
                          io.github.kotoba-lang/security {:local/root "../security"}
                         io.github.kotoba-lang/codebase {:local/root "../codebase"}
                         io.github.kotoba-lang/kotoba-core-contracts {:local/root "../../kotoba-lang/kotoba-core-contracts"}

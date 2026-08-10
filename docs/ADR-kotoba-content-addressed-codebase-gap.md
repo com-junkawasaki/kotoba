@@ -55,7 +55,7 @@ present still could not run without its file. Authoring was ordinary file
 editing, and a dependency was found by turning a namespace into a path.
 
 Four things changed (`kotoba-lang/codebase` @ `484f1a8`,
-`kotoba-lang/compiler` module-lock, `kotoba-lang/kotoba` CLI):
+`kotoba-lang/amu` module-lock, `kotoba-lang/kotoba` CLI):
 
 - **Evaluation** (`kotoba.codebase.evaluator`) runs a definition from its block
   and hydrates every dependency BY CID. No file, no namespace, no name. The

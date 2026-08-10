@@ -8,7 +8,7 @@ Review the commit and areas pinned in
 `qualification/independent-review-findings.edn`; do not change the target
 commit while a review is in progress. Each finding needs a minimal
 reproduction and an evidence path. The reviewer must disclose conflicts and
-must not maintain `kotoba-lang/kotoba` or `kotoba-lang/compiler`.
+must not maintain `kotoba-lang/kotoba` or `kotoba-lang/amu`.
 
 Q8 may become `:pass` only when every review area is covered, the independence
 attestation is true, all critical/high findings are closed, and every evidence

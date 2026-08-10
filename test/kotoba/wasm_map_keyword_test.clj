@@ -1,7 +1,7 @@
 (ns kotoba.wasm-map-keyword-test
   "Regression coverage for ADR-2607150000's kotoba-lang/kotoba language
   extensions: keyword literals, map literals, pair/pair-first/pair-second,
-  and get/assoc -- ported (in spirit) from kotoba-lang/compiler's version of
+  and get/assoc -- ported (in spirit) from kotoba-lang/amu's version of
   the same feature, but implemented on top of THIS repo's own existing
   alloc/i32-store!/mem-i32-at primitives (kotoba/, unlike compiler/, already
   exposes raw linear memory to guest code directly, so no host import was

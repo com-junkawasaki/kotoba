@@ -50,7 +50,7 @@ now outlived the Rust workspace it was migrating from (removed `604896171b`,
 place:
 
 - language/CLI/package contract: `kotoba-lang/kotoba-lang` (done — reaffirm)
-- admission gates / KIR / codegen: `kotoba-lang/compiler` (done — its README
+- admission gates / KIR / codegen: `kotoba-lang/amu` (done — its README
   already corrects this repo's stale "lives entirely in kotoba-lang" claim;
   fix the claim here instead of leaving the correction downstream)
 - this repo: language *substrate* — kgraph datom model, runtime/host
@@ -80,6 +80,6 @@ warning before removing the hazard is the one wrong order.
 ## Decision 3 — equality-surface unification lands in the compiler, is consumed here
 
 `=` vs `string=?` vs `f64-eq` is a compiler-frontend decision
-(`kotoba-lang/compiler` ADR-0074 Decision 2). This repo tracks it only as a
+(`kotoba-lang/amu` ADR-0074 Decision 2). This repo tracks it only as a
 consumer: reference docs and fixtures here must not present the three-way
 split as permanent language surface once the unified `=` lands.

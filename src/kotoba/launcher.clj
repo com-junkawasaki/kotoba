@@ -879,7 +879,7 @@
 
   Deliberately NOT `policy-result`: that one normalizes into the legacy
   runtime's `{:kotoba.policy/capabilities #{...}}` shape for `wasm emit`,
-  whereas kotoba-lang/compiler admits effects against its own
+  whereas kotoba-lang/amu admits effects against its own
   `{:allow #{[:cap/call <id>] ...}}` shape (see the compiler repo's
   examples/capability-policy.edn). Feeding one shape to the other silently
   denies every effect, which is exactly the bug this function exists to fix:
@@ -903,7 +903,7 @@
     {:kotoba.policy/ok? true :kotoba.policy/data {}}))
 
 (defn compile-result
-  "Compile Kotoba-owned source through kotoba-lang/compiler. Web output is
+  "Compile Kotoba-owned source through kotoba-lang/amu. Web output is
   restricted ESM emitted from checked KIR by kotoba-script; it never routes
   through the legacy ClojureScript backend.
 

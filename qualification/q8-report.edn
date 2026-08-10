@@ -32,7 +32,7 @@
    :review-package "qualification/independent-review-package.edn"
    :findings "qualification/independent-review-findings.edn"
    :required-before :cljc-oracle-retirement
-   :note "Tests authored in kotoba-lang/compiler are adversarial verification, not an independent review."}}
+   :note "Tests authored in kotoba-lang/amu are adversarial verification, not an independent review."}}
  :scope
  {:qualified :representative-reference-slice
   :authorized :q9-wave-1-pilot
