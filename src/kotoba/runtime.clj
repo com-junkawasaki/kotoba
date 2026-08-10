@@ -466,7 +466,29 @@
     (vec (filter @imports host-import-order))))
 
 (def ^:private network-resource-ops
-  "Ops whose first str-ptr argument is a URL subject to capability-resources."
+  "Ops whose first str-ptr argument is a URL subject to capability-resources.
+
+  This is a SYNTACTIC property -- \"argument one is a URL literal we can read
+  at check time\" -- and not the same question as \"does this op reach the
+  network\". `kotoba.host-providers/network-cap-names` answers that one, by
+  capability name, and it is deliberately larger: net/connect takes a host and
+  a port, component/http and component/database open their own connections.
+  Adding those ops here would apply a URL-prefix test to arguments that are
+  not URLs. The two lists look like they should be one and are not.
+
+  What this check can and cannot say, which matters more:
+
+  - `policy-resource-set` returns nil when the policy carries no
+    `:kotoba.policy/capability-resources` at all, and `resource-literal-allowed?`
+    reads nil as unconstrained, so every literal passes.
+  - At run time, `host-providers/resource-scope` gives a network capability
+    `#{}` under the same policy unless the operator opted out with
+    `:kotoba.policy/http-require-allowlist false`.
+
+  So a program can pass this check and be denied when it runs. That is the
+  right direction -- the run-time gate is the authority and it fails closed --
+  but a clean `check` is not a promise that the call will be allowed, and
+  nothing here should be read as one."
   #{'http-fetch 'http-post})
 
 (defn- str-ptr-literal
