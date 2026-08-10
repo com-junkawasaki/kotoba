@@ -19,12 +19,12 @@ jobs:
           ref: 7adcda5873e1c473a8ab326e70701dd836476f21
           path: _authority/kotoba-lang
           persist-credentials: false
-      - name: Checkout pinned compiler qualification evidence
+      - name: Checkout pinned Amu qualification evidence
         uses: actions/checkout@v4
         with:
-          repository: kotoba-lang/compiler
-          ref: 9fde05c927bdab96d549deb663ed54e8fdb1f9e5
-          path: _evidence/compiler
+          repository: kotoba-lang/amu
+          ref: 249b9408d236d6766d04794d6a3cb04cb894b7dc
+          path: _evidence/amu
           persist-credentials: false
       - name: Checkout pinned kototama qualification evidence
         uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
           # the report -- measured locally: 6 failures without them, 0 with.
           # It has been invisible because the security-adoption step above exits
           # first, so the suite never runs.
-          git clone --depth 1 https://github.com/kotoba-lang/compiler ../compiler
+          git clone --depth 1 https://github.com/kotoba-lang/amu ../amu
           git clone --depth 1 https://github.com/kotoba-lang/kototama ../kototama
       - name: Verify shared security adoption
         run: clojure -M -m kotoba.security.adoption
@@ -63,7 +63,7 @@ jobs:
         run: clojure -M:test
         env:
           KOTOBA_LANG_AUTHORITY_ROOT: ${{ github.workspace }}/_authority/kotoba-lang
-          KOTOBA_COMPILER_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/compiler
+          KOTOBA_COMPILER_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/amu
           KOTOTAMA_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/kototama
       - name: Lint CLJ launcher (clj-kondo)
         run: clojure -M:lint

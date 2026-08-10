@@ -59,7 +59,7 @@
 
 (def evidence-roots
   {"../kotoba-lang/" "KOTOBA_LANG_AUTHORITY_ROOT"
-   "../compiler/" "KOTOBA_COMPILER_EVIDENCE_ROOT"
+   "../amu/" "KOTOBA_COMPILER_EVIDENCE_ROOT"
    "../kototama/" "KOTOTAMA_EVIDENCE_ROOT"})
 
 (defn evidence-file [path]
