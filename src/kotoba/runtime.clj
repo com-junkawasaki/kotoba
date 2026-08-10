@@ -3612,10 +3612,22 @@
 (def max-get-unroll-depth
   "Fixed unroll depth for the `get` special form's bounded pair-list scan
   (see its case-dispatch docstring in compile-wasm-expr) -- a map literal
-  or assoc-chain deeper than this is not an admission error here (unlike
-  kotoba-lang/amu's fuel-bounded recursive version); a `get` miss past
-  this depth just returns the default early. 32 comfortably covers the
-  small option-map-shaped literals this feature targets."
+  or assoc-chain deeper than this is not an admission error here, unlike
+  kotoba-lang/amu's fuel-bounded recursive version.
+
+  Read the consequence carefully, because it is easy to state too gently. It
+  is not only that a MISS past this depth returns the default early: a key
+  that IS in the map, assoc'd deeper down the chain than this, also reads as
+  the default. That is a wrong answer, not a fallback, and it is silent --
+  `wasm-map-keyword-test/get-past-max-unroll-depth-also-misses-keys-that-are-present`
+  pins it.
+
+  32 covers the small option-map-shaped literals this feature targets, and
+  the depth is a property of the assoc CHAIN, so a loop that rebuilds a map
+  reaches it with one entry in hand. Raising the number moves the edge rather
+  than removing it; the fix is amu's fuel-bounded recursive walk, which needs
+  the single injection point the compile-wasm-expr comment explains this repo
+  does not have yet."
   32)
 
 (def max-set-items
@@ -4293,8 +4305,10 @@
         ;; so the unrolled body only re-references cheap local.gets, not
         ;; re-evaluated subexpressions. A map deeper than
         ;; max-get-unroll-depth silently returns default past that depth --
-        ;; documented limitation, not a trap (unlike compiler/'s fuel-bound
-        ;; recursive version).
+        ;; for a present key as much as for an absent one, so it is a wrong
+        ;; answer rather than a fallback. Documented limitation, not a trap
+        ;; (unlike compiler/'s fuel-bound recursive version); see that var's
+        ;; docstring before quoting this as harmless.
         get
         (if (not (<= 2 (count args) 3))
           {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "get"
