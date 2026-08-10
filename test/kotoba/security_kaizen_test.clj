@@ -135,3 +135,17 @@
     (is (= #{"bad-rev" "bad-pre"} blocked))
     (is (contains? (set (:revoked-signers trust)) "bad-rev"))
     (is (contains? (set (:revoked-signers trust)) "bad-pre"))))
+
+(deftest url-literal-ops-are-a-subset-of-the-egress-capabilities
+  ;; runtime/network-resource-ops asks "is argument one a URL literal we can
+  ;; read at check time"; host-providers/network-cap-names asks "does this
+  ;; reach the network". They are different questions and the second set is
+  ;; the larger one. If the first ever grows past it, either an op that is not
+  ;; egress is getting a URL-allowlist test, or an egress capability is
+  ;; missing from the set that makes it default to deny.
+  (let [url-ops @#'runtime/network-resource-ops
+        url-op-caps (into #{} (keep host-providers/op-capability) url-ops)]
+    (is (seq url-op-caps) "no capability names resolved; the test is vacuous")
+    (is (empty? (remove host-providers/network-cap-names url-op-caps))
+        (str "URL-literal ops outside the egress set: "
+             (pr-str (remove host-providers/network-cap-names url-op-caps))))))
