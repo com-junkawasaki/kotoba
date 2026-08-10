@@ -149,3 +149,24 @@
     (is (empty? (remove host-providers/network-cap-names url-op-caps))
         (str "URL-literal ops outside the egress set: "
              (pr-str (remove host-providers/network-cap-names url-op-caps))))))
+
+(deftest every-guarded-op-has-a-capability-and-back
+  ;; wasm-cap-kind-ids is derived from kind->capability, and op->kind is what
+  ;; decides whether a host op is guarded at all. The derivation is only right
+  ;; while those two agree in both directions, and nothing checked that.
+  (let [kinds-from-ops (set (vals runtime/op->kind))
+        kinds-with-cap (set (keys runtime/kind->capability))]
+    (is (empty? (remove kinds-with-cap kinds-from-ops))
+        (str "ops map to kinds with no contract capability: "
+             (pr-str (sort (remove kinds-with-cap kinds-from-ops)))))
+    (is (empty? (remove kinds-from-ops kinds-with-cap))
+        (str "capability kinds no op can reach: "
+             (pr-str (sort (remove kinds-from-ops kinds-with-cap)))))
+    (testing "the wasm ids are a subset, and exactly the single-kind ones"
+      (let [single (into #{} (comp (map key)
+                                   (filter (fn [k]
+                                             (= 1 (count (filter #{(runtime/kind->capability k)}
+                                                                 (vals runtime/kind->capability)))))))
+                         runtime/kind->capability)]
+        (is (= single (set (keys runtime/wasm-cap-kind-ids)))
+            "wasm ids drifted from the one-kind-per-capability rule")))))

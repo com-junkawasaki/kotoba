@@ -3543,8 +3543,12 @@
   "Capability kind -> deterministic i32 id for the `cap_acquire` wasm import.
   Only kinds whose contract capability maps to exactly one kind are exposed
   (the id reuses the contract capability id, keeping the boundary 1:1);
-  many-kind capabilities (clipboard, keychain, fs) stay interpreter-only in
-  this slice."
+  many-kind capabilities stay interpreter-only in this slice. Today that is
+  clipboard, keychain, fs and graph -- ten kinds across four capabilities.
+  The value is derived from `kind->capability`, so the set moves on its own;
+  the list is here to be read, not to be maintained, and `cap-acquire`
+  reports `:unsupported-capability-kind` for anything absent rather than
+  falling through."
   (let [kinds-by-cap (reduce (fn [acc [kind cap]]
                                (update acc cap (fnil conj #{}) kind))
                              {}
