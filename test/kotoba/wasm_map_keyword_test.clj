@@ -79,3 +79,22 @@
       (is (= 77 (emit-and-run deep-src))
           (str "max-get-unroll-depth is " runtime/max-get-unroll-depth
                "; a 40-entry map's miss-walk exceeds it and should fall back to the default")))))
+
+(deftest get-past-max-unroll-depth-also-misses-keys-that-are-present
+  ;; The limitation above is written as "a get MISS past this depth just
+  ;; returns the default early", and the test for it looks up a key that was
+  ;; never assoc'd. The unroll walks the assoc chain, so a key that IS in the
+  ;; map but sits deeper than max-get-unroll-depth also returns the default.
+  ;; That is a wrong answer, not a fallback, and nothing pinned it.
+  (let [depth (+ 8 runtime/max-get-unroll-depth)
+        src (str "(ns t)\n"
+                 "(defn bury [m n] (if (= n 0) m (bury (assoc m :dummy n) (- n 1))))\n"
+                 "(defn main [] (get (bury (assoc {} :buried 42) " depth ") :buried 77))")
+        shallow (str "(ns t)\n"
+                     "(defn bury [m n] (if (= n 0) m (bury (assoc m :dummy n) (- n 1))))\n"
+                     "(defn main [] (get (bury (assoc {} :buried 42) 2) :buried 77))")]
+    (is (= 42 (emit-and-run shallow))
+        "a key within the unrolled depth is found, so the probe is meaningful")
+    (is (= 77 (emit-and-run src))
+        (str "a key present but buried deeper than max-get-unroll-depth ("
+             runtime/max-get-unroll-depth ") reads as the default"))))
