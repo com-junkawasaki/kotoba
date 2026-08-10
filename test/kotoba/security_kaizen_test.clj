@@ -94,6 +94,21 @@
     (is (= {:denied :unknown-cap-handle}
            (cap-table/consume-use! table handle :host/ledger-append "2026-07-17")))))
 
+(deftest every-connecting-network-capability-defaults-to-deny
+  ;; The set that decides this is hand-maintained in host-providers, so the
+  ;; way it fails is by omission -- and an omitted capability gets #{:any},
+  ;; not #{}. net/connect, component/http and component/database were all
+  ;; missing until 2026-08-10 while every test here used http/fetch, which
+  ;; was present. Pin the property, not the one name.
+  (doseq [cap [:http/fetch :http/post :net/connect
+               :component/http :component/database]]
+    (let [policy (host-providers/normalize-policy
+                  {:kotoba.policy/capabilities #{cap}})
+          grants (host-providers/policy-grants policy)]
+      (is (seq grants) (str cap " produced no grant to check"))
+      (is (every? #(= #{} (:grant/resources %)) grants)
+          (str cap " granted resources without an allowlist")))))
+
 (deftest http-require-allowlist-is-default-on
   (testing "normalize-policy stamps true when absent"
     (is (true? (:kotoba.policy/http-require-allowlist
