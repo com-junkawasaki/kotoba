@@ -8,7 +8,7 @@
                "kotoba-lang/grammar"
                "kotoba-lang/codebase"
                "kotoba-lang/security"
-               "kotoba-lang/compiler"
+               "kotoba-lang/amu"
                "kotoba-lang/kotoba-core-contracts"
                "kotoba-lang/kotoba-selfhost-contracts"
                "kotoba-lang/kotoba-lang"

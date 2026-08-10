@@ -7,7 +7,7 @@
 
 This document originally described the direct `kotoba.runtime` emitter as if
 it were the whole language. That is no longer accurate. The canonical
-`kotoba-lang/compiler` frontend now provides typed f32/f64/string, Result,
+`kotoba-lang/amu` frontend now provides typed f32/f64/string, Result,
 Option, Variant, heterogeneous vector, typed set/map, and nominal record
 values across its checked KIR and qualified backends. The direct runtime and
 the compiler are separate implementations and their coverage must be reported

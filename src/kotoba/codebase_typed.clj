@@ -2,7 +2,7 @@
   "Source in, KIR-derived definitions out.
 
   This is the join the workspace was missing. `kotoba-lang/codebase` owns
-  content-addressed identity and refuses to parse source; `kotoba-lang/compiler`
+  content-addressed identity and refuses to parse source; `kotoba-lang/amu`
   owns checking and lowering and knows nothing about a codebase. Only here are
   both on the classpath, so only here can a `.kotoba` file become definitions
   whose identity IS the checked KIR the backends consume.

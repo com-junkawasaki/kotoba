@@ -49,7 +49,7 @@
   {:status :pass
    :control :exact-component-execution
    :evidence
-   ["kotoba-lang/compiler:src/kotoba/compiler/core.clj"
+   ["kotoba-lang/amu:src/kotoba/compiler/core.clj"
     "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
     "kotoba-lang/kototama:test/kototama/component_e2e_test.clj"]
    :qualification "compiler-produced Component executes in Wasmtime with exact named imports, no general WASI, fuel and memory bounds"}
@@ -58,7 +58,7 @@
   {:status :pass
    :control :typed-basis-bound-admission
    :evidence
-   ["kotoba-lang/compiler:src/kotoba/compiler/plan.cljc"
+   ["kotoba-lang/amu:src/kotoba/compiler/plan.cljc"
     "kotoba-lang/aiueos:src/aiueos/execution_decision.cljc"
     "kotoba-lang/abi:src/kotoba/abi/contract.cljc"]
    :qualification "KIR-derived effects, deterministic permit/deny, exact approval binding and no caller-selected result"}
@@ -83,7 +83,7 @@
     "kotoba-lang/kototama:native/jco-component-host.mjs"
     "kotoba-lang/kototama:test/kototama/component_e2e_test.clj"
     "kotoba-lang/kototama:docs/adr/0010-independent-component-host-qualification.md"
-    "kotoba-lang/compiler:test/kotoba/compiler/effectful_component_source_test.clj"]
+    "kotoba-lang/amu:test/kotoba/compiler/effectful_component_source_test.clj"]
    :qualification
    ["identical host-free Wasm across Chicory, Wasmtime and Node"
     "14/14 actor-host imports share browser use/revoke/drop/exhaust semantics"
@@ -96,9 +96,9 @@
   {:status :pass
    :control :wit-owned-linear-capability
    :evidence
-   ["kotoba-lang/compiler:src/kotoba/compiler/component_wit.clj"
-    "kotoba-lang/compiler:src/kotoba/compiler/component_core.clj"
-    "kotoba-lang/compiler:test/kotoba/compiler/effectful_component_source_test.clj"
+   ["kotoba-lang/amu:src/kotoba/compiler/component_wit.clj"
+    "kotoba-lang/amu:src/kotoba/compiler/component_core.clj"
+    "kotoba-lang/amu:test/kotoba/compiler/effectful_component_source_test.clj"
     "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
     "kotoba-lang/kototama:native/jco-component-host.mjs"]
    :qualification "issue returns own<resource>; execute moves and consumes it; artifacts declare the capability mode"}

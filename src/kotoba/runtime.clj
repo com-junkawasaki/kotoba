@@ -3581,13 +3581,13 @@
                   (list 'if tmp tmp (desugar-or (rest args)))))))
 
 ;; ADR-2607150000: keyword/map literal support, sharing the FNV-1a interning
-;; approach kotoba-lang/compiler uses for the same feature, but 32-bit here
+;; approach kotoba-lang/amu uses for the same feature, but 32-bit here
 ;; to match this repo's default :i32 numeric domain (compiler/'s is i64).
 (def max-get-unroll-depth
   "Fixed unroll depth for the `get` special form's bounded pair-list scan
   (see its case-dispatch docstring in compile-wasm-expr) -- a map literal
   or assoc-chain deeper than this is not an admission error here (unlike
-  kotoba-lang/compiler's fuel-bounded recursive version); a `get` miss past
+  kotoba-lang/amu's fuel-bounded recursive version); a `get` miss past
   this depth just returns the default early. 32 comfortably covers the
   small option-map-shaped literals this feature targets."
   32)
@@ -3613,7 +3613,7 @@
 (defn- fnv1a-i32
   "Deterministic 32-bit FNV-1a hash of S's UTF-8 bytes, used to intern
   keyword literals as distinct i32 constants (ADR-2607150000) -- mirrors
-  kotoba-lang/compiler's 64-bit version, narrowed to i32 to match this
+  kotoba-lang/amu's 64-bit version, narrowed to i32 to match this
   repo's default numeric domain. Not clojure.core/hash, for the same
   reproducibility reason compiler/'s version documents. Collision
   probability for one module's realistically small keyword vocabulary is
@@ -4223,7 +4223,7 @@
                (compile-wasm-expr (list 'if test (cons 'do body) 0) locals fns))
 
         ;; ADR-2607150000: pair/pair-first/pair-second, keyword/map literals,
-        ;; and get/assoc, ported (in spirit) from kotoba-lang/compiler's
+        ;; and get/assoc, ported (in spirit) from kotoba-lang/amu's
         ;; version of the same feature -- but implemented here on top of
         ;; this repo's OWN existing primitives (alloc/i32-store!/mem-i32-at)
         ;; rather than a host import, since kotoba/ (unlike compiler/)
@@ -5120,7 +5120,7 @@
 ;; Embedded fuel: a module-private, monotonic call-count trap baked directly
 ;; into the compiled `.wasm` bytes, so a self-recursive guest is bounded by
 ;; the ENGINE itself (`unreachable` -> a real trap), not by whatever host
-;; happens to run it. Ported from kotoba-lang/compiler's `backend/wasm.cljc`
+;; happens to run it. Ported from kotoba-lang/amu's `backend/wasm.cljc`
 ;; `function-body` charge prologue (same instruction shape, verified there
 ;; against three independent engines -- Node's native WebAssembly, standalone
 ;; `wasmtime`, and, transitively, JVM/Chicory), NOT invented fresh here.
@@ -5418,7 +5418,7 @@
 ;; named function calls) -- explicitly NOT i64/f32 typed ops, bitwise ops,
 ;; string ops, memory ops (alloc/i32-store!/mem-i32-at/byte-at/etc as raw
 ;; user-facing ops), or capability ops (cap-acquire/has-capability?/
-;; call-indirect). kotoba-lang/compiler's own cljs backend (ADR-2607151500,
+;; call-indirect). kotoba-lang/amu's own cljs backend (ADR-2607151500,
 ;; src/kotoba/compiler/backend/cljs.clj) landed its map/keyword/get/assoc/
 ;; loop-recur subset first and added cap-call support as a later, separate
 ;; addendum; the same incremental, honestly-scoped discipline applies here.
@@ -5427,7 +5427,7 @@
 ;; through recursive calls -- WASM locals need numeric INDICES (hence
 ;; compile-wasm-expr's local-index bookkeeping), but cljs's own `let`/`defn`
 ;; bind SYMBOLIC names directly, so lowering is a simple form -> form
-;; rewrite (mirroring kotoba-lang/compiler's backend/cljs.clj `lower-expr`,
+;; rewrite (mirroring kotoba-lang/amu's backend/cljs.clj `lower-expr`,
 ;; which has the same shape for the same reason).
 ;;
 ;; Two semantics kotoba's WASM output gets for free from the `if`/
@@ -5492,7 +5492,7 @@
   NaN/an exception only on some paths), so this guard is what makes this
   backend agree with kotoba/'s WASM target's trapping behavior instead of
   silently diverging into IEEE-754 semantics -- the same fail-closed
-  reasoning kotoba-lang/compiler's cljs backend's own `kotoba$quot` guard
+  reasoning kotoba-lang/amu's cljs backend's own `kotoba$quot` guard
   documents."
   [op-name acc-form divisor-form]
   (let [d-sym (gensym "div__")]
@@ -5752,7 +5752,7 @@
   every function name (forward references between user-defined functions
   are ordinary and expected here; unlike compile-wasm-expr's function-index
   table this needs no bytes-level equivalent, just textual ordering safety
-  -- see kotoba-lang/compiler's own cljs backend, which found this exact
+  -- see kotoba-lang/amu's own cljs backend, which found this exact
   gap live via `nbb` for its `loop`-desugared helpers), then one `defn` per
   function, callable directly by any cljs host that requires the emitted
   namespace -- no memory-based ABI, callers pass real arguments (see this

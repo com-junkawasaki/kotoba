@@ -9,7 +9,7 @@
   ABI).
 
   These tests eval the emitted source under PLAIN JVM CLOJURE, not a real
-  cljs/nbb runtime -- deliberately, matching kotoba-lang/compiler's own
+  cljs/nbb runtime -- deliberately, matching kotoba-lang/amu's own
   cljs backend test convention (backend_cljs_test.clj): every construct
   cljs-source ever emits (defn/let/if/vector/nth/declare, no host interop)
   is valid, semantically identical Clojure AND ClojureScript. Real nbb
@@ -85,7 +85,7 @@
 (deftest forward-reference-between-user-defns-resolves
   ;; plain `defn` forms don't forward-hoist in cljs OR JVM Clojure -- the
   ;; `declare` cljs-source emits is what makes this work, same shape as
-  ;; kotoba-lang/compiler's own cljs backend fix for its loop-helpers.
+  ;; kotoba-lang/amu's own cljs backend fix for its loop-helpers.
   (is (= 36 (run "(defn main [] (helper 6)) (defn helper [x] (* x x))"))))
 
 (deftest division-and-remainder-aliases-match-compile-wasm-fold
@@ -162,7 +162,7 @@
   ;; let-bindings, never re-referenced outside their own let) but means
   ;; two separate compiles' raw TEXT differs even for identical source,
   ;; the same class of non-determinism already documented for
-  ;; kotoba-lang/compiler's destructuring/assoc gensyms. Checks the VALUE
+  ;; kotoba-lang/amu's destructuring/assoc gensyms. Checks the VALUE
   ;; both compiles agree on instead."
   (is (= 1 (run "(defn main [] (get {:a 1} :a))")))
   (is (= (run "(defn main [] (get {:a 1} :a))")

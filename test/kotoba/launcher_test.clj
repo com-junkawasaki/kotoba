@@ -1259,7 +1259,7 @@
     (when (pos? (+ (or fail 0) (or error 0)))
       (System/exit 1))))
 
-;; `compile` used to hand kotoba-lang/compiler a hardcoded `{}` policy, so any
+;; `compile` used to hand kotoba-lang/amu a hardcoded `{}` policy, so any
 ;; source naming a capability failed with "capability policy denies required
 ;; effects" and effectful programs were unreachable through the CLI entirely.
 ;; `--policy` now carries the compiler's own `{:allow #{[:cap/call <id>]}}`

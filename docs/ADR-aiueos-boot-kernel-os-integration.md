@@ -2,7 +2,7 @@
 
 - **Status**: Accepted; implementation staged
 - **Date**: 2026-07-14
-- **Owners**: `kotoba-lang/aiueos` (OS product), `kotoba-lang/compiler`
+- **Owners**: `kotoba-lang/aiueos` (OS product), `kotoba-lang/amu`
   (code generation), `kotoba-lang/kotoba` (language contract)
 - **Related implementation**: `kotoba-lang/aiueos#29`, the reviewed replacement
   for PR #25
@@ -29,7 +29,7 @@ host-import quartet; those imports remain deterministic stubs.
 - QEMU and real-machine evidence;
 - aiueos, Kotoba, kototama, browser, and kotobase integration.
 
-`kotoba-lang/compiler` owns genuinely freestanding targets:
+`kotoba-lang/amu` owns genuinely freestanding targets:
 
 - `x86_64-aiueos-kernel`, then `aarch64-aiueos-kernel`;
 - `x86_64-aiueos-uefi`;
@@ -106,7 +106,7 @@ not the kernel authority.
 ### Compiler and native-substrate rule
 
 Policy, service, driver-protocol, and application code expressible in Kotoba is
-compiled by `kotoba-lang/compiler`. A small assembly/native substrate is
+compiled by `kotoba-lang/amu`. A small assembly/native substrate is
 allowed temporarily for reset entry, CPU mode transition, page-table
 activation, interrupt stubs, and context switch.
 

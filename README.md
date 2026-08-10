@@ -449,10 +449,10 @@ implementation** of this same design (`kotoba-clj`, `policy.rs`/`subset.rs`/
 (see git history), not current source. The CLJC-native successor is tracked
 in [ADR-2607022600](https://github.com/com-junkawasaki/root/blob/main/90-docs/adr/2607022600-kotoba-database-crates-cljc-migration-roadmap.md)
 (database side) and, on the language/compiler side, lives in
-[`kotoba-lang/compiler`](https://github.com/kotoba-lang/compiler) — **not**
+[`kotoba-lang/amu`](https://github.com/kotoba-lang/amu) — **not**
 `kotoba-lang/kotoba-lang`, which owns the source-extension/CLI/package
 *contract* only and does not itself implement compile-time admission gates.
-`kotoba-lang/compiler`'s `forbidden-heads`/`cap-call`/`infer-effects` in
+`kotoba-lang/amu`'s `forbidden-heads`/`cap-call`/`infer-effects` in
 `src/kotoba/compiler/frontend.clj` are the CLJC counterparts of
 `subset.rs`/`policy.rs`/`effects.rs` below; that repo's admitted grammar is
 a stricter, capability/effect-gated KIR-level subset that has not yet been
@@ -591,7 +591,7 @@ and the shared EDN facts stay in sync by construction.
 An analyzer literally **authored in and executing as Kotoba source** — the
 thing earlier revisions of this section described as already existing under
 `crates/kotoba-clj/selfhost/` — is not current fact in this repository. It
-remains a real, stated forward-looking goal: `kotoba-lang/compiler`'s own
+remains a real, stated forward-looking goal: `kotoba-lang/amu`'s own
 README says the bootstrap driving `kotoba -M ...` "currently uses Clojure
 internally, but that is not part of the compiler CLI contract and can be
 replaced by the self-hosted Kotoba driver without changing user commands"
@@ -690,7 +690,7 @@ subdirectories:
 | Repo | Role |
 |---|---|
 | `kotoba-lang/kotoba-lang` | the language/CLI semantic authority — `.kotoba` source contract, `lang/cli.edn` command contract, conformance fixtures |
-| `kotoba-lang/compiler` | canonical `.kotoba` frontend/KIR and the restricted kotoba-script backend |
+| `kotoba-lang/amu` | canonical `.kotoba` frontend/KIR and the restricted kotoba-script backend |
 | `kotoba-lang/kotoba-core-contracts` | core CID/contract types shared across hosts |
 | `kotoba-lang/kotoba-selfhost-contracts` | self-hosting analyzer contract |
 | `kotoba-lang/datom` | canonical datom model (`[e a v]` / entity↔EAVT) shared by `kotoba.kgraph` (this repo's in-memory view) and kotobase's persistent store — the concrete substrate behind **kotoba : kotobase = Clojure : Datomic** (ADR-2607032500) |
@@ -822,7 +822,7 @@ This repo has no Rust build (see [Current repositories](#current-repositories-cl
 above). CI (`.github/workflows/ci.yml`) runs two jobs:
 
 ```bash
-# CLJ launcher gates — checks out pinned kotoba-lang/kotoba-lang, kotoba-lang/compiler,
+# CLJ launcher gates — checks out pinned kotoba-lang/kotoba-lang, kotoba-lang/amu,
 # and kotoba-lang/kototama refs as qualification evidence, plus the cacao/ed25519/
 # dag-cbor/kotoba-core-contracts/kotoba-selfhost-contracts sibling repos, then:
 clojure -M -m kotoba.security.adoption   # shared security-adoption check (kotoba-lang/security)
