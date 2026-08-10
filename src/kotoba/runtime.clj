@@ -724,7 +724,21 @@
 
 (def default-interpreter-step-limit
   "Fail-closed budget used by every policy-guarded interpreter run. Debug
-  callers may invoke `run` without policy/options and remain unbounded."
+  callers may invoke `run` without policy/options and remain unbounded.
+
+  \"Unbounded\" is narrower than it sounds today, and the reason is worth
+  knowing before it changes. `kotoba run` with no --policy and no CACAO chain
+  takes the no-budget branch in `kotoba.launcher`, so runaway code is not
+  stopped by a step count -- but the interpreter does not eliminate tail
+  calls, so runaway code grows the JVM stack and dies of it. The
+  StackOverflowError is caught and surfaced as a
+  `:kotoba.runtime/problem :stack-overflow`, measured in
+  `security-kaizen-test/a-no-policy-run-is-stopped-by-the-stack-not-the-budget`.
+
+  So the backstop is the stack, not this number, and it is load-bearing:
+  giving the interpreter proper tail calls would make the no-policy path
+  genuinely non-terminating. Whoever does that should install this budget on
+  that branch in the same change."
   100000)
 
 (defn- consume-interpreter-step! []

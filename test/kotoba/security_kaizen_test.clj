@@ -4,6 +4,7 @@
   - HTTP resource allowlist / SSRF denial (static + runtime prefix)
   - runtime cap-handle consume-on-use"
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
             [kotoba.cap-table :as cap-table]
             [kotoba.host-providers :as host-providers]
@@ -170,3 +171,24 @@
                          runtime/kind->capability)]
         (is (= single (set (keys runtime/wasm-cap-kind-ids)))
             "wasm ids drifted from the one-kind-per-capability rule")))))
+
+(deftest a-no-policy-run-is-stopped-by-the-stack-not-the-budget
+  ;; `kotoba run` with no --policy takes launcher's no-step-budget branch, so
+  ;; nothing counts steps. Runaway code still stops, because the interpreter
+  ;; has no tail-call elimination and the JVM stack runs out first -- and that
+  ;; is caught rather than thrown at the caller. Pinned because the backstop
+  ;; is incidental: adding proper tail calls would make this branch genuinely
+  ;; non-terminating, and the failure would be a hang with nothing to read.
+  (let [dir (java.nio.file.Files/createTempDirectory
+             "kotoba-step-budget"
+             (make-array java.nio.file.attribute.FileAttribute 0))
+        src (io/file (.toFile dir) "spin.kotoba")]
+    (spit src "(ns t)\n(defn spin [n] (spin (+ n 1)))\n(defn main [] (spin 0))")
+    (let [f (future (launcher/dispatch ["run" (.getPath src)]))
+          result (deref f 60000 :timed-out)]
+      (future-cancel f)
+      (is (not= :timed-out result) "the no-policy run did not terminate")
+      (is (false? (:kotoba.cli/ok? result)))
+      (is (= [{:kotoba.runtime/problem :stack-overflow}]
+             (get-in result [:kotoba.cli/data :kotoba.runtime/result
+                             :kotoba.runtime/problems]))))))
