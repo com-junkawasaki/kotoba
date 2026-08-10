@@ -9,8 +9,8 @@
  :q5 {:status :pass :evidence "../kototama/src/kototama/contract.cljc"}
  :q6 {:status :pass :evidence "../kotoba-lang/lang/qualification/q6-adversarial.edn"}
  :q7 {:status :pass
-      :evidence ["../compiler/scripts/conformance.cljs"
-                 "../compiler/tools/kexe_loader.c"]
+      :evidence ["../amu/scripts/conformance.cljs"
+                 "../amu/tools/kexe_loader.c"]
       :command "node ../../../../scripts/resource-guard.mjs run build -- npm run conformance"
       :platform {:os :darwin :arch :aarch64}
       :observed
@@ -25,8 +25,8 @@
   :capability-port "src/q8_capability_port.kotoba"
   :qualification-test "test/kotoba/backend_qualification_test.clj"
   :adversarial-verification
-   ["../compiler/test/kotoba/compiler/verifier_profile_test.clj"
-   "../compiler/test/kotoba/compiler/security_fuzz_test.clj"]
+   ["../amu/test/kotoba/compiler/verifier_profile_test.clj"
+   "../amu/test/kotoba/compiler/security_fuzz_test.clj"]
   :independent-adversarial-review
   {:status :open
    :review-package "qualification/independent-review-package.edn"
