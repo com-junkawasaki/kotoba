@@ -10,6 +10,7 @@
             [kotoba.host-providers :as host-providers]
             [kotoba.launcher :as launcher]
             [kotoba.security.package-admission :as package-admission]
+            [kotoba.grammar]
             [kotoba.runtime :as runtime]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io File]))
@@ -192,3 +193,24 @@
       (is (= [{:kotoba.runtime/problem :stack-overflow}]
              (get-in result [:kotoba.cli/data :kotoba.runtime/result
                              :kotoba.runtime/problems]))))))
+
+(deftest the-grammar-that-wins-is-this-repo-s-vendored-copy
+  ;; kotoba/lang/guest-grammar.edn is on the classpath TWICE: this repo
+  ;; vendors it under resources/, and the compiler (amu) dependency ships its
+  ;; own copy under the same name. io/resource returns whichever comes first,
+  ;; so which grammar governs source admission is decided by classpath order
+  ;; rather than by anyone. Measured 2026-08-11: the dependency's copy is 244
+  ;; lines against this repo's 357, missing ->, ->>, as->, if-not, when-not,
+  ;; dotimes, doseq, assert and closed-multimethod. If it ever won, admission
+  ;; would start rejecting forms the vendored authority declares supported.
+  (let [urls (enumeration-seq
+              (.getResources (.getContextClassLoader (Thread/currentThread))
+                             "kotoba/lang/guest-grammar.edn"))
+        catalog (kotoba.grammar/catalog)]
+    (is (<= 1 (count urls)) "the grammar resource disappeared from the classpath")
+    (doseq [head [:doseq :dotimes :assert :-> :->> :as-> :if-not :when-not]]
+      (is (contains? (:sugar catalog) head)
+          (str "the loaded grammar has no " head " sugar, so it is not this "
+               "repo's vendored copy -- classpath order changed and the older "
+               "dependency copy is governing admission. Sources on the "
+               "classpath: " (pr-str (mapv str urls)))))))
