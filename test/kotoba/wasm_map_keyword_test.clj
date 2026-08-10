@@ -98,3 +98,27 @@
     (is (= 77 (emit-and-run src))
         (str "a key present but buried deeper than max-get-unroll-depth ("
              runtime/max-get-unroll-depth ") reads as the default"))))
+
+(deftest collection-transforms-are-fuel-carried-not-unroll-bounded
+  ;; max-collection-unroll-depth is 8 and its docstring says single-source
+  ;; transforms use fuel helpers while multi-source map "retains this legacy
+  ;; bound". Measured, both go through the fuel loops: a 12-element reduce
+  ;; gives the whole sum and a 12-element two-collection map gives 12
+  ;; elements. The bound that is actually in force is primary-collection-fuel.
+  ;; Pinned because the docstring said otherwise and would have had a reader
+  ;; designing around a truncation at 8 that does not happen.
+  (let [depth runtime/max-collection-unroll-depth
+        n (+ depth 4)
+        sum-prog (str "(ns t)\n"
+                      "(defn build [acc n] (if (= n 0) acc (build (pair n acc) (- n 1))))\n"
+                      "(defn add [a b] (+ a b))\n"
+                      "(defn main [] (reduce add 0 (build 0 " n ")))")
+        map-prog (str "(ns t)\n"
+                      "(defn build [acc n] (if (= n 0) acc (build (pair 1 acc) (- n 1))))\n"
+                      "(defn plus [a b] (+ a b))\n"
+                      "(defn count-of [c acc] (if (= c 0) acc (count-of (pair-second c) (+ acc 1))))\n"
+                      "(defn main [] (count-of (map plus (build 0 " n ") (build 0 " n ")) 0))")]
+    (is (= (/ (* n (inc n)) 2) (emit-and-run sum-prog))
+        "single-source reduce truncated at the unroll depth")
+    (is (= n (emit-and-run map-prog))
+        "two-collection map truncated at the unroll depth")))

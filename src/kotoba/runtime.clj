@@ -3636,10 +3636,25 @@
   16)
 
 (def max-collection-unroll-depth
-  "Primary-backend bound for the remaining multi-source static specialization.
-  Single-source transforms use fuel helpers; multi-source map retains this
-  legacy bound until its state can be represented without exponential static
-  expansion or exceeding the five-parameter ABI."
+  "Depth of the `bounded-eager-*` static specializations, which are the
+  fallback path rather than the live one.
+
+  This docstring used to say multi-source map \"retains this legacy bound\".
+  It does not: the pre-pass rewrite turns `map` of every arity into
+  `__kotoba_fuel_map_loop` / `__kotoba_fuel_map<n>_loop`, carrying
+  `primary-collection-fuel`, and `reduce` and `filter` go the same way. What
+  is in force is that fuel, not this 8 --
+  `wasm-map-keyword-test/collection-transforms-are-fuel-carried-not-unroll-bounded`
+  measures a 12-element reduce and a 12-element two-collection map coming
+  back whole.
+
+  Worth stating rather than deleting, because a reader who believed the old
+  text would design around a truncation at 8 that does not happen, and would
+  take 8 for the real limit when the real one is larger. `bounded-eager-map`,
+  `-filter` and `-reduce` still consume this depth where the rewrite does not
+  reach, and they stop silently -- `(if (zero? depth) ...)` returns what it
+  has, with no admission problem. Unlike `max-set-items` and
+  `max-vector-items`, which reject."
   8)
 
 (def max-vector-items
