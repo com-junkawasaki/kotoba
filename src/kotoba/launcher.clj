@@ -36,6 +36,7 @@
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.selfhost.contracts :as selfhost]
+            [kotoba.selfhost.analyzer :as selfhost-analyzer]
             [kotoba.wasm-exec :as wasm-exec])
   (:import [java.io ByteArrayOutputStream FileInputStream]
            [java.nio ByteBuffer]
@@ -1130,16 +1131,66 @@
      :kotoba.cli/code (if ok? :selfhost/valid :selfhost/invalid)
      :kotoba.cli/data data}))
 
+(defn selfhost-analyze-result
+  "Classify ops and decide admission using the SHIPPED Kotoba decisions.
+
+  `selfhost list` / `check` answer questions about seed files. This one answers
+  the question the seeds exist for, and it answers it by executing
+  kotoba-selfhost-contracts' compiled artifacts rather than by reimplementing
+  the rules here. Nothing in this namespace knows which ops carry an effect,
+  what bit each one is, or what order the deny ladder runs in.
+
+      kotoba selfhost analyze <op> [<op> ...] [--declared N] [--grant N]
+                                              [--policy N] [--now N] [--expires N]
+
+  `:admitted?` is not `:sufficient?`: a policy covering part of what the program
+  needs is admitted with a narrowed scope."
+  [argv]
+  (let [ops (loop [[a & more] (drop 2 argv) acc []]
+              (cond (nil? a) acc
+                    ;; a flag consumes its VALUE too — without this `--grant 8`
+                    ;; leaves "8" in the op list, where it classifies as nothing
+                    ;; and silently contributes no effect
+                    (str/starts-with? a "--") (recur (rest more) acc)
+                    :else (recur more (conj acc a))))
+        num (fn [flag default]
+              (if-let [v (option-value argv flag)] (parse-long v) default))
+        inferred (selfhost-analyzer/infer-effects ops)
+        declared (num "--declared" inferred)
+        grant {:delegated (num "--grant" 0)
+               :policy (num "--policy" (selfhost-analyzer/known-effect-mask))
+               :now (num "--now" 0)
+               :expires (num "--expires" 0)}
+        report (selfhost-analyzer/analyze ops declared grant)
+        outcome (get-in report [:admission :outcome])]
+    {:kotoba.cli/ok? (and (:satisfied? report) (= :admit outcome))
+     :kotoba.cli/code (if (:satisfied? report)
+                        (keyword "selfhost" (name outcome))
+                        :selfhost/undeclared-effects)
+     :kotoba.cli/data
+     {:kotoba.selfhost/ops ops
+      :kotoba.selfhost/classes (into {} (map (juxt identity selfhost-analyzer/classify)) ops)
+      :kotoba.selfhost/inferred (:inferred report)
+      :kotoba.selfhost/declared (:declared report)
+      :kotoba.selfhost/undeclared (:undeclared report)
+      :kotoba.selfhost/unused-grants (:unused report)
+      :kotoba.selfhost/minimal-policy (:minimal-policy report)
+      :kotoba.selfhost/outcome outcome
+      :kotoba.selfhost/effective (get-in report [:admission :effective])
+      :kotoba.selfhost/sufficient? (get-in report [:admission :sufficient?])
+      :kotoba.selfhost/shortfall (get-in report [:admission :shortfall])}}))
+
 (defn selfhost-result
   "Handle launcher-owned selfhost commands."
   [argv]
   (case (second argv)
     "list" (selfhost-list-result)
     "check" (selfhost-check-result)
+    "analyze" (selfhost-analyze-result argv)
     {:kotoba.cli/ok? false
      :kotoba.cli/code :selfhost/unknown-command
      :kotoba.cli/data {:kotoba.selfhost/command (second argv)
-                       :kotoba.selfhost/commands ["list" "check"]}}))
+                       :kotoba.selfhost/commands ["list" "check" "analyze"]}}))
 
 (defn admission-options
   "Package-admission option paths carried by argv. `lock-option` names the
