@@ -62,7 +62,7 @@
         ;; the compiler does not ship (ADR-reliability-t63).
         io.github.kotoba-lang/kotoba-selfhost-contracts
         {:git/url "https://github.com/kotoba-lang/kotoba-selfhost-contracts.git"
-         :git/sha "4f8e3afe564f980aea0088586b00bf867f16910b"}
+         :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
          :git/sha "3083e6c15b9e555475b874d91bb9fb8a2d008f55"}
