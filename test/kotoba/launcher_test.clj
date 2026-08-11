@@ -1363,3 +1363,59 @@
                      "--output" (.getPath output)])]
         (is (:kotoba.cli/ok? result))
         (is (= :single-file (get-in result [:kotoba.cli/data :kotoba.compile/inputs])))))))
+
+;; `selfhost list` / `check` answer questions about seed FILES. `analyze`
+;; answers the question the seeds exist for, by executing the shipped Kotoba
+;; artifacts in kotoba-selfhost-contracts. These tests check the launcher's
+;; share of that — argv handling and the reported shape — and deliberately do
+;; not restate any rule: which ops carry an effect, what bit each is, and the
+;; deny order all belong to the artifact and are gated there.
+
+(deftest selfhost-analyze-executes-the-shipped-decisions
+  (testing "an op with no effect contributes none"
+    (let [r (launcher/dispatch ["selfhost" "analyze" "+" "let"])]
+      (is (zero? (get-in r [:kotoba.cli/data :kotoba.selfhost/inferred])))))
+  (testing "classes overlap, so they are reported as a set"
+    (let [r (launcher/dispatch ["selfhost" "analyze" "has-capability?"])]
+      (is (= #{:effect :numeric-result :user-call-excluded}
+             (get-in r [:kotoba.cli/data :kotoba.selfhost/classes "has-capability?"])))))
+  (testing "no grant is denied even when the declaration is exact"
+    (let [r (launcher/dispatch ["selfhost" "analyze" "llm-infer"])]
+      (is (not (:kotoba.cli/ok? r)))
+      (is (= :selfhost/missing-grant (:kotoba.cli/code r)))
+      (is (zero? (get-in r [:kotoba.cli/data :kotoba.selfhost/undeclared])))))
+  (testing "under-declaring is its own failure, before admission"
+    (let [r (launcher/dispatch ["selfhost" "analyze" "llm-infer"
+                                "--declared" "0" "--grant" "63"])]
+      (is (not (:kotoba.cli/ok? r)))
+      (is (= :selfhost/undeclared-effects (:kotoba.cli/code r)))
+      (is (pos? (get-in r [:kotoba.cli/data :kotoba.selfhost/undeclared]))))))
+
+(deftest selfhost-analyze-separates-admitted-from-sufficient
+  (let [needs (launcher/dispatch ["selfhost" "analyze" "kgraph-query" "llm-infer"])
+        mask (get-in needs [:kotoba.cli/data :kotoba.selfhost/inferred])
+        partial-grant (get-in (launcher/dispatch ["selfhost" "analyze" "kgraph-query"])
+                              [:kotoba.cli/data :kotoba.selfhost/inferred])
+        run (fn [g] (launcher/dispatch ["selfhost" "analyze" "kgraph-query" "llm-infer"
+                                        "--grant" (str g) "--policy" (str g)]))]
+    (testing "a partial grant is ADMITTED and is not sufficient"
+      (let [r (run partial-grant)
+            d (:kotoba.cli/data r)]
+        (is (= :selfhost/admit (:kotoba.cli/code r)))
+        (is (false? (:kotoba.selfhost/sufficient? d)))
+        (is (pos? (:kotoba.selfhost/shortfall d)))))
+    (testing "the minimal policy admits and suffices"
+      (let [d (:kotoba.cli/data (run mask))]
+        (is (true? (:kotoba.selfhost/sufficient? d)))
+        (is (zero? (:kotoba.selfhost/shortfall d)))))))
+
+(deftest selfhost-analyze-does-not-read-flag-values-as-ops
+  ;; "8" would classify as nothing and silently contribute no effect, which is
+  ;; the quiet version of this bug rather than a crash.
+  (let [r (launcher/dispatch ["selfhost" "analyze" "llm-infer" "--grant" "8"])]
+    (is (= ["llm-infer"] (get-in r [:kotoba.cli/data :kotoba.selfhost/ops])))))
+
+(deftest selfhost-reports-analyze-among-its-commands
+  (let [r (launcher/dispatch ["selfhost" "nope"])]
+    (is (= :selfhost/unknown-command (:kotoba.cli/code r)))
+    (is (some #{"analyze"} (get-in r [:kotoba.cli/data :kotoba.selfhost/commands])))))
