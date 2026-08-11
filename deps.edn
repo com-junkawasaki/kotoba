@@ -65,7 +65,7 @@
          :git/sha "4f8e3afe564f980aea0088586b00bf867f16910b"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "9c76285e7bae2137fefeb47966ac2e10eb71d1e4"}
+         :git/sha "3083e6c15b9e555475b874d91bb9fb8a2d008f55"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}
@@ -137,6 +137,11 @@
                         io.github.kotoba-lang/org-w3-did {:local/root "../../kotoba-lang/org-w3-did"}}}
   :test {:extra-paths ["test"]
          :main-opts ["-m" "kotoba.test-runner"]}
+  :release-tag
+  {:extra-deps {io.github.kotoba-lang/release
+                {:git/url "https://github.com/kotoba-lang/release.git"
+                 :git/sha "8057e27701de6944336d828c1496c6197d41cc3f"}}
+   :main-opts ["-m" "kotoba.release.cli"]}
   :qualification {:extra-paths ["test"]
                   ;; Keep executable dependencies at the immutable repository
                   ;; pins above. Sibling checkouts are evidence inputs, not a
