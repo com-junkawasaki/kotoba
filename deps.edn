@@ -7,7 +7,7 @@
          :git/sha "609dc37885927853d8bb79c15b2edf5e35ef721a"}
         io.github.kotoba-lang/grammar
         {:git/url "https://github.com/kotoba-lang/grammar.git"
-         :git/sha "c3735a0f91eabd760d80fd287ccb6a7bf95bfc6d"}
+         :git/sha "01ec195e166b22b27e77ae36f3488a9011ab56fc"}
         ;; The DHT half was already built in this workspace and I had missed
         ;; it: `kad.routing` speaks /routing/v1 with multi-router quorum, and
         ;; `ipns.record` is the real IPNS record format. Publishing a namespace
@@ -30,7 +30,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "36bedf88ceb54e2444d8efe15e9d0cd8fe56d9cb"}
+         :git/sha "b21844db7be6886e4522cb5605a750db5395b5b7"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not

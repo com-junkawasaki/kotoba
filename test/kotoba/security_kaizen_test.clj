@@ -194,23 +194,32 @@
              (get-in result [:kotoba.cli/data :kotoba.runtime/result
                              :kotoba.runtime/problems]))))))
 
-(deftest the-grammar-that-wins-is-this-repo-s-vendored-copy
-  ;; kotoba/lang/guest-grammar.edn is on the classpath TWICE: this repo
-  ;; vendors it under resources/, and the compiler (amu) dependency ships its
-  ;; own copy under the same name. io/resource returns whichever comes first,
-  ;; so which grammar governs source admission is decided by classpath order
-  ;; rather than by anyone. Measured 2026-08-11: the dependency's copy is 244
-  ;; lines against this repo's 357, missing ->, ->>, as->, if-not, when-not,
-  ;; dotimes, doseq, assert and closed-multimethod. If it ever won, admission
-  ;; would start rejecting forms the vendored authority declares supported.
-  (let [urls (enumeration-seq
-              (.getResources (.getContextClassLoader (Thread/currentThread))
-                             "kotoba/lang/guest-grammar.edn"))
-        catalog (kotoba.grammar/catalog)]
-    (is (<= 1 (count urls)) "the grammar resource disappeared from the classpath")
-    (doseq [head [:doseq :dotimes :assert :-> :->> :as-> :if-not :when-not]]
-      (is (contains? (:sugar catalog) head)
-          (str "the loaded grammar has no " head " sugar, so it is not this "
-               "repo's vendored copy -- classpath order changed and the older "
-               "dependency copy is governing admission. Sources on the "
-               "classpath: " (pr-str (mapv str urls)))))))
+(deftest every-guest-grammar-on-the-classpath-is-the-same-bytes
+  ;; kotoba/lang/guest-grammar.edn is on the classpath three times: vendored
+  ;; here, and shipped by the grammar and kotoba-sema dependencies.
+  ;; io/resource returns whichever comes first, so which grammar governs
+  ;; source admission was decided by classpath order. Rather than pin the
+  ;; winner, pin that it cannot matter -- all copies must be identical.
+  ;;
+  ;; They were not, on 2026-08-11: both dependency copies still said
+  ;; :repo "kotoba-lang/compiler" against this repo's "kotoba-lang/amu",
+  ;; one rename behind. grammar 01ec195 and the amu bump that brought in
+  ;; kotoba-sema fixed it. A single stale pin is enough to reopen it.
+  (let [urls (vec (enumeration-seq
+                   (.getResources (.getContextClassLoader (Thread/currentThread))
+                                  "kotoba/lang/guest-grammar.edn")))
+        digest (fn [u] (with-open [in (.openStream u)]
+                         (->> (.digest (java.security.MessageDigest/getInstance "SHA-256")
+                                       (.readAllBytes in))
+                              (map (partial format "%02x"))
+                              (apply str))))
+        by-digest (group-by digest urls)]
+    (is (seq urls) "the grammar resource disappeared from the classpath")
+    (is (= 1 (count by-digest))
+        (str "the classpath carries " (count by-digest) " different guest grammars, "
+             "and admission is governed by whichever is first: "
+             (pr-str (into {} (map (fn [[d us]] [(subs d 0 12) (mapv str us)])) by-digest))))
+    (testing "and it is the one that knows the newer sugar"
+      (doseq [head [:doseq :dotimes :assert :-> :->> :as-> :if-not :when-not]]
+        (is (contains? (:sugar (kotoba.grammar/catalog)) head)
+            (str "the loaded grammar has no " head " sugar"))))))
