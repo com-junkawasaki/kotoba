@@ -33,13 +33,13 @@ target/native/kotoba compile --project test/fixtures/project/kotoba-project.edn 
 grep -q 'kotoba.artifact/module-graph-digest' target/native/native-web-project.mjs.manifest.edn
 node scripts/test-native-web-project.mjs target/native/native-web-project.mjs
 target/native/kotoba compile test/fixtures/typed-project/fixture/app.kotoba \
-  --source-path test/fixtures/typed-project --target web \
+  --source-path test/fixtures/typed-project --unpinned --target web \
   -o target/native/native-web-typed-project.mjs --json
 grep -q 'kotoba.artifact/module-graph-digest' \
   target/native/native-web-typed-project.mjs.manifest.edn
 node scripts/test-native-typed-project.mjs target/native/native-web-typed-project.mjs
 target/native/kotoba compile test/fixtures/typed-project/fixture/app.kotoba \
-  --source-path test/fixtures/typed-project --target wasm \
+  --source-path test/fixtures/typed-project --unpinned --target wasm \
   -o target/native/native-wasm-typed-project.wasm --json
 test -s target/native/native-wasm-typed-project.wasm
 target/native/kotoba check --project test/fixtures/project-signed/kotoba-project.edn \

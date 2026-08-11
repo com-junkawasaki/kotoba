@@ -50,3 +50,7 @@
          (:code (ex-data
                  (try (release/parse-test-result "green")
                       (catch Exception e e)))))))
+
+(deftest native-smoke-declares-the-unpinned-fixture-boundary
+  (let [script (slurp "scripts/build-native.sh")]
+    (is (= 2 (count (re-seq #"typed-project --unpinned --target" script))))))
