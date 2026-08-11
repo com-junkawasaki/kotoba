@@ -861,20 +861,44 @@
 
 (declare expand-let-bindings)
 
+(defn- source-type-descriptor? [value]
+  (or (keyword? value)
+      (and (vector? value) (keyword? (first value)))))
+
+(defn- annotate-source-type [sym descriptor]
+  ;; Source descriptors belong to the Product Value ABI. The primary emitter
+  ;; represents those values as i32 handles/words; only legacy metadata such
+  ;; as ^:i64 selects a raw Wasm i64 lane.
+  (with-meta sym (assoc (meta sym) :kotoba.type/descriptor descriptor)))
+
+(defn- parse-source-params [raw-params]
+  (loop [remaining (seq raw-params) index 0 params [] destructuring []]
+    (if-let [pattern (first remaining)]
+      (let [descriptor (second remaining)
+            typed? (and (symbol? pattern) (source-type-descriptor? descriptor))
+            param (if (symbol? pattern)
+                    (if typed? (annotate-source-type pattern descriptor) pattern)
+                    (symbol (str "__kotoba_param_" index)))]
+        (recur (if typed? (nnext remaining) (next remaining))
+               (inc index)
+               (conj params param)
+               (cond-> destructuring
+                 (not (symbol? pattern)) (into [pattern param]))))
+      {:params params :destructuring destructuring})))
+
 (defn function-def
   "Parse a top-level `(defn name [params] body...)` form into
   `[name {:kind :kotoba.runtime/fn ...}]`, or nil if form isn't a defn."
   [form]
   (when (and (seq? form) (= 'defn (first form)))
     (let [[_ name raw-params & raw-body] form
-          params (mapv (fn [index pattern]
-                         (if (symbol? pattern)
-                           pattern
-                           (symbol (str "__kotoba_param_" index))))
-                       (range) raw-params)
-          destructuring (vec (mapcat (fn [pattern param]
-                                       (when-not (symbol? pattern) [pattern param]))
-                                     raw-params params))
+          {:keys [params destructuring]} (parse-source-params raw-params)
+          result-descriptor (when (source-type-descriptor? (first raw-body))
+                              (first raw-body))
+          raw-body (if result-descriptor (rest raw-body) raw-body)
+          name (if result-descriptor
+                 (annotate-source-type name result-descriptor)
+                 name)
           body (if (seq destructuring)
                  [(list 'let destructuring (list* 'do raw-body))]
                  raw-body)]
@@ -1610,7 +1634,9 @@
                               (map (fn [[params body]]
                                      (scan body (into shadowed (pattern-symbols params))))
                                    clauses)))
-                  (apply clojure.set/union #{} (map #(scan % shadowed) args))))
+                  (apply clojure.set/union #{}
+                         (scan op shadowed)
+                         (map #(scan % shadowed) args))))
               :else #{}))]
     (scan form #{})))
 
@@ -1723,12 +1749,13 @@
                                                                    (range arity))]
                                                   (list params (apply list target params))))
                                               (sort arities))) bound))
-                    invoke (do
-                             (when-not (<= 1 (count args) 5)
+                    invoke (let [call-args (if (source-type-descriptor? (first args))
+                                             (rest args) args)]
+                             (when-not (<= 1 (count call-args) 5)
                                (throw (ex-info "invoke requires closure plus zero to four args"
                                                {:form form})))
-                             (apply list (closure-dispatcher-name (dec (count args)))
-                                    (map #(transform % bound) args)))
+                             (apply list (closure-dispatcher-name (dec (count call-args)))
+                                    (map #(transform % bound) call-args)))
                     apply (do
                             (when-not (<= 2 (count args) 6)
                               (throw (ex-info "apply requires closure, fixed args, and argument chain"
@@ -1835,7 +1862,13 @@
                                (let [temp (symbol "__kotoba_hof_closure")]
                                  (list 'let [temp (transform callback bound)]
                                        (apply list 'reduce (marker temp) values)))))
-                    (apply list op (map #(transform % bound) args))))))]
+                    (if (and (symbol? op) (contains? bound op))
+                      (do
+                        (when (> (count args) 4)
+                          (throw (ex-info "computed call exceeds closure ABI" {:form form})))
+                        (apply list (closure-dispatcher-name (count args)) op
+                               (map #(transform % bound) args)))
+                      (apply list op (map #(transform % bound) args)))))))]
       (let [base (mapv (fn [form]
                          (if-let [[name f] (function-def form)]
                            (list* 'defn name (:params f)
@@ -3912,6 +3945,51 @@
                             (step (list 'pair-second tmp) (dec depth) (list '+ acc 1)))))))]
     (step coll-expr max-collection-unroll-depth 0)))
 
+(defn- typed-map-new-expr [args]
+  (let [[_type & entries] args]
+    (if (odd? (count entries))
+      ::invalid-typed-map
+      (reduce (fn [tail [key value]]
+                (list 'pair (list 'pair key value) tail))
+              0 (reverse (partition 2 entries))))))
+
+(defn- decimal-digit-count-expr [magnitude]
+  (reduce (fn [fallback [threshold digits]]
+            (list 'if (list '< magnitude threshold) digits fallback))
+          10
+          (reverse (map vector
+                        [10 100 1000 10000 100000 1000000 10000000
+                         100000000 1000000000]
+                        (range 1 10)))))
+
+(defn- decimal-power-expr [digits digit-index]
+  (reduce (fn [fallback n]
+            (list 'if (list '= digits n)
+                  (long (Math/pow 10 (- n digit-index 1)))
+                  fallback))
+          1 (reverse (range 1 11))))
+
+(defn- string-from-i32-expr [value]
+  (let [number (gensym "string_number__")
+        negative (gensym "string_negative__")
+        magnitude (gensym "string_magnitude__")
+        digits (gensym "string_digits__")
+        digit-at (fn [index]
+                   (list '+ 48
+                         (list 'mod
+                               (list 'quot magnitude
+                                     (decimal-power-expr digits index)) 10)))
+        byte-at (fn [index]
+                  (if (zero? index)
+                    (list 'if negative 45 (digit-at 0))
+                    (list 'if negative (digit-at (dec index)) (digit-at index))))]
+    (list 'let [number value
+                negative (list '< number 0)
+                magnitude (list 'if negative (list '- 0 number) number)
+                digits (decimal-digit-count-expr magnitude)]
+          (bounded-dynamic-string-expr
+           (list '+ digits (list 'if negative 1 0)) byte-at))))
+
 (defn- bounded-coll-nth [coll-expr index-expr default-expr]
   (letfn [(step [cur depth index]
             (if (zero? depth)
@@ -4325,6 +4403,51 @@
                      :kotoba.wasm/expected 1 :kotoba.wasm/actual (count args)}}
           (compile-wasm-expr (list 'mem-i32-at (first args) 4) locals fns))
 
+        list
+        (compile-wasm-expr
+         (reduce (fn [tail value] (list 'pair value tail)) 0 (reverse args))
+         locals fns)
+
+        cons
+        (if (not= 2 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "cons"}}
+          (compile-wasm-expr (list 'pair (first args) (second args)) locals fns))
+
+        first
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "first"}}
+          (compile-wasm-expr (list 'pair-first (first args)) locals fns))
+
+        second
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "second"}}
+          (compile-wasm-expr
+           (list 'pair-first (list 'pair-second (first args))) locals fns))
+
+        rest
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "rest"}}
+          (compile-wasm-expr (list 'pair-second (first args)) locals fns))
+
+        empty?
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "empty?"}}
+          (compile-wasm-expr (list '= (first args) 0) locals fns))
+
+        bytes
+        (if (seq args)
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "bytes"}}
+          (compile-wasm-expr 0 locals fns))
+
+        typed-map-new
+        (let [lowered (typed-map-new-expr args)]
+          (if (= ::invalid-typed-map lowered)
+            {:problem {:kotoba.wasm/problem :arity
+                       :kotoba.wasm/op "typed-map-new"
+                       :kotoba.wasm/expected "type plus key/value pairs"
+                       :kotoba.wasm/actual (count args)}}
+            (compile-wasm-expr lowered locals fns)))
+
         ;; get is a BOUNDED unroll (not a synthesized recursive helper like
         ;; compiler/'s __kotoba_map_get) -- this repo's function-table has
         ;; no single injection point analogous to compiler/'s `analyze`
@@ -4421,6 +4544,11 @@
         (if (not= 1 (count args))
           {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "string-length"}}
           (compile-wasm-expr (string-length-expr (first args)) locals fns))
+
+        string-from-i64
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "string-from-i64"}}
+          (compile-wasm-expr (string-from-i32-expr (first args)) locals fns))
 
         string=
         (if (not= 2 (count args))
@@ -4555,6 +4683,14 @@
           {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "count"
                      :kotoba.wasm/expected 1 :kotoba.wasm/actual (count args)}}
           (let [coll (gensym "count-coll__")]
+            (compile-wasm-expr
+             (list 'let [coll (first args)] (bounded-coll-count coll)) locals fns)))
+
+        vector-count
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity :kotoba.wasm/op "vector-count"
+                     :kotoba.wasm/expected 1 :kotoba.wasm/actual (count args)}}
+          (let [coll (gensym "vector-count-coll__")]
             (compile-wasm-expr
              (list 'let [coll (first args)] (bounded-coll-count coll)) locals fns)))
 

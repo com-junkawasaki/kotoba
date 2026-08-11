@@ -158,6 +158,26 @@ curl -fsSL https://raw.githubusercontent.com/kotoba-lang/kotoba/main/install.sh 
 The installer verifies the release archive checksum and installs a native
 executable. Neither a JVM nor Clojure CLI is required at runtime.
 
+Profile-bound releases are built from a clean commit without GitHub Actions:
+
+```bash
+scripts/package-native-release.sh 0.7.0 darwin-arm64 ../kotoba-lang/lang/version-policy.edn
+kagi get kotoba-language-release-ed25519 --compartment personal |
+  clojure -M:release-tag sign \
+    --policy ../kotoba-lang/lang/version-policy.edn \
+    --trust ../kotoba-lang/lang/release-trust.edn \
+    --envelope target/release-evidence/unsigned-envelope.edn \
+    > target/release-evidence/kotoba-v0.7.0-envelope.edn
+clojure -M:release-tag verify \
+  --policy ../kotoba-lang/lang/version-policy.edn \
+  --trust ../kotoba-lang/lang/release-trust.edn \
+  --envelope target/release-evidence/kotoba-v0.7.0-envelope.edn
+```
+
+The signed envelope binds the implementation commit and tree, source root,
+language and package profiles, archive digest, conformance counts, issue time,
+and active external signer. Publication must stop if any binding fails.
+
 ### npm / npx
 
 The npm launcher is a compatibility adapter. Native Homebrew and shell installs

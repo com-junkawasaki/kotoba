@@ -10,6 +10,28 @@ import { createHash } from "node:crypto";
 const binary = resolve(process.argv[2] ?? "target/native/kotoba");
 const work = mkdtempSync(join(tmpdir(), "kotoba-release-"));
 
+function option(name) {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+const release = {
+  version: option("--release-version"),
+  languageProfile: Number(option("--language-profile")),
+  packageContract: Number(option("--package-contract")),
+  commit: option("--commit"),
+  tree: option("--tree"),
+  platform: option("--platform"),
+};
+
+if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(release.version ?? "") ||
+    release.languageProfile !== 6 || release.packageContract !== 1 ||
+    !/^[0-9a-f]{40}$/.test(release.commit ?? "") ||
+    !/^[0-9a-f]{40}$/.test(release.tree ?? "") ||
+    !/^[a-z0-9]+-[a-z0-9]+$/.test(release.platform ?? "")) {
+  throw new Error("release verifier requires the complete profile-6 release identity");
+}
+
 function run(args, expectedStatus = 0) {
   const result = spawnSync(binary, args, { encoding: "utf8" });
   if (result.error) throw result.error;
@@ -131,7 +153,8 @@ try {
 
   const binarySha256 = createHash("sha256").update(binaryBytes).digest("hex");
   const evidence = {
-    schema: "kotoba.release-evidence/v1",
+    schema: "kotoba.release-evidence/v2",
+    release,
     binary: basename(binary),
     binarySha256,
     runtime: "native-jvm-free",
