@@ -54,3 +54,7 @@
 (deftest native-smoke-declares-the-unpinned-fixture-boundary
   (let [script (slurp "scripts/build-native.sh")]
     (is (= 2 (count (re-seq #"typed-project --unpinned --target" script))))))
+
+(deftest release-verifier-declares-its-generated-unpinned-project-boundary
+  (let [script (slurp "scripts/verify-release-binary.mjs")]
+    (is (re-find #"projectRoot,\s+\"--unpinned\"" script))))

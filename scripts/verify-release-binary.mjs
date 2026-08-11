@@ -119,6 +119,7 @@ try {
     projectEntry,
     "--source-path",
     projectRoot,
+    "--unpinned",
     "--target",
     "web",
     "--output",
