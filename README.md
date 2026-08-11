@@ -4,15 +4,17 @@
 
 # kotoba
 
-**A capability-safe language — the _Clojure_ of the kotoba stack.**
+**A safety-first language for AI agents — the _Clojure_ of the kotoba stack.**
 
 ```
-KOTOBA ≝ safe Kotoba[cap⊗effect] × Datom[e a v] (kgraph, in-mem)
-          × WASM/WIT × CACAO × AT Protocol × LLM/Weight
+KOTOBA ≝ safe Kotoba[cap⊗effect⊗resource] × checked KIR
+          × Target[Wasm Component | native x86-64/AArch64 | restricted JS]
+          × Datom[e a v] × CID/signature/receipt
 ```
 
 **kotoba : kotobase = Clojure : Datomic** (ADR-2607032500). kotoba is the
-**language** — a capability-safe Lisp/EDN that compiles to WebAssembly, plus its
+**language** — a capability-safe Lisp/EDN that compiles through checked KIR to
+WebAssembly, native machine code, and restricted JavaScript, plus its
 in-memory **datom data model** (`kotoba.kgraph`, an EAVT `[e a v]` store). The
 **database** — the persistent, indexed, Datalog-queryable, content-addressed,
 time-versioned datom store built _on_ this model — is
@@ -22,9 +24,11 @@ the datom **database** lives in kotobase.
 
 - **The language** — [`kotoba-lang/kotoba-lang`](https://github.com/kotoba-lang/kotoba-lang)
   defines the source profile (`.kotoba` canonical, portable `.cljc` with
-  `#?(:kotoba ...)` for Kotoba-specific branches), and `kotoba wasm` compiles
-  that Kotoba/EDN subset directly to **WebAssembly** (a compiler, not an
-  interpreter). **safe Kotoba** adds a *capability-confined* profile for
+  `#?(:kotoba ...)` for Kotoba-specific branches). The multi-target
+  [`kotoba-lang/amu`](https://github.com/kotoba-lang/amu) compiler admits that
+  source into checked KIR and emits WebAssembly/Wasm Components, sealed native
+  x86-64/AArch64 code, or restricted JavaScript. **safe Kotoba** is a
+  *capability-confined* profile for
   running untrusted / AI-generated agents: what a module can touch is
   whatever it was explicitly handed, and nothing else. See
   [**Language**](#language--kotoba-lang--kotoba-wasm) below.
@@ -44,6 +48,58 @@ The admission gate also recognizes the M3 portable type contract. A public
 capability/effect consistency and region non-escape before compilation. An
 older language-contract pin rejects annotated source fail-closed rather than
 silently ignoring the annotation.
+
+## Purpose and philosophy
+
+Kotoba is designed first for software written, changed, tested, and operated by
+AI agents and by people directing them. That includes autonomous coding loops
+and vibe-coding workflows, where intent may arrive as natural language and the
+generated program must still cross a deterministic safety boundary before it
+can act. Source, dependencies, checked KIR, target artifacts, tool requests, and
+observed external content are treated as untrusted inputs—not as authority.
+
+The priorities are:
+
+1. **Safety before ambient convenience.** Effects, capabilities, resource
+   budgets, package identities, and deployment authority are explicit and
+   deny-by-default. Unsupported or unverifiable behavior fails closed.
+2. **A short, reproducible agent loop.** Machine-readable contracts, one checked
+   KIR shared by qualified backends, bounded compiler workers, deterministic
+   caches, target-aware tests, and signed receipts make develop → check → test →
+   deploy cycles fast to repeat and cheap to audit. Performance claims remain
+   workload- and host-specific rather than universal.
+3. **Cryptographic trust with precise scope.** CID-pinned inputs, signatures,
+   trust/revocation policy, artifact seals, and execution receipts protect
+   integrity and provenance. Encryption, decryption, key use, and secret access
+   occur only through explicitly granted, purpose-bound capabilities and a
+   qualified provider; Kotoba does not claim that every source file or value is
+   automatically encrypted.
+4. **White-hat use.** The language and its tooling are intended for authorized
+   construction, defense, verification, repair, and auditable automation—not
+   for bypassing controls or acquiring hidden authority. This philosophy guides
+   the project; enforceable safety comes from the capability/effect/resource
+   boundary rather than from trusting an agent's stated intent.
+
+### Design influences
+
+These are influences on particular design choices, not claims of source or
+runtime compatibility:
+
+- **Lisp and Clojure** — homoiconic, data-oriented programs; immutable values;
+  a small composable language; and interactive development.
+- **Rust** — compile-time safety discipline and affine handling of authority.
+  Kotoba is benchmarked against Rust's safety model; it does not copy Rust's
+  general ownership/lifetime system.
+- **Deno** — secure-by-default execution with explicit permission boundaries.
+- **Unison** — semantic, content-addressed definition identity and codebase
+  operations independent of mutable file names.
+- **Ethereum and CACAO** — signed identity, attenuated delegation, and
+  verifiable authorization/receipt boundaries, without implying EVM
+  compatibility.
+- **IPFS** — CID-addressed, byte-verified discovery and distribution.
+- **Nix** — pinned inputs, declarative environments, reproducible artifacts,
+  and the principle that deployment should consume the same admitted closure
+  that was tested.
 
 ## Stack topology
 
@@ -428,11 +484,14 @@ not define new command shape or language semantics of its own.
   contract and shapes argv as EDN — host launchers (like this repo's
   `bin/kotoba-clj`) adapt to this contract; they don't define protocol
   semantics of their own.
-- **Compilation targets are WebAssembly and restricted Web/JavaScript.** The
-  public compiler surface is `kotoba compile --target web|wasm` and
-  `kotoba wasm ...`; `kotoba -e '(+ 1 2)'` is compile-and-run
+- **Compilation targets include WebAssembly, native machine code, and restricted
+  Web/JavaScript.** The portable application surface includes
+  `kotoba compile --target web|wasm` and `kotoba wasm ...`;
+  `kotoba -e '(+ 1 2)'` is compile-and-run
   sugar (wraps the expression as an exported `main`, compiles Kotoba → core
-  Wasm, runs it) — not a runtime `eval`.
+  Wasm, runs it) — not a runtime `eval`. Amu additionally emits sealed KEXE
+  artifacts for x86-64 and AArch64 and executes admitted, signed artifacts
+  through `tender-native`; see [Native compilation and execution](#native-compilation-and-execution).
 - **Safety model — "safe Kotoba."** Three formal soundness goals: **T1
   Memory Safety**, **T2 Effect Soundness** (`Γ ⊢ e : T ! E`), **T3 Capability
   Confinement** (a compile-time analog of CACAO delegation attenuation).
@@ -761,6 +820,45 @@ the persistent, distributed database itself is not this repository's
 identity — that's [`kotoba-lang/kotobase`](https://github.com/kotoba-lang/kotobase).
 This repo is the language; the CLJC-native rebuild of the database design is
 tracked in [ADR-2607022600](https://github.com/com-junkawasaki/root/blob/main/90-docs/adr/2607022600-kotoba-database-crates-cljc-migration-roadmap.md).
+
+## Native compilation and execution
+
+WebAssembly is one Kotoba backend, not the compiler architecture. The current
+[`amu`](https://github.com/kotoba-lang/amu) pipeline admits source once, lowers
+checked KIR through target-neutral GMIR and target-selected MIR, and emits
+x86-64 or AArch64 instructions directly. Native code generation does not invoke
+an assembler, LLVM, a JVM JIT, or a Wasm runtime. The output is a sealed KEXE
+artifact rather than an implicitly trusted OS executable.
+
+```bash
+# In a kotoba-lang/amu checkout
+bin/kotoba -M compile example.kotoba --target aarch64-macos --output app.kexe
+bin/kotoba -M compile example.kotoba --target x86_64-linux --output app.kexe
+bin/kotoba -M verify app.kexe
+bin/kotoba -M test example.kotoba --json  # every test-* export on qualified targets
+# After signing the KEXE and pinning a measured runtime:
+bin/kotoba -M run app.signed.kexe --trust pinned-trust.edn \
+  --runtime runtime.edn --loader kotoba-loader --policy policy.edn \
+  --input input.edn --executor-key executor-key.edn --output run.receipt.edn
+```
+
+The verifier treats embedded KIR as hostile, independently validates its
+structure, lexical scope, call arities, transitive capability effects, ABI and
+resource budgets, regenerates machine code, and compares the sealed bytes. The
+admitted execution path signs the KEXE, checks
+trust/revocation and local policy, then uses
+[`tender-native`](https://github.com/kotoba-lang/tender-native) to map code W^X,
+expose only policy-derived capability callbacks, execute it in a supervised
+loader process, and produce an executor-signed receipt.
+
+Native support is real but deliberately bounded. The qualified scalar,
+control-flow, string, pair, record, and sealed-variant slices run on the host
+ISA; unsupported aggregates, effects, ABIs, or targets fail closed until their
+lowering and verifier rules exist. Wasm Component remains the primary portable
+artifact for ordinary applications, while direct native AOT is supported for
+explicit targets and trusted low-level/aiueos paths. See Amu's
+[`Execution policy`](https://github.com/kotoba-lang/amu#execution-policy) for the
+current boundary.
 
 ## Properties
 
