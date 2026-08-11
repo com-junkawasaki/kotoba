@@ -10,10 +10,13 @@ test -z "$(git status --porcelain --untracked-files=no)" || {
   exit 1
 }
 
-mkdir -p target/release-evidence target/package
-clojure -M:test > target/release-evidence/tests.txt
-cat target/release-evidence/tests.txt
+TEST_LOG=$(mktemp "${TMPDIR:-/tmp}/kotoba-release-tests.XXXXXX")
+trap 'rm -f "$TEST_LOG"' EXIT
+clojure -M:test > "$TEST_LOG"
+cat "$TEST_LOG"
 scripts/build-native.sh
+mkdir -p target/release-evidence target/release-package
+cp "$TEST_LOG" target/release-evidence/tests.txt
 
 COMMIT=$(git rev-parse HEAD)
 TREE=$(git rev-parse 'HEAD^{tree}')
@@ -25,10 +28,10 @@ node scripts/verify-release-binary.mjs target/native/kotoba \
   --tree "$TREE" \
   --platform "$PLATFORM"
 
-cp target/native/kotoba LICENSE README.md target/package/
+cp target/native/kotoba LICENSE README.md target/release-package/
 cp target/native/release-evidence.json \
   "target/release-evidence/kotoba-$PLATFORM.json"
-tar -C target/package -czf "target/kotoba-$PLATFORM.tar.gz" kotoba LICENSE README.md
+tar -C target/release-package -czf "target/kotoba-$PLATFORM.tar.gz" kotoba LICENSE README.md
 (cd target && shasum -a 256 "kotoba-$PLATFORM.tar.gz" > "kotoba-$PLATFORM.tar.gz.sha256")
 
 clojure -M -m kotoba.release-build \

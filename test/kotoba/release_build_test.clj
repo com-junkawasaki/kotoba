@@ -58,3 +58,11 @@
 (deftest release-verifier-declares-its-generated-unpinned-project-boundary
   (let [script (slurp "scripts/verify-release-binary.mjs")]
     (is (re-find #"projectRoot,\s+\"--unpinned\"" script))))
+
+(deftest release-stage-is-created-after-the-native-build-cleans-target
+  (let [script (slurp "scripts/package-native-release.sh")]
+    (is (re-find
+         #"scripts/build-native\.sh\s+mkdir -p target/release-evidence target/release-package"
+         script))
+    (is (not (re-find #"target/package" script)))
+    (is (re-find #"cp \"\$TEST_LOG\" target/release-evidence/tests\.txt" script))))
