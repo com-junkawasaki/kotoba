@@ -521,6 +521,28 @@ not define new command shape or language semantics of its own.
   (`docs/lang/capability-values.md` in `kotoba-lang/kotoba-lang`), hosts
   implement it.
 
+### Current memory-safety position
+
+Current Kotoba is **strongly host-contained but not yet a Rust-equivalent
+ownership/borrow proof**. The safe Wasm profile combines a checked subset,
+Wasm linear-memory bounds, bounds-respecting accessors, deny-by-default raw
+dereference and a no-free bump allocator. This makes use-after-free and
+double-free structurally absent in the current guest, while the Wasm boundary
+keeps guest addresses out of JVM/process memory.
+
+The overall rating is **strong but incomplete**: `:kotoba/raw-memory` is an
+explicit escape hatch; host output buffers are region-bounded but not yet
+matched to individual live allocation extents; guest allocation is monotonic;
+and the current emitter does not derive a Wasm memory maximum from
+`:limits {:memory-pages ...}`. Capability confinement is a separate safety
+axis and must not be used to overstate heap-integrity guarantees.
+
+See
+[`docs/ADR-kotoba-memory-safety-comparison.md`](docs/ADR-kotoba-memory-safety-comparison.md)
+for the decision, comparison table, evidence and open gaps, and
+[`docs/ADR-kotoba-memory-safety-comparison.edn`](docs/ADR-kotoba-memory-safety-comparison.edn)
+for the machine-readable assessment.
+
 The rest of this section (below) walks through the **historical Rust
 implementation** of this same design (`kotoba-clj`, `policy.rs`/`subset.rs`/
 `effects.rs`). That Rust workspace was removed from this repository
@@ -917,6 +939,7 @@ by [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 | [`docs/ADR-001-five-axis-distributed-redesign.md`](docs/ADR-001-five-axis-distributed-redesign.md) | five-axis distributed redesign |
 | [`docs/ADR-sealed-cold-tier.md`](docs/ADR-sealed-cold-tier.md) | encrypted cold tier + t-of-N custody |
 | [`docs/ADR-kotoba-wasm-clj-execution.md`](docs/ADR-kotoba-wasm-clj-execution.md) | **current** — `kotoba wasm` actually executes on the JVM Clojure runtime (`kotoba.runtime`/`kotoba.wasm-exec`), `kgraph` store |
+| [`docs/ADR-kotoba-memory-safety-comparison.md`](docs/ADR-kotoba-memory-safety-comparison.md) | **current** — memory-safety position versus Rust/Java/Clojure/CLJS/TypeScript; separates Wasm host containment, Kotoba heap integrity, resource safety and capability confinement ([EDN](docs/ADR-kotoba-memory-safety-comparison.edn)) |
 | [`docs/ADR-kotoba-wasm.md`](docs/ADR-kotoba-wasm.md) | Clojure/EDN-subset → WebAssembly compiler path design (historical Rust `crates/kotoba-clj` implementation, since removed — see the ADR's own banner) |
 | [`docs/ADR-safe-capability-language.md`](docs/ADR-safe-capability-language.md) | **safe-clj** — capability-confined language design (capability/subset/effect gates, T2/T3); gates (S0–S4) described are the historical Rust implementation, see [Language](#language--kotoba-lang--kotoba-wasm) above for what's live today |
 | [`docs/ADR-kotoba-shell-aiueos-safety-clj.md`](docs/ADR-kotoba-shell-aiueos-safety-clj.md) | kotoba-shell, aiueos runner integration, and release security gates |
