@@ -1,0 +1,125 @@
+{:adr/id :adr-kotoba-memory-safety-comparison
+ :adr/title "Kotoba memory-safety position and cross-language comparison"
+ :adr/status :accepted
+ :adr/date "2026-08-08"
+ :adr/observed-commit "efc8c2bed7e171826327b03a0037a9f119471136"
+ :adr/markdown "ADR-kotoba-memory-safety-comparison.md"
+ :adr/decision
+ {:overall-rating :circle
+  :label "strong-but-incomplete"
+  :claims
+  {:host-process-containment :strong
+   :kotoba-value-heap-integrity :incomplete
+   :resource-safety :incomplete
+   :capability-confinement :separate-axis}
+  :claim-rule "Do not describe current Kotoba as Rust-equivalent ownership/borrow memory safety."}
+ :adr/runtime-layers
+ [{:layer :guest
+   :runtime :webassembly
+   :gc false
+   :allocation :monotonic-bump
+   :individual-free false
+   :primary-enforcement [:checked-subset :wasm-linear-memory-bounds
+                         :bounds-respecting-accessors :raw-memory-deny
+                         :host-write-window]}
+  {:layer :compiler-and-host
+   :runtime :clojure-jvm-chicory
+   :gc true
+   :primary-enforcement [:managed-references :jvm-bounds :host-capability-gates]}]
+ :adr/language-comparison
+ [{:language :rust
+   :profile :safe
+   :memory-safety :very-strong
+   :primary-enforcement [:ownership :borrowing :lifetimes :types]
+   :gc false
+   :escape-hatches [:unsafe]}
+  {:language :java
+   :memory-safety :strong
+   :primary-enforcement [:jvm :managed-references :bounds-checks :gc]
+   :gc true
+   :escape-hatches [:jni :unsafe :ffm]}
+  {:language :clojure
+   :memory-safety :strong
+   :primary-enforcement [:jvm :managed-references :bounds-checks :gc
+                         :immutable-first]
+   :gc true
+   :escape-hatches [:java-interop :native-interop]}
+  {:language :clojurescript
+   :memory-safety :moderate-to-strong
+   :primary-enforcement [:javascript-engine]
+   :gc true
+   :escape-hatches [:javascript-interop :wasm-interop]}
+  {:language :typescript
+   :memory-safety :moderate-to-strong
+   :primary-enforcement [:javascript-engine]
+   :note "TypeScript types primarily protect application logic and are normally erased."
+   :gc true
+   :escape-hatches [:javascript-interop :wasm-interop :type-assertions]}
+  {:language :kotoba
+   :profile :safe-wasm
+   :memory-safety :strong-but-incomplete
+   :primary-enforcement [:checked-subset :wasm-sandbox :bounds-checks
+                         :monotonic-bump-allocation :capability-confinement]
+   :gc {:guest false :host true}
+   :escape-hatches [:kotoba/raw-memory
+                    :kotoba.policy/allow-raw-memory
+                    :host-imports]}]
+ :adr/property-assessment
+ {:use-after-free-prevention :very-strong
+  :buffer-overflow-prevention :strong-but-incomplete
+  :double-free-prevention :very-strong
+  :dangling-pointer-prevention :strong
+  :data-race-prevention-current-profile :strong
+  :no-gc-pause :mixed
+  :deterministic-destruction :weak
+  :memory-layout-control :limited
+  :raw-memory-access :explicit-hatch
+  :compile-time-safety :partial
+  :capability-confinement :very-strong-target}
+ :adr/raw-memory
+ {:denied-by-default [mem-byte-at mem-i32-at byte-store! i32-store!]
+  :module-declaration :kotoba/raw-memory
+  :policy-allow :kotoba.policy/allow-raw-memory
+  :policy-forbid :kotoba.policy/forbid-raw-memory
+  :policy-forbid-overrides-allow true
+  :address-producing-ops-remain-available [alloc alloc-checked str-ptr bytes-ptr]}
+ :adr/known-gaps
+ [{:id :per-allocation-host-write-bounds
+   :severity :high
+   :status :open
+   :detail "Host output windows are region-bounded but are not matched to individual live allocation extents."}
+  {:id :wasm-memory-maximum
+   :severity :high
+   :status :open
+   :detail "The current emitter declares one minimum page without a policy-derived maximum."}
+  {:id :guest-reclamation
+   :severity :medium
+   :status :open
+   :detail "The bump allocator does not reclaim individual objects; OOM and retention are resource-safety concerns."}
+  {:id :general-ownership-borrow-system
+   :severity :informational
+   :status :not-current-design
+   :detail "Capability affinity is narrow S2 and must not be described as a general Rust-style borrow checker."}]
+ :adr/evidence
+ [{:path "src/kotoba/runtime.clj"
+   :symbols [raw-memory-ops raw-memory-problems wasm-binary compile-wasm-expr]}
+  {:path "src/kotoba/wasm_exec.clj"
+   :symbols [writable-output-window write-bytes!]}
+  {:path "test/kotoba/raw_memory_test.clj"
+   :covers [:raw-deny :module-hatch :policy-allow :policy-forbid :emitter-defense-in-depth]}
+  {:path "test/kotoba/host_write_window_test.clj"
+   :covers [:data-segment-refusal :negative-window-refusal
+            :outside-linear-memory-refusal :capacity-check]}
+  {:path "test/kotoba/cap_affine_test.clj"
+   :covers [:capability-affinity]}
+  {:path "docs/lang/gates.md"
+   :covers [:current-gate-inventory]}]
+ :adr/verification
+ {:date "2026-08-08"
+  :standalone-clone true
+  :tests 519
+  :assertions 8506
+  :memory-safety-namespaces :passed
+  :suite-failures 9
+  :suite-failure-scope :missing-sibling-evidence-paths
+  :full-multi-repository-suite-green false}}
