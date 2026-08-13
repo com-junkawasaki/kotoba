@@ -4,50 +4,27 @@
 
 # kotoba
 
-**A safety-first language for AI agents — the _Clojure_ of the kotoba stack.**
+CLI and implementation for **Kotoba**, a capability-safe language for untrusted
+AI-written code. A compiled program can use only the authority it was granted.
+Deny-by-default. Language contract:
+[`kotoba-lang/kotoba-lang`](https://github.com/kotoba-lang/kotoba-lang) · site:
+[kotoba-lang.org](https://kotoba-lang.org)
 
+```sh
+brew tap kotoba-lang/kotoba && brew install kotoba
+kotoba -e '(+ 1 2)'
 ```
-KOTOBA ≝ safe Kotoba[cap⊗effect⊗resource] × checked KIR
-          × Target[Wasm Component | native x86-64/AArch64 | restricted JS]
-          × Datom[e a v] × CID/signature/receipt
-```
 
-**kotoba : kotobase = Clojure : Datomic** (ADR-2607032500). kotoba is the
-**language** — a capability-safe Lisp/EDN that compiles through checked KIR to
-WebAssembly, native machine code, and restricted JavaScript, plus its
-in-memory **datom data model** (`kotoba.kgraph`, an EAVT `[e a v]` store). The
-**database** — the persistent, indexed, Datalog-queryable, content-addressed,
-time-versioned datom store built _on_ this model — is
-[**`kotoba-lang/kotobase`**](https://github.com/kotoba-lang/kotobase) (the
-"Datomic"): it depends on kotoba, never the reverse. Keep kotoba the language;
-the datom **database** lives in kotobase.
+An empty policy denies every host effect, including `:host/http`. Hosted billed
+deploy of those grants is not live. Wasm Component is the primary portable
+profile. Bounded native AOT (x86-64/AArch64) is a supported, explicitly selected
+backend; ordinary-application native (ambient OS process) is a non-goal.
 
-- **The language** — [`kotoba-lang/kotoba-lang`](https://github.com/kotoba-lang/kotoba-lang)
-  defines the source profile (`.kotoba` canonical, portable `.cljc` with
-  `#?(:kotoba ...)` for Kotoba-specific branches). The multi-target
-  [`kotoba-lang/amu`](https://github.com/kotoba-lang/amu) compiler admits that
-  source into checked KIR and emits WebAssembly/Wasm Components, sealed native
-  x86-64/AArch64 code, or restricted JavaScript. **safe Kotoba** is a
-  *capability-confined* profile for
-  running untrusted / AI-generated agents: what a module can touch is
-  whatever it was explicitly handed, and nothing else. See
-  [**Language**](#language--kotoba-lang--kotoba-wasm) below.
-- **Clojure on Clojure** — the compiler and runtime that implement this
-  Clojure-shaped language are themselves written in Clojure/ClojureScript
-  (`.cljc`); the earlier Rust workspace has been fully removed (see
-  [Rust-free CLJ launcher](#rust-free-clj-launcher) below). Its
-  capability-safety design is *benchmarked against* Rust on an explicit
-  safety ladder, not modeled on it — see the "Safety model" bullet under
-  [Language — kotoba-lang & kotoba wasm](#language--kotoba-lang--kotoba-wasm)
-  below, or `kotoba-lang/docs/adr/ADR-safe-capability-language.md`, for what
-  that ladder actually claims.
+The persistent Datalog database is
+[`kotoba-lang/kotobase`](https://github.com/kotoba-lang/kotobase), not this
+repository.
 
-The admission gate also recognizes the M3 portable type contract. A public
-`defn` may carry `:signature` metadata; when the current
-`kotoba-lang/kotoba-lang` contract is available, `kotoba check` validates
-capability/effect consistency and region non-escape before compilation. An
-older language-contract pin rejects annotated source fail-closed rather than
-silently ignoring the annotation.
+The rest of this file is the implementation contract.
 
 ## Purpose and philosophy
 
