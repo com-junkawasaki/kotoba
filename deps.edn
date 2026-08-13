@@ -5,9 +5,12 @@
         io.github.kotoba-lang/kgraph
         {:git/url "https://github.com/kotoba-lang/kgraph.git"
          :git/sha "609dc37885927853d8bb79c15b2edf5e35ef721a"}
+        ;; git pin 01ec195 still ships guest-grammar sha256 db0d8e28. Current
+        ;; line (kotoba 2e6d6367 / kotoba-lang 7467693c) is ed2012db. This repo
+        ;; cannot push the one-file re-vendor to kotoba-lang/grammar, so keep a
+        ;; committed overlay until that repository catches up.
         io.github.kotoba-lang/grammar
-        {:git/url "https://github.com/kotoba-lang/grammar.git"
-         :git/sha "01ec195e166b22b27e77ae36f3488a9011ab56fc"}
+        {:local/root "vendor/grammar"}
         ;; The DHT half was already built in this workspace and I had missed
         ;; it: `kad.routing` speaks /routing/v1 with multi-router quorum, and
         ;; `ipns.record` is the real IPNS record format. Publishing a namespace
@@ -65,7 +68,12 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "3083e6c15b9e555475b874d91bb9fb8a2d008f55"}
+         :git/sha "7467693c35ce8c9343434e42824753b6be9d8101"}
+        ;; Direct pin so amu's transitive kotoba-sema (890116c5, grammar
+        ;; db0d8e28) cannot reopen every-guest-grammar-on-the-classpath-is-the-same-bytes.
+        io.github.kotoba-lang/kotoba-sema
+        {:git/url "https://github.com/kotoba-lang/kotoba-sema.git"
+         :git/sha "b419c89b024be1adbf1ff702ca14e3e90f84364d"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}

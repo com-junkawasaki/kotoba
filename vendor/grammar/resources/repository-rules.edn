@@ -1,0 +1,10 @@
+;; This repository's entry in the kotoba.repository-role-rules taxonomy.
+;; Declared here (not merely inherited) so a reader of THIS repo alone can
+;; verify which contract it claims to satisfy. ADR-2607266000.
+{:schema "kotoba.repository-role-rules.v0"
+ :this-repo
+ {:name "grammar"
+  :tier :t1
+  :role :library
+  :must-not [:compile :lower-to-KIR :decide-capability-policy]
+  :depends-on ["kotoba-lang/kotoba-core-contracts"]}}

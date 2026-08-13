@@ -1,0 +1,366 @@
+{:kotoba.lang.guest-grammar/version 2
+ :kotoba.lang.guest-grammar/profile-version 6
+ :kotoba.lang.guest-grammar/status :p0-p1-in-progress
+ :kotoba.lang.guest-grammar/authority "kotoba-lang/kotoba-lang"
+ :kotoba.lang.guest-grammar/adr "adr-2607183900-kotoba-component-language-runtime-roles"
+ :kotoba.lang.guest-grammar/transport-adr "adr-2607184000-kotoba-transport-provider-components"
+ :kotoba.lang.guest-grammar/migration-adr "adr-2607279200-kotoba-clojure-shaped-safety-elaboration-migration"
+ :kotoba.lang.guest-grammar/elaboration-pipeline "lang/elaboration-pipeline.edn"
+ :kotoba.lang.guest-grammar/surface-status "lang/surface-status.edn"
+ :kotoba.lang.guest-grammar/scope
+ "Least-authority component grammar profile. The historical key name guest-grammar does not make .kotoba guest-only; provider components use the same admitted grammar plus declared imports."
+ :kotoba.lang.guest-grammar/invariant
+ "Expressiveness grows only via desugar to existing primitives or declared capability kits — never via ambient Clojure (eval/require/atom/macros/interop)."
+
+ :function-semantics
+ {:named-multi-arity {:status :implemented-partial
+                      :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+                      :arities {:min 0 :max 5}
+                      :lowering "deterministic $arityN static function names"
+                      :supports #{:direct-call :recursion :hof-callback :no-init-reduce}
+                      :variadic "[fixed ... & rest] statically specialized through arity 5"
+                      :abi-bound {:max-arity 5 :disposition :intentional-security-constraint}
+                      :missing #{}}}
+
+ :callable-type
+ {:syntax "[:fn [parameter-types result-type] ...]"
+  :clauses {:min 1 :max 5 :unique-by :arity}
+  :arity {:min 0 :max 4}
+  :parameter-types #{:i64}
+  :result "one admitted non-callable, non-linear closure dispatcher result type"
+  :physical-abi :i64
+  :level "L3"
+  :backends #{:compiler :kotoba-kir :restricted-esm :wasm32}
+  :module-boundary :project-interface-preserved
+  :note "Public source contract only: KIR/Wasm closure words remain i64 and carry checked closure refinements. Project linking assigns disjoint module lambda-ID ranges and routes through one bounded dispatcher per arity/result family; no synthetic fallback handle or ambient dynamic dispatch is admitted."}
+
+ ;; P0 strict-grammar (ADR-2607180900): default ON for safe emit/run.
+ ;; Unknown call heads not in admitted sets fail closed with a catalog hint.
+ :strict-grammar
+ {:default true
+  :policy-key :kotoba.policy/strict-grammar
+  :note "Set :kotoba.policy/strict-grammar false only for experimental hosts adding temporary surface before catalog update."}
+
+ ;; Forms that survive to backends after desugar (core KIR / wasm core).
+ :core-special-forms
+ #{ns def defn defprotocol definterface defrecord extend-type extend-protocol let if do main}
+
+ ;; Surface sugar: admitted in source, must desugar before/during emit.
+ :sugar
+ {:bytes {:desugars-to "canonical bounded empty :bytes value"
+          :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+          :note "zero arguments only; binary payloads otherwise enter through typed host/provider boundaries"}
+  :-> {:desugars-to "nested calls with the value inserted after each call head"
+       :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :->> {:desugars-to "nested calls with the value inserted as each call's final argument"
+        :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :as-> {:desugars-to "sequential named let bindings"
+         :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :and {:desugars-to "nested let/if" :level "L2" :backends #{:kotoba-wasm :compiler}}
+  :or {:desugars-to "nested let/if" :level "L2" :backends #{:kotoba-wasm :compiler}}
+  :when {:desugars-to "if + optional do" :level "L2" :backends #{:kotoba-wasm :compiler}
+         :note "multi-body when becomes (if test (do …) 0)"}
+  :if-not {:desugars-to "if + not" :level "L2"
+           :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :when-not {:desugars-to "if + not + optional do" :level "L2"
+             :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :loop-recur {:desugars-to "deterministic recursive static helper" :level "L2"
+               :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :dotimes {:desugars-to "single-evaluation bounded loop/recur over integer indices"
+            :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+            :note "one unqualified symbol binding; zero and negative counts perform no iterations; returns 0"}
+  :doseq {:desugars-to "single-evaluation admission-bounded guarded vector unroll"
+          :level "L2" :backends #{:compiler :kotoba-wasm}
+          :note "vector expressions up to 128 items; explicit or lexically inferred let-bound list/cons/rest pair sequences up to 32 items; Cartesian bounds per collection are 16 for two bindings, 4 for three, and 2 for four; ordered :let/:when/:while modifiers; oversized collections trap; returns 0"}
+  :assert {:desugars-to "if condition then 0 else quot-by-zero trap"
+           :level "L2" :backends #{:compiler :kotoba-wasm}
+           :note "exactly one condition; message forms rejected because the portable trap ABI has no message channel"}
+  :closed-multimethod
+  {:desugars-to "one module-local defn with static case dispatch"
+   :forms [defmulti defmethod] :level "L2" :backends #{:compiler :kotoba-wasm}
+   :note "unqualified dispatch function; bounded literal keys; identical plain parameter vectors; optional :default; no hierarchy, preferences, or runtime extension"}
+  :match {:desugars-to "single-evaluation nested let/if tests" :level "L2"
+          :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :defdesugar {:desugars-to "registered pure bounded template expansion" :level "L2"
+               :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :cond {:desugars-to "left-to-right nested if; final :else is syntax" :level "L2"
+         :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :condp {:desugars-to "single-evaluation nested let/if predicate calls" :level "L2"
+          :backends #{:compiler :kotoba-wasm}
+          :note "predicate is an unqualified static two-argument function symbol; :>> is rejected; no default and no match traps through quot-by-zero"}
+  :cond->> {:desugars-to "single-evaluation conditional thread-last calls" :level "L2"
+            :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :case {:desugars-to "single-evaluation nested let/if equality tests"
+         :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+         :note "a list test is an or-of-equality tests; no default and no match traps through quot-by-zero"}
+  :if-let {:desugars-to "single-evaluation let/if" :level "L2"
+           :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :when-let {:desugars-to "single-evaluation let/if/do" :level "L2"
+             :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :if-some {:desugars-to "single-evaluation option-presence let/if" :level "L2"
+            :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+            :note "compiler binds an explicit Option payload; kotoba-wasm uses its documented nil≡0≡falsy i64 approximation"}
+  :when-some {:desugars-to "single-evaluation option-presence let/if/do" :level "L2"
+              :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+              :note "compiler binds an explicit Option payload; kotoba-wasm uses its documented nil≡0≡falsy i64 approximation"}
+  :some-> {:desugars-to "nested short-circuit if-some with thread-first calls" :level "L2"
+           :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+           :note "compiler steps consume and return explicit Options; kotoba-wasm uses its i64 approximation"}
+  :some->> {:desugars-to "nested short-circuit if-some with thread-last calls" :level "L2"
+            :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+            :note "compiler steps consume and return explicit Options; kotoba-wasm uses its i64 approximation"}
+  :option-or {:desugars-to "type-inferred option-value-of"
+              :level "L2" :backends #{:compiler}
+              :note "two arguments: Option value and payload fallback; payload descriptor is inferred from locals, record fields, constructors, or function signatures"}
+  :variadic-comparison {:desugars-to "short-circuit adjacent binary comparisons" :level "L2"
+                        :forms [= not= < > <= >=] :backends #{:compiler}}
+  :not= {:desugars-to "binary (not (= …))" :level "L2"
+         :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :do {:desugars-to "sequential drop + last value (wasm) or nested let (compiler)"
+       :level "L2" :backends #{:kotoba-wasm :compiler}}
+  :get {:desugars-to "pair-list map scan helper" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :assoc {:desugars-to "persistent pair-chain update" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :document {:desugars-to "existing bounded document constructors"
+             :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+             :note "exactly one inert closed EDN-shaped tree; nested forms are document lists, never calls; no new runtime representation or capability"}
+  :map-literal {:desugars-to "pair cons-list of pairs" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :vector-literal {:desugars-to "persistent pair-chain" :level "L2"
+                   :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+                   :note "portable literal admission bound 128; same runtime representation as list"}
+  :set-literal {:desugars-to "bounded unique pair-chain" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+                :note "deterministic source ordering; runtime-equal duplicates removed"}
+  :contains? {:desugars-to "bounded set membership scan" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :conj {:desugars-to "pair prepend after duplicate removal" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :disj {:desugars-to "bounded set removal" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :nested-destructuring
+  {:desugars-to "sequential temp-bound pair/map lookups" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :forms ["nested vector/map" "vector &" "map :keys" "map :or" "map :as" "explicit keyword patterns"]
+   :note "let and function parameter patterns portable; :strs/:syms outside keyword-only identity model"}
+  :typed-capability-call
+  {:status :implemented-partial
+   :desugars-to "registered capability id plus exact bounded request/result validation"
+   :level "L3" :backends #{:compiler}
+   :implemented ["static request/result descriptor checking" "closed schema references"
+                 "reference and browser provider pre/post boundary validation"
+                 "ABI v9 Wasm contract metadata and import"
+                 "qualified x86_64/AArch64 i64 request/result boundary"
+                 "qualified POSIX x86_64/AArch64 UTF-8 string pointer+length boundary"]
+   :missing ["native record/option/result buffer boundaries"
+             "typed string capability callback parity on Windows/mobile hosts"]
+   :note "legacy cap-call remains ABI-compatible and cannot satisfy typed-cap-call"}
+  :map {:desugars-to "deterministic fuel helper with direct one/two-source state or packed typed three-to-five-source state" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+        :note "named or inline callbacks accept one to five collections; stored closures accept one to four; all stop at the shortest source; CLJS validates the same bounded vector state"}
+  :filter {:desugars-to "recursive helper or primary bounded unroll" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+           :note "named, inline, or stored closure unary predicate portable"}
+  :reduce {:desugars-to "recursive fold or primary bounded unroll" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+           :note "named, inline, or stored closure callbacks portable for with-init and 0/2 no-init"}
+  :inline-fn-callback
+  {:desugars-to "closure-converted deterministic helper with explicit capture params"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs} :hosts #{map filter reduce}
+   :note "HOF-specialized path; stored closure callbacks use the static invoke dispatcher"}
+  :fn {:desugars-to "pair of deterministic lambda id and explicit capture pair-chain"
+       :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+       :note "fixed, multi-arity, or variadic clauses 0..4; variadics specialize statically with pair-chain rest; a lexically bound closure uses ordinary (f args...) application; clauses share id/captures"}
+  :invoke {:desugars-to "arity-specific static closure dispatcher"
+           :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+           :note "explicit for computed/non-symbol closure expressions and result-family selection; lexical symbol heads use ordinary application; no host computed call/reflection"}
+  :fn-ref {:desugars-to "deterministic closure wrappers for known top-level arities"
+           :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+           :note "explicit to avoid lexical symbol-shadowing ambiguity; arities 0..4"}
+  :apply {:desugars-to "bounded runtime argument-chain scan plus arity-specific static closure dispatcher"
+          :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+          :note "zero to four total arguments; fixed prefixes supported; oversized runtime tails return 0"}
+  :lazy-cons {:desugars-to "resolver closure yielding a pair of zero-arity head and tail closure thunks"
+              :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+              :note "head and tail force independently; call-by-name, not memoized; inferred effects must be empty"}
+  :lazy-first {:desugars-to "invoke the head thunk" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :lazy-rest {:desugars-to "invoke the tail thunk" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :lazy-empty? {:desugars-to "compare resolved lazy cell with zero" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :lazy-map {:desugars-to "recursive lazy cells with closure-normalized matching-arity callback"
+             :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+             :note "one to four sources; named, inline, or stored matching-arity closure callback; shortest termination"}
+  :lazy-filter {:desugars-to "resolver-delayed fuel-bounded predicate search"
+                :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+                :note "all-rejected finite sources resolve to empty; named, inline, or stored closure predicates"}
+  :take {:desugars-to "fuel-bounded lazy forcing into eager pair-chain" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :drop {:desugars-to "fuel-bounded tail forcing" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :count {:desugars-to "bounded pair-chain walk" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :nth {:desugars-to "bounded indexed pair-chain walk" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+        :note "supports optional default"}
+  :peek {:desugars-to "empty-safe pair-first" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :pop {:desugars-to "empty-safe pair-second" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :keys {:desugars-to "persistent map-key projection" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :vals {:desugars-to "persistent map-value projection" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :dissoc {:desugars-to "persistent bounded map filter" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :record-constructor
+  {:desugars-to "nominal record constructors ->Type and map->Type"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :note "semantic identity is nominal; the compiler lowers to nominal record descriptors while legacy primary emitters use :kotoba.record/type tagged maps"}
+  :protocol-dispatch
+  {:desugars-to "closed-world static dispatch plus record-specific functions"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :note "closed semantics fail closed with no reflection: the compiler rejects an unknown or unimplemented receiver statically; primary emitters generate only sealed record cases and trap an unknown tag; neither admits a runtime fallback"}
+  :interface-contract
+  {:desugars-to "the same safe static method contract as defprotocol"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :note "language interface only; never ambient JVM/JS interop"}
+  :protocol-extension
+  {:desugars-to "static additions to the closed protocol table"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs} :forms [extend-type extend-protocol]
+   :note "each section implements every method exactly once; canonical extend-protocol/default statically specializes otherwise-unimplemented records in the sealed module and never becomes a dynamic fallback"}
+  :keyword-literal {:desugars-to "deterministic FNV-1a integer identity" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  :portable-string-symbol-values
+  {:desugars-to "deterministic tagged integer identity with module collision rejection"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :note "strings are immutable and limited to 127 UTF-8 bytes; literal IDs remain deterministic; primary Wasm dynamic results use bounded heap descriptors; substring indexes are checked UTF-8 byte boundaries"}
+  :string-host-arg {:desugars-to "(str-ptr s) (str-len s)" :level "L2" :backends #{:kotoba-wasm}
+                    :note "bare string literal in first position of string-head host ops"}
+  :data-host-arg {:desugars-to "(bytes-ptr V) (bytes-len V) over canonical kotoba.value.v1 bytes"
+                  :level "L2" :backends #{:kotoba-wasm}
+                  :adr "ADR-kotoba-canonical-value-codec (VC5)"
+                  :note "constant collection literal in first position of data-head host ops; constants only, no runtime construction; leaves the 127-UTF-8-byte portable-string bound and survives into typed KIR as structured data"}}
+
+ ;; Never admit in guest source (subset gate).
+ ;; `reset!` and `swap!` joined this set on 2026-08-12. They were already named
+ ;; by `:no-ambient-mutation` in surface-status, alongside `atom` and `set!`,
+ ;; but only the latter two were listed here -- so the compiler refused
+ ;; `(atom x)` with "dynamic loading, interop, mutation, and metaprogramming
+ ;; are forbidden" and refused `(reset! x 1)` with "operation has no admitted
+ ;; lowering". Same named invariant, two mechanisms, and the second one holds
+ ;; only for as long as nothing gives those names a lowering.
+ ;; `grammar-authority`'s :forbidden/security-surface-not-forbidden now fails
+ ;; closed on that shape.
+ :forbidden-heads
+ #{eval load load-file require use import ns-resolve resolve alter-var-root
+   future pmap agent send send-off new . .. set! defmacro throw try catch
+   locking dosync atom ref reset! swap! volatile! binding var}
+
+ ;; Arithmetic / comparison / predicates admitted after validation.
+ :arithmetic #{+ - * quot bit-xor bit-and bit-or}
+ :comparisons #{= < > <= >=}
+ :predicates #{not zero? pos? neg? string? symbol? keyword? string-length string=
+               string-concat string-substring symbol}
+
+ ;; Host-import families that take UTF-8 (ptr,len) as first two wasm params.
+ ;; Host-import families whose first argument is STRUCTURED data rather than
+ ;; text. A constant collection literal in that position lowers to
+ ;; (bytes-ptr V) (bytes-len V) over the canonical kotoba.value.v1 bytes of the
+ ;; value -- the same (ptr,len) ABI the string form uses, carrying typed data
+ ;; instead of UTF-8 text (ADR-kotoba-canonical-value-codec, VC5).
+ ;;
+ ;; This admits no new call head: it is the same host op with a
+ ;; differently-shaped first argument, and in host-argument position a
+ ;; collection literal cannot be anything but data. Only compile-time constants
+ ;; are admissible -- quote is not a core special form and keyword literals
+ ;; lower to an FNV-1a integer identity, so a guest cannot build an EDN value
+ ;; at run time. Capability rules are unchanged: kgraph-query stays denied
+ ;; under any scoped grant because a query's identity does not bound which
+ ;; entities its join returns.
+ :data-head-host-ops
+ #{kgraph-assert! kgraph-retract! kgraph-get-objects kgraph-query}
+
+ ;; Bare string literals in source lower to (str-ptr s) (str-len s).
+ :string-head-host-ops
+ #{kami-nearest-tagged kami-spawn kami-count-tagged kami-axis
+   kami-move-tagged-toward! kami-despawn-within!
+   audio-play
+   nearest-tagged spawn-entity count-tagged axis play-sound
+   clipboard-write-str
+   http-fetch http-post transport-connect tls-open tls-server-end-point
+   keychain-read keychain-write
+   fs-read fs-write fs-write-atomic
+   sha256-hex log-write log-read
+   llm-infer
+   ;; web-wide crawl (com-junkawasaki/root ADR-2607252400)。string-head:
+   ;; 先頭2引数が UTF-8 (ptr,len) に lower される。WARC 本文(250KB級)は
+   ;; guest に渡さず、cc-warc-extract は CID + 有界サマリだけを返す。
+   cc-cdx-query cc-warc-extract corpus-append corpus-publish}
+
+ :admission-limits
+ {:max-functions 1024
+  :max-parameters 5
+  :max-bindings 4096
+  :max-symbol-chars 128
+  :max-expression-nodes 50000
+  :max-list-items 128
+  :max-set-items 16
+  :max-source-bytes 1048576
+  :max-reader-depth 512}
+
+ ;; Author-facing hints when a form is rejected (diagnostics, L2).
+ :diagnostic-hints
+ {"eval" "forbidden: guests cannot eval; compile-time only"
+  "require" "forbidden: guests cannot require; use host imports + package-lock (CID packages on L3)"
+  "use" "forbidden: same as require — no ambient namespaces in guests"
+  "import" "forbidden: no Java/JS interop in guests"
+  "set!" "forbidden: no ambient mutation; host owns state"
+  "atom" "forbidden: guest is pure; put mutable state on the host"
+  "swap!" "forbidden: guest is pure; host owns atoms"
+  "reset!" "forbidden: guest is pure; host owns atoms"
+  "defmacro" "forbidden: no macros in safe guest surface"
+  "try" "forbidden: exceptions hide effects; use Result-style i64 codes"
+  "catch" "forbidden: exceptions hide effects"
+  "throw" "forbidden: use explicit error codes / host log"
+  "future" "forbidden: no threads in WASM guest"
+  "agent" "forbidden: no agents in WASM guest"
+  "new" "forbidden: no interop constructors"
+  "." "forbidden: no interop method calls"
+  ".." "forbidden: no interop threading"
+  "binding" "forbidden: no dynamic var mutation"
+  "var" "forbidden: no var objects in guest"
+  "loop" "use recursion or compiler loop sugar with fuel; unbounded loops are fuel-trapped"
+  "recur" "pair with loop/recursion only inside admitted control forms"
+  "map" "portable eager one-to-five-source map and lazy one-to-four-source map; named, inline, and stored closure callbacks"
+  "filter" "portable eager and lazy filter with named, inline, or stored closure predicates"
+  "reduce" "compiler supports with-init reduce and Clojure-style no-init reduce via inline fn with []/[acc value] arities"
+  "set" "the set constructor fn is not portable; use a bounded set literal #{...} on the compiler backend"
+  "count" "compiler supports fuel-bounded pair-chain count"
+  "nth" "compiler supports pair-chain nth with optional default"
+  "keys" "compiler returns an eager persistent pair-chain of map keys"
+  "vals" "compiler returns an eager persistent pair-chain of map values"
+  "for" "forbidden-style sequence comp; use recursion / host"
+  "doseq" "use doseq-entities host bulk op or recursion"
+  "str" "for host string args prefer bare string literals (auto str-ptr/str-len) or (str-ptr s)/(str-len s)"
+  "println" "no stdout; use log-write host import under policy"
+  "print" "no stdout; use log-write host import under policy"}
+
+ :backends
+ {:kotoba-wasm
+  {:repo "kotoba-lang/kotoba"
+   :entry "kotoba.runtime/wasm-binary"
+   :notes "primary product emit path for host-import rich guests"}
+  :compiler
+  {:repo "kotoba-lang/amu"
+   :entry "kotoba.compiler.frontend/analyze"
+   :notes "deny-by-default multi-target KIR; sugar desugars to pair/if/let/cap-call"}
+  :kototama
+  {:repo "kotoba-lang/kototama"
+   :entry "run already-emitted .wasm"
+   :notes "runtime only — does not own grammar"}}
+
+ ;; Builtins admitted without host-import registration (memory/string ABI helpers).
+ ;; Use strings for ops whose names are not valid bare EDN symbols (e.g. "/").
+ :admitted-builtins
+ #{"alloc" "alloc-checked" "str-ptr" "str-len" "bytes-ptr" "bytes-len" "byte-at" "mem-byte-at" "mem-i32-at"
+   "byte-store!" "i32-store!" "memory-pages" "memory-grow"
+   "i64" "i64+" "i64-" "i64*" "i64and" "i64or" "i64xor" "i64shl" "i64shr" "i64ushr"
+   "f32" "f32+" "f32-" "f32*" "f32/" "f32div" "f32sqrt" "f32neg"
+   "f32=" "f32<" "f32>" "f32<=" "f32>="
+   "has-capability?" "cap-acquire"
+   "result-ok?" "result-err?" "result-write!" "result-status" "result-value"
+   "call-indirect" "mod" "rem" "inc" "dec" "min" "max" "/" "bit-or"
+   "bit-shift-left" "bit-shift-right" "unsigned-bit-shift-right" "host-i64-roundtrip"
+   "pair" "pair-first" "pair-second" "list" "cons" "first" "second" "rest" "empty?"
+   "quot" "bit-and" "bit-xor"
+   "kernel-load-u8" "kernel-store-u8" "kernel-boot-info"
+   "not=" "cond" "case" "if-let" "when-let" "->" "->>"}
+
+ :maturity
+ {:current "L1-L6-landed"
+  :completed ["core special forms" "and/or/when short-circuit" "host import families"
+              "package-lock required on emit" "guest-grammar catalog" "string sugar"
+              "do/multi-when" "diagnostic hints" "S4b forbid-wildcard" "host-parity L5"
+              "component-cid guest packages" "typed HIR S1b" "signed modules S5"
+              "F-007 release evidence gate"]
+  :this-slice ["package registry resolve (name@version → CID lock)"]
+  :next ["selfhost analyzer authority shift" "network package registry backend"]}}
