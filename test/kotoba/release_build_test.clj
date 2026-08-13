@@ -66,3 +66,18 @@
          script))
     (is (not (re-find #"target/package" script)))
     (is (re-find #"cp \"\$TEST_LOG\" target/release-evidence/tests\.txt" script))))
+
+(deftest native-release-workflow-binds-profile-6-identity-and-evidence
+  (let [workflow (slurp ".github/workflows/native-release.yml")]
+    (is (re-find #"--release-version \"\$VERSION\"" workflow))
+    (is (re-find #"--language-profile 6" workflow))
+    (is (re-find #"--package-contract 1" workflow))
+    (is (re-find #"--commit \"\$\(git rev-parse HEAD\)\"" workflow))
+    (is (re-find #"--tree \"\$\(git rev-parse 'HEAD\^\{tree\}'\)\"" workflow))
+    (is (re-find #"--platform \"\$\{\{ matrix\.platform \}\}\"" workflow))
+    (is (re-find #"KOTOBA_LANG_AUTHORITY_ROOT" workflow))
+    (is (re-find #"KOTOBA_COMPILER_EVIDENCE_ROOT" workflow))
+    (is (re-find #"KOTOTAMA_EVIDENCE_ROOT" workflow))
+    (is (re-find #"if: startsWith\(github\.ref, 'refs/tags/'\)" workflow))
+    (is (re-find #"7467693c35ce8c9343434e42824753b6be9d8101" workflow))
+    (is (not (re-find #"7adcda5873e1c473a8ab326e70701dd836476f21" workflow)))))

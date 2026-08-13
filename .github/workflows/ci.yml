@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: kotoba-lang/kotoba-lang
-          ref: 7adcda5873e1c473a8ab326e70701dd836476f21
+          ref: 7467693c35ce8c9343434e42824753b6be9d8101
           path: _authority/kotoba-lang
           persist-credentials: false
       - name: Checkout pinned Amu qualification evidence

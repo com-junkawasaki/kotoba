@@ -27,8 +27,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: kotoba-lang/kotoba-lang
-          ref: 7adcda5873e1c473a8ab326e70701dd836476f21
+          # kotoba-lang main 2026-08-13: guest-grammar sha256 ed2012db matches
+          # kotoba 2e6d6367. Pre-profile-6 pin 7adcda58 cannot qualify this line.
+          ref: 7467693c35ce8c9343434e42824753b6be9d8101
           path: _authority/kotoba-lang
+          persist-credentials: false
+      - name: Checkout pinned Amu qualification evidence
+        uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/amu
+          ref: 249b9408d236d6766d04794d6a3cb04cb894b7dc
+          path: _evidence/amu
+          persist-credentials: false
+      - name: Checkout pinned kototama qualification evidence
+        uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/kototama
+          ref: d96f717b202830a1a50a28fb3b59a811987cfcdb
+          path: _evidence/kototama
           persist-credentials: false
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -43,9 +59,30 @@ jobs:
         run: clojure -M:test
         env:
           KOTOBA_LANG_AUTHORITY_ROOT: ${{ github.workspace }}/_authority/kotoba-lang
+          KOTOBA_COMPILER_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/amu
+          KOTOTAMA_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/kototama
       - run: chmod +x scripts/build-native.sh && scripts/build-native.sh
       - name: Verify JVM-free release boundary
-        run: node scripts/verify-release-binary.mjs target/native/kotoba
+        run: |
+          set -eu
+          case "${GITHUB_REF}" in
+            refs/tags/v*) VERSION="${GITHUB_REF_NAME#v}" ;;
+            *)
+              echo "native-release: JVM-free verify requires a vMAJOR.MINOR.PATCH tag (got ${GITHUB_REF})" >&2
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+            echo "native-release: tag must be vMAJOR.MINOR.PATCH, got ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+          node scripts/verify-release-binary.mjs target/native/kotoba \
+            --release-version "$VERSION" \
+            --language-profile 6 \
+            --package-contract 1 \
+            --commit "$(git rev-parse HEAD)" \
+            --tree "$(git rev-parse 'HEAD^{tree}')" \
+            --platform "${{ matrix.platform }}"
       - name: Record release evidence
         run: |
           mkdir -p target/release-evidence
