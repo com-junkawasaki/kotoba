@@ -94,6 +94,12 @@
         ;; compile -> emit -> run loop instead of stopping at byte-shape checks.
         com.dylibso.chicory/wasm {:mvn/version "1.4.0"}
         com.dylibso.chicory/runtime {:mvn/version "1.4.0"}
+        ;; Production host for amu wasm32-kotoba-v1 (`compile --target wasm --run`).
+        ;; Distinct from kotoba.wasm-exec, which runs legacy `wasm emit` (kgraph /
+        ;; actor:host) and is intentionally not kototama.
+        io.github.kotoba-lang/kototama
+        {:git/url "https://github.com/kotoba-lang/kototama.git"
+         :git/sha "41460163b38254d4065f64afd0188d3e98bddbc7"}
         ;; real gen-keypair/sign/verify host-import implementations
         ;; (kotoba.wasm-exec/real-op-effects) -- same pin kotoba-lang/kototama's
         ;; tender.clj already uses for the identical algorithm choice.

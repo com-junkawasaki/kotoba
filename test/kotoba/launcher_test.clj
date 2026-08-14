@@ -1324,6 +1324,66 @@
       (is (not (str/includes? text (str "kotoba:typed" (char 8) "cap-call"))))
       (is (zero? (:exit validated)) (:err validated)))))
 
+(deftest compile-run-host-free-i64-main-on-kototama
+  ;; `compile --run` is the amu → kototama plane. `wasm run` stays on
+  ;; kotoba.wasm-exec (legacy emit / actor:host) and is not this path.
+  (let [source (doto (java.io.File/createTempFile "kotoba-run" ".kotoba")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-run" ".wasm")
+                 (.deleteOnExit))]
+    (spit source "(ns t (:export [main]))\n(defn main [] 42)\n")
+    (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "wasm"
+                                     "--output" (.getPath output) "--run"])]
+      (is (:kotoba.cli/ok? result) (:kotoba.cli/message result))
+      (is (= :compile/ran (:kotoba.cli/code result)))
+      (is (= :kotoba-wasm (get-in result [:kotoba.cli/data :backend])))
+      (is (= :kototama (get-in result [:kotoba.cli/data :runtime])))
+      (is (= 42 (get-in result [:kotoba.cli/data :result]))))))
+
+(deftest compile-run-clock-now-returns-host-millis
+  (let [source (doto (java.io.File/createTempFile "kotoba-clock-run" ".kotoba")
+                 (.deleteOnExit))
+        policy (doto (java.io.File/createTempFile "kotoba-clock-run" ".edn")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-clock-run" ".wasm")
+                 (.deleteOnExit))]
+    (spit source (str "(ns t (:export [main]) (:capabilities #{:clock/now}))\n"
+                      "(defn main [] (clock/now 0))\n"))
+    (spit policy (pr-str {:allow #{[:cap/call 7]}}))
+    (let [before (System/currentTimeMillis)
+          result (launcher/dispatch ["compile" (.getPath source) "--target" "wasm"
+                                     "--policy" (.getPath policy)
+                                     "--output" (.getPath output) "--run"])
+          after (System/currentTimeMillis)
+          n (get-in result [:kotoba.cli/data :result])]
+      (is (:kotoba.cli/ok? result) (:kotoba.cli/message result))
+      (is (= :compile/ran (:kotoba.cli/code result)))
+      (is (= :kototama (get-in result [:kotoba.cli/data :runtime])))
+      (is (integer? n))
+      (is (<= before n after)))))
+
+(deftest compile-run-does-not-bypass-empty-policy
+  (let [source (doto (java.io.File/createTempFile "kotoba-clock-deny" ".kotoba")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-clock-deny" ".wasm")
+                 (.deleteOnExit))]
+    (spit source (str "(ns t (:export [main]) (:capabilities #{:clock/now}))\n"
+                      "(defn main [] (clock/now 0))\n"))
+    (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "wasm"
+                                     "--output" (.getPath output) "--run"])]
+      (is (not (:kotoba.cli/ok? result)))
+      (is (= :compile/failed (:kotoba.cli/code result)))
+      (is (re-find #"policy denies" (str (:kotoba.cli/message result)))))))
+
+(deftest compile-run-refuses-web-target
+  (let [source (doto (java.io.File/createTempFile "kotoba-web-run" ".kotoba")
+                 (.deleteOnExit))]
+    (spit source "(ns t (:export [main]))\n(defn main [] 42)\n")
+    (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "web"
+                                     "--run"])]
+      (is (not (:kotoba.cli/ok? result)))
+      (is (= :compile/run-requires-wasm (:kotoba.cli/code result))))))
+
 (deftest compile-rejects-an-unreadable-or-malformed-policy
   (let [source (doto (java.io.File/createTempFile "kotoba-policy-bad" ".kotoba")
                  (.deleteOnExit))

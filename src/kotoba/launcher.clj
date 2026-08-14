@@ -39,7 +39,9 @@
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.selfhost.analyzer :as selfhost-analyzer]
-            [kotoba.wasm-exec :as wasm-exec])
+            [kotoba.wasm-exec :as wasm-exec]
+            [kototama.contract :as kototama-contract]
+            [kototama.tender :as tender])
   (:import [java.io ByteArrayOutputStream FileInputStream]
            [java.nio ByteBuffer]
            [java.nio.charset CodingErrorAction StandardCharsets]
@@ -959,6 +961,33 @@
          :kotoba.policy/error (.getMessage e)}))
     {:kotoba.policy/ok? true :kotoba.policy/data {}}))
 
+(def ^:private compile-run-cap-id->grant
+  "Only capability 7 is hosted on kotoba:cap/call today (clock/now →
+  :clock-monotonic). Other cap ids are not invented as grants; the tender
+  fail-closes unknown ids at the call."
+  {7 :clock-monotonic})
+
+(defn- compile-run-grants
+  [policy]
+  (vec (keep (fn [effect]
+               (when (and (vector? effect)
+                          (= 2 (count effect))
+                          (= :cap/call (first effect)))
+                 (compile-run-cap-id->grant (second effect))))
+             (or (:allow policy) []))))
+
+(defn- compile-run-wasm
+  "Execute amu wasm32-kotoba-v1 bytes on kototama.tender.
+
+  Intentionally not kotoba.wasm-exec: that path proves kotoba.runtime emit
+  (kgraph / actor:host) in-repo and is a different plane."
+  [wasm-bytes policy]
+  (let [grants (compile-run-grants policy)
+        caps (if (seq grants)
+               (kototama-contract/host-caps {:grants grants})
+               {})]
+    (tender/run-report wasm-bytes grants caps)))
+
 (defn compile-result
   "Compile Kotoba-owned source through kotoba-lang/amu. Web output is
   restricted ESM emitted from checked KIR by kotoba-script; it never routes
@@ -966,7 +995,11 @@
 
   `--policy <path>` supplies the compiler's admission policy
   (`{:allow #{[:cap/call <id>]}}`); without it the policy is empty and every
-  effect is denied."
+  effect is denied.
+
+  `--run` after a successful wasm emit executes the bytes on kototama.tender
+  (amu wasm32-kotoba-v1 → kotoba:cap/call). It does not replace `wasm run`,
+  which stays on kotoba.wasm-exec. `--target web` plus `--run` is refused."
   [argv]
   (let [project-path (option-value argv "--project")
         source-root (option-value argv "--source-path")
@@ -1023,6 +1056,10 @@
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/unsupported-target
        :kotoba.cli/data {:target target-name :allowed ["web" "wasm"]}}
 
+      (and (some #{"--run"} argv) (not= target :wasm32-kotoba-v1))
+      {:kotoba.cli/ok? false :kotoba.cli/code :compile/run-requires-wasm
+       :kotoba.cli/data {:target target-name :allowed ["wasm"]}}
+
       :else
       (try
         (let [manifest-project (when project-path (project-input project-path))
@@ -1039,23 +1076,36 @@
               (spit output (:source compiled))
               (spit (str output ".manifest.edn") (pr-str (:manifest compiled))))
             (write-bytes! output (:bytes compiled)))
-          {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
-           :kotoba.cli/data {:entry (or entry (:root project))
-                             :kotoba.compile/inputs (cond manifest-project :project-manifest
-                                                          source-root :unpinned-source-path
-                                                          :else :single-file)
-                             :project project-path :source-path source-root
-                             :policy (:kotoba.policy/path policy-result)
-                             :output output :target target-name
-                             :backend (if (= target :js-kotoba-v1)
-                                        :kotoba-script :kotoba-wasm)
-                             :value-profile (:value-profile compiled)
-                             :value-abi (:value-abi compiled)
-                             :wasm-features (:wasm-features compiled)
-                             :project-digest (:project-digest compiled)
-                             :compatibility (:compatibility compiled)
-                             :manifest (:manifest compiled)
-                             :package-receipt (:package-receipt project)}})
+          (let [emitted {:entry (or entry (:root project))
+                         :kotoba.compile/inputs (cond manifest-project :project-manifest
+                                                      source-root :unpinned-source-path
+                                                      :else :single-file)
+                         :project project-path :source-path source-root
+                         :policy (:kotoba.policy/path policy-result)
+                         :output output :target target-name
+                         :backend (if (= target :js-kotoba-v1)
+                                    :kotoba-script :kotoba-wasm)
+                         :value-profile (:value-profile compiled)
+                         :value-abi (:value-abi compiled)
+                         :wasm-features (:wasm-features compiled)
+                         :project-digest (:project-digest compiled)
+                         :compatibility (:compatibility compiled)
+                         :manifest (:manifest compiled)
+                         :package-receipt (:package-receipt project)}]
+            (if-not (some #{"--run"} argv)
+              {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
+               :kotoba.cli/data emitted}
+              (let [report (compile-run-wasm (:bytes compiled) policy)]
+                (if (:ok? report)
+                  {:kotoba.cli/ok? true :kotoba.cli/code :compile/ran
+                   :kotoba.cli/data (assoc emitted
+                                           :runtime :kototama
+                                           :result (:result report))}
+                  {:kotoba.cli/ok? false :kotoba.cli/code :compile/run-failed
+                   :kotoba.cli/message (:message report)
+                   :kotoba.cli/data (assoc emitted
+                                           :runtime :kototama
+                                           :error (:error report))})))))
         (catch Exception error
           {:kotoba.cli/ok? false :kotoba.cli/code :compile/failed
            :kotoba.cli/message (ex-message error)
