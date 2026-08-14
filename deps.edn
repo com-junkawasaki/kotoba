@@ -68,7 +68,7 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "f01c5421c8557ed414ba1a1e2fa6ee26fe85d9a9"}
+         :git/sha "355aea0fa4e496ebce10fbc6f59531337f560c0d"}
         ;; Direct pin so amu's transitive kotoba-sema (890116c5, grammar
         ;; db0d8e28) cannot reopen every-guest-grammar-on-the-classpath-is-the-same-bytes.
         io.github.kotoba-lang/kotoba-sema
