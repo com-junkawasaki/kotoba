@@ -24,6 +24,8 @@
             [kotoba.guest-maturity-l3-l5-test]
             [kotoba.guest-maturity-l4-l6-test]
             [kotoba.git-adapter-test]
+            [kotoba.db-adapter-test]
+            [kotoba.deploy-adapter-test]
             [kotoba.host-providers-test]
             [kotoba.host-write-window-test]
             [kotoba.kami-game-test]
@@ -86,6 +88,8 @@
                                         'kotoba.guest-maturity-l3-l5-test
                                         'kotoba.guest-maturity-l4-l6-test
                                         'kotoba.git-adapter-test
+                                        'kotoba.db-adapter-test
+                                        'kotoba.deploy-adapter-test
                                         'kotoba.host-providers-test
                                         'kotoba.host-write-window-test
                                         'kotoba.kami-game-test

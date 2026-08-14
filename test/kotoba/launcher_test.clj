@@ -46,11 +46,10 @@
     (is (true? (get (json/read-str (launcher/render-result result true))
                     "kotoba.cli/ok?")))))
 
-(deftest side-effecting-commands-stay-data
+(deftest deploy-without-manifest-fails-closed
   (let [result (launcher/dispatch ["deploy" "--manifest" "package-manifest.edn" "--target" "dev"])]
-    (is (:kotoba.cli/ok? result))
-    (is (= :command/planned (:kotoba.cli/code result)))
-    (is (= :adapter-required (get-in result [:kotoba.cli/data :host-action])))))
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/missing-manifest (:kotoba.cli/code result)))))
 
 (deftest compile-web-uses-kotoba-script-from-checked-kir
   (let [source (doto (java.io.File/createTempFile "kotoba-web" ".kotoba")
