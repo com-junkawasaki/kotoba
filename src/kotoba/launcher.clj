@@ -967,14 +967,24 @@
   fail-closes unknown ids at the call."
   {7 :clock-monotonic})
 
-(defn- compile-run-grants
+(defn- compile-run-cap-ids
   [policy]
-  (vec (keep (fn [effect]
+  (->> (or (:allow policy) [])
+       (keep (fn [effect]
                (when (and (vector? effect)
                           (= 2 (count effect))
                           (= :cap/call (first effect)))
-                 (compile-run-cap-id->grant (second effect))))
-             (or (:allow policy) []))))
+                 (second effect))))
+       sort
+       vec))
+
+(defn- compile-run-grants
+  [policy]
+  (vec (keep compile-run-cap-id->grant (compile-run-cap-ids policy))))
+
+(defn- compile-run-unsupported-ids
+  [policy]
+  (vec (remove compile-run-cap-id->grant (compile-run-cap-ids policy))))
 
 (defn- compile-run-wasm
   "Execute amu wasm32-kotoba-v1 bytes on kototama.tender.
@@ -988,6 +998,33 @@
                {})]
     (tender/run-report wasm-bytes grants caps)))
 
+(defn- compile-run-js
+  "Execute a js-kotoba-v1 ESM artifact via Node `instantiateKotoba`.
+
+  Grant objects are `{<id>: fn}`. Only capability 7 is hosted (clock/now →
+  `Date.now()`), matching kototama's kotoba:cap/call surface. Other ids are
+  refused here rather than invented."
+  [mjs-path policy]
+  (let [unsupported (compile-run-unsupported-ids policy)]
+    (if (seq unsupported)
+      {:ok? false
+       :message (str "web --run hosts only clock/now (capability 7); unsupported "
+                     (pr-str unsupported))}
+      (let [url (str "file://" (.getAbsolutePath (io/file mjs-path)))
+            ids (set (compile-run-cap-ids policy))
+            grants-js (if (contains? ids 7) "{7:(_v)=>Date.now()}" "{}")
+            program (str "const m=await import(" (json/write-str url) ");"
+                         "const x=m.instantiateKotoba(" grants-js ");"
+                         "const v=x.main();"
+                         "process.stdout.write(typeof v==='bigint'?v.toString():JSON.stringify(v));")
+            {:keys [exit out err]} (shell/sh "node" "--input-type=module" "-e" program)]
+        (if (zero? exit)
+          {:ok? true
+           :result (try (Long/parseLong (str/trim out))
+                        (catch Exception _ out))}
+          {:ok? false :message (or (not-empty err) (str "node exit " exit))
+           :error err})))))
+
 (defn compile-result
   "Compile Kotoba-owned source through kotoba-lang/amu. Web output is
   restricted ESM emitted from checked KIR by kotoba-script; it never routes
@@ -997,9 +1034,11 @@
   (`{:allow #{[:cap/call <id>]}}`); without it the policy is empty and every
   effect is denied.
 
-  `--run` after a successful wasm emit executes the bytes on kototama.tender
-  (amu wasm32-kotoba-v1 → kotoba:cap/call). It does not replace `wasm run`,
-  which stays on kotoba.wasm-exec. `--target web` plus `--run` is refused."
+  `--run` after a successful emit executes the artifact: wasm32-kotoba-v1
+  on kototama.tender (`kotoba:cap`/`call`), js-kotoba-v1 on Node
+  `instantiateKotoba`. `wasm run <source.kotoba>` stays on kotoba.wasm-exec
+  (legacy emit). `wasm run <file.wasm>` of an amu kotoba:cap guest uses
+  tender, same as `compile --target wasm --run`."
   [argv]
   (let [project-path (option-value argv "--project")
         source-root (option-value argv "--source-path")
@@ -1056,9 +1095,11 @@
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/unsupported-target
        :kotoba.cli/data {:target target-name :allowed ["web" "wasm"]}}
 
-      (and (some #{"--run"} argv) (not= target :wasm32-kotoba-v1))
-      {:kotoba.cli/ok? false :kotoba.cli/code :compile/run-requires-wasm
-       :kotoba.cli/data {:target target-name :allowed ["wasm"]}}
+      (and (some #{"--run"} argv)
+           (seq (compile-run-unsupported-ids policy)))
+      {:kotoba.cli/ok? false :kotoba.cli/code :compile/run-unsupported-capability
+       :kotoba.cli/data {:unsupported (compile-run-unsupported-ids policy)
+                         :hosted compile-run-cap-id->grant}}
 
       :else
       (try
@@ -1095,16 +1136,19 @@
             (if-not (some #{"--run"} argv)
               {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
                :kotoba.cli/data emitted}
-              (let [report (compile-run-wasm (:bytes compiled) policy)]
+              (let [runtime (if (= target :js-kotoba-v1) :js-kotoba-v1 :kototama)
+                    report (if (= target :js-kotoba-v1)
+                             (compile-run-js output policy)
+                             (compile-run-wasm (:bytes compiled) policy))]
                 (if (:ok? report)
                   {:kotoba.cli/ok? true :kotoba.cli/code :compile/ran
                    :kotoba.cli/data (assoc emitted
-                                           :runtime :kototama
+                                           :runtime runtime
                                            :result (:result report))}
                   {:kotoba.cli/ok? false :kotoba.cli/code :compile/run-failed
                    :kotoba.cli/message (:message report)
                    :kotoba.cli/data (assoc emitted
-                                           :runtime :kototama
+                                           :runtime runtime
                                            :error (:error report))})))))
         (catch Exception error
           {:kotoba.cli/ok? false :kotoba.cli/code :compile/failed
@@ -1995,15 +2039,76 @@
                                              {:kotoba.host/receipts (entries)}))}
                   (throw e))))))))))
 
-(defn wasm-run-result
-  "Safe-build entry point for `wasm run`. Same mandatory package-admission
-  gate as `wasm-emit-result` (see `admission-gated`) — `wasm run` actually
-  executes the compiled module against real host capabilities, so it is at
-  least as sensitive to unverified package inputs as `wasm emit`, and must
-  not be reachable without admission (F-001: previously `wasm run` did not
-  consult package admission at all, regardless of `--package-lock`)."
+(defn- wasm-artifact-path
+  "A positional `.wasm` path on `wasm run`, or nil.
+
+  `source-positionals` for `[\"wasm\" \"run\" \"file.wasm\"]` is
+  `[\"run\" \"file.wasm\"]`; we look for the binary, not the subcommand."
   [argv]
-  (admission-gated argv "--package-lock" :wasm/package-rejected wasm-run-result*))
+  (some (fn [token]
+          (when (and (string? token)
+                     (str/ends-with? token ".wasm"))
+            token))
+        (source-positionals argv)))
+
+(defn- kotoba-cap-wasm?
+  [^bytes wasm-bytes]
+  (str/includes? (String. wasm-bytes "ISO-8859-1") "kotoba:cap"))
+
+(defn- wasm-run-artifact-result
+  "Execute an already-emitted amu wasm32-kotoba-v1 binary on kototama.tender.
+
+  Package admission applies to compiling source, not to a prebuilt guest.
+  `--policy` is the amu allow-set (`{:allow #{[:cap/call 7]}}`), same as
+  `compile --run`. Other `.wasm` (actor:host / kgraph) is refused rather
+  than silently linked through wasm-exec."
+  [argv]
+  (let [path (wasm-artifact-path argv)
+        policy-result (compile-policy-result argv)
+        policy (:kotoba.policy/data policy-result)
+        file (io/file path)]
+    (cond
+      (not (:kotoba.policy/ok? policy-result))
+      {:kotoba.cli/ok? false :kotoba.cli/code :wasm/policy-not-readable
+       :kotoba.cli/data policy-result}
+
+      (seq (compile-run-unsupported-ids policy))
+      {:kotoba.cli/ok? false :kotoba.cli/code :wasm/run-unsupported-capability
+       :kotoba.cli/data {:unsupported (compile-run-unsupported-ids policy)
+                         :hosted compile-run-cap-id->grant}}
+
+      (not (.isFile file))
+      {:kotoba.cli/ok? false :kotoba.cli/code :wasm/source-not-readable
+       :kotoba.cli/data {:path path}}
+
+      :else
+      (let [wasm-bytes (with-open [in (FileInputStream. file)]
+                         (.readAllBytes in))]
+        (if-not (kotoba-cap-wasm? wasm-bytes)
+          {:kotoba.cli/ok? false
+           :kotoba.cli/code :wasm/run-requires-kotoba-cap
+           :kotoba.cli/message "wasm run of a .wasm file hosts kotoba:cap guests only; source .kotoba still uses wasm-exec"
+           :kotoba.cli/data {:path path}}
+          (let [report (compile-run-wasm wasm-bytes policy)]
+            (if (:ok? report)
+              {:kotoba.cli/ok? true :kotoba.cli/code :wasm/run-completed
+               :kotoba.cli/data {:runtime :kototama
+                                 :path path
+                                 :kotoba.wasm/value (:result report)}}
+              {:kotoba.cli/ok? false :kotoba.cli/code :wasm/run-failed
+               :kotoba.cli/message (:message report)
+               :kotoba.cli/data {:runtime :kototama
+                                 :path path
+                                 :error (:error report)}})))))))
+
+(defn wasm-run-result
+  "Safe-build entry point for `wasm run`. Source `.kotoba` keeps the
+  mandatory package-admission gate (F-001). A positional `.wasm` artifact
+  whose bytes import `kotoba:cap` runs on kototama.tender instead."
+  [argv]
+  (if (wasm-artifact-path argv)
+    (wasm-run-artifact-result argv)
+    (admission-gated argv "--package-lock" :wasm/package-rejected wasm-run-result*)))
 
 (defn wasm-result
   "Handle launcher-owned Wasm-facing commands."

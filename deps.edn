@@ -34,6 +34,12 @@
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
          :git/sha "41f36ba765bf11bf708ee85286532f89a936d53d"}
+        ;; Direct pin so amu's transitive kotoba-script (ee6a1b7a) cannot keep
+        ;; typed-cap-call as an unsupported KIR op on js-kotoba-v1. d4b34e79
+        ;; hosts i64 typed-cap-call as callCapability (clock/now).
+        io.github.kotoba-lang/kotoba-script
+        {:git/url "https://github.com/kotoba-lang/kotoba-script.git"
+         :git/sha "d4b34e7920985b663efff104892b15fd91eaa306"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
