@@ -247,6 +247,8 @@ Commands this repo's launcher currently wires up:
 kotoba check --kind cli-contract --json     # validate the CLI/package/lock contract
 kotoba run path/to/entry.kotoba             # compile and run a Kotoba entry point
 kotoba compile app.kotoba --target web -o app.mjs # checked KIR → kotoba-script
+kotoba compile app.kotoba --target web --run      # Node instantiateKotoba (js-kotoba-v1); cap 7 hosted
+kotoba compile app.kotoba --target wasm --run     # kototama.tender for kotoba:cap guests
 kotoba compile --project kotoba-project.edn --target web -o app.mjs # closed multi-module build
 kotoba run path/to/entry.cljk                # CLJ Kotoba source
 kotoba package verify --lock lock.edn --trust trust.edn --json   # package admission gate
@@ -255,7 +257,8 @@ kotoba package verify --lock lock.edn --trust trust.edn \
 kotoba package resolve --registry-cid bafkrei... --requests requests.edn \
   --trust trust.edn --lock-output kotoba.lock.edn # CID-verified network registry → admitted lock
 kotoba wasm emit cell.kotoba --policy policy.edn --package-lock lock.edn -o cell.wasm  # capability-confined build, see Language below
-kotoba wasm run cell.kotoba --policy policy.edn --package-lock lock.edn                # check + emit + execute
+kotoba wasm run cell.kotoba --policy policy.edn --package-lock lock.edn                # source: admission + wasm-exec
+kotoba wasm run cell.wasm                                                              # kotoba:cap artifact: tender; else refused
 kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs                      # ClojureScript source, see Language below
 kotoba codebase init --store dir                                       # content-addressed codebase store
 kotoba codebase add scratch.kotoba --store dir --namespace ns          # compile a scratch buffer in, propagating to dependents
@@ -464,7 +467,13 @@ not define new command shape or language semantics of its own.
   semantics of their own.
 - **Compilation targets include WebAssembly, native machine code, and restricted
   Web/JavaScript.** The portable application surface includes
-  `kotoba compile --target web|wasm` and `kotoba wasm ...`;
+  `kotoba compile --target web|wasm` and `kotoba wasm ...`.
+  `compile --target web --run` instantiates js-kotoba-v1 via Node
+  `instantiateKotoba` (capability 7 / clock hosted; other kit ids refused).
+  `compile --target wasm --run` and `wasm run <file.wasm>` of a `kotoba:cap`
+  guest use kototama.tender. Source `.kotoba` `wasm run` stays on
+  `wasm-exec`. Kit `:wasm-aot` stays pending. The launcher is still JVM
+  (`kbb` does not exist).
   `kotoba -e '(+ 1 2)'` is compile-and-run
   sugar (wraps the expression as an exported `main`, compiles Kotoba → core
   Wasm, runs it) — not a runtime `eval`. Amu additionally emits sealed KEXE
@@ -575,7 +584,8 @@ an embedded interpreter.
 > :limits …}` policy EDN shape) documents the removed Rust `crates/kotoba-clj`
 > implementation (`604896171b`, 2026-07-01) as a design record — none of
 > those subcommands are wired up in this repo's current launcher. The live
-> CLI surface is `kotoba wasm emit` / `kotoba wasm run` (see
+> CLI surface is `kotoba compile --target web|wasm` (including `--run`)
+> and `kotoba wasm emit` / `kotoba wasm run` (see
 > [Quick start](#quick-start) above), and the live capability-policy EDN
 > shape is `{:kotoba.policy/capabilities #{…}}` (e.g.
 > [`src/demo_kgraph_policy.edn`](src/demo_kgraph_policy.edn)), not the
