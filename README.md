@@ -432,11 +432,12 @@ indexes every real program built with `.kotoba` so far — the mesh apps, the
 and kototama-hosted tools, and the kami-lineage games — with the host that
 executes each one.
 
-`db` / `git` / `rad` / `deploy` / `hinshitsu` are declared in the same
-contract for the distributed-graph, git-adapter, RAD sovereign-repo, and
-deploy/quality-gate surfaces; consult `lang/cli.edn` for their current tier
-and option shape rather than this README, since the contract is the
-versioned source of truth and this file is not.
+`db` / `git` / `rad` / `deploy` are host adapters over the same CLI contract.
+`git` and `rad` shell or re-dispatch; `db` runs Datomic-shaped
+connect/query/transact/pull/status on the language EAVT store (`kgraph`);
+`deploy` plans and applies a package receipt to a named target (default
+`--dry-run`). `hinshitsu` is still a planned contract surface. Consult
+`lang/cli.edn` for option shape.
 
 ## Language — kotoba-lang & kotoba wasm
 

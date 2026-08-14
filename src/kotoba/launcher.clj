@@ -16,6 +16,8 @@
             [kotoba.lang.capability-cacao :as capability-cacao]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.cli :as cli]
+            [kotoba.db-adapter :as db-adapter]
+            [kotoba.deploy-adapter :as deploy-adapter]
             [kotoba.git-adapter :as git-adapter]
             [kotoba.host-providers :as host-providers]
             [kotoba.rad-adapter :as rad-adapter]
@@ -240,14 +242,61 @@
     (-dispatch [_ argv]
       (dispatch argv))))
 
+(defonce db-mem
+  (atom {}))
+
+(defn db-host-port
+  "JVM host capabilities for the db adapter: mem atoms plus EDN files."
+  []
+  (reify db-adapter/IDbHost
+    (-load [_ handle]
+      (case (:scheme handle)
+        :mem (get @db-mem (:alias handle))
+        :file (let [f (io/file (:path handle))]
+                (when (.exists f)
+                  (edn/read-string (slurp f))))))
+    (-save [_ handle store]
+      (case (:scheme handle)
+        :mem (do (swap! db-mem assoc (:alias handle) store) store)
+        :file (let [f (io/file (:path handle))]
+                (some-> (.getParentFile f) .mkdirs)
+                (spit f (pr-str store))
+                store)))
+    (-read-text [_ path]
+      (let [f (io/file path)]
+        (when (.exists f)
+          (slurp f))))))
+
+(defn deploy-host-port
+  "JVM host capabilities for the deploy adapter: filesystem read/write."
+  []
+  (reify deploy-adapter/IDeployHost
+    (-read-file [_ path]
+      (let [f (io/file path)]
+        (when (.exists f)
+          (slurp f))))
+    (-write-file [_ path content]
+      (let [f (io/file path)]
+        (some-> (.getParentFile f) .mkdirs)
+        (spit f content)))
+    (-mkdirs [_ path]
+      (.mkdirs (io/file path)))
+    (-list [_ path]
+      (let [f (io/file path)]
+        (if (.isDirectory f)
+          (mapv #(.getName %) (.listFiles f))
+          [])))))
+
 (defn adapter-result
-  "Execute host-adapter-backed commands (:git, :rad) from their CLJC-planned
-  result. Non-adapter commands pass through unchanged."
+  "Execute host-adapter-backed commands from their CLJC-planned result.
+  Non-adapter commands pass through unchanged."
   [command result]
   (if (= :command/planned (:kotoba.cli/code result))
     (case command
       "git" (git-adapter/execute! (shell-process-port) result)
       "rad" (rad-adapter/execute! (rad-host-port) result)
+      "db" (db-adapter/execute! (db-host-port) result)
+      "deploy" (deploy-adapter/execute! (deploy-host-port) result)
       result)
     result))
 
