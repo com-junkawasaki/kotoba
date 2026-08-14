@@ -10,22 +10,32 @@
            [java.nio.file.attribute FileAttribute]))
 
 (defn- fake-host
-  "Recording deploy host over an atom of path → content."
-  [files calls]
-  (reify deploy-adapter/IDeployHost
-    (-read-file [_ path]
-      (swap! calls conj [:read path])
-      (get @files path))
-    (-write-file [_ path content]
-      (swap! calls conj [:write path])
-      (swap! files assoc path content))
-    (-mkdirs [_ path]
-      (swap! calls conj [:mkdirs path]))
-    (-list [_ path]
-      (swap! calls conj [:list path])
-      (->> (keys @files)
-           (filter #(str/starts-with? % (str path "/")))
-           (mapv #(subs % (inc (count path))))))))
+  "Recording deploy host over an atom of path → content.
+  Optional :env map and :run fn (argv dir → {:exit :out :err})."
+  ([files calls] (fake-host files calls {}))
+  ([files calls {:keys [env run]}]
+   (reify deploy-adapter/IDeployHost
+     (-read-file [_ path]
+       (swap! calls conj [:read path])
+       (get @files path))
+     (-write-file [_ path content]
+       (swap! calls conj [:write path])
+       (swap! files assoc path content))
+     (-mkdirs [_ path]
+       (swap! calls conj [:mkdirs path]))
+     (-list [_ path]
+       (swap! calls conj [:list path])
+       (->> (keys @files)
+            (filter #(str/starts-with? % (str path "/")))
+            (mapv #(subs % (inc (count path))))))
+     (-env [_ name]
+       (swap! calls conj [:env name])
+       (get env name))
+     (-run [_ argv dir]
+       (swap! calls conj [:run argv dir])
+       (if run
+         (run argv dir)
+         {:exit 0 :out "" :err ""})))))
 
 (defn- planned [argv-tail]
   {:kotoba.cli/ok? true
@@ -109,6 +119,100 @@
     (is (= :deploy/rolled-back (:kotoba.cli/code rolled)))
     (is (= "r1" (get-in rolled [:kotoba.cli/data :receipt :kotoba.deploy/revision])))))
 
+(deftest parse-target-classifies-local-and-reside
+  (is (= :local (:substrate (deploy-adapter/parse-target "pkg.edn" "dev"))))
+  (is (= "./.kotoba/deploy/dev"
+         (:target-dir (deploy-adapter/parse-target "pkg.edn" "dev"))))
+  (is (= "/t/env" (:target-dir (deploy-adapter/parse-target "pkg.edn" "/t/env"))))
+  (is (= "/abs" (:target-dir (deploy-adapter/parse-target "pkg.edn" "file:/abs"))))
+  (let [r (deploy-adapter/parse-target "pkg.edn" "murakumo:asher")]
+    (is (= :reside (:substrate r)))
+    (is (= "murakumo" (:control-plane r)))
+    (is (= "asher" (:node r)))
+    (is (= "./.kotoba/deploy/murakumo/asher" (:target-dir r))))
+  (let [r (deploy-adapter/parse-target "pkg.edn" "fleet")]
+    (is (= :reside (:substrate r)))
+    (is (nil? (:node r)))
+    (is (= "./.kotoba/deploy/fleet/default" (:target-dir r))))
+  (is (= :deploy/unknown-target-scheme
+         (:error (deploy-adapter/parse-target "pkg.edn" "https://deno.com")))))
+
+(deftest reside-argv-omits-node-when-unspecified
+  (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn"]
+         (deploy-adapter/reside-argv "app.edn" nil)))
+  (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
+         (deploy-adapter/reside-argv "app.edn" "asher"))))
+
+(deftest plan-reside-includes-invoke-without-running
+  (let [p (deploy-adapter/plan {:positionals ["apply"]
+                                :options {:manifest "app.edn"
+                                          :target "murakumo:asher"}})]
+    (is (= :reside (:substrate p)))
+    (is (= "asher" (:node p)))
+    (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
+           (get-in p [:invoke :argv])))
+    (is (= "MURAKUMO_ROOT" (get-in p [:invoke :dir-env])))
+    (is (true? (:dry-run? p)))))
+
+(deftest execute-reside-dry-run-does-not-shell
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls)
+                (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"]))]
+    (is (= :deploy/planned (:kotoba.cli/code result)))
+    (is (= :reside (get-in result [:kotoba.cli/data :substrate])))
+    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-reside-apply-fails-closed-without-murakumo-root
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls)
+                (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"
+                          "--dry-run" "false"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/missing-control-plane (:kotoba.cli/code result)))
+    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-reside-apply-shells-murakumo-and-writes-receipt
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls {:env {"MURAKUMO_ROOT" "/murakumo"}})
+                (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"
+                          "--dry-run" "false"]))]
+    (is (= :deploy/executed (:kotoba.cli/code result)))
+    (is (= :reside (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/substrate])))
+    (is (= "asher" (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/node])))
+    (is (some #{[:run ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
+                 "/murakumo"]}
+              @calls))
+    (is (some #(= :write (first %)) @calls))))
+
+(deftest execute-reside-apply-does-not-write-on-nonzero-exit
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls {:env {"MURAKUMO_ROOT" "/murakumo"}
+                                        :run (fn [_ _] {:exit 2 :out "" :err "no seed"})})
+                (planned ["apply" "--manifest" "app.edn" "--target" "fleet:judah"
+                          "--dry-run" "false"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/reside-failed (:kotoba.cli/code result)))
+    (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-reside-rollback-is-unsupported
+  (let [files (atom {"app.edn" sample-manifest})
+        result (deploy-adapter/execute!
+                (fake-host files (atom []))
+                (planned ["rollback" "--manifest" "app.edn" "--target" "murakumo:asher"
+                          "--dry-run" "false"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/reside-rollback-unsupported (:kotoba.cli/code result)))))
+
 (deftest launcher-executes-deploy-lifecycle-end-to-end
   (let [dir (str (Files/createTempDirectory "kotoba-deploy-adapter" (make-array FileAttribute 0)))
         manifest (io/file dir "package.edn")
@@ -127,4 +231,11 @@
       (is (= :deploy/status (:kotoba.cli/code status)))
       (is (.exists (io/file target "current.edn")))
       (is (= "demo-app"
-             (:kotoba.deploy/package-name (edn/read-string (slurp (io/file target "current.edn")))))))))
+             (:kotoba.deploy/package-name (edn/read-string (slurp (io/file target "current.edn"))))))
+      (let [reside (launcher/dispatch ["deploy" "plan" "--manifest" (.getPath manifest)
+                                       "--target" "murakumo:asher"])]
+        (is (= :deploy/planned (:kotoba.cli/code reside)))
+        (is (= :reside (get-in reside [:kotoba.cli/data :substrate])))
+        (is (= "asher" (get-in reside [:kotoba.cli/data :node])))
+        (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" (.getPath manifest) "asher"]
+               (get-in reside [:kotoba.cli/data :invoke :argv])))))))

@@ -268,7 +268,8 @@
           (slurp f))))))
 
 (defn deploy-host-port
-  "JVM host capabilities for the deploy adapter: filesystem read/write."
+  "JVM host capabilities for the deploy adapter: filesystem, env, process.
+  Reside apply shells murakumo.core in $MURAKUMO_ROOT; local apply writes receipts."
   []
   (reify deploy-adapter/IDeployHost
     (-read-file [_ path]
@@ -285,7 +286,13 @@
       (let [f (io/file path)]
         (if (.isDirectory f)
           (mapv #(.getName %) (.listFiles f))
-          [])))))
+          [])))
+    (-env [_ name]
+      (System/getenv name))
+    (-run [_ argv dir]
+      (if (and (string? dir) (not (str/blank? dir)))
+        (apply shell/sh (concat argv [:dir dir]))
+        (apply shell/sh argv)))))
 
 (defn adapter-result
   "Execute host-adapter-backed commands from their CLJC-planned result.
