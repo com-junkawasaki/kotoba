@@ -2,6 +2,8 @@
   (:require [clojure.data.json :as json]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests testing]]
             [kotoba.launcher :as launcher]
             [kotoba.runtime :as runtime]))
@@ -1296,6 +1298,31 @@
                                        "--output" (.getPath output)])]
         (is (not (:kotoba.cli/ok? result)))
         (is (re-find #"policy denies" (str (:kotoba.cli/message result))))))))
+
+(deftest compile-clock-now-wasm-imports-kotoba-cap-and-validates
+  ;; Public CLI must consume the amu pin that weaves i64 typed-cap-call as
+  ;; kotoba:cap/call (41f36ba7 → kotoba-wasm aac02618). The old pin emitted
+  ;; an ill-typed kotoba:typed/cap-call that wasm-tools rejected.
+  (let [source (doto (java.io.File/createTempFile "kotoba-clock" ".kotoba")
+                 (.deleteOnExit))
+        policy (doto (java.io.File/createTempFile "kotoba-clock" ".edn")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-clock" ".wasm")
+                 (.deleteOnExit))]
+    (spit source (str "(ns t (:export [main]) (:capabilities #{:clock/now}))\n"
+                      "(defn main [] (clock/now 0))\n"))
+    (spit policy (pr-str {:allow #{[:cap/call 7]}}))
+    (let [result (launcher/dispatch ["compile" (.getPath source) "--target" "wasm"
+                                     "--policy" (.getPath policy)
+                                     "--output" (.getPath output)])
+          text (slurp output :encoding "ISO-8859-1")
+          validated (shell/sh "wasm-tools" "validate" (.getPath output))]
+      (is (:kotoba.cli/ok? result) (:kotoba.cli/message result))
+      (is (= :compile/emitted (:kotoba.cli/code result)))
+      (is (= :kotoba-wasm (get-in result [:kotoba.cli/data :backend])))
+      (is (str/includes? text (str "kotoba:cap" (char 4) "call")))
+      (is (not (str/includes? text (str "kotoba:typed" (char 8) "cap-call"))))
+      (is (zero? (:exit validated)) (:err validated)))))
 
 (deftest compile-rejects-an-unreadable-or-malformed-policy
   (let [source (doto (java.io.File/createTempFile "kotoba-policy-bad" ".kotoba")
