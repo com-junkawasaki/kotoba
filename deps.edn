@@ -33,7 +33,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "b21844db7be6886e4522cb5605a750db5395b5b7"}
+         :git/sha "41f36ba765bf11bf708ee85286532f89a936d53d"}
         ;; real git pins — the old :local/root ../../kotoba-lang/* paths (and the
         ;; bare kotoba-lang/ groups on the two contracts repos) resolved only
         ;; inside the west monorepo layout; a fresh standalone clone could not
