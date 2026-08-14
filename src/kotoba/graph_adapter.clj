@@ -1,15 +1,17 @@
-(ns kotoba.db-adapter
-  "Host adapter for the :db CLI command.
+(ns kotoba.graph-adapter
+  "Host adapter for the :graph CLI command.
 
   The command shape is owned by kotoba-lang/kotoba-lang (`lang/cli.edn` +
   `kotoba.cli/dispatch`). This namespace consumes the `:command/planned`
-  result for `db` and runs Datomic-shaped operations (connect / query /
+  result for `graph` and runs Datomic-shaped operations (connect / query /
   transact / pull / status) over the language's in-memory EAVT store
   (`kotoba.kgraph` + `datom.core`).
 
-  Persistent kotobase is a separate database product and must not become a
-  kotoba dependency (ADR-2607032500: kotobase → kotoba only). `--db` is a
-  handle, not a vendor URI:
+  The public name is `graph`, not `db` or `datomic`: kotoba is the language
+  and kgraph is its graph store. Persistent kotobase occupies the Datomic
+  slot in the analogy and must not become a kotoba dependency
+  (ADR-2607032500: kotobase → kotoba only). `--graph` is a handle, not a
+  vendor URI (`--db` remains a compatibility alias):
 
   - `mem:<alias>`  host-held atom
   - `file:<path>`  EDN datom log on disk
@@ -23,8 +25,8 @@
             [datom.core :as dc]
             [kotoba.kgraph :as kgraph]))
 
-(defprotocol IDbHost
-  "Host-supplied db capabilities.
+(defprotocol IGraphHost
+  "Host-supplied graph-store capabilities.
 
   `-load` / `-save` take a handle map `{:scheme :mem|:file ...}`.
   `-read-text` reads a filesystem path as a string, or nil if absent."
@@ -38,7 +40,7 @@
   {:datoms [] :tx-count 0 :basis 0})
 
 (defn request-operation
-  "Resolve the db operation from a parsed CLI request: the first positional
+  "Resolve the graph operation from a parsed CLI request: the first positional
   subcommand wins, then the --op option."
   [request]
   (let [raw (or (first (:positionals request))
@@ -51,16 +53,16 @@
       (get-in request [:options :f])))
 
 (defn parse-handle
-  "Parse `--db` into {:scheme :mem|:file :alias string :path string}."
+  "Parse `--graph` (or `--db`) into {:scheme :mem|:file :alias string :path string}."
   [s]
   (cond
     (or (nil? s) (and (string? s) (str/blank? s)))
-    {:error :db/missing-handle}
+    {:error :graph/missing-handle}
 
     (and (string? s) (str/starts-with? s "mem:"))
     (let [alias (subs s 4)]
       (if (str/blank? alias)
-        {:error :db/missing-handle :scheme :mem}
+        {:error :graph/missing-handle :scheme :mem}
         {:scheme :mem :alias alias}))
 
     (and (string? s) (str/starts-with? s "file:"))
@@ -70,10 +72,11 @@
     {:scheme :file :path s}
 
     :else
-    {:error :db/missing-handle :value s}))
+    {:error :graph/missing-handle :value s}))
 
 (defn request-handle [request]
-  (parse-handle (get-in request [:options :db])))
+  (parse-handle (or (get-in request [:options :graph])
+                    (get-in request [:options :db]))))
 
 (defn parse-edn-value
   "Read one CLI/file EDN string. nil when blank."
@@ -92,7 +95,7 @@
          vec)))
 
 (defn plan
-  "Pure plan: validate a parsed :db request. Returns {:operation :handle ...}
+  "Pure plan: validate a parsed :graph request. Returns {:operation :handle ...}
   or {:error ...}."
   [request]
   (let [op (request-operation request)
@@ -100,11 +103,11 @@
         file (request-file request)]
     (cond
       (nil? op)
-      {:error :db/missing-operation
+      {:error :graph/missing-operation
        :expected (sort operations)}
 
       (not (operations op))
-      {:error :db/unknown-operation
+      {:error :graph/unknown-operation
        :operation op
        :expected (sort operations)}
 
@@ -112,7 +115,7 @@
       (assoc handle :operation op)
 
       (and (#{:query :transact} op) (str/blank? (str file)))
-      {:error :db/missing-file
+      {:error :graph/missing-file
        :operation op
        :expected "-f/--file"}
 
@@ -209,54 +212,54 @@
 (defn- read-edn-file [host path]
   (let [text (-read-text host path)]
     (if (nil? text)
-      {:error :db/missing-input :path path}
+      {:error :graph/missing-input :path path}
       (try
         {:value (edn/read-string text)}
         (catch Exception e
-          {:error :db/bad-edn
+          {:error :graph/bad-edn
            :path path
            :message (ex-message e)})))))
 
 (defn execute!
-  "Execute a `:command/planned` result for :db through the injected host
+  "Execute a `:command/planned` result for :graph through the injected host
   port. Returns a kotoba.cli-shaped result map."
   [host planned-result]
   (let [request (get-in planned-result [:kotoba.cli/data :request])
         planned (plan request)]
     (if (:error planned)
       (fail (:error planned)
-            "db adapter could not plan the request"
+            "graph adapter could not plan the request"
             (assoc (dissoc planned :error) :request request))
       (let [{:keys [operation handle file params]} planned
             store (load-or-empty host handle)]
         (case operation
           :connect
           (do (-save host handle store)
-              (ok :db/connected (store-status store handle)))
+              (ok :graph/connected (store-status store handle)))
 
           :status
-          (ok :db/status (store-status store handle))
+          (ok :graph/status (store-status store handle))
 
           :transact
           (let [parsed (read-edn-file host file)]
             (if (:error parsed)
-              (fail (:error parsed) "db transact could not read tx data" parsed)
+              (fail (:error parsed) "graph transact could not read tx data" parsed)
               (let [applied (apply-tx store (:value parsed))]
                 (if (:error applied)
-                  (fail (:error applied) "db transact rejected tx data"
+                  (fail (:error applied) "graph transact rejected tx data"
                         (assoc planned :tx (:value parsed)))
                   (do (-save host handle (:store applied))
-                      (ok :db/transacted
+                      (ok :graph/transacted
                           (merge (store-status (:store applied) handle)
                                  {:added (:added applied)})))))))
 
           :query
           (let [parsed (read-edn-file host file)]
             (if (:error parsed)
-              (fail (:error parsed) "db query could not read query data" parsed)
+              (fail (:error parsed) "graph query could not read query data" parsed)
               (let [query (substitute-params (:value parsed) params)
                     rows (kgraph/query (:datoms store) query)]
-                (ok :db/queried
+                (ok :graph/queried
                     (merge (store-status store handle)
                            {:query query :result rows})))))
 
@@ -272,12 +275,12 @@
                                   (:error parsed) parsed
                                   :else (entity-arg (:value parsed)))))]
             (if (and (map? entity-id) (:error entity-id))
-              (fail (:error entity-id) "db pull could not read entity" entity-id)
+              (fail (:error entity-id) "graph pull could not read entity" entity-id)
               (if (nil? entity-id)
-                (fail :db/missing-entity
-                      "db pull needs --param <entity> or -f with an entity id"
+                (fail :graph/missing-entity
+                      "graph pull needs --param <entity> or -f with an entity id"
                       planned)
-                (ok :db/pulled
+                (ok :graph/pulled
                     (merge (store-status store handle)
                            {:entity entity-id
                             :result (pull-entity (:datoms store) entity-id)}))))))))))

@@ -432,8 +432,8 @@ indexes every real program built with `.kotoba` so far — the mesh apps, the
 and kototama-hosted tools, and the kami-lineage games — with the host that
 executes each one.
 
-`db` / `git` / `rad` / `deploy` are host adapters over the same CLI contract.
-`git` and `rad` shell or re-dispatch; `db` runs Datomic-shaped
+`graph` / `git` / `rad` / `deploy` are host adapters over the same CLI contract.
+`git` and `rad` shell or re-dispatch; `graph` runs Datomic-shaped
 connect/query/transact/pull/status on the language EAVT store (`kgraph`);
 `deploy` plans and applies a package receipt to a named target (default
 `--dry-run`). `hinshitsu` is still a planned contract surface. Consult
@@ -782,7 +782,8 @@ subdirectories:
 
 In this repo, `src/kotoba/` holds the host implementation. Core: `launcher.clj`
 (dispatch), `wasm_exec.clj` (Wasm execution via Chicory), `git_adapter.cljc` /
-`rad_adapter.cljc` (git and RAD sovereign-repo adapters), `kgraph.clj`,
+`rad_adapter.cljc` (git and RAD sovereign-repo adapters), `graph_adapter.clj`
+(kgraph CLI), `kgraph.clj`,
 `host_providers.clj`, `package_admission.clj`, `cap_table.clj`, `runtime.clj`,
 `did_adapter.cljc`, `mesh_node.clj`, `kami_host.cljc`, `sensing_host.cljc`,
 `kagi_boundary.cljc`, `guest_grammar.clj`. Security/assurance ("Grade A")
