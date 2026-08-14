@@ -3,17 +3,26 @@
 
   The command shape is owned by kotoba-lang/kotoba-lang (`lang/cli.edn` +
   `kotoba.cli/dispatch`). This namespace consumes the `:command/planned`
-  result for `deploy` and materializes package desired-state against a named
-  target — Deno-like `deploy` for Kotoba package data.
+  result for `deploy` and materializes package desired-state against a
+  target.
 
-  Remote fleet placement stays murakumo's (ADR-repository-boundaries). This
-  adapter writes a local receipt so the CLI command is real, not a plan
-  token. `--dry-run` defaults to true, matching the contract.
+  Destinations (ADR-2607022300):
 
-  Target `dev` → `<manifest-dir>/.kotoba/deploy/dev/`. An absolute path or
-  `file:` URI is used as-is.
+  * **local receipt** — named target (`dev`), absolute path, or `file:` URI.
+    Writes `current.edn` / `previous.edn`. This is package desired-state on
+    disk, not a compute host.
+  * **murakumo reside** — `--target murakumo`, `murakumo:<node>`, `fleet`,
+    or `fleet:<node>`. Compute lives on the murakumo Mac mini fleet. kotoba
+    does not take a murakumo library dependency; apply shells
+    `clojure -M -m murakumo.core deploy <manifest> [node]` in `$MURAKUMO_ROOT`.
+    Omitting `<node>` leaves murakumo's own default (canary `asher`).
+  * **not** Deno Deploy, Cloudflare Workers, or aozora. Those are other
+    substrates (net-kotobase owns Kotobase CF Workers; aozora is identify).
 
-  Planning is pure; filesystem and launcher dispatch happen only through an
+  `--dry-run` defaults to true. Reside rollback is fail-closed: murakumo
+  has no rollback command.
+
+  Planning is pure; filesystem, env, and process happen only through an
   injected host port."
   (:require [clojure.string :as str]
             #?(:clj [clojure.edn :as edn])))
@@ -23,9 +32,13 @@
   (-read-file [this path])
   (-write-file [this path content])
   (-mkdirs [this path])
-  (-list [this path]))
+  (-list [this path])
+  (-env [this name])
+  (-run [this argv dir]))
 
 (def operations #{:plan :apply :status :rollback})
+
+(def murakumo-root-env "MURAKUMO_ROOT")
 
 (defn request-operation
   "Resolve the deploy operation: positional subcommand, then --op, then :plan."
@@ -66,18 +79,58 @@
       "."
       (subs path 0 idx))))
 
+(defn reside-argv
+  "Argv for murakumo's JVM control plane. Node omitted ⇒ murakumo default."
+  [manifest node]
+  (cond-> ["clojure" "-M" "-m" "murakumo.core" "deploy" manifest]
+    (and (string? node) (not (str/blank? node))) (conj node)))
+
+(defn parse-target
+  "Classify `--target` into a local receipt dir or a murakumo reside target.
+  Unknown URI schemes fail closed rather than becoming a local directory name."
+  [manifest-path target]
+  (let [t (str/trim (str target))]
+    (cond
+      (str/blank? t)
+      {:error :deploy/missing-target}
+
+      (or (= t "murakumo") (str/starts-with? t "murakumo:")
+          (= t "fleet") (str/starts-with? t "fleet:"))
+      (let [colon (str/index-of t ":")
+            node (when colon
+                   (let [n (str/trim (subs t (inc colon)))]
+                     (when-not (str/blank? n) n)))
+            scheme (if (str/starts-with? t "fleet") "fleet" "murakumo")]
+        {:substrate :reside
+         :control-plane "murakumo"
+         :scheme scheme
+         :node node
+         :target-dir (str (parent-dir manifest-path)
+                          "/.kotoba/deploy/" scheme "/" (or node "default"))})
+
+      (str/starts-with? t "file:")
+      (let [path (subs t 5)]
+        (if (str/blank? path)
+          {:error :deploy/bad-file-target :target t}
+          {:substrate :local :scheme "file" :target-dir path}))
+
+      (str/starts-with? t "/")
+      {:substrate :local :scheme "path" :target-dir t}
+
+      (str/includes? t ":")
+      {:error :deploy/unknown-target-scheme
+       :target t
+       :expected ["dev" "file:/path" "/abs" "murakumo" "murakumo:<node>" "fleet:<node>"]}
+
+      :else
+      {:substrate :local
+       :scheme "name"
+       :target-dir (str (parent-dir manifest-path) "/.kotoba/deploy/" t)})))
+
 (defn target-dir
   "Directory that holds current.edn / previous.edn for this target."
   [manifest-path target]
-  (cond
-    (str/starts-with? (str target) "file:")
-    (subs target 5)
-
-    (str/starts-with? (str target) "/")
-    target
-
-    :else
-    (str (parent-dir manifest-path) "/.kotoba/deploy/" target)))
+  (:target-dir (parse-target manifest-path target)))
 
 (defn current-path [dir] (str dir "/current.edn"))
 (defn previous-path [dir] (str dir "/previous.edn"))
@@ -102,24 +155,38 @@
        :expected "--target"}
 
       :else
-      {:operation op
-       :manifest-path manifest
-       :target target
-       :target-dir (target-dir manifest target)
-       :revision (request-revision request)
-       :dry-run? (if (= op :plan) true dry-run?)})))
+      (let [parsed (parse-target manifest target)]
+        (if (:error parsed)
+          parsed
+          (let [base {:operation op
+                      :manifest-path manifest
+                      :target target
+                      :target-dir (:target-dir parsed)
+                      :substrate (:substrate parsed)
+                      :scheme (:scheme parsed)
+                      :revision (request-revision request)
+                      :dry-run? (if (= op :plan) true dry-run?)}]
+            (if (= :reside (:substrate parsed))
+              (assoc base
+                     :control-plane (:control-plane parsed)
+                     :node (:node parsed)
+                     :invoke {:argv (reside-argv manifest (:node parsed))
+                              :dir-env murakumo-root-env})
+              base)))))))
 
 (defn receipt
   "Desired-state receipt from a package manifest."
-  [manifest target revision]
-  {:kotoba.deploy/target target
-   :kotoba.deploy/package-name (:kotoba.package/name manifest)
-   :kotoba.deploy/package-version (:kotoba.package/version manifest)
-   :kotoba.deploy/revision (or revision
-                               (get-in manifest [:kotoba.package/source :git-commit])
-                               (:kotoba.package/version manifest))
-   :kotoba.deploy/capabilities (:kotoba.package/capabilities manifest)
-   :kotoba.deploy/source (:kotoba.package/source manifest)})
+  [manifest target revision extra]
+  (merge
+   {:kotoba.deploy/target target
+    :kotoba.deploy/package-name (:kotoba.package/name manifest)
+    :kotoba.deploy/package-version (:kotoba.package/version manifest)
+    :kotoba.deploy/revision (or revision
+                                (get-in manifest [:kotoba.package/source :git-commit])
+                                (:kotoba.package/version manifest))
+    :kotoba.deploy/capabilities (:kotoba.package/capabilities manifest)
+    :kotoba.deploy/source (:kotoba.package/source manifest)}
+   extra))
 
 (defn- fail [code message data]
   {:kotoba.cli/ok? false
@@ -141,6 +208,46 @@
 (defn- write-edn [host path value]
   (-write-file host path (pr-str value)))
 
+(defn- receipt-extra [planned]
+  (cond-> {:kotoba.deploy/substrate (:substrate planned)}
+    (= :reside (:substrate planned))
+    (assoc :kotoba.deploy/control-plane (:control-plane planned)
+           :kotoba.deploy/node (:node planned))))
+
+(defn- write-receipt! [host planned next]
+  (-mkdirs host (:target-dir planned))
+  (when-let [cur (read-edn host (current-path (:target-dir planned)))]
+    (write-edn host (previous-path (:target-dir planned)) cur))
+  (write-edn host (current-path (:target-dir planned)) next))
+
+(defn- reside-apply!
+  [host planned next]
+  (let [root (-env host murakumo-root-env)
+        invoke (:invoke planned)]
+    (cond
+      (:dry-run? planned)
+      (ok :deploy/planned (assoc planned :receipt next))
+
+      (or (nil? root) (and (string? root) (str/blank? root)))
+      (fail :deploy/missing-control-plane
+            (str "reside apply needs $" murakumo-root-env
+                 " (kotoba-lang/murakumo checkout). Compute destination is the"
+                 " murakumo Mac mini fleet, not Deno Deploy or Cloudflare.")
+            (assoc planned :receipt next))
+
+      :else
+      (let [{:keys [exit out err]} (-run host (:argv invoke) root)]
+        (if (and (number? exit) (zero? exit))
+          (do
+            (write-receipt! host planned next)
+            (ok :deploy/executed
+                (assoc planned :receipt next
+                       :invoke-result {:exit exit :out (str out) :err (str err)})))
+          (fail :deploy/reside-failed
+                "murakumo reside command exited non-zero"
+                (assoc planned :receipt next
+                       :invoke-result {:exit exit :out (str out) :err (str err)})))))))
+
 (defn execute!
   "Execute a `:command/planned` result for :deploy through the injected host
   port. Returns a kotoba.cli-shaped result map."
@@ -151,8 +258,9 @@
       (fail (:error planned)
             "deploy adapter could not plan the request"
             (assoc (dissoc planned :error) :request request))
-      (let [{:keys [operation manifest-path target target-dir revision dry-run?]} planned
-            manifest (read-edn host manifest-path)]
+      (let [{:keys [operation manifest-path target target-dir revision dry-run? substrate]} planned
+            manifest (read-edn host manifest-path)
+            extra (receipt-extra planned)]
         (case operation
           :plan
           (if (nil? manifest)
@@ -160,7 +268,7 @@
                   "deploy plan could not read the package manifest"
                   (assoc planned :path manifest-path))
             (ok :deploy/planned
-                (assoc planned :receipt (receipt manifest target revision))))
+                (assoc planned :receipt (receipt manifest target revision extra))))
 
           :status
           (let [current (read-edn host (current-path target-dir))]
@@ -178,32 +286,38 @@
             (fail :deploy/missing-manifest
                   "deploy apply could not read the package manifest"
                   (assoc planned :path manifest-path))
-            (let [next (receipt manifest target revision)]
-              (if dry-run?
-                (ok :deploy/planned (assoc planned :receipt next))
-                (do
-                  (-mkdirs host target-dir)
-                  (when-let [cur (read-edn host (current-path target-dir))]
-                    (write-edn host (previous-path target-dir) cur))
-                  (write-edn host (current-path target-dir) next)
-                  (ok :deploy/executed (assoc planned :receipt next))))))
+            (let [next (receipt manifest target revision extra)]
+              (if (= :reside substrate)
+                (reside-apply! host planned next)
+                (if dry-run?
+                  (ok :deploy/planned (assoc planned :receipt next))
+                  (do
+                    (write-receipt! host planned next)
+                    (ok :deploy/executed (assoc planned :receipt next)))))))
 
           :rollback
-          (let [prev (read-edn host (previous-path target-dir))
-                cur (read-edn host (current-path target-dir))]
-            (cond
-              (nil? prev)
-              (fail :deploy/missing-previous
-                    "no previous deployment receipt to roll back to"
-                    planned)
+          (cond
+            (= :reside substrate)
+            (fail :deploy/reside-rollback-unsupported
+                  "murakumo reside has no rollback command; refuse rather than swap a local receipt and claim the fleet rolled back"
+                  planned)
 
-              dry-run?
-              (ok :deploy/planned (assoc planned :receipt prev :rolled-back-from cur))
+            :else
+            (let [prev (read-edn host (previous-path target-dir))
+                  cur (read-edn host (current-path target-dir))]
+              (cond
+                (nil? prev)
+                (fail :deploy/missing-previous
+                      "no previous deployment receipt to roll back to"
+                      planned)
 
-              :else
-              (do
-                (when cur
-                  (write-edn host (previous-path target-dir) cur))
-                (write-edn host (current-path target-dir) prev)
-                (ok :deploy/rolled-back
-                    (assoc planned :receipt prev :rolled-back-from cur))))))))))
+                dry-run?
+                (ok :deploy/planned (assoc planned :receipt prev :rolled-back-from cur))
+
+                :else
+                (do
+                  (when cur
+                    (write-edn host (previous-path target-dir) cur))
+                  (write-edn host (current-path target-dir) prev)
+                  (ok :deploy/rolled-back
+                      (assoc planned :receipt prev :rolled-back-from cur)))))))))))
