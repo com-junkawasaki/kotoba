@@ -12,7 +12,8 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.launcher :as launcher]
-            [kotoba.runtime :as runtime]))
+            [kotoba.runtime :as runtime]
+            [kotoba.wasm-exec :as wasm-exec]))
 
 (def ^:private safe-facts (launcher/safe-analyzer-fact-classification))
 
@@ -119,6 +120,96 @@
                      (problems-of (check-source write nil)
                                   :raw-memory-extent-violation)))))))
 
+(deftest cross-function-slice-contracts-preserve-caller-provenance
+  (let [safe "(ns buffer {:kotoba/raw-memory :checked-extents})
+              (defn ^:private read-at
+                [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+                (slice-byte-at ptr len index))
+              (defn main []
+                (let [buf (alloc 8)] (read-at buf 8 7)))"
+        forged "(ns buffer {:kotoba/raw-memory :checked-extents})
+                (defn ^:private read-at
+                  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+                  (slice-byte-at ptr len index))
+                (defn main [] (read-at 0 8 0))"
+        oversized "(ns buffer {:kotoba/raw-memory :checked-extents})
+                   (defn ^:private read-at
+                     [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+                     (slice-byte-at ptr len index))
+                   (defn main []
+                     (let [buf (alloc 4)] (read-at buf 8 0)))"
+        shadowed "(ns buffer {:kotoba/raw-memory :checked-extents})
+                  (defn ^:private read-at
+                    [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+                    (let [len 999] (slice-byte-at ptr len index)))
+                  (defn main []
+                    (let [buf (alloc 4)] (read-at buf 4 0)))"]
+    (is (empty? (problems-of (check-source safe nil)
+                             :raw-memory-extent-violation)))
+    (is (= #{:untracked-pointer}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source forged nil)
+                                  :raw-memory-extent-violation)))))
+    (is (= #{:slice-length-exceeds-allocation}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source oversized nil)
+                                  :raw-memory-extent-violation)))))
+    (is (= #{:slice-length-exceeds-allocation}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source shadowed nil)
+                                  :raw-memory-extent-violation))))
+        "shadowing the contracted length cannot retain its proof token")))
+
+(deftest writable-slice-contracts-require-owned-writable-memory
+  (let [source "(ns buffer {:kotoba/raw-memory :checked-extents})
+                (defn ^:private write-at
+                  [^{:kotoba/slice-len len :kotoba/slice-access :write} ptr len index]
+                  (slice-byte-store! ptr len index 9))
+                (defn main [] (write-at (str-ptr \"no\") 2 0))"]
+    (is (= #{:read-only-extent}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source source nil)
+                                  :raw-memory-extent-violation)))))))
+
+(deftest slice-contract-functions-cannot-be-external-or-indirect-entrypoints
+  (let [public-source
+        "(ns buffer {:kotoba/raw-memory :checked-extents})
+         (defn read-at
+           [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+           (slice-byte-at ptr len index))
+         (defn main [] 0)"
+        indirect-source
+        "(ns buffer {:kotoba/raw-memory :checked-extents})
+         (defn ^:private read-at
+           [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+           (slice-byte-at ptr len index))
+         (defn main [] (call-indirect 0 0))"]
+    (is (= #{:externally-callable-slice-contract}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source public-source nil)
+                                  :raw-memory-extent-violation)))))
+    (is (= #{:indirect-slice-contract}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source indirect-source nil)
+                                  :raw-memory-extent-violation)))))))
+
+(deftest dynamic-slice-index-is-checked-by-the-emitted-wasm
+  (let [source "(ns buffer {:kotoba/raw-memory :checked-extents})
+                (defn ^:private read-at
+                  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len index]
+                  (slice-byte-at ptr len index))
+                (defn run []
+                  (let [buf (alloc 4)] (read-at buf 4 4)))
+                (defn main [] 0)"
+        forms (runtime/read-forms source :kotoba)
+        wasm (runtime/wasm-binary forms nil)]
+    (is (:kotoba.wasm/ok? wasm))
+    (is (not-any? #{"read-at"} (:kotoba.wasm/exports wasm))
+        "a contracted helper is internal, so host calls cannot bypass admission")
+    (is (thrown? Exception
+                 (wasm-exec/run-export (:kotoba.wasm/binary wasm) "run" [] []))
+        "index == len traps before the load instead of reaching linear memory")))
+
 (deftest ordinary-string-code-is-unaffected
   (testing "string sugar lowers INTO the denied ops; gating the surface must
             not reject it"
@@ -191,5 +282,5 @@
     (is (empty? promotable)
         (str "broad raw-memory authority is unnecessary for these providers; "
              "migrate them to :checked-extents: " (pr-str promotable)))
-    (is (= 10 (count legacy-paths))
+    (is (= 9 (count legacy-paths))
         "the remaining broad-provider count is evidence, not prose drift")))

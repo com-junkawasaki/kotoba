@@ -4,7 +4,8 @@
  :adr/date "2026-08-15"
  :adr/observed-commit "662e98b8160224f3f2e6e93fc7ff89bd64de7b51"
  :adr/observed-change-sets [:increment-8-host-output-allocation-identity
-                            :increment-9-provider-checked-extent-ratchet]
+                            :increment-9-provider-checked-extent-ratchet
+                            :increment-10-cross-function-slice-contracts]
  :adr/markdown "ADR-kotoba-memory-safety-comparison.md"
  :adr/decision
  {:overall-rating :circle
@@ -80,7 +81,8 @@
   :compile-time-safety :partial
   :capability-confinement :very-strong-target}
  :adr/raw-memory
- {:denied-by-default [mem-byte-at mem-i32-at byte-store! i32-store!]
+ {:denied-by-default [mem-byte-at mem-i32-at byte-store! i32-store!
+                      slice-byte-at slice-byte-store!]
   :module-declaration :kotoba/raw-memory
  :policy-allow :kotoba.policy/allow-raw-memory
   :checked-profile :checked-extents
@@ -96,13 +98,18 @@
   {:id :legacy-wire-pointer-provenance
    :severity :medium
    :status :open
-   :remaining-broad-providers 10
-   :narrowed-provider-consumers 3
-   :detail "Ten helper-heavy wire providers pass pointer/length values across helpers beyond the lexical proof; three lexical consumers now require checked extents."}
+   :remaining-broad-providers 9
+   :narrowed-provider-consumers 4
+   :cross-function-slice-provider "providers/pg_pool_consumer.kotoba"
+   :detail "Nine helper-heavy wire providers still pass pointer/length values beyond the lexical proof. Three lexical consumers require checked extents, and the pool consumer now proves private cross-function slices at every direct caller and traps dynamic out-of-bounds access."}
   {:id :guest-reclamation
    :severity :medium
    :status :open
    :detail "The bump allocator does not reclaim individual objects; OOM and retention are resource-safety concerns."}
+  {:id :slice-contract-canonical-grammar-port
+   :severity :low
+   :status :open
+   :detail "The CLJ/Chicory runtime owns the initial slice-contract implementation and fail-closed raw-op union. The byte-identical kotoba-lang, kotoba-sema and grammar catalogs still need one coordinated authority/pin update before other compilers may claim this surface."}
   {:id :general-ownership-borrow-system
    :severity :informational
    :status :not-current-design
@@ -116,7 +123,8 @@
   {:path "test/kotoba/raw_memory_test.clj"
    :covers [:raw-deny :checked-extents :read-only-literals :policy-allow
             :policy-require-extents :policy-forbid :emitter-defense-in-depth
-            :provider-checked-extent-ratchet]}
+            :provider-checked-extent-ratchet :cross-function-slice-contracts
+            :caller-provenance :dynamic-slice-trap :private-helper-export-boundary]}
   {:path "test/kotoba/host_write_window_test.clj"
    :covers [:data-segment-refusal :negative-window-refusal
             :outside-linear-memory-refusal :capacity-check]}
@@ -129,11 +137,12 @@
   {:path "docs/lang/gates.md"
    :covers [:current-gate-inventory]}]
  :adr/verification
- {:date "2026-08-08"
-  :standalone-clone true
-  :tests 519
-  :assertions 8506
+ {:date "2026-08-15"
+  :isolated-current-main-worktree true
+  :tests 621
+  :assertions 8899
   :memory-safety-namespaces :passed
-  :suite-failures 9
-  :suite-failure-scope :missing-sibling-evidence-paths
-  :full-multi-repository-suite-green false}}
+  :suite-failures 0
+  :lint {:errors 0 :warnings 0}
+  :reproducible-emit {:valid true :sources 74 :reproducible 72}
+  :worktree-suite-green true}}

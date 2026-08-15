@@ -91,6 +91,17 @@
     (is (= 80 (:assessment/score assessment))
         "narrower first-party authority is not independent assurance")))
 
+(deftest increment-ten-proves-one-cross-function-provider-without-overclaiming
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented :memory/cross-function-slice-contracts))
+    (is (contains? open
+                   :memory/legacy-wire-and-external-host-allocation-identity)
+        "nine broad providers and non-JVM host parity remain open")
+    (is (= :A2 (:assessment/level assessment)))
+    (is (= 80 (:assessment/score assessment))
+        "first-party compiler work is not independent operational evidence")))
+
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
           (:assessment/implemented assessment)

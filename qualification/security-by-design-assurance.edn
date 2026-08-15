@@ -31,6 +31,8 @@
    :evidence "test/kotoba/real_host_providers_test.clj"}
   {:control :memory/provider-checked-extent-ratchet
    :evidence "test/kotoba/raw_memory_test.clj"}
+  {:control :memory/cross-function-slice-contracts
+   :evidence "test/kotoba/raw_memory_test.clj"}
   {:control :publication/authenticated-quota-bounded-block-ingress
    :evidence "test/kotoba/codebase_publish_test.clj"}
   {:control :publication/secure-write-transport

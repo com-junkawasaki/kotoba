@@ -545,9 +545,11 @@ each raw access to retain allocation provenance and fit its static extent.
 This makes use-after-free and double-free structurally absent in the current
 guest, while the Wasm boundary keeps guest addresses out of JVM/process memory.
 
-The overall rating is **strong but incomplete**: ten helper-heavy wire-protocol
-providers still use the explicit raw-memory compatibility hatch, while three
-provider consumers have been narrowed to statically checked allocation extents;
+The overall rating is **strong but incomplete**: nine helper-heavy wire-protocol
+providers still use the explicit raw-memory compatibility hatch. Three
+provider consumers use lexical checked allocation extents, and one pool
+consumer now uses caller-proven private slice contracts with trap-checked
+dynamic access;
 the JVM reference host now binds non-empty output buffers to exact
 compiler-created allocation starts
 and recorded extents, but external host implementations have not demonstrated

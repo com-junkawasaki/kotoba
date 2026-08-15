@@ -204,6 +204,10 @@ These gates verify that:
   `str-len`, and `bytes-len`;
 - guest code can read and write memory bytes with `mem-byte-at` and
   `byte-store!`;
+- checked raw modules can carry caller-proven slice bounds through private
+  helpers and use `slice-byte-at` / `slice-byte-store!`; dynamic indexes trap
+  before dereference, and contracted helpers cannot be exported or indirect
+  call targets;
 - guest code can query and grow memory with `memory-pages` and `memory-grow`;
 - guest code can allocate dynamic buffers with the minimal bump allocator
   exposed as `alloc`;

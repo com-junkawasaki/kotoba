@@ -1,34 +1,45 @@
-(ns kotoba.providers.pg-pool-consumer {:kotoba/raw-memory :implements-wire-protocol})
+(ns kotoba.providers.pg-pool-consumer {:kotoba/raw-memory :checked-extents})
 
-(defn pool-message-length [ptr]
-  (+ (* (mem-byte-at ptr 1) 16777216)
-     (* (mem-byte-at ptr 2) 65536)
-     (* (mem-byte-at ptr 3) 256)
-     (mem-byte-at ptr 4)))
+(defn ^:private pool-message-length
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len offset]
+  (+ (* (slice-byte-at ptr len (+ offset 1)) 16777216)
+     (* (slice-byte-at ptr len (+ offset 2)) 65536)
+     (* (slice-byte-at ptr len (+ offset 3)) 256)
+     (slice-byte-at ptr len (+ offset 4))))
 
-(defn pool-find-tag [ptr len offset target]
-  (if (>= offset len)
+(defn ^:private pool-find-tag
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len offset target]
+  (if (> (+ offset 5) len)
     -1
-    (let [message (+ ptr offset)
-          total (+ (pool-message-length message) 1)]
-      (if (= (mem-byte-at message 0) target)
-        message
-        (pool-find-tag ptr len (+ offset total) target)))))
+    (let [total (+ (pool-message-length ptr len offset) 1)]
+      (if (or (< total 5) (> (+ offset total) len))
+        -1
+        (if (= (slice-byte-at ptr len offset) target)
+          offset
+          (pool-find-tag ptr len (+ offset total) target))))))
 
-(defn pool-row-empty? [ptr len]
+(defn ^:private pool-row-empty?
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len]
   (let [row (pool-find-tag ptr len 0 68)]
-    (if (and (> row 0)
-             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
-             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
-             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 0)) 1 0)))
+    (if (and (>= row 0) (<= (+ row 11) len)
+             (= (slice-byte-at ptr len (+ row 5)) 0)
+             (= (slice-byte-at ptr len (+ row 6)) 1)
+             (= (slice-byte-at ptr len (+ row 7)) 0)
+             (= (slice-byte-at ptr len (+ row 8)) 0)
+             (= (slice-byte-at ptr len (+ row 9)) 0)
+             (= (slice-byte-at ptr len (+ row 10)) 0)) 1 0)))
 
-(defn pool-row-is-t? [ptr len]
+(defn ^:private pool-row-is-t?
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len]
   (let [row (pool-find-tag ptr len 0 68)]
-    (if (and (> row 0)
-             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
-             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
-             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 1)
-             (= (mem-byte-at row 11) 116)) 1 0)))
+    (if (and (>= row 0) (<= (+ row 12) len)
+             (= (slice-byte-at ptr len (+ row 5)) 0)
+             (= (slice-byte-at ptr len (+ row 6)) 1)
+             (= (slice-byte-at ptr len (+ row 7)) 0)
+             (= (slice-byte-at ptr len (+ row 8)) 0)
+             (= (slice-byte-at ptr len (+ row 9)) 0)
+             (= (slice-byte-at ptr len (+ row 10)) 1)
+             (= (slice-byte-at ptr len (+ row 11)) 116)) 1 0)))
 
 (defn run [port]
   (let [pool (pg-pool-open
@@ -64,13 +75,16 @@
                              (str-ptr "show application_name")
                              (str-len "show application_name")
                              out 4096 meta 7)
-        setting-clean (pool-row-empty? out shown)
+        setting-clean (pool-row-empty?
+                       out (if (< shown 0) 0 (if (> shown 4096) 4096 shown)))
         temp-check (pg-pool-query
                     lease2
                     (str-ptr "select to_regclass('pg_temp.leased_temp') is null")
                     (str-len "select to_regclass('pg_temp.leased_temp') is null")
                     out 4096 meta 7)
-        temp-clean (pool-row-is-t? out temp-check)
+        temp-clean (pool-row-is-t?
+                    out (if (< temp-check 0) 0
+                          (if (> temp-check 4096) 4096 temp-check)))
         released2 (pg-pool-release lease2)
         closed (pg-pool-close pool)
         acquire-closed (pg-pool-acquire pool)]

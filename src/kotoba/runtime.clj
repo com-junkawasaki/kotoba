@@ -69,7 +69,9 @@
    'memory-grow (fn [_pages] 1)
    'mem-byte-at (fn [_ptr _idx] 0)
    'mem-i32-at (fn [_ptr _offset] 0)
+   'slice-byte-at (fn [_ptr _len _idx] 0)
    'byte-store! (fn [_ptr _idx value] value)
+   'slice-byte-store! (fn [_ptr _len _idx value] value)
    'i32-store! (fn [_ptr _offset value] value)
    'result-ok? (fn [value] (not (neg? value)))
    'result-err? neg?
@@ -635,18 +637,18 @@
 ;; So this set is the minimum that makes the language's own values unforgeable
 ;; from user source, and no larger.
 (def default-raw-memory-ops
-  '#{mem-byte-at mem-i32-at byte-store! i32-store!})
+  '#{mem-byte-at mem-i32-at byte-store! i32-store!
+     slice-byte-at slice-byte-store!})
 
 (defn raw-memory-ops
-  "The denied raw-memory op set. Prefers the grammar catalog's
-  `:raw-memory-ops` so the authority (kotoba-lang/grammar) can take ownership
-  of the list later without a change here; falls back to
-  `default-raw-memory-ops` until it does."
+  "The denied raw-memory op set. Unions the grammar catalog's
+  `:raw-memory-ops` with runtime-owned new primitives so a stale external
+  catalog can never silently omit a dereference gate."
   []
   (let [declared (:raw-memory-ops (guest-grammar/catalog))]
-    (if (seq declared)
-      (into #{} (map #(if (symbol? %) % (symbol (str %)))) declared)
-      default-raw-memory-ops)))
+    (into default-raw-memory-ops
+          (map #(if (symbol? %) % (symbol (str %))))
+          declared)))
 
 (defn raw-memory-declared?
   "True when FORMS carry a module-level raw-memory declaration:
@@ -716,10 +718,52 @@
 (def ^:private raw-memory-access-width
   "Raw dereference op -> number of bytes touched by one access."
   {'mem-byte-at 1 'byte-store! 1
-   'mem-i32-at 4 'i32-store! 4})
+   'mem-i32-at 4 'i32-store! 4
+   'slice-byte-at 1 'slice-byte-store! 1})
 
 (def ^:private raw-memory-store-ops
-  '#{byte-store! i32-store!})
+  '#{byte-store! i32-store! slice-byte-store!})
+
+(def ^:private checked-slice-memory-ops
+  '#{slice-byte-at slice-byte-store!})
+
+(defn- slice-param-contract [param]
+  (let [m (meta param)
+        length (:kotoba/slice-len m)
+        access (:kotoba/slice-access m)]
+    (when (or length access)
+      {:length length :access access :param (symbol (name param))})))
+
+(defn- statically-bounded-length
+  "Return {:max n :nonnegative? bool} for the deliberately small expression
+  vocabulary admitted at a concrete allocation call boundary. In particular,
+  `(max 0 (min host-len CAP))` proves both halves without trusting host-len."
+  [expr]
+  (cond
+    (integer? expr) {:max expr :nonnegative? (not (neg? expr))}
+    (and (seq? expr) (= 'max (list-head expr)) (= 3 (count expr))
+         (some #(and (integer? %) (zero? %)) (rest expr)))
+    (let [other (first (remove #(and (integer? %) (zero? %)) (rest expr)))]
+      (when (and (seq? other) (= 'min (list-head other)) (= 3 (count other)))
+        (when-let [cap (first (filter integer? (rest other)))]
+          (when (not (neg? cap))
+            {:max cap :nonnegative? true}))))
+    (and (seq? expr) (= 'if (list-head expr)) (= 4 (count expr)))
+    (let [[_ low-test low-value high-clamp] expr]
+      (when (and (seq? low-test) (= '< (list-head low-test))
+                 (= 0 (nth low-test 2 nil)) (= 0 low-value)
+                 (seq? high-clamp) (= 'if (list-head high-clamp)))
+        (let [[_ high-test cap passthrough] high-clamp
+              value (second low-test)]
+          (when (and (seq? high-test) (= '> (list-head high-test))
+                     (= value (second high-test))
+                     (= cap (nth high-test 2 nil))
+                     (integer? cap) (not (neg? cap))
+                     (= value passthrough))
+            {:max cap :nonnegative? true}))))
+    :else nil))
+
+(declare function-def uses-call-indirect?)
 
 (defn- raw-memory-authorized?
   [forms policy]
@@ -762,60 +806,127 @@
   literal for reads. Offsets must be static and the complete access width must
   fit that one extent. Static literals are borrowed read-only extents.
 
-  This is deliberately conservative. Passing a pointer through an unanalyzed
-  helper parameter or computing a dynamic offset is rejected rather than
-  inferred. The current allocator has no `free`, so lifetime/alias invalidation
-  is not yet a separate state transition; the enforced ownership boundary is
-  allocation provenance plus extent within one module invocation."
+  Cross-function access is admitted only through an explicit pointer-parameter
+  slice contract tied to a sibling length parameter. Contracted helpers must be
+  private, every direct call re-proves provenance/capacity/write authority, and
+  dynamic access must use a slice op that emits a lower/upper guard and Wasm
+  trap. Indirect calls are rejected in a contracted module. The current
+  allocator has no `free`, so lifetime/alias invalidation is not yet a separate
+  state transition; the enforced ownership boundary is allocation provenance
+  plus extent within one module invocation."
   ([forms] (raw-memory-extent-problems forms nil))
   ([forms policy]
    (if-not (and (raw-memory-authorized? forms policy)
                 (raw-memory-extent-required? forms policy))
      []
-     (let [problems (atom [])]
+     (let [problems (atom [])
+           defs (vec (keep function-def forms))
+           contracts
+           (into {}
+                 (keep (fn [[fname f]]
+                         (let [params (:params f)
+                               by-param (into {}
+                                              (keep (fn [param]
+                                                      (when-let [contract
+                                                                 (slice-param-contract param)]
+                                                        [(:param contract) contract])))
+                                              params)]
+                           (when (seq by-param)
+                             [fname {:params params :by-param by-param}]))))
+                 defs)
+           indirect? (uses-call-indirect? forms)]
        (letfn [(extent-of [expr env]
                  (cond
-                   (symbol? expr) (get env expr)
+                   (symbol? expr) (let [entry (get env expr)]
+                                    (when (:pointer? entry) entry))
                    (seq? expr)
                    (let [op (list-head expr)
                          value (second expr)]
                      (cond
                        (#{'alloc 'alloc-checked} op)
                        (when (and (integer? value) (not (neg? value)))
-                         {:bytes value :writable? true :origin op})
+                         {:pointer? true :bytes value :writable? true :origin op})
 
                        (and (= 'bytes-ptr op) (vector? value))
-                       {:bytes (count value) :writable? false :origin op}
+                       {:pointer? true :bytes (count value)
+                        :writable? false :origin op}
 
                        (and (= 'str-ptr op) (string? value))
-                       {:bytes (alength (.getBytes ^String value "UTF-8"))
+                       {:pointer? true
+                        :bytes (alength (.getBytes ^String value "UTF-8"))
                         :writable? false :origin op}
 
                        :else nil))
                    :else nil))
+               (length-within-extent? [length extent env]
+                 (let [bytes (:bytes extent)]
+                   (cond
+                     (integer? bytes)
+                     (when-let [{:keys [max nonnegative?]}
+                                (statically-bounded-length length)]
+                       (and nonnegative? (<= max bytes)))
+
+                     (symbol? bytes)
+                     (and (= bytes length)
+                          (= bytes (:slice-length-symbol (get env length))))
+                     :else false)))
+               (problem! [reason node extent]
+                 (swap! problems conj
+                        {:kotoba.runtime/problem :raw-memory-extent-violation
+                         :kotoba.runtime/reason reason
+                         :kotoba.runtime/form (pr-str node)
+                         :kotoba.runtime/extent-bytes (:bytes extent)
+                         :kotoba.lang/hint
+                         "raw access must stay within one caller-proven allocation"}))
                (record-access! [node env]
                  (let [op (list-head node)
                        width (get raw-memory-access-width op)
                        pointer (second node)
-                       offset (nth node 2 nil)
+                       checked? (contains? checked-slice-memory-ops op)
+                       length (when checked? (nth node 2 nil))
+                       offset (nth node (if checked? 3 2) nil)
                        extent (extent-of pointer env)
                        reason (cond
                                 (nil? extent) :untracked-pointer
-                                (not (integer? offset)) :dynamic-offset
+                                (and checked?
+                                     (not (length-within-extent? length extent env)))
+                                :slice-length-exceeds-allocation
+                                (and (not checked?) (not (integer? offset))) :dynamic-offset
                                 (and (contains? raw-memory-store-ops op)
                                      (not (:writable? extent))) :read-only-extent
-                                (neg? offset) :outside-allocation
-                                (> (+ offset width) (:bytes extent)) :outside-allocation
+                                (and (integer? offset) (neg? offset)) :outside-allocation
+                                (and (integer? (:bytes extent))
+                                     (> (+ offset width) (:bytes extent)))
+                                :outside-allocation
+                                (and (not checked?) (symbol? (:bytes extent))) :dynamic-offset
                                 :else nil)]
                    (when reason
-                     (swap! problems conj
-                            {:kotoba.runtime/problem :raw-memory-extent-violation
-                             :kotoba.runtime/reason reason
-                             :kotoba.runtime/form (pr-str node)
-                             :kotoba.runtime/op (str op)
-                             :kotoba.runtime/extent-bytes (:bytes extent)
-                             :kotoba.lang/hint
-                             "raw access must stay within one statically tracked allocation"}))))
+                     (problem! reason node extent))))
+               (record-call! [node env]
+                 (let [callee (list-head node)
+                       args (vec (rest node))
+                       {:keys [params by-param]} (get contracts callee)]
+                   (doseq [[idx param] (map-indexed vector params)
+                           :let [contract (get by-param (symbol (name param)))]
+                           :when contract]
+                     (let [pointer (nth args idx nil)
+                           length-index
+                           (first (keep-indexed
+                                   (fn [i candidate]
+                                     (when (= (symbol (name candidate))
+                                              (:length contract)) i))
+                                   params))
+                           length (when (integer? length-index)
+                                    (nth args length-index nil))
+                           extent (extent-of pointer env)
+                           reason (cond
+                                    (nil? extent) :untracked-pointer
+                                    (and (= :write (:access contract))
+                                         (not (:writable? extent))) :read-only-extent
+                                    (not (length-within-extent? length extent env))
+                                    :slice-length-exceeds-allocation
+                                    :else nil)]
+                       (when reason (problem! reason node extent))))))
                (visit [node env]
                  (cond
                    (seq? node)
@@ -836,19 +947,46 @@
                              (doseq [body (drop 2 node)] (visit body scope)))))
 
                        (= 'defn head)
-                       (let [[_params & body]
-                             (drop-while (complement vector?) (drop 2 node))]
-                         (doseq [form body] (visit form {})))
+                       (let [[fname f] (function-def node)
+                             scope
+                             (reduce (fn [scope [param {:keys [length access]}]]
+                                       (-> scope
+                                           (assoc length
+                                                  {:slice-length-symbol length})
+                                           (assoc param
+                                                  {:pointer? true
+                                                   :bytes length
+                                                   :writable? (= :write access)
+                                                   :origin :slice-param})))
+                                     {}
+                                     (get-in contracts [fname :by-param]))]
+                         (doseq [form (:body f)] (visit form scope)))
 
                        (contains? raw-memory-access-width head)
                        (do (record-access! node env)
                            (doseq [arg (rest node)] (visit arg env)))
 
-                       :else (doseq [item node] (visit item env))))
+                       :else
+                       (do
+                         (when (contains? contracts head)
+                           (record-call! node env))
+                         (doseq [item node] (visit item env)))))
 
                    (map? node) (doseq [[k v] node] (visit k env) (visit v env))
                    (coll? node) (doseq [item node] (visit item env))
                    :else nil))]
+         (doseq [[fname {:keys [params by-param]}] contracts]
+           (doseq [[param {:keys [length access]}] by-param]
+             (when-not (and (symbol? length)
+                            (not= param length)
+                            (some #(= length (symbol (name %))) params)
+                            (#{:read :write} access))
+               (problem! :invalid-slice-contract
+                         (list fname param length access) nil)))
+           (when-not (:private (meta fname))
+             (problem! :externally-callable-slice-contract fname nil))
+           (when indirect?
+             (problem! :indirect-slice-contract fname nil)))
          (doseq [form forms] (visit form {}))
          @problems)))))
 
@@ -5135,6 +5273,22 @@
                         addr-compiled
                         {:bytes (bcat (:bytes addr-compiled) [0x2d 0x00 0x00])
                          :local-count (:local-count addr-compiled 0)}))
+        slice-byte-at
+        (if (not= 3 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "slice-byte-at"
+                     :kotoba.wasm/expected 3
+                     :kotoba.wasm/actual (count args)}}
+          (let [[ptr length idx] args
+                p (gensym "slice_ptr__")
+                n (gensym "slice_len__")
+                i (gensym "slice_idx__")]
+            (compile-wasm-expr
+             (list 'let [p ptr n length i idx]
+                   (list 'if (list 'and (list '>= i 0) (list '< i n))
+                         (list 'mem-byte-at p i)
+                         (list 'quot 1 0)))
+             locals fns)))
         mem-i32-at (let [[ptr offset] args
                          addr-compiled (compile-wasm-expr (list '+ ptr offset) locals fns)]
                      (if (:problem addr-compiled)
@@ -5153,6 +5307,23 @@
                                             (:bytes value-compiled))
                                :local-count (max (:local-count addr-compiled 0)
                                                  (:local-count value-compiled 0))}))
+        slice-byte-store!
+        (if (not= 4 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "slice-byte-store!"
+                     :kotoba.wasm/expected 4
+                     :kotoba.wasm/actual (count args)}}
+          (let [[ptr length idx value] args
+                p (gensym "slice_ptr__")
+                n (gensym "slice_len__")
+                i (gensym "slice_idx__")
+                v (gensym "slice_value__")]
+            (compile-wasm-expr
+             (list 'let [p ptr n length i idx v value]
+                   (list 'if (list 'and (list '>= i 0) (list '< i n))
+                         (list 'byte-store! p i v)
+                         (list 'quot 1 0)))
+             locals fns)))
         i32-store! (let [[ptr offset value] args
                          addr-compiled (compile-wasm-expr (list '+ ptr offset) locals fns)
                          value-compiled (compile-wasm-expr value locals fns)]
@@ -5620,9 +5791,10 @@
         bs))
 
 (defn wasm-binary
-  "Compile checked functions to WebAssembly. Every function is exported;
-  command programs require zero-arity `main`, while game modules may expose
-  `init` and/or `*-tick` systems instead."
+  "Compile checked functions to WebAssembly. Public functions are exported;
+  `^:private` helpers stay module-internal. Command programs require
+  zero-arity `main`, while game modules may expose `init` and/or `*-tick`
+  systems instead."
   ([forms] (wasm-binary forms nil))
   ([forms policy]
   (let [;; Defense in depth: the CLI always runs `check` first, but a direct
@@ -5762,7 +5934,9 @@
                 function-section (section 3 (vec-bytes (mapv (comp uleb :type-index) compiled-fns)))
                 indirect-target-indexes (when indirect?
                                           (mapv #(get fn-indexes (first %))
-                                                (remove #(= 'main (first %)) defs)))
+                                                (remove #(or (= 'main (first %))
+                                                             (:private (meta (first %))))
+                                                        defs)))
                 table-section (when indirect?
                                 (section 4 (vec-bytes [(table-entry (count indirect-target-indexes))])))
                 memory-section (section 5
@@ -5772,11 +5946,12 @@
                                                 (uleb configured-memory-max))]))
                 global-section (section 6 (vec-bytes [(global-entry heap-start)
                                                       (global-entry wasm-fuel-initial)]))
-                export-names (mapv (comp str first) defs)
+                public-defs (remove #(:private (meta (first %))) defs)
+                export-names (mapv (comp str first) public-defs)
                 export-section (section 7 (vec-bytes (conj (mapv (fn [[name _]]
                                                                     (export-entry (str name) 0x00
                                                                                   (get fn-indexes name)))
-                                                                  defs)
+                                                                  public-defs)
                                                              (export-entry "memory" 0x02 0))))
                 bodies (mapv (fn [compiled]
                                (let [decls (local-decls (merge-local-types compiled))
@@ -5924,7 +6099,8 @@
   '#{i64 i64+ i64- i64* i64and i64or i64xor i64shl i64shr i64ushr
      f32 f32+ f32- f32* f32div f32sqrt
      bit-and bit-or bit-xor bit-shift-left bit-shift-right unsigned-bit-shift-right
-     alloc i32-store! mem-i32-at mem-byte-at byte-store! byte-at
+     alloc i32-store! mem-i32-at mem-byte-at byte-store!
+     slice-byte-at slice-byte-store! byte-at
      str-len str-ptr bytes-ptr bytes-len memory-pages memory-grow
      cap-acquire has-capability? call-indirect
      result-ok? result-err? result-write! result-status result-value})
