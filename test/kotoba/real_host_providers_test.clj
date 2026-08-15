@@ -40,6 +40,9 @@
 (defn- run-main [instance]
   (aget ^longs (.apply (.export instance "main") (long-array 0)) 0))
 
+(defn- first-allocation-ptr [wasm]
+  (+ (:kotoba.wasm/heap-base wasm) runtime/allocation-header-bytes))
+
 ;; A real local HTTP server (JDK built-in, zero extra deps), bound to a
 ;; fixed port the demo .kotoba sources' literal URLs hardcode (a `.kotoba`
 ;; source file can't embed a dynamically-chosen port) -- same tradeoff any
@@ -80,7 +83,7 @@
           written (run-main instance)]
       (is (= 4 written) "clipboard-read wrote back the 4 bytes clipboard-write had just stored")
       (is (= "clip" (wasm-exec/read-memory-string instance
-                                                  (:kotoba.wasm/heap-base
+                                                  (first-allocation-ptr
                                                    (runtime/wasm-binary
                                                     (runtime/read-file "src/demo_real_clipboard.kotoba" :kotoba)))
                                                   4))))))
@@ -159,6 +162,53 @@
     (let [{:keys [instance]} (compile-and-instantiate "src/demo_real_log.kotoba" "src/demo_real_log_policy.edn")]
       (is (= 2 (run-main instance)) "log-read wrote back \"hi\"'s 2 bytes"))))
 
+(deftest host-output-window-must-name-one-complete-live-allocation
+  (let [policy {:kotoba.policy/capabilities #{:log/read}}
+        run-form
+        (fn [body & [log-bytes]]
+          (let [forms (list '(ns host-output-allocation-test)
+                            (list 'defn 'main [] body))
+                wasm (runtime/wasm-binary forms policy)
+                state (wasm-exec/default-host-state)
+                _ (reset! (:log state) (or log-bytes (.getBytes "abcdefgh" "UTF-8")))
+                instance (wasm-exec/instantiate
+                          (:kotoba.wasm/binary wasm)
+                          (wasm-exec/real-host-functions state policy)
+                          policy)]
+            (run-main instance)))]
+    (is (= -1 (run-form
+               '(let [victim (alloc 4)
+                      neighbor (alloc 4)]
+                  (log-read victim 8))))
+        "a guest must not expand one allocation's output window across its neighbor")
+    (is (= -1 (run-form
+               '(let [victim (alloc 8)]
+                  (log-read (+ victim 4) 4))))
+        "an interior pointer must not become a second allocation identity")
+    (is (= -1 (run-form '(log-read 2048 4)))
+        "the unallocated heap region must not be treated as an output object")
+    (let [forged (doto (java.nio.ByteBuffer/allocate 8)
+                   (.order java.nio.ByteOrder/LITTLE_ENDIAN)
+                   (.putInt runtime/allocation-header-magic)
+                   (.putInt 64))]
+      (is (= -1 (run-form
+                 '(let [outer (alloc 32)
+                        seeded (log-read outer 8)]
+                    (log-read (+ outer 8) 8))
+                 (.array forged)))
+          "header-shaped payload bytes must not forge an interior allocation"))
+    (is (= 8 (run-form
+              '(let [output (alloc 8)]
+                 (log-read output 8))))
+        "the exact start and capacity of a live allocation remain valid")
+    (is (= 4 (run-form
+              '(let [output (alloc 8)]
+                 (log-read output 4))
+              (.getBytes "abcd" "UTF-8")))
+        "a smaller window from the exact allocation start remains valid")
+    (is (= -1 (run-form '(alloc -1)))
+        "negative allocation must not move the heap high-water mark backwards")))
+
 (deftest clock-monotonic-returns-a-real-positive-timestamp
   (testing "clock-monotonic is System/nanoTime, not a 0-returning stub"
     (let [{:keys [instance]} (compile-and-instantiate "src/demo_real_clock.kotoba" "src/demo_real_clock_policy.edn")]
@@ -169,7 +219,7 @@
     (let [run! (fn []
                  (let [{:keys [instance]} (compile-and-instantiate "src/demo_real_random.kotoba" "src/demo_real_random_policy.edn")
                        written (run-main instance)
-                       heap-base (:kotoba.wasm/heap-base
+                       heap-base (first-allocation-ptr
                                   (runtime/wasm-binary (runtime/read-file "src/demo_real_random.kotoba" :kotoba)))]
                    [written (wasm-exec/read-memory-string instance heap-base written)]))
           [n1 s1] (run!)
@@ -202,7 +252,7 @@
     (reset! received-requests [])
     (let [{:keys [instance]} (compile-and-instantiate "src/demo_real_http_fetch.kotoba" "src/demo_real_http_fetch_policy.edn")
           written (run-main instance)
-          heap-base (:kotoba.wasm/heap-base
+          heap-base (first-allocation-ptr
                      (runtime/wasm-binary (runtime/read-file "src/demo_real_http_fetch.kotoba" :kotoba)))]
       (is (= 4 written) "the real server's \"pong\" response body is 4 bytes")
       (is (= "pong" (wasm-exec/read-memory-string instance heap-base written)))
@@ -226,7 +276,7 @@
     (reset! received-requests [])
     (let [{:keys [instance]} (compile-and-instantiate "src/demo_real_http_post.kotoba" "src/demo_real_http_post_policy.edn")
           written (run-main instance)
-          heap-base (:kotoba.wasm/heap-base
+          heap-base (first-allocation-ptr
                      (runtime/wasm-binary (runtime/read-file "src/demo_real_http_post.kotoba" :kotoba)))]
       (is (= 4 written) "the real server's \"pong\" response body is 4 bytes")
       (is (= "pong" (wasm-exec/read-memory-string instance heap-base written)))
@@ -239,7 +289,12 @@
           written (run-main instance)]
       (is (= 64 written))
       (is (= "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-             (wasm-exec/read-memory-string instance 2048 written)))))
+             (wasm-exec/read-memory-string
+              instance
+              (first-allocation-ptr
+               (runtime/wasm-binary
+                (runtime/read-file "src/demo_actor_host_sha256.kotoba" :kotoba)))
+              written)))))
   (testing "gen-keypair: a real 32-byte seed + 32-byte derived pubkey, not a 0-returning stub"
     (let [{:keys [instance]} (compile-and-instantiate "src/demo_actor_host_keypair.kotoba" "src/demo_actor_host_keypair_policy.edn")]
       (is (= 64 (run-main instance)))))

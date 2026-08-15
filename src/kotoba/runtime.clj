@@ -3724,6 +3724,17 @@
                          layout))
    16))
 
+(def allocation-header-bytes
+  "Bytes immediately preceding every bump allocation's returned payload.
+  The reference host walks these compiler-written headers from the heap base
+  so an output pointer must identify one exact allocation, not merely any
+  address in the heap region."
+  8)
+
+(def allocation-header-magic
+  "Little-endian `KOTB` marker in every compiler-written allocation header."
+  0x4b4f5442)
+
 (def wasm-cap-kind-ids
   "Capability kind -> deterministic i32 id for the `cap_acquire` wasm import.
   Only kinds whose contract capability maps to exactly one kind are exposed
@@ -5006,7 +5017,9 @@
                            :local-types (merge-local-types idx-compiled arg-compiled)
                            :result-type :i32}))
         alloc (let [size (first args)
-                    size-compiled (compile-wasm-expr size locals fns)]
+                    size-compiled (compile-wasm-expr size locals fns)
+                    nested-types (merge-local-types size-compiled)
+                    size-local (+ (count locals) (count nested-types))]
                 (cond
                   (not= 1 (count args))
                   {:problem {:kotoba.wasm/problem :arity
@@ -5018,10 +5031,32 @@
                   size-compiled
 
                   :else
-                  {:bytes (bcat [0x23 0x00 0x23 0x00]
-                                (:bytes size-compiled)
-                                [0x6a 0x24 0x00])
-                   :local-count (:local-count size-compiled 0)}))
+                  {:bytes
+                   (bcat
+                    ;; Evaluate SIZE once. Negative allocation is a clean -1,
+                    ;; not a way to move the heap pointer backwards.
+                    (:bytes size-compiled)
+                    [0x21] (uleb size-local)
+                    [0x20] (uleb size-local)
+                    [0x41] (sleb32 0)
+                    [0x48 0x04 0x7f]
+                    [0x41] (sleb32 -1)
+                    [0x05]
+                    ;; Header at the current heap pointer: [magic:i32,size:i32].
+                    ;; The returned pointer is the payload immediately after it.
+                    [0x23 0x00 0x41] (sleb32 allocation-header-magic)
+                    [0x36 0x02 0x00]
+                    [0x23 0x00 0x20] (uleb size-local)
+                    [0x36 0x02 0x04]
+                    ;; Leave payload pointer on the stack while advancing the
+                    ;; global high-water mark past header and payload.
+                    [0x23 0x00 0x41] (sleb32 allocation-header-bytes) [0x6a]
+                    [0x23 0x00 0x20] (uleb size-local) [0x6a]
+                    [0x41] (sleb32 allocation-header-bytes) [0x6a 0x24 0x00]
+                    [0x0b])
+                   :local-count (inc (count nested-types))
+                   :local-types (conj nested-types :i32)
+                   :result-type :i32}))
         alloc-checked (let [size (first args)
                             size-for-check (compile-wasm-expr size locals fns)
                             allocation (compile-wasm-expr (list 'alloc size) locals fns)]
@@ -5041,7 +5076,8 @@
                           :else
                           {:bytes (bcat [0x23 0x00]
                                         (:bytes size-for-check)
-                                        [0x6a 0x3f 0x00 0x41]
+                                        [0x41] (sleb32 allocation-header-bytes)
+                                        [0x6a 0x6a 0x3f 0x00 0x41]
                                         (sleb32 65536)
                                         [0x6c 0x4c 0x04 0x7f]
                                         (:bytes allocation)

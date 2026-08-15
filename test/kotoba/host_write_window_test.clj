@@ -46,13 +46,14 @@
     (is (= -1 (run-guest (guest "(clipboard-read (str-ptr \"abc\") 3)")))
         "str-ptr addresses the data segment, which must stay read-only")))
 
-(deftest scratch-above-the-heap-base-stays-usable
-  (testing "this ABI does not require alloc -- demo_actor_host_sha256.kotoba
-            writes at the heap base having allocated nothing, and an earlier
-            revision of this gate wrongly broke that"
-    (is (= (count payload)
+(deftest output-capacity-is-bounded-by-the-named-allocation
+  (testing "a zero-byte allocation does not authorize the following scratch"
+    (is (= -1
            (run-guest (guest "(let [p (alloc 0)] (clipboard-read p 4096))")))
-        "a window above the bump pointer is the guest's own scratch")))
+        "unallocated heap space is not an output object"))
+  (testing "an allocation large enough for the payload remains usable"
+    (is (= (count payload)
+           (run-guest (guest "(clipboard-read (alloc 4096) 4096)"))))))
 
 (deftest memory-outside-linear-memory-cannot-be-named
   (is (= -1 (run-guest (guest "(let [p (alloc 8)] (clipboard-read (+ p 65536) 8))")))))

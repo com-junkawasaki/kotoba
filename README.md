@@ -546,11 +546,12 @@ This makes use-after-free and double-free structurally absent in the current
 guest, while the Wasm boundary keeps guest addresses out of JVM/process memory.
 
 The overall rating is **strong but incomplete**: legacy wire-protocol modules
-still use the explicit raw-memory compatibility hatch; host output buffers are
-region-bounded but not yet matched to individual live allocation identities;
-and guest allocation is monotonic with no per-object reclamation. Capability
-confinement is a separate safety axis and must not be used to overstate
-heap-integrity guarantees.
+still use the explicit raw-memory compatibility hatch; the JVM reference host
+now binds non-empty output buffers to exact compiler-created allocation starts
+and recorded extents, but external host implementations have not demonstrated
+that parity; and guest allocation is monotonic with no per-object reclamation.
+Capability confinement is a separate safety axis and must not be used to
+overstate heap-integrity guarantees.
 
 See
 [`docs/ADR-kotoba-memory-safety-comparison.md`](docs/ADR-kotoba-memory-safety-comparison.md)

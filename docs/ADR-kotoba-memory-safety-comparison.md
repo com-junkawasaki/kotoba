@@ -2,7 +2,8 @@
 
 - **Status**: accepted
 - **Date**: 2026-08-15
-- **Observed implementation**: `57afde187c025806b676f8ee9b86dc6094248e94`
+- **Observed implementation**: `662e98b8160224f3f2e6e93fc7ff89bd64de7b51`
+  plus the increment-8 change set recorded with this ADR
 - **Machine-readable companion**:
   [`ADR-kotoba-memory-safety-comparison.edn`](ADR-kotoba-memory-safety-comparison.edn)
 - **Related**: `ADR-safe-capability-language.md`, `docs/lang/gates.md`,
@@ -44,9 +45,10 @@ Use three separate claims whenever the rating is explained:
   as defense in depth. The `:checked-extents` raw profile proves lexical
   allocation provenance, static offsets, access widths and read-only literal
   borrowing. However, legacy wire providers retain an explicit compatibility
-  hatch, and a permitted host output operation currently checks a writable
-  *region*, not the identity of each live allocation. One live heap object can
-  therefore still be named as another host output buffer.
+  hatch. The JVM reference host now admits a non-empty output window only at
+  the exact payload start of one compiler-created allocation and only up to its
+  recorded extent. External host implementations have not yet demonstrated
+  equivalent allocation identity enforcement.
 - **Resource safety — incomplete and not memory safety.** Guest allocation is
   monotonic and has no per-object reclamation. Emitted memory now carries a
   policy-derived maximum (default 256 pages), but OOM, retention and
@@ -80,7 +82,7 @@ result.
 | use-after-free prevention | very strong | guest allocator never frees individual objects |
 | double-free prevention | very strong | no guest `free` operation |
 | dangling-pointer prevention | strong | no ordinary deallocation; raw/host ABI caveats remain |
-| buffer-overflow prevention | strong but incomplete | safe accessors, Wasm bounds and checked raw extents; legacy providers and host outputs lack complete allocation identity |
+| buffer-overflow prevention | strong but incomplete | safe accessors, Wasm bounds, checked raw extents and allocation-bound JVM host outputs; legacy providers and external hosts lack complete allocation identity |
 | data-race prevention | strong for current profile | emitted memory is not shared and the profile exposes no guest threading/atomic primitives |
 | no GC pause | mixed | no guest GC; Clojure/Chicory host remains managed |
 | deterministic destruction | weak | no RAII, destructor or ownership-driven resource lifecycle |
@@ -130,6 +132,14 @@ A hardening deployment can override both with:
 {:kotoba.policy/forbid-raw-memory true}
 ```
 
+The compiler-owned bump-allocation layout is `[magic:i32, size:i32, payload]`.
+The reference host walks that canonical header chain from the captured heap
+base to the live allocation high-water mark. It rejects interior pointers,
+unallocated addresses, windows that cross into a neighboring allocation, and
+header-shaped bytes forged inside a payload. A capacity smaller than the
+allocation remains valid. Modules granted the raw-memory compatibility hatch
+can mutate compiler metadata and are outside this safe-profile claim.
+
 The denied raw dereference set is currently `mem-byte-at`, `mem-i32-at`,
 `byte-store!` and `i32-store!`. Address-producing operations such as `alloc`,
 `str-ptr` and `bytes-ptr` remain available for the host buffer ABI.
@@ -144,6 +154,9 @@ The denied raw dereference set is currently `mem-byte-at`, `mem-i32-at`,
   emitter defense-in-depth tests.
 - `test/kotoba/host_write_window_test.clj`: data-segment, negative, overflow and
   out-of-linear-memory refusal tests.
+- `test/kotoba/real_host_providers_test.clj`: real Wasm and real provider
+  refusal for cross-allocation, interior, unallocated and forged-header output
+  windows, plus exact and smaller legitimate capacities.
 - `test/kotoba/cap_affine_test.clj`: narrow affine capability-value checks.
 - `docs/lang/gates.md`: current executable gate inventory.
 
@@ -157,14 +170,14 @@ claim that the full multi-repository qualification suite was green.
 
 1. Migrate legacy wire-protocol helpers from raw pointer parameters to a proof
    representation the compiler can track across calls.
-2. Require host output windows to match a live writable allocation identity,
-   rather than any address at or above the heap base.
+2. Require every non-JVM host implementation to enforce the same exact
+   allocation-start and recorded-extent contract as the reference host.
 3. Decide whether the guest needs reclamation, arenas or instance-lifetime-only
    allocation, and document the resource-lifecycle contract explicitly.
 4. Keep the raw-memory exception list mechanically auditable and preserve
    `forbid-raw-memory` as the deployment-level override.
 5. Do not promote the overall rating beyond `:circle` until the legacy helper
-   and per-object host-write gaps are closed with executable tests.
+   and external-host allocation-identity gaps are closed with executable tests.
 
 ## Consequences
 

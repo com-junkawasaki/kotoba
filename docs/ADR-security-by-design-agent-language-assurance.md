@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-7 implemented
+- Status: Accepted; increments 1-8 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -50,8 +50,8 @@ communication aid, not a certification.
 
 ## Remaining gates
 
-- migrate legacy wire-protocol raw-memory helpers and bind host output windows
-  to live allocation identities;
+- migrate legacy wire-protocol raw-memory helpers and demonstrate allocation-
+  identity parity in non-JVM host implementations;
 - add codebase retention/GC, distributed admission where one logical node spans
   storage roots, and measure sustained abuse behavior;
 - independent adversarial review and sustained provider soak.
@@ -71,6 +71,7 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 - `kotoba.security-by-design-assurance-test`
 - `kotoba.raw-memory-test/declared-raw-memory-is-bounded-to-the-allocation-that-produced-it`
 - `kotoba.raw-memory-test/emitter-cannot-bypass-checked-extent-admission`
+- `kotoba.real-host-providers-test/host-output-window-must-name-one-complete-live-allocation`
 - `kotoba.codebase-publish-test/block-ingress-requires-write-authority-before-reading-or-storing`
 - `kotoba.codebase-publish-test/authenticated-block-ingress-is-bounded-by-a-durable-quota`
 - `kotoba.codebase-publish-test/duplicate-block-ingress-is-idempotent-and-charged-once`
@@ -133,9 +134,9 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 
 This is not a general borrow checker. Legacy wire-protocol providers still
 pass pointer/length pairs across helpers and remain on the explicitly marked
-compatibility profile; host output windows are still region-bounded rather
-than matched to a shadow allocation identity. Those are the remaining memory
-gate, so the assurance level remains A2.
+compatibility profile. Increment 8 closes the reference JVM host portion of
+the output-allocation identity gate; legacy wire provenance and external host
+parity remain open, so the assurance level remains A2.
 
 ## Implemented increment 5
 
@@ -192,3 +193,21 @@ This closes the local per-principal partition, mutation-rate and staged-token-
 rotation gate. Root-local rather than distributed enforcement, fixed-window
 boundary burst, retention/GC and independent abuse soak remain open, so the
 assurance level remains A2.
+
+## Implemented increment 8
+
+1. Compiler-created bump allocations now carry an eight-byte, compiler-owned
+   header containing a fixed magic value and the payload extent. Negative
+   allocation sizes fail without moving the heap high-water mark backwards,
+   and checked allocation reserves header plus payload capacity.
+2. The JVM reference host walks the canonical allocation chain captured for
+   the instance. Every non-empty host output must begin at an exact payload
+   start and fit the recorded extent. Interior, unallocated, cross-allocation
+   and payload-forged header addresses fail before a provider writes bytes.
+3. Real Wasm plus real provider regressions retain exact-size and smaller-cap
+   legitimate writes. Zero-cap output remains a no-op. The raw-memory
+   compatibility hatch and non-JVM host parity remain outside this claim.
+
+This closes one concrete neighbor-overwrite path in the reference execution
+stack. It does not add a general ownership system or independent operational
+evidence, so the score remains 80 and the assurance level remains A2.

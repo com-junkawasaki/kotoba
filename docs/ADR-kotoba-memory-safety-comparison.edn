@@ -2,7 +2,8 @@
  :adr/title "Kotoba memory-safety position and cross-language comparison"
  :adr/status :accepted
  :adr/date "2026-08-15"
- :adr/observed-commit "57afde187c025806b676f8ee9b86dc6094248e94"
+ :adr/observed-commit "662e98b8160224f3f2e6e93fc7ff89bd64de7b51"
+ :adr/observed-change-set :increment-8-host-output-allocation-identity
  :adr/markdown "ADR-kotoba-memory-safety-comparison.md"
  :adr/decision
  {:overall-rating :circle
@@ -22,7 +23,7 @@
    :primary-enforcement [:checked-subset :wasm-linear-memory-bounds
                          :bounds-respecting-accessors :raw-memory-deny
                          :checked-raw-allocation-extents :wasm-memory-maximum
-                         :host-write-window]}
+                         :allocation-identity-bound-jvm-host-write-window]}
   {:layer :compiler-and-host
    :runtime :clojure-jvm-chicory
    :gc true
@@ -87,10 +88,10 @@
   :policy-forbid-overrides-allow true
   :address-producing-ops-remain-available [alloc alloc-checked str-ptr bytes-ptr]}
  :adr/known-gaps
- [{:id :per-allocation-host-write-bounds
-   :severity :high
+ [{:id :external-host-allocation-identity
+   :severity :medium
    :status :open
-   :detail "Host output windows are region-bounded but are not matched to individual live allocation extents."}
+   :detail "The JVM reference host enforces exact allocation start and recorded extent; other host implementations have not demonstrated parity."}
   {:id :legacy-wire-pointer-provenance
    :severity :medium
    :status :open
@@ -115,6 +116,10 @@
   {:path "test/kotoba/host_write_window_test.clj"
    :covers [:data-segment-refusal :negative-window-refusal
             :outside-linear-memory-refusal :capacity-check]}
+  {:path "test/kotoba/real_host_providers_test.clj"
+   :covers [:cross-allocation-output-refusal :interior-pointer-refusal
+            :unallocated-output-refusal :forged-header-refusal
+            :exact-and-smaller-capacity-success]}
   {:path "test/kotoba/cap_affine_test.clj"
    :covers [:capability-affinity]}
   {:path "docs/lang/gates.md"

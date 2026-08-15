@@ -1,4 +1,4 @@
 (ns demo-actor-host-sha256)
 
 (defn main []
-  (sha256-hex 0 0 2048 64))
+  (sha256-hex 0 0 (alloc 64) 64))

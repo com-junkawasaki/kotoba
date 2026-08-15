@@ -40,8 +40,8 @@
   (let [open (set (map :gate (:assessment/open-gates assessment)))
         implemented (set (map :control (:assessment/implemented assessment)))]
     (is (contains? implemented :memory/checked-raw-allocation-extents))
-    (is (contains? open :memory/legacy-wire-and-host-output-allocation-identity)
-        "legacy pointer helpers and host output identity must not disappear from the score")))
+    (is (contains? open :memory/legacy-wire-and-external-host-allocation-identity)
+        "legacy pointer helpers and external host identity must not disappear from the score")))
 
 (deftest increment-five-closes-unauthenticated-ingress
   (let [implemented (set (map :control (:assessment/implemented assessment)))]
@@ -67,6 +67,19 @@
         "root-local controls must not be promoted to distributed or lifecycle assurance")
     (is (= 80 (:assessment/score assessment))
         "internal controls improve maturity without inventing independent evidence")))
+
+(deftest increment-eight-closes-only-the-reference-host-output-gap
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented
+                   :memory/reference-host-output-allocation-identity))
+    (is (not (contains? open
+                        :memory/legacy-wire-and-host-output-allocation-identity)))
+    (is (contains? open
+                   :memory/legacy-wire-and-external-host-allocation-identity))
+    (is (= :A2 (:assessment/level assessment)))
+    (is (= 80 (:assessment/score assessment))
+        "a reference-host control is not independent operational assurance")))
 
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
