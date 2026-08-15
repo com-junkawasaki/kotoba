@@ -1,44 +1,57 @@
-(ns kotoba.providers.pg-batch-consumer {:kotoba/raw-memory :implements-wire-protocol})
+(ns kotoba.providers.pg-batch-consumer {:kotoba/raw-memory :checked-extents})
 
-(defn batch-store-i16! [ptr offset value]
-  (let [w0 (byte-store! ptr offset (quot value 256))
-        w1 (byte-store! ptr (+ offset 1) (mod value 256))]
+(defn ^:private batch-store-i16!
+  [^{:kotoba/slice-len len :kotoba/slice-access :write} ptr len offset value]
+  (let [w0 (slice-byte-store! ptr len offset (quot value 256))
+        w1 (slice-byte-store! ptr len (+ offset 1) (mod value 256))]
     (+ offset 2)))
 
-(defn batch-copy! [out-ptr offset in-ptr in-len index]
+(defn ^:private batch-copy!
+  [^{:kotoba/slice-len out-len :kotoba/slice-access :write} out-ptr out-len offset
+   ^{:kotoba/slice-len in-len :kotoba/slice-access :read} in-ptr in-len index]
   (if (>= index in-len)
     (+ offset in-len)
-    (let [w (byte-store! out-ptr (+ offset index) (mem-byte-at in-ptr index))]
-      (batch-copy! out-ptr offset in-ptr in-len (+ index 1)))))
+    (let [w (slice-byte-store! out-ptr out-len (+ offset index)
+                               (slice-byte-at in-ptr in-len index))]
+      (batch-copy! out-ptr out-len offset in-ptr in-len (+ index 1)))))
 
-(defn batch-empty-params! [ptr offset]
-  (let [w0 (byte-store! ptr offset 0)
-        w1 (byte-store! ptr (+ offset 1) 0)
-        w2 (byte-store! ptr (+ offset 2) 0)
-        w3 (byte-store! ptr (+ offset 3) 0)
-        w4 (byte-store! ptr (+ offset 4) 0)
-        w5 (byte-store! ptr (+ offset 5) 0)]
+(defn ^:private batch-empty-params!
+  [^{:kotoba/slice-len len :kotoba/slice-access :write} ptr len offset]
+  (let [w0 (slice-byte-store! ptr len offset 0)
+        w1 (slice-byte-store! ptr len (+ offset 1) 0)
+        w2 (slice-byte-store! ptr len (+ offset 2) 0)
+        w3 (slice-byte-store! ptr len (+ offset 3) 0)
+        w4 (slice-byte-store! ptr len (+ offset 4) 0)
+        w5 (slice-byte-store! ptr len (+ offset 5) 0)]
     (+ offset 6)))
 
-(defn batch-add-empty-item! [ptr offset name-ptr name-len]
-  (let [after-name-len (batch-store-i16! ptr offset name-len)
-        after-name (batch-copy! ptr after-name-len name-ptr name-len 0)
-        after-params-len (batch-store-i16! ptr after-name 6)]
-    (batch-empty-params! ptr after-params-len)))
+(defn ^:private batch-add-empty-item!
+  [^{:kotoba/slice-len len :kotoba/slice-access :write} ptr len offset
+   ^{:kotoba/slice-len name-len :kotoba/slice-access :read} name-ptr name-len]
+  (let [after-name-len (batch-store-i16! ptr len offset name-len)
+        after-name (batch-copy! ptr len after-name-len name-ptr name-len 0)
+        after-params-len (batch-store-i16! ptr len after-name 6)]
+    (batch-empty-params! ptr len after-params-len)))
 
-(defn batch-message-length [ptr]
-  (+ (* (mem-byte-at ptr 1) 16777216)
-     (* (mem-byte-at ptr 2) 65536)
-     (* (mem-byte-at ptr 3) 256)
-     (mem-byte-at ptr 4)))
+(defn ^:private batch-message-length
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len offset]
+  (+ (* (slice-byte-at ptr len (+ offset 1)) 16777216)
+     (* (slice-byte-at ptr len (+ offset 2)) 65536)
+     (* (slice-byte-at ptr len (+ offset 3)) 256)
+     (slice-byte-at ptr len (+ offset 4))))
 
-(defn batch-count-tag [ptr len offset target count]
-  (if (>= offset len)
+(defn ^:private batch-count-tag
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len offset target count]
+  (if (= offset len)
     count
-    (let [message (+ ptr offset)
-          total (+ (batch-message-length message) 1)]
-      (batch-count-tag ptr len (+ offset total) target
-                       (+ count (if (= (mem-byte-at message 0) target) 1 0))))))
+    (if (> (+ offset 5) len)
+      -1
+      (let [total (+ (batch-message-length ptr len offset) 1)]
+        (if (or (< total 5) (> (+ offset total) len))
+          -1
+          (batch-count-tag ptr len (+ offset total) target
+                           (+ count (if (= (slice-byte-at ptr len offset) target)
+                                      1 0))))))))
 
 (defn run [port]
   (let [channel (pg-open-scram-random
@@ -58,22 +71,28 @@
                          (str-ptr "select 1/0") (str-len "select 1/0")
                          out 4096 meta 7)
           batch (alloc 256)
-          a1 (batch-add-empty-item! batch 0
-                                    (str-ptr "forty2a") (str-len "forty2a"))
-          a2 (batch-add-empty-item! batch a1
-                                    (str-ptr "forty2b") (str-len "forty2b"))
+          a1 (batch-add-empty-item! batch 256 0
+                                    (str-ptr "forty2a") 7)
+          a2 (batch-add-empty-item! batch 256 a1
+                                    (str-ptr "forty2b") 7)
           first (pg-execute-batch channel batch a2 2 out 4096 meta 7)
           first-ok (if (and (> first 0) (= (mem-byte-at meta 0) 0)
                             (= (mem-byte-at meta 1) 73)
-                            (= (batch-count-tag out first 0 50 0) 2)
-                            (= (batch-count-tag out first 0 68 0) 2)
-                            (= (batch-count-tag out first 0 67 0) 2)) 1 0)
-          e1 (batch-add-empty-item! batch 0
-                                    (str-ptr "forty2a") (str-len "forty2a"))
-          e2 (batch-add-empty-item! batch e1
-                                    (str-ptr "divide0") (str-len "divide0"))
-          e3 (batch-add-empty-item! batch e2
-                                    (str-ptr "forty2b") (str-len "forty2b"))
+                            (= (batch-count-tag
+                                out (if (< first 0) 0
+                                      (if (> first 4096) 4096 first)) 0 50 0) 2)
+                            (= (batch-count-tag
+                                out (if (< first 0) 0
+                                      (if (> first 4096) 4096 first)) 0 68 0) 2)
+                            (= (batch-count-tag
+                                out (if (< first 0) 0
+                                      (if (> first 4096) 4096 first)) 0 67 0) 2)) 1 0)
+          e1 (batch-add-empty-item! batch 256 0
+                                    (str-ptr "forty2a") 7)
+          e2 (batch-add-empty-item! batch 256 e1
+                                    (str-ptr "divide0") 7)
+          e3 (batch-add-empty-item! batch 256 e2
+                                    (str-ptr "forty2b") 7)
           failed (pg-execute-batch channel batch e3 3 out 4096 meta 7)
           failed-ok (if (and (> failed 0) (= (mem-byte-at meta 0) 1)
                              (= (mem-byte-at meta 1) 73)
@@ -82,11 +101,14 @@
                              (= (mem-byte-at meta 4) 48)
                              (= (mem-byte-at meta 5) 49)
                              (= (mem-byte-at meta 6) 50)) 1 0)
-          r1 (batch-add-empty-item! batch 0
-                                    (str-ptr "forty2b") (str-len "forty2b"))
+          r1 (batch-add-empty-item! batch 256 0
+                                    (str-ptr "forty2b") 7)
           recovered (pg-execute-batch channel batch r1 1 out 4096 meta 7)
           recovered-ok (if (and (> recovered 0) (= (mem-byte-at meta 0) 0)
-                                (= (batch-count-tag out recovered 0 68 0) 1)) 1 0)
+                                (= (batch-count-tag
+                                    out (if (< recovered 0) 0
+                                          (if (> recovered 4096) 4096 recovered))
+                                    0 68 0) 1)) 1 0)
           c1 (pg-close-statement channel (str-ptr "forty2a") (str-len "forty2a")
                                  out 4096 meta 7)
           c2 (pg-close-statement channel (str-ptr "forty2b") (str-len "forty2b")

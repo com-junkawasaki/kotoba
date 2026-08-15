@@ -273,6 +273,8 @@
   (let [forms (runtime/read-file "providers/pg_batch_consumer.kotoba" :kotoba)
         policy (edn/read-string (slurp "providers/db_component_policy.edn"))
         wasm (runtime/wasm-binary forms policy)]
+    (is (empty? (runtime/raw-memory-extent-problems forms policy))
+        "batch builder writes and response parser reads retain slice provenance")
     (is (= '[pg-prepare pg-execute-batch pg-close-statement
              pg-open-scram-random pg-close-scram]
            (runtime/required-host-imports forms)))
@@ -280,6 +282,8 @@
     (is (= ["pg_prepare" "pg_execute_batch" "pg_close_statement"
             "pg_open_scram_random" "pg_close_scram"]
            (mapv :field (:kotoba.wasm/imports wasm))))
+    (is (= #{"run" "main"} (set (:kotoba.wasm/exports wasm)))
+        "contracted batch helpers cannot be external entrypoints")
     (is (some? (Parser/parse ^bytes (:kotoba.wasm/binary wasm))))))
 
 (deftest postgresql-pool-reset-consumer-compiles-dirty-lease-cleanup
