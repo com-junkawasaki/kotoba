@@ -53,10 +53,20 @@
         implemented (set (map :control (:assessment/implemented assessment)))]
     (is (contains? implemented :publication/secure-write-transport))
     (is (contains? implemented :publication/durable-aggregate-ingress-quota))
-    (is (not (contains? open :publication/persistent-ingress-rate-and-quota)))
-    (is (contains? open
-                   :publication/per-principal-rate-limit-and-token-rotation)
-        "durable node-wide accounting must not be promoted to principal isolation")))
+    (is (not (contains? open :publication/persistent-ingress-rate-and-quota)))))
+
+(deftest increment-seven-closes-local-principal-rate-and-rotation-gate
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (not (contains? open
+                        :publication/per-principal-rate-limit-and-token-rotation)))
+    (is (contains? implemented :publication/durable-principal-ingress-budgets))
+    (is (contains? implemented :publication/authenticated-mutation-rate-limit))
+    (is (contains? implemented :publication/staged-token-rotation))
+    (is (contains? open :publication/distributed-ingress-and-retention-gc)
+        "root-local controls must not be promoted to distributed or lifecycle assurance")
+    (is (= 80 (:assessment/score assessment))
+        "internal controls improve maturity without inventing independent evidence")))
 
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}

@@ -43,7 +43,7 @@
             [kotoba.wasm-exec :as wasm-exec]
             [kototama.contract :as kototama-contract]
             [kototama.tender :as tender])
-  (:import [java.io ByteArrayOutputStream File FileInputStream]
+  (:import [java.io ByteArrayOutputStream File FileInputStream PushbackReader]
            [java.nio ByteBuffer]
            [java.nio.channels FileChannel]
            [java.nio.charset CodingErrorAction StandardCharsets]
@@ -145,7 +145,11 @@
     "--provider-command"
     "--namespace-owners"
     "--write-token-file"
+    "--write-authorities-file"
     "--max-upload-bytes"
+    "--max-principal-upload-bytes"
+    "--max-write-requests"
+    "--write-rate-window-ms"
     "--text"
     "-S"
     "-o"})
@@ -453,6 +457,44 @@
       (catch java.io.IOException _
         (throw (ex-info "codebase write token file is unavailable"
                         {:problem :publish/write-token-file-unavailable}))))))
+
+(defn read-write-authorities-file
+  "Read a bounded EDN principal-to-rotating-token policy from PATH.
+
+  Token material and parser diagnostics are never copied into the returned
+  error. The server performs the authoritative shape and uniqueness checks."
+  [path]
+  (when path
+    (try
+      (let [file (io/file path)
+            size (Files/size (.toPath file))]
+        (when (> size 65536)
+          (throw (ex-info "codebase write authorities file is too large"
+                          {:problem :publish/invalid-write-authorities-file})))
+        (let [eof (Object.)
+              policy (with-open [reader (PushbackReader. (io/reader file))]
+                       (let [value (edn/read {:eof eof} reader)
+                             trailing (edn/read {:eof eof} reader)]
+                         (when-not (identical? eof trailing)
+                           (throw
+                            (ex-info "codebase write authorities file has trailing data"
+                                     {:problem :publish/invalid-write-authorities-file})))
+                         value))]
+          (when-not (map? policy)
+            (throw (ex-info "codebase write authorities file must contain a map"
+                            {:problem :publish/invalid-write-authorities-file})))
+          policy))
+      (catch java.io.IOException _
+        (throw (ex-info "codebase write authorities file is unavailable"
+                        {:problem :publish/write-authorities-file-unavailable})))
+      (catch clojure.lang.ExceptionInfo error
+        (if (= :publish/invalid-write-authorities-file (:problem (ex-data error)))
+          (throw error)
+          (throw (ex-info "codebase write authorities file is invalid"
+                          {:problem :publish/invalid-write-authorities-file}))))
+      (catch Exception _
+        (throw (ex-info "codebase write authorities file is invalid"
+                        {:problem :publish/invalid-write-authorities-file}))))))
 
 (defn- positive-long-option [argv option default]
   (let [text (option-value argv option)
@@ -808,15 +850,31 @@
                                {})
             write-token (read-write-token-file
                          (option-value argv "--write-token-file"))
+            write-authorities (read-write-authorities-file
+                               (option-value argv "--write-authorities-file"))
+            max-total-upload-bytes
+            (positive-long-option argv "--max-upload-bytes"
+                                  codebase-publish/default-max-total-upload-bytes)
             {:keys [url stop]} (codebase-publish/serve!
                                 root {:port (Integer/parseInt
                                              (or (option-value argv "--port") "0"))
                                       :namespace-owners namespace-owners
                                       :write-token write-token
+                                      :write-authorities write-authorities
                                       :max-total-upload-bytes
+                                      max-total-upload-bytes
+                                      :max-principal-upload-bytes
                                       (positive-long-option
-                                       argv "--max-upload-bytes"
-                                       codebase-publish/default-max-total-upload-bytes)})]
+                                       argv "--max-principal-upload-bytes"
+                                       max-total-upload-bytes)
+                                      :max-write-requests
+                                      (positive-long-option
+                                       argv "--max-write-requests"
+                                       codebase-publish/default-max-write-requests)
+                                      :write-rate-window-ms
+                                      (positive-long-option
+                                       argv "--write-rate-window-ms"
+                                       codebase-publish/default-write-rate-window-ms)})]
         (println (pr-str {:kotoba.cli/code :codebase/serving :url url}))
         (try @(promise)
              (finally (stop)))

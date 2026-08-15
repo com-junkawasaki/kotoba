@@ -276,7 +276,7 @@ kotoba codebase pull <cid>... --store dir                              # discove
 kotoba codebase announce <name|#hash> --pinning-endpoint URL --store dir  # ask a pinning service to provide it, then verify
 kotoba codebase diff --before <commit> --after <commit> --store dir    # authored vs propagated vs renamed
 kotoba codebase diff --base <c> --left <c> --right <c> --store dir     # list merge conflicts as data
-kotoba codebase serve --store dir --port 8080 --namespace-owners owners.edn --write-token-file token --max-upload-bytes 268435456
+kotoba codebase serve --store dir --port 8080 --namespace-owners owners.edn --write-authorities-file authorities.edn --max-upload-bytes 268435456 --max-principal-upload-bytes 67108864 --max-write-requests 4096 --write-rate-window-ms 60000
 kotoba codebase publish --namespace ns --endpoint URL --store dir --write-token-file token
 kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir --write-token-file token
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
@@ -340,17 +340,25 @@ grants nobody anything: the host verifies every pushed block against its CID,
 and the follower verifies everything again, which is why the record is signed
 rather than the connection trusted.
 
-Mutating block and head requests also require an operator write authority,
-loaded only from `--write-token-file`. Starting `serve` without that option is
-safe and read-only; public GET, browse and follow remain available. Authenticated
-unique block ingress is bounded by a durable node-wide byte quota (256 MiB by
-default, configurable with `--max-upload-bytes`), shared across restarts and
-concurrent server processes; re-uploading an existing CID is idempotent and
-costs no additional quota. The CLI sends write authority only to HTTPS or an
-explicit loopback HTTP endpoint; loopback writes are direct and redirects are
-disabled. This is an admission/DoS boundary, separate
-from CID integrity and namespace publisher authorization. Per-principal rate
-limits, token rotation and retention/GC remain operational work.
+Mutating block and head requests also require an operator write authority.
+`--write-authorities-file` loads a bounded EDN policy such as
+`{"agent-a" {:current "new-secret" :previous ["old-secret"]}}`; the overlap
+supports staged rotation, and removing the previous token revokes it. A token
+cannot name two principals. The older `--write-token-file` remains as one
+`legacy` principal. Starting `serve` without either option is safe and
+read-only; public GET, browse and follow remain available.
+
+Authenticated unique block ingress is bounded by a durable node-wide byte quota
+(256 MiB by default, configurable with `--max-upload-bytes`) and a durable
+per-principal quota (`--max-principal-upload-bytes`, aggregate-equivalent by
+default). Block and head mutations also share a durable per-principal request
+budget, configured by `--max-write-requests` and `--write-rate-window-ms`.
+Balances survive restart and concurrent server processes; duplicate CIDs spend
+request rate but no additional byte quota. The CLI sends write authority only
+to HTTPS or an explicit loopback HTTP endpoint; loopback writes are direct and
+redirects are disabled. This is an admission/DoS boundary, separate from CID
+integrity and namespace publisher authorization. Distributed quota,
+retention/GC and measured abuse soak remain operational work.
 
 A serving node also browses: `/browse/{namespace}` lists what each name
 currently selects and `/def/{cid}` renders the stored definition with its

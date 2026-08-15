@@ -26,11 +26,28 @@
 (defn- seed [n] (byte-array (map unchecked-byte (repeat 32 n))))
 
 (def ^:private test-write-token "test-only-codebase-write-authority")
+(def ^:private principal-a-token-v1 "test-only-principal-a-v1")
+(def ^:private principal-a-token-v2 "test-only-principal-a-v2")
+(def ^:private principal-b-token "test-only-principal-b-v1")
+
+(defn- write-authorities
+  [a-current a-previous]
+  {"principal-a" {:current a-current :previous a-previous}
+   "principal-b" {:current principal-b-token :previous []}})
 
 (defn- put-block-request [url cid bytes token]
   (let [builder (-> (java.net.http.HttpRequest/newBuilder
                      (java.net.URI/create (str url "/ipfs/" cid)))
                     (.PUT (java.net.http.HttpRequest$BodyPublishers/ofByteArray bytes)))
+        builder (if token (.header builder "Authorization" (str "Bearer " token)) builder)]
+    (.send (java.net.http.HttpClient/newHttpClient) (.build builder)
+           (java.net.http.HttpResponse$BodyHandlers/ofString))))
+
+(defn- put-head-request [url namespace record token]
+  (let [builder (-> (java.net.http.HttpRequest/newBuilder
+                     (java.net.URI/create (str url "/heads/" namespace)))
+                    (.PUT (java.net.http.HttpRequest$BodyPublishers/ofByteArray
+                           (cbor/encode (:record record)))))
         builder (if token (.header builder "Authorization" (str "Bearer " token)) builder)]
     (.send (java.net.http.HttpClient/newHttpClient) (.build builder)
            (java.net.http.HttpResponse$BodyHandlers/ofString))))
@@ -160,6 +177,202 @@
           (finally ((:stop server-a)) ((:stop server-b)))))
       (finally (run! delete-tree [author host])))))
 
+(deftest authenticated-mutation-rate-is-isolated-per-principal
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            options {:write-authorities
+                     (write-authorities principal-a-token-v2 [principal-a-token-v1])
+                     :max-write-requests 1
+                     :write-rate-window-ms 60000}
+            server (publish/serve! host options)]
+        (try
+          (is (= 201 (.statusCode
+                      (put-block-request (:url server) cid bytes principal-a-token-v2))))
+          (finally ((:stop server))))
+        (let [restarted (publish/serve! host options)]
+          (try
+            (is (= 429 (.statusCode
+                        (put-block-request (:url restarted) cid bytes principal-a-token-v2)))
+                "a valid duplicate and a restart must not bypass the mutation rate")
+            (is (= 200 (.statusCode
+                        (put-block-request (:url restarted) cid bytes principal-b-token)))
+                "one principal must not spend another principal's request budget")
+            (finally ((:stop restarted))))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest authenticated-mutation-rate-recovers-after-its-window
+  (let [author (temp-store) host (temp-store) now (atom 1000)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            server (publish/serve!
+                    host {:write-authorities
+                          (write-authorities principal-a-token-v2 [])
+                          :max-write-requests 1
+                          :write-rate-window-ms 60000
+                          :clock-ms #(long @now)})]
+        (try
+          (is (= 201 (.statusCode
+                      (put-block-request (:url server) cid bytes principal-a-token-v2))))
+          (let [limited (put-block-request (:url server) cid bytes
+                                           principal-a-token-v2)]
+            (is (= 429 (.statusCode limited)))
+            (is (= "60" (.orElse (.firstValue (.headers limited) "Retry-After") nil))
+                "rate refusal must tell a legitimate client when to retry"))
+          (reset! now 500)
+          (is (= 429 (.statusCode
+                      (put-block-request (:url server) cid bytes principal-a-token-v2)))
+              "wall-clock rollback must fail closed instead of minting a new budget")
+          (reset! now 61000)
+          (is (= 200 (.statusCode
+                      (put-block-request (:url server) cid bytes principal-a-token-v2)))
+              "a principal regains its request budget at the configured boundary")
+          (finally ((:stop server)))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest concurrent-listeners-share-one-principal-rate-budget
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            options {:write-authorities (write-authorities principal-a-token-v2 [])
+                     :max-write-requests 1}
+            server-a (publish/serve! host options)
+            server-b (publish/serve! host options)
+            start (promise)
+            send (fn [server]
+                   (future @start
+                           (.statusCode
+                            (put-block-request (:url server) cid bytes
+                                               principal-a-token-v2))))
+            results [(send server-a) (send server-b)]]
+        (try
+          (deliver start true)
+          (is (= [201 429] (sort (mapv deref results)))
+              "parallel listeners must not each mint the same principal budget")
+          (finally ((:stop server-a)) ((:stop server-b)))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest head-mutations-share-the-same-principal-rate-boundary
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [record (publication/publish! author "demo" (seed 1))
+            _ (doseq [{:keys [cid bytes]}
+                      (:blocks (store/export-closure author [(:head record)]))]
+                (store/put-block! host cid (cbor/decode bytes)))
+            server (publish/serve!
+                    host {:namespace-owners {"demo" (ed/did-key-from-seed (seed 1))}
+                          :write-authorities
+                          (write-authorities principal-a-token-v2 [])
+                          :max-write-requests 1})]
+        (try
+          (is (= 201 (.statusCode
+                      (put-head-request (:url server) "demo" record
+                                        principal-a-token-v2))))
+          (is (= 429 (.statusCode
+                      (put-head-request (:url server) "demo" record
+                                        principal-a-token-v2)))
+              "head mutation parsing and signature verification must not bypass the rate")
+          (finally ((:stop server)))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest durable-upload-quota-is-isolated-per-principal
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)
+                                                    (defn g [x] (+ x 1))])
+      (let [head (store/head author "demo")
+            [a b] (take 2 (:blocks (store/export-closure author [head])))
+            principal-quota (max (alength ^bytes (:bytes a))
+                                 (alength ^bytes (:bytes b)))
+            options {:write-authorities
+                     (write-authorities principal-a-token-v2 [])
+                     :max-total-upload-bytes (* 2 principal-quota)
+                     :max-principal-upload-bytes principal-quota}
+            server (publish/serve! host options)]
+        (try
+          (is (= 201 (.statusCode
+                      (put-block-request (:url server) (:cid a) (:bytes a)
+                                         principal-a-token-v2))))
+          (finally ((:stop server))))
+        (let [restarted (publish/serve! host options)]
+          (try
+            (is (= 507 (.statusCode
+                        (put-block-request (:url restarted) (:cid b) (:bytes b)
+                                           principal-a-token-v2)))
+                "a restart must not restore a principal's durable byte budget")
+            (is (= 201 (.statusCode
+                        (put-block-request (:url restarted) (:cid b) (:bytes b)
+                                           principal-b-token)))
+                "unused principal capacity must remain independently available")
+            (finally ((:stop restarted))))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest token-rotation-overlaps-then-revokes-the-previous-token
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)
+                                                    (defn g [x] (+ x 1))])
+      (let [head (store/head author "demo")
+            [a b] (take 2 (:blocks (store/export-closure author [head])))
+            overlap (publish/serve!
+                     host {:write-authorities
+                           (write-authorities principal-a-token-v2
+                                              [principal-a-token-v1])})]
+        (try
+          (is (= 201 (.statusCode
+                      (put-block-request (:url overlap) (:cid a) (:bytes a)
+                                         principal-a-token-v1))))
+          (is (= 200 (.statusCode
+                      (put-block-request (:url overlap) (:cid a) (:bytes a)
+                                         principal-a-token-v2)))
+              "current and previous credentials must map to one principal during overlap")
+          (finally ((:stop overlap))))
+        (let [rotated (publish/serve!
+                       host {:write-authorities
+                             (write-authorities principal-a-token-v2 [])})]
+          (try
+            (is (= 401 (.statusCode
+                        (put-block-request (:url rotated) (:cid b) (:bytes b)
+                                           principal-a-token-v1)))
+                "removing the previous credential must revoke it")
+            (is (= 201 (.statusCode
+                        (put-block-request (:url rotated) (:cid b) (:bytes b)
+                                           principal-a-token-v2))))
+            (finally ((:stop rotated))))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest ambiguous-or-reused-write-authorities-fail-before-listening
+  (let [host (temp-store)]
+    (try
+      (store/initialize! host)
+      (doseq [options
+              [{:write-token principal-a-token-v1
+                :write-authorities (write-authorities principal-a-token-v2 [])}
+               {:write-authorities
+                {"principal-a" {:current principal-a-token-v1 :previous []}
+                 "principal-b" {:current principal-a-token-v1 :previous []}}}]]
+        (let [error (try (publish/serve! host options)
+                         (catch clojure.lang.ExceptionInfo e e))]
+          (is (contains? #{:publish/ambiguous-write-authority
+                           :publish/invalid-write-authorities}
+                         (:problem (ex-data error))))
+          (is (not (str/includes? (pr-str (ex-data error)) principal-a-token-v1))
+              "startup policy diagnostics must never contain credential material")))
+      (finally (delete-tree host)))))
+
 (deftest corrupt-durable-quota-state-fails-closed
   (let [author (temp-store) host (temp-store)]
     (try
@@ -179,6 +392,30 @@
                  (:problem (ex-data (try (store/get-block host cid)
                                          (catch clojure.lang.ExceptionInfo e e)))))
               "invalid accounting state must never fall back to a fresh quota")
+          (finally ((:stop server)))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest version-one-aggregate-quota-migrates-without-resetting-usage
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [directory (java.io.File. host ".kotoba/security")
+            _ (.mkdirs directory)
+            _ (spit (java.io.File. directory "codebase-ingress-quota.edn")
+                    "{:version 1 :used-bytes 7}")
+            head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            server (publish/serve! host {:write-token test-write-token})]
+        (try
+          (is (= 201 (.statusCode
+                      (put-block-request (:url server) cid bytes test-write-token))))
+          (let [usage ((:upload-usage server))]
+            (is (= 2 (:version usage)))
+            (is (= (+ 7 (alength ^bytes bytes)) (:used-bytes usage))
+                "upgrade must carry the old aggregate charge into schema v2")
+            (is (= (alength ^bytes bytes)
+                   (get-in usage [:principals "legacy" :used-bytes]))))
           (finally ((:stop server)))))
       (finally (run! delete-tree [author host])))))
 
@@ -218,6 +455,24 @@
                        (catch clojure.lang.ExceptionInfo e e))]
         (is (= :publish/invalid-write-token-file (:problem (ex-data error))))
         (is (not (str/includes? (pr-str (ex-data error)) "invalid token"))))
+      (finally (.delete file)))))
+
+(deftest write-authority-policy-files-never-return-token-material-in-errors
+  (let [file (java.io.File/createTempFile "kotoba-write-authorities-" ".edn")
+        secret "must-not-appear-in-an-error"]
+    (try
+      (spit file (pr-str {"agent" {:current principal-a-token-v2
+                                    :previous [principal-a-token-v1]}}))
+      (is (= {"agent" {:current principal-a-token-v2
+                        :previous [principal-a-token-v1]}}
+             (launcher/read-write-authorities-file (str file))))
+      (spit file (str "{}\n{:unexpected \"" secret "\"}"))
+      (let [error (try (launcher/read-write-authorities-file (str file))
+                       (catch clojure.lang.ExceptionInfo e e))]
+        (is (= :publish/invalid-write-authorities-file
+               (:problem (ex-data error))))
+        (is (not (str/includes? (str (.getMessage error) (pr-str (ex-data error)))
+                                secret))))
       (finally (.delete file)))))
 
 (deftest first-publish-requires-a-preauthorized-namespace-owner

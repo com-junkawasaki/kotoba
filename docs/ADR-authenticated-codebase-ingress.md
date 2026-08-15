@@ -19,23 +19,42 @@ storage. These controls must remain separate.
 
 ## Decision
 
-1. Every mutating `PUT /ipfs/{cid}` and `PUT /heads/{namespace}` requires the
-   node's operator-managed bearer write authority before the body is read. The
-   comparison is constant-time. A node started without a token is read-only;
-   public `GET`, browse, follow and CID verification remain unchanged.
-2. The CLI accepts the authority only through `--write-token-file`. It does not
-   accept the token as an argument value, return it in a result or include it in
-   an error. Token files are bounded and malformed values fail before network
-   mutation. A write token is sent only over HTTPS or explicit loopback HTTP;
-   other plaintext endpoints fail before the first request. Loopback writes
-   bypass the system proxy and redirects are disabled, so local plaintext
-   authority cannot be forwarded by ambient client configuration.
-3. A durable node-wide quota bounds bytes stored through authenticated block
+1. Every mutating `PUT /ipfs/{cid}` and `PUT /heads/{namespace}` requires an
+   operator-managed bearer write authority before the body is read. The server
+   maps a constant-time token match to exactly one bounded principal. A node
+   started without an authority is read-only; public `GET`, browse, follow and
+   CID verification remain unchanged.
+2. `--write-authorities-file` loads an EDN policy of the form
+   `{"agent-a" {:current "..." :previous ["..."]}}`. Current and previous
+   credentials resolve to the same principal during a rotation overlap. The
+   operator promotes a new current token, updates clients, then removes the old
+   token from `:previous`; removed tokens immediately fail authentication after
+   the new policy is started. Tokens may not be reused across principals.
+   `--write-token-file` remains a compatible single `legacy` principal, but it
+   cannot be combined with the principal policy.
+3. The CLI never accepts token material as an argument value, returns it in a
+   result or includes it in an error. Secret files are bounded and malformed
+   values fail before listening or network mutation. A write token is sent only
+   over HTTPS or explicit loopback HTTP; other plaintext endpoints fail before
+   the first request. Loopback writes bypass the system proxy and redirects are
+   disabled, so local plaintext authority cannot be forwarded by ambient client
+   configuration.
+4. A durable node-wide quota bounds bytes stored through authenticated block
    ingress. The default is 256 MiB and `--max-upload-bytes` may lower or raise
    it explicitly. A root-local ledger is synchronized with a JVM monitor and OS
    file lock, so restart and concurrent server processes share one balance.
    Re-uploading an existing CID is idempotent and is not charged twice.
-4. Authentication is only the admission perimeter. Blocks must still match
+5. The same ledger partitions unique-block bytes by principal. The default
+   principal quota equals the aggregate quota for compatibility and
+   `--max-principal-upload-bytes` may set a smaller bound. Every authenticated
+   block or head mutation also spends a durable principal request budget;
+   `--max-write-requests` defaults to 4096 per
+   `--write-rate-window-ms` (60 seconds). Authentication and rate charging occur
+   before body parsing, so valid duplicate blocks and invalid signed-head work
+   cannot bypass the request bound. Refusal returns 429 with `Retry-After`.
+   Restarted and concurrent listeners share the state. Version-one aggregate
+   ledgers migrate without resetting their existing charge.
+6. Authentication is only the admission perimeter. Blocks must still match
    their requested CID; friendly namespaces still require a preauthorized first
    publisher; later heads still require the pinned publisher, monotonic sequence
    and predecessor chain.
@@ -52,6 +71,10 @@ not NIST or DoDAF certification.
 - Per-request size alone: an attacker can repeat bounded requests.
 - Token on the command line: process listings and shell history make that an
   avoidable disclosure surface.
+- Client-supplied principal headers: a caller must not choose the accounting
+  identity. The server derives it only from the operator policy's token match.
+- One counter per server process: restart or parallel listeners would mint new
+  request and byte budgets.
 
 ## Evidence
 
@@ -64,11 +87,19 @@ refused, and public browse/follow reads remain available. IPNS endpoint hosting
 exercises the same authority in
 `test/kotoba/codebase_ipns_test.clj`.
 
+The same suite proves per-principal byte isolation across restart, durable
+per-principal mutation rate enforcement for both block and head paths, window
+recovery, overlap rotation followed by previous-token revocation, duplicate
+token rejection, secret-free policy errors and version-one state migration.
+
 ## Residual risk
 
-The quota is node-wide, not per-principal. There is no rate limit, token rotation
-protocol, distributed quota, retention/GC policy or externally measured abuse
-soak yet. A compromised shared token can consume the configured quota. The
-ledger is deliberately charged and forced before the block is written: a crash
-may conservatively overcharge, but cannot create unaccounted storage. These
-remain explicit operational gates and keep the project at A2 bounded pilot.
+Rate and quota enforcement is root-local, not distributed across independent
+storage roots. A compromised credential can consume its principal budget, and
+an operator can defeat isolation by assigning one token to multiple deployments
+under the same principal. The fixed window permits a boundary burst of up to
+twice the configured request count. There is no retention/GC policy or
+externally measured abuse soak yet. The ledger is deliberately charged and
+forced before block storage: a crash may conservatively overcharge, but cannot
+create unaccounted storage. These remain explicit operational gates and keep the
+project at A2 bounded pilot.
