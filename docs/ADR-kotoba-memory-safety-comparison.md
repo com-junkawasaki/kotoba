@@ -3,7 +3,7 @@
 - **Status**: accepted
 - **Date**: 2026-08-15
 - **Observed implementation**: `662e98b8160224f3f2e6e93fc7ff89bd64de7b51`
-  plus the increment-8 change set recorded with this ADR
+  plus the increment-8 and increment-9 change sets recorded with this ADR
 - **Machine-readable companion**:
   [`ADR-kotoba-memory-safety-comparison.edn`](ADR-kotoba-memory-safety-comparison.edn)
 - **Related**: `ADR-safe-capability-language.md`, `docs/lang/gates.md`,
@@ -44,11 +44,13 @@ Use three separate claims whenever the rating is explained:
   four raw dereference operations by default, and the emitter repeats the gate
   as defense in depth. The `:checked-extents` raw profile proves lexical
   allocation provenance, static offsets, access widths and read-only literal
-  borrowing. However, legacy wire providers retain an explicit compatibility
-  hatch. The JVM reference host now admits a non-empty output window only at
-  the exact payload start of one compiler-created allocation and only up to its
-  recorded extent. External host implementations have not yet demonstrated
-  equivalent allocation identity enforcement.
+  borrowing. Three provider consumers whose raw access stays lexical now use
+  the checked-extents profile, and a ratchet prevents provable providers from
+  retaining broad authority. Ten helper-heavy wire providers retain an
+  explicit compatibility hatch. The JVM reference host now admits a non-empty
+  output window only at the exact payload start of one compiler-created
+  allocation and only up to its recorded extent. External host implementations
+  have not yet demonstrated equivalent allocation identity enforcement.
 - **Resource safety — incomplete and not memory safety.** Guest allocation is
   monotonic and has no per-object reclamation. Emitted memory now carries a
   policy-derived maximum (default 256 pages), but OOM, retention and
@@ -169,7 +171,9 @@ claim that the full multi-repository qualification suite was green.
 ## Open gaps
 
 1. Migrate legacy wire-protocol helpers from raw pointer parameters to a proof
-   representation the compiler can track across calls.
+   representation the compiler can track across calls. Ten broad providers
+   remain; providers already provable by checked extents may not regress into
+   that set.
 2. Require every non-JVM host implementation to enforce the same exact
    allocation-start and recorded-extent contract as the reference host.
 3. Decide whether the guest needs reclamation, arenas or instance-lifetime-only

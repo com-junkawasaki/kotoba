@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-cancellable-query-consumer {:kotoba/raw-memory :implements-wire-protocol})
+(ns kotoba.providers.pg-cancellable-query-consumer {:kotoba/raw-memory :checked-extents})
 
 (defn ^:i64 open [port cancel-out-ptr cancel-out-cap]
   (pg-open-scram-cancellable-random

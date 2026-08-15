@@ -197,6 +197,19 @@
            (mapv :field (:kotoba.wasm/imports wasm))))
     (is (some? (Parser/parse ^bytes (:kotoba.wasm/binary wasm))))))
 
+(deftest postgresql-explicit-scram-consumer-compiles-under-checked-extents
+  (let [forms (runtime/read-file
+               "providers/pg_explicit_scram_consumer.kotoba" :kotoba)
+        policy (edn/read-string (slurp "providers/db_component_policy.edn"))
+        wasm (runtime/wasm-binary forms policy)]
+    (is (empty? (runtime/raw-memory-extent-problems forms policy)))
+    (is (= '[pg-query-state pg-open-scram pg-close-scram]
+           (runtime/required-host-imports forms)))
+    (is (:kotoba.wasm/ok? wasm))
+    (is (= ["pg_query_state" "pg_open_scram" "pg_close_scram"]
+           (mapv :field (:kotoba.wasm/imports wasm))))
+    (is (some? (Parser/parse ^bytes (:kotoba.wasm/binary wasm))))))
+
 (deftest postgresql-prepared-consumer-compiles-parameterized-reuse-flow
   (let [forms (runtime/read-file "providers/pg_prepared_consumer.kotoba" :kotoba)
         policy (edn/read-string (slurp "providers/db_component_policy.edn"))
