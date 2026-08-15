@@ -518,17 +518,19 @@ not define new command shape or language semantics of its own.
 
 Current Kotoba is **strongly host-contained but not yet a Rust-equivalent
 ownership/borrow proof**. The safe Wasm profile combines a checked subset,
-Wasm linear-memory bounds, bounds-respecting accessors, deny-by-default raw
-dereference and a no-free bump allocator. This makes use-after-free and
-double-free structurally absent in the current guest, while the Wasm boundary
-keeps guest addresses out of JVM/process memory.
+Wasm linear-memory bounds and a policy-derived maximum, bounds-respecting
+accessors, deny-by-default raw dereference and a no-free bump allocator. The
+opt-in `{:kotoba/raw-memory :checked-extents}` profile additionally requires
+each raw access to retain allocation provenance and fit its static extent.
+This makes use-after-free and double-free structurally absent in the current
+guest, while the Wasm boundary keeps guest addresses out of JVM/process memory.
 
-The overall rating is **strong but incomplete**: `:kotoba/raw-memory` is an
-explicit escape hatch; host output buffers are region-bounded but not yet
-matched to individual live allocation extents; guest allocation is monotonic;
-and the current emitter does not derive a Wasm memory maximum from
-`:limits {:memory-pages ...}`. Capability confinement is a separate safety
-axis and must not be used to overstate heap-integrity guarantees.
+The overall rating is **strong but incomplete**: legacy wire-protocol modules
+still use the explicit raw-memory compatibility hatch; host output buffers are
+region-bounded but not yet matched to individual live allocation identities;
+and guest allocation is monotonic with no per-object reclamation. Capability
+confinement is a separate safety axis and must not be used to overstate
+heap-integrity guarantees.
 
 See
 [`docs/ADR-kotoba-memory-safety-comparison.md`](docs/ADR-kotoba-memory-safety-comparison.md)

@@ -1,8 +1,8 @@
 # ADR — Kotoba memory-safety position and cross-language comparison
 
 - **Status**: accepted
-- **Date**: 2026-08-08
-- **Observed implementation**: `efc8c2bed7e171826327b03a0037a9f119471136`
+- **Date**: 2026-08-15
+- **Observed implementation**: `57afde187c025806b676f8ee9b86dc6094248e94`
 - **Machine-readable companion**:
   [`ADR-kotoba-memory-safety-comparison.edn`](ADR-kotoba-memory-safety-comparison.edn)
 - **Related**: `ADR-safe-capability-language.md`, `docs/lang/gates.md`,
@@ -20,7 +20,9 @@ engine. Kotoba has a different, layered model:
 2. WebAssembly linear-memory bounds and host isolation;
 3. deny-by-default raw-memory and capability admission gates;
 4. bounds-respecting accessors and host write-window checks;
-5. a no-free bump allocator for the current guest runtime.
+5. statically proven allocation provenance/extents in the opt-in checked raw
+   profile;
+6. a no-free bump allocator for the current guest runtime.
 
 The result must not be described as a Rust-equivalent ownership proof. It must
 also not be reduced to the safety of the Clojure/JVM implementation host:
@@ -39,16 +41,16 @@ Use three separate claims whenever the rating is explained:
   than addressing arbitrary JVM or process memory.
 - **Kotoba value/heap integrity — incomplete.** Ordinary source cannot use the
   four raw dereference operations by default, and the emitter repeats the gate
-  as defense in depth. However, raw access has an explicit escape hatch, and a
-  permitted host output operation currently checks a writable *region*, not
-  the extent and identity of each live allocation. One live heap object can
+  as defense in depth. The `:checked-extents` raw profile proves lexical
+  allocation provenance, static offsets, access widths and read-only literal
+  borrowing. However, legacy wire providers retain an explicit compatibility
+  hatch, and a permitted host output operation currently checks a writable
+  *region*, not the identity of each live allocation. One live heap object can
   therefore still be named as another host output buffer.
 - **Resource safety — incomplete and not memory safety.** Guest allocation is
-  monotonic and has no per-object reclamation. The current emitter declares a
-  one-page minimum Wasm memory without a maximum; the README's example
-  `:limits {:memory-pages ...}` value is not consumed by this emitter path.
-  OOM, retention, unbounded growth and host-resource leaks remain separate
-  concerns.
+  monotonic and has no per-object reclamation. Emitted memory now carries a
+  policy-derived maximum (default 256 pages), but OOM, retention and
+  host-resource leaks remain separate concerns.
 
 Capability confinement is reported as an independent axis. Kotoba can be
 stronger than a conventional memory-safe language at preventing untrusted code
@@ -78,12 +80,12 @@ result.
 | use-after-free prevention | very strong | guest allocator never frees individual objects |
 | double-free prevention | very strong | no guest `free` operation |
 | dangling-pointer prevention | strong | no ordinary deallocation; raw/host ABI caveats remain |
-| buffer-overflow prevention | strong but incomplete | safe accessors and Wasm bounds trap; no complete per-object extent check |
+| buffer-overflow prevention | strong but incomplete | safe accessors, Wasm bounds and checked raw extents; legacy providers and host outputs lack complete allocation identity |
 | data-race prevention | strong for current profile | emitted memory is not shared and the profile exposes no guest threading/atomic primitives |
 | no GC pause | mixed | no guest GC; Clojure/Chicory host remains managed |
 | deterministic destruction | weak | no RAII, destructor or ownership-driven resource lifecycle |
 | memory-layout control | limited | linear-memory ABI exists; ordinary source raw dereference is denied |
-| compile-time safety | partial | raw-op, capability typing/effects and affine capability use are checked; there is no general ownership/borrow/lifetime system |
+| compile-time safety | partial | checked raw extents, capability typing/effects and affine capability use are checked; there is no general ownership/borrow/lifetime system |
 | capability confinement | very strong target, implemented in the checked path | explicit typed capability values and deny-by-default host imports |
 
 The current capability-affinity check is intentionally narrow: it applies to
@@ -98,10 +100,28 @@ The following are Kotoba's current raw-memory escape-hatch forms:
 (ns buffer.codec {:kotoba/raw-memory :implements-buffer-abi})
 ```
 
+New code should use the fail-closed checked profile:
+
+```clojure
+(ns buffer.codec {:kotoba/raw-memory :checked-extents})
+```
+
+It accepts only statically sized `alloc`/`alloc-checked` provenance with static
+in-bounds offsets. Static string/byte pointers are readable, not writable.
+Pointer arithmetic and helper parameters are rejected when provenance cannot
+be proven.
+
 or deployment policy:
 
 ```clojure
 {:kotoba.policy/allow-raw-memory true}
+```
+
+A deployment can require the checked proof even when it supplies the grant:
+
+```clojure
+{:kotoba.policy/allow-raw-memory true
+ :kotoba.policy/require-raw-memory-extents true}
 ```
 
 A hardening deployment can override both with:
@@ -116,8 +136,9 @@ The denied raw dereference set is currently `mem-byte-at`, `mem-i32-at`,
 
 ## Evidence
 
-- `src/kotoba/runtime.clj`: `raw-memory-ops`, `raw-memory-problems`, admission
-  wiring, Wasm memory declaration, bump allocation and checked allocation.
+- `src/kotoba/runtime.clj`: `raw-memory-ops`, `raw-memory-problems`,
+  `raw-memory-extent-problems`, admission wiring, Wasm memory maximum, bump
+  allocation and checked allocation.
 - `src/kotoba/wasm_exec.clj`: `writable-output-window` and `write-bytes!`.
 - `test/kotoba/raw_memory_test.clj`: deny-by-default, explicit allow/forbid and
   emitter defense-in-depth tests.
@@ -134,16 +155,16 @@ claim that the full multi-repository qualification suite was green.
 
 ## Open gaps
 
-1. Track per-allocation extents and require host output windows to match a live
-   writable allocation rather than any address at or above the heap base.
-2. Enforce a policy-derived Wasm memory maximum in the emitted memory type and
-   add a regression proving `memory-grow` cannot exceed it.
+1. Migrate legacy wire-protocol helpers from raw pointer parameters to a proof
+   representation the compiler can track across calls.
+2. Require host output windows to match a live writable allocation identity,
+   rather than any address at or above the heap base.
 3. Decide whether the guest needs reclamation, arenas or instance-lifetime-only
    allocation, and document the resource-lifecycle contract explicitly.
 4. Keep the raw-memory exception list mechanically auditable and preserve
    `forbid-raw-memory` as the deployment-level override.
-5. Do not promote the overall rating beyond `:circle` until the per-object host
-   write gap and memory-limit gap are closed with executable tests.
+5. Do not promote the overall rating beyond `:circle` until the legacy helper
+   and per-object host-write gaps are closed with executable tests.
 
 ## Consequences
 

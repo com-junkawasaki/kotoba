@@ -2,12 +2,12 @@
  :assessment/date "2026-08-15"
  :assessment/status :bounded-pilot
  :assessment/level :A2
- :assessment/score 73
+ :assessment/score 76
  :assessment/dimensions
  [{:dimension :language-compiler-reality :score 16 :max 20}
   {:dimension :security-design :score 20 :max 20}
-  {:dimension :runtime-containment :score 16 :max 20}
-  {:dimension :verification-reproducibility :score 17 :max 20}
+  {:dimension :runtime-containment :score 18 :max 20}
+  {:dimension :verification-reproducibility :score 18 :max 20}
   {:dimension :independent-operational-assurance :score 4 :max 20}]
  :assessment/implemented
  [{:control :http/structural-resource-scope
@@ -24,9 +24,11 @@
   {:control :deployment/immutable-release-admission
    :evidence "test/kotoba/deploy_adapter_test.clj"}
   {:control :publication/preauthorized-initial-publisher
-   :evidence "test/kotoba/codebase_publish_test.clj"}]
+   :evidence "test/kotoba/codebase_publish_test.clj"}
+  {:control :memory/checked-raw-allocation-extents
+   :evidence "test/kotoba/raw_memory_test.clj"}]
  :assessment/open-gates
- [{:gate :memory/per-allocation-extent-ownership :severity :medium}
+ [{:gate :memory/legacy-wire-and-host-output-allocation-identity :severity :medium}
   {:gate :assurance/independent-review-and-soak :severity :high}]
  :assessment/allowed-claims
  ["security-first Clojure-family language profile for autonomous agents"
