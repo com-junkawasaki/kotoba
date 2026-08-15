@@ -276,9 +276,9 @@ kotoba codebase pull <cid>... --store dir                              # discove
 kotoba codebase announce <name|#hash> --pinning-endpoint URL --store dir  # ask a pinning service to provide it, then verify
 kotoba codebase diff --before <commit> --after <commit> --store dir    # authored vs propagated vs renamed
 kotoba codebase diff --base <c> --left <c> --right <c> --store dir     # list merge conflicts as data
-kotoba codebase serve --store dir --port 8080 --namespace-owners owners.edn  # host with preauthorized first publishers
-kotoba codebase publish --namespace ns --endpoint URL --store dir      # sign the head, push the closure, push the record
-kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir  # …and name it in the DHT under your key
+kotoba codebase serve --store dir --port 8080 --namespace-owners owners.edn --write-token-file token --max-upload-bytes 268435456
+kotoba codebase publish --namespace ns --endpoint URL --store dir --write-token-file token
+kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir --write-token-file token
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
 kotoba codebase follow-name k51… --endpoint URL --store dir            # resolve a name through the DHT; no publisher argument
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
@@ -339,6 +339,16 @@ first follow. Missing or malformed initial-owner policy fails closed. Serving
 grants nobody anything: the host verifies every pushed block against its CID,
 and the follower verifies everything again, which is why the record is signed
 rather than the connection trusted.
+
+Mutating block and head requests also require an operator write authority,
+loaded only from `--write-token-file`. Starting `serve` without that option is
+safe and read-only; public GET, browse and follow remain available. Authenticated
+unique block ingress is bounded by a process-lifetime byte quota (256 MiB by
+default, configurable with `--max-upload-bytes`), while re-uploading an existing
+CID is idempotent and costs no additional quota. This is an admission/DoS
+boundary, separate from CID integrity and namespace publisher authorization.
+Restarting resets the counter; durable per-principal quota, rate limiting and
+token rotation remain operational work.
 
 A serving node also browses: `/browse/{namespace}` lists what each name
 currently selects and `/def/{cid}` renders the stored definition with its

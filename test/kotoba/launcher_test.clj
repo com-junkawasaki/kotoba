@@ -744,7 +744,7 @@
     (is (= [0 97 115 109]
            (mapv #(bit-and % 0xff) (take 4 (java.nio.file.Files/readAllBytes (.toPath output))))))))
 
-(deftest wasm-emit-supports-mutable-memory-byte-writes
+(deftest wasm-emit-supports-allocation-backed-mutable-memory-byte-writes
   (let [forms (runtime/read-file "src/demo_memory_write.kotoba" :kotoba)
         wasm (runtime/wasm-binary forms)
         output (doto (java.io.File/createTempFile "kotoba-demo-memory-write" ".wasm")
@@ -753,9 +753,10 @@
                                     "--output" (.getPath output)
                                     "--json" "--package-lock" positive-lock "--trust" trust])]
     (is (:kotoba.wasm/ok? wasm))
-    (is (= 1 (:kotoba.wasm/data-segment-count wasm)))
+    (is (= 0 (:kotoba.wasm/data-segment-count wasm))
+        "runtime allocation does not require a static data segment")
     (is (:kotoba.cli/ok? emitted))
-    (is (= 1 (get-in emitted [:kotoba.cli/data :kotoba.wasm/data-segment-count])))
+    (is (= 0 (get-in emitted [:kotoba.cli/data :kotoba.wasm/data-segment-count])))
     (is (= [0 97 115 109]
            (mapv #(bit-and % 0xff) (take 4 (java.nio.file.Files/readAllBytes (.toPath output))))))))
 
@@ -984,9 +985,10 @@
              :params [:i32 :i32]
              :result :i32}]
            (:kotoba.wasm/imports wasm)))
-    (is (= 1 (:kotoba.wasm/data-segment-count wasm)))
+    (is (= 0 (:kotoba.wasm/data-segment-count wasm))
+        "the provider writes into a runtime allocation, not a static literal")
     (is (:kotoba.cli/ok? emitted))
-    (is (= 1 (get-in emitted [:kotoba.cli/data :kotoba.wasm/data-segment-count])))
+    (is (= 0 (get-in emitted [:kotoba.cli/data :kotoba.wasm/data-segment-count])))
     (is (= [0 97 115 109]
            (mapv #(bit-and % 0xff) (take 4 (java.nio.file.Files/readAllBytes (.toPath output))))))))
 

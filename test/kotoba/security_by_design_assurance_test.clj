@@ -43,6 +43,14 @@
     (is (contains? open :memory/legacy-wire-and-host-output-allocation-identity)
         "legacy pointer helpers and host output identity must not disappear from the score")))
 
+(deftest increment-five-closes-unauthenticated-ingress-but-keeps-operations-open
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented
+                   :publication/authenticated-quota-bounded-block-ingress))
+    (is (contains? open :publication/persistent-ingress-rate-and-quota)
+        "process-lifetime quota must not be promoted into durable abuse control")))
+
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
           (:assessment/implemented assessment)

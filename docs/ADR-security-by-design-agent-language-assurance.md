@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-4 implemented
+- Status: Accepted; increments 1-5 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -52,6 +52,8 @@ communication aid, not a certification.
 
 - migrate legacy wire-protocol raw-memory helpers and bind host output windows
   to live allocation identities;
+- persist and partition codebase ingress quota, add rate limits and token
+  rotation, and measure abuse/restart behavior;
 - independent adversarial review and sustained provider soak.
 
 Until those gates close, the achieved state remains **A2 bounded pilot**.
@@ -69,6 +71,9 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 - `kotoba.security-by-design-assurance-test`
 - `kotoba.raw-memory-test/declared-raw-memory-is-bounded-to-the-allocation-that-produced-it`
 - `kotoba.raw-memory-test/emitter-cannot-bypass-checked-extent-admission`
+- `kotoba.codebase-publish-test/block-ingress-requires-write-authority-before-reading-or-storing`
+- `kotoba.codebase-publish-test/authenticated-block-ingress-is-bounded-by-a-process-lifetime-quota`
+- `kotoba.codebase-publish-test/duplicate-block-ingress-is-idempotent-and-charged-once`
 
 ## Implemented increment 2
 
@@ -123,3 +128,21 @@ pass pointer/length pairs across helpers and remain on the explicitly marked
 compatibility profile; host output windows are still region-bounded rather
 than matched to a shadow allocation identity. Those are the remaining memory
 gate, so the assurance level remains A2.
+
+## Implemented increment 5
+
+1. Codebase block and head mutation requires an operator bearer authority
+   before request bodies are read. A missing server token creates a read-only
+   node; the token enters the CLI only through `--write-token-file` and is not
+   returned in diagnostics.
+2. Authenticated unique block ingress has a configurable process-lifetime
+   aggregate byte quota. Accounting is serialized and committed only after
+   durable storage; duplicate CIDs are idempotent and charged once.
+3. CID verification and signed namespace ownership remain independent checks.
+   Authentication cannot admit wrong-CID bytes or self-allocate a friendly
+   namespace, and read/follow/browse paths remain public.
+
+This closes unauthenticated storage consumption, not long-term abuse control.
+Quota reset on restart, shared-token compromise, durable per-principal
+accounting, rate limiting and rotation remain explicit operational gates. See
+`ADR-authenticated-codebase-ingress.md`.

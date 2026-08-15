@@ -1,11 +1,11 @@
 # ADR — Content-addressed codebase: current Unison-like slice and remaining gaps
 
 - **Status**: Accepted — staged evolution; hash-native authoring, evaluation,
-  view, CID-pinned module resolution, and delegated-routing discovery are
-  implemented; publication to a global network and a browsing UX remain
+  view/browse, CID-pinned module resolution, delegated routing and bounded HTTP
+  publication are implemented; durable operational abuse controls remain
   incomplete
 - **Date**: 2026-07-23
-- **Last updated**: 2026-08-04
+- **Last updated**: 2026-08-15
 - **Related**: `ADR-kotoba-package-cid-lock.md`,
   `ADR-safe-capability-language.md`,
   `kotoba-lang/kotoba-lang/docs/adr/ADR-kotoba-package-cid-lock.md`
@@ -251,6 +251,14 @@ pinned in persisted state. Key-derived IPNS naming remains registry-free, while
 hosting the same content under a separate friendly name still requires the
 host's explicit authorization.
 
+Block and head mutation also requires a distinct operator write authority
+before the request body is read. Without one the node is read-only. Unique
+authenticated blocks consume a configurable process-lifetime aggregate quota;
+duplicates are idempotent and not double charged. CID integrity, operator
+admission and publisher identity are three independent checks. Durable
+per-principal quota, rate limiting, rotation and restart-aware accounting remain
+open; see `ADR-authenticated-codebase-ingress.md`.
+
 Nine unit tests each name an attack (imposter key, tampered record, replay,
 absent commit, skipped chain link, unpinned first follow, re-follow after
 retirement) and seven integration tests run the same against a real HTTP node.
@@ -288,7 +296,7 @@ The following boundary is normative:
 | Block availability | Pinning Service API request, verified against a router | Claim delegated provision with independent verification. Naming and availability are different problems. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
-| Publication | Preauthorized first publisher for friendly namespaces; signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed, host-authorized namespace publication between nodes that know each other's endpoints. Do NOT claim a public registry, automated owner provisioning, or key distribution. |
+| Publication | Authenticated and process-quota-bounded HTTP ingress; preauthorized first publisher for friendly namespaces; signed heads with pinned publishers, monotonic sequence and chained records | Claim bounded, signed, host-authorized publication between nodes that know each other's endpoints. Do NOT claim durable abuse prevention, a public registry, automated owner provisioning, or key distribution. |
 
 Package CIDs and semantic definition CIDs solve different problems.  Package
 locks authorize and reproduce a source/package release.  Semantic CIDs name a
