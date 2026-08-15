@@ -97,7 +97,7 @@
     (is (contains? implemented :memory/cross-function-slice-contracts))
     (is (contains? open
                    :memory/legacy-wire-and-external-host-allocation-identity)
-        "eight broad providers and non-JVM host parity remain open")
+        "seven broad providers and non-JVM host parity remain open")
     (is (= :A2 (:assessment/level assessment)))
     (is (= 80 (:assessment/score assessment))
         "first-party compiler work is not independent operational evidence")))
@@ -108,10 +108,21 @@
     (is (contains? implemented :memory/cross-function-slice-contracts))
     (is (contains? open
                    :memory/legacy-wire-and-external-host-allocation-identity)
-        "eight broad providers and non-JVM host parity remain open")
+        "seven broad providers and non-JVM host parity remain open")
     (is (= :A2 (:assessment/level assessment)))
     (is (= 80 (:assessment/score assessment))
         "a second migrated provider is authority reduction, not independent evidence")))
+
+(deftest increment-twelve-proves-bounded-portal-frame-slices
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented :memory/cross-function-slice-contracts))
+    (is (contains? open
+                   :memory/legacy-wire-and-external-host-allocation-identity)
+        "seven broad providers and non-JVM host parity remain open")
+    (is (= :A2 (:assessment/level assessment)))
+    (is (= 80 (:assessment/score assessment))
+        "portal authority reduction is not independent assurance")))
 
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}

@@ -282,5 +282,5 @@
     (is (empty? promotable)
         (str "broad raw-memory authority is unnecessary for these providers; "
              "migrate them to :checked-extents: " (pr-str promotable)))
-    (is (= 8 (count legacy-paths))
+    (is (= 7 (count legacy-paths))
         "the remaining broad-provider count is evidence, not prose drift")))
