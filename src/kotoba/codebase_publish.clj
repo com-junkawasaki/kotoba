@@ -35,9 +35,12 @@
            [java.net InetSocketAddress URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
             HttpResponse$BodyHandlers]
+           [java.security MessageDigest]
            [java.time Duration]))
 
 (def max-request-bytes (* 4 1024 1024))
+(def default-max-total-upload-bytes (* 256 1024 1024))
+(def max-write-token-bytes 512)
 (def default-timeout-ms 15000)
 
 (defn- fail! [problem data]
@@ -69,7 +72,9 @@
     (^void handle [_ ^HttpExchange exchange]
       (try (f exchange)
            (catch clojure.lang.ExceptionInfo error
-             (respond! exchange 409 (.getBytes (pr-str (ex-data error)) "UTF-8")))
+             (let [data (ex-data error)]
+               (respond! exchange (int (or (:http/status data) 409))
+                         (.getBytes (pr-str (dissoc data :http/status)) "UTF-8"))))
            (catch Exception _
              (respond! exchange 500 nil)))
       nil)))
@@ -79,7 +84,60 @@
     (when (str/starts-with? path prefix)
       (subs path (count prefix)))))
 
-(defn- block-handler [root]
+(defn- valid-write-policy [write-token max-total-upload-bytes]
+  (when (and (some? write-token)
+             (not (and (string? write-token)
+                       (not (str/blank? write-token))
+                       (= write-token (str/trim write-token))
+                       (<= (count (.getBytes ^String write-token "UTF-8"))
+                           max-write-token-bytes))))
+    (fail! :publish/invalid-write-token {}))
+  (when-not (and (integer? max-total-upload-bytes)
+                 (pos? max-total-upload-bytes))
+    (fail! :publish/invalid-upload-quota
+           {:max-total-upload-bytes max-total-upload-bytes}))
+  {:write-token write-token :max-total-upload-bytes max-total-upload-bytes})
+
+(defn- constant-time-token= [expected offered]
+  (and (string? offered)
+       (MessageDigest/isEqual (.getBytes ^String expected "UTF-8")
+                              (.getBytes ^String offered "UTF-8"))))
+
+(defn- require-write-authority! [^HttpExchange exchange write-token]
+  (when-not write-token
+    (fail! :publish/read-only-node {:http/status 403}))
+  (let [header (.getFirst (.getRequestHeaders exchange) "Authorization")
+        offered (when (and (string? header) (str/starts-with? header "Bearer "))
+                  (subs header 7))]
+    (when-not (constant-time-token= write-token offered)
+      (fail! :publish/write-unauthorized {:http/status 401}))))
+
+(defn- block-present? [root cid]
+  (try (store/get-block root cid) true
+       (catch clojure.lang.ExceptionInfo error
+         (if (= :codebase/block-not-found (:problem (ex-data error)))
+           false
+           (throw error)))))
+
+(defn- store-block-with-quota!
+  [root cid block byte-count upload-bytes max-total-upload-bytes]
+  (locking upload-bytes
+    (if (block-present? root cid)
+      :present
+      (let [next-total (+ (long @upload-bytes) (long byte-count))]
+        (when (> next-total max-total-upload-bytes)
+          (fail! :publish/upload-quota-exhausted
+                 {:http/status 507
+                  :used-bytes @upload-bytes
+                  :requested-bytes byte-count
+                  :max-total-upload-bytes max-total-upload-bytes}))
+        ;; Update accounting only after durable storage succeeds. The lock also
+        ;; prevents two concurrent first writes of one CID from double charging.
+        (store/put-block! root cid block)
+        (reset! upload-bytes next-total)
+        :stored))))
+
+(defn- block-handler [root write-token upload-bytes max-total-upload-bytes]
   (handler
    (fn [^HttpExchange exchange]
      (let [cid (path-tail exchange "/ipfs/")
@@ -88,13 +146,16 @@
          "GET" (let [bytes (try (cbor/encode (store/get-block root cid))
                                 (catch clojure.lang.ExceptionInfo _ nil))]
                  (if bytes (respond! exchange 200 bytes) (respond! exchange 404 nil)))
-         "PUT" (let [bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
+         "PUT" (let [_ (require-write-authority! exchange write-token)
+                     bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
                      ;; The pusher does not get to say what a block is. Bytes
                      ;; that do not hash to the requested CID are refused here
                      ;; exactly as they would be on the way in from a stranger.
-                     block (fetch/verify-bytes cid bytes)]
-                 (store/put-block! root cid block)
-                 (respond! exchange 201 nil))
+                     block (fetch/verify-bytes cid bytes)
+                     result (store-block-with-quota!
+                             root cid block (alength bytes) upload-bytes
+                             max-total-upload-bytes)]
+                 (respond! exchange (if (= :stored result) 201 200) nil))
          (respond! exchange 405 nil))))))
 
 (defn- valid-owner-policy [namespace-owners]
@@ -110,7 +171,7 @@
              {:namespace namespace :publisher publisher})))
   namespace-owners)
 
-(defn- head-handler [root namespace-owners]
+(defn- head-handler [root namespace-owners write-token]
   (handler
    (fn [^HttpExchange exchange]
      (let [namespace (path-tail exchange "/heads/")
@@ -123,7 +184,8 @@
                  (if record
                    (respond! exchange 200 (cbor/encode record))
                    (respond! exchange 404 nil)))
-         "PUT" (let [bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
+         "PUT" (let [_ (require-write-authority! exchange write-token)
+                     bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
                      record (cbor/decode bytes)
                      state (publication/following root namespace)
                      initial-owner (when-not state (get namespace-owners namespace))
@@ -223,12 +285,17 @@
   `:namespace-owners` as `{namespace did:key}`. Existing namespace state keeps
   its pinned publisher, and key-derived IPNS names use a separate path."
   ([root] (serve! root {}))
-  ([root {:keys [port host namespace-owners]
-          :or {port 0 host "127.0.0.1" namespace-owners {}}}]
+  ([root {:keys [port host namespace-owners write-token max-total-upload-bytes]
+          :or {port 0 host "127.0.0.1" namespace-owners {}
+               max-total-upload-bytes default-max-total-upload-bytes}}]
    (let [namespace-owners (valid-owner-policy namespace-owners)
+         {:keys [write-token max-total-upload-bytes]}
+         (valid-write-policy write-token max-total-upload-bytes)
+         upload-bytes (atom 0)
          server (HttpServer/create (InetSocketAddress. ^String host ^int (int port)) 0)]
-     (.createContext server "/ipfs/" (block-handler root))
-     (.createContext server "/heads/" (head-handler root namespace-owners))
+     (.createContext server "/ipfs/"
+                     (block-handler root write-token upload-bytes max-total-upload-bytes))
+     (.createContext server "/heads/" (head-handler root namespace-owners write-token))
      (.createContext server "/browse/" (browse-handler root))
      (.createContext server "/def/" (definition-handler root))
      (.start server)
@@ -236,6 +303,8 @@
        {:server server
         :url (str "http://" host ":" bound)
         :port bound
+        :upload-usage (fn [] {:used-bytes @upload-bytes
+                              :max-total-upload-bytes max-total-upload-bytes})
         :stop (fn [] (.stop server 0))}))))
 
 ;; ---------------------------------------------------------------------------
@@ -247,10 +316,14 @@
       (.followRedirects java.net.http.HttpClient$Redirect/NEVER)
       (.build)))
 
-(defn- put-bytes! [endpoint path ^bytes body timeout-ms]
-  (let [request (-> (HttpRequest/newBuilder (URI/create (str endpoint path)))
+(defn- put-bytes! [endpoint path ^bytes body timeout-ms write-token]
+  (let [builder (-> (HttpRequest/newBuilder (URI/create (str endpoint path)))
                     (.timeout (Duration/ofMillis timeout-ms))
-                    (.header "Content-Type" "application/vnd.ipld.dag-cbor")
+                    (.header "Content-Type" "application/vnd.ipld.dag-cbor"))
+        builder (if write-token
+                  (.header builder "Authorization" (str "Bearer " write-token))
+                  builder)
+        request (-> builder
                     (.PUT (HttpRequest$BodyPublishers/ofByteArray body))
                     (.build))
         response (.send (client timeout-ms) request (HttpResponse$BodyHandlers/ofString))]
@@ -283,19 +356,27 @@
   Blocks first, record last, and deliberately so: a follower that saw the record
   before the blocks arrived would be told to point at a commit nobody could
   serve it yet."
-  [root record {:keys [endpoint timeout-ms] :or {timeout-ms default-timeout-ms}}]
+  [root record {:keys [endpoint timeout-ms write-token]
+                :or {timeout-ms default-timeout-ms}}]
   (when-not (string? endpoint) (fail! :publish/endpoint-required {}))
+  (when-not (and (string? write-token)
+                 (not (str/blank? write-token))
+                 (= write-token (str/trim write-token))
+                 (<= (count (.getBytes ^String write-token "UTF-8"))
+                     max-write-token-bytes))
+    (fail! :publish/write-token-required {}))
   (let [namespace (:namespace record)
         {:keys [blocks]} (store/export-closure root [(:head record)])
         pushed (mapv (fn [{:keys [cid bytes]}]
-                       (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes timeout-ms)]
+                       (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes
+                                                         timeout-ms write-token)]
                          (when-not (#{200 201 204} status)
                            (fail! :publish/block-rejected {:cid cid :status status}))
                          cid))
                      blocks)
         record-bytes (cbor/encode (:record record))
         {:keys [status body]} (put-bytes! endpoint (str "/heads/" namespace)
-                                          record-bytes timeout-ms)]
+                                          record-bytes timeout-ms write-token)]
     (when-not (#{200 201 204} status)
       (fail! :publish/head-rejected {:status status :body body}))
     {:namespace namespace :endpoint endpoint

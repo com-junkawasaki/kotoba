@@ -25,6 +25,8 @@
 
 (defn- seed [n] (byte-array (map unchecked-byte (repeat 32 n))))
 
+(def ^:private test-write-token "test-only-codebase-write-authority")
+
 (defn- routing-server
   "A `/routing/v1` endpoint that stores whatever record is PUT and serves it.
 
@@ -66,7 +68,8 @@
       (let [{:keys [url stop]}
             (publish/serve! host
                             {:namespace-owners
-                             {"demo" (ed/did-key-from-seed (seed 1))}})]
+                             {"demo" (ed/did-key-from-seed (seed 1))}
+                             :write-token test-write-token})]
         (try (body-fn {:author author :host host :follower follower
                        :node url :routers [(:url router)] :router router})
              (finally (stop))))
@@ -121,7 +124,8 @@
                                                    (defn quadruple [x] (double (double x)))])
       ;; One publish: signed once, hosted on the node AND named in the DHT.
       (let [published (ipns-cli/publish-namespace! author "demo" (seed 1)
-                                                   {:routers routers :endpoint node})]
+                                                   {:routers routers :endpoint node
+                                                    :write-token test-write-token})]
         (is (= node (:hosted-by published)))
         (let [followed (ipns-cli/follow-name! follower (:ipns-name published)
                                               {:endpoint node :routers routers})]

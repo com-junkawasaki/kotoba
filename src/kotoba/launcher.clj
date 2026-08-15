@@ -143,6 +143,9 @@
     "--host-command"
     "--host-arg"
     "--provider-command"
+    "--namespace-owners"
+    "--write-token-file"
+    "--max-upload-bytes"
     "--text"
     "-S"
     "-o"})
@@ -426,6 +429,40 @@
   []
   (System/getenv "KOTOBA_CODEBASE_SEED"))
 
+(defn read-write-token-file
+  "Read one bounded codebase write token from PATH without returning its path
+  or contents in diagnostics. A trailing newline from a secret file is
+  accepted; surrounding whitespace inside the token is not."
+  [path]
+  (when path
+    (try
+      (let [file (io/file path)
+            size (Files/size (.toPath file))]
+        (when (> size 1024)
+          (throw (ex-info "codebase write token file is too large"
+                          {:problem :publish/invalid-write-token-file})))
+        (let [raw (slurp file)
+              token (str/trim raw)]
+          (when (or (str/blank? token)
+                    (not= raw (str token (when (str/ends-with? raw "\n") "\n")))
+                    (> (count (.getBytes ^String token StandardCharsets/UTF_8))
+                       codebase-publish/max-write-token-bytes))
+            (throw (ex-info "codebase write token file is invalid"
+                            {:problem :publish/invalid-write-token-file})))
+          token))
+      (catch java.io.IOException _
+        (throw (ex-info "codebase write token file is unavailable"
+                        {:problem :publish/write-token-file-unavailable}))))))
+
+(defn- positive-long-option [argv option default]
+  (let [text (option-value argv option)
+        value (if text (Long/parseLong text) default)]
+    (when-not (pos? value)
+      (throw (ex-info "option must be a positive integer"
+                      {:problem :codebase/invalid-positive-integer
+                       :option option})))
+    value))
+
 (defn- codebase-error [code error]
   {:kotoba.cli/ok? false
    :kotoba.cli/code code
@@ -708,21 +745,24 @@
 
           :else
           (try
-            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/published
-             :kotoba.cli/data
-             (if (some #{"--ipns"} argv)
+            (let [write-token (read-write-token-file
+                               (option-value argv "--write-token-file"))]
+              {:kotoba.cli/ok? true :kotoba.cli/code :codebase/published
+               :kotoba.cli/data
+               (if (some #{"--ipns"} argv)
                ;; One signature, two destinations: hosted on a node if one was
                ;; given, and named in the DHT under this key.
-               (codebase-ipns/publish-namespace!
-                root namespace (ed25519/unhex hex)
-                (cond-> {}
-                  (option-value argv "--endpoint")
-                  (assoc :endpoint (option-value argv "--endpoint"))
-                  (seq (option-values argv "--router"))
-                  (assoc :routers (vec (option-values argv "--router")))))
-               (codebase-publish/publish!
-                root namespace (ed25519/unhex hex)
-                {:endpoint (option-value argv "--endpoint")}))}
+                 (codebase-ipns/publish-namespace!
+                  root namespace (ed25519/unhex hex)
+                  (cond-> {:write-token write-token}
+                    (option-value argv "--endpoint")
+                    (assoc :endpoint (option-value argv "--endpoint"))
+                    (seq (option-values argv "--router"))
+                    (assoc :routers (vec (option-values argv "--router")))))
+                 (codebase-publish/publish!
+                  root namespace (ed25519/unhex hex)
+                  {:endpoint (option-value argv "--endpoint")
+                   :write-token write-token}))})
             (catch clojure.lang.ExceptionInfo error
               (codebase-error :codebase/publish-failed error)))))
 
@@ -766,10 +806,17 @@
             namespace-owners (if owners-file
                                (-> owners-file io/file slurp edn/read-string)
                                {})
+            write-token (read-write-token-file
+                         (option-value argv "--write-token-file"))
             {:keys [url stop]} (codebase-publish/serve!
                                 root {:port (Integer/parseInt
                                              (or (option-value argv "--port") "0"))
-                                      :namespace-owners namespace-owners})]
+                                      :namespace-owners namespace-owners
+                                      :write-token write-token
+                                      :max-total-upload-bytes
+                                      (positive-long-option
+                                       argv "--max-upload-bytes"
+                                       codebase-publish/default-max-total-upload-bytes)})]
         (println (pr-str {:kotoba.cli/code :codebase/serving :url url}))
         (try @(promise)
              (finally (stop)))

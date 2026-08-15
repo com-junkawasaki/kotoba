@@ -101,7 +101,7 @@
   resolver that landed straight on the commit would have the right bytes and no
   way to check the sequence or the chain, which is the difference between
   knowing a head and being told one."
-  [root namespace ^bytes seed {:keys [routers validity-days timeout-ms endpoint]
+  [root namespace ^bytes seed {:keys [routers validity-days timeout-ms endpoint write-token]
                                :or {validity-days default-validity-days
                                     timeout-ms default-timeout-ms}}]
   (let [record (publication/publish! root namespace seed)
@@ -112,7 +112,8 @@
         ;; advance the sequence and produce a second record claiming the same
         ;; head, which is exactly the broken chain a follower rejects.
         pushed (when endpoint
-                 (push/push! root record {:endpoint endpoint :timeout-ms timeout-ms}))
+                 (push/push! root record {:endpoint endpoint :timeout-ms timeout-ms
+                                          :write-token write-token}))
         ipns-name (name-of seed)
         ipns-record (ipns/create {:value (str "/ipfs/" (:record-cid record))
                                   :validity (eol validity-days)

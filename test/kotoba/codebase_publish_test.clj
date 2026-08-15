@@ -25,19 +25,99 @@
 
 (defn- seed [n] (byte-array (map unchecked-byte (repeat 32 n))))
 
+(def ^:private test-write-token "test-only-codebase-write-authority")
+
+(defn- put-block-request [url cid bytes token]
+  (let [builder (-> (java.net.http.HttpRequest/newBuilder
+                     (java.net.URI/create (str url "/ipfs/" cid)))
+                    (.PUT (java.net.http.HttpRequest$BodyPublishers/ofByteArray bytes)))
+        builder (if token (.header builder "Authorization" (str "Bearer " token)) builder)]
+    (.send (java.net.http.HttpClient/newHttpClient) (.build builder)
+           (java.net.http.HttpResponse$BodyHandlers/ofString))))
+
 (defn- with-nodes
   "An author store, a hosting node with its URL, and a follower store."
   ([body-fn]
    (with-nodes {:namespace-owners {"demo" (ed/did-key-from-seed (seed 1))}}
      body-fn))
   ([server-options body-fn]
-   (let [author (temp-store) host (temp-store) follower (temp-store)]
+   (let [server-options (if (contains? server-options :write-token)
+                          server-options
+                          (assoc server-options :write-token test-write-token))
+         author (temp-store) host (temp-store) follower (temp-store)]
      (try
        (run! store/initialize! [author host follower])
-       (let [{:keys [url stop]} (publish/serve! host server-options)]
-         (try (body-fn {:author author :host host :follower follower :url url})
+       (let [{:keys [url stop upload-usage]} (publish/serve! host server-options)]
+         (try (body-fn {:author author :host host :follower follower :url url
+                        :upload-usage upload-usage})
               (finally (stop))))
        (finally (run! delete-tree [author host follower]))))))
+
+(deftest block-ingress-requires-write-authority-before-reading-or-storing
+  (with-nodes {:write-token test-write-token}
+    (fn [{:keys [author host url]}]
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            missing (put-block-request url cid bytes nil)
+            wrong (put-block-request url cid bytes "wrong-token")]
+        (is (= 401 (.statusCode missing)))
+        (is (= 401 (.statusCode wrong)))
+        (is (= :codebase/block-not-found
+               (:problem (ex-data (try (store/get-block host cid)
+                                       (catch clojure.lang.ExceptionInfo e e)))))
+            "unauthorized canonical bytes must not consume persistent storage")))))
+
+(deftest authenticated-block-ingress-is-bounded-by-a-process-lifetime-quota
+  (with-nodes {:write-token test-write-token :max-total-upload-bytes 1}
+    (fn [{:keys [author host url]}]
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [problem (ex-data
+                     (try (publish/publish! author "demo" (seed 1)
+                                            {:endpoint url :write-token test-write-token})
+                          (catch clojure.lang.ExceptionInfo e e)))]
+        (is (= :publish/block-rejected (:problem problem)))
+        (is (= 507 (:status problem)))
+        (is (empty? (.listFiles (java.io.File. host "blocks")))
+            "quota refusal must happen before the verified block is persisted")))))
+
+(deftest a-node-without-a-write-token-is-read-only
+  (with-nodes {:write-token nil}
+    (fn [{:keys [author host url]}]
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            response (put-block-request url cid bytes test-write-token)]
+        (is (= 403 (.statusCode response)))
+        (is (= :codebase/block-not-found
+               (:problem (ex-data (try (store/get-block host cid)
+                                       (catch clojure.lang.ExceptionInfo e e))))))))))
+
+(deftest duplicate-block-ingress-is-idempotent-and-charged-once
+  (with-nodes {:write-token test-write-token :max-total-upload-bytes 1048576}
+    (fn [{:keys [author url upload-usage]}]
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            first-response (put-block-request url cid bytes test-write-token)
+            used-after-first (:used-bytes (upload-usage))
+            second-response (put-block-request url cid bytes test-write-token)]
+        (is (= 201 (.statusCode first-response)))
+        (is (= 200 (.statusCode second-response)))
+        (is (= (alength ^bytes bytes) used-after-first))
+        (is (= used-after-first (:used-bytes (upload-usage))))))))
+
+(deftest write-token-files-are-trimmed-but-never-returned-in-errors
+  (let [file (java.io.File/createTempFile "kotoba-write-token-" ".txt")]
+    (try
+      (spit file (str test-write-token "\n"))
+      (is (= test-write-token (launcher/read-write-token-file (str file))))
+      (spit file "  invalid token  \n")
+      (let [error (try (launcher/read-write-token-file (str file))
+                       (catch clojure.lang.ExceptionInfo e e))]
+        (is (= :publish/invalid-write-token-file (:problem (ex-data error))))
+        (is (not (str/includes? (pr-str (ex-data error)) "invalid token"))))
+      (finally (.delete file)))))
 
 (deftest first-publish-requires-a-preauthorized-namespace-owner
   (with-nodes {}
@@ -45,7 +125,7 @@
       (authoring/update-namespace! author "unclaimed" '[(defn f [x] x)])
       (is (= :publish/head-rejected
              (:problem (ex-data (try (publish/publish! author "unclaimed" (seed 2)
-                                                       {:endpoint url})
+                                                       {:endpoint url :write-token test-write-token})
                                      (catch clojure.lang.ExceptionInfo e e))))))
       (is (nil? (publication/following host "unclaimed"))
           "a valid self-signature is not proof of entitlement to a friendly namespace"))))
@@ -56,11 +136,12 @@
       (authoring/update-namespace! author "demo" '[(defn f [x] x)])
       (is (= :publish/head-rejected
              (:problem (ex-data (try (publish/publish! author "demo" (seed 2)
-                                                       {:endpoint url})
+                                                       {:endpoint url :write-token test-write-token})
                                      (catch clojure.lang.ExceptionInfo e e))))))
       (is (nil? (publication/following host "demo")))
       (is (= (ed/did-key-from-seed (seed 1))
-             (:publisher (publish/publish! author "demo" (seed 1) {:endpoint url})))))))
+             (:publisher (publish/publish! author "demo" (seed 1)
+                                            {:endpoint url :write-token test-write-token})))))))
 
 (deftest malformed-namespace-owner-policy-fails-before-serving
   (let [host (temp-store)]
@@ -77,14 +158,16 @@
     (try
       (run! store/initialize! [author host])
       (authoring/update-namespace! author "demo" '[(defn f [x] x)])
-      (let [{:keys [url stop]} (publish/serve! host {:namespace-owners {"demo" owner}})]
-        (try (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (let [{:keys [url stop]} (publish/serve! host {:namespace-owners {"demo" owner}
+                                                     :write-token test-write-token})]
+        (try (publish/publish! author "demo" (seed 1)
+                               {:endpoint url :write-token test-write-token})
              (finally (stop))))
       (authoring/update-namespace! author "demo" '[(defn f [x] (* x 2))])
-      (let [{:keys [url stop]} (publish/serve! host)]
+      (let [{:keys [url stop]} (publish/serve! host {:write-token test-write-token})]
         (try
           (is (= 1 (:sequence (publish/publish! author "demo" (seed 1)
-                                                {:endpoint url}))))
+                                                {:endpoint url :write-token test-write-token}))))
           (finally (stop))))
       (finally (run! delete-tree [author host])))))
 
@@ -93,7 +176,8 @@
     (fn [{:keys [author follower url]}]
       (authoring/update-namespace! author "demo" '[(defn double [x] (* x 2))
                                                    (defn quadruple [x] (double (double x)))])
-      (let [published (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (let [published (publish/publish! author "demo" (seed 1)
+                                        {:endpoint url :write-token test-write-token})
             did (ed/did-key-from-seed (seed 1))]
         (is (= did (:publisher published)))
         (is (pos? (:blocks published)))
@@ -110,7 +194,8 @@
   (with-nodes
     (fn [{:keys [author follower url]}]
       (authoring/update-namespace! author "demo" '[(defn f [x] x)])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (is (= :publication/publisher-mismatch
              (:problem (ex-data (try (publish/follow!
                                       follower "demo"
@@ -122,12 +207,13 @@
   (with-nodes
     (fn [{:keys [author url]}]
       (authoring/update-namespace! author "demo" '[(defn f [x] x)])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (authoring/update-namespace! author "demo" '[(defn f [x] (* x 2))])
       (testing "a second key's push is rejected by the node, not merely by followers"
         (is (= :publish/head-rejected
                (:problem (ex-data (try (publish/publish! author "demo" (seed 2)
-                                                         {:endpoint url})
+                                                         {:endpoint url :write-token test-write-token})
                                        (catch clojure.lang.ExceptionInfo e e))))))))))
 
 (deftest a-node-refuses-a-block-that-does-not-hash-to-its-cid
@@ -140,6 +226,7 @@
             lie (cbor/encode {"schema" "not-what-you-asked-for"})
             request (-> (java.net.http.HttpRequest/newBuilder
                          (java.net.URI/create (str url "/ipfs/" victim)))
+                        (.header "Authorization" (str "Bearer " test-write-token))
                         (.PUT (java.net.http.HttpRequest$BodyPublishers/ofByteArray lie))
                         (.build))
             response (.send (java.net.http.HttpClient/newHttpClient) request
@@ -154,11 +241,13 @@
     (fn [{:keys [author follower url]}]
       (authoring/update-namespace! author "demo" '[(defn double [x] (* x 2))
                                                    (defn quadruple [x] (double (double x)))])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (publish/follow! follower "demo" {:endpoint url
                                         :publisher (ed/did-key-from-seed (seed 1))})
       (authoring/update-namespace! author "demo" '[(defn double [x] (* x 3))])
-      (let [next (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (let [next (publish/publish! author "demo" (seed 1)
+                                   {:endpoint url :write-token test-write-token})
             followed (publish/follow! follower "demo" {:endpoint url})]
         (is (= 1 (:sequence next)))
         (is (true? (:accepted? followed)))
@@ -182,12 +271,14 @@
   (with-nodes
     (fn [{:keys [author follower url]}]
       (authoring/update-namespace! author "demo" '[(defn f [x] x)])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (publish/follow! follower "demo" {:endpoint url
                                         :publisher (ed/did-key-from-seed (seed 1))})
       (publication/retire! follower "demo")
       (authoring/update-namespace! author "demo" '[(defn f [x] (* x 2))])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (is (= :publication/publisher-required
              (:problem (ex-data (try (publish/follow! follower "demo" {:endpoint url})
                                      (catch clojure.lang.ExceptionInfo e e)))))))))
@@ -207,7 +298,8 @@
     (fn [{:keys [author url]}]
       (authoring/update-namespace! author "demo" '[(defn double [x] (* x 2))
                                                    (defn quadruple [x] (double (double x)))])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (let [listing (get-text (str url "/browse/demo"))]
         (is (= 200 (:status listing)))
         (is (clojure.string/includes? (:body listing) "quadruple"))
@@ -219,7 +311,8 @@
     (fn [{:keys [author host url]}]
       (authoring/update-namespace! author "demo" '[(defn double [x] (* x 2))
                                                    (defn quadruple [x] (double (double x)))])
-      (publish/publish! author "demo" (seed 1) {:endpoint url})
+      (publish/publish! author "demo" (seed 1)
+                        {:endpoint url :write-token test-write-token})
       (let [bindings (:bindings (store/namespace-view host (store/head host "demo")))
             page (get-text (str url "/def/" (get bindings "quadruple") "?ns=demo"))]
         (is (= 200 (:status page)))
