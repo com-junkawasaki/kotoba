@@ -91,7 +91,9 @@ compile to i32 constants. String and byte-vector literals can also be written
 into data segments and passed to provider imports with `str-ptr`, `bytes-ptr`,
 `str-len`, and `bytes-len`. The current memory slice supports byte reads and
 writes with `mem-byte-at` and `byte-store!`, including host-provider writeback
-into guest buffers. `alloc` provides a minimal bump allocator backed by a
+into guest buffers. Checked raw modules can instead pass explicitly contracted
+slices through private helpers and use trap-checked `slice-byte-at` /
+`slice-byte-store!` for dynamic indexes. `alloc` provides a minimal bump allocator backed by a
 mutable Wasm global heap pointer, and `alloc-checked` returns `-1` instead of
 advancing beyond the current memory size. Provider calls use the current
 result/error integer convention: non-negative values are success lengths/codes,

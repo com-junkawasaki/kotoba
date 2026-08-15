@@ -3,7 +3,7 @@
 - **Status**: accepted
 - **Date**: 2026-08-15
 - **Observed implementation**: `662e98b8160224f3f2e6e93fc7ff89bd64de7b51`
-  plus the increment-8 and increment-9 change sets recorded with this ADR
+  plus the increment-8 through increment-10 change sets recorded with this ADR
 - **Machine-readable companion**:
   [`ADR-kotoba-memory-safety-comparison.edn`](ADR-kotoba-memory-safety-comparison.edn)
 - **Related**: `ADR-safe-capability-language.md`, `docs/lang/gates.md`,
@@ -46,8 +46,12 @@ Use three separate claims whenever the rating is explained:
   allocation provenance, static offsets, access widths and read-only literal
   borrowing. Three provider consumers whose raw access stays lexical now use
   the checked-extents profile, and a ratchet prevents provable providers from
-  retaining broad authority. Ten helper-heavy wire providers retain an
-  explicit compatibility hatch. The JVM reference host now admits a non-empty
+  retaining broad authority. One helper-heavy pool consumer now carries
+  caller-proven `(pointer,length)` slice contracts across private functions;
+  its dynamic accesses trap at the slice boundary, contracted functions are
+  not exported, and direct calls must prove allocation provenance, capacity
+  and write authority. Nine helper-heavy wire providers retain an explicit
+  compatibility hatch. The JVM reference host now admits a non-empty
   output window only at the exact payload start of one compiler-created
   allocation and only up to its recorded extent. External host implementations
   have not yet demonstrated equivalent allocation identity enforcement.
@@ -110,10 +114,13 @@ New code should use the fail-closed checked profile:
 (ns buffer.codec {:kotoba/raw-memory :checked-extents})
 ```
 
-It accepts only statically sized `alloc`/`alloc-checked` provenance with static
+It accepts statically sized `alloc`/`alloc-checked` provenance with static
 in-bounds offsets. Static string/byte pointers are readable, not writable.
-Pointer arithmetic and helper parameters are rejected when provenance cannot
-be proven.
+Private helpers may declare a `:kotoba/slice-len` and read/write access contract
+on a pointer parameter. Every direct caller must prove that length against its
+tracked allocation; contracted helpers cannot be exported or indirect-call
+targets. Dynamic access uses `slice-byte-at` / `slice-byte-store!`, which emit
+an explicit lower/upper bounds guard and Wasm trap before dereference.
 
 or deployment policy:
 
@@ -142,9 +149,11 @@ header-shaped bytes forged inside a payload. A capacity smaller than the
 allocation remains valid. Modules granted the raw-memory compatibility hatch
 can mutate compiler metadata and are outside this safe-profile claim.
 
-The denied raw dereference set is currently `mem-byte-at`, `mem-i32-at`,
-`byte-store!` and `i32-store!`. Address-producing operations such as `alloc`,
-`str-ptr` and `bytes-ptr` remain available for the host buffer ABI.
+The denied-by-default dereference set is currently `mem-byte-at`,
+`mem-i32-at`, `byte-store!`, `i32-store!`, `slice-byte-at` and
+`slice-byte-store!`. The last two are admitted only inside the checked profile
+with caller-proven slice provenance. Address-producing operations such as
+`alloc`, `str-ptr` and `bytes-ptr` remain available for the host buffer ABI.
 
 ## Evidence
 
@@ -152,8 +161,9 @@ The denied raw dereference set is currently `mem-byte-at`, `mem-i32-at`,
   `raw-memory-extent-problems`, admission wiring, Wasm memory maximum, bump
   allocation and checked allocation.
 - `src/kotoba/wasm_exec.clj`: `writable-output-window` and `write-bytes!`.
-- `test/kotoba/raw_memory_test.clj`: deny-by-default, explicit allow/forbid and
-  emitter defense-in-depth tests.
+- `test/kotoba/raw_memory_test.clj`: deny-by-default, explicit allow/forbid,
+  caller provenance, forged/oversized/read-only slice refusal, private export
+  boundary and dynamic Wasm trap tests.
 - `test/kotoba/host_write_window_test.clj`: data-segment, negative, overflow and
   out-of-linear-memory refusal tests.
 - `test/kotoba/real_host_providers_test.clj`: real Wasm and real provider
@@ -162,16 +172,17 @@ The denied raw dereference set is currently `mem-byte-at`, `mem-i32-at`,
 - `test/kotoba/cap_affine_test.clj`: narrow affine capability-value checks.
 - `docs/lang/gates.md`: current executable gate inventory.
 
-The 2026-08-08 standalone-clone run executed 519 tests and 8,506 assertions.
-The memory-safety test namespaces passed. Nine qualification assertions failed
-because their evidence paths point to sibling repositories not present in the
-standalone checkout; this run is therefore evidence for the local gates, not a
-claim that the full multi-repository qualification suite was green.
+The 2026-08-15 isolated current-main worktree run executed 621 tests and 8,899
+assertions with zero failures. Lint reported zero errors/warnings, and the
+reproducible emitter verified 74 sources with 72 reproducible outputs. This is
+first-party worktree evidence; it is not an independent audit or production
+soak claim.
 
 ## Open gaps
 
-1. Migrate legacy wire-protocol helpers from raw pointer parameters to a proof
-   representation the compiler can track across calls. Ten broad providers
+1. Migrate legacy wire-protocol helpers from raw pointer parameters to the
+   private slice-contract representation now exercised by the pool consumer.
+   Nine broad providers
    remain; providers already provable by checked extents may not regress into
    that set.
 2. Require every non-JVM host implementation to enforce the same exact
@@ -180,7 +191,10 @@ claim that the full multi-repository qualification suite was green.
    allocation, and document the resource-lifecycle contract explicitly.
 4. Keep the raw-memory exception list mechanically auditable and preserve
    `forbid-raw-memory` as the deployment-level override.
-5. Do not promote the overall rating beyond `:circle` until the legacy helper
+5. Port the slice primitives to the byte-identical `kotoba-lang`,
+   `kotoba-sema` and grammar catalogs in one coordinated authority/pin update;
+   this increment proves the CLJ/Chicory implementation only.
+6. Do not promote the overall rating beyond `:circle` until the legacy helper
    and external-host allocation-identity gaps are closed with executable tests.
 
 ## Consequences
