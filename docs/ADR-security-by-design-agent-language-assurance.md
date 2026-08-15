@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-6 implemented
+- Status: Accepted; increments 1-7 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -52,8 +52,8 @@ communication aid, not a certification.
 
 - migrate legacy wire-protocol raw-memory helpers and bind host output windows
   to live allocation identities;
-- partition codebase ingress authority per principal, add rate limits and token
-  rotation, and measure sustained abuse behavior;
+- add codebase retention/GC, distributed admission where one logical node spans
+  storage roots, and measure sustained abuse behavior;
 - independent adversarial review and sustained provider soak.
 
 Until those gates close, the achieved state remains **A2 bounded pilot**.
@@ -78,6 +78,10 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 - `kotoba.codebase-publish-test/upload-quota-survives-a-server-restart`
 - `kotoba.codebase-publish-test/concurrent-server-instances-share-one-durable-quota`
 - `kotoba.codebase-publish-test/corrupt-durable-quota-state-fails-closed`
+- `kotoba.codebase-publish-test/authenticated-mutation-rate-is-isolated-per-principal`
+- `kotoba.codebase-publish-test/durable-upload-quota-is-isolated-per-principal`
+- `kotoba.codebase-publish-test/head-mutations-share-the-same-principal-rate-boundary`
+- `kotoba.codebase-publish-test/token-rotation-overlaps-then-revokes-the-previous-token`
 
 ## Implemented increment 2
 
@@ -167,3 +171,24 @@ rate limiting and rotation explicit. See `ADR-authenticated-codebase-ingress.md`
 This closes plaintext credential transport and restart/cross-process quota
 bypass. Per-principal partitioning, rate limiting, token rotation, retention/GC
 and independent soak remain open, so the assurance level remains A2.
+
+## Implemented increment 7
+
+1. An operator policy maps each accepted bearer credential to exactly one
+   principal. Current and previous credentials may overlap for a bounded
+   rotation stage, while duplicate credentials across principals and ambiguous
+   legacy-plus-principal configuration fail before listening.
+2. Unique-block bytes are charged to both the durable aggregate budget and a
+   durable per-principal budget. Existing version-one aggregate state migrates
+   without resetting the old charge, and restart does not restore a principal's
+   capacity.
+3. Every authenticated block and head mutation consumes the same durable
+   per-principal fixed-window request budget before its body is read. Valid CID
+   duplicates therefore cannot turn idempotent byte accounting into an
+   unlimited request path. Window expiry restores legitimate access and one
+   principal cannot spend another's budget.
+
+This closes the local per-principal partition, mutation-rate and staged-token-
+rotation gate. Root-local rather than distributed enforcement, fixed-window
+boundary burst, retention/GC and independent abuse soak remain open, so the
+assurance level remains A2.

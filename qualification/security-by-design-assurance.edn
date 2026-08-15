@@ -32,10 +32,16 @@
   {:control :publication/secure-write-transport
    :evidence "test/kotoba/codebase_publish_test.clj"}
   {:control :publication/durable-aggregate-ingress-quota
+   :evidence "test/kotoba/codebase_publish_test.clj"}
+  {:control :publication/durable-principal-ingress-budgets
+   :evidence "test/kotoba/codebase_publish_test.clj"}
+  {:control :publication/authenticated-mutation-rate-limit
+   :evidence "test/kotoba/codebase_publish_test.clj"}
+  {:control :publication/staged-token-rotation
    :evidence "test/kotoba/codebase_publish_test.clj"}]
  :assessment/open-gates
  [{:gate :memory/legacy-wire-and-host-output-allocation-identity :severity :medium}
-  {:gate :publication/per-principal-rate-limit-and-token-rotation :severity :medium}
+  {:gate :publication/distributed-ingress-and-retention-gc :severity :medium}
   {:gate :assurance/independent-review-and-soak :severity :high}]
  :assessment/allowed-claims
  ["security-first Clojure-family language profile for autonomous agents"

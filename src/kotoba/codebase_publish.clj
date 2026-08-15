@@ -47,8 +47,13 @@
 
 (def max-request-bytes (* 4 1024 1024))
 (def default-max-total-upload-bytes (* 256 1024 1024))
+(def default-max-write-requests 4096)
+(def default-write-rate-window-ms 60000)
 (def max-write-token-bytes 512)
-(def max-quota-state-bytes 4096)
+(def max-write-principal-bytes 128)
+(def max-write-principals 256)
+(def max-tokens-per-principal 4)
+(def max-ingress-state-bytes (* 256 1024))
 (def default-timeout-ms 15000)
 (defonce ^:private quota-path-locks (ConcurrentHashMap.))
 (def ^:private direct-proxy-selector
@@ -86,6 +91,9 @@
       (try (f exchange)
            (catch clojure.lang.ExceptionInfo error
              (let [data (ex-data error)]
+               (when-let [retry-after-seconds (:retry-after-seconds data)]
+                 (.set (.getResponseHeaders exchange) "Retry-After"
+                       (str retry-after-seconds)))
                (respond! exchange (int (or (:http/status data) 409))
                          (.getBytes (pr-str (dissoc data :http/status)) "UTF-8"))))
            (catch Exception _
@@ -97,33 +105,92 @@
     (when (str/starts-with? path prefix)
       (subs path (count prefix)))))
 
-(defn- valid-write-policy [write-token max-total-upload-bytes]
+(defn- valid-token? [token]
+  (and (string? token)
+       (not (str/blank? token))
+       (= token (str/trim token))
+       (<= (count (.getBytes ^String token "UTF-8")) max-write-token-bytes)))
+
+(defn- valid-principal? [principal]
+  (and (string? principal)
+       (not (str/blank? principal))
+       (= principal (str/trim principal))
+       (<= (count (.getBytes ^String principal "UTF-8")) max-write-principal-bytes)))
+
+(defn- normalize-write-authorities [write-token write-authorities]
+  (when (and write-token write-authorities)
+    (fail! :publish/ambiguous-write-authority {}))
   (when (and (some? write-token)
-             (not (and (string? write-token)
-                       (not (str/blank? write-token))
-                       (= write-token (str/trim write-token))
-                       (<= (count (.getBytes ^String write-token "UTF-8"))
-                           max-write-token-bytes))))
+             (not (valid-token? write-token)))
     (fail! :publish/invalid-write-token {}))
-  (when-not (and (integer? max-total-upload-bytes)
-                 (pos? max-total-upload-bytes))
-    (fail! :publish/invalid-upload-quota
-           {:max-total-upload-bytes max-total-upload-bytes}))
-  {:write-token write-token :max-total-upload-bytes max-total-upload-bytes})
+  (when (and (some? write-authorities) (not (map? write-authorities)))
+    (fail! :publish/invalid-write-authorities {:reason :map-required}))
+  (when (> (count write-authorities) max-write-principals)
+    (fail! :publish/invalid-write-authorities {:reason :too-many-principals}))
+  (let [authorities (if write-token
+                      {"legacy" {:current write-token :previous []}}
+                      (or write-authorities {}))
+        entries
+        (mapcat
+         (fn [[principal {:keys [current previous] :as authority}]]
+           (when-not (valid-principal? principal)
+             (fail! :publish/invalid-write-authorities {:reason :invalid-principal}))
+           (when-not (and (map? authority)
+                          (valid-token? current)
+                          (vector? previous)
+                          (<= (count previous) (dec max-tokens-per-principal))
+                          (every? valid-token? previous)
+                          (= (count (cons current previous))
+                             (count (distinct (cons current previous)))))
+             (fail! :publish/invalid-write-authorities
+                    {:reason :invalid-principal-authority
+                     :principal principal}))
+           (map (fn [token] {:principal principal :token token})
+                (cons current previous)))
+         authorities)
+        tokens (map :token entries)]
+    (when-not (= (count tokens) (count (distinct tokens)))
+      (fail! :publish/invalid-write-authorities {:reason :token-reused}))
+    (vec entries)))
+
+(defn- positive-policy-value! [problem key value]
+  (when-not (and (integer? value) (pos? value))
+    (fail! problem {key value}))
+  value)
+
+(defn- valid-write-policy
+  [write-token write-authorities max-total-upload-bytes
+   max-principal-upload-bytes max-write-requests write-rate-window-ms]
+  {:authority-entries (normalize-write-authorities write-token write-authorities)
+   :max-total-upload-bytes
+   (positive-policy-value! :publish/invalid-upload-quota
+                           :max-total-upload-bytes max-total-upload-bytes)
+   :max-principal-upload-bytes
+   (positive-policy-value! :publish/invalid-principal-upload-quota
+                           :max-principal-upload-bytes max-principal-upload-bytes)
+   :max-write-requests
+   (positive-policy-value! :publish/invalid-write-rate
+                           :max-write-requests max-write-requests)
+   :write-rate-window-ms
+   (positive-policy-value! :publish/invalid-write-rate
+                           :write-rate-window-ms write-rate-window-ms)})
 
 (defn- constant-time-token= [expected offered]
   (and (string? offered)
        (MessageDigest/isEqual (.getBytes ^String expected "UTF-8")
                               (.getBytes ^String offered "UTF-8"))))
 
-(defn- require-write-authority! [^HttpExchange exchange write-token]
-  (when-not write-token
+(defn- require-write-authority! [^HttpExchange exchange authority-entries]
+  (when (empty? authority-entries)
     (fail! :publish/read-only-node {:http/status 403}))
   (let [header (.getFirst (.getRequestHeaders exchange) "Authorization")
         offered (when (and (string? header) (str/starts-with? header "Bearer "))
-                  (subs header 7))]
-    (when-not (constant-time-token= write-token offered)
-      (fail! :publish/write-unauthorized {:http/status 401}))))
+                  (subs header 7))
+        matches (filterv #(constant-time-token= (:token %) offered)
+                         authority-entries)]
+    (when-not (= 1 (count matches))
+      (fail! :publish/write-unauthorized {:http/status 401}))
+    (:principal (first matches))))
 
 (defn- block-present? [root cid]
   (try (store/get-block root cid) true
@@ -142,40 +209,74 @@
             previous (.putIfAbsent quota-path-locks path candidate)]
         (or previous candidate))))
 
-(defn- read-quota-state [^FileChannel channel]
+(defn- valid-principal-state? [state]
+  (and (map? state)
+       (integer? (:used-bytes state))
+       (not (neg? (:used-bytes state)))
+       (integer? (:rate-window-start-ms state))
+       (not (neg? (:rate-window-start-ms state)))
+       (integer? (:rate-requests state))
+       (not (neg? (:rate-requests state)))))
+
+(defn- normalize-ingress-state [state]
+  (cond
+    (and (map? state)
+         (= 1 (:version state))
+         (integer? (:used-bytes state))
+         (not (neg? (:used-bytes state))))
+    {:version 2 :used-bytes (:used-bytes state) :principals {}}
+
+    (and (map? state)
+         (= 2 (:version state))
+         (integer? (:used-bytes state))
+         (not (neg? (:used-bytes state)))
+         (map? (:principals state))
+         (<= (count (:principals state)) max-write-principals)
+         (every? (fn [[principal principal-state]]
+                   (and (valid-principal? principal)
+                        (valid-principal-state? principal-state)))
+                 (:principals state)))
+    state
+
+    :else nil))
+
+(defn- read-ingress-state [^FileChannel channel]
   (let [size (.size channel)]
-    (when (> size max-quota-state-bytes)
+    (when (> size max-ingress-state-bytes)
       (fail! :publish/quota-state-invalid
              {:http/status 503 :reason :too-large}))
     (if (zero? size)
-      {:version 1 :used-bytes 0}
+      {:version 2 :used-bytes 0 :principals {}}
       (let [buffer (ByteBuffer/allocate (int size))]
         (.position channel 0)
         (loop []
           (when (and (.hasRemaining buffer) (not= -1 (.read channel buffer)))
             (recur)))
         (.flip buffer)
-        (let [state (try
-                      (edn/read-string (.toString (.decode java.nio.charset.StandardCharsets/UTF_8
-                                                           buffer)))
-                      (catch Exception _ nil))]
-          (when-not (and (map? state)
-                         (= 1 (:version state))
-                         (integer? (:used-bytes state))
-                         (not (neg? (:used-bytes state))))
+        (let [state (some->
+                     (try
+                       (edn/read-string
+                        (.toString (.decode java.nio.charset.StandardCharsets/UTF_8
+                                            buffer)))
+                       (catch Exception _ nil))
+                     normalize-ingress-state)]
+          (when-not state
             (fail! :publish/quota-state-invalid
                    {:http/status 503 :reason :shape}))
           state)))))
 
-(defn- write-quota-state! [^FileChannel channel used-bytes]
-  (let [bytes (.getBytes (pr-str {:version 1 :used-bytes used-bytes}) "UTF-8")
+(defn- write-ingress-state! [^FileChannel channel state]
+  (let [bytes (.getBytes (pr-str state) "UTF-8")
         buffer (ByteBuffer/wrap bytes)]
+    (when (> (alength bytes) max-ingress-state-bytes)
+      (fail! :publish/quota-state-invalid
+             {:http/status 503 :reason :too-large}))
     (.position channel 0)
     (.truncate channel 0)
     (while (.hasRemaining buffer) (.write channel buffer))
     (.force channel true)))
 
-(defn- with-quota-state [root f]
+(defn- with-ingress-state [root f]
   (let [path (quota-state-path root)
         parent (.getParent path)
         key (str path)]
@@ -195,29 +296,79 @@
           (catch UnsupportedOperationException _))
         (f channel)))))
 
+(defn- principal-state [state principal]
+  (get-in state [:principals principal]
+          {:used-bytes 0 :rate-window-start-ms 0 :rate-requests 0}))
+
+(defn- consume-write-rate!
+  [root principal max-write-requests write-rate-window-ms now-ms]
+  (with-ingress-state
+    root
+    (fn [channel]
+      (let [state (read-ingress-state channel)
+            current (principal-state state principal)
+            start (:rate-window-start-ms current)
+            reset? (or (zero? start)
+                       (>= (- now-ms start) write-rate-window-ms))
+            requests (if reset? 0 (:rate-requests current))
+            window-start (if reset? now-ms start)]
+        (when (>= requests max-write-requests)
+          (let [remaining-ms (max 1 (- (+ start write-rate-window-ms) now-ms))]
+            (fail! :publish/write-rate-exhausted
+                   {:http/status 429
+                    :retry-after-seconds (long (Math/ceil (/ remaining-ms 1000.0)))
+                    :principal principal
+                    :max-write-requests max-write-requests
+                    :write-rate-window-ms write-rate-window-ms})))
+        (write-ingress-state!
+         channel
+         (assoc-in state [:principals principal]
+                   (assoc current
+                          :rate-window-start-ms window-start
+                          :rate-requests (inc requests))))))))
+
 (defn- store-block-with-quota!
-  [root cid block byte-count max-total-upload-bytes]
-  (with-quota-state
+  [root principal cid block byte-count max-total-upload-bytes
+   max-principal-upload-bytes]
+  (with-ingress-state
     root
     (fn [channel]
       (if (block-present? root cid)
         :present
-        (let [used-bytes (:used-bytes (read-quota-state channel))
-              next-total (+ (long used-bytes) (long byte-count))]
+        (let [state (read-ingress-state channel)
+              used-bytes (:used-bytes state)
+              principal-used (:used-bytes (principal-state state principal))
+              next-total (+ (long used-bytes) (long byte-count))
+              next-principal-total (+ (long principal-used) (long byte-count))]
           (when (> next-total max-total-upload-bytes)
             (fail! :publish/upload-quota-exhausted
                    {:http/status 507
                     :used-bytes used-bytes
                     :requested-bytes byte-count
                     :max-total-upload-bytes max-total-upload-bytes}))
+          (when (> next-principal-total max-principal-upload-bytes)
+            (fail! :publish/principal-upload-quota-exhausted
+                   {:http/status 507
+                    :principal principal
+                    :used-bytes principal-used
+                    :requested-bytes byte-count
+                    :max-principal-upload-bytes max-principal-upload-bytes}))
           ;; Persist the charge before the block. A crash can conservatively
           ;; overcharge this quota, but can never create unaccounted storage.
           ;; The JVM monitor plus OS lock serializes threads and processes.
-          (write-quota-state! channel next-total)
+          (write-ingress-state!
+           channel
+           (-> state
+               (assoc :used-bytes next-total)
+               (assoc-in [:principals principal]
+                         (assoc (principal-state state principal)
+                                :used-bytes next-principal-total))))
           (store/put-block! root cid block)
           :stored)))))
 
-(defn- block-handler [root write-token max-total-upload-bytes]
+(defn- block-handler
+  [root authority-entries max-total-upload-bytes max-principal-upload-bytes
+   max-write-requests write-rate-window-ms clock-ms]
   (handler
    (fn [^HttpExchange exchange]
      (let [cid (path-tail exchange "/ipfs/")
@@ -226,15 +377,17 @@
          "GET" (let [bytes (try (cbor/encode (store/get-block root cid))
                                 (catch clojure.lang.ExceptionInfo _ nil))]
                  (if bytes (respond! exchange 200 bytes) (respond! exchange 404 nil)))
-         "PUT" (let [_ (require-write-authority! exchange write-token)
+         "PUT" (let [principal (require-write-authority! exchange authority-entries)
+                     _ (consume-write-rate! root principal max-write-requests
+                                            write-rate-window-ms (clock-ms))
                      bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
                      ;; The pusher does not get to say what a block is. Bytes
                      ;; that do not hash to the requested CID are refused here
                      ;; exactly as they would be on the way in from a stranger.
                      block (fetch/verify-bytes cid bytes)
                      result (store-block-with-quota!
-                             root cid block (alength bytes)
-                             max-total-upload-bytes)]
+                             root principal cid block (alength bytes)
+                             max-total-upload-bytes max-principal-upload-bytes)]
                  (respond! exchange (if (= :stored result) 201 200) nil))
          (respond! exchange 405 nil))))))
 
@@ -251,7 +404,9 @@
              {:namespace namespace :publisher publisher})))
   namespace-owners)
 
-(defn- head-handler [root namespace-owners write-token]
+(defn- head-handler
+  [root namespace-owners authority-entries max-write-requests
+   write-rate-window-ms clock-ms]
   (handler
    (fn [^HttpExchange exchange]
      (let [namespace (path-tail exchange "/heads/")
@@ -264,7 +419,9 @@
                  (if record
                    (respond! exchange 200 (cbor/encode record))
                    (respond! exchange 404 nil)))
-         "PUT" (let [_ (require-write-authority! exchange write-token)
+         "PUT" (let [principal (require-write-authority! exchange authority-entries)
+                     _ (consume-write-rate! root principal max-write-requests
+                                            write-rate-window-ms (clock-ms))
                      bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
                      record (cbor/decode bytes)
                      state (publication/following root namespace)
@@ -365,16 +522,31 @@
   `:namespace-owners` as `{namespace did:key}`. Existing namespace state keeps
   its pinned publisher, and key-derived IPNS names use a separate path."
   ([root] (serve! root {}))
-  ([root {:keys [port host namespace-owners write-token max-total-upload-bytes]
+  ([root {:keys [port host namespace-owners write-token write-authorities
+                 max-total-upload-bytes max-principal-upload-bytes
+                 max-write-requests write-rate-window-ms clock-ms]
           :or {port 0 host "127.0.0.1" namespace-owners {}
-               max-total-upload-bytes default-max-total-upload-bytes}}]
+               max-total-upload-bytes default-max-total-upload-bytes
+               max-write-requests default-max-write-requests
+               write-rate-window-ms default-write-rate-window-ms
+               clock-ms #(System/currentTimeMillis)}}]
    (let [namespace-owners (valid-owner-policy namespace-owners)
-         {:keys [write-token max-total-upload-bytes]}
-         (valid-write-policy write-token max-total-upload-bytes)
+         {:keys [authority-entries max-total-upload-bytes
+                 max-principal-upload-bytes max-write-requests
+                 write-rate-window-ms]}
+         (valid-write-policy write-token write-authorities
+                             max-total-upload-bytes
+                             (or max-principal-upload-bytes
+                                 max-total-upload-bytes)
+                             max-write-requests write-rate-window-ms)
          server (HttpServer/create (InetSocketAddress. ^String host ^int (int port)) 0)]
      (.createContext server "/ipfs/"
-                     (block-handler root write-token max-total-upload-bytes))
-     (.createContext server "/heads/" (head-handler root namespace-owners write-token))
+                     (block-handler root authority-entries max-total-upload-bytes
+                                    max-principal-upload-bytes max-write-requests
+                                    write-rate-window-ms clock-ms))
+     (.createContext server "/heads/"
+                     (head-handler root namespace-owners authority-entries
+                                   max-write-requests write-rate-window-ms clock-ms))
      (.createContext server "/browse/" (browse-handler root))
      (.createContext server "/def/" (definition-handler root))
      (.start server)
@@ -383,12 +555,16 @@
         :url (str "http://" host ":" bound)
         :port bound
         :upload-usage (fn []
-                        (with-quota-state
+                        (with-ingress-state
                           root
                           (fn [channel]
-                            (assoc (read-quota-state channel)
+                            (assoc (read-ingress-state channel)
                                    :max-total-upload-bytes
-                                   max-total-upload-bytes))))
+                                   max-total-upload-bytes
+                                   :max-principal-upload-bytes
+                                   max-principal-upload-bytes
+                                   :max-write-requests max-write-requests
+                                   :write-rate-window-ms write-rate-window-ms))))
         :stop (fn [] (.stop server 0))}))))
 
 ;; ---------------------------------------------------------------------------
