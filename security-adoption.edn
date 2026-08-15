@@ -1,16 +1,17 @@
 {:adoption/version 3 :consumer/id :kotoba
- :security/git-sha "0f2f4d13d2643be4f580b8ddb4eb495049602603"
+ :security/git-sha "255b8fe79a5ffd5b087d8ce8f4d6108e5109195c"
  :required-control-namespaces
  [kotoba.security.abac kotoba.security.crypto-policy kotoba.security.information-flow
-  kotoba.security.package-admission]
+  kotoba.security.package-admission kotoba.security.release-evidence]
  ;; Must equal what source actually imports (adoption/source-security-inventory).
  ;; `kotoba.package-admission` was registered here after the namespace had moved
  ;; into the shared security package as `kotoba.security.package-admission`; the
  ;; entry was stale and `kotoba.launcher`, which imports it, was unregistered.
  :security-sensitive-entrypoints
- {kotoba.launcher [kotoba.security.package-admission]
+ {kotoba.launcher [kotoba.security.package-admission kotoba.security.release-evidence]
   kotoba.host-providers [kotoba.security.information-flow]
-  kotoba.kagi-boundary [kotoba.security.information-flow]}
+  kotoba.kagi-boundary [kotoba.security.information-flow]
+  kotoba.runtime [kotoba.security.abac]}
  ;; Discovered by kotoba.security.adoption/source-sensitive-inventory, which
  ;; scans src/ for def/defn names matching its sensitive-name pattern. Exactly
  ;; one operation matches today. Its control is the one that owns the decision
@@ -18,5 +19,6 @@
  ;; record carries a secret or a pointer to one.
  :sensitive-operations
  {kotoba.kagi-boundary/secret-ref? [kotoba.security.information-flow]
-  kotoba.kagi-boundary/secret-value-keys [kotoba.security.information-flow]}
+  kotoba.kagi-boundary/secret-value-keys [kotoba.security.information-flow]
+  kotoba.runtime/raw-memory-authorized? [kotoba.security.abac]}
  :exceptions []}
