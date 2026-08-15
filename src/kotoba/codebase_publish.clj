@@ -23,6 +23,8 @@
   the same things again. That is the point of the record being signed rather
   than the connection being trusted."
   (:require [cbor.core :as cbor]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [kotoba.codebase-routing :as routing]
             [kotoba.codebase.fetch :as fetch]
@@ -32,16 +34,27 @@
             [kotoba.codebase.store :as store])
   (:import [com.sun.net.httpserver HttpExchange HttpHandler HttpServer]
            [java.io ByteArrayOutputStream]
-           [java.net InetSocketAddress URI]
+           [java.net InetSocketAddress Proxy ProxySelector URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
             HttpResponse$BodyHandlers]
+           [java.nio ByteBuffer]
+           [java.nio.channels FileChannel]
+           [java.nio.file Files OpenOption StandardOpenOption]
+           [java.nio.file.attribute PosixFilePermissions]
            [java.security MessageDigest]
-           [java.time Duration]))
+           [java.time Duration]
+           [java.util.concurrent ConcurrentHashMap]))
 
 (def max-request-bytes (* 4 1024 1024))
 (def default-max-total-upload-bytes (* 256 1024 1024))
 (def max-write-token-bytes 512)
+(def max-quota-state-bytes 4096)
 (def default-timeout-ms 15000)
+(defonce ^:private quota-path-locks (ConcurrentHashMap.))
+(def ^:private direct-proxy-selector
+  (proxy [ProxySelector] []
+    (select [_] [Proxy/NO_PROXY])
+    (connectFailed [_ _ _] nil)))
 
 (defn- fail! [problem data]
   (throw (ex-info (name problem) (assoc data :problem problem))))
@@ -119,25 +132,92 @@
            false
            (throw error)))))
 
-(defn- store-block-with-quota!
-  [root cid block byte-count upload-bytes max-total-upload-bytes]
-  (locking upload-bytes
-    (if (block-present? root cid)
-      :present
-      (let [next-total (+ (long @upload-bytes) (long byte-count))]
-        (when (> next-total max-total-upload-bytes)
-          (fail! :publish/upload-quota-exhausted
-                 {:http/status 507
-                  :used-bytes @upload-bytes
-                  :requested-bytes byte-count
-                  :max-total-upload-bytes max-total-upload-bytes}))
-        ;; Update accounting only after durable storage succeeds. The lock also
-        ;; prevents two concurrent first writes of one CID from double charging.
-        (store/put-block! root cid block)
-        (reset! upload-bytes next-total)
-        :stored))))
+(defn- quota-state-path [root]
+  (-> (io/file root ".kotoba" "security" "codebase-ingress-quota.edn")
+      .toPath .toAbsolutePath .normalize))
 
-(defn- block-handler [root write-token upload-bytes max-total-upload-bytes]
+(defn- quota-path-monitor [path]
+  (or (.get quota-path-locks path)
+      (let [candidate (Object.)
+            previous (.putIfAbsent quota-path-locks path candidate)]
+        (or previous candidate))))
+
+(defn- read-quota-state [^FileChannel channel]
+  (let [size (.size channel)]
+    (when (> size max-quota-state-bytes)
+      (fail! :publish/quota-state-invalid
+             {:http/status 503 :reason :too-large}))
+    (if (zero? size)
+      {:version 1 :used-bytes 0}
+      (let [buffer (ByteBuffer/allocate (int size))]
+        (.position channel 0)
+        (loop []
+          (when (and (.hasRemaining buffer) (not= -1 (.read channel buffer)))
+            (recur)))
+        (.flip buffer)
+        (let [state (try
+                      (edn/read-string (.toString (.decode java.nio.charset.StandardCharsets/UTF_8
+                                                           buffer)))
+                      (catch Exception _ nil))]
+          (when-not (and (map? state)
+                         (= 1 (:version state))
+                         (integer? (:used-bytes state))
+                         (not (neg? (:used-bytes state))))
+            (fail! :publish/quota-state-invalid
+                   {:http/status 503 :reason :shape}))
+          state)))))
+
+(defn- write-quota-state! [^FileChannel channel used-bytes]
+  (let [bytes (.getBytes (pr-str {:version 1 :used-bytes used-bytes}) "UTF-8")
+        buffer (ByteBuffer/wrap bytes)]
+    (.position channel 0)
+    (.truncate channel 0)
+    (while (.hasRemaining buffer) (.write channel buffer))
+    (.force channel true)))
+
+(defn- with-quota-state [root f]
+  (let [path (quota-state-path root)
+        parent (.getParent path)
+        key (str path)]
+    (Files/createDirectories parent
+                             (make-array java.nio.file.attribute.FileAttribute 0))
+    (locking (quota-path-monitor key)
+      (with-open [channel (FileChannel/open
+                           path
+                           (into-array OpenOption
+                                       [StandardOpenOption/CREATE
+                                        StandardOpenOption/READ
+                                        StandardOpenOption/WRITE]))
+                  _lock (.lock channel)]
+        (try
+          (Files/setPosixFilePermissions
+           path (PosixFilePermissions/fromString "rw-------"))
+          (catch UnsupportedOperationException _))
+        (f channel)))))
+
+(defn- store-block-with-quota!
+  [root cid block byte-count max-total-upload-bytes]
+  (with-quota-state
+    root
+    (fn [channel]
+      (if (block-present? root cid)
+        :present
+        (let [used-bytes (:used-bytes (read-quota-state channel))
+              next-total (+ (long used-bytes) (long byte-count))]
+          (when (> next-total max-total-upload-bytes)
+            (fail! :publish/upload-quota-exhausted
+                   {:http/status 507
+                    :used-bytes used-bytes
+                    :requested-bytes byte-count
+                    :max-total-upload-bytes max-total-upload-bytes}))
+          ;; Persist the charge before the block. A crash can conservatively
+          ;; overcharge this quota, but can never create unaccounted storage.
+          ;; The JVM monitor plus OS lock serializes threads and processes.
+          (write-quota-state! channel next-total)
+          (store/put-block! root cid block)
+          :stored)))))
+
+(defn- block-handler [root write-token max-total-upload-bytes]
   (handler
    (fn [^HttpExchange exchange]
      (let [cid (path-tail exchange "/ipfs/")
@@ -153,7 +233,7 @@
                      ;; exactly as they would be on the way in from a stranger.
                      block (fetch/verify-bytes cid bytes)
                      result (store-block-with-quota!
-                             root cid block (alength bytes) upload-bytes
+                             root cid block (alength bytes)
                              max-total-upload-bytes)]
                  (respond! exchange (if (= :stored result) 201 200) nil))
          (respond! exchange 405 nil))))))
@@ -291,10 +371,9 @@
    (let [namespace-owners (valid-owner-policy namespace-owners)
          {:keys [write-token max-total-upload-bytes]}
          (valid-write-policy write-token max-total-upload-bytes)
-         upload-bytes (atom 0)
          server (HttpServer/create (InetSocketAddress. ^String host ^int (int port)) 0)]
      (.createContext server "/ipfs/"
-                     (block-handler root write-token upload-bytes max-total-upload-bytes))
+                     (block-handler root write-token max-total-upload-bytes))
      (.createContext server "/heads/" (head-handler root namespace-owners write-token))
      (.createContext server "/browse/" (browse-handler root))
      (.createContext server "/def/" (definition-handler root))
@@ -303,21 +382,28 @@
        {:server server
         :url (str "http://" host ":" bound)
         :port bound
-        :upload-usage (fn [] {:used-bytes @upload-bytes
-                              :max-total-upload-bytes max-total-upload-bytes})
+        :upload-usage (fn []
+                        (with-quota-state
+                          root
+                          (fn [channel]
+                            (assoc (read-quota-state channel)
+                                   :max-total-upload-bytes
+                                   max-total-upload-bytes))))
         :stop (fn [] (.stop server 0))}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Client
 
-(defn- client ^HttpClient [timeout-ms]
-  (-> (HttpClient/newBuilder)
-      (.connectTimeout (Duration/ofMillis timeout-ms))
-      (.followRedirects java.net.http.HttpClient$Redirect/NEVER)
-      (.build)))
+(defn- client ^HttpClient [timeout-ms direct?]
+  (let [builder (-> (HttpClient/newBuilder)
+                    (.connectTimeout (Duration/ofMillis timeout-ms))
+                    (.followRedirects java.net.http.HttpClient$Redirect/NEVER))
+        builder (if direct? (.proxy builder direct-proxy-selector) builder)]
+    (.build builder)))
 
 (defn- put-bytes! [endpoint path ^bytes body timeout-ms write-token]
-  (let [builder (-> (HttpRequest/newBuilder (URI/create (str endpoint path)))
+  (let [uri (URI/create (str endpoint path))
+        builder (-> (HttpRequest/newBuilder uri)
                     (.timeout (Duration/ofMillis timeout-ms))
                     (.header "Content-Type" "application/vnd.ipld.dag-cbor"))
         builder (if write-token
@@ -326,7 +412,8 @@
         request (-> builder
                     (.PUT (HttpRequest$BodyPublishers/ofByteArray body))
                     (.build))
-        response (.send (client timeout-ms) request (HttpResponse$BodyHandlers/ofString))]
+        response (.send (client timeout-ms (= "http" (.getScheme uri))) request
+                        (HttpResponse$BodyHandlers/ofString))]
     {:status (.statusCode response) :body (.body response)}))
 
 (defn- get-bytes [endpoint path timeout-ms]
@@ -334,7 +421,8 @@
                     (.timeout (Duration/ofMillis timeout-ms))
                     (.GET)
                     (.build))
-        response (.send (client timeout-ms) request (HttpResponse$BodyHandlers/ofByteArray))]
+        response (.send (client timeout-ms false) request
+                        (HttpResponse$BodyHandlers/ofByteArray))]
     (when (= 200 (.statusCode response)) (.body response))))
 
 (defn fetch-block
@@ -344,6 +432,22 @@
   RECORD from somewhere: the DHT says which CID is current and holds no bytes."
   [endpoint cid timeout-ms]
   (get-bytes endpoint (str "/ipfs/" cid) timeout-ms))
+
+(defn- loopback-http-host? [host]
+  (or (= "localhost" host)
+      (= "127.0.0.1" host)
+      (= "::1" host)
+      (= "0:0:0:0:0:0:0:1" host)))
+
+(defn- require-secure-write-endpoint! [endpoint]
+  (let [uri (try (URI/create endpoint) (catch Exception _ nil))
+        scheme (some-> uri .getScheme str/lower-case)
+        host (some-> uri .getHost str/lower-case)]
+    (when-not (or (and (= "https" scheme) host)
+                  (and (= "http" scheme) (loopback-http-host? host)))
+      (fail! :publish/insecure-write-endpoint
+             {:scheme scheme
+              :required :https-or-loopback-http}))))
 
 (defn push!
   "Push an ALREADY-SIGNED head record and its closure to a node.
@@ -365,6 +469,7 @@
                  (<= (count (.getBytes ^String write-token "UTF-8"))
                      max-write-token-bytes))
     (fail! :publish/write-token-required {}))
+  (require-secure-write-endpoint! endpoint)
   (let [namespace (:namespace record)
         {:keys [blocks]} (store/export-closure root [(:head record)])
         pushed (mapv (fn [{:keys [cid bytes]}]

@@ -43,13 +43,20 @@
     (is (contains? open :memory/legacy-wire-and-host-output-allocation-identity)
         "legacy pointer helpers and host output identity must not disappear from the score")))
 
-(deftest increment-five-closes-unauthenticated-ingress-but-keeps-operations-open
+(deftest increment-five-closes-unauthenticated-ingress
+  (let [implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented
+                   :publication/authenticated-quota-bounded-block-ingress))))
+
+(deftest increment-six-closes-transport-and-durable-aggregate-bypass
   (let [open (set (map :gate (:assessment/open-gates assessment)))
         implemented (set (map :control (:assessment/implemented assessment)))]
-    (is (contains? implemented
-                   :publication/authenticated-quota-bounded-block-ingress))
-    (is (contains? open :publication/persistent-ingress-rate-and-quota)
-        "process-lifetime quota must not be promoted into durable abuse control")))
+    (is (contains? implemented :publication/secure-write-transport))
+    (is (contains? implemented :publication/durable-aggregate-ingress-quota))
+    (is (not (contains? open :publication/persistent-ingress-rate-and-quota)))
+    (is (contains? open
+                   :publication/per-principal-rate-limit-and-token-rotation)
+        "durable node-wide accounting must not be promoted to principal isolation")))
 
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}

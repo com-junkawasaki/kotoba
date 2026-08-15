@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-5 implemented
+- Status: Accepted; increments 1-6 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -52,8 +52,8 @@ communication aid, not a certification.
 
 - migrate legacy wire-protocol raw-memory helpers and bind host output windows
   to live allocation identities;
-- persist and partition codebase ingress quota, add rate limits and token
-  rotation, and measure abuse/restart behavior;
+- partition codebase ingress authority per principal, add rate limits and token
+  rotation, and measure sustained abuse behavior;
 - independent adversarial review and sustained provider soak.
 
 Until those gates close, the achieved state remains **A2 bounded pilot**.
@@ -72,8 +72,12 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 - `kotoba.raw-memory-test/declared-raw-memory-is-bounded-to-the-allocation-that-produced-it`
 - `kotoba.raw-memory-test/emitter-cannot-bypass-checked-extent-admission`
 - `kotoba.codebase-publish-test/block-ingress-requires-write-authority-before-reading-or-storing`
-- `kotoba.codebase-publish-test/authenticated-block-ingress-is-bounded-by-a-process-lifetime-quota`
+- `kotoba.codebase-publish-test/authenticated-block-ingress-is-bounded-by-a-durable-quota`
 - `kotoba.codebase-publish-test/duplicate-block-ingress-is-idempotent-and-charged-once`
+- `kotoba.codebase-publish-test/write-authority-is-never-sent-over-non-loopback-plaintext-http`
+- `kotoba.codebase-publish-test/upload-quota-survives-a-server-restart`
+- `kotoba.codebase-publish-test/concurrent-server-instances-share-one-durable-quota`
+- `kotoba.codebase-publish-test/corrupt-durable-quota-state-fails-closed`
 
 ## Implemented increment 2
 
@@ -142,7 +146,24 @@ gate, so the assurance level remains A2.
    Authentication cannot admit wrong-CID bytes or self-allocate a friendly
    namespace, and read/follow/browse paths remain public.
 
-This closes unauthenticated storage consumption, not long-term abuse control.
-Quota reset on restart, shared-token compromise, durable per-principal
-accounting, rate limiting and rotation remain explicit operational gates. See
-`ADR-authenticated-codebase-ingress.md`.
+At increment 5 this closed unauthenticated storage consumption, not long-term
+abuse control: restart reset the counter and shared-token compromise remained.
+Increment 6 below closes the restart boundary while keeping principal isolation,
+rate limiting and rotation explicit. See `ADR-authenticated-codebase-ingress.md`.
+
+## Implemented increment 6
+
+1. The publishing client refuses to send write authority or block bytes over
+   plaintext HTTP unless the URI host is an explicit loopback address. Remote
+   publishing therefore requires the JDK-validated HTTPS path.
+2. The aggregate unique-block quota is persisted under the codebase root and
+   guarded by both a per-path JVM monitor and an OS file lock. Restarted and
+   concurrent server instances consume one balance; malformed or oversized
+   accounting state returns 503 rather than resetting to zero.
+3. Quota is forced before block storage, making crash behavior fail closed:
+   interruption may overcharge but cannot create unaccounted bytes. Existing
+   CIDs remain idempotent and do not spend quota twice.
+
+This closes plaintext credential transport and restart/cross-process quota
+bypass. Per-principal partitioning, rate limiting, token rotation, retention/GC
+and independent soak remain open, so the assurance level remains A2.

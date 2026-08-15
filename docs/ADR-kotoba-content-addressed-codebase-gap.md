@@ -252,12 +252,13 @@ hosting the same content under a separate friendly name still requires the
 host's explicit authorization.
 
 Block and head mutation also requires a distinct operator write authority
-before the request body is read. Without one the node is read-only. Unique
-authenticated blocks consume a configurable process-lifetime aggregate quota;
-duplicates are idempotent and not double charged. CID integrity, operator
-admission and publisher identity are three independent checks. Durable
-per-principal quota, rate limiting, rotation and restart-aware accounting remain
-open; see `ADR-authenticated-codebase-ingress.md`.
+before the request body is read. Without one the node is read-only. The client
+sends that authority only through HTTPS or explicit loopback HTTP. Unique
+authenticated blocks consume a durable configurable node-wide aggregate quota
+shared by restarts and concurrent processes; duplicates are idempotent and not
+double charged. CID integrity, operator admission and publisher identity are
+three independent checks. Per-principal partitioning, rate limiting, rotation
+and retention/GC remain open; see `ADR-authenticated-codebase-ingress.md`.
 
 Nine unit tests each name an attack (imposter key, tampered record, replay,
 absent commit, skipped chain link, unpinned first follow, re-follow after
@@ -296,7 +297,7 @@ The following boundary is normative:
 | Block availability | Pinning Service API request, verified against a router | Claim delegated provision with independent verification. Naming and availability are different problems. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
-| Publication | Authenticated and process-quota-bounded HTTP ingress; preauthorized first publisher for friendly namespaces; signed heads with pinned publishers, monotonic sequence and chained records | Claim bounded, signed, host-authorized publication between nodes that know each other's endpoints. Do NOT claim durable abuse prevention, a public registry, automated owner provisioning, or key distribution. |
+| Publication | HTTPS-or-loopback authenticated ingress; durable node-wide quota; preauthorized first publisher for friendly namespaces; signed heads with pinned publishers, monotonic sequence and chained records | Claim durable aggregate-bounded, signed, host-authorized publication between nodes that know each other's endpoints. Do NOT claim per-principal abuse prevention, a public registry, automated owner provisioning, or key distribution. |
 
 Package CIDs and semantic definition CIDs solve different problems.  Package
 locks authorize and reproduce a source/package release.  Semantic CIDs name a

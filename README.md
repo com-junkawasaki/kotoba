@@ -343,12 +343,14 @@ rather than the connection trusted.
 Mutating block and head requests also require an operator write authority,
 loaded only from `--write-token-file`. Starting `serve` without that option is
 safe and read-only; public GET, browse and follow remain available. Authenticated
-unique block ingress is bounded by a process-lifetime byte quota (256 MiB by
-default, configurable with `--max-upload-bytes`), while re-uploading an existing
-CID is idempotent and costs no additional quota. This is an admission/DoS
-boundary, separate from CID integrity and namespace publisher authorization.
-Restarting resets the counter; durable per-principal quota, rate limiting and
-token rotation remain operational work.
+unique block ingress is bounded by a durable node-wide byte quota (256 MiB by
+default, configurable with `--max-upload-bytes`), shared across restarts and
+concurrent server processes; re-uploading an existing CID is idempotent and
+costs no additional quota. The CLI sends write authority only to HTTPS or an
+explicit loopback HTTP endpoint; loopback writes are direct and redirects are
+disabled. This is an admission/DoS boundary, separate
+from CID integrity and namespace publisher authorization. Per-principal rate
+limits, token rotation and retention/GC remain operational work.
 
 A serving node also browses: `/browse/{namespace}` lists what each name
 currently selects and `/def/{cid}` renders the stored definition with its
