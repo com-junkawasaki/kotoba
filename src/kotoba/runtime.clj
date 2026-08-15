@@ -712,6 +712,137 @@
             form))
          @problems)))))
 
+(def ^:private raw-memory-access-width
+  "Raw dereference op -> number of bytes touched by one access."
+  {'mem-byte-at 1 'byte-store! 1
+   'mem-i32-at 4 'i32-store! 4})
+
+(def ^:private raw-memory-store-ops
+  '#{byte-store! i32-store!})
+
+(defn- raw-memory-authorized?
+  [forms policy]
+  (let [forbid? (boolean (or (:kotoba.policy/forbid-raw-memory policy)
+                             (:forbid-raw-memory policy)))]
+    (and (not forbid?)
+         (or (:kotoba.policy/allow-raw-memory policy)
+             (:allow-raw-memory policy)
+             (raw-memory-declared? forms)))))
+
+(defn raw-memory-extent-required?
+  "Whether FORMS/POLICY opt into the statically proven raw-memory profile."
+  [forms policy]
+  (let [declaration
+        (some (fn [form]
+                (when (and (seq? form) (= 'ns (list-head form)))
+                  (some #(when (map? %) (:kotoba/raw-memory %)) form)))
+              forms)]
+    (boolean
+     (or (:kotoba.policy/require-raw-memory-extents policy)
+         (:require-raw-memory-extents policy)
+         (= :checked-extents declaration)
+         (and (map? declaration) (= :checked-extents (:mode declaration)))))))
+
+(defn raw-memory-extent-problems
+  "Per-allocation provenance and bounds problems for authorized raw memory.
+
+  Declaring the raw-memory escape hatch localizes review; it does not turn an
+  arbitrary integer, pair handle or function parameter into an owned pointer.
+  Each dereference must be rooted in a lexically visible `alloc` /
+  `alloc-checked` with a static non-negative size, or in a static byte/string
+  literal for reads. Offsets must be static and the complete access width must
+  fit that one extent. Static literals are borrowed read-only extents.
+
+  This is deliberately conservative. Passing a pointer through an unanalyzed
+  helper parameter or computing a dynamic offset is rejected rather than
+  inferred. The current allocator has no `free`, so lifetime/alias invalidation
+  is not yet a separate state transition; the enforced ownership boundary is
+  allocation provenance plus extent within one module invocation."
+  ([forms] (raw-memory-extent-problems forms nil))
+  ([forms policy]
+   (if-not (and (raw-memory-authorized? forms policy)
+                (raw-memory-extent-required? forms policy))
+     []
+     (let [problems (atom [])]
+       (letfn [(extent-of [expr env]
+                 (cond
+                   (symbol? expr) (get env expr)
+                   (seq? expr)
+                   (let [op (list-head expr)
+                         value (second expr)]
+                     (cond
+                       (#{'alloc 'alloc-checked} op)
+                       (when (and (integer? value) (not (neg? value)))
+                         {:bytes value :writable? true :origin op})
+
+                       (and (= 'bytes-ptr op) (vector? value))
+                       {:bytes (count value) :writable? false :origin op}
+
+                       (and (= 'str-ptr op) (string? value))
+                       {:bytes (alength (.getBytes ^String value "UTF-8"))
+                        :writable? false :origin op}
+
+                       :else nil))
+                   :else nil))
+               (record-access! [node env]
+                 (let [op (list-head node)
+                       width (get raw-memory-access-width op)
+                       pointer (second node)
+                       offset (nth node 2 nil)
+                       extent (extent-of pointer env)
+                       reason (cond
+                                (nil? extent) :untracked-pointer
+                                (not (integer? offset)) :dynamic-offset
+                                (and (contains? raw-memory-store-ops op)
+                                     (not (:writable? extent))) :read-only-extent
+                                (neg? offset) :outside-allocation
+                                (> (+ offset width) (:bytes extent)) :outside-allocation
+                                :else nil)]
+                   (when reason
+                     (swap! problems conj
+                            {:kotoba.runtime/problem :raw-memory-extent-violation
+                             :kotoba.runtime/reason reason
+                             :kotoba.runtime/form (pr-str node)
+                             :kotoba.runtime/op (str op)
+                             :kotoba.runtime/extent-bytes (:bytes extent)
+                             :kotoba.lang/hint
+                             "raw access must stay within one statically tracked allocation"}))))
+               (visit [node env]
+                 (cond
+                   (seq? node)
+                   (let [head (list-head node)]
+                     (cond
+                       (= 'quote head) nil
+
+                       (= 'let head)
+                       (let [bindings (second node)]
+                         (loop [pairs (partition 2 bindings)
+                                scope env]
+                           (if-let [[binding value] (first pairs)]
+                             (do (visit value scope)
+                                 (recur (next pairs)
+                                        (cond-> scope
+                                          (symbol? binding)
+                                          (assoc binding (extent-of value scope)))))
+                             (doseq [body (drop 2 node)] (visit body scope)))))
+
+                       (= 'defn head)
+                       (let [[_params & body]
+                             (drop-while (complement vector?) (drop 2 node))]
+                         (doseq [form body] (visit form {})))
+
+                       (contains? raw-memory-access-width head)
+                       (do (record-access! node env)
+                           (doseq [arg (rest node)] (visit arg env)))
+
+                       :else (doseq [item node] (visit item env))))
+
+                   (map? node) (doseq [[k v] node] (visit k env) (visit v env))
+                   (coll? node) (doseq [item node] (visit item env))
+                   :else nil))]
+         (doseq [form forms] (visit form {}))
+         @problems)))))
+
 (declare eval-form)
 
 (def ^:dynamic *interpreter-step-budget*
@@ -3327,6 +3458,7 @@
                                      ;; surface, not lowered: string/container
                                      ;; sugar lowers INTO the denied ops.
                                      (raw-memory-problems surface-forms policy)
+                                     (raw-memory-extent-problems surface-forms policy)
                                      (cap-typed-problems forms)
                                      (cap-affine-problems forms)
                                      (cap-effect-problems forms)
@@ -5452,6 +5584,7 @@
         ;; emitter call must not be a way around the T1 gate. Computed on the
         ;; surface forms, before `lower-language-forms` introduces the ops.
         raw-memory-denied (raw-memory-problems forms policy)
+        raw-memory-extents (raw-memory-extent-problems forms policy)
         forms (lower-language-forms forms)
         defs (function-defs forms)
         unsupported-top-level (first
@@ -5501,6 +5634,16 @@
                                       :kotoba.wasm/op (:kotoba.runtime/form problem)
                                       :kotoba.lang/hint (:kotoba.lang/hint problem)})
                                    raw-memory-denied)}
+
+      (seq raw-memory-extents)
+      {:kotoba.wasm/ok? false
+       :kotoba.wasm/problems
+       (mapv (fn [problem]
+               {:kotoba.wasm/problem :raw-memory-extent-violation
+                :kotoba.wasm/reason (:kotoba.runtime/reason problem)
+                :kotoba.wasm/form (:kotoba.runtime/form problem)
+                :kotoba.lang/hint (:kotoba.lang/hint problem)})
+             raw-memory-extents)}
 
       memory-limit-problem
       {:kotoba.wasm/ok? false

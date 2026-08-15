@@ -90,7 +90,7 @@
                 "src/demo_buffer_abi.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:5f3c072977130b931a2c20d0f47202364ade0de42efb2553a563a190833ce62e"},
+                 "sha256:fb10a1e2775a3170f376010d1bcea70ecb1c2c063869fe1666b0e3ad22786df8"},
                 "src/demo_call.kotoba"
                 {:digest
                  "sha256:4c0888523b46fcbb49707e43b221f8d3f93d4887939c8a93c0d373db6b17a1ec"},
@@ -173,7 +173,7 @@
                  "sha256:a6b04446fda7b8e43192a588cc00ca32f0fe1abf0ddab2983b1ba6f94976b1f4"},
                 "src/demo_memory_write.kotoba"
                 {:digest
-                 "sha256:912c71003f911c3a489f33cbc69b34586f91f1ed0452a6587d0d978194f6bf1f"},
+                 "sha256:4a5867dc58288a364afa7662b4b8501caa7c0937ed556a710d0fbba727c07c98"},
                 "src/demo_notify.kotoba"
                 {:policy "src/demo_policy.edn",
                  :digest

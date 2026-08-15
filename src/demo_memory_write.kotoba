@@ -1,6 +1,6 @@
-(ns demo-memory-write {:kotoba/raw-memory :implements-buffer-abi})
+(ns demo-memory-write {:kotoba/raw-memory :checked-extents})
 
 (defn main []
-  (let [buf (bytes-ptr [0 0])]
+  (let [buf (alloc 2)]
     (+ (byte-store! buf 0 70)
        (mem-byte-at buf 0))))
