@@ -16,6 +16,7 @@
             [kotoba.core.contracts :as core-contracts]
             [kotoba.lang.capability-values :as capability-values]
             [kotoba.resource-scope :as resource-scope]
+            [kotoba.security.abac :as security-abac]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as reader-types]))
 
@@ -723,11 +724,19 @@
 (defn- raw-memory-authorized?
   [forms policy]
   (let [forbid? (boolean (or (:kotoba.policy/forbid-raw-memory policy)
-                             (:forbid-raw-memory policy)))]
-    (and (not forbid?)
-         (or (:kotoba.policy/allow-raw-memory policy)
-             (:allow-raw-memory policy)
-             (raw-memory-declared? forms)))))
+                             (:forbid-raw-memory policy)))
+        requested? (and (not forbid?)
+                        (boolean
+                         (or (:kotoba.policy/allow-raw-memory policy)
+                             (:allow-raw-memory policy)
+                             (raw-memory-declared? forms))))
+        decision (security-abac/evaluate
+                  {:action {:id :raw-memory}}
+                  {:policy/id :kotoba/raw-memory-admission
+                   :action/ids (if requested?
+                                 #{:raw-memory}
+                                 #{:raw-memory-denied})})]
+    (:abac/allowed? decision)))
 
 (defn raw-memory-extent-required?
   "Whether FORMS/POLICY opt into the statically proven raw-memory profile."
