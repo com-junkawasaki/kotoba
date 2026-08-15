@@ -27,14 +27,66 @@
 
 (defn- with-nodes
   "An author store, a hosting node with its URL, and a follower store."
-  [body-fn]
-  (let [author (temp-store) host (temp-store) follower (temp-store)]
+  ([body-fn]
+   (with-nodes {:namespace-owners {"demo" (ed/did-key-from-seed (seed 1))}}
+     body-fn))
+  ([server-options body-fn]
+   (let [author (temp-store) host (temp-store) follower (temp-store)]
+     (try
+       (run! store/initialize! [author host follower])
+       (let [{:keys [url stop]} (publish/serve! host server-options)]
+         (try (body-fn {:author author :host host :follower follower :url url})
+              (finally (stop))))
+       (finally (run! delete-tree [author host follower]))))))
+
+(deftest first-publish-requires-a-preauthorized-namespace-owner
+  (with-nodes {}
+    (fn [{:keys [author host url]}]
+      (authoring/update-namespace! author "unclaimed" '[(defn f [x] x)])
+      (is (= :publish/head-rejected
+             (:problem (ex-data (try (publish/publish! author "unclaimed" (seed 2)
+                                                       {:endpoint url})
+                                     (catch clojure.lang.ExceptionInfo e e))))))
+      (is (nil? (publication/following host "unclaimed"))
+          "a valid self-signature is not proof of entitlement to a friendly namespace"))))
+
+(deftest first-publish-must-match-the-preauthorized-owner
+  (with-nodes {:namespace-owners {"demo" (ed/did-key-from-seed (seed 1))}}
+    (fn [{:keys [author host url]}]
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (is (= :publish/head-rejected
+             (:problem (ex-data (try (publish/publish! author "demo" (seed 2)
+                                                       {:endpoint url})
+                                     (catch clojure.lang.ExceptionInfo e e))))))
+      (is (nil? (publication/following host "demo")))
+      (is (= (ed/did-key-from-seed (seed 1))
+             (:publisher (publish/publish! author "demo" (seed 1) {:endpoint url})))))))
+
+(deftest malformed-namespace-owner-policy-fails-before-serving
+  (let [host (temp-store)]
     (try
-      (run! store/initialize! [author host follower])
-      (let [{:keys [url stop]} (publish/serve! host)]
-        (try (body-fn {:author author :host host :follower follower :url url})
+      (store/initialize! host)
+      (is (= :publish/invalid-namespace-owner-policy
+             (:problem (ex-data (try (publish/serve! host {:namespace-owners {"demo" nil}})
+                                     (catch clojure.lang.ExceptionInfo e e))))))
+      (finally (delete-tree host)))))
+
+(deftest persisted-owner-pin-survives-a-server-restart-without-reenrollment-policy
+  (let [author (temp-store) host (temp-store)
+        owner (ed/did-key-from-seed (seed 1))]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [{:keys [url stop]} (publish/serve! host {:namespace-owners {"demo" owner}})]
+        (try (publish/publish! author "demo" (seed 1) {:endpoint url})
              (finally (stop))))
-      (finally (run! delete-tree [author host follower])))))
+      (authoring/update-namespace! author "demo" '[(defn f [x] (* x 2))])
+      (let [{:keys [url stop]} (publish/serve! host)]
+        (try
+          (is (= 1 (:sequence (publish/publish! author "demo" (seed 1)
+                                                {:endpoint url}))))
+          (finally (stop))))
+      (finally (run! delete-tree [author host])))))
 
 (deftest a-published-namespace-is-followed-verified-and-runnable
   (with-nodes

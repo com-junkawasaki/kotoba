@@ -63,7 +63,10 @@
         router (routing-server)]
     (try
       (run! store/initialize! [author host follower])
-      (let [{:keys [url stop]} (publish/serve! host)]
+      (let [{:keys [url stop]}
+            (publish/serve! host
+                            {:namespace-owners
+                             {"demo" (ed/did-key-from-seed (seed 1))}})]
         (try (body-fn {:author author :host host :follower follower
                        :node url :routers [(:url router)] :router router})
              (finally (stop))))
