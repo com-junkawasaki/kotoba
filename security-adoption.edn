@@ -13,10 +13,8 @@
   kotoba.kagi-boundary [kotoba.security.information-flow]
   kotoba.runtime [kotoba.security.abac]}
  ;; Discovered by kotoba.security.adoption/source-sensitive-inventory, which
- ;; scans src/ for def/defn names matching its sensitive-name pattern. Exactly
- ;; one operation matches today. Its control is the one that owns the decision
- ;; it guards: assert-reference-only! is an egress decision about whether a
- ;; record carries a secret or a pointer to one.
+ ;; scans src/ for def/defn names matching its sensitive-name pattern. Each
+ ;; entry names the shared control that owns its decision.
  :sensitive-operations
  {kotoba.kagi-boundary/secret-ref? [kotoba.security.information-flow]
   kotoba.kagi-boundary/secret-value-keys [kotoba.security.information-flow]
