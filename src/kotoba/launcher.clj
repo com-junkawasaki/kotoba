@@ -762,9 +762,14 @@
 
       (= action "serve")
       ;; Blocking on purpose: `serve` is the process, not a step in one.
-      (let [{:keys [url stop]} (codebase-publish/serve!
+      (let [owners-file (option-value argv "--namespace-owners")
+            namespace-owners (if owners-file
+                               (-> owners-file io/file slurp edn/read-string)
+                               {})
+            {:keys [url stop]} (codebase-publish/serve!
                                 root {:port (Integer/parseInt
-                                             (or (option-value argv "--port") "0"))})]
+                                             (or (option-value argv "--port") "0"))
+                                      :namespace-owners namespace-owners})]
         (println (pr-str {:kotoba.cli/code :codebase/serving :url url}))
         (try @(promise)
              (finally (stop)))

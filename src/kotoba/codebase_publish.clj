@@ -97,7 +97,20 @@
                  (respond! exchange 201 nil))
          (respond! exchange 405 nil))))))
 
-(defn- head-handler [root]
+(defn- valid-owner-policy [namespace-owners]
+  (when-not (map? namespace-owners)
+    (fail! :publish/invalid-namespace-owner-policy
+           {:reason :map-required}))
+  (doseq [[namespace publisher] namespace-owners]
+    (when-not (and (string? namespace)
+                   (not (str/blank? namespace))
+                   (string? publisher)
+                   (str/starts-with? publisher "did:key:z"))
+      (fail! :publish/invalid-namespace-owner-policy
+             {:namespace namespace :publisher publisher})))
+  namespace-owners)
+
+(defn- head-handler [root namespace-owners]
   (handler
    (fn [^HttpExchange exchange]
      (let [namespace (path-tail exchange "/heads/")
@@ -113,10 +126,14 @@
          "PUT" (let [bytes (with-open [in (.getRequestBody exchange)] (read-bounded in))
                      record (cbor/decode bytes)
                      state (publication/following root namespace)
+                     initial-owner (when-not state (get namespace-owners namespace))
+                     _ (when (and (nil? state) (nil? initial-owner))
+                         (fail! :publish/namespace-owner-required
+                                {:namespace namespace}))
                      accepted (publication/accept-head!
                                root record
                                (when-not state
-                                 {:publisher (get record "publisher")}))]
+                                 {:publisher initial-owner}))]
                  ;; Keep the record itself so followers can fetch it back.
                  (store/put-block! root (publication/record-cid record) record)
                  (respond! exchange 201 (.getBytes (pr-str accepted) "UTF-8")))
@@ -200,12 +217,18 @@
        (respond! exchange 200 (.getBytes ^String body "UTF-8"))))))
 
 (defn serve!
-  "Start a publishing node over ROOT. Returns `{:server :url :stop}`."
+  "Start a publishing node over ROOT. Returns `{:server :url :stop}`.
+
+  A friendly namespace's first publisher must be preauthorized in
+  `:namespace-owners` as `{namespace did:key}`. Existing namespace state keeps
+  its pinned publisher, and key-derived IPNS names use a separate path."
   ([root] (serve! root {}))
-  ([root {:keys [port host] :or {port 0 host "127.0.0.1"}}]
-   (let [server (HttpServer/create (InetSocketAddress. ^String host ^int (int port)) 0)]
+  ([root {:keys [port host namespace-owners]
+          :or {port 0 host "127.0.0.1" namespace-owners {}}}]
+   (let [namespace-owners (valid-owner-policy namespace-owners)
+         server (HttpServer/create (InetSocketAddress. ^String host ^int (int port)) 0)]
      (.createContext server "/ipfs/" (block-handler root))
-     (.createContext server "/heads/" (head-handler root))
+     (.createContext server "/heads/" (head-handler root namespace-owners))
      (.createContext server "/browse/" (browse-handler root))
      (.createContext server "/def/" (definition-handler root))
      (.start server)

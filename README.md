@@ -276,7 +276,7 @@ kotoba codebase pull <cid>... --store dir                              # discove
 kotoba codebase announce <name|#hash> --pinning-endpoint URL --store dir  # ask a pinning service to provide it, then verify
 kotoba codebase diff --before <commit> --after <commit> --store dir    # authored vs propagated vs renamed
 kotoba codebase diff --base <c> --left <c> --right <c> --store dir     # list merge conflicts as data
-kotoba codebase serve --store dir --port 8080                          # host: trustless gateway + signed heads + browse-by-hash
+kotoba codebase serve --store dir --port 8080 --namespace-owners owners.edn  # host with preauthorized first publishers
 kotoba codebase publish --namespace ns --endpoint URL --store dir      # sign the head, push the closure, push the record
 kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir  # …and name it in the DHT under your key
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
@@ -327,14 +327,18 @@ serves the wrong bytes are both merely unhelpful.
 
 `serve` / `publish` / `follow` are the other half. A publishing node is a
 trustless gateway (`GET /ipfs/{cid}?format=raw`, the same interface the public
-network speaks) plus a follower that also serves: it pins a publisher DID per
-namespace on first push and applies the same signature, sequence and chain
-checks a private follower does. A namespace head is the one mutable claim in the
-system, so it is signed — the record carries a monotonic sequence and links its
-predecessor, and a follower pins the key on first follow. Serving grants nobody
-anything: the host verifies every pushed block against its CID, and the follower
-verifies everything again, which is why the record is signed rather than the
-connection trusted.
+network speaks) plus a follower that also serves. For a friendly namespace, the
+host admits the first push only when `--namespace-owners` names that namespace's
+expected DID in an EDN map such as `{"team/app" "did:key:z…"}`. A valid
+self-signature proves key control, not entitlement to a chosen name. Once
+admitted, the host persists and pins that publisher and applies the same
+signature, sequence and chain checks a private follower does. A namespace head
+is the one mutable claim in the system, so it is signed — the record carries a
+monotonic sequence and links its predecessor, and a follower pins the key on
+first follow. Missing or malformed initial-owner policy fails closed. Serving
+grants nobody anything: the host verifies every pushed block against its CID,
+and the follower verifies everything again, which is why the record is signed
+rather than the connection trusted.
 
 A serving node also browses: `/browse/{namespace}` lists what each name
 currently selects and `/def/{cid}` renders the stored definition with its
@@ -358,7 +362,9 @@ An IPNS name is derived from the publisher's public key, which removes two
 things at once: there is **no registry** (`k51…` *is* the key) and **no key
 distribution** (a follower that knows the name knows the key). `follow-name`
 therefore takes no `--publisher` argument, and the endpoint is only where blocks
-are fetched from.
+are fetched from. If `publish --ipns` also pushes the friendly namespace to an
+HTTP host, that host still requires its local namespace-owner policy; IPNS does
+not silently grant a second, human-readable name.
 
 This process is still **not a DHT node** — it holds no routing table and answers
 nobody's queries. `announce` remains for asking a pinning service to provide

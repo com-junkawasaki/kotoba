@@ -30,6 +30,12 @@
     (is (contains? implemented :authorization/durable-cacao-replay))
     (is (contains? implemented :deployment/immutable-release-admission))))
 
+(deftest closed-increment-three-gate-does-not-remain-open
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (not (contains? open :publication/authenticated-initial-publisher)))
+    (is (contains? implemented :publication/preauthorized-initial-publisher))))
+
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
           (:assessment/implemented assessment)

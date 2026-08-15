@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-2 implemented
+- Status: Accepted; increments 1-3 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -50,7 +50,6 @@ communication aid, not a certification.
 
 ## Remaining gates
 
-- authenticated first-publisher namespace ownership;
 - per-allocation extent/ownership tracking for raw-memory profiles;
 - independent adversarial review and sustained provider soak.
 
@@ -86,3 +85,18 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 3. Local rollback refuses legacy previous receipts that do not carry the four
    immutable admission identities. Murakumo rollback remains unsupported and
    fail-closed.
+
+## Implemented increment 3
+
+1. A friendly HTTP namespace's first publisher is no longer self-enrolling.
+   `codebase serve --namespace-owners owners.edn` loads a host-side
+   `namespace -> did:key` authorization map. Missing, malformed or mismatched
+   policy rejects the initial head before mutable publication state is stored.
+2. Once admitted, the persisted publisher pin remains the authority for
+   monotonic updates, so restarts do not turn configuration availability into
+   an ownership reset. The record signature, sequence and predecessor checks
+   remain in the shared publication layer.
+3. Key-derived IPNS naming remains separate and registry-free. Hosting an IPNS
+   publication under an additional friendly HTTP namespace still requires the
+   host's explicit policy; possession of the IPNS key does not allocate a
+   second name.

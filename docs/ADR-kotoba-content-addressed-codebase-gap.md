@@ -243,6 +243,14 @@ only once its commit is present and verified locally, because a signature says
 who is speaking and never conjures the bytes spoken about. The publisher DID is
 derived from the signing seed rather than taken as an argument.
 
+The hosting node does not use that self-asserted DID to allocate a friendly
+namespace. On the first HTTP push, an operator policy must already map the
+namespace to the expected `did:key`; missing policy and mismatched keys are
+rejected before any mutable head is stored. Later updates use the publisher
+pinned in persisted state. Key-derived IPNS naming remains registry-free, while
+hosting the same content under a separate friendly name still requires the
+host's explicit authorization.
+
 Nine unit tests each name an attack (imposter key, tampered record, replay,
 absent commit, skipped chain link, unpinned first follow, re-follow after
 retirement) and seven integration tests run the same against a real HTTP node.
@@ -280,7 +288,7 @@ The following boundary is normative:
 | Block availability | Pinning Service API request, verified against a router | Claim delegated provision with independent verification. Naming and availability are different problems. |
 | Developer codebase | Scratch-buffer authoring, update propagation, `view`, hash abbreviation, dependents | Claim hash-native authoring and view-by-hash. Do NOT claim a browsing UI, semantic diff/rebase, or a full semantic VCS UX. |
 | Distributed sharing | Delegated-routing discovery + trustless gateway fetch, verified per block | Claim global discovery and verified retrieval. Do NOT claim DHT announcement, pinning, or availability guarantees. |
-| Publication | Signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed namespace publication between nodes that know each other's endpoints. Do NOT claim a public network presence, a name registry, or key distribution. |
+| Publication | Preauthorized first publisher for friendly namespaces; signed heads with pinned publishers, monotonic sequence, chained records; HTTP node that hosts and follows | Claim signed, host-authorized namespace publication between nodes that know each other's endpoints. Do NOT claim a public registry, automated owner provisioning, or key distribution. |
 
 Package CIDs and semantic definition CIDs solve different problems.  Package
 locks authorize and reproduce a source/package release.  Semantic CIDs name a
