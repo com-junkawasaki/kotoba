@@ -1,8 +1,8 @@
 {:adr/id :adr-kotoba-memory-safety-comparison
  :adr/title "Kotoba memory-safety position and cross-language comparison"
  :adr/status :accepted
- :adr/date "2026-08-08"
- :adr/observed-commit "efc8c2bed7e171826327b03a0037a9f119471136"
+ :adr/date "2026-08-15"
+ :adr/observed-commit "57afde187c025806b676f8ee9b86dc6094248e94"
  :adr/markdown "ADR-kotoba-memory-safety-comparison.md"
  :adr/decision
  {:overall-rating :circle
@@ -21,6 +21,7 @@
    :individual-free false
    :primary-enforcement [:checked-subset :wasm-linear-memory-bounds
                          :bounds-respecting-accessors :raw-memory-deny
+                         :checked-raw-allocation-extents :wasm-memory-maximum
                          :host-write-window]}
   {:layer :compiler-and-host
    :runtime :clojure-jvm-chicory
@@ -79,7 +80,9 @@
  :adr/raw-memory
  {:denied-by-default [mem-byte-at mem-i32-at byte-store! i32-store!]
   :module-declaration :kotoba/raw-memory
-  :policy-allow :kotoba.policy/allow-raw-memory
+ :policy-allow :kotoba.policy/allow-raw-memory
+  :checked-profile :checked-extents
+  :policy-require-extents :kotoba.policy/require-raw-memory-extents
   :policy-forbid :kotoba.policy/forbid-raw-memory
   :policy-forbid-overrides-allow true
   :address-producing-ops-remain-available [alloc alloc-checked str-ptr bytes-ptr]}
@@ -88,10 +91,10 @@
    :severity :high
    :status :open
    :detail "Host output windows are region-bounded but are not matched to individual live allocation extents."}
-  {:id :wasm-memory-maximum
-   :severity :high
+  {:id :legacy-wire-pointer-provenance
+   :severity :medium
    :status :open
-   :detail "The current emitter declares one minimum page without a policy-derived maximum."}
+   :detail "Legacy wire providers pass pointer/length values across helpers beyond the lexical checked-extents proof."}
   {:id :guest-reclamation
    :severity :medium
    :status :open
@@ -102,11 +105,13 @@
    :detail "Capability affinity is narrow S2 and must not be described as a general Rust-style borrow checker."}]
  :adr/evidence
  [{:path "src/kotoba/runtime.clj"
-   :symbols [raw-memory-ops raw-memory-problems wasm-binary compile-wasm-expr]}
+   :symbols [raw-memory-ops raw-memory-problems raw-memory-extent-problems
+             wasm-binary compile-wasm-expr]}
   {:path "src/kotoba/wasm_exec.clj"
    :symbols [writable-output-window write-bytes!]}
   {:path "test/kotoba/raw_memory_test.clj"
-   :covers [:raw-deny :module-hatch :policy-allow :policy-forbid :emitter-defense-in-depth]}
+   :covers [:raw-deny :checked-extents :read-only-literals :policy-allow
+            :policy-require-extents :policy-forbid :emitter-defense-in-depth]}
   {:path "test/kotoba/host_write_window_test.clj"
    :covers [:data-segment-refusal :negative-window-refusal
             :outside-linear-memory-refusal :capacity-check]}

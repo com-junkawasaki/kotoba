@@ -36,6 +36,13 @@
     (is (not (contains? open :publication/authenticated-initial-publisher)))
     (is (contains? implemented :publication/preauthorized-initial-publisher))))
 
+(deftest increment-four-is-bounded-to-the-checked-raw-profile
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented :memory/checked-raw-allocation-extents))
+    (is (contains? open :memory/legacy-wire-and-host-output-allocation-identity)
+        "legacy pointer helpers and host output identity must not disappear from the score")))
+
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
           (:assessment/implemented assessment)

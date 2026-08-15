@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-3 implemented
+- Status: Accepted; increments 1-4 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -50,7 +50,8 @@ communication aid, not a certification.
 
 ## Remaining gates
 
-- per-allocation extent/ownership tracking for raw-memory profiles;
+- migrate legacy wire-protocol raw-memory helpers and bind host output windows
+  to live allocation identities;
 - independent adversarial review and sustained provider soak.
 
 Until those gates close, the achieved state remains **A2 bounded pilot**.
@@ -66,6 +67,8 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
 - `kotoba.deploy-adapter-test/execute-apply-fails-before-effects-when-release-is-not-admitted`
 - `kotoba.deploy-adapter-test/launcher-executes-deploy-lifecycle-end-to-end`
 - `kotoba.security-by-design-assurance-test`
+- `kotoba.raw-memory-test/declared-raw-memory-is-bounded-to-the-allocation-that-produced-it`
+- `kotoba.raw-memory-test/emitter-cannot-bypass-checked-extent-admission`
 
 ## Implemented increment 2
 
@@ -100,3 +103,23 @@ Until those gates close, the achieved state remains **A2 bounded pilot**.
    publication under an additional friendly HTTP namespace still requires the
    host's explicit policy; possession of the IPNS key does not allocate a
    second name.
+
+## Implemented increment 4
+
+1. `{:kotoba/raw-memory :checked-extents}` adds a fail-closed source profile:
+   every raw load/store pointer must retain lexical provenance from one
+   `alloc`/`alloc-checked`, every offset must be static, and the complete
+   one- or four-byte access must fit that allocation. Static string/byte
+   literals are tracked as read-only extents.
+2. `:kotoba.policy/require-raw-memory-extents` applies the same proof to a
+   deployment-authorized raw module. A deployment grant can permit the profile
+   but cannot convert a pair handle, dynamic helper parameter or arbitrary
+   integer into an owned allocation.
+3. The direct Wasm emitter repeats the extent gate, and first-party small
+   buffer examples now use owned allocations under the checked profile.
+
+This is not a general borrow checker. Legacy wire-protocol providers still
+pass pointer/length pairs across helpers and remain on the explicitly marked
+compatibility profile; host output windows are still region-bounded rather
+than matched to a shadow allocation identity. Those are the remaining memory
+gate, so the assurance level remains A2.

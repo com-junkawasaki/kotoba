@@ -52,19 +52,24 @@
         (is (seq (problems-of result :raw-memory-denied))
             (str op " must be denied in undeclared user source"))))))
 
-(deftest module-declaration-grants-raw-memory
+(deftest module-declaration-localizes-but-does-not-trust-raw-memory
   (let [declared (str/replace forging-source
                               "(ns attacker)"
-                              "(ns attacker {:kotoba/raw-memory :implements-buffer-abi})")
+                              "(ns attacker {:kotoba/raw-memory :checked-extents})")
         result (check-source declared nil)]
     (is (empty? (problems-of result :raw-memory-denied))
-        "a module that declares the hatch keeps working")))
+        "the declaration remains the explicit escape-hatch marker")
+    (is (seq (problems-of result :raw-memory-extent-violation))
+        "a pair handle is not an owned raw allocation even inside the hatch")))
 
 (deftest deployment-policy-can-grant-and-can-forbid
   (testing "allow-raw-memory grants an undeclared module"
-    (is (empty? (problems-of (check-source forging-source
-                                           {:kotoba.policy/allow-raw-memory true})
-                             :raw-memory-denied))))
+    (let [result (check-source forging-source
+                               {:kotoba.policy/allow-raw-memory true
+                                :kotoba.policy/require-raw-memory-extents true})]
+      (is (empty? (problems-of result :raw-memory-denied)))
+      (is (seq (problems-of result :raw-memory-extent-violation))
+          "deployment authority cannot turn an untracked pointer into an extent")))
   (testing "forbid-raw-memory overrides a module declaration"
     (let [declared (str/replace forging-source
                                 "(ns attacker)"
@@ -79,6 +84,40 @@
                                         {:kotoba.policy/allow-raw-memory true
                                          :kotoba.policy/forbid-raw-memory true})
                           :raw-memory-denied)))))
+
+(deftest declared-raw-memory-is-bounded-to-the-allocation-that-produced-it
+  (let [safe "(ns buffer {:kotoba/raw-memory :checked-extents})
+              (defn main []
+                (let [buf (alloc 4)]
+                  (+ (i32-store! buf 0 7) (mem-i32-at buf 0))))"
+        overrun "(ns buffer {:kotoba/raw-memory :checked-extents})
+                 (defn main []
+                   (let [buf (alloc 4)] (i32-store! buf 1 7)))"
+        dynamic "(ns buffer {:kotoba/raw-memory :checked-extents})
+                 (defn write [offset]
+                   (let [buf (alloc 4)] (byte-store! buf offset 7)))"]
+    (is (empty? (problems-of (check-source safe nil)
+                             :raw-memory-extent-violation)))
+    (is (= #{:outside-allocation}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source overrun nil)
+                                  :raw-memory-extent-violation)))))
+    (is (= #{:dynamic-offset}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source dynamic nil)
+                                  :raw-memory-extent-violation)))))))
+
+(deftest static-literal-memory-is-readable-but-not-owned-for-writing
+  (let [read-only "(ns buffer {:kotoba/raw-memory :checked-extents})
+                   (defn main [] (mem-byte-at (bytes-ptr [1 2]) 1))"
+        write "(ns buffer {:kotoba/raw-memory :checked-extents})
+               (defn main [] (byte-store! (bytes-ptr [1 2]) 0 9))"]
+    (is (empty? (problems-of (check-source read-only nil)
+                             :raw-memory-extent-violation)))
+    (is (= #{:read-only-extent}
+           (set (map :kotoba.runtime/reason
+                     (problems-of (check-source write nil)
+                                  :raw-memory-extent-violation)))))))
 
 (deftest ordinary-string-code-is-unaffected
   (testing "string sugar lowers INTO the denied ops; gating the surface must
@@ -102,6 +141,16 @@
       (is (= #{:raw-memory-denied}
              (set (map :kotoba.wasm/problem (:kotoba.wasm/problems wasm))))))))
 
+(deftest emitter-cannot-bypass-checked-extent-admission
+  (let [source "(ns buffer {:kotoba/raw-memory :checked-extents})
+                (defn main [] (let [buf (alloc 4)] (i32-store! buf 2 7)))"
+        wasm (runtime/wasm-binary (runtime/read-forms source :kotoba) nil)]
+    (is (false? (:kotoba.wasm/ok? wasm)))
+    (is (= #{:raw-memory-extent-violation}
+           (set (map :kotoba.wasm/problem (:kotoba.wasm/problems wasm)))))
+    (is (= #{:outside-allocation}
+           (set (map :kotoba.wasm/reason (:kotoba.wasm/problems wasm)))))))
+
 (deftest declared-modules-are-the-audited-exception-list
   (testing "every first-party module that dereferences raw memory declares it"
     (let [offenders
@@ -114,8 +163,9 @@
                 :let [forms (try (runtime/read-file path :kotoba)
                                  (catch Exception _ nil))]
                 :when (and forms
-                           (seq (runtime/raw-memory-problems forms nil)))]
+                           (or (seq (runtime/raw-memory-problems forms nil))
+                               (seq (runtime/raw-memory-extent-problems forms nil))))]
             path)]
       (is (empty? offenders)
-          (str "these modules dereference raw memory without declaring "
-               ":kotoba/raw-memory: " (pr-str offenders))))))
+          (str "these modules dereference raw memory without a declared, "
+               "extent-proven allocation: " (pr-str offenders))))))
