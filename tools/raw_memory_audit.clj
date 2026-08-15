@@ -6,8 +6,8 @@
   `{:kotoba/raw-memory <reason>}` declaration.
 
   Usage:
-    clojure -M -m raw-memory-audit            ; report only
-    clojure -M -m raw-memory-audit --declare  ; report and rewrite"
+    clojure -M:raw-memory-audit            ; report only
+    clojure -M:raw-memory-audit --declare  ; report and rewrite"
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [kotoba.runtime :as runtime]))
@@ -39,10 +39,20 @@
       (println "  ! unreadable:" path (.getMessage e))
       nil)))
 
-(defn- reason-for [path]
+(defn- broad-reason-for [path]
   (if (str/includes? path "providers/")
     :implements-wire-protocol
     :implements-buffer-abi))
+
+(defn- checked-extents-capable?
+  "True when CANDIDATE, which already carries the checked declaration, proves
+  every raw dereference. New declarations should take the narrow profile when
+  it is sufficient rather than acquiring broad authority by default."
+  [candidate]
+  (try
+    (empty? (runtime/raw-memory-extent-problems
+             (runtime/read-forms candidate :kotoba) nil))
+    (catch Exception _ false)))
 
 (defn- declare! [path]
   (let [text (slurp path)]
@@ -52,10 +62,15 @@
             idx (first (keep-indexed (fn [i l] (when (str/starts-with? l "(ns ") i)) lines))]
         (if (nil? idx)
           :no-ns
-          (let [nm (-> (nth lines idx) (subs 4) (str/replace #"\)\s*$" "") str/trim)]
+          (let [nm (-> (nth lines idx) (subs 4) (str/replace #"\)\s*$" "") str/trim)
+                checked-line (str "(ns " nm " {:kotoba/raw-memory :checked-extents})")
+                checked-candidate (str/join "\n" (assoc (vec lines) idx checked-line))
+                reason (if (checked-extents-capable? checked-candidate)
+                         :checked-extents
+                         (broad-reason-for path))]
             (spit path (str/join "\n" (assoc (vec lines) idx
                                              (str "(ns " nm " {:kotoba/raw-memory "
-                                                  (reason-for path) "})"))))
+                                                  reason "})"))))
             :declared))))))
 
 (defn -main [& args]

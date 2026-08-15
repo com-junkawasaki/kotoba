@@ -81,6 +81,16 @@
     (is (= 80 (:assessment/score assessment))
         "a reference-host control is not independent operational assurance")))
 
+(deftest increment-nine-narrows-provider-authority-without-closing-wire-provenance
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented :memory/provider-checked-extent-ratchet))
+    (is (contains? open
+                   :memory/legacy-wire-and-external-host-allocation-identity))
+    (is (= :A2 (:assessment/level assessment)))
+    (is (= 80 (:assessment/score assessment))
+        "narrower first-party authority is not independent assurance")))
+
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
           (:assessment/implemented assessment)

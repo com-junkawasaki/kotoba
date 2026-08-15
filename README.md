@@ -545,9 +545,11 @@ each raw access to retain allocation provenance and fit its static extent.
 This makes use-after-free and double-free structurally absent in the current
 guest, while the Wasm boundary keeps guest addresses out of JVM/process memory.
 
-The overall rating is **strong but incomplete**: legacy wire-protocol modules
-still use the explicit raw-memory compatibility hatch; the JVM reference host
-now binds non-empty output buffers to exact compiler-created allocation starts
+The overall rating is **strong but incomplete**: ten helper-heavy wire-protocol
+providers still use the explicit raw-memory compatibility hatch, while three
+provider consumers have been narrowed to statically checked allocation extents;
+the JVM reference host now binds non-empty output buffers to exact
+compiler-created allocation starts
 and recorded extents, but external host implementations have not demonstrated
 that parity; and guest allocation is monotonic with no per-object reclamation.
 Capability confinement is a separate safety axis and must not be used to

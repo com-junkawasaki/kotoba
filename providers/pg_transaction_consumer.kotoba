@@ -1,4 +1,4 @@
-(ns kotoba.providers.pg-transaction-consumer {:kotoba/raw-memory :implements-wire-protocol})
+(ns kotoba.providers.pg-transaction-consumer {:kotoba/raw-memory :checked-extents})
 
 (defn run [port]
   (let [channel (pg-open-scram-random

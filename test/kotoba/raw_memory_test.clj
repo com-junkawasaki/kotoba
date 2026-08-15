@@ -169,3 +169,27 @@
       (is (empty? offenders)
           (str "these modules dereference raw memory without a declared, "
                "extent-proven allocation: " (pr-str offenders))))))
+
+(deftest legacy-wire-hatch-is-not-kept-when-checked-extents-can-prove-the-module
+  (let [legacy-marker ":implements-wire-protocol"
+        legacy-paths
+        (->> (file-seq (io/file "providers"))
+             (filter #(.isFile ^java.io.File %))
+             (map #(.getPath ^java.io.File %))
+             (filter #(str/ends-with? % ".kotoba"))
+             (filter #(str/includes? (slurp %) legacy-marker))
+             sort)
+        promotable
+        (for [path legacy-paths
+              :let [source (slurp path)]
+              :let [checked-forms
+                    (runtime/read-forms
+                     (str/replace source legacy-marker ":checked-extents")
+                     :kotoba)]
+              :when (empty? (runtime/raw-memory-extent-problems checked-forms nil))]
+          path)]
+    (is (empty? promotable)
+        (str "broad raw-memory authority is unnecessary for these providers; "
+             "migrate them to :checked-extents: " (pr-str promotable)))
+    (is (= 10 (count legacy-paths))
+        "the remaining broad-provider count is evidence, not prose drift")))

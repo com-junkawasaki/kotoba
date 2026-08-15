@@ -1,6 +1,6 @@
 # ADR — Security by Design assurance for an autonomous-agent language
 
-- Status: Accepted; increments 1-8 implemented
+- Status: Accepted; increments 1-9 implemented
 - Date: 2026-08-15
 - Security authority: `kotoba-lang/security/docs/ADR-agent-code-release-assurance.md`
 
@@ -50,8 +50,9 @@ communication aid, not a certification.
 
 ## Remaining gates
 
-- migrate legacy wire-protocol raw-memory helpers and demonstrate allocation-
-  identity parity in non-JVM host implementations;
+- migrate the ten remaining helper-heavy legacy wire providers to explicit
+  cross-function slice proofs and demonstrate allocation-identity parity in
+  non-JVM host implementations;
 - add codebase retention/GC, distributed admission where one logical node spans
   storage roots, and measure sustained abuse behavior;
 - independent adversarial review and sustained provider soak.
@@ -211,3 +212,22 @@ assurance level remains A2.
 This closes one concrete neighbor-overwrite path in the reference execution
 stack. It does not add a general ownership system or independent operational
 evidence, so the score remains 80 and the assurance level remains A2.
+
+## Implemented increment 9
+
+1. Three PostgreSQL provider consumers whose raw reads remain rooted directly
+   in lexical `alloc` results now declare `:checked-extents` instead of the
+   broad `:implements-wire-protocol` compatibility hatch.
+2. Repository admission now fails whenever a broad provider could pass the
+   checked-extent proof unchanged. This is a monotonic authority ratchet: a
+   newly provable provider must narrow its declaration rather than retaining
+   unnecessary raw-memory authority.
+3. The raw-memory audit authoring tool now selects checked extents first and
+   falls back to a broad reason only when the proof actually requires it.
+   Provider compilation tests preserve the explicit-SCRAM, cancellable-query
+   and transaction consumer paths.
+
+Ten helper-heavy providers still require cross-function pointer/length slice
+proofs. This increment reduces broad authority and prevents regression; it
+does not close the legacy-wire gate or add independent evidence. The score
+therefore remains 80 and the assurance level remains A2.
