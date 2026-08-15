@@ -22,6 +22,14 @@
   (is (seq (filter #(= :high (:severity %))
                    (:assessment/open-gates assessment)))))
 
+(deftest closed-increment-two-gates-do-not-remain-open
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (not (contains? open :authorization/persistent-cacao-replay-store)))
+    (is (not (contains? open :deployment/immutable-release-admission)))
+    (is (contains? implemented :authorization/durable-cacao-replay))
+    (is (contains? implemented :deployment/immutable-release-admission))))
+
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
           (:assessment/implemented assessment)

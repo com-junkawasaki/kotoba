@@ -6,7 +6,7 @@
   crypto-free), and runs the existing guarded host-call path with those
   grants — intersected with the `--policy` local policy when one is given."
   (:require [cacao.core :as cacao]
-            [clojure.test :refer [deftest is testing]]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [ed25519.core :as ed]
             [kotoba.launcher :as launcher])
   (:import [java.io File]
@@ -45,6 +45,17 @@
     (spit file content)
     (.getPath file)))
 
+(use-fixtures
+ :each
+ (fn [f]
+   (let [constructor launcher/durable-cacao-nonce-store
+         path (temp-file "kotoba-cacao-nonces" ".edn" "")]
+     (with-redefs [launcher/durable-cacao-nonce-store
+                   (fn
+                     ([] (constructor path))
+                     ([explicit-path] (constructor explicit-path)))]
+       (f)))))
+
 (defn chain-file
   [chain]
   (temp-file "kotoba-cacao-chain" ".edn" (pr-str {:cacao/chain chain})))
@@ -56,6 +67,41 @@
     (aset-byte raw (dec (count raw))
                (unchecked-byte (bit-xor (aget raw (dec (count raw))) 1)))
     (.encodeToString (Base64/getEncoder) raw)))
+
+(deftest durable-replay-store-survives-reconstruction
+  (let [path (temp-file "kotoba-cacao-durable" ".edn" "")
+        chain (two-link-chain [wildcard] [ledger-main])
+        first-result (launcher/verified-cacao-chain
+                      chain (launcher/durable-cacao-nonce-store path))
+        replay-result (launcher/verified-cacao-chain
+                       chain (launcher/durable-cacao-nonce-store path))]
+    (is (nil? (:problems first-result)))
+    (is (some #(= :chain/nonce-replay (:problem %))
+              (:problems replay-result)))))
+
+(deftest durable-replay-consumption-is-atomic-for-a-complete-chain
+  (let [path (temp-file "kotoba-cacao-concurrent" ".edn" "")
+        chain (two-link-chain [wildcard] [ledger-main])
+        start (promise)
+        verify #(future @start
+                        (launcher/verified-cacao-chain
+                         chain (launcher/durable-cacao-nonce-store path)))
+        attempts [(verify) (verify)]]
+    (deliver start true)
+    (let [results (mapv deref attempts)]
+      (is (= 1 (count (filter #(nil? (:problems %)) results))))
+      (is (= 1 (count (filter #(some (fn [p]
+                                      (= :chain/nonce-replay (:problem p)))
+                                    (:problems %))
+                              results)))))))
+
+(deftest corrupt-durable-replay-state-fails-closed
+  (let [path (temp-file "kotoba-cacao-corrupt" ".edn" "{:not-a-set true}")
+        result (launcher/verified-cacao-chain
+                (two-link-chain [wildcard] [ledger-main])
+                (launcher/durable-cacao-nonce-store path))]
+    (is (some #(= :chain/nonce-store-unavailable (:problem %))
+              (:problems result)))))
 
 (deftest guarded-run-executes-with-chain-granted-concrete-cap
   (let [path (chain-file (two-link-chain [wildcard] [ledger-main]))

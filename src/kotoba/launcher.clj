@@ -22,6 +22,7 @@
             [kotoba.host-providers :as host-providers]
             [kotoba.rad-adapter :as rad-adapter]
             [kotoba.security.package-admission :as package-admission]
+            [kotoba.security.release-evidence :as release-evidence]
             [kotoba.runtime :as runtime]
             [kotoba.codebase.authoring :as authoring]
             [kotoba.codebase.evaluator :as evaluator]
@@ -42,10 +43,13 @@
             [kotoba.wasm-exec :as wasm-exec]
             [kototama.contract :as kototama-contract]
             [kototama.tender :as tender])
-  (:import [java.io ByteArrayOutputStream FileInputStream]
+  (:import [java.io ByteArrayOutputStream File FileInputStream]
            [java.nio ByteBuffer]
+           [java.nio.channels FileChannel]
            [java.nio.charset CodingErrorAction StandardCharsets]
-           [java.nio.file Path])
+           [java.nio.file Files OpenOption Path StandardOpenOption]
+           [java.nio.file.attribute PosixFilePermissions]
+           [java.util.concurrent ConcurrentHashMap])
   (:gen-class))
 
 (defn result->exit
@@ -294,7 +298,52 @@
     (-run [_ argv dir]
       (if (and (string? dir) (not (str/blank? dir)))
         (apply shell/sh (concat argv [:dir dir]))
-        (apply shell/sh argv)))))
+        (apply shell/sh argv)))
+    (-admit-release [_ {:keys [release-evidence-path component-path]} manifest]
+      (try
+        (when-not (and (string? release-evidence-path)
+                       (not (str/blank? release-evidence-path))
+                       (string? component-path)
+                       (not (str/blank? component-path)))
+          (throw (ex-info "release evidence and component paths are required"
+                          {:problem :deploy/release-evidence-required})))
+        (let [evidence-file (io/file release-evidence-path)
+              component-file (io/file component-path)]
+          (when-not (.isFile evidence-file)
+            (throw (ex-info "release evidence is not readable"
+                            {:problem :deploy/release-evidence-not-readable})))
+          (when-not (.isFile component-file)
+            (throw (ex-info "component is not readable"
+                            {:problem :deploy/component-not-readable})))
+          (let [evidence-text (slurp evidence-file)
+                component-bytes (Files/readAllBytes (.toPath component-file))
+                packet (assoc (edn/read-string evidence-text)
+                              :component-bytes component-bytes
+                              :now (subs (str (java.time.Instant/now)) 0 10)
+                              :require-component-cid? true)
+                admitted (release-evidence/safe-release-ready? packet)
+                module (get-in packet [:signed-module :module])
+                identity-ok? (and (= (:kotoba.package/name manifest) (:name module))
+                                  (= (:kotoba.package/version manifest) (:version module)))
+                problems (cond-> (vec (:problems admitted))
+                           (not identity-ok?)
+                           (conj {:problem :deploy/manifest-release-identity-mismatch
+                                  :manifest {:name (:kotoba.package/name manifest)
+                                             :version (:kotoba.package/version manifest)}
+                                  :release {:name (:name module)
+                                            :version (:version module)}}))]
+            {:ok? (and (:ok? admitted) identity-ok?)
+             :problems problems
+             :identity {:release-evidence-sha256
+                        (package-admission/sha256-text evidence-text)
+                        :component-cid (:component-cid module)
+                        :component-sha256 (:component-sha256 module)
+                        :signer (get-in packet [:signed-module :statement :signer])}}))
+        (catch Exception e
+          {:ok? false
+           :problems [(merge {:problem :deploy/release-admission-error
+                              :message (.getMessage e)}
+                             (select-keys (ex-data e) [:problem]))]})))))
 
 (defn adapter-result
   "Execute host-adapter-backed commands from their CLJC-planned result.
@@ -1440,6 +1489,101 @@
     {:kotoba.cacao/ok? true
      :kotoba.cacao/chain nil}))
 
+(def cacao-nonce-store-env "KOTOBA_CACAO_NONCE_STORE")
+(def cacao-nonce-store-max-records 100000)
+(def cacao-nonce-store-max-bytes (* 16 1024 1024))
+(defonce ^:private cacao-path-locks (ConcurrentHashMap.))
+
+(defrecord DurableCacaoNonceStore [path])
+
+(defn durable-cacao-nonce-store
+  "A cross-process, cross-restart CACAO replay store descriptor.
+
+  The stable data file is protected by both a per-path JVM monitor and an OS
+  file lock. The complete chain is verified against a private in-memory view
+  while that lock is held and committed only when the chain is valid, so two
+  links cannot be partially consumed by a losing concurrent verifier."
+  ([]
+   (durable-cacao-nonce-store
+    (or (System/getenv cacao-nonce-store-env)
+        (str (System/getProperty "user.home")
+             File/separator ".kotoba" File/separator "security"
+             File/separator "cacao-nonces.edn"))))
+  ([path]
+   (->DurableCacaoNonceStore (str path))))
+
+(defn- path-monitor [path]
+  (or (.get cacao-path-locks path)
+      (let [candidate (Object.)
+            previous (.putIfAbsent cacao-path-locks path candidate)]
+        (or previous candidate))))
+
+(defn- valid-replay-key? [value]
+  (and (vector? value)
+       (= 2 (count value))
+       (every? #(and (string? %) (not (str/blank? %))) value)))
+
+(defn- read-nonce-set [^FileChannel channel]
+  (let [size (.size channel)]
+    (when (> size cacao-nonce-store-max-bytes)
+      (throw (ex-info "CACAO nonce store exceeds the fail-closed size limit"
+                      {:problem :cacao/nonce-store-too-large :bytes size})))
+    (if (zero? size)
+      #{}
+      (let [buffer (ByteBuffer/allocate (int size))]
+        (.position channel 0)
+        (loop []
+          (when (and (.hasRemaining buffer) (not= -1 (.read channel buffer)))
+            (recur)))
+        (.flip buffer)
+        (let [value (edn/read-string (.toString (.decode StandardCharsets/UTF_8 buffer)))]
+          (when-not (and (set? value)
+                         (<= (count value) cacao-nonce-store-max-records)
+                         (every? valid-replay-key? value))
+            (throw (ex-info "CACAO nonce store has an invalid fail-closed shape"
+                            {:problem :cacao/nonce-store-invalid})))
+          value)))))
+
+(defn- write-nonce-set! [^FileChannel channel values]
+  (when (> (count values) cacao-nonce-store-max-records)
+    (throw (ex-info "CACAO nonce store capacity exhausted"
+                    {:problem :cacao/nonce-store-capacity})))
+  (let [bytes (.getBytes (pr-str values) StandardCharsets/UTF_8)
+        buffer (ByteBuffer/wrap bytes)]
+    (when (> (count bytes) cacao-nonce-store-max-bytes)
+      (throw (ex-info "CACAO nonce store exceeds the fail-closed size limit"
+                      {:problem :cacao/nonce-store-too-large})))
+    (.position channel 0)
+    (.truncate channel 0)
+    (while (.hasRemaining buffer)
+      (.write channel buffer))
+    (.force channel true)))
+
+(defn- verify-chain-durably [chain ^DurableCacaoNonceStore store now]
+  (let [path (-> (:path store) io/file .toPath .toAbsolutePath .normalize)
+        parent (.getParent path)
+        key (str path)]
+    (when parent (Files/createDirectories parent (make-array java.nio.file.attribute.FileAttribute 0)))
+    (locking (path-monitor key)
+      (with-open [channel (FileChannel/open
+                           path
+                           (into-array OpenOption
+                                       [StandardOpenOption/CREATE
+                                        StandardOpenOption/READ
+                                        StandardOpenOption/WRITE]))
+                  _lock (.lock channel)]
+        (try
+          (Files/setPosixFilePermissions
+           path (PosixFilePermissions/fromString "rw-------"))
+          (catch UnsupportedOperationException _))
+        (let [before (read-nonce-set channel)
+              transaction (atom before)
+              verified (cacao-core/verify-chain
+                        chain {:now now :nonce-store transaction})]
+          (when (:chain/valid? verified)
+            (write-nonce-set! channel @transaction))
+          verified)))))
+
 (defn verified-cacao-chain
   "Real crypto boundary: verify the delegation chain (cacao.core/verify-chain,
   signatures + linkage + attenuation + expiry ordering + freshness at the
@@ -1447,19 +1591,33 @@
   (kotoba.lang.capability-cacao/grants-from-chain — crypto-free).
   Returns {:chain <verify-chain result> :grants [..] :skipped [..]
            :problems <nil-or-problems>}."
-  [chain]
-  (let [verified (cacao-core/verify-chain chain
-                                          {:now (str (java.time.Instant/now))})
-        mapped (capability-cacao/grants-from-chain verified)]
-    {:chain verified
-     :grants (:grants mapped)
-     :skipped (:skipped mapped)
-     :problems (cond
-                 ;; grants-from-chain fails closed on an unverified chain and
-                 ;; already echoes the chain problems after :chain/not-verified
-                 (seq (:problems mapped)) (vec (:problems mapped))
-                 (not (:chain/valid? verified)) (vec (:chain/problems verified))
-                 :else nil)}))
+  ([chain] (verified-cacao-chain chain (durable-cacao-nonce-store)))
+  ([chain store]
+   (try
+     (let [now (str (java.time.Instant/now))
+           verified (if (instance? DurableCacaoNonceStore store)
+                      (verify-chain-durably chain store now)
+                      (cacao-core/verify-chain
+                       chain {:now now :nonce-store store}))
+           mapped (capability-cacao/grants-from-chain verified)]
+       {:chain verified
+        :grants (:grants mapped)
+        :skipped (:skipped mapped)
+        :problems (cond
+                    ;; grants-from-chain fails closed on an unverified chain and
+                    ;; already echoes the chain problems after :chain/not-verified
+                    (seq (:problems mapped)) (vec (:problems mapped))
+                    (not (:chain/valid? verified)) (vec (:chain/problems verified))
+                    :else nil)})
+     (catch Exception e
+       (let [failure {:problem :chain/nonce-store-unavailable
+                      :cause (:problem (ex-data e))
+                      :message (.getMessage e)}]
+         {:chain {:chain/valid? false
+                  :chain/problems [failure]}
+        :grants []
+        :skipped []
+          :problems [failure]})))))
 
 (defn contract-exports
   "Return common plus target-specific exports from a selfhost contract seed."

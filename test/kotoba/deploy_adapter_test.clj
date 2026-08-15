@@ -5,7 +5,8 @@
             [clojure.test :refer [deftest is]]
             [kotoba.cli :as cli]
             [kotoba.deploy-adapter :as deploy-adapter]
-            [kotoba.launcher :as launcher])
+            [kotoba.launcher :as launcher]
+            [kotoba.security.signed-module :as signed-module])
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
 
@@ -13,7 +14,7 @@
   "Recording deploy host over an atom of path → content.
   Optional :env map and :run fn (argv dir → {:exit :out :err})."
   ([files calls] (fake-host files calls {}))
-  ([files calls {:keys [env run]}]
+  ([files calls {:keys [env run admit]}]
    (reify deploy-adapter/IDeployHost
      (-read-file [_ path]
        (swap! calls conj [:read path])
@@ -35,7 +36,16 @@
        (swap! calls conj [:run argv dir])
        (if run
          (run argv dir)
-         {:exit 0 :out "" :err ""})))))
+         {:exit 0 :out "" :err ""}))
+     (-admit-release [_ planned manifest]
+       (swap! calls conj [:admit planned manifest])
+       (if admit
+         (admit planned manifest)
+         {:ok? true
+          :identity {:release-evidence-sha256 (apply str (repeat 64 "a"))
+                     :component-cid "bafkreidemo"
+                     :component-sha256 (apply str (repeat 64 "b"))
+                     :signer "did:key:zDemo"}})))))
 
 (defn- planned [argv-tail]
   {:kotoba.cli/ok? true
@@ -49,6 +59,32 @@
        " :kotoba.package/version \"0.1.0\"\n"
        " :kotoba.package/capabilities [:graph-read]\n"
        " :kotoba.package/source {:git-commit \"abc123\"}}\n"))
+
+(defn- release-packet
+  ([component-bytes name version]
+   (release-packet component-bytes name version {}))
+  ([component-bytes name version signing-options]
+  (let [envelope (signed-module/sign component-bytes
+                                     (merge {:seed (byte-array (range 32))
+                                             :name name :version version
+                                             :exports ["run"] :capabilities []}
+                                            signing-options))
+        signer (get-in envelope [:statement :signer])
+        cid (signed-module/component-cid component-bytes)]
+    {:package-receipt
+     {:kotoba.package/verified? true
+      :kotoba.package/problems []
+      :kotoba.package/entries
+      [{:package/id (str name "@" version)
+        :package/result :accepted
+        :package/component-cid cid}]}
+     :signed-module envelope
+     :trust {:trusted-signers #{signer} :revoked-signers #{}}
+     :key-register {:keys [{:key/id signer :key/status :active}]}
+     :sbom {:digest "sha256:sbom"}
+     :provenance {:digest "sha256:provenance"}
+     :now "2026-08-15"
+     :require-component-cid? true})))
 
 (deftest plan-defaults-to-plan-operation
   (let [p (deploy-adapter/plan {:positionals []
@@ -89,6 +125,41 @@
                 (planned ["apply" "--manifest" "pkg.edn" "--target" "dev"]))]
     (is (= :deploy/planned (:kotoba.cli/code result)))
     (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-apply-fails-before-effects-when-release-is-not-admitted
+  (let [files (atom {"pkg.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls
+                           {:admit (fn [_ _]
+                                     {:ok? false
+                                      :problems [{:problem :release/missing-signed-module}]})})
+                (planned ["apply" "--manifest" "pkg.edn" "--target" "dev"
+                          "--dry-run" "false"]))]
+    (is (= :deploy/release-not-admitted (:kotoba.cli/code result)))
+    (is (not-any? #(#{:write :run} (first %)) @calls))))
+
+(deftest launcher-does-not-trust-release-packets-claimed-time
+  (let [dir (str (Files/createTempDirectory "kotoba-deploy-expired" (make-array FileAttribute 0)))
+        manifest (io/file dir "package.edn")
+        component (io/file dir "component.wasm")
+        evidence (io/file dir "release-evidence.edn")]
+    (spit manifest "{:kotoba.package/name \"expired-app\" :kotoba.package/version \"1.0.0\"}\n")
+    (spit component "expired-component")
+    (spit evidence
+          (pr-str
+           (assoc (release-packet (Files/readAllBytes (.toPath component))
+                                  "expired-app" "1.0.0"
+                                  {:not-before "2026-01-01" :expires "2026-08-14"})
+                  :now "2026-01-02")))
+    (let [result (launcher/dispatch
+                  ["deploy" "apply" "--manifest" (.getPath manifest)
+                   "--target" (str dir "/target") "--dry-run" "false"
+                   "--release-evidence" (.getPath evidence)
+                   "--component" (.getPath component)])]
+      (is (= :deploy/release-not-admitted (:kotoba.cli/code result)))
+      (is (some #(= :signed-module/expired (:problem %))
+                (get-in result [:kotoba.cli/data :problems]))))))
 
 (deftest execute-apply-then-status-then-rollback
   (let [files (atom {"pkg.edn" sample-manifest})
@@ -216,18 +287,32 @@
 (deftest launcher-executes-deploy-lifecycle-end-to-end
   (let [dir (str (Files/createTempDirectory "kotoba-deploy-adapter" (make-array FileAttribute 0)))
         manifest (io/file dir "package.edn")
+        component (io/file dir "component.wasm")
+        evidence (io/file dir "release-evidence.edn")
         target (str dir "/env/dev")]
     (spit manifest "{:kotoba.package/name \"demo-app\" :kotoba.package/version \"0.1.0\"}\n")
-    (let [planned (launcher/dispatch ["deploy" "plan" "--manifest" (.getPath manifest)
+    (spit component "component-bytes")
+    (spit evidence (pr-str (release-packet (Files/readAllBytes (.toPath component))
+                                            "demo-app" "0.1.0")))
+    (let [rejected (launcher/dispatch ["deploy" "apply" "--manifest" (.getPath manifest)
+                                       "--target" target "--dry-run" "false"])
+          rejected-wrote? (.exists (io/file target "current.edn"))
+          planned (launcher/dispatch ["deploy" "plan" "--manifest" (.getPath manifest)
                                       "--target" target])
           applied (launcher/dispatch ["deploy" "apply" "--manifest" (.getPath manifest)
-                                      "--target" target "--dry-run" "false"])
+                                      "--target" target "--dry-run" "false"
+                                      "--release-evidence" (.getPath evidence)
+                                      "--component" (.getPath component)])
           status (launcher/dispatch ["deploy" "status" "--manifest" (.getPath manifest)
                                      "--target" target])]
+      (is (= :deploy/release-not-admitted (:kotoba.cli/code rejected)))
+      (is (not rejected-wrote?))
       (is (= :deploy/planned (:kotoba.cli/code planned)))
       (is (= :deploy/executed (:kotoba.cli/code applied)))
       (is (= "demo-app"
              (get-in applied [:kotoba.cli/data :receipt :kotoba.deploy/package-name])))
+      (is (string? (get-in applied [:kotoba.cli/data :receipt
+                                    :kotoba.deploy/release-evidence-sha256])))
       (is (= :deploy/status (:kotoba.cli/code status)))
       (is (.exists (io/file target "current.edn")))
       (is (= "demo-app"
