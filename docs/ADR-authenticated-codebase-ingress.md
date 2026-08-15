@@ -26,11 +26,15 @@ storage. These controls must remain separate.
 2. The CLI accepts the authority only through `--write-token-file`. It does not
    accept the token as an argument value, return it in a result or include it in
    an error. Token files are bounded and malformed values fail before network
-   mutation.
-3. A process-lifetime quota bounds bytes stored through authenticated block
+   mutation. A write token is sent only over HTTPS or explicit loopback HTTP;
+   other plaintext endpoints fail before the first request. Loopback writes
+   bypass the system proxy and redirects are disabled, so local plaintext
+   authority cannot be forwarded by ambient client configuration.
+3. A durable node-wide quota bounds bytes stored through authenticated block
    ingress. The default is 256 MiB and `--max-upload-bytes` may lower or raise
-   it explicitly. Accounting occurs after durable storage succeeds, under one
-   lock. Re-uploading an existing CID is idempotent and is not charged twice.
+   it explicitly. A root-local ledger is synchronized with a JVM monitor and OS
+   file lock, so restart and concurrent server processes share one balance.
+   Re-uploading an existing CID is idempotent and is not charged twice.
 4. Authentication is only the admission perimeter. Blocks must still match
    their requested CID; friendly namespaces still require a preauthorized first
    publisher; later heads still require the pinned publisher, monotonic sequence
@@ -52,16 +56,19 @@ not NIST or DoDAF certification.
 ## Evidence
 
 `test/kotoba/codebase_publish_test.clj` proves that missing/wrong authority is
-rejected before persistence, tokenless nodes are read-only, quota exhaustion
-returns 507 before storage, duplicate CIDs are charged once, wrong-CID bytes are
-still refused, and public browse/follow reads remain available. IPNS endpoint
-hosting exercises the same authority in
+rejected before persistence, plaintext non-loopback transport is rejected,
+tokenless nodes are read-only, quota exhaustion returns 507 before storage,
+restart and two concurrent listeners share the durable balance, corrupt state
+fails closed, duplicate CIDs are charged once, wrong-CID bytes are still
+refused, and public browse/follow reads remain available. IPNS endpoint hosting
+exercises the same authority in
 `test/kotoba/codebase_ipns_test.clj`.
 
 ## Residual risk
 
-The quota is intentionally process-lifetime state. Restarting a node resets it;
-there is no durable per-principal accounting, rate limit, token rotation
+The quota is node-wide, not per-principal. There is no rate limit, token rotation
 protocol, distributed quota, retention/GC policy or externally measured abuse
-soak yet. A compromised shared token can consume the configured quota. These
-remain an explicit operational gate and keep the project at A2 bounded pilot.
+soak yet. A compromised shared token can consume the configured quota. The
+ledger is deliberately charged and forced before the block is written: a crash
+may conservatively overcharge, but cannot create unaccounted storage. These
+remain explicit operational gates and keep the project at A2 bounded pilot.

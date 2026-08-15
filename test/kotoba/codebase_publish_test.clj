@@ -68,7 +68,7 @@
                                        (catch clojure.lang.ExceptionInfo e e)))))
             "unauthorized canonical bytes must not consume persistent storage")))))
 
-(deftest authenticated-block-ingress-is-bounded-by-a-process-lifetime-quota
+(deftest authenticated-block-ingress-is-bounded-by-a-durable-quota
   (with-nodes {:write-token test-write-token :max-total-upload-bytes 1}
     (fn [{:keys [author host url]}]
       (authoring/update-namespace! author "demo" '[(defn f [x] x)])
@@ -80,6 +80,107 @@
         (is (= 507 (:status problem)))
         (is (empty? (.listFiles (java.io.File. host "blocks")))
             "quota refusal must happen before the verified block is persisted")))))
+
+(deftest write-authority-is-never-sent-over-non-loopback-plaintext-http
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [record (publication/publish! author "demo" (seed 1))
+            {:keys [url stop]}
+            (publish/serve! host {:host "0.0.0.0"
+                                  :write-token test-write-token
+                                  :namespace-owners
+                                  {"demo" (ed/did-key-from-seed (seed 1))}})]
+        (try
+          (let [problem (ex-data
+                         (try (publish/push! author record
+                                             {:endpoint url
+                                              :write-token test-write-token})
+                              (catch clojure.lang.ExceptionInfo e e)))]
+            (is (= :publish/insecure-write-endpoint (:problem problem)))
+            (is (empty? (.listFiles (java.io.File. host "blocks")))
+                "transport refusal must happen before authority or blocks leave the client"))
+          (finally (stop))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest upload-quota-survives-a-server-restart
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)
+                                                    (defn g [x] (+ x 1))])
+      (let [head (store/head author "demo")
+            [first-block second-block] (take 2 (:blocks (store/export-closure author [head])))
+            quota (dec (+ (alength ^bytes (:bytes first-block))
+                          (alength ^bytes (:bytes second-block))))
+            options {:write-token test-write-token
+                     :max-total-upload-bytes quota}
+            first-server (publish/serve! host options)]
+        (try
+          (is (= 201 (.statusCode
+                      (put-block-request (:url first-server)
+                                         (:cid first-block) (:bytes first-block)
+                                         test-write-token))))
+          (finally ((:stop first-server))))
+        (let [second-server (publish/serve! host options)]
+          (try
+            (is (= 507 (.statusCode
+                        (put-block-request (:url second-server)
+                                           (:cid second-block) (:bytes second-block)
+                                           test-write-token)))
+                "restart must not reset the aggregate storage authority")
+            (finally ((:stop second-server))))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest concurrent-server-instances-share-one-durable-quota
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)
+                                                    (defn g [x] (+ x 1))])
+      (let [head (store/head author "demo")
+            [a b] (take 2 (:blocks (store/export-closure author [head])))
+            quota (max (alength ^bytes (:bytes a)) (alength ^bytes (:bytes b)))
+            options {:write-token test-write-token
+                     :max-total-upload-bytes quota}
+            server-a (publish/serve! host options)
+            server-b (publish/serve! host options)
+            start (promise)
+            send (fn [server block]
+                   (future @start
+                           (.statusCode
+                            (put-block-request (:url server) (:cid block) (:bytes block)
+                                               test-write-token))))
+            results [(send server-a a) (send server-b b)]]
+        (try
+          (deliver start true)
+          (is (= [201 507] (sort (mapv deref results)))
+              "separate listeners must not each spend the same quota")
+          (finally ((:stop server-a)) ((:stop server-b)))))
+      (finally (run! delete-tree [author host])))))
+
+(deftest corrupt-durable-quota-state-fails-closed
+  (let [author (temp-store) host (temp-store)]
+    (try
+      (run! store/initialize! [author host])
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [directory (java.io.File. host ".kotoba/security")
+            _ (.mkdirs directory)
+            _ (spit (java.io.File. directory "codebase-ingress-quota.edn")
+                    "{:version 1 :used-bytes -1}")
+            head (store/head author "demo")
+            {:keys [cid bytes]} (first (:blocks (store/export-closure author [head])))
+            server (publish/serve! host {:write-token test-write-token})]
+        (try
+          (is (= 503 (.statusCode
+                      (put-block-request (:url server) cid bytes test-write-token))))
+          (is (= :codebase/block-not-found
+                 (:problem (ex-data (try (store/get-block host cid)
+                                         (catch clojure.lang.ExceptionInfo e e)))))
+              "invalid accounting state must never fall back to a fresh quota")
+          (finally ((:stop server)))))
+      (finally (run! delete-tree [author host])))))
 
 (deftest a-node-without-a-write-token-is-read-only
   (with-nodes {:write-token nil}
