@@ -116,7 +116,9 @@
       (is (= :ok (:receipt/outcome receipt)))
       (is (= :host/ledger-append (get-in receipt [:receipt/cap :cap/kind])))
       (is (= "ledger:main" (get-in receipt [:receipt/cap :cap/resource])))
-      (is (= "2027-01-01" (get-in receipt [:receipt/cap :cap/expires])))
+      ;; The signed instant is exclusive while a capability date remains live
+      ;; through its day, so the adapter conservatively shortens by one day.
+      (is (= "2026-12-31" (get-in receipt [:receipt/cap :cap/expires])))
       (is (= [(str "cacao:" did-a ":0")]
              (get-in receipt [:receipt/cap :cap/provenance]))))
     (testing "chain identity is attached next to the receipts"
