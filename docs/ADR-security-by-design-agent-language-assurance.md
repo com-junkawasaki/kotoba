@@ -231,3 +231,28 @@ Ten helper-heavy providers still require cross-function pointer/length slice
 proofs. This increment reduces broad authority and prevents regression; it
 does not close the legacy-wire gate or add independent evidence. The score
 therefore remains 80 and the assurance level remains A2.
+
+## Implemented increment 10
+
+1. Private function parameters can declare caller-proven read or write slice
+   contracts tied to an explicit length parameter. Every direct caller must
+   prove allocation identity, capacity and the requested access authority.
+2. Dynamic slice access emits a Wasm bounds check and traps at the slice edge.
+   Contracted functions cannot be exported or reached through indirect calls,
+   and shadowing the length invalidates the proof token.
+3. The PostgreSQL pool consumer now parses host output through these contracts.
+   Nine broad providers remained after this first cross-function migration.
+
+## Implemented increment 11
+
+1. The PostgreSQL session-reset consumer now parses every host response through
+   caller-proven read slices, clamps host-returned lengths to the allocated
+   4,096-byte output extent, and rejects truncated or overlong wire frames.
+2. Its empty-parameter encoder now uses a caller-proven write slice over the
+   exact six-byte allocation. The compiler therefore checks both read and write
+   provenance across private helper calls without broad raw-memory authority.
+3. Provider admission asserts no extent violations, only `run` and `main` are
+   exported, and the repository ratchet records eight remaining broad providers.
+
+This is a second first-party authority reduction, not independent review or
+production soak. The score remains 80 and the assurance level remains A2.

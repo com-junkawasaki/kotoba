@@ -282,6 +282,8 @@
   (let [forms (runtime/read-file "providers/pg_pool_reset_consumer.kotoba" :kotoba)
         policy (edn/read-string (slurp "providers/db_component_policy.edn"))
         wasm (runtime/wasm-binary forms policy)]
+    (is (empty? (runtime/raw-memory-extent-problems forms policy))
+        "all helper dereferences retain a caller-proven slice")
     (is (= '[pg-query-state pg-prepare pg-execute-params pg-session-reset
              pg-open-scram-random pg-close-scram]
            (runtime/required-host-imports forms)))
@@ -289,6 +291,8 @@
     (is (= ["pg_query_state" "pg_prepare" "pg_execute_params"
             "pg_session_reset" "pg_open_scram_random" "pg_close_scram"]
            (mapv :field (:kotoba.wasm/imports wasm))))
+    (is (= #{"run" "main"} (set (:kotoba.wasm/exports wasm)))
+        "slice-contract helpers are not externally callable")
     (is (some? (Parser/parse ^bytes (:kotoba.wasm/binary wasm))))))
 
 (deftest postgresql-pool-consumer-imports-only-opaque-lease-operations

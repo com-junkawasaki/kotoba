@@ -97,10 +97,21 @@
     (is (contains? implemented :memory/cross-function-slice-contracts))
     (is (contains? open
                    :memory/legacy-wire-and-external-host-allocation-identity)
-        "nine broad providers and non-JVM host parity remain open")
+        "eight broad providers and non-JVM host parity remain open")
     (is (= :A2 (:assessment/level assessment)))
     (is (= 80 (:assessment/score assessment))
         "first-party compiler work is not independent operational evidence")))
+
+(deftest increment-eleven-proves-read-write-slices-in-pool-reset-provider
+  (let [open (set (map :gate (:assessment/open-gates assessment)))
+        implemented (set (map :control (:assessment/implemented assessment)))]
+    (is (contains? implemented :memory/cross-function-slice-contracts))
+    (is (contains? open
+                   :memory/legacy-wire-and-external-host-allocation-identity)
+        "eight broad providers and non-JVM host parity remain open")
+    (is (= :A2 (:assessment/level assessment)))
+    (is (= 80 (:assessment/score assessment))
+        "a second migrated provider is authority reduction, not independent evidence")))
 
 (deftest local-implemented-evidence-exists
   (doseq [{:keys [evidence evidence-repository]}
