@@ -1,42 +1,54 @@
-(ns kotoba.providers.pg-pool-reset-consumer {:kotoba/raw-memory :implements-wire-protocol})
+(ns kotoba.providers.pg-pool-reset-consumer {:kotoba/raw-memory :checked-extents})
 
-(defn reset-message-length [ptr]
-  (+ (* (mem-byte-at ptr 1) 16777216)
-     (* (mem-byte-at ptr 2) 65536)
-     (* (mem-byte-at ptr 3) 256)
-     (mem-byte-at ptr 4)))
+(defn ^:private reset-message-length
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len offset]
+  (+ (* (slice-byte-at ptr len (+ offset 1)) 16777216)
+     (* (slice-byte-at ptr len (+ offset 2)) 65536)
+     (* (slice-byte-at ptr len (+ offset 3)) 256)
+     (slice-byte-at ptr len (+ offset 4))))
 
-(defn reset-find-tag [ptr len offset target]
-  (if (>= offset len)
+(defn ^:private reset-find-tag
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len offset target]
+  (if (> (+ offset 5) len)
     -1
-    (let [message (+ ptr offset)
-          total (+ (reset-message-length message) 1)]
-      (if (= (mem-byte-at message 0) target)
-        message
-        (reset-find-tag ptr len (+ offset total) target)))))
+    (let [total (+ (reset-message-length ptr len offset) 1)]
+      (if (or (< total 5) (> (+ offset total) len))
+        -1
+        (if (= (slice-byte-at ptr len offset) target)
+          offset
+          (reset-find-tag ptr len (+ offset total) target))))))
 
-(defn reset-row-empty? [ptr len]
+(defn ^:private reset-row-empty?
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len]
   (let [row (reset-find-tag ptr len 0 68)]
-    (if (and (> row 0)
-             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
-             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
-             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 0)) 1 0)))
+    (if (and (>= row 0) (<= (+ row 11) len)
+             (= (slice-byte-at ptr len (+ row 5)) 0)
+             (= (slice-byte-at ptr len (+ row 6)) 1)
+             (= (slice-byte-at ptr len (+ row 7)) 0)
+             (= (slice-byte-at ptr len (+ row 8)) 0)
+             (= (slice-byte-at ptr len (+ row 9)) 0)
+             (= (slice-byte-at ptr len (+ row 10)) 0)) 1 0)))
 
-(defn reset-row-is-byte? [ptr len expected]
+(defn ^:private reset-row-is-byte?
+  [^{:kotoba/slice-len len :kotoba/slice-access :read} ptr len expected]
   (let [row (reset-find-tag ptr len 0 68)]
-    (if (and (> row 0)
-             (= (mem-byte-at row 5) 0) (= (mem-byte-at row 6) 1)
-             (= (mem-byte-at row 7) 0) (= (mem-byte-at row 8) 0)
-             (= (mem-byte-at row 9) 0) (= (mem-byte-at row 10) 1)
-             (= (mem-byte-at row 11) expected)) 1 0)))
+    (if (and (>= row 0) (<= (+ row 12) len)
+             (= (slice-byte-at ptr len (+ row 5)) 0)
+             (= (slice-byte-at ptr len (+ row 6)) 1)
+             (= (slice-byte-at ptr len (+ row 7)) 0)
+             (= (slice-byte-at ptr len (+ row 8)) 0)
+             (= (slice-byte-at ptr len (+ row 9)) 0)
+             (= (slice-byte-at ptr len (+ row 10)) 1)
+             (= (slice-byte-at ptr len (+ row 11)) expected)) 1 0)))
 
-(defn reset-empty-params! [ptr]
-  (let [w0 (byte-store! ptr 0 0)
-        w1 (byte-store! ptr 1 0)
-        w2 (byte-store! ptr 2 0)
-        w3 (byte-store! ptr 3 0)
-        w4 (byte-store! ptr 4 0)
-        w5 (byte-store! ptr 5 0)] 6))
+(defn ^:private reset-empty-params!
+  [^{:kotoba/slice-len len :kotoba/slice-access :write} ptr len]
+  (let [w0 (slice-byte-store! ptr len 0 0)
+        w1 (slice-byte-store! ptr len 1 0)
+        w2 (slice-byte-store! ptr len 2 0)
+        w3 (slice-byte-store! ptr len 3 0)
+        w4 (slice-byte-store! ptr len 4 0)
+        w5 (slice-byte-store! ptr len 5 0)] 6))
 
 (defn run [port]
   (let [channel (pg-open-scram-random
@@ -68,15 +80,18 @@
           shown (pg-query-state
                  channel (str-ptr "show application_name")
                  (str-len "show application_name") out 4096 meta 7)
-          name-reset (reset-row-empty? out shown)
+          name-reset (reset-row-empty?
+                      out (if (< shown 0) 0 (if (> shown 4096) 4096 shown)))
           temp-check (pg-query-state
                       channel
                       (str-ptr "select to_regclass('pg_temp.pool_dirty') is null")
                       (str-len "select to_regclass('pg_temp.pool_dirty') is null")
                       out 4096 meta 7)
-          temp-reset (reset-row-is-byte? out temp-check 116)
+          temp-reset (reset-row-is-byte?
+                      out (if (< temp-check 0) 0
+                            (if (> temp-check 4096) 4096 temp-check)) 116)
           params (alloc 6)
-          params-len (reset-empty-params! params)
+          params-len (reset-empty-params! params 6)
           missing-statement (pg-execute-params
                              channel (str-ptr "dirty_stmt") (str-len "dirty_stmt")
                              params params-len out 4096 meta 7)
