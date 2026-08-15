@@ -6,7 +6,8 @@
  :adr/observed-change-sets [:increment-8-host-output-allocation-identity
                             :increment-9-provider-checked-extent-ratchet
                             :increment-10-cross-function-slice-contracts
-                            :increment-11-pool-reset-read-write-slices]
+                            :increment-11-pool-reset-read-write-slices
+                            :increment-12-portal-frame-slices]
  :adr/markdown "ADR-kotoba-memory-safety-comparison.md"
  :adr/decision
  {:overall-rating :circle
@@ -99,11 +100,12 @@
   {:id :legacy-wire-pointer-provenance
    :severity :medium
    :status :open
-   :remaining-broad-providers 8
-   :narrowed-provider-consumers 5
+   :remaining-broad-providers 7
+   :narrowed-provider-consumers 6
    :cross-function-slice-providers ["providers/pg_pool_consumer.kotoba"
-                                    "providers/pg_pool_reset_consumer.kotoba"]
-   :detail "Eight helper-heavy wire providers still pass pointer/length values beyond the lexical proof. Three lexical consumers and two cross-function consumers require checked extents. The pool reset consumer proves both read and write slices at every direct caller; dynamic out-of-bounds access traps."}
+                                    "providers/pg_pool_reset_consumer.kotoba"
+                                    "providers/pg_portal_consumer.kotoba"]
+   :detail "Seven helper-heavy wire providers still pass pointer/length values beyond the lexical proof. Three lexical consumers and three cross-function consumers require checked extents. Pool reset and portal consumers prove read and write slices at every direct caller; malformed frames fail closed and dynamic out-of-bounds access traps."}
   {:id :guest-reclamation
    :severity :medium
    :status :open
@@ -141,8 +143,8 @@
  :adr/verification
  {:date "2026-08-15"
   :isolated-current-main-worktree true
-  :tests 622
-  :assertions 8905
+  :tests 623
+  :assertions 8911
   :memory-safety-namespaces :passed
   :suite-failures 0
   :lint {:errors 0 :warnings 0}

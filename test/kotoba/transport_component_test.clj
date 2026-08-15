@@ -241,6 +241,8 @@
   (let [forms (runtime/read-file "providers/pg_portal_consumer.kotoba" :kotoba)
         policy (edn/read-string (slurp "providers/db_component_policy.edn"))
         wasm (runtime/wasm-binary forms policy)]
+    (is (empty? (runtime/raw-memory-extent-problems forms policy))
+        "portal response reads and parameter writes retain caller provenance")
     (is (= '[pg-query-state pg-prepare pg-bind-portal pg-fetch-portal
              pg-close-portal pg-close-statement pg-open-scram-random
              pg-close-scram]
@@ -250,6 +252,8 @@
             "pg_fetch_portal" "pg_close_portal" "pg_close_statement"
             "pg_open_scram_random" "pg_close_scram"]
            (mapv :field (:kotoba.wasm/imports wasm))))
+    (is (= #{"run" "main"} (set (:kotoba.wasm/exports wasm)))
+        "contracted parser and encoder helpers cannot be host entrypoints")
     (is (some? (Parser/parse ^bytes (:kotoba.wasm/binary wasm))))))
 
 (deftest postgresql-copy-consumer-compiles-bounded-in-out-flow

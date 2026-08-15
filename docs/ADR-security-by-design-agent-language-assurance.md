@@ -256,3 +256,17 @@ therefore remains 80 and the assurance level remains A2.
 
 This is a second first-party authority reduction, not independent review or
 production soak. The score remains 80 and the assurance level remains A2.
+
+## Implemented increment 12
+
+1. The PostgreSQL portal consumer now clamps each host-returned response length
+   to its 2,048-byte allocation before crossing a private read-slice contract.
+2. Its frame walker requires a complete five-byte header, a protocol-valid
+   minimum frame size and a complete frame body. Truncated and overlong frames
+   return failure instead of advancing pointer arithmetic into adjacent memory.
+3. The six-byte parameter encoder uses an owned write slice; contracted helpers
+   remain private and provider admission records seven remaining broad providers.
+
+The cursor ABI, expected tag counts and host imports remain unchanged. This is
+first-party authority reduction rather than independent review, so the score
+remains 80 and the assurance level remains A2.
