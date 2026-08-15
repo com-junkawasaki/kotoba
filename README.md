@@ -545,13 +545,13 @@ each raw access to retain allocation provenance and fit its static extent.
 This makes use-after-free and double-free structurally absent in the current
 guest, while the Wasm boundary keeps guest addresses out of JVM/process memory.
 
-The overall rating is **strong but incomplete**: seven helper-heavy wire-protocol
+The overall rating is **strong but incomplete**: six helper-heavy wire-protocol
 providers still use the explicit raw-memory compatibility hatch. Three
-provider consumers use lexical checked allocation extents, and three
+provider consumers use lexical checked allocation extents, and four
 PostgreSQL consumers now use caller-proven private slice contracts with
-trap-checked dynamic access. The reset and portal paths also prove write
-authority for their parameter buffers, and the portal parser rejects incomplete
-frames;
+trap-checked dynamic access. The reset, portal and batch paths also prove write
+authority for their parameter buffers; portal and batch parsers reject
+incomplete frames;
 the JVM reference host now binds non-empty output buffers to exact
 compiler-created allocation starts
 and recorded extents, but external host implementations have not demonstrated

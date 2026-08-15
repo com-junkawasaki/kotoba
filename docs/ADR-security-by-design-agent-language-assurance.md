@@ -270,3 +270,18 @@ production soak. The score remains 80 and the assurance level remains A2.
 The cursor ABI, expected tag counts and host imports remain unchanged. This is
 first-party authority reduction rather than independent review, so the score
 remains 80 and the assurance level remains A2.
+
+## Implemented increment 13
+
+1. The PostgreSQL batch consumer now carries an owned 256-byte write slice
+   through its integer encoder, name copier, empty-parameter encoder and item
+   builder. Dynamic offsets trap at the allocation boundary.
+2. Statement names enter as exact seven-byte borrowed read slices. Response
+   lengths are clamped to the 4,096-byte allocation, and the frame walker
+   rejects incomplete headers, undersized frames and incomplete bodies.
+3. Contracted helpers remain private; the batch pipeline imports, three-item
+   success path, error result and post-error recovery semantics are unchanged.
+
+Provider admission now records six remaining broad providers. This is
+first-party authority reduction rather than independent review, so the score
+remains 80 and the assurance level remains A2.

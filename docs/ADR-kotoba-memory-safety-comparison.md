@@ -3,7 +3,7 @@
 - **Status**: accepted
 - **Date**: 2026-08-15
 - **Observed implementation**: `662e98b8160224f3f2e6e93fc7ff89bd64de7b51`
-  plus the increment-8 through increment-12 change sets recorded with this ADR
+  plus the increment-8 through increment-13 change sets recorded with this ADR
 - **Machine-readable companion**:
   [`ADR-kotoba-memory-safety-comparison.edn`](ADR-kotoba-memory-safety-comparison.edn)
 - **Related**: `ADR-safe-capability-language.md`, `docs/lang/gates.md`,
@@ -53,7 +53,8 @@ Use three separate claims whenever the rating is explained:
   and write authority. The pool reset consumer applies the same caller proof
   to response reads and an owned writable parameter buffer. The portal
   consumer additionally rejects incomplete and overlong frames while counting
-  cursor messages. Seven helper-heavy
+  cursor messages. The batch consumer proves both dynamic writes into its
+  256-byte request buffer and bounded reads from server responses. Six helper-heavy
   wire providers retain an explicit
   compatibility hatch. The JVM reference host now admits a non-empty
   output window only at the exact payload start of one compiler-created
@@ -176,7 +177,7 @@ with caller-proven slice provenance. Address-producing operations such as
 - `test/kotoba/cap_affine_test.clj`: narrow affine capability-value checks.
 - `docs/lang/gates.md`: current executable gate inventory.
 
-The 2026-08-15 isolated current-main worktree run executed 623 tests and 8,911
+The 2026-08-15 isolated current-main worktree run executed 624 tests and 8,917
 assertions with zero failures. Lint reported zero errors/warnings, and the
 reproducible emitter verified 74 sources with 72 reproducible outputs. This is
 first-party worktree evidence; it is not an independent audit or production
@@ -186,7 +187,7 @@ soak claim.
 
 1. Migrate legacy wire-protocol helpers from raw pointer parameters to the
    private slice-contract representation now exercised by the pool consumer.
-   Seven broad providers
+   Six broad providers
    remain; providers already provable by checked extents may not regress into
    that set.
 2. Require every non-JVM host implementation to enforce the same exact
