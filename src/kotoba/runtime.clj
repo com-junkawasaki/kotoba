@@ -15,6 +15,7 @@
             [kotoba.grammar :as guest-grammar]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.lang.capability-values :as capability-values]
+            [kotoba.resource-scope :as resource-scope]
             [clojure.tools.reader :as reader]
             [clojure.tools.reader.reader-types :as reader-types]))
 
@@ -522,11 +523,7 @@
     (or (= :any granted) (contains? granted :any)) true
     (not (string? resource)) true
     :else
-    (boolean (some (fn [g]
-                     (and (string? g)
-                          (or (= g resource)
-                              (.startsWith ^String resource g))))
-                   granted))))
+    (boolean (some #(resource-scope/covers? % resource) granted))))
 
 (defn source-problems
   "Return safety/type problems for the current executable subset.
@@ -5466,6 +5463,20 @@
         import-indexes (into {} (map-indexed (fn [idx op] [op idx]) imports))
         layout (memory-layout forms)
         heap-start (heap-base layout)
+        configured-memory-max (or (get-in policy [:limits :memory-pages]) 256)
+        required-memory-pages (max 1 (long (Math/ceil (/ (double heap-start) 65536.0))))
+        memory-limit-problem
+        (cond
+          (not (integer? configured-memory-max))
+          {:kotoba.wasm/problem :invalid-memory-limit
+           :kotoba.wasm/memory-max-pages configured-memory-max}
+          (not (<= 1 configured-memory-max 65536))
+          {:kotoba.wasm/problem :invalid-memory-limit
+           :kotoba.wasm/memory-max-pages configured-memory-max}
+          (> required-memory-pages configured-memory-max)
+          {:kotoba.wasm/problem :static-data-exceeds-memory-limit
+           :kotoba.wasm/memory-required-pages required-memory-pages
+           :kotoba.wasm/memory-max-pages configured-memory-max})
         fn-indexes (merge import-indexes
                           (into {} (map-indexed (fn [idx [name _]]
                                                    [name (+ import-count idx)])
@@ -5490,6 +5501,10 @@
                                       :kotoba.wasm/op (:kotoba.runtime/form problem)
                                       :kotoba.lang/hint (:kotoba.lang/hint problem)})
                                    raw-memory-denied)}
+
+      memory-limit-problem
+      {:kotoba.wasm/ok? false
+       :kotoba.wasm/problems [memory-limit-problem]}
 
       unsupported-top-level
       {:kotoba.wasm/ok? false
@@ -5562,7 +5577,11 @@
                                                 (remove #(= 'main (first %)) defs)))
                 table-section (when indirect?
                                 (section 4 (vec-bytes [(table-entry (count indirect-target-indexes))])))
-                memory-section (section 5 (vec-bytes [[0x00 0x01]]))
+                memory-section (section 5
+                                        (vec-bytes
+                                         [(bcat [0x01]
+                                                (uleb 1)
+                                                (uleb configured-memory-max))]))
                 global-section (section 6 (vec-bytes [(global-entry heap-start)
                                                       (global-entry wasm-fuel-initial)]))
                 export-names (mapv (comp str first) defs)
@@ -5610,6 +5629,7 @@
              :kotoba.wasm/imports import-metadata
              :kotoba.wasm/memory? true
              :kotoba.wasm/memory-min-pages 1
+             :kotoba.wasm/memory-max-pages configured-memory-max
              :kotoba.wasm/heap-base heap-start
              :kotoba.wasm/data-segment-count (count layout)
              :kotoba.wasm/local-count (reduce max 0 (map #(:local-count % 0) compiled-fns))})))))))

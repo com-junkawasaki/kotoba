@@ -8,147 +8,147 @@
                {"src/demo.kotoba"
                 {:policy "src/demo_policy.edn",
                  :digest
-                 "sha256:86489a7c2471b3107c20570ac71ae5b0f09e054375affc9b4a380d3fbe06b859"},
+                 "sha256:e080db23ca70523231ea82d8ec3a51bd844d22ea44091866469d3fc6160d09cb"},
                 "src/demo_actor_host_http_post.kotoba"
                 {:policy "src/demo_actor_host_http_post_policy.edn",
                  :digest
-                 "sha256:25a2e746c6eff70ddd352a22c367402c3174070641f9bafd33e93e716c37819c"},
+                 "sha256:d2bff7fe9d522820cfcfb68fae720c2ac8c36c2163d4d3dc442b83606a5adb7c"},
                 "src/demo_actor_host_keypair.kotoba"
                 {:policy "src/demo_actor_host_keypair_policy.edn",
                  :digest
-                 "sha256:d492b5cb132e997f6555d3b5eb1e647c40e189861171be97406e4064c8d6b0b8"},
+                 "sha256:d8b7172d84625e8c3d28eee6289b6b38c4002873a5e7037ab5dcbfc51bc317a0"},
                 "src/demo_actor_host_log_read.kotoba"
                 {:policy "src/demo_actor_host_log_read_policy.edn",
                  :digest
-                 "sha256:bad02db9625fc841e89c110ec551b7f0c8255b76cccf2c6c5712998e8006a6cd"},
+                 "sha256:86372914e0a1997780423ca9e00a4760f53f7e7d7b9fc869e8b051e473023846"},
                 "src/demo_actor_host_sha256.kotoba"
                 {:policy "src/demo_actor_host_sha256_policy.edn",
                  :digest
-                 "sha256:84da7ee7d98eda881d73cdf98f79ab5ecd7d49e27895a1d5a34fb0413db14194"},
+                 "sha256:f8f1bfcb52383ca669fd3feb77f9992de9acc8c8e2eba6242176654191738a7c"},
                 "src/demo_actor_host_sign.kotoba"
                 {:policy "src/demo_actor_host_sign_policy.edn",
                  :digest
-                 "sha256:f9397bc0726ab826e3edf01c90e0f3705db34e2d1911b6811948704d2f06d946"},
+                 "sha256:2a58315176f8cc713c745e64cd0778edf00ba6faad08f5bfe293eccbd87c6e51"},
                 "src/demo_actor_host_verify.kotoba"
                 {:policy "src/demo_actor_host_verify_policy.edn",
                  :digest
-                 "sha256:b950d368671fe4abb7a8f67036b28247fdc7669a5a6986daf7d547693bff955c"},
+                 "sha256:b6900450a0455e8345f827ec8c989cebeff421e4f2cb5c1de6cc3e9d11ad8d70"},
                 "src/demo_aiueos_clock.kotoba"
                 {:policy "src/demo_aiueos_clock_policy.edn",
                  :digest
-                 "sha256:411b90e0be366680c2c34a713cf218ebe45506a94fc01fdb2f01de158f8b6598"},
+                 "sha256:6eeae17dddce9640c408e5774ec4aa3d6905e53b4b4f4a86306159c725ae79ff"},
                 "src/demo_aiueos_dma.kotoba"
                 {:policy "src/demo_aiueos_dma_policy.edn",
                  :digest
-                 "sha256:bd43ddcff1607124b76e1eb9a46d38c9cb5fcbbb02eb904aa0dfd703e3a28574"},
+                 "sha256:5e5b50068e78c655634a9a3662ef01a766c111990f750872f3c0f469d9f9211b"},
                 "src/demo_aiueos_irq.kotoba"
                 {:policy "src/demo_aiueos_irq_policy.edn",
                  :digest
-                 "sha256:0552d8518196acb95ce485a867dba88b1ce0fb8052ccb94984c9234ece20ba89"},
+                 "sha256:84cd356566b8a7ef5d22e4cc302fc14d8f26f9a7874015ff7e69a4f55e346ce6"},
                 "src/demo_aiueos_log.kotoba"
                 {:policy "src/demo_aiueos_log_policy.edn",
                  :digest
-                 "sha256:2f4f19afac51f8ec676d77967a0a9b19d19556e161048e187fd4fff37bf1d847"},
+                 "sha256:6f61de9337414f197bc2a178f6a576f868dc2800881a1dae56f167912c9de32d"},
                 "src/demo_aiueos_mmio.kotoba"
                 {:policy "src/demo_aiueos_mmio_policy.edn",
                  :digest
-                 "sha256:f9f19b5985e8bc159fc0a5cd907d203b868eff6ebe8d090bd4496cd8fba01b37"},
+                 "sha256:ff7ef944ce3e40c84b2d81df54c162175a88118ef79fc68b93394984af6b2802"},
                 "src/demo_aiueos_pci.kotoba"
                 {:policy "src/demo_aiueos_pci_policy.edn",
                  :digest
-                 "sha256:cbd7c986b79ab871176eaf68f75aba2d2ad8f25457f05bc202100695e92a19a1"},
+                 "sha256:e2c9b2c3bbbe240736d909d8ede457a83b995137f31dd1ee486b04019683a0bc"},
                 "src/demo_aiueos_random.kotoba"
                 {:policy "src/demo_aiueos_random_policy.edn",
                  :digest
-                 "sha256:1724f7e9757ec9235aa5179894c80e1bbffa4c8b2943acbe2895a22dd6878bb2"},
+                 "sha256:00996c7ca63dbe7f203cba72e47b578f88ed47f671caf46052649a70a07d9eae"},
                 "src/demo_aiueos_topic_poll.kotoba"
                 {:policy "src/demo_aiueos_topic_poll_policy.edn",
                  :digest
-                 "sha256:2c17e4747a0bf2ba5da9a0bea9ae6f6988a8e17dddeda424fed8ce215f12e52c"},
+                 "sha256:a4b323c14048e1330e8d38dbdb975a7e3df3452867ee0da7917759c5481002a7"},
                 "src/demo_aiueos_topic_publish.kotoba"
                 {:policy "src/demo_aiueos_topic_publish_policy.edn",
                  :digest
-                 "sha256:f9d0394370fcdc765f68561d8c7eae242469d0813530fbc87277f3abcfd4256c"},
+                 "sha256:5e8b6e334693cef55ee4c37ad41cd380341c92a40142cf78acbe845c7b925be5"},
                 "src/demo_alloc.kotoba"
                 {:digest
-                 "sha256:23f4c025a74f0754555ef4fdb69e323574cc74e0cb3d94d01c7745403a8beed6"},
+                 "sha256:8e1da251101d1ffecc8526d208bf5dbb0148ffbe307fe7de5984e9755c94aa46"},
                 "src/demo_alloc_checked.kotoba"
                 {:digest
-                 "sha256:14be1bdd351ba3f201030f4367c58a27a6f1950840925840f39ee37640cddb76"},
+                 "sha256:51807d1450a9197653e4bef85b716edd60de060d6620eecd60996a17dce526fd"},
                 "src/demo_and.kotoba"
                 {:digest
-                 "sha256:a7862a3433b1f041839dcdf01832e24af909993d64fe5fc8f5940a5aa88623f3"},
+                 "sha256:bfd8468bb1e809975660f5774bb487f19db7ab1601a3a3a77dad6cebefe6db1b"},
                 "src/demo_and_short_circuit.kotoba"
                 {:digest
-                 "sha256:cd28e4d561eb42640887584147c437f43a974577ded87d160c756fb99f08de5f"},
+                 "sha256:88a7f11e243f6c82ca181a07bfd43916e55c41b1ece118178993b79c2f89035b"},
                 "src/demo_bitops.kotoba"
                 {:digest
-                 "sha256:79dbfda9e8c3bab56722e2dbeb2c731ca42bc7bb3337ea2d322422c7bbd61d43"},
+                 "sha256:25cfe6ef5cc773af02444b0f996199e4eb7d98e89c74c3ce8d52845807807587"},
                 "src/demo_bool.kotoba"
                 {:digest
-                 "sha256:a77e945131a66cb9c13963f65ccb30110842e1b8e9657a6f258b6980697e8b8a"},
+                 "sha256:de241da73129361d37ab467bfa536463083b2a144a442948424b50f393b1aff2"},
                 "src/demo_buffer_abi.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:917da528d1f7b6ae8607989b005cde832e532efdc227fa4178c9730e4fda69af"},
+                 "sha256:5f3c072977130b931a2c20d0f47202364ade0de42efb2553a563a190833ce62e"},
                 "src/demo_call.kotoba"
                 {:digest
-                 "sha256:efda38a9815d119ff74d2f756ebf8186a28c10f5bd195cb0ef8832788fda78e1"},
+                 "sha256:4c0888523b46fcbb49707e43b221f8d3f93d4887939c8a93c0d373db6b17a1ec"},
                 "src/demo_cap.kotoba"
                 {:policy "src/demo_policy.edn",
                  :digest
-                 "sha256:a94d8f83a0cbfb564e8c964e8313966a23117a3cfc48d9ae8d485a57c9daf310"},
+                 "sha256:31979aab026ea6d23c1726456ab90ff800fbd0b5afea187126cee8e12342a0bb"},
                 "src/demo_cap_passing.kotoba"
                 {:policy "src/demo_cap_passing_policy.edn",
                  :digest
-                 "sha256:d1c14f4f8dca5204ece406074947921011db65f2366d4c695a7f801fe551c96c"},
+                 "sha256:40b824cd6c3f7c11af762752f1f69b2bb3eceac13d4d0b1300e47c8242c27038"},
                 "src/demo_cap_threading.kotoba"
                 {:policy "src/demo_cap_threading_policy.edn",
                  :digest
-                 "sha256:6f77cbf79833c0a793d737d0296fb70656ad9fbc45c4677bf1d85a03a6c6b791"},
+                 "sha256:b175af42b10c2c5c22dd6d71093289fe426c40d023a6627ce0e7df1f5dc32364"},
                 "src/demo_case.kotoba"
                 {:digest
-                 "sha256:c96caf707e635fe9f1d82854d4cc8ada40e8e1582e70a89953f5a76992266450"},
+                 "sha256:19cc47ee29589bf7cbe29245467440ab28dd02d285e4451b44efab397dd0a229"},
                 "src/demo_case_default.kotoba"
                 {:digest
-                 "sha256:47d92181159005a993b37f36d049c81699a064849e369d68bca2129dd50e58fd"},
+                 "sha256:0e8f4427c6d5d5fa9a54449c5965c9f10cf55f88db9df076cbb9cf24146cb93a"},
                 "src/demo_case_multi_test.kotoba"
                 {:digest
-                 "sha256:bedde3635453480499814b589bbab64ad9f3e5613911868a716440b4cea52dd9"},
+                 "sha256:054466955bd35576c69588c90dccbfb9a984cab2d5975b84687ccc4625b73a56"},
                 "src/demo_f32.kotoba"
                 {:digest
-                 "sha256:c52f1eb2aa2b2bfff38604a73aaa1ec4ba8a06c2ccc22f79d13276e78f7cb00f"},
+                 "sha256:f67d2ac7d2bedb2e7703f324c230f814a4d0b0f4fc2fd1b4b3dbf9da73662189"},
                 "src/demo_f32_if.kotoba"
                 {:digest
-                 "sha256:2922120bcb62834d054610962577ea437b4d0b254140225f3e923d5fd5599885"},
+                 "sha256:4a81644c9d87458be68b4b85f7742f1bd7359b7b6442a424877a8143dc023ad6"},
                 "src/demo_f32_ops.kotoba"
                 {:digest
-                 "sha256:f0ed3bfa4e79229026ba3b18c7d2bc66f6ab2da4eda7369184a373b66a563137"},
+                 "sha256:91fc7ed58c473a6af32823a03fd9fcfba2d776d3ccb2b8a29b55eaf8c31a43aa"},
                 "src/demo_f32_result.kotoba"
                 {:digest
-                 "sha256:650bbc1ba4ae8d6bc06b2d9d5fa454c58893edd137b658bf544376d0e4d59c85"},
+                 "sha256:57f5e174c43bbfae14d3afc62ca329584bdaadfef398057a0ee2bc2795352139"},
                 "src/demo_guest_maturity_l2.kotoba"
                 {:digest
-                 "sha256:664d418c62ba40f3f9d8caabfa4cc4fac15d07cf95585a471e65a53019d07dd2"},
+                 "sha256:f18fc58608492c245a6742fb958411e3e24358fcfa801491abb28f8ddc0724ca"},
                 "src/demo_i64.kotoba"
                 {:digest
-                 "sha256:7ce7519c436fd6ea5d83d4aaf4ef66174e0cad0dbffc6660049288902a77b453"},
+                 "sha256:66242c48944064cbb32d8b698e5c7b0c055b1c73bb195cb806831ea91c29b543"},
                 "src/demo_i64_bitops.kotoba"
                 {:digest
-                 "sha256:54dff6318583614b1d7a612aaff203e83f252ed8a8beaa0b2596e2c0d959251f"},
+                 "sha256:4b9debb45ec7de92d2f64a9e28418be06f13de3c6a6ef138126f1a7cd8b17b24"},
                 "src/demo_i64_host.kotoba"
                 {:policy "src/demo_i64_host_policy.edn",
                  :digest
-                 "sha256:06121f7d1a849482494f7c947f487adc609c7b6f069c916623e313a3eb4b76c5"},
+                 "sha256:3f81b1d43fc32bb54e9f775a4576566d346c2bc446bf7f2e3e8d2dcbc730ccbc"},
                 "src/demo_i64_if.kotoba"
                 {:digest
-                 "sha256:4fa62f79630c8ce10b1a1c9037727790c490e6d941735a39f265fb5513f1c2c0"},
+                 "sha256:4245088acd215b397486623bfeb62af9447086876ec94dca7377f572448887f1"},
                 "src/demo_i64_params.kotoba"
                 {:digest
-                 "sha256:c3c53cb995661510a6e80936abf5c0d834e90b1b2aca00066184f4ecfe7638f8"},
+                 "sha256:fbd58ef54fa7cb3182b20afcbdbd9aa2a5435131bf3eed49bd8816f59626f471"},
                 "src/demo_indirect.kotoba"
                 {:digest
-                 "sha256:7b2b484fef02a341bc6ec00452cd80eb4a071f2f02695c157219377b148ba5a8"},
+                 "sha256:08625af153cbc01b64d2b2275f478601b3bb43b24196953f7b643438b82c4d18"},
                 "src/demo_kbb_fs_report.kotoba"
                 {:policy "src/demo_kbb_fs_report_policy.edn",
                  :unsupported :wasm/check-failed,
@@ -157,118 +157,118 @@
                 "src/demo_kgraph.kotoba"
                 {:policy "src/demo_kgraph_policy.edn",
                  :digest
-                 "sha256:a984e2cb70c76ab4e26d65ab35e71f16a60800fc5ccbd2df0dedcc99375588a0"},
+                 "sha256:710b379879c64b9306bf059dbf5f8c3711ccb4731398c4f744aa3c8b1d8a1632"},
                 "src/demo_kgraph_data.kotoba"
                 {:policy "src/demo_kgraph_data_policy.edn",
                  :digest
-                 "sha256:5aa6c5ada28001bdf298e51a7fde8136838e9a8de213640797852096734ad597"},
+                 "sha256:c94b6a3f9c25d37ac1d106de4c2649f78adcffe94705a1062fc853abe8b9c07a"},
                 "src/demo_loop_forever.kotoba"
                 {:digest
-                 "sha256:5efcd70d8df34d7bbab5c5c55d0b8d2b11c46bf5011b2ad9bee18e90c534efc7"},
+                 "sha256:ea3d25f909822c8e3c30e54c12f73a0f466ceb8f6b7294a4dd9147376b408321"},
                 "src/demo_memory.kotoba"
                 {:digest
-                 "sha256:36e248db782e6937534d83c115840936d90a4cd32fa6ba6688d550cb20060a3e"},
+                 "sha256:ebbdaf77f4c4df0b0f701c302910beeb352c77448cf32fad10579bf5b8252401"},
                 "src/demo_memory_grow.kotoba"
                 {:digest
-                 "sha256:c2d918f3e83953371f69b1de84e2068ab5d61574d0a37ee7a4042862dfa438b3"},
+                 "sha256:a6b04446fda7b8e43192a588cc00ca32f0fe1abf0ddab2983b1ba6f94976b1f4"},
                 "src/demo_memory_write.kotoba"
                 {:digest
-                 "sha256:84d31161081c7ee6a75ae03bb05cbba4b3c8efa3d76081f68c4ad01f8189ac69"},
+                 "sha256:912c71003f911c3a489f33cbc69b34586f91f1ed0452a6587d0d978194f6bf1f"},
                 "src/demo_notify.kotoba"
                 {:policy "src/demo_policy.edn",
                  :digest
-                 "sha256:7a9de4fe9407be653c8c04b12152ba2c0877164f83983fa16d13843355a2866f"},
+                 "sha256:6ba205654dfc2f0c8439d2bfdaf312d92e6d8a2f5cce7774a2b58f88425096c8"},
                 "src/demo_or.kotoba"
                 {:digest
-                 "sha256:2811d6b10964dfef79354dd732ca2a19981b7720332a277abafb77f261fe8ed1"},
+                 "sha256:1b04a4579e59530f97afe1e899026eed118b517036cb82ab16b41aab62de92d5"},
                 "src/demo_or_short_circuit.kotoba"
                 {:digest
-                 "sha256:2d1a2996c8a98b4387392b664f2b021a936ddf71708cca649f99c2daae7fe4ca"},
+                 "sha256:a275c4e0b68370756593d0a67d64b8214abdab79ecbadcc47c36d9a549462456"},
                 "src/demo_provider_result.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:5b8227ddb7be761eef86b85e1ae972253a366f5a1e030e4da230caafc321892d"},
+                 "sha256:61461387a65ce515c106ac50ff82ab75c3e3834dab8d44fc36c29f2ef90f783e"},
                 "src/demo_providers.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:1c909ad079239108cdb62920be11c6d3f7a51310ce216c7c9a3c1c3a00158e73"},
+                 "sha256:eb4e4ff56c2bab4d3e68b5c1b8b1e7664d78a4ea51655ad98a77a3cf37411c24"},
                 "src/demo_real_clipboard.kotoba"
                 {:policy "src/demo_real_clipboard_policy.edn",
                  :digest
-                 "sha256:3002e814bf4598708e8f8d258343e9f4f156f3dffd7fe8c5525ea022788e9a2d"},
+                 "sha256:ec2f0b5978b20ef0854071131cc1b90f7430f1bf0100b1ba613a0491666ef368"},
                 "src/demo_real_clock.kotoba"
                 {:policy "src/demo_real_clock_policy.edn",
                  :digest
-                 "sha256:411b90e0be366680c2c34a713cf218ebe45506a94fc01fdb2f01de158f8b6598"},
+                 "sha256:6eeae17dddce9640c408e5774ec4aa3d6905e53b4b4f4a86306159c725ae79ff"},
                 "src/demo_real_fs.kotoba"
                 {:policy "src/demo_real_fs_policy.edn",
                  :digest
-                 "sha256:b8db59e38f5f979d9cd9b5fc33bc6b19482e5e9b8bde5236c653bb9115bb8db6"},
+                 "sha256:31dd6b8ee99bf76c419f7f44838d4df036cf03f8c0e0c05ba402547e086a10d2"},
                 "src/demo_real_fs_atomic.kotoba"
                 {:policy "src/demo_real_fs_atomic_policy.edn",
                  :digest
-                 "sha256:40b83796c884449406613cc0233e9d13fe060614d154a27bedeaf91cdf66671d"},
+                 "sha256:fb24a4ecca9bd47421c42ef52eaf75ab2b2c9a766487fc9a6bad9eb873f1b532"},
                 "src/demo_real_http_fetch.kotoba"
                 {:policy "src/demo_real_http_fetch_policy.edn",
                  :digest
-                 "sha256:e3ae19ca7cee666c4977b63b0372d3531458af3f1a4d5371fbb6d0870cd0e6df"},
+                 "sha256:999319442807d3aa8bb4891e6be30edd6fd63d4c08ce69e1ea55d1a3d1b85cb0"},
                 "src/demo_real_http_post.kotoba"
                 {:policy "src/demo_real_http_post_policy.edn",
                  :digest
-                 "sha256:a8e171aecb5ec1cc8e94b19ecf895bfb45a6f9e3dfd1c610e48dd354755d2c57"},
+                 "sha256:6a68a46679d73067caf09d36cd967f3d0b32dac328111ca221cd4ebce4392cd7"},
                 "src/demo_real_keychain.kotoba"
                 {:policy "src/demo_real_keychain_policy.edn",
                  :digest
-                 "sha256:bad11f65eda7b843ddc4e69145552e2246c5b5dd1b0c549f70898f41a47192b1"},
+                 "sha256:6f8d00219f362bd06833608c5ea3d81799aa9ceb283c4f2d69147ebb677cccd6"},
                 "src/demo_real_log.kotoba"
                 {:policy "src/demo_real_log_policy.edn",
                  :digest
-                 "sha256:a66b3a5ef698a880bf2b1df186ac5334b6309a974a0bf6d055b8ea82eca43a89"},
+                 "sha256:7344ae14681d7c630baff15c0d0059c9958c0b4ffd3c43c7290563009c92f557"},
                 "src/demo_real_random.kotoba"
                 {:policy "src/demo_real_random_policy.edn",
                  :digest
-                 "sha256:4c6be88939c21fc7a0f5c2324976b38bdaacdac4b4e8e64f1fc8e725e904e346"},
+                 "sha256:ee7010645451f0a54dab86cc76cf951801f665f704d37f0c9e60d2dfa86664c2"},
                 "src/demo_real_topic_count.kotoba"
                 {:policy "src/demo_real_topic_count_policy.edn",
                  :digest
-                 "sha256:d9e955df26e17cb07ee500bf5a9859dd9cf33f14b1c7ab6631d6bd175ecb6011"},
+                 "sha256:758e69566922d52ae70e13a948bf2d7f1000eb1c077971bb46aeaa73cc02d40e"},
                 "src/demo_real_topic_poll.kotoba"
                 {:policy "src/demo_real_topic_poll_policy.edn",
                  :digest
-                 "sha256:2c17e4747a0bf2ba5da9a0bea9ae6f6988a8e17dddeda424fed8ce215f12e52c"},
+                 "sha256:a4b323c14048e1330e8d38dbdb975a7e3df3452867ee0da7917759c5481002a7"},
                 "src/demo_real_topic_publish.kotoba"
                 {:policy "src/demo_real_topic_publish_policy.edn",
                  :digest
-                 "sha256:f9d0394370fcdc765f68561d8c7eae242469d0813530fbc87277f3abcfd4256c"},
+                 "sha256:5e8b6e334693cef55ee4c37ad41cd380341c92a40142cf78acbe845c7b925be5"},
                 "src/demo_real_topic_take.kotoba"
                 {:policy "src/demo_real_topic_take_policy.edn",
                  :digest
-                 "sha256:584a3e389d4e35e12e688bc63e1d46d6569d3ade954508399845253a097e0e4b"},
+                 "sha256:4641c197d561c1d8ea55048d947105b55faf18b584239be6ea6e2ddf88fa3af5"},
                 "src/demo_result_record.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:231136634b870f4683b0cccd075bd4b691aa6628fbb2eacdd98e935237b89b9b"},
+                 "sha256:c9aeaf0fbfd00205c094e2a0672a96af82c075f40b499a2980c39820d1b27aca"},
                 "src/demo_string_abi.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:dc5fd4ff6467bf506fd4fcadec5d820866078f11ab8466a426c4ceafc22d89e3"},
+                 "sha256:2ba1c553a927ef8f20ec55da53117da18a59a08b71c99c6e9b714ab4b7a7b138"},
                 "src/demo_string_host_sugar.kotoba"
                 {:policy "src/demo_string_host_sugar_policy.edn",
                  :unsupported :wasm/binary-unsupported},
                 "src/demo_when.kotoba"
                 {:digest
-                 "sha256:4fb8eafe7cad7a326baabc8b271e2ea986021c752d6bc2769b2542303168f98e"},
+                 "sha256:5c195be292492df566b7adb4cc6433bbfa4f655ff0bc4939d0efbe8a956ac320"},
                 "src/demo_when_short_circuit.kotoba"
                 {:digest
-                 "sha256:062ba557cf856a23d2960930e0fddcf3733a1928dbbaa9c3a6eb252d1dacb9fb"},
+                 "sha256:fcbcec85aa2abf018da42001d8f2c370a12903dcda7482e1d69edf6f32337122"},
                 "src/kami_survivors.kotoba"
                 {:policy "src/kami_survivors_policy.edn",
                  :digest
-                 "sha256:e11610c36722d34f34fde1896ff795607a7dab642e78f41445577d9f863c71fa"},
+                 "sha256:2ac0d4cf36f705aa2fea9e2980d0947b62bdcb674ee098d4919d38ad9f6fd33e"},
                 "src/q8_capability_port.kotoba"
                 {:policy "src/q8_capability_port_policy.edn",
                  :digest
-                 "sha256:096f1905b3271659180b312eb15f3b08529cd219ba3b3abee23327309f52f1e0"},
+                 "sha256:749a455366a8341ab2f8e05cdf0e1c2fcad09eff883bbdc4315d715e4a195389"},
                 "src/qualification_reference.kotoba"
                 {:digest
-                 "sha256:b65684d0261b82c4f091aaad0244b03de762404c03c7a58542c867522fcc2c58"}}}
+                 "sha256:b3f0a657c3149f183e5f6201f81b410df4df82e1a5a0199a5e1b6fefe0ac5777"}}}

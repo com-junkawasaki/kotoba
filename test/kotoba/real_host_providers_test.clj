@@ -209,6 +209,18 @@
       (is (= [{:method "GET" :body ""}] @received-requests)
           "the real server actually received one GET request with an empty body"))))
 
+(deftest http-response-is-rejected-at-the-streaming-quota
+  (let [request (-> (java.net.http.HttpRequest/newBuilder
+                     (java.net.URI/create (str "http://127.0.0.1:" http-port "/")))
+                    (.timeout (java.time.Duration/ofMillis 1000))
+                    .GET
+                    .build)]
+    (is (nil? (#'wasm-exec/bounded-http-send request 1000 3))
+        "the four-byte body exceeds a three-byte quota")
+    (is (= "pong"
+           (String. (#'wasm-exec/bounded-http-send request 1000 4) "UTF-8"))
+        "a response exactly at the quota remains valid")))
+
 (deftest http-post-round-trips-against-a-real-local-http-server
   (testing "http-post performs a genuine network POST with a real body, not a 0-returning stub"
     (reset! received-requests [])
