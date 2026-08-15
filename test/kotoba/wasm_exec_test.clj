@@ -313,11 +313,10 @@
                                           policy)
           result (.apply (.export instance "main") (long-array 0))
           written (aget ^longs result 0)
-          ;; `buf` = the first (and only) `alloc` call in demo_kgraph.kotoba's
-          ;; `main`, which returns the heap pointer's value BEFORE bumping —
-          ;; i.e. exactly `:kotoba.wasm/heap-base` (kotoba.runtime/wasm-binary
-          ;; already computes and reports this; no need to hardcode it here).
-          buf-ptr (:kotoba.wasm/heap-base wasm)]
+          ;; `buf` = the first allocation payload, immediately after its
+          ;; compiler-owned identity header at the heap base.
+          buf-ptr (+ (:kotoba.wasm/heap-base wasm)
+                     runtime/allocation-header-bytes)]
       (is (:kotoba.runtime/ok? checked) "static capability check admits :graph/kotoba")
       (is (:kotoba.wasm/ok? wasm))
       (is (= [{:module "kotoba" :field "kgraph_assert" :capability "graph/kotoba"
@@ -543,7 +542,8 @@
                                           policy)
           result (.apply (.export instance "main") (long-array 0))
           written (aget ^longs result 0)
-          buf-ptr (:kotoba.wasm/heap-base wasm)]
+          buf-ptr (+ (:kotoba.wasm/heap-base wasm)
+                     runtime/allocation-header-bytes)]
       (is (:kotoba.runtime/ok? checked) "static capability check is unchanged by the argument shape")
       (is (:kotoba.wasm/ok? wasm))
       (is (= [{:module "kotoba" :field "kgraph_assert" :capability "graph/kotoba"

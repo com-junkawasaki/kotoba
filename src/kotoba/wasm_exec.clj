@@ -118,6 +118,55 @@
   floor. Weak keys: an Instance that goes away takes its entry with it."
   (java.util.Collections/synchronizedMap (java.util.WeakHashMap.)))
 
+(def ^:private max-allocation-scan 1000000)
+
+(defn- allocation-extent-at
+  "Return the compiler-recorded allocation beginning at PTR, or a problem.
+
+  Headers form a canonical chain from the captured heap base to global 0's
+  current high-water mark. Walking the chain instead of trusting the eight
+  bytes immediately before PTR prevents a guest from placing header-shaped
+  bytes inside one payload and presenting that interior address as a second
+  allocation."
+  [instance ptr]
+  (let [heap-base (long (.get instance-heap-base instance))
+        high-water (long (.getValue (.global instance 0)))
+        memory (.memory instance)]
+    (loop [header heap-base
+           seen 0]
+      (cond
+        (>= seen max-allocation-scan)
+        {:problem :allocation-scan-limit}
+
+        (= header high-water)
+        {:problem :unallocated-window}
+
+        (or (> header high-water)
+            (> (+ header runtime/allocation-header-bytes) high-water))
+        {:problem :corrupt-allocation-chain}
+
+        :else
+        (let [magic (.readInt memory (int header))
+              size (long (.readInt memory
+                                   (int (+ header 4))))
+              payload (+ header runtime/allocation-header-bytes)
+              next-header (+ payload size)]
+          (cond
+            (not= magic runtime/allocation-header-magic)
+            {:problem :corrupt-allocation-chain}
+
+            (or (neg? size) (< next-header payload) (> next-header high-water))
+            {:problem :corrupt-allocation-chain}
+
+            (= ptr payload)
+            {:ptr payload :bytes size}
+
+            (< ptr next-header)
+            {:problem :unallocated-window}
+
+            :else
+            (recur next-header (inc seen))))))))
+
 (defn- writable-output-window
   "nil when [PTR, PTR+CAP) is a legitimate output buffer in INSTANCE, or a
   keyword naming why it is not.
@@ -132,27 +181,21 @@
   request only moves the primitive rather than removing it, and it needs no
   denied op or even `alloc` to reach.
 
-  The window must lie at or above the heap base and inside linear memory.
-  Below the heap base are the module's data segments: every string literal
-  and constant the compiler placed, which `str-ptr` hands out addresses into.
-  Those become unwritable, so a host import can no longer rewrite the
-  constants a module was compiled with.
+  The window must name the exact payload start of one compiler-recorded bump
+  allocation and CAP must fit that allocation's recorded extent. The compiler
+  writes an immutable-to-safe-source header chain while allocating; the host
+  walks from the captured heap base, so an interior forged header is ignored.
+  This also keeps data segments and unallocated heap scratch unwritable.
 
-  Deliberately NOT required: that the buffer was `alloc`ed. This ABI treats
-  everything above the heap base as the guest's own scratch and `alloc` is
-  optional -- `demo_actor_host_sha256.kotoba` is `(sha256-hex 0 0 2048 64)`,
-  writing at exactly the heap base having allocated nothing. An earlier
-  revision here demanded `ptr + cap <= ` the live bump pointer and broke that
-  demo; the rule was wrong, not the demo.
-
-  So this bounds WHICH REGION a host write can reach, not which object. One
-  live heap object can still be named in place of another, because the bump
-  allocator records no per-allocation extents to check against. See
-  docs/threat-model.md."
+  Raw-memory escape-hatch modules can still write their own headers and remain
+  outside this safe-profile claim. See docs/THREAT-MODEL.md."
   [instance ptr cap]
   (let [heap-base (.get instance-heap-base instance)
         memory-bytes (* (long (.pages (.memory instance)))
-                        (long com.dylibso.chicory.runtime.Memory/PAGE_SIZE))]
+                        (long com.dylibso.chicory.runtime.Memory/PAGE_SIZE))
+        extent (when (and heap-base (not (neg? ptr)) (not (neg? cap))
+                          (not (zero? cap)))
+                 (allocation-extent-at instance ptr))]
     (cond
       ;; An instance this namespace did not build has no recorded floor, so
       ;; the floor cannot be enforced. Fail closed rather than silently
@@ -166,8 +209,10 @@
       ;; empty log back cleanly, which must keep working.
       (zero? cap) nil
       (> ptr (- Long/MAX_VALUE cap)) :window-overflow
-      (< ptr (long heap-base)) :below-heap-base
+      (< ptr (+ (long heap-base) runtime/allocation-header-bytes)) :below-heap-base
       (> (+ ptr cap) memory-bytes) :outside-linear-memory
+      (:problem extent) (:problem extent)
+      (> cap (:bytes extent)) :outside-allocation
       :else nil)))
 
 (defn- write-bytes!

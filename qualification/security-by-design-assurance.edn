@@ -27,6 +27,8 @@
    :evidence "test/kotoba/codebase_publish_test.clj"}
   {:control :memory/checked-raw-allocation-extents
    :evidence "test/kotoba/raw_memory_test.clj"}
+  {:control :memory/reference-host-output-allocation-identity
+   :evidence "test/kotoba/real_host_providers_test.clj"}
   {:control :publication/authenticated-quota-bounded-block-ingress
    :evidence "test/kotoba/codebase_publish_test.clj"}
   {:control :publication/secure-write-transport
@@ -40,7 +42,7 @@
   {:control :publication/staged-token-rotation
    :evidence "test/kotoba/codebase_publish_test.clj"}]
  :assessment/open-gates
- [{:gate :memory/legacy-wire-and-host-output-allocation-identity :severity :medium}
+ [{:gate :memory/legacy-wire-and-external-host-allocation-identity :severity :medium}
   {:gate :publication/distributed-ingress-and-retention-gc :severity :medium}
   {:gate :assurance/independent-review-and-soak :severity :high}]
  :assessment/allowed-claims

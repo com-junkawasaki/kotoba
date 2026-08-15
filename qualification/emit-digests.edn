@@ -16,7 +16,7 @@
                 "src/demo_actor_host_keypair.kotoba"
                 {:policy "src/demo_actor_host_keypair_policy.edn",
                  :digest
-                 "sha256:d8b7172d84625e8c3d28eee6289b6b38c4002873a5e7037ab5dcbfc51bc317a0"},
+                 "sha256:61f356a13fb343a3b415c0b0ac0389b489ffa4d6ad12be1a7bf2f5888c414871"},
                 "src/demo_actor_host_log_read.kotoba"
                 {:policy "src/demo_actor_host_log_read_policy.edn",
                  :digest
@@ -24,7 +24,7 @@
                 "src/demo_actor_host_sha256.kotoba"
                 {:policy "src/demo_actor_host_sha256_policy.edn",
                  :digest
-                 "sha256:f8f1bfcb52383ca669fd3feb77f9992de9acc8c8e2eba6242176654191738a7c"},
+                 "sha256:082ab7464415260b4f365bc15c244ee4ef40f9c4b2d5c534da494dd8faebbc50"},
                 "src/demo_actor_host_sign.kotoba"
                 {:policy "src/demo_actor_host_sign_policy.edn",
                  :digest
@@ -71,10 +71,10 @@
                  "sha256:5e8b6e334693cef55ee4c37ad41cd380341c92a40142cf78acbe845c7b925be5"},
                 "src/demo_alloc.kotoba"
                 {:digest
-                 "sha256:8e1da251101d1ffecc8526d208bf5dbb0148ffbe307fe7de5984e9755c94aa46"},
+                 "sha256:1bf01f212c2ec27c0793d5d909e28e911e6bfc11ef8a7f6745da3cb272fae890"},
                 "src/demo_alloc_checked.kotoba"
                 {:digest
-                 "sha256:51807d1450a9197653e4bef85b716edd60de060d6620eecd60996a17dce526fd"},
+                 "sha256:0cb3390e4aa80c381104f922c919de5ccae17610fc6f677761cc99a954884d0c"},
                 "src/demo_and.kotoba"
                 {:digest
                  "sha256:bfd8468bb1e809975660f5774bb487f19db7ab1601a3a3a77dad6cebefe6db1b"},
@@ -90,7 +90,7 @@
                 "src/demo_buffer_abi.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:fb10a1e2775a3170f376010d1bcea70ecb1c2c063869fe1666b0e3ad22786df8"},
+                 "sha256:6d223cb9e44eed29b9a79a07ab8bf8aca4da894600a246af12df4e4ffb248030"},
                 "src/demo_call.kotoba"
                 {:digest
                  "sha256:4c0888523b46fcbb49707e43b221f8d3f93d4887939c8a93c0d373db6b17a1ec"},
@@ -157,11 +157,11 @@
                 "src/demo_kgraph.kotoba"
                 {:policy "src/demo_kgraph_policy.edn",
                  :digest
-                 "sha256:710b379879c64b9306bf059dbf5f8c3711ccb4731398c4f744aa3c8b1d8a1632"},
+                 "sha256:c5b8ecb493b98168ef92de72e328045d5a34c07e6574efe95bb37f6e6db9283a"},
                 "src/demo_kgraph_data.kotoba"
                 {:policy "src/demo_kgraph_data_policy.edn",
                  :digest
-                 "sha256:c94b6a3f9c25d37ac1d106de4c2649f78adcffe94705a1062fc853abe8b9c07a"},
+                 "sha256:f3b9d20696c865b33a225423c8024f97051414841709bea28aaea48499528b3a"},
                 "src/demo_loop_forever.kotoba"
                 {:digest
                  "sha256:ea3d25f909822c8e3c30e54c12f73a0f466ceb8f6b7294a4dd9147376b408321"},
@@ -173,7 +173,7 @@
                  "sha256:a6b04446fda7b8e43192a588cc00ca32f0fe1abf0ddab2983b1ba6f94976b1f4"},
                 "src/demo_memory_write.kotoba"
                 {:digest
-                 "sha256:4a5867dc58288a364afa7662b4b8501caa7c0937ed556a710d0fbba727c07c98"},
+                 "sha256:fe1ec8b629062c4a07442b96f52cf917387124567e9ca2b33817831377f2a1cf"},
                 "src/demo_notify.kotoba"
                 {:policy "src/demo_policy.edn",
                  :digest
@@ -187,7 +187,7 @@
                 "src/demo_provider_result.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:61461387a65ce515c106ac50ff82ab75c3e3834dab8d44fc36c29f2ef90f783e"},
+                 "sha256:525e5e652e370f0f35c824792896fcabd7fe720bbeb26f53d13a77f26ab7969c"},
                 "src/demo_providers.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
@@ -195,7 +195,7 @@
                 "src/demo_real_clipboard.kotoba"
                 {:policy "src/demo_real_clipboard_policy.edn",
                  :digest
-                 "sha256:ec2f0b5978b20ef0854071131cc1b90f7430f1bf0100b1ba613a0491666ef368"},
+                 "sha256:f2157fe49230150c7093f8fe8b11ca3bce8916e202cefaf701552364feb2bc42"},
                 "src/demo_real_clock.kotoba"
                 {:policy "src/demo_real_clock_policy.edn",
                  :digest
@@ -203,7 +203,7 @@
                 "src/demo_real_fs.kotoba"
                 {:policy "src/demo_real_fs_policy.edn",
                  :digest
-                 "sha256:31dd6b8ee99bf76c419f7f44838d4df036cf03f8c0e0c05ba402547e086a10d2"},
+                 "sha256:f4bb8c5c35c4bf155bc3c0ce0c8d2cc428f823d6557c9d569cb1590e86924bf3"},
                 "src/demo_real_fs_atomic.kotoba"
                 {:policy "src/demo_real_fs_atomic_policy.edn",
                  :digest
@@ -211,23 +211,23 @@
                 "src/demo_real_http_fetch.kotoba"
                 {:policy "src/demo_real_http_fetch_policy.edn",
                  :digest
-                 "sha256:999319442807d3aa8bb4891e6be30edd6fd63d4c08ce69e1ea55d1a3d1b85cb0"},
+                 "sha256:ed4506acc9b7d73212f0dc87c8ebfa3b4e2e199cbb38a943d8fa668586ec508e"},
                 "src/demo_real_http_post.kotoba"
                 {:policy "src/demo_real_http_post_policy.edn",
                  :digest
-                 "sha256:6a68a46679d73067caf09d36cd967f3d0b32dac328111ca221cd4ebce4392cd7"},
+                 "sha256:3c0ccd8c9e02ffbaa745b53a8ca6d3828e12f59288ba622e2c566e814b8c21a4"},
                 "src/demo_real_keychain.kotoba"
                 {:policy "src/demo_real_keychain_policy.edn",
                  :digest
-                 "sha256:6f8d00219f362bd06833608c5ea3d81799aa9ceb283c4f2d69147ebb677cccd6"},
+                 "sha256:82f1dd3c63bf6659f8129e676eaa0556f7f2aaf7e94c21ff2b3802d33696a116"},
                 "src/demo_real_log.kotoba"
                 {:policy "src/demo_real_log_policy.edn",
                  :digest
-                 "sha256:7344ae14681d7c630baff15c0d0059c9958c0b4ffd3c43c7290563009c92f557"},
+                 "sha256:a921891179cf6af8568bd1ff751e98e348ebb580c9d36a4cc2e1ebcea54bda76"},
                 "src/demo_real_random.kotoba"
                 {:policy "src/demo_real_random_policy.edn",
                  :digest
-                 "sha256:ee7010645451f0a54dab86cc76cf951801f665f704d37f0c9e60d2dfa86664c2"},
+                 "sha256:83bcc57ec0899ea81b8455528f7641f2a840aa782f413731d5127a0d76a68f46"},
                 "src/demo_real_topic_count.kotoba"
                 {:policy "src/demo_real_topic_count_policy.edn",
                  :digest
@@ -247,7 +247,7 @@
                 "src/demo_result_record.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
-                 "sha256:c9aeaf0fbfd00205c094e2a0672a96af82c075f40b499a2980c39820d1b27aca"},
+                 "sha256:5274b4cc7d035e6183e560baff6876df5f9e91fb48dab86aa68fe15f88c4fea6"},
                 "src/demo_string_abi.kotoba"
                 {:policy "src/demo_provider_policy.edn",
                  :digest
