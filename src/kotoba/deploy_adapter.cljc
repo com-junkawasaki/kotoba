@@ -34,7 +34,8 @@
   (-mkdirs [this path])
   (-list [this path])
   (-env [this name])
-  (-run [this argv dir]))
+  (-run [this argv dir])
+  (-admit-release [this planned manifest]))
 
 (def operations #{:plan :apply :status :rollback})
 
@@ -60,6 +61,12 @@
 
 (defn request-revision [request]
   (get-in request [:options :revision]))
+
+(defn request-release-evidence [request]
+  (get-in request [:options :release-evidence]))
+
+(defn request-component [request]
+  (get-in request [:options :component]))
 
 (defn request-dry-run?
   "Contract default is true. `--dry-run` (flag) is true; `--dry-run false` is false."
@@ -165,6 +172,8 @@
                       :substrate (:substrate parsed)
                       :scheme (:scheme parsed)
                       :revision (request-revision request)
+                      :release-evidence-path (request-release-evidence request)
+                      :component-path (request-component request)
                       :dry-run? (if (= op :plan) true dry-run?)}]
             (if (= :reside (:substrate parsed))
               (assoc base
@@ -213,6 +222,23 @@
     (= :reside (:substrate planned))
     (assoc :kotoba.deploy/control-plane (:control-plane planned)
            :kotoba.deploy/node (:node planned))))
+
+(defn- admission-extra [admission]
+  (let [{:keys [release-evidence-sha256 component-cid component-sha256 signer]}
+        (:identity admission)]
+    {:kotoba.deploy/release-evidence-sha256 release-evidence-sha256
+     :kotoba.deploy/component-cid component-cid
+     :kotoba.deploy/component-sha256 component-sha256
+     :kotoba.deploy/release-signer signer}))
+
+(defn admitted-receipt?
+  "True only for receipts written after immutable release admission."
+  [receipt]
+  (every? #(and (string? (get receipt %)) (not (str/blank? (get receipt %))))
+          [:kotoba.deploy/release-evidence-sha256
+           :kotoba.deploy/component-cid
+           :kotoba.deploy/component-sha256
+           :kotoba.deploy/release-signer]))
 
 (defn- write-receipt! [host planned next]
   (-mkdirs host (:target-dir planned))
@@ -286,14 +312,20 @@
             (fail :deploy/missing-manifest
                   "deploy apply could not read the package manifest"
                   (assoc planned :path manifest-path))
-            (let [next (receipt manifest target revision extra)]
-              (if (= :reside substrate)
-                (reside-apply! host planned next)
-                (if dry-run?
-                  (ok :deploy/planned (assoc planned :receipt next))
-                  (do
-                    (write-receipt! host planned next)
-                    (ok :deploy/executed (assoc planned :receipt next)))))))
+            (let [admission (-admit-release host planned manifest)]
+              (if-not (:ok? admission)
+                (fail :deploy/release-not-admitted
+                      "deploy apply requires immutable admitted release evidence"
+                      (assoc planned :problems (:problems admission)))
+                (let [next (receipt manifest target revision
+                                    (merge extra (admission-extra admission)))]
+                  (if (= :reside substrate)
+                    (reside-apply! host planned next)
+                    (if dry-run?
+                      (ok :deploy/planned (assoc planned :receipt next))
+                      (do
+                        (write-receipt! host planned next)
+                        (ok :deploy/executed (assoc planned :receipt next)))))))))
 
           :rollback
           (cond
@@ -309,6 +341,11 @@
                 (nil? prev)
                 (fail :deploy/missing-previous
                       "no previous deployment receipt to roll back to"
+                      planned)
+
+                (not (admitted-receipt? prev))
+                (fail :deploy/previous-release-not-admitted
+                      "previous receipt has no immutable release admission identity"
                       planned)
 
                 dry-run?
