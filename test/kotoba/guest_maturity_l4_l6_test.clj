@@ -91,7 +91,7 @@
                                       {:trusted-signers #{did}
                                        :revoked-signers #{did}}
                                       {:now "2026-07-18"})]
-    (is (= :kotoba.security.signed-module/v1 (:format envelope)))
+    (is (= :kotoba.security.signed-module/v2 (:format envelope)))
     (is (true? (:ok? ok)))
     (is (= did (:signer ok)))
     (is (false? (:ok? bad-bytes)))
@@ -153,6 +153,7 @@
     (is (true? (:kotoba.admission/ok? admission)) (str receipt))
     (is (true? (:ok? (release-evidence/safe-release-ready? complete))))
     (is (false? (:ok? (release-evidence/safe-release-ready? missing-mod))))
-    (is (true? (:ok? (release-evidence/safe-release-ready? via-exception))))
+    (is (false? (:ok? (release-evidence/safe-release-ready? via-exception)))
+        "unsigned governance exceptions cannot waive cryptographic release evidence")
     (is (false? (:ok? (release-evidence/safe-release-ready? expired-ex))))
     (is (map? dep))))

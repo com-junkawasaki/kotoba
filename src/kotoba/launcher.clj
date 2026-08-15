@@ -1729,6 +1729,7 @@
                              :kotoba.wasm/imports (:kotoba.wasm/imports wasm)
                              :kotoba.wasm/memory? (:kotoba.wasm/memory? wasm)
                              :kotoba.wasm/memory-min-pages (:kotoba.wasm/memory-min-pages wasm)
+                             :kotoba.wasm/memory-max-pages (:kotoba.wasm/memory-max-pages wasm)
                              :kotoba.wasm/heap-base (:kotoba.wasm/heap-base wasm)
                              :kotoba.wasm/data-segment-count (:kotoba.wasm/data-segment-count wasm)
                              :kotoba.wasm/output output

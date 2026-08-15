@@ -56,6 +56,7 @@
             [kotoba.kgraph :as kgraph]
             [kotoba.lang.capability-host :as capability-host]
             [kotoba.lang.capability-values :as capability-values]
+            [kotoba.resource-scope :as resource-scope]
             [kotoba.runtime :as runtime])
   (:import (com.dylibso.chicory.runtime ExecutionListener HostFunction ImportFunction
                                         ImportValues Instance WasmFunctionHandle)
@@ -64,7 +65,8 @@
            (java.net URI)
            (java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers HttpResponse$BodyHandlers)
            (java.nio.file Files StandardCopyOption)
-           (java.security MessageDigest SecureRandom)))
+           (java.security MessageDigest SecureRandom)
+           (java.time Duration)))
 
 (defn- read-str
   "UTF-8 string at [ptr, ptr+len) in INSTANCE's exported linear memory."
@@ -332,13 +334,7 @@
   shapes."
   [concrete resource]
   (let [scope (:cap/resource concrete)
-        covers? (fn [g]
-                  (and (string? g) (string? resource)
-                       (or (= g resource)
-                           (and (or (.startsWith ^String g "http://")
-                                    (.startsWith ^String g "https://")
-                                    (.startsWith ^String g "file:"))
-                                (.startsWith ^String resource g)))))]
+        covers? (fn [g] (resource-scope/covers? g resource))]
     (boolean
      (or (nil? concrete)
          (= :any scope)
@@ -521,7 +517,24 @@
     :notifications (atom [])
     :log (atom (byte-array 0))
     :topics (atom {})
+    :http-timeout-ms 5000
+    :http-max-response-bytes 1048576
     :fs-root (.toFile fs-root)}))
+
+(defn- bounded-http-send
+  "Send REQUEST with both a deadline and a pre-allocation response quota.
+  Returns response bytes, or nil when the body exceeds MAX-BYTES."
+  [^HttpRequest request timeout-ms max-bytes]
+  (let [timeout-ms (long (max 1 timeout-ms))
+        max-bytes (int (max 0 (min Integer/MAX_VALUE max-bytes)))
+        client (-> (HttpClient/newBuilder)
+                   (.connectTimeout (Duration/ofMillis timeout-ms))
+                   .build)
+        response (.send client request (HttpResponse$BodyHandlers/ofInputStream))]
+    (with-open [body (.body response)]
+      (let [bytes (.readNBytes body (inc max-bytes))]
+        (when (<= (alength bytes) max-bytes)
+          bytes)))))
 
 (defn- safe-path
   "REL resolved against ROOT and canonicalized; nil if the result would
@@ -542,7 +555,8 @@
   namespace's \"recoverable failure\" signal (unknown keychain key, missing
   file, malformed URL, ...) so a guest sees a value it can react to instead
   of the whole `main` call dying on an uncaught Java exception."
-  [{:keys [clipboard keychain notifications log topics fs-root]}]
+  [{:keys [clipboard keychain notifications log topics fs-root
+           http-timeout-ms http-max-response-bytes]}]
   {'notify-show
    (fn [_instance args]
      (swap! notifications conj {:code (aget args 0) :at (System/currentTimeMillis)})
@@ -566,9 +580,16 @@
        (let [url (read-str instance (aget args 0) (aget args 1))]
          (if-not (resource-permitted? *concrete-cap* url)
            -1
-           (let [req (-> (HttpRequest/newBuilder (URI/create url)) .GET .build)
-                 resp (.send (HttpClient/newHttpClient) req (HttpResponse$BodyHandlers/ofByteArray))]
-             (write-bytes! instance (aget args 2) (aget args 3) (.body resp)))))
+           (let [out-cap (aget args 3)
+                 timeout (Duration/ofMillis (long (max 1 (or http-timeout-ms 5000))))
+                 req (-> (HttpRequest/newBuilder (URI/create url))
+                         (.timeout timeout) .GET .build)
+                 body (bounded-http-send req
+                                         (or http-timeout-ms 5000)
+                                         (min out-cap (or http-max-response-bytes 1048576)))]
+             (if body
+               (write-bytes! instance (aget args 2) out-cap body)
+               -1))))
        (catch Exception _ -1)))
 
    'keychain-read
@@ -728,11 +749,18 @@
              body (read-bytes instance (aget args 2) (aget args 3))]
          (if-not (resource-permitted? *concrete-cap* url)
            -1
-           (let [req (-> (HttpRequest/newBuilder (URI/create url))
+           (let [timeout (Duration/ofMillis (long (max 1 (or http-timeout-ms 5000))))
+                 req (-> (HttpRequest/newBuilder (URI/create url))
+                        (.timeout timeout)
                         (.POST (HttpRequest$BodyPublishers/ofByteArray body))
                         .build)
-                 resp (.send (HttpClient/newHttpClient) req (HttpResponse$BodyHandlers/ofByteArray))]
-             (write-bytes! instance (aget args 4) (aget args 5) (.body resp)))))
+                 out-cap (aget args 5)
+                 response-body (bounded-http-send req
+                                                  (or http-timeout-ms 5000)
+                                                  (min out-cap (or http-max-response-bytes 1048576)))]
+             (if response-body
+               (write-bytes! instance (aget args 4) out-cap response-body)
+               -1))))
        (catch Exception _ -1)))})
 
 (def real-op-ids

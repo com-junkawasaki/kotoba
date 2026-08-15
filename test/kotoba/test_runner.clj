@@ -44,6 +44,7 @@
             [kotoba.real-host-providers-test]
             [kotoba.reproducible-emit-test]
             [kotoba.runtime-test]
+            [kotoba.security-by-design-assurance-test]
             [kotoba.security-kaizen-test]
             [kotoba.security-boundary-fuzz-test]
             [kotoba.sensing-host-test]
@@ -108,6 +109,7 @@
                                         'kotoba.real-host-providers-test
                                         'kotoba.reproducible-emit-test
                                         'kotoba.runtime-test
+                                        'kotoba.security-by-design-assurance-test
                                         'kotoba.security-kaizen-test
                                         'kotoba.security-boundary-fuzz-test
                                         'kotoba.sensing-host-test

@@ -461,6 +461,37 @@
       (is (= :fuel-exhausted (:kotoba.wasm/problem trapped)))
       (is (= 200 (:kotoba.wasm/fuel-limit trapped))))))
 
+(deftest http-resource-scopes-compare-structured-origins
+  (testing "a host-name prefix lookalike never inherits the granted origin"
+    (is (#'wasm-exec/resource-permitted?
+         {:cap/resource "https://api.example/"}
+         "https://api.example/v1"))
+    (is (not (#'wasm-exec/resource-permitted?
+              {:cap/resource "https://api.example/"}
+              "https://api.example.attacker.invalid/v1")))
+    (is (not (#'wasm-exec/resource-permitted?
+              {:cap/resource "https://api.example/service"}
+              "https://api.example/service-evil")))
+    (is (not (#'wasm-exec/resource-permitted?
+              {:cap/resource "https://api.example/service?tenant=a"}
+              "https://api.example/service?tenant=b")))
+    (is (#'wasm-exec/resource-permitted?
+         {:cap/resource "https://api.example/service"}
+         "https://api.example/service/v1"))))
+
+(deftest emitted-memory-has-an-enforced-maximum
+  (let [forms (runtime/read-file "src/demo_memory_grow.kotoba" :kotoba)
+        one-page (runtime/wasm-binary forms {:limits {:memory-pages 1}})
+        two-pages (runtime/wasm-binary forms {:limits {:memory-pages 2}})]
+    (is (= 1 (:kotoba.wasm/memory-max-pages one-page)))
+    (is (= 2 (:kotoba.wasm/memory-max-pages two-pages)))
+    (is (= 0 (wasm-exec/run-main (:kotoba.wasm/binary one-page) []
+                                 {:limits {:memory-pages 1}}))
+        "memory.grow returns -1 and memory remains at one page")
+    (is (= 3 (wasm-exec/run-main (:kotoba.wasm/binary two-pages) []
+                                 {:limits {:memory-pages 2}}))
+        "the legitimate bounded grow from one to two pages remains available")))
+
 (deftest wasm-binary-executes-bool-ops-parity-with-interpreter
   (testing "pos?/neg?/and/or/when execute through Chicory and agree with the
             interpreter (the fixture only branches on comparison results --

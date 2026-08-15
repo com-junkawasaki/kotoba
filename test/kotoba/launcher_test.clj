@@ -736,9 +736,11 @@
     (is (:kotoba.wasm/ok? wasm))
     (is (= true (:kotoba.wasm/memory? wasm)))
     (is (= 1 (:kotoba.wasm/memory-min-pages wasm)))
+    (is (= 256 (:kotoba.wasm/memory-max-pages wasm)))
     (is (:kotoba.cli/ok? emitted))
     (is (= true (get-in emitted [:kotoba.cli/data :kotoba.wasm/memory?])))
     (is (= 1 (get-in emitted [:kotoba.cli/data :kotoba.wasm/memory-min-pages])))
+    (is (= 256 (get-in emitted [:kotoba.cli/data :kotoba.wasm/memory-max-pages])))
     (is (= [0 97 115 109]
            (mapv #(bit-and % 0xff) (take 4 (java.nio.file.Files/readAllBytes (.toPath output))))))))
 
