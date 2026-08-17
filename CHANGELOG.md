@@ -6,6 +6,18 @@ user-visible or architecturally significant changes.
 
 ## Unreleased
 
+- The published CLI accepts a fuel budget again. A policy may declare
+  `{:budgets {:fuel n}}` to size the emitted artifact's fuel global; v0.7.1
+  shipped a compiler snapshot from before that key was admitted and rejected
+  such a policy as `malformed capability policy`, so a released binary could
+  not run anything past the default 512-call ceiling. No code change was
+  needed — the pinned compiler already carried the fix.
+- The Wasm validation gate no longer requires `wasm-tools` on the host. It is
+  still preferred; when it cannot be started the module is validated by node
+  instead, and the test fails if neither validator can run. This unblocks CI
+  and the release workflow, which gate on the same suite and run on images
+  without `wasm-tools` installed.
+
 - Added `kotoba.runtime/cap-affine-problems` (narrow S2, deterministic drop
   / no implicit clone): a capability-typed value — a `^{:cap <kind>}` param,
   a `(cap-acquire ...)` result, or a let-bound alias of either — may be
