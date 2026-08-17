@@ -11,7 +11,7 @@ Deny-by-default. Language contract:
 [kotoba-lang.org](https://kotoba-lang.org)
 
 ```sh
-brew tap kotoba-lang/kotoba && brew install kotoba
+brew tap kotoba-lang/kotoba && brew trust kotoba-lang/kotoba && brew install kotoba
 kotoba -e '(+ 1 2)'
 ```
 
@@ -158,6 +158,7 @@ See [**Documentation**](#documentation) below for the full ADR / design index.
 ```bash
 # Tap the kotoba formula
 brew tap kotoba-lang/kotoba        # one-time
+brew trust kotoba-lang/kotoba      # Homebrew 6 will not load an untrusted tap
 brew install kotoba                # installs the native `kotoba` executable
 ```
 
