@@ -15,6 +15,34 @@
 (def positive-lock "test/fixtures/package/positive-lock.edn")
 (def trust "test/fixtures/package/trust.edn")
 
+(def ^:private node-validate-source
+  "Refuse any module the WebAssembly spec validator rejects. V8's validator
+  type-checks function bodies and import signatures, not merely the section
+  framing: measured 2026-08-17, it rejects a function declaring an i32 result
+  over an i64 body, and a module with a corrupted or truncated body, in exactly
+  the cases `wasm-tools validate` rejects."
+  (str "const fs=require('fs');"
+       "if(!WebAssembly.validate(fs.readFileSync(process.argv[1])))"
+       "{console.error('module failed WebAssembly.validate');process.exit(1)}"))
+
+(defn- validate-wasm
+  "Validate an emitted module, preferring `wasm-tools` and falling back to the
+  Node validator.
+
+  The fallback exists because `wasm-tools` is not installed on the GitHub
+  runners, so this gate reported `Cannot run program \"wasm-tools\"` as a test
+  error and blocked every release; node is already required by both workflows.
+  Returns nil only when neither validator can run at all, which the caller
+  must treat as a failure: a validation that could not run is not a validation
+  that passed, and the caller must be able to say which one answered."
+  [path]
+  (letfn [(attempt [validator command args]
+            (try (let [{:keys [exit err]} (apply shell/sh command args)]
+                   {:validator validator :ok (zero? exit) :err err})
+                 (catch java.io.IOException _ nil)))]
+    (or (attempt "wasm-tools" "wasm-tools" ["validate" path])
+        (attempt "node" "node" ["-e" node-validate-source path]))))
+
 (deftest exception-chain-is-bounded-and-path-free
   (let [cause (ClassNotFoundException. "clojure.lang.RT")
         wrapper (ex-info "project admission failed" {:path "/ambient/private"} cause)
@@ -1320,13 +1348,16 @@
                                      "--policy" (.getPath policy)
                                      "--output" (.getPath output)])
           text (slurp output :encoding "ISO-8859-1")
-          validated (shell/sh "wasm-tools" "validate" (.getPath output))]
+          validated (validate-wasm (.getPath output))]
       (is (:kotoba.cli/ok? result) (:kotoba.cli/message result))
       (is (= :compile/emitted (:kotoba.cli/code result)))
       (is (= :kotoba-wasm (get-in result [:kotoba.cli/data :backend])))
       (is (str/includes? text (str "kotoba:cap" (char 4) "call")))
       (is (not (str/includes? text (str "kotoba:typed" (char 8) "cap-call"))))
-      (is (zero? (:exit validated)) (:err validated)))))
+      (is (some? validated)
+          "neither wasm-tools nor node could validate the module")
+      (is (:ok validated)
+          (str (:validator validated) " rejected the module: " (:err validated))))))
 
 (deftest compile-run-host-free-i64-main-on-kototama
   ;; `compile --run` is the amu → kototama plane. `wasm run` stays on
