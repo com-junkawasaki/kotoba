@@ -20,6 +20,13 @@ checksum_url=${KOTOBA_CHECKSUM_URL:-"$archive_url.sha256"}
 
 command -v curl >/dev/null 2>&1 || { echo "kotoba installer: curl is required" >&2; exit 1; }
 command -v tar >/dev/null 2>&1 || { echo "kotoba installer: tar is required" >&2; exit 1; }
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256() { sha256sum "$1" | awk '{print $1}'; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha256() { shasum -a 256 "$1" | awk '{print $1}'; }
+else
+  echo "kotoba installer: sha256sum or shasum is required" >&2; exit 1
+fi
 
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/kotoba-install.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
@@ -27,7 +34,9 @@ trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
 curl -fL "$archive_url" -o "$tmpdir/kotoba.tar.gz"
 curl -fL "$checksum_url" -o "$tmpdir/kotoba.tar.gz.sha256"
 expected=$(awk '{print $1}' "$tmpdir/kotoba.tar.gz.sha256")
-actual=$(shasum -a 256 "$tmpdir/kotoba.tar.gz" | awk '{print $1}')
+[ -n "$expected" ] || { echo "kotoba installer: published checksum is empty" >&2; exit 1; }
+actual=$(sha256 "$tmpdir/kotoba.tar.gz")
+[ -n "$actual" ] || { echo "kotoba installer: could not compute checksum" >&2; exit 1; }
 [ "$actual" = "$expected" ] || { echo "kotoba installer: checksum mismatch" >&2; exit 1; }
 tar -xzf "$tmpdir/kotoba.tar.gz" -C "$tmpdir"
 [ -x "$tmpdir/kotoba" ] || { echo "kotoba installer: native executable missing" >&2; exit 1; }
