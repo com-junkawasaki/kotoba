@@ -162,6 +162,47 @@
           (when (= current option) next))
         (partition-all 2 1 argv)))
 
+(def expression-flags
+  "The one-liner form the README opens with. `-e EXPR` is compile-and-run
+  sugar, never a runtime `eval`: the expression becomes the body of `main` in
+  a throwaway module that then travels the ordinary `run` path, safe gate and
+  policy included. Documented since the README was written; the flag itself
+  reached the launcher only now, so `kotoba -e '(+ 1 2)'` answered
+  `:command/unknown` in every released binary up to v0.7.2."
+  #{"-e" "--expression"})
+
+(defn expression-source
+  "The module `-e EXPR` compiles. `main` takes no parameters and returns the
+  expression, which is exactly the shape `run` already executes."
+  [expression]
+  (str "(ns kotoba.expression)\n\n(defn main []\n  " expression ")\n"))
+
+(defn expression-argv
+  "Rewrite `-e EXPR [option ...]` into `run FILE [option ...]`, so the sugar
+  owns no execution path of its own. Answers nil unless argv opens with the
+  flag, leaving every other command's argv byte-identical."
+  [argv file]
+  (when (and (expression-flags (first argv)) (second argv))
+    (into ["run" (str file)] (drop 2 argv))))
+
+(defn- staged-expression!
+  "Write EXPR into a throwaway module. `createTempDirectory` gives it mode
+  0700 on POSIX hosts, so the expression is not readable by other users of a
+  shared /tmp while it exists; `-main` deletes both file and directory in a
+  `finally`, whether the run succeeded, failed or threw."
+  [expression]
+  (let [directory (java.nio.file.Files/createTempDirectory
+                   "kotoba-expression"
+                   (into-array java.nio.file.attribute.FileAttribute []))
+        file (.toFile (.resolve directory "expression.kotoba"))]
+    (spit file (expression-source expression))
+    {:file file :directory (.toFile directory)}))
+
+(defn- discard-expression!
+  [{:keys [file directory]}]
+  (when file (.delete ^java.io.File file))
+  (when directory (.delete ^java.io.File directory)))
+
 (defn option-values
   "The tokens immediately following EVERY occurrence of `option` in argv."
   [argv option]
@@ -2444,6 +2485,22 @@
         :exception-class (.getName (class error))}})))
 
 (defn -main [& argv]
-  (let [result (safe-dispatch argv)]
+  (let [argv (vec argv)
+        expression (when (expression-flags (first argv)) (second argv))
+        staged (when expression (staged-expression! expression))
+        result (try
+                 (cond
+                   staged (safe-dispatch (expression-argv argv (:file staged)))
+
+                   ;; `-e` with nothing after it is a usage error, not an
+                   ;; unknown command: the flag exists, the expression does not.
+                   (expression-flags (first argv))
+                   {:kotoba.cli/ok? false
+                    :kotoba.cli/code :expression/missing
+                    :kotoba.cli/message "an expression must follow the flag"
+                    :kotoba.cli/data {:kotoba.expression/flag (first argv)}}
+
+                   :else (safe-dispatch argv))
+                 (finally (some-> staged discard-expression!)))]
     (println (render-result result (json-requested? argv)))
     (System/exit (result->exit result))))

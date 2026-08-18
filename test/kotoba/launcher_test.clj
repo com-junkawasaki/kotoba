@@ -1612,3 +1612,55 @@
   (let [r (launcher/dispatch ["selfhost" "nope"])]
     (is (= :selfhost/unknown-command (:kotoba.cli/code r)))
     (is (some #{"analyze"} (get-in r [:kotoba.cli/data :kotoba.selfhost/commands])))))
+
+;; ---------------------------------------------------------------------------
+;; `-e EXPR` — the one-liner the README opens with.
+
+(deftest expression-flag-wraps-the-expression-as-main
+  ;; The wrapper has to be a module `run` already accepts, so the sugar owns no
+  ;; execution path of its own.
+  (is (= "(ns kotoba.expression)\n\n(defn main []\n  (+ 1 2))\n"
+         (launcher/expression-source "(+ 1 2)"))))
+
+(deftest expression-flag-rewrites-argv-into-run
+  (testing "both spellings, with trailing options preserved in order"
+    (doseq [flag ["-e" "--expression"]]
+      (is (= ["run" "/tmp/x.kotoba" "--policy" "p.edn" "--json"]
+             (launcher/expression-argv [flag "(+ 1 2)" "--policy" "p.edn" "--json"]
+                                       "/tmp/x.kotoba")))))
+  (testing "every other argv is left alone"
+    (is (nil? (launcher/expression-argv ["run" "src/demo.kotoba"] "/tmp/x.kotoba")))
+    (is (nil? (launcher/expression-argv ["check" "-e"] "/tmp/x.kotoba")))
+    ;; The flag last, with nothing after it, is a usage error rather than a
+    ;; rewrite onto a file holding the string "nil".
+    (is (nil? (launcher/expression-argv ["-e"] "/tmp/x.kotoba")))))
+
+(deftest expression-flag-compiles-and-runs
+  ;; End to end through the ordinary run path: the value is produced by
+  ;; compiling Kotoba, not by evaluating the string in this JVM.
+  (let [directory (java.nio.file.Files/createTempDirectory
+                   "kotoba-expression-test"
+                   (into-array java.nio.file.attribute.FileAttribute []))
+        file (.toFile (.resolve directory "expression.kotoba"))]
+    (try
+      (spit file (launcher/expression-source "(+ 1 2)"))
+      (let [result (launcher/dispatch (launcher/expression-argv ["-e" "(+ 1 2)"] file))]
+        (is (true? (:kotoba.cli/ok? result)))
+        (is (= :run/completed (:kotoba.cli/code result)))
+        (is (= 3 (get-in result [:kotoba.cli/data
+                                 :kotoba.runtime/result
+                                 :kotoba.runtime/value]))))
+      (finally (.delete file) (.delete (.toFile directory))))))
+
+(deftest expression-flag-does-not-widen-the-safe-subset
+  ;; `-e` is compile-and-run sugar, not `eval`: an expression the safe subset
+  ;; refuses must still be refused when it arrives through this flag.
+  (let [directory (java.nio.file.Files/createTempDirectory
+                   "kotoba-expression-refusal"
+                   (into-array java.nio.file.attribute.FileAttribute []))
+        file (.toFile (.resolve directory "expression.kotoba"))]
+    (try
+      (spit file (launcher/expression-source "(eval '(+ 1 2))"))
+      (let [result (launcher/dispatch (launcher/expression-argv ["-e" "(eval '(+ 1 2))"] file))]
+        (is (false? (:kotoba.cli/ok? result))))
+      (finally (.delete file) (.delete (.toFile directory))))))
