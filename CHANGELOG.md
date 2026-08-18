@@ -6,6 +6,21 @@ user-visible or architecturally significant changes.
 
 ## Unreleased
 
+- `kotoba -e '(+ 1 2)'` works. The README has opened with that line since it
+  was written and documents it in four more places, but no released binary ever
+  carried the flag: the CLI command vocabulary is
+  `#{:run :compile :check :graph :git :rad :deploy :hinshitsu}`, so `-e` was
+  read as a command name and answered `:command/unknown` — the first thing the
+  quickstart tells a new user to type was the first thing that failed. It is
+  argv-level sugar with no execution path of its own: the expression becomes
+  the body of `main` in a throwaway module under a 0700 temporary directory,
+  and the argv is rewritten to `run FILE`, so the safe gate, the policy and the
+  compile-and-run path are exactly the ordinary ones. `--expression` is
+  accepted as the long spelling; `-e` with nothing after it is now
+  `:expression/missing` rather than an unknown command. A test asserts that
+  `(eval '(+ 1 2))` is still refused through this flag — sugar for compiling is
+  not a runtime `eval`.
+
 - The published CLI accepts a fuel budget again. A policy may declare
   `{:budgets {:fuel n}}` to size the emitted artifact's fuel global; v0.7.1
   shipped a compiler snapshot from before that key was admitted and rejected
