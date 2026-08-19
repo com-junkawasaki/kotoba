@@ -57,19 +57,47 @@ jobs:
           # first, so the suite never runs.
           git clone --depth 1 https://github.com/kotoba-lang/amu ../amu
           git clone --depth 1 https://github.com/kotoba-lang/kototama ../kototama
-      - name: Verify shared security adoption
+      # Every step below carries `if: ${{ !cancelled() }}` so that one failure
+      # reports itself without removing the others from the run. This job has
+      # already been bitten once by the default: the comment above records that
+      # the evidence clones were missing "invisibly because the
+      # security-adoption step above exits first, so the suite never runs".
+      # The setup steps are deliberately NOT guarded -- with no toolchain and no
+      # sibling checkouts the rest would fail for reasons that say nothing.
+      - if: ${{ !cancelled() }}
+        name: Verify shared security adoption
         run: clojure -M -m kotoba.security.adoption
-      - name: Test CLJ launcher
+      - if: ${{ !cancelled() }}
+        name: Test CLJ launcher
         run: clojure -M:test
         env:
           KOTOBA_LANG_AUTHORITY_ROOT: ${{ github.workspace }}/_authority/kotoba-lang
           KOTOBA_COMPILER_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/amu
           KOTOTAMA_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/kototama
-      - name: Lint CLJ launcher (clj-kondo)
+      # The Q9 wave-1 pilot names `clojure -M:qualification` as its verification
+      # command, and nothing ran it: `grep -n '\-M:qualification'` across this
+      # repository matched exactly one line, the pilot record's own :command.
+      # Its assertions do run -- backend-qualification-test is in the suite
+      # above -- but the command that produces the report, and with it anything
+      # a soak could count, did not. Measured 2026-08-19 with these same three
+      # roots: 10 tests, 103 assertions, 0 failures. Without them it is 9
+      # failures, all of them evidence paths that resolve only beside a sibling
+      # checkout, which is why this step sets them rather than trusting layout.
+      - if: ${{ !cancelled() }}
+        name: Run the Q9 wave-1 pilot's declared command
+        run: clojure -M:qualification
+        env:
+          KOTOBA_LANG_AUTHORITY_ROOT: ${{ github.workspace }}/_authority/kotoba-lang
+          KOTOBA_COMPILER_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/amu
+          KOTOTAMA_EVIDENCE_ROOT: ${{ github.workspace }}/_evidence/kototama
+      - if: ${{ !cancelled() }}
+        name: Lint CLJ launcher (clj-kondo)
         run: clojure -M:lint
-      - name: Smoke CLJ launcher
+      - if: ${{ !cancelled() }}
+        name: Smoke CLJ launcher
         run: bin/kotoba-clj check --kind cli-contract --json
-      - name: Smoke package admission gate
+      - if: ${{ !cancelled() }}
+        name: Smoke package admission gate
         run: |
           bin/kotoba-clj package verify --lock test/fixtures/package/positive-lock.edn --trust test/fixtures/package/trust.edn --json
           if bin/kotoba-clj package verify --lock test/fixtures/package/version-only-lock.edn --json; then
@@ -94,14 +122,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools wheel
           python -m pip install pytest -e .
-      - name: Test
+      - if: ${{ !cancelled() }}
+        name: Test
         run: |
           if find tests -type f -name "*.py" -print -quit 2>/dev/null | grep -q .; then
             python -m pytest -q
           else
             echo "No Python SDK tests found; package and wheel checks still run."
           fi
-      - name: Wheel contains bundled assets
+      - if: ${{ !cancelled() }}
+        name: Wheel contains bundled assets
         run: |
           tmpdir="$(mktemp -d)"
           python -m pip wheel . --no-deps -w "$tmpdir"
