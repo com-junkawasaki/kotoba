@@ -1,14 +1,27 @@
 {:schema "kotoba.repository-role-rules.v0"
+ ;; `:depends-on` is the set of repos this one reaches through a `:git/url`
+ ;; entry in production `:deps` -- that is what verify-repository-roles.cljs
+ ;; compares against, so anything else here fails the check without being
+ ;; wrong about the world.
+ ;;
+ ;; kotoba-lang/grammar is therefore NOT listed, and its absence is not an
+ ;; oversight: it is consumed as `{:local/root "vendor/grammar"}`, a committed
+ ;; overlay kept so standalone builds do not need a sibling checkout. A
+ ;; vendored copy is a different relationship from a git dependency and has
+ ;; its own detector (verify-vendored-copies). Re-adding it here turns the
+ ;; gate red again.
  :this-repo
  {:name "kotoba"
   :tier :t2
   :role :runtime
   :owns ["language runtime" "capability host" "host adapters"]
   :depends-on ["kotoba-lang/kgraph"
-               "kotoba-lang/grammar"
                "kotoba-lang/codebase"
                "kotoba-lang/security"
                "kotoba-lang/amu"
+               "kotoba-lang/kotoba-sema"
+               "kotoba-lang/kotoba-script"
+               "kotoba-lang/kototama"
                "kotoba-lang/kotoba-core-contracts"
                "kotoba-lang/kotoba-selfhost-contracts"
                "kotoba-lang/kotoba-lang"
