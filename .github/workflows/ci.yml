@@ -64,6 +64,11 @@ jobs:
       # security-adoption step above exits first, so the suite never runs".
       # The setup steps are deliberately NOT guarded -- with no toolchain and no
       # sibling checkouts the rest would fail for reasons that say nothing.
+      # TEMPORARY. Fails the first behavioural step on purpose so this one run
+      # shows the six behind it still running. Removed in the next commit.
+      - if: ${{ !cancelled() }}
+        name: PROBE - fail the first behavioural step
+        run: exit 1
       - if: ${{ !cancelled() }}
         name: Verify shared security adoption
         run: clojure -M -m kotoba.security.adoption
