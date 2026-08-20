@@ -18,9 +18,13 @@
         io.github.kotoba-lang/io-libp2p-specs-kad-dht
         {:git/url "https://github.com/kotoba-lang/io-libp2p-specs-kad-dht.git"
          :git/sha "7c4de6d971ce7c14adc6d07d3b4e3b1eeac68eae"}
+        ;; Advanced ba5c969 -> aa81ef5 (a fast-forward, verified with
+        ;; `git merge-base --is-ancestor`) to pick up ipns naming the ed25519
+        ;; repository by its current name. Before that commit this dependency
+        ;; pulled io.github.kotoba-lang/ed25519 into the closure -- the other
+        ;; half of why the ed25519 entry below had to exist twice.
         io.github.kotoba-lang/tech-ipfs-specs-ipns
-        {:git/url "https://github.com/kotoba-lang/tech-ipfs-specs-ipns.git"
-         :git/sha "ba5c9696c1d3474e52c6a3cdc4d92ed5f7985fa3"}
+        {:git/sha "aa81ef55dd3f97f0fbe372f713d359049bce9bbf"}
         io.github.kotoba-lang/codebase
         {:git/url "https://github.com/kotoba-lang/codebase.git"
          :git/sha "7392c25f112964e8859c07df8859a7ff98b6f453"}
@@ -102,22 +106,38 @@
         ;; Production host for amu wasm32-kotoba-v1 (`compile --target wasm --run`).
         ;; Distinct from kotoba.wasm-exec, which runs legacy `wasm emit` (kgraph /
         ;; actor:host) and is intentionally not kototama.
+        ;; Advanced 4146016 -> 8daadec (a fast-forward, verified with
+        ;; `git merge-base --is-ancestor`) to pick up kototama naming the
+        ;; ed25519 repository by its current name. Before that commit this
+        ;; dependency pulled io.github.kotoba-lang/ed25519 into the closure,
+        ;; which is half of why the entry above had to exist twice.
         io.github.kotoba-lang/kototama
-        {:git/url "https://github.com/kotoba-lang/kototama.git"
-         :git/sha "41460163b38254d4065f64afd0188d3e98bddbc7"}
+        {:git/sha "8daadecd3fbe823510af499a1960271bb5aaf42a"}
         ;; real gen-keypair/sign/verify host-import implementations
         ;; (kotoba.wasm-exec/real-op-effects) -- same pin kotoba-lang/kototama's
         ;; tender.clj already uses for the identical algorithm choice.
-        io.github.kotoba-lang/ed25519
-        {:git/url "https://github.com/kotoba-lang/ed25519.git"
-         :git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
-        ;; org-chainagnostic-cacao still names the same upstream repository by
-        ;; its historical artifact coordinate. Pin that coordinate too: a
-        ;; legacy core.clj otherwise shadows the Graal-static core.cljc merely
-        ;; because Clojure prefers .clj resources for the same namespace.
+        ;;
+        ;; This was TWO entries until 2026-08-20: `ed25519` and
+        ;; `org-ietf-ed25519`, both at c1ba832, both with the pre-rename URL.
+        ;; The comment on the second said the first had to stay because some
+        ;; transitive dependency still named the historical coordinate, and
+        ;; that a legacy core.clj would otherwise shadow the Graal-static
+        ;; core.cljc. That reasoning had it backwards -- carrying both names is
+        ;; precisely what puts two checkouts of one repository on the classpath
+        ;; and lets one shadow the other, since tools.deps dedupes by the
+        ;; coordinate SYMBOL and cannot tell they are the same repo.
+        ;;
+        ;; Measured with `clojure -Stree -M:test`: the two transitive requests
+        ;; for the old name came from kototama and tech-ipfs-specs-ipns, both
+        ;; at fdcefb9, and this file's top-level pin was dragging them up to
+        ;; c1ba832. Both have since been corrected upstream, and their pins
+        ;; below advance onto those fixes, so the old name no longer enters the
+        ;; closure from anywhere and does not need pinning here. The :git/url
+        ;; is dropped rather than corrected: io.github.<org>/<name> derives it,
+        ;; and a separate URL is what let this one keep naming a repository
+        ;; that had been renamed.
         io.github.kotoba-lang/org-ietf-ed25519
-        {:git/url "https://github.com/kotoba-lang/ed25519.git"
-         :git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
+        {:git/sha "c1ba8322a33b668da1311ca69a8cdde3c7981b52"}
         ;; real package manifest integrity verification
         ;; (kotoba.security.package-admission/manifest-integrity-error): canonical
         ;; DAG-CBOR encoding + CIDv1, matching kotoba-core-contracts'
