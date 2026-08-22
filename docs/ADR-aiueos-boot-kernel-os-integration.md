@@ -240,6 +240,14 @@ sequence 2. This closes a one-commit rollback window, but is not yet an
 unbounded multi-record journal, writable object allocator, filesystem, or
 kotobase IStore.
 
+The block request queue is assigned MSI-X table entry 0 and architectural
+vector 35 before `DRIVER_OK`. The kernel bounds the advertised vector count,
+table and PBA byte ranges against probed BAR extents, maps only those validated
+MMIO ranges, and rejects a queue vector assignment that the device does not
+retain. Every sector operation waits in `sti; hlt` and is accepted only when
+both a vector-35 IRQ and the matching used-ring element are observed. This is
+real QEMU device-interrupt evidence; it is not a synthetic smoke event.
+
 ## Initial non-goals
 
 - full POSIX/Linux ABI compatibility;

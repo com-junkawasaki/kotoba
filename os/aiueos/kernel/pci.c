@@ -99,6 +99,7 @@ static int journal_recovered;
 static uint32_t journal_sequence;
 static uint32_t journal_recovered_sequence;
 static uint32_t journal_slot;
+volatile uint64_t aiueos_virtio_blk_irq_count;
 int aiueos_object_store_ready(void) { return object_store_ready; }
 int aiueos_journal_ready(void) { return journal_ready; }
 int aiueos_journal_recovered(void) { return journal_recovered; }
@@ -132,7 +133,7 @@ static int virtio_blk_sector_io(struct virtio_blk_request *request, uint8_t *sec
   avail->index = target; *doorbell = 0;
   for (uint32_t budget = 0; budget < 100000000U; budget++) {
     __asm__ volatile("" ::: "memory");
-    if (used->index == target) {
+    if (aiueos_virtio_blk_irq_count >= target && used->index == target) {
       struct virtq_used_element *completion = &used->ring[old & 3];
       uint32_t expected = type == VIRTIO_BLK_T_IN ? 513 : 1;
       if (completion->id != 0 || completion->length != expected || *status != VIRTIO_BLK_S_OK)
@@ -140,7 +141,7 @@ static int virtio_blk_sector_io(struct virtio_blk_request *request, uint8_t *sec
       *submitted = target;
       return 1;
     }
-    __asm__ volatile("pause");
+    __asm__ volatile("sti; hlt; cli" ::: "memory");
   }
   return 0;
 }
@@ -283,6 +284,47 @@ static int setup_rng_msix(uint8_t b, uint8_t d, uint8_t f,
   return 1;
 }
 
+/* Keep the block device on a distinct architectural vector.  The capability,
+   BAR, table and PBA bounds are revalidated per device; no address learned
+   from the rng function is reused. */
+static int setup_blk_msix(uint8_t b, uint8_t d, uint8_t f,
+                          const struct virtio_caps *caps,
+                          volatile struct virtio_common_cfg *cfg) {
+  if (!caps->msix_pointer) return 0;
+  uint8_t pointer = caps->msix_pointer;
+  uint32_t header = config_read(b,d,f,pointer);
+  uint32_t table = config_read(b,d,f,pointer + 4);
+  uint32_t pba = config_read(b,d,f,pointer + 8);
+  uint32_t vectors = ((header >> 16) & 0x7ffU) + 1U;
+  uint8_t table_bar = table & 7U, pba_bar = pba & 7U;
+  uint64_t table_base, table_bar_length, pba_base, pba_bar_length;
+  uint64_t table_offset = table & ~7U, pba_offset = pba & ~7U;
+  uint64_t table_bytes = (uint64_t)vectors * sizeof(struct msix_entry);
+  uint64_t pba_bytes = ((uint64_t)vectors + 63) / 64 * 8;
+  if (vectors > 2048 || table_bar >= 6 || pba_bar >= 6) return 0;
+  if (!bar_extent(b,d,f,table_bar,&table_base,&table_bar_length) ||
+      !bar_extent(b,d,f,pba_bar,&pba_base,&pba_bar_length)) return 0;
+  if (table_offset > table_bar_length || table_bytes > table_bar_length - table_offset ||
+      pba_offset > pba_bar_length || pba_bytes > pba_bar_length - pba_offset) return 0;
+  if (!aiueos_map_pci_mmio(table_base + table_offset,table_bytes) ||
+      !aiueos_map_pci_mmio(pba_base + pba_offset,pba_bytes)) return 0;
+  struct msix_entry *entry = (void *)(uintptr_t)(table_base + table_offset);
+  uint32_t eax = 1, ebx, ecx, edx;
+  __asm__ volatile("cpuid" : "+a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx));
+  entry[0].vector_control = 1;
+  entry[0].address_low = 0xfee00000U | (((ebx >> 24) & 0xffU) << 12);
+  entry[0].address_high = 0;
+  entry[0].data = 35;
+  __asm__ volatile("" ::: "memory");
+  cfg->queue_msix_vector = 0;
+  if (cfg->queue_msix_vector != 0) return 0;
+  entry[0].vector_control = 0;
+  config_write(b,d,f,pointer,header | (1U << 31));
+  if (!(config_read(b,d,f,pointer) & (1U << 31))) return 0;
+  aiueos_virtio_blk_irq_count = 0;
+  return 1;
+}
+
 static int map_transport(uint8_t b, uint8_t d, uint8_t f, const struct virtio_caps *caps,
                          volatile struct virtio_common_cfg **cfg_out,
                          uint64_t *notify_base_out) {
@@ -341,7 +383,7 @@ static int virtio_rng(uint8_t b, uint8_t d, uint8_t f) {
   if (!desc || !avail || !used || !random) return 0;
   desc[0].address = (uint64_t)(uintptr_t)random; desc[0].length = 32;
   desc[0].flags = VIRTQ_DESC_F_WRITE; desc[0].next = 0;
-  avail->ring[0] = 0; __asm__ volatile("" ::: "memory"); avail->index = 1;
+  avail->index = 0;
   volatile uint16_t *doorbell = prepare_queue(cfg,&caps,notify_base,1,desc,avail,used);
   if (!doorbell || !setup_rng_msix(b,d,f,&caps,cfg)) return 0;
   cfg->device_status |= VIRTIO_STATUS_DRIVER_OK;
@@ -388,12 +430,12 @@ static int virtio_blk(uint8_t b, uint8_t d, uint8_t f) {
   avail->ring[0] = 0; __asm__ volatile("" ::: "memory"); avail->index = 1;
   /* Split rings use a power-of-two queue; the request consumes three entries. */
   volatile uint16_t *doorbell = prepare_queue(cfg,&caps,notify_base,4,desc,avail,used);
-  if (!doorbell) return 0;
+  if (!doorbell || !setup_blk_msix(b,d,f,&caps,cfg)) return 0;
   cfg->device_status |= VIRTIO_STATUS_DRIVER_OK;
-  *doorbell = 0;
-  for (uint32_t budget = 0; budget < 100000000U; budget++) {
-    __asm__ volatile("" ::: "memory");
-    if (used->index == 1) {
+  uint16_t submitted = 0;
+  if (!virtio_blk_sector_io(request,sector,status,desc,avail,used,doorbell,
+                            &submitted,VIRTIO_BLK_T_IN,0)) return 0;
+  {
       if (used->ring[0].id != 0 || used->ring[0].length != 513 || *status != VIRTIO_BLK_S_OK)
         return 0;
       const struct aiuefs_superblock *superblock = (const void *)sector;
@@ -409,7 +451,6 @@ static int virtio_blk(uint8_t b, uint8_t d, uint8_t f) {
       struct aiuefs_journal_record *journal = (void *)sector;
       static const uint8_t journal_magic[8] = {'A','I','U','J','R','N','1',0};
       static const uint8_t journal_payload[16] = "KOTOBASE-TXN-001";
-      uint16_t submitted = 1;
       int valid[2] = {0, 0}, selected = -1;
       /* Validate both bounded slots before mutation and choose the greatest
          committed sequence. The other slot remains the rollback record. */
@@ -452,10 +493,7 @@ static int virtio_blk(uint8_t b, uint8_t d, uint8_t f) {
       journal_sequence = next_sequence;
       journal_slot = target_slot + 1;
       return 1;
-    }
-    __asm__ volatile("pause");
   }
-  return 0;
 }
 
 static int virtio_input(uint8_t b, uint8_t d, uint8_t f) {

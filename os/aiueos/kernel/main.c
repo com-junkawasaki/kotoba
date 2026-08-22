@@ -26,6 +26,7 @@ extern void aiueos_isr_page_fault(void);
 extern void aiueos_isr_apic_timer(void);
 extern void aiueos_isr_external_timer(void);
 extern void aiueos_isr_virtio_rng(void);
+extern void aiueos_isr_virtio_blk(void);
 extern void aiueos_isr_syscall(void);
 extern void aiueos_probe_write_protect(void);
 extern void aiueos_probe_no_execute(void);
@@ -58,6 +59,7 @@ extern int aiueos_smp_start_application_processor(void);
 extern int aiueos_ioapic_route_legacy_timer(void);
 extern volatile uint64_t aiueos_external_timer_ticks;
 extern volatile uint64_t aiueos_virtio_rng_irq_count;
+extern volatile uint64_t aiueos_virtio_blk_irq_count;
 static struct idt_entry idt[256] __attribute__((aligned(16)));
 
 static inline void debug_byte(uint8_t value) {
@@ -137,6 +139,7 @@ void aiueos_kernel_main(const struct aiueos_boot_info *boot) {
     set_idt_gate(32, aiueos_isr_apic_timer);
     set_idt_gate(33, aiueos_isr_external_timer);
     set_idt_gate(34, aiueos_isr_virtio_rng);
+    set_idt_gate(35, aiueos_isr_virtio_blk);
     set_idt_gate(128, aiueos_isr_syscall);
     idt[128].attributes = 0xee; /* present, DPL3, interrupt gate */
     const struct descriptor_pointer idtr = {
@@ -233,6 +236,11 @@ void aiueos_kernel_main(const struct aiueos_boot_info *boot) {
     }
     debug_string("AIUEOS_VIRTIO_BLK_OK capacity-bounded sector=0 bytes=512 readonly\n");
     serial_string("AIUEOS_VIRTIO_BLK_OK capacity-bounded sector=0 bytes=512 readonly\r\n");
+    if (aiueos_virtio_blk_irq_count < 5) {
+      serial_string("AIUEOS_VIRTIO_BLK_MSIX_FAIL irq-count\r\n"); qemu_exit(0x6f);
+    }
+    debug_string("AIUEOS_VIRTIO_BLK_MSIX_OK vector=35 irq-completions-bounded table-pba-bounded\n");
+    serial_string("AIUEOS_VIRTIO_BLK_MSIX_OK vector=35 irq-completions-bounded table-pba-bounded\r\n");
     if (!aiueos_object_store_ready()) {
       debug_string("AIUEOS_OBJECT_STORE_FAIL superblock-or-object\n");
       serial_string("AIUEOS_OBJECT_STORE_FAIL superblock-or-object\r\n");

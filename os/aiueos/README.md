@@ -78,10 +78,12 @@ the alternate slot and verifies it by readback without destroying the prior
 commit. The VM gate creates sequences 1 and 2, corrupts the latest slot, and
 requires fallback to sequence 1 before sequence 2 is reconstructed. This is a
 bounded two-record rollback window, not yet a general filesystem or
-kotobase IStore. The blk slice remains polling. The rng queue uses a bounded MSI-X
-capability walk, validates the complete table and PBA against probed BAR
-extents, maps their MMIO UC/NX, and requires vector-34 IRQ evidence before
-accepting the DMA completion.  MSI-X for the remaining transports,
+kotobase IStore. The blk queue uses MSI-X vector 35 for every synchronous
+sector completion and sleeps with interrupts enabled instead of polling its
+used ring. Both blk and rng perform a bounded MSI-X capability walk, validate
+the complete table and PBA against independently probed BAR extents, map their
+MMIO UC/NX, and require real IRQ evidence before accepting DMA completion
+(vector 34 for rng and vector 35 for blk). MSI-X for the remaining transports,
 IOMMU isolation, indirect descriptors, and a reusable multi-request transport
 remain later Phase 4 work.
 

@@ -107,6 +107,9 @@
                                 :raw-device-memory-visible false}}}
  :storage {:block-device :virtio-blk
            :mode :bounded-journal-write
+           :completion {:transport :msix :vector 35 :irq-required true
+                        :table-pba-bounded-by-probed-bar true
+                        :wait :interrupt-halt}
            :object-store {:format :aiuefs-v1
                           :superblock-sector 0
                           :metadata-bounded true
