@@ -3,8 +3,11 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is run-tests testing]]
+            [ed25519.core :as ed]
+            [kotoba.ipld-block-store :as ipld-blocks]
             [kotoba.launcher :as launcher]
-            [kotoba.runtime :as runtime]))
+            [kotoba.runtime :as runtime]
+            [kotoba.semantic-code :as semantic-code]))
 
 ;; `wasm emit`/`wasm run` require a mandatory package-admission gate (F-001);
 ;; every dispatch call below that reaches those subcommands must supply an
@@ -12,6 +15,27 @@
 ;; kotoba.package-admission-test's positive-lock/trust).
 (def positive-lock "test/fixtures/package/positive-lock.edn")
 (def trust "test/fixtures/package/trust.edn")
+
+(def semantic-receipt-seed
+  (byte-array (map byte (range 32))))
+
+(def deployment-receipt-seed
+  (byte-array (map byte (range 32 64))))
+
+(defn- write-seed-file! [target seed]
+  (spit target
+        (pr-str
+         {:kotoba.signing/seed-base64
+          (.encodeToString (java.util.Base64/getEncoder) seed)}))
+  target)
+
+(defn- write-semantic-receipt-auth! [directory]
+  (let [key-file (io/file directory "semantic-signing-key.edn")
+        trust-file (io/file directory "semantic-receipt-trust.edn")
+        signer (ed/did-key-from-seed semantic-receipt-seed)]
+    (write-seed-file! key-file semantic-receipt-seed)
+    (spit trust-file (pr-str {:trusted-signers #{signer}}))
+    {:key key-file :trust trust-file :signer signer}))
 
 (defn- legacy-wasm-dispatch [argv]
   (launcher/dispatch (conj (vec argv) "--trusted-legacy-wasm")))
@@ -68,6 +92,565 @@
       (is (= :kotoba-script (get-in result [:kotoba.cli/data :backend])))
       (is (re-find #"kotoba-js-artifact/v1" (slurp (str (.getPath output) ".manifest.edn"))))
       (is (re-find #"export" (slurp output))))))
+
+(deftest semantic-compile-binds-definition-cids-to-the-artifact
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kotoba-semantic-build"
+                    (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (io/file directory "app.kotoba")
+        output (io/file directory "app.mjs")
+        receipt-file (io/file directory "app.semantic.edn")
+        spdx-file (io/file directory "app.spdx.json")
+        {:keys [key signer]} (write-semantic-receipt-auth! directory)]
+    (spit source "(defn helper [x] (+ x 1)) (defn main [] (helper 41))")
+    (let [result (launcher/dispatch
+                  ["compile" (.getPath source) "--target" "web"
+                   "--semantic-receipt" (.getPath receipt-file)
+                   "--signing-key" (.getPath key)
+                   "--spdx" (.getPath spdx-file)
+                   "--output" (.getPath output)])
+          receipt (edn/read-string (slurp receipt-file))
+          manifest (edn/read-string
+                    (slurp (str (.getPath output) ".manifest.edn")))]
+      (is (:kotoba.cli/ok? result) (pr-str result))
+      (is (= "kotoba.semantic-supply-chain-receipt.v2"
+             (:kotoba.semantic-build/schema receipt)))
+      (is (= signer (:kotoba.semantic-build/signer receipt)))
+      (is (= #{"helper" "main"}
+             (set (keys (get-in receipt
+                                [:kotoba.semantic-build/semantic
+                                 :modules "main" :definitions])))))
+      (is (= (semantic-code/elaborated-contract-cid)
+             (get-in receipt [:kotoba.semantic-build/semantic
+                              :hash-contract-cid])))
+      (is (= (:kotoba.artifact/output-digest manifest)
+             (:kotoba.semantic-build/artifact-sha256 receipt)))
+      (is (= (:kotoba.artifact/semantic-receipt-cid manifest)
+             (:kotoba.semantic-build/receipt-cid receipt)))
+      (is (= 7 (count (:kotoba.semantic-build/edges receipt))))
+      (is (= "SPDX-2.3"
+             (get (json/read-str (slurp spdx-file)) "spdxVersion")))
+      (is (= (semantic-code/source-cid (slurp spdx-file))
+             (:kotoba.semantic-build/spdx-cid receipt)))
+      (is (= receipt (get-in result [:kotoba.cli/data :semantic-receipt]))))))
+
+(deftest semantic-compile-publishes-and-reuses-a-verified-shared-build
+  (let [directory
+        (.toFile
+         (java.nio.file.Files/createTempDirectory
+          "kotoba-semantic-build-cache-"
+          (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (io/file directory "app.kotoba")
+        cache-root (io/file directory "blocks")
+        target-cache-root (io/file directory "target-blocks")
+        first-output (io/file directory "first.mjs")
+        second-output (io/file directory "second.mjs")
+        rejected-output (io/file directory "rejected.mjs")
+        first-receipt (io/file directory "first.semantic.edn")
+        second-receipt (io/file directory "second.semantic.edn")
+        first-spdx (io/file directory "first.spdx.json")
+        second-spdx (io/file directory "second.spdx.json")
+        publish-config (io/file directory "cache-publish.edn")
+        fetch-config (io/file directory "cache-fetch.edn")
+        rejected-config (io/file directory "cache-rejected.edn")
+        provider-record-file (io/file directory "provider.edn")
+        provider-key (io/file directory "provider-key.edn")
+        {:keys [key signer]} (write-semantic-receipt-auth! directory)
+        provider-seed deployment-receipt-seed
+        provider (ed/did-key-from-seed provider-seed)
+        server (atom nil)]
+    (try
+      (spit source "(defn helper [x] (+ x 1)) (defn main [] (helper 41))")
+      (write-seed-file! provider-key provider-seed)
+      (ipld-blocks/initialize! cache-root)
+      (reset! server (ipld-blocks/start-peer! cache-root 0 provider-seed))
+      (let [provider-url
+            (str "http://127.0.0.1:"
+                 (.getPort (.getAddress @server)))]
+        (spit
+         publish-config
+         (pr-str
+          {:block-store (.getPath cache-root)
+           :trust {:trusted-publishers #{signer}
+                   :trusted-providers #{provider}
+                   :trusted-signers #{signer}}
+           :now 200
+           :publish
+           {:issued-at 100 :expires-at 300
+            :provider-record-output (.getPath provider-record-file)
+            :provider {:url provider-url
+                       :sequence 0
+                       :issued-at 100 :expires-at 300
+                       :signing-key (.getPath provider-key)}}}))
+        (let [built
+              (launcher/dispatch
+               ["compile" (.getPath source)
+                "--target" "web"
+                "--output" (.getPath first-output)
+                "--semantic-receipt" (.getPath first-receipt)
+                "--signing-key" (.getPath key)
+                "--spdx" (.getPath first-spdx)
+                "--build-cache" (.getPath publish-config)])
+              provider-record (edn/read-string (slurp provider-record-file))]
+          (is (:kotoba.cli/ok? built) (pr-str built))
+          (is (false? (get-in built
+                              [:kotoba.cli/data :build-cache :hit?])))
+          (is (string?
+               (get-in built
+                       [:kotoba.cli/data :build-cache :published
+                        :entry-cid])))
+          (spit
+           fetch-config
+           (pr-str
+            {:block-store (.getPath target-cache-root)
+             :provider-records [provider-record]
+             :trust {:trusted-publishers #{signer}
+                     :trusted-providers #{provider}
+                     :trusted-signers #{signer}}
+             :required? true
+             :now 200}))
+          (let [hit
+                (launcher/dispatch
+                 ["compile" (.getPath source)
+                  "--target" "web"
+                  "--output" (.getPath second-output)
+                  "--semantic-receipt" (.getPath second-receipt)
+                  "--spdx" (.getPath second-spdx)
+                  "--build-cache" (.getPath fetch-config)])]
+            (is (:kotoba.cli/ok? hit) (pr-str hit))
+            (is (true? (get-in hit
+                               [:kotoba.cli/data :build-cache :hit?])))
+            (is (= 1
+                   (get-in hit
+                           [:kotoba.cli/data :build-cache
+                            :providers-verified])))
+            (is (= (seq (java.nio.file.Files/readAllBytes
+                         (.toPath first-output)))
+                   (seq (java.nio.file.Files/readAllBytes
+                         (.toPath second-output)))))
+            (is (= (slurp first-receipt) (slurp second-receipt)))
+            (is (= (slurp first-spdx) (slurp second-spdx))))
+
+          (let [tampered
+                (update provider-record :signature
+                        #(str (subs % 0 (dec (count %)))
+                              (if (= "A" (subs % (dec (count %))))
+                                "B" "A")))]
+            (spit
+             rejected-config
+             (pr-str
+              {:block-store (.getPath target-cache-root)
+               :provider-records [tampered]
+               :trust {:trusted-publishers #{signer}
+                       :trusted-providers #{provider}
+                       :trusted-signers #{signer}}
+               :required? true
+               :now 200}))
+            (let [rejected
+                  (launcher/dispatch
+                   ["compile" (.getPath source)
+                    "--target" "web"
+                    "--output" (.getPath rejected-output)
+                    "--semantic-receipt"
+                    (.getPath (io/file directory "rejected.semantic.edn"))
+                    "--build-cache" (.getPath rejected-config)])]
+              (is (false? (:kotoba.cli/ok? rejected)))
+              (is (= :cache/no-provider
+                     (get-in rejected
+                             [:kotoba.cli/data :problem])))
+              (is (not (.exists rejected-output)))))))
+      (finally
+        (when @server (.stop @server 0))
+        (doseq [file (reverse (file-seq directory))]
+          (.delete ^java.io.File file))))))
+
+(deftest semantic-test-receipts-cache-pass-fail-and-reject-effects
+  (let [directory
+        (.toFile
+         (java.nio.file.Files/createTempDirectory
+          "kotoba-semantic-test-cache-"
+          (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (io/file directory "math.kotoba")
+        effectful-source (io/file directory "effectful.kotoba")
+        pass-suite (io/file directory "pass-tests.edn")
+        fail-suite (io/file directory "fail-tests.edn")
+        cache-root (io/file directory "source-blocks")
+        target-cache (io/file directory "target-blocks")
+        first-receipt (io/file directory "first.test.edn")
+        second-receipt (io/file directory "second.test.edn")
+        failed-receipt (io/file directory "failed.test.edn")
+        provider-record-file (io/file directory "test-provider.edn")
+        provider-key (io/file directory "test-provider-key.edn")
+        publish-config (io/file directory "test-cache-publish.edn")
+        fetch-config (io/file directory "test-cache-fetch.edn")
+        revoked-config (io/file directory "test-cache-revoked.edn")
+        {:keys [key signer]} (write-semantic-receipt-auth! directory)
+        provider-seed deployment-receipt-seed
+        provider (ed/did-key-from-seed provider-seed)
+        server (atom nil)]
+    (try
+      (spit source "(defn add [a b] (+ a b)) (defn answer [] 42)")
+      (spit effectful-source
+            "(defn ^{:effects [:net/read]} risky [] 1)")
+      (spit
+       pass-suite
+       (pr-str
+        {:kotoba.test/version 1
+         :kotoba.test/tests
+         [{:name "adds" :function 'add :args [20 22] :expect 42}
+          {:name "answers" :function 'answer :args [] :expect 42}]}))
+      (spit
+       fail-suite
+       (pr-str
+        {:kotoba.test/version 1
+         :kotoba.test/tests
+         [{:name "detects failure"
+           :function 'answer :args [] :expect 41}]}))
+      (write-seed-file! provider-key provider-seed)
+      (ipld-blocks/initialize! cache-root)
+      (reset! server (ipld-blocks/start-peer! cache-root 0 provider-seed))
+      (let [provider-url
+            (str "http://127.0.0.1:"
+                 (.getPort (.getAddress @server)))]
+        (spit
+         publish-config
+         (pr-str
+          {:block-store (.getPath cache-root)
+           :trust {:trusted-publishers #{signer}
+                   :trusted-test-signers #{signer}
+                   :trusted-providers #{provider}}
+           :now 200
+           :publish
+           {:issued-at 100 :expires-at 300
+            :provider-record-output (.getPath provider-record-file)
+            :provider {:url provider-url :sequence 0
+                       :issued-at 100 :expires-at 300
+                       :signing-key (.getPath provider-key)}}}))
+        (let [first
+              (launcher/dispatch
+               ["check" (.getPath source)
+                "--kind" "semantic-test"
+                "--test-manifest" (.getPath pass-suite)
+                "--test-receipt" (.getPath first-receipt)
+                "--signing-key" (.getPath key)
+                "--build-cache" (.getPath publish-config)])
+              provider-record (edn/read-string (slurp provider-record-file))]
+          (is (:kotoba.cli/ok? first) (pr-str first))
+          (is (= :test/semantic-passed (:kotoba.cli/code first)))
+          (is (= 2 (get-in first [:kotoba.cli/data :passed])))
+          (is (false? (get-in first [:kotoba.cli/data :cache :hit?])))
+          (spit
+           fetch-config
+           (pr-str
+            {:block-store (.getPath target-cache)
+             :provider-records [provider-record]
+             :trust {:trusted-publishers #{signer}
+                     :trusted-test-signers #{signer}
+                     :trusted-providers #{provider}}
+             :required? true :now 200}))
+          (let [hit
+                (launcher/dispatch
+                 ["check" (.getPath source)
+                  "--kind" "semantic-test"
+                  "--test-manifest" (.getPath pass-suite)
+                  "--test-receipt" (.getPath second-receipt)
+                  "--build-cache" (.getPath fetch-config)])]
+            (is (:kotoba.cli/ok? hit) (pr-str hit))
+            (is (true? (get-in hit
+                               [:kotoba.cli/data :cache :hit?])))
+            (is (= (slurp first-receipt) (slurp second-receipt))))
+
+          (spit
+           revoked-config
+           (pr-str
+            {:block-store (.getPath target-cache)
+             :provider-records [provider-record]
+             :trust {:trusted-publishers #{signer}
+                     :trusted-test-signers #{signer}
+                     :revoked-test-signers #{signer}
+                     :trusted-providers #{provider}}
+             :required? true :now 200}))
+          (let [revoked
+                (launcher/dispatch
+                 ["check" (.getPath source)
+                  "--kind" "semantic-test"
+                  "--test-manifest" (.getPath pass-suite)
+                  "--test-receipt"
+                  (.getPath (io/file directory "revoked.test.edn"))
+                  "--build-cache" (.getPath revoked-config)])]
+            (is (false? (:kotoba.cli/ok? revoked)))
+            (is (= :test/signer-revoked
+                   (get-in revoked [:kotoba.cli/data :problem]))))
+
+          (let [failed
+                (launcher/dispatch
+                 ["check" (.getPath source)
+                  "--kind" "semantic-test"
+                  "--test-manifest" (.getPath fail-suite)
+                  "--test-receipt" (.getPath failed-receipt)
+                  "--signing-key" (.getPath key)])
+                receipt (edn/read-string (slurp failed-receipt))]
+            (is (false? (:kotoba.cli/ok? failed)))
+            (is (= :test/semantic-failed (:kotoba.cli/code failed)))
+            (is (= 1 (get-in failed [:kotoba.cli/data :failed])))
+            (is (= 1 (get-in receipt [:statement :failed]))))
+
+          (let [effectful
+                (launcher/dispatch
+                 ["check" (.getPath effectful-source)
+                  "--kind" "semantic-test"
+                  "--test-manifest" (.getPath pass-suite)
+                  "--test-receipt"
+                  (.getPath (io/file directory "effectful.test.edn"))
+                  "--signing-key" (.getPath key)])]
+            (is (false? (:kotoba.cli/ok? effectful)))
+            (is (= :test/effectful-suite-not-cacheable
+                   (get-in effectful
+                           [:kotoba.cli/data :problem]))))))
+      (finally
+        (when @server (.stop @server 0))
+        (doseq [file (reverse (file-seq directory))]
+          (.delete ^java.io.File file))))))
+
+(deftest semantic-compile-fails-closed-before-writing-an-unverifiable-artifact
+  (let [output (io/file (System/getProperty "java.io.tmpdir")
+                        (str "kotoba-semantic-reject-" (random-uuid) ".mjs"))
+        result (launcher/dispatch
+                ["compile" "test/fixtures/source/web-string-library.kotoba"
+                 "--target" "web" "--semantic" "--output" (.getPath output)])]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :compile/failed (:kotoba.cli/code result)))
+    (is (not (.exists output)))))
+
+(deftest semantic-root-ignores-source-formatting-while-source-cid-does-not
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kotoba-semantic-formatting"
+                    (make-array java.nio.file.attribute.FileAttribute 0)))
+        compact (io/file directory "compact.kotoba")
+        spaced (io/file directory "spaced.kotoba")
+        compact-output (io/file directory "compact.mjs")
+        spaced-output (io/file directory "spaced.mjs")
+        compact-receipt (io/file directory "compact.semantic.edn")
+        spaced-receipt (io/file directory "spaced.semantic.edn")
+        {:keys [key]} (write-semantic-receipt-auth! directory)]
+    (spit compact "(defn main [] (+ 40 2))")
+    (spit spaced "\n  (defn   main   []\n    (+ 40 2))\n")
+    (doseq [[source output receipt]
+            [[compact compact-output compact-receipt]
+             [spaced spaced-output spaced-receipt]]]
+      (is (:kotoba.cli/ok?
+           (launcher/dispatch
+            ["compile" (.getPath source) "--target" "web"
+             "--semantic-receipt" (.getPath receipt)
+             "--signing-key" (.getPath key)
+             "--output" (.getPath output)]))))
+    (let [a (edn/read-string (slurp compact-receipt))
+          b (edn/read-string (slurp spaced-receipt))]
+      (is (= (:kotoba.semantic-build/semantic-root-cid a)
+             (:kotoba.semantic-build/semantic-root-cid b)))
+      (is (not=
+           (get-in a [:kotoba.semantic-build/semantic
+                      :modules "main" :source-cid])
+           (get-in b [:kotoba.semantic-build/semantic
+                      :modules "main" :source-cid]))))))
+
+(deftest deploy-admission-verifies-semantic-receipt-manifest-and-external-pin
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kotoba-semantic-deploy"
+                    (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (io/file directory "app.kotoba")
+        output (io/file directory "app.mjs")
+        receipt-file (io/file directory "app.semantic.edn")
+        {:keys [key trust]} (write-semantic-receipt-auth! directory)]
+    (spit source "(defn main [] 42)")
+    (let [built (launcher/dispatch
+                 ["compile" (.getPath source) "--target" "web"
+                  "--semantic-receipt" (.getPath receipt-file)
+                  "--signing-key" (.getPath key)
+                  "--output" (.getPath output)])
+          receipt-cid (get-in built [:kotoba.cli/data :semantic-receipt
+                                     :kotoba.semantic-build/receipt-cid])
+          base ["deploy" "--target" "dev"
+                "--artifact" (.getPath output)
+                "--artifact-manifest" (str (.getPath output) ".manifest.edn")
+                "--semantic-receipt" (.getPath receipt-file)
+                "--trust" (.getPath trust)]
+          admitted (launcher/dispatch
+                    (into base ["--expected-semantic-receipt-cid" receipt-cid]))
+          rejected (launcher/dispatch
+                    (into base ["--expected-semantic-receipt-cid"
+                                "bafyreih46kubzbr4a5f5rkrh2fhw7p5q6xgcb7gzuarw3tr2j3p5z7d3qa"]))
+          untrusted-file (io/file directory "untrusted.edn")
+          _ (spit untrusted-file
+                  (pr-str {:trusted-signers
+                           #{"did:key:z6MkhNotTheReceiptSigner"}}))
+          untrusted
+          (launcher/dispatch
+           (-> base vec
+               (assoc (.indexOf ^java.util.List base "--trust")
+                      "--trust")
+               (assoc (inc (.indexOf ^java.util.List base "--trust"))
+                      (.getPath untrusted-file))
+               (into ["--expected-semantic-receipt-cid" receipt-cid])))
+          tampered-artifact (io/file directory "tampered.mjs")
+          _ (spit tampered-artifact (str (slurp output) "\n// tampered\n"))
+          tampered
+          (launcher/dispatch
+           (-> base vec
+               (assoc (inc (.indexOf ^java.util.List base "--artifact"))
+                      (.getPath tampered-artifact))
+               (into ["--expected-semantic-receipt-cid" receipt-cid])))]
+      (is (:kotoba.cli/ok? admitted) (pr-str admitted))
+      (is (= :deploy/semantic-verified (:kotoba.cli/code admitted)))
+      (is (true? (get-in admitted [:kotoba.cli/data :semantic-admission
+                                   :kotoba.deploy/semantic-verified?])))
+      (is (false? (:kotoba.cli/ok? rejected)))
+      (is (= :deploy/semantic-rejected (:kotoba.cli/code rejected)))
+      (is (= :deploy/semantic-receipt-pin-mismatch
+             (get-in rejected [:kotoba.cli/data :problem])))
+      (is (= :deploy/semantic-signer-not-trusted
+             (get-in untrusted [:kotoba.cli/data :problem])))
+      (is (= :deploy/semantic-receipt-cid-mismatch
+             (get-in tampered [:kotoba.cli/data :problem]))))))
+
+(deftest deploy-rejects-unsigned-v1-receipts-unless-migration-is-explicit
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kotoba-semantic-v1-downgrade"
+                    (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (io/file directory "app.kotoba")
+        output (io/file directory "app.mjs")
+        receipt-file (io/file directory "legacy.semantic.edn")]
+    (spit source "(defn main [] 42)")
+    (let [built (launcher/dispatch
+                 ["compile" (.getPath source) "--target" "web"
+                  "--semantic" "--output" (.getPath output)])
+          receipt (get-in built [:kotoba.cli/data :semantic-receipt])
+          _ (spit receipt-file (pr-str receipt))
+          base ["deploy" "--target" "dev"
+                "--artifact-manifest" (str (.getPath output) ".manifest.edn")
+                "--semantic-receipt" (.getPath receipt-file)]
+          rejected (launcher/dispatch base)
+          explicitly-admitted
+          (launcher/dispatch
+           (conj base "--allow-legacy-semantic-receipt"))]
+      (is (= "kotoba.semantic-build-receipt.v1"
+             (:kotoba.semantic-build/schema receipt)))
+      (is (= :deploy/legacy-semantic-receipt-rejected
+             (get-in rejected [:kotoba.cli/data :problem])))
+      (is (= :deploy/semantic-verified
+             (:kotoba.cli/code explicitly-admitted))))))
+
+(deftest local-deploy-adapter-applies-statuses-cas-updates-and-rolls-back
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kotoba-local-deploy"
+                    (make-array java.nio.file.attribute.FileAttribute 0)))
+        deploy-root (io/file directory "deploy-store")
+        source-a (io/file directory "a.kotoba")
+        source-b (io/file directory "b.kotoba")
+        output-a (io/file directory "a.mjs")
+        output-b (io/file directory "b.mjs")
+        receipt-a-file (io/file directory "a.semantic.edn")
+        receipt-b-file (io/file directory "b.semantic.edn")
+        deployment-key (write-seed-file!
+                        (io/file directory "deployment-key.edn")
+                        deployment-receipt-seed)
+        {:keys [key trust]} (write-semantic-receipt-auth! directory)]
+    (spit source-a "(defn main [] 41)")
+    (spit source-b "(defn main [] 42)")
+    (doseq [[source output receipt]
+            [[source-a output-a receipt-a-file]
+             [source-b output-b receipt-b-file]]]
+      (is (:kotoba.cli/ok?
+           (launcher/dispatch
+            ["compile" (.getPath source) "--target" "web"
+             "--output" (.getPath output)
+             "--semantic-receipt" (.getPath receipt)
+             "--signing-key" (.getPath key)]))))
+    (let [receipt-a (edn/read-string (slurp receipt-a-file))
+          receipt-b (edn/read-string (slurp receipt-b-file))
+          release-a (:kotoba.semantic-build/receipt-cid receipt-a)
+          release-b (:kotoba.semantic-build/receipt-cid receipt-b)
+          apply-argv
+          (fn [output receipt & tail]
+            (into
+             ["deploy" "--op" "apply" "--target" "production"
+              "--deploy-root" (.getPath deploy-root)
+              "--deployment-signing-key" (.getPath deployment-key)
+              "--artifact" (.getPath output)
+              "--artifact-manifest" (str (.getPath output) ".manifest.edn")
+              "--semantic-receipt" (.getPath receipt)
+              "--trust" (.getPath trust)]
+             tail))
+          applied-a (launcher/dispatch
+                     (apply-argv output-a receipt-a-file))
+          status-a (launcher/dispatch
+                    ["deploy" "--op" "status" "--target" "production"
+                     "--deploy-root" (.getPath deploy-root)])
+          stale-b (launcher/dispatch
+                   (apply-argv output-b receipt-b-file))
+          applied-b
+          (launcher/dispatch
+           (apply-argv output-b receipt-b-file
+                       "--expected-deployment-head" release-a))
+          rolled-back
+          (launcher/dispatch
+           ["deploy" "--op" "rollback" "--target" "production"
+            "--deploy-root" (.getPath deploy-root)
+            "--deployment-signing-key" (.getPath deployment-key)
+            "--revision" release-a
+            "--expected-deployment-head" release-b])
+          status-rolled-back
+          (launcher/dispatch
+           ["deploy" "--op" "status" "--target" "production"
+            "--deploy-root" (.getPath deploy-root)])]
+      (is (= :deploy/applied (:kotoba.cli/code applied-a))
+          (pr-str applied-a))
+      (is (= release-a
+             (get-in status-a [:kotoba.cli/data :current-release])))
+      (is (= :deploy/expected-head-required
+             (get-in stale-b [:kotoba.cli/data :problem])))
+      (is (= release-b
+             (get-in applied-b
+                     [:kotoba.cli/data :deployment :current-release])))
+      (is (= :deploy/rolled-back (:kotoba.cli/code rolled-back)))
+      (is (= release-a
+             (get-in status-rolled-back
+                     [:kotoba.cli/data :current-release])))
+      (let [current-ref
+            (io/file deploy-root "targets" "production" "current.head")
+            event-cid (edn/read-string (slurp current-ref))
+            event-file
+            (io/file deploy-root "targets" "production" "events"
+                     (str event-cid ".edn"))
+            event (edn/read-string (slurp event-file))]
+        (spit event-file (pr-str (assoc event :signature "tampered")))
+        (let [tampered-event-status
+              (launcher/dispatch
+               ["deploy" "--op" "status" "--target" "production"
+                "--deploy-root" (.getPath deploy-root)])]
+          (is (= :deploy/invalid-deployment-receipt
+                 (get-in tampered-event-status
+                         [:kotoba.cli/data :problem]))))
+        (spit event-file (pr-str event)))
+      (let [stored-artifact
+            (io/file deploy-root "targets" "production" "releases"
+                     release-a "artifact.bin")]
+        (spit stored-artifact "// corrupt")
+        (let [corrupt-status
+              (launcher/dispatch
+               ["deploy" "--op" "status" "--target" "production"
+                "--deploy-root" (.getPath deploy-root)])]
+          (is (= :deploy/adapter-failed
+                 (:kotoba.cli/code corrupt-status)))
+          (is (contains?
+               #{:deploy/semantic-receipt-cid-mismatch
+                 :deploy/artifact-digest-mismatch}
+               (get-in corrupt-status [:kotoba.cli/data :problem]))))))))
 
 (deftest compile-cljc-source-path-uses-the-closed-project-linker
   (let [directory (.toFile (java.nio.file.Files/createTempDirectory
@@ -179,7 +762,10 @@
         text (io/file directory "text.kotoba")
         app (io/file directory "app.kotoba")
         manifest (io/file directory "kotoba-project.edn")
-        output (io/file directory "app.mjs")]
+        output (io/file directory "app.mjs")
+        receipt-file (io/file directory "app.semantic.edn")
+        spdx-file (io/file directory "app.spdx.json")
+        {:keys [key]} (write-semantic-receipt-auth! directory)]
     (spit text "(ns example.text (:export [greet]))
                 (defn greet [name :string] :string
                   (string-concat \"こんにちは、\" name))")
@@ -192,9 +778,13 @@
                                      {'example.app "app.kotoba"
                                       'example.text "text.kotoba"}})
     (let [result (launcher/dispatch ["compile" "--project" (.getPath manifest)
-                                     "--target" "web" "--output" (.getPath output)])
+                                     "--target" "web" "--output" (.getPath output)
+                                     "--semantic-receipt" (.getPath receipt-file)
+                                     "--signing-key" (.getPath key)
+                                     "--spdx" (.getPath spdx-file)])
           generated (slurp output)
-          artifact-manifest (edn/read-string (slurp (str (.getPath output) ".manifest.edn")))]
+          artifact-manifest (edn/read-string (slurp (str (.getPath output) ".manifest.edn")))
+          receipt (edn/read-string (slurp receipt-file))]
       (is (:kotoba.cli/ok? result))
       (is (= :kotoba-script (get-in result [:kotoba.cli/data :backend])))
       (is (= 'example.app (get-in result [:kotoba.cli/data :entry])))
@@ -209,7 +799,18 @@
       (is (string? (:kotoba.artifact/trust-policy-digest artifact-manifest)))
       (is (string? (:kotoba.artifact/package-receipt-digest artifact-manifest)))
       (is (= #{'example.app 'example.text}
-             (set (keys (:kotoba.artifact/module-source-digests artifact-manifest))))))))
+             (set (keys (:kotoba.artifact/module-source-digests artifact-manifest)))))
+      (is (= #{"example.app" "example.text"}
+             (set (keys (get-in receipt
+                                [:kotoba.semantic-build/semantic :modules])))))
+      (is (every? string?
+                  [(:kotoba.semantic-build/semantic-root-cid receipt)
+                   (:kotoba.semantic-build/lock-cid receipt)
+                   (:kotoba.semantic-build/derivation-cid receipt)
+                   (:kotoba.semantic-build/artifact-cid receipt)
+                   (:kotoba.semantic-build/spdx-cid receipt)]))
+      (is (= "SPDX-2.3"
+             (get (json/read-str (slurp spdx-file)) "spdxVersion"))))))
 
 (deftest check-closed-project-uses-compile-identity-without-writing-output
   (let [directory (.toFile (java.nio.file.Files/createTempDirectory
@@ -431,6 +1032,29 @@
         (is (:kotoba.cli/ok? imported))
         (is (= cid (get-in resolved [:kotoba.cli/data :cid])))
         (is (= cid (get-in inspected [:kotoba.cli/data :cid]))))
+      (finally
+        (doseq [f (reverse (file-seq root))] (.delete ^java.io.File f))))))
+
+(deftest local-codebase-cli-runs-a-zero-arity-definition-by-name-or-cid
+  (let [root (.toFile (java.nio.file.Files/createTempDirectory
+                       "kotoba-codebase-run-" (make-array java.nio.file.attribute.FileAttribute 0)))
+        source (doto (java.io.File/createTempFile "kotoba-codebase-run" ".kotoba")
+                 (.deleteOnExit))]
+    (try
+      (spit source "(defn answer [] (+ 40 2))")
+      (launcher/dispatch ["codebase" "init" "--store" (.getPath root)])
+      (let [imported (launcher/dispatch ["codebase" "import" (.getPath source)
+                                         "--store" (.getPath root) "--namespace" "scratch"])
+            cid (get-in imported [:kotoba.cli/data :definitions "answer"])
+            by-name (launcher/dispatch ["codebase" "run" "answer"
+                                        "--store" (.getPath root) "--namespace" "scratch"])
+            by-cid (launcher/dispatch ["codebase" "run" cid "--store" (.getPath root)])]
+        (doseq [result [by-name by-cid]]
+          (is (:kotoba.cli/ok? result))
+          (is (= :codebase/run-completed (:kotoba.cli/code result)))
+          (is (= 42 (get-in result [:kotoba.cli/data :kotoba.runtime/result
+                                    :kotoba.runtime/value])))
+          (is (= cid (get-in result [:kotoba.cli/data :kotoba.codebase/cid])))))
       (finally
         (doseq [f (reverse (file-seq root))] (.delete ^java.io.File f))))))
 

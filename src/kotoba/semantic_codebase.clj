@@ -1,34 +1,59 @@
 (ns kotoba.semantic-codebase
-  "Local, verified persistence for the C1–C4 semantic-code records.
+  "Verified persistence and transport for the C1–C4 semantic-code records.
 
-  This is deliberately a local C5 store, not a network protocol: blocks are
-  immutable canonical DAG-CBOR bytes keyed by CID; mutable namespace heads are
-  small, atomically replaced files guarded by a process lock."
+  Blocks are immutable canonical DAG-CBOR bytes keyed by CID; mutable
+  namespace heads are atomically replaced files guarded by a process lock.
+  The optional HTTP transport carries only verified blocks and delegates every
+  head-publication decision to an injected authority verifier."
   (:require [cbor.core :as cbor]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.set :as set]
+            [clojure.string :as string]
+            [ed25519.core :as ed]
             [kotoba.semantic-code :as semantic]
             [multiformats.core :as mf])
-  (:import [java.nio.channels FileChannel]
+  (:import [com.sun.net.httpserver HttpExchange HttpHandler HttpServer]
+           [java.io ByteArrayOutputStream]
+           [java.net InetSocketAddress URLDecoder URLEncoder]
+           [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
+            HttpResponse$BodyHandlers]
+           [java.nio.channels FileChannel]
            [java.nio.charset StandardCharsets]
            [java.nio.file Files StandardCopyOption StandardOpenOption]
            [java.util Base64]))
 
 (def store-schema "kotoba.semantic-codebase-store.v1")
+(def transport-schema "kotoba.semantic-codebase-transfer.v1")
+(def head-publication-schema "kotoba.namespace-publication-request.v1")
+(def ^:private max-wire-bytes (* 16 1024 1024))
+(def ^:private max-transfer-blocks 10000)
+
+(defn transport-capabilities
+  "The explicit, versioned C7 protocol surface advertised to peers."
+  []
+  {:schema :kotoba.semantic-codebase-capabilities/v1
+   :closure-schemas [transport-schema]
+   :head-publication-schemas [head-publication-schema]
+   :key-register-schemas [:kotoba.key-register/v1]})
 
 (defn- file [root & parts] (apply io/file root parts))
 (defn- block-file [root cid] (file root "blocks" (str cid ".cbor")))
+(defn- executable-source-file [root cid] (file root "executable-sources" (str cid ".kotoba")))
 (defn- head-file [root namespace]
   (file root "heads"
         (str (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
                               (.getBytes ^String namespace StandardCharsets/UTF_8))
              ".head")))
 (defn- cache-file [root key] (file root "cache" (str key ".cbor")))
+(defn- publication-file [root record-id] (file root "publications" (str record-id ".edn")))
+(defn- key-register-file [root] (file root "KEY-REGISTER.edn"))
 
 (defn initialize!
   "Create the durable layout. Safe to call repeatedly."
   [root]
-  (doseq [dir [(file root "blocks") (file root "heads") (file root "cache")]]
+  (doseq [dir [(file root "blocks") (file root "heads") (file root "cache")
+               (file root "publications") (file root "executable-sources")]]
     (.mkdirs dir))
   (let [marker (file root "STORE.edn")]
     (when-not (.exists marker)
@@ -44,6 +69,38 @@
   (when-not (initialized? root)
     (throw (ex-info "semantic codebase is not initialized"
                     {:problem :codebase/not-initialized :root (str root)}))))
+
+(defn stored-key-register
+  "Return the last locally accepted key register, or nil before bootstrap."
+  [root]
+  (require-store! root)
+  (let [target (key-register-file root)]
+    (when (.isFile target)
+      (edn/read-string (slurp target)))))
+
+(defn store-key-register!
+  "Persist KEY-REGISTER only after VERIFY! accepts it. VERIFY! is the trust
+  root boundary (for example, a pinned authority signature verifier); transport
+  and storage never infer trust from the sender or from key names."
+  [root key-register verify!]
+  (require-store! root)
+  (when-not (and (map? key-register) (vector? (:keys key-register)) (ifn? verify!))
+    (throw (ex-info "invalid key register update" {:problem :codebase/invalid-key-register})))
+  (when-not (verify! key-register)
+    (throw (ex-info "key register update was not authorized"
+                    {:problem :codebase/key-register-denied})))
+  (let [target (.toPath (key-register-file root))
+        text (pr-str key-register)
+        tmp (Files/createTempFile (.getParent target) "key-register-" ".tmp"
+                                  (make-array java.nio.file.attribute.FileAttribute 0))]
+    (try
+      (Files/write tmp (.getBytes text StandardCharsets/UTF_8)
+                   (make-array java.nio.file.OpenOption 0))
+      (Files/move tmp target (into-array StandardCopyOption
+                                        [StandardCopyOption/ATOMIC_MOVE
+                                         StandardCopyOption/REPLACE_EXISTING]))
+      (finally (Files/deleteIfExists tmp)))
+    key-register))
 
 (defn put-block!
   "Verify and persist an immutable semantic block. Existing bytes must match.
@@ -83,6 +140,28 @@
         (throw (ex-info "stored semantic block failed CID verification"
                         {:problem :codebase/corrupt-block :cid cid})))
       block)))
+
+(defn put-executable-source!
+  "Persist an immutable execution witness for a definition CID.
+  The runner re-checks this source against CID before execution; transport
+  never treats its filename as an authority claim."
+  [root cid source]
+  (require-store! root)
+  (when-not (and (string? cid) (string? source))
+    (throw (ex-info "invalid executable source witness"
+                    {:problem :codebase/invalid-executable-source})))
+  (let [target (executable-source-file root cid)]
+    (if (.exists target)
+      (when-not (= source (slurp target))
+        (throw (ex-info "existing executable source differs for immutable CID"
+                        {:problem :codebase/immutable-source-conflict :cid cid})))
+      (spit target source))
+    cid))
+
+(defn get-executable-source [root cid]
+  (require-store! root)
+  (let [target (executable-source-file root cid)]
+    (when (.isFile target) (slurp target))))
 
 (defn- verified-block-bytes [root cid]
   (let [target (block-file root cid)]
@@ -194,20 +273,30 @@
             (let [{:keys [bytes block]} found
                   next-cids (vec (block-links block))]
             (recur (into (subvec pending 1) next-cids) (conj seen cid)
-                   (conj blocks {:cid cid :bytes bytes}) missing)))))
-      {:roots (vec roots) :blocks blocks :missing (vec (sort missing))})))
+                   (conj blocks {:cid cid :bytes bytes :block block}) missing)))))
+      (let [sources (->> blocks
+                         (keep (fn [{:keys [cid block]}]
+                                 (when (= "kotoba.semantic-definition.v1" (get block "schema"))
+                                   (when-let [source (get-executable-source root cid)]
+                                     {:cid cid :source source}))))
+                         vec)]
+        {:roots (vec roots) :blocks blocks :executable-sources sources
+         :missing (vec (sort missing))}))))
 
 (defn import-closure!
   "Verify every received canonical block before persisting it.  Returns the
   imported CIDs; no remote bytes are trusted by filename or claimed CID."
-  [root {:keys [blocks]}]
+  [root {:keys [blocks executable-sources]}]
   (require-store! root)
-  (mapv (fn [{:keys [cid bytes]}]
-          (when-not (and (string? cid) bytes)
-            (throw (ex-info "invalid closure transfer record"
-                            {:problem :codebase/invalid-transfer-record})))
-          (put-block! root cid (cbor/decode bytes)))
-        blocks))
+  (let [imported (mapv (fn [{:keys [cid bytes]}]
+                         (when-not (and (string? cid) bytes)
+                           (throw (ex-info "invalid closure transfer record"
+                                           {:problem :codebase/invalid-transfer-record})))
+                         (put-block! root cid (cbor/decode bytes)))
+                       blocks)]
+    (doseq [{:keys [cid source]} executable-sources]
+      (put-executable-source! root cid source))
+    imported))
 
 (defn transfer-closure!
   "Verified, transport-neutral closure transfer between two local stores.
@@ -217,6 +306,416 @@
   (let [bundle (export-closure from-root roots)
         imported (import-closure! to-root bundle)]
     (assoc bundle :imported imported)))
+
+(declare publish-head!)
+
+(defn closure->wire
+  "Encode an exported closure as bounded, data-only EDN suitable for HTTP.
+  CID validation remains at `import-closure!`; base64 is transport encoding,
+  not an integrity mechanism."
+  [{:keys [roots blocks executable-sources missing]}]
+  {:schema transport-schema
+   :roots (vec roots)
+   :blocks (mapv (fn [{:keys [cid bytes]}]
+                   {:cid cid :bytes (.encodeToString (Base64/getEncoder) ^bytes bytes)})
+                 blocks)
+   :executable-sources (mapv (fn [{:keys [cid source]}] {:cid cid :source source})
+                              executable-sources)
+   :missing (vec missing)})
+
+(defn wire->closure
+  "Decode and structurally validate a closure received from the network.
+  This function deliberately accepts EDN data only; it never evaluates input."
+  [wire]
+  (when-not (and (map? wire) (= transport-schema (:schema wire))
+                 (vector? (:roots wire)) (every? string? (:roots wire))
+                 (vector? (:blocks wire)) (<= (count (:blocks wire)) max-transfer-blocks)
+                 (vector? (or (:executable-sources wire) []))
+                 (vector? (:missing wire)) (every? string? (:missing wire)))
+    (throw (ex-info "invalid semantic-codebase transfer wire format"
+                    {:problem :codebase/invalid-transfer-wire})))
+  {:roots (:roots wire)
+   :missing (:missing wire)
+   :executable-sources (mapv (fn [{:keys [cid source] :as record}]
+                               (when-not (and (= #{:cid :source} (set (keys record)))
+                                              (string? cid) (string? source)
+                                              (<= (count (.getBytes source StandardCharsets/UTF_8)) max-wire-bytes))
+                                 (throw (ex-info "invalid executable source transfer record"
+                                                 {:problem :codebase/invalid-transfer-wire})))
+                               record)
+                             (or (:executable-sources wire) []))
+   :blocks (mapv (fn [{:keys [cid bytes] :as record}]
+                   (when-not (and (= #{:cid :bytes} (set (keys record)))
+                                  (string? cid) (string? bytes))
+                     (throw (ex-info "invalid transfer block record"
+                                     {:problem :codebase/invalid-transfer-wire})))
+                   (let [decoded (try (.decode (Base64/getDecoder) ^String bytes)
+                                      (catch IllegalArgumentException _
+                                        (throw (ex-info "invalid transfer block encoding"
+                                                        {:problem :codebase/invalid-transfer-wire}))))]
+                     (when (> (alength ^bytes decoded) max-wire-bytes)
+                       (throw (ex-info "transfer block exceeds size limit"
+                                       {:problem :codebase/transfer-too-large})))
+                     {:cid cid :bytes decoded}))
+                 (:blocks wire))})
+
+(defn- read-limited-body [stream]
+  (with-open [input stream
+              output (ByteArrayOutputStream.)]
+    (let [buffer (byte-array 8192)]
+      (loop [total 0]
+        (let [read (.read input buffer)]
+          (if (neg? read)
+            (.toString output "UTF-8")
+            (let [next-total (+ total read)]
+              (when (> next-total max-wire-bytes)
+                (throw (ex-info "HTTP payload exceeds size limit"
+                                {:problem :codebase/transfer-too-large})))
+              (.write output buffer 0 read)
+              (recur next-total))))))))
+
+(defn- parse-wire-body [body]
+  (try
+    (edn/read-string body)
+    (catch Exception _
+      (throw (ex-info "HTTP payload is not EDN data"
+                      {:problem :codebase/invalid-transfer-wire})))))
+
+(defn- response! [^HttpExchange exchange status body]
+  (let [bytes (.getBytes (pr-str body) StandardCharsets/UTF_8)]
+    (.set (.getResponseHeaders exchange) "Content-Type" "application/edn; charset=utf-8")
+    (.sendResponseHeaders exchange status (long (alength bytes)))
+    (with-open [output (.getResponseBody exchange)]
+      (.write output bytes))))
+
+(defn- query-param [^HttpExchange exchange key]
+  (some (fn [entry]
+          (let [[k value] (string/split entry #"=" 2)]
+            (when (= key (URLDecoder/decode k "UTF-8"))
+              (URLDecoder/decode (or value "") "UTF-8"))))
+        (string/split (or (.getRawQuery (.getRequestURI exchange)) "") #"&")))
+
+(defn- failure-status [error]
+  (case (:problem (ex-data error))
+    :codebase/block-not-found 404
+    :codebase/key-register-unavailable 404
+    :codebase/publication-denied 403
+    :codebase/transfer-too-large 413
+    :codebase/incompatible-transport-schema 426
+    400))
+
+(defn- require-transfer-schema! [^HttpExchange exchange]
+  (when-not (= transport-schema (.getFirst (.getRequestHeaders exchange) "Kotoba-Transfer-Schema"))
+    (throw (ex-info "peer did not negotiate a compatible closure schema"
+                    {:problem :codebase/incompatible-transport-schema}))))
+
+(defn codebase-http-handler
+  "Create the C7 HTTP transport handler.
+
+  `authorize!` is called only for POST /v1/head with the requested publication
+  plus non-authoritative transport metadata. It may perform signature, key
+  lifecycle, or policy checks; this transport does not choose that scheme."
+  ([root authorize!] (codebase-http-handler root authorize! nil))
+  ([root authorize! key-register]
+  (reify HttpHandler
+    (handle [_ exchange]
+      (try
+        (let [method (.getRequestMethod exchange)
+              path (.getPath (.getRequestURI exchange))]
+          (cond
+            (and (= method "GET") (= path "/v1/capabilities"))
+            (response! exchange 200 (transport-capabilities))
+
+            (and (= method "GET") (= path "/v1/key-register"))
+            (if key-register
+              (response! exchange 200 key-register)
+              (throw (ex-info "peer does not publish a key register"
+                              {:problem :codebase/key-register-unavailable})))
+
+            (and (= method "GET") (= path "/v1/head"))
+            (let [namespace (query-param exchange "namespace")]
+              (when-not (seq namespace)
+                (throw (ex-info "namespace is required" {:problem :codebase/invalid-transfer-wire})))
+              (response! exchange 200
+                         {:namespace namespace
+                          :head (or (head root namespace)
+                                    (throw (ex-info "namespace has no selected head"
+                                                    {:problem :codebase/head-not-found
+                                                     :namespace namespace})))}))
+
+            (and (= method "GET") (= path "/v1/closure"))
+            (let [_ (require-transfer-schema! exchange)
+                  root-cid (query-param exchange "root")]
+              (when-not (seq root-cid)
+                (throw (ex-info "closure root is required" {:problem :codebase/invalid-transfer-wire})))
+              (response! exchange 200 (closure->wire (export-closure root [root-cid]))))
+
+            (and (= method "POST") (= path "/v1/closure"))
+            (let [_ (require-transfer-schema! exchange)
+                  closure (wire->closure (parse-wire-body (read-limited-body (.getRequestBody exchange))))]
+              (response! exchange 200 {:imported (import-closure! root closure)
+                                       :missing (:missing closure)}))
+
+            (and (= method "POST") (= path "/v1/head"))
+            (let [{:keys [namespace cid expected-head publication] :as request}
+                  (parse-wire-body (read-limited-body (.getRequestBody exchange)))]
+              (when-not (and (set/subset? (set (keys request)) #{:namespace :cid :expected-head :publication})
+                             (every? #(contains? request %) [:namespace :cid :expected-head])
+                             (string? namespace) (seq namespace) (string? cid)
+                             (or (nil? expected-head) (string? expected-head)))
+                (throw (ex-info "invalid head publication request"
+                                {:problem :codebase/invalid-transfer-wire})))
+              (response! exchange 200
+                         (publish-head! root namespace cid expected-head
+                                        (fn [publication-request]
+                                          (authorize! (assoc publication-request :publication publication :transport
+                                                             {:headers (into {} (.getRequestHeaders exchange))
+                                                              :remote-address (str (.getRemoteAddress exchange))}))))))
+
+            :else (response! exchange 404 {:error :codebase/not-found})))
+        (catch clojure.lang.ExceptionInfo error
+          (response! exchange (failure-status error) {:error (:problem (ex-data error))}))
+        (catch Exception _
+          (response! exchange 500 {:error :codebase/internal-error})))))))
+
+(defn start-http-server!
+  "Start a loopback C7 transport server. Returns HttpServer; stop with
+  `(.stop server 0)`. The server never supplies a default publication policy."
+  ([root port authorize!] (start-http-server! root port authorize! nil))
+  ([root port authorize! key-register]
+  (let [server (HttpServer/create (InetSocketAddress. "127.0.0.1" (int port)) 0)]
+    (.createContext server "/" (codebase-http-handler root authorize! key-register))
+    (.setExecutor server nil)
+    (.start server)
+    server)))
+
+(defn- endpoint [base path]
+  (str (string/replace base #"/$" "") path))
+
+(defn- http-edn! [request]
+  (let [response (.send (HttpClient/newHttpClient) request (HttpResponse$BodyHandlers/ofString))]
+    (let [body (parse-wire-body (.body response))]
+      (if (<= 200 (.statusCode response) 299)
+        body
+        (throw (ex-info "semantic-codebase HTTP request failed"
+                        {:problem (or (:error body) :codebase/transport-failed)
+                         :status (.statusCode response)}))))))
+
+(defn fetch-transport-capabilities!
+  "Read a peer's advertised protocol surface without attempting transfer."
+  [base-url]
+  (http-edn! (-> (HttpRequest/newBuilder
+                  (java.net.URI/create (endpoint base-url "/v1/capabilities")))
+                 (.GET) (.build))))
+
+(defn fetch-remote-key-register!
+  "Fetch a peer-advertised key register as untrusted data. Use
+  `sync-key-register!` to apply a local trust-root verifier before storage."
+  [base-url]
+  (let [capabilities (fetch-transport-capabilities! base-url)]
+    (when-not (some #{:kotoba.key-register/v1} (:key-register-schemas capabilities))
+      (throw (ex-info "peer has no compatible key register schema"
+                      {:problem :codebase/incompatible-transport-schema
+                       :capabilities capabilities})))
+    (http-edn! (-> (HttpRequest/newBuilder
+                    (java.net.URI/create (endpoint base-url "/v1/key-register")))
+                   (.GET) (.build)))))
+
+(defn sync-key-register!
+  "Fetch and persist a peer register only when local VERIFY! authorizes it.
+  A refreshed register takes effect for subsequent calls to
+  `stored-key-register-authorizer`, allowing revocation propagation without
+  trusting network transport itself."
+  [base-url root verify!]
+  (store-key-register! root (fetch-remote-key-register! base-url) verify!))
+
+(defn- require-compatible-peer! [base-url]
+  (let [capabilities (fetch-transport-capabilities! base-url)]
+    (when-not (and (= :kotoba.semantic-codebase-capabilities/v1 (:schema capabilities))
+                   (some #{transport-schema} (:closure-schemas capabilities)))
+      (throw (ex-info "peer has no compatible closure schema"
+                      {:problem :codebase/incompatible-transport-schema
+                       :capabilities capabilities})))
+    capabilities))
+
+(defn fetch-closure!
+  "Fetch a verified closure from BASE-URL and import it into TO-ROOT."
+  [base-url to-root root-cid]
+  (let [_ (require-compatible-peer! base-url)
+        uri (java.net.URI/create
+             (str (endpoint base-url "/v1/closure?root=")
+                  (URLEncoder/encode root-cid "UTF-8")))
+        wire (http-edn! (-> (HttpRequest/newBuilder uri)
+                            (.header "Kotoba-Transfer-Schema" transport-schema) (.GET) (.build)))
+        closure (wire->closure wire)]
+    (assoc closure :imported (import-closure! to-root closure))))
+
+(defn fetch-remote-head!
+  "Read a selected namespace head from a compatible peer without changing
+  local state. Callers must still authorize any local head advance."
+  [base-url namespace]
+  (require-compatible-peer! base-url)
+  (let [uri (java.net.URI/create
+             (str (endpoint base-url "/v1/head?namespace=")
+                  (URLEncoder/encode namespace "UTF-8")))
+        result (http-edn! (-> (HttpRequest/newBuilder uri) (.GET) (.build)))]
+    (when-not (and (= namespace (:namespace result)) (string? (:head result)))
+      (throw (ex-info "invalid remote namespace head response"
+                      {:problem :codebase/invalid-transfer-wire})))
+    result))
+
+(defn replicate-namespace!
+  "Replicate one explicitly named namespace from BASE-URL into TO-ROOT.
+  This is static-peer replication, not peer discovery: the caller supplies the
+  peer URL and an authority verifier for the local head advance."
+  [base-url to-root namespace expected-head authorize!]
+  (let [{remote-namespace :namespace remote-head :head} (fetch-remote-head! base-url namespace)
+        transfer (fetch-closure! base-url to-root remote-head)
+        publication (publish-head! to-root remote-namespace remote-head expected-head authorize!)]
+    (assoc transfer :publication publication)))
+
+(defn publish-remote-head!
+  "Ask a remote C7 server to publish a verified, already-present namespace
+  commit. The remote server's injected verifier remains authoritative."
+  ([base-url namespace cid expected-head]
+   (publish-remote-head! base-url namespace cid expected-head nil))
+  ([base-url namespace cid expected-head publication]
+  (let [capabilities (require-compatible-peer! base-url)
+        _ (when-not (some #{head-publication-schema} (:head-publication-schemas capabilities))
+            (throw (ex-info "peer has no compatible head publication schema"
+                            {:problem :codebase/incompatible-transport-schema
+                             :capabilities capabilities})))
+        body (pr-str (cond-> {:namespace namespace :cid cid :expected-head expected-head}
+                       publication (assoc :publication publication)))
+        request (-> (HttpRequest/newBuilder (java.net.URI/create (endpoint base-url "/v1/head")))
+                    (.header "Content-Type" "application/edn")
+                    (.POST (HttpRequest$BodyPublishers/ofString body StandardCharsets/UTF_8))
+                    (.build))]
+    (http-edn! request))))
+
+(defn- publication-statement
+  [{:keys [namespace cid expected-head issued-at expires signer]}]
+  {:format :kotoba.namespace-publication-statement/v1
+   :namespace namespace :cid cid :expected-head expected-head
+   :issued-at issued-at :expires expires :signer signer})
+
+(defn- publication-statement-bytes [statement]
+  (.getBytes
+   (str "kotoba.namespace-publication/v1\n"
+        "namespace:" (:namespace statement) "\n"
+        "cid:" (:cid statement) "\n"
+        "expected-head:" (or (:expected-head statement) "") "\n"
+        "issued-at:" (:issued-at statement) "\n"
+        "expires:" (:expires statement) "\n"
+        "signer:" (:signer statement) "\n")
+   StandardCharsets/UTF_8))
+
+(defn publication-record-id
+  "Content identity of a signed publication envelope. The signature is part of
+  this immutable record identity, unlike the namespace commit it authorizes."
+  [envelope]
+  (semantic/source-cid
+   (str (String. (publication-statement-bytes (:statement envelope)) StandardCharsets/UTF_8)
+        "signature:" (:signature envelope) "\n")))
+
+(defn sign-publication
+  "Create an Ed25519-signed, time-bounded namespace publication record.
+  Private seed material is accepted only for this operation and is never
+  persisted by the codebase store."
+  [{:keys [namespace cid expected-head issued-at expires seed]}]
+  (when-not (and (string? namespace) (seq namespace) (string? cid)
+                 (string? issued-at) (string? expires)
+                 (bytes? seed) (= 32 (alength ^bytes seed)))
+    (throw (ex-info "invalid namespace publication signing input"
+                    {:problem :codebase/invalid-publication})))
+  (let [statement (publication-statement
+                   {:namespace namespace :cid cid :expected-head expected-head
+                    :issued-at issued-at :expires expires
+                    :signer (ed/did-key-from-seed seed)})]
+    {:format :kotoba.namespace-publication/v1
+     :statement statement
+     :signature (.encodeToString (Base64/getEncoder)
+                                 (ed/sign seed (publication-statement-bytes statement)))}))
+
+(defn- active-publication-key? [key signer now]
+  (and (= :active (:key/status key))
+       (= signer (or (:key/signer key) (:key/id key)))
+       (or (nil? (:key/not-before key)) (not (pos? (compare (:key/not-before key) now))))
+       (or (nil? (:key/expires key)) (not (pos? (compare now (:key/expires key)))))))
+
+(defn verify-publication
+  "Verify a signed publication against an explicit active-key register.
+  Verification is fail-closed: a cryptographically valid signer not present
+  as an active, in-window key cannot advance a namespace."
+  [envelope key-register {:keys [now]}]
+  (let [statement (:statement envelope)
+        signer (:signer statement)
+        now (or now (subs (str (java.time.Instant/now)) 0 10))
+        structural? (and (= :kotoba.namespace-publication/v1 (:format envelope))
+                         (= :kotoba.namespace-publication-statement/v1 (:format statement))
+                         (every? string? [(:namespace statement) (:cid statement)
+                                          (:issued-at statement) (:expires statement) signer])
+                         (or (nil? (:expected-head statement)) (string? (:expected-head statement)))
+                         (string? (:signature envelope)))
+        signature-valid? (and structural?
+                              (try (ed/verify-did signer (publication-statement-bytes statement)
+                                                  (.decode (Base64/getDecoder) ^String (:signature envelope)))
+                                   (catch Exception _ false)))
+        key-valid? (some #(active-publication-key? % signer now) (:keys key-register))
+        time-valid? (and structural?
+                         (not (pos? (compare (:issued-at statement) now)))
+                         (not (pos? (compare now (:expires statement)))))]
+    (cond
+      (not structural?) {:ok? false :problem :codebase/invalid-publication}
+      (not signature-valid?) {:ok? false :problem :codebase/invalid-publication-signature}
+      (not key-valid?) {:ok? false :problem :codebase/publication-key-inactive}
+      (not time-valid?) {:ok? false :problem :codebase/publication-expired}
+      :else {:ok? true :record envelope :record-id (publication-record-id envelope)})))
+
+(defn record-publication!
+  "Verify then durably retain an immutable signed publication receipt."
+  [root envelope key-register opts]
+  (require-store! root)
+  (let [{:keys [ok? record-id] :as verified} (verify-publication envelope key-register opts)]
+    (when-not ok?
+      (throw (ex-info "publication record was not accepted" (dissoc verified :record))))
+    (let [target (publication-file root record-id)
+          text (pr-str envelope)]
+      (if (.exists target)
+        (when-not (= text (slurp target))
+          (throw (ex-info "publication record identity conflict"
+                          {:problem :codebase/publication-record-conflict :record-id record-id})))
+        (spit target text))
+      (assoc verified :persisted? true))))
+
+(defn signed-publication-authorizer
+  "Build the injected `authorize!` function for `start-http-server!`.
+  The request must carry :publication. On acceptance its exact signed record
+  is retained before the head CAS is attempted."
+  ([root key-register] (signed-publication-authorizer root key-register {}))
+  ([root key-register opts]
+   (fn [{:keys [namespace cid expected-head publication]}]
+     (let [statement (:statement publication)]
+       (when-not (and (= namespace (:namespace statement)) (= cid (:cid statement))
+                      (= expected-head (:expected-head statement)))
+         (throw (ex-info "publication statement does not match head request"
+                         {:problem :codebase/publication-request-mismatch})))
+       (record-publication! root publication key-register opts)
+       true))))
+
+(defn stored-key-register-authorizer
+  "Authorize signed publications against the latest locally accepted register.
+  Pair with `sync-key-register!`; each request reloads the durable register so
+  newly propagated revocations take effect without restarting the server."
+  ([root] (stored-key-register-authorizer root {}))
+  ([root opts]
+   (fn [request]
+     ((signed-publication-authorizer
+       root (or (stored-key-register root)
+                (throw (ex-info "no accepted key register is available"
+                                {:problem :codebase/key-register-unavailable})))
+       opts)
+      request))))
 
 (defn- cache-descriptor
   [{:keys [code-closure-cid compiler-contract-cid target-abi package-lock-cid
@@ -282,6 +781,27 @@
         (let [entry (cbor/decode (Files/readAllBytes (.toPath target)))]
           (when (= (cache-descriptor descriptor) (get entry "descriptor"))
             (get entry "result")))))))
+
+(defn run-cached!
+  "Run `thunk` once for a cacheable, effect-free descriptor and retain its
+  immutable result. Returns cache provenance together with the result.
+
+  Descriptors that declare effects deliberately bypass both lookup and write:
+  this is the runner boundary that prevents a cache hit from pretending an
+  effectful compile or test execution occurred."
+  [root descriptor thunk]
+  (when-not (ifn? thunk)
+    (throw (ex-info "cached runner requires a thunk" {:problem :codebase/invalid-cache-runner})))
+  (if-let [key (cache-key descriptor)]
+    (if-let [cached (cache-get root descriptor)]
+      {:cacheable? true :cache-hit? true :key key :result cached}
+      (let [result (thunk)]
+        (when-not (map? result)
+          (throw (ex-info "cached runner result must be immutable data map"
+                          {:problem :codebase/invalid-cache-result})))
+        (cache-put! root descriptor result)
+        {:cacheable? true :cache-hit? false :key key :result result}))
+    {:cacheable? false :cache-hit? false :result (thunk)}))
 
 (defn namespace-view
   "Decode and verify a namespace commit into ordinary CID strings."
