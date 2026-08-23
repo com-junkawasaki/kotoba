@@ -174,6 +174,10 @@ Commands this repo's launcher currently wires up:
 kotoba check --kind cli-contract --json     # validate the CLI/package/lock contract
 kotoba run path/to/entry.kotoba             # compile and run a Kotoba entry point
 kotoba compile app.kotoba --target web -o app.mjs # checked KIR → kotoba-script
+kotoba compile app.kotoba --target web \
+  --semantic-receipt app.semantic.edn \
+  --signing-key semantic-signing-key.edn \
+  --spdx app.spdx.json -o app.mjs
 kotoba compile --project kotoba-project.edn --target web -o app.mjs # closed multi-module build
 kotoba run path/to/entry.cljk                # CLJ Kotoba source
 kotoba package verify --lock lock.edn --trust trust.edn --json   # package admission gate
@@ -184,7 +188,156 @@ kotoba package resolve --registry-cid bafkrei... --requests requests.edn \
 kotoba wasm emit cell.kotoba --policy policy.edn --package-lock lock.edn -o cell.wasm  # capability-confined build, see Language below
 kotoba wasm run cell.kotoba --policy policy.edn --package-lock lock.edn                # check + emit + execute
 kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs                      # ClojureScript source, see Language below
+kotoba deploy --op apply --target dev \
+  --deploy-root .kotoba/deploy \
+  --deployment-signing-key deployment-signing-key.edn \
+  --artifact app.mjs \
+  --artifact-manifest app.mjs.manifest.edn \
+  --semantic-receipt app.semantic.edn \
+  --trust semantic-receipt-trust.edn \
+  --expected-semantic-receipt-cid bafyrei...
 ```
+
+`compile --semantic` fails closed unless the semantic codec can derive
+definition CIDs before writing the artifact. `--semantic-receipt` requires an
+Ed25519 `--signing-key` and writes a v2 supply-chain receipt. The signed receipt
+binds the multi-module semantic root, exact package lock, trust policy, package
+admission result, compiler identity, build derivation, artifact bytes, and SPDX
+2.3 projection. Every object and every relationship has its own CID.
+
+The signing-key file is private EDN:
+
+```clojure
+{:kotoba.signing/seed-base64 "<base64 encoded 32-byte Ed25519 seed>"}
+```
+
+Deployment re-reads and hashes `--artifact`, checks the external receipt CID,
+recomputes every object/edge CID and SPDX projection, verifies the receipt
+signature, and requires the signer in `--trust`:
+
+```clojure
+{:trusted-signers #{"did:key:z6Mk..."}
+ :revoked-signers #{}}
+```
+
+Legacy unsigned v1 receipts are rejected by default. Migration-only
+verification requires an explicit `--allow-legacy-semantic-receipt`; all newly
+emitted receipt files are signed v2 receipts.
+
+With `--op apply`, `--deploy-root`, and `--deployment-signing-key`, the local
+deploy adapter stores an immutable release directory named by semantic receipt
+CID, signs a deployment receipt, and atomically advances the target's
+`current.head`. An existing target requires
+`--expected-deployment-head <current-release-cid>` for compare-and-set updates.
+`deploy status` reverifies the stored semantic receipt, artifact, SPDX, and
+deployment-controller signature. `deploy rollback --revision <release-cid>`
+advances the same signed event chain back to a previously verified release.
+
+Without a deploy root, admission-only `plan` remains side-effect free and
+returns `:host-action :adapter-required`; remote deployment adapters can consume
+that verified plan.
+
+### Signed shared semantic cache
+
+`kotoba codebase cache-publish`, `provider-discover`, and `cache-fetch` expose
+the effect-free cache kernel through the IPLD store. A cache entry binds the
+same descriptor as the local runner—code closure, compiler contract, target
+ABI, package lock, policy, and all immutable inputs—then separately signs its
+result CID with an Ed25519 publisher key. Provider records are signed,
+expiring, monotonically sequenced location hints:
+
+```bash
+kotoba codebase cache-publish cache-publish.edn \
+  --store .kotoba/codebase --block-store .kotoba/blocks
+kotoba codebase provider-discover cache-fetch.edn \
+  --store .kotoba/codebase
+kotoba codebase cache-fetch cache-fetch.edn \
+  --store .kotoba/codebase --block-store .kotoba/blocks
+kotoba compile app.kotoba --target web \
+  --semantic-receipt app.semantic.edn \
+  --spdx app.spdx.json \
+  --build-cache build-cache.edn -o app.mjs
+```
+
+Publish specs contain `:descriptor`, `:result`, a raw 32-byte `:seed-file`,
+`:issued-at`, and `:expires-at`. An optional `:provider` adds its URL,
+sequence, validity interval, and raw provider/storage-receipt seed. Fetch specs
+contain the descriptor, `:provider-records`, and explicit
+`:trusted-publishers` / `:trusted-providers` sets; optional
+`:repair-min-replicas` requires signed peer-pinned storage receipts and
+byte-identical readback before repair counts.
+
+Discovery never grants cache authority. Fetch recomputes every CID, rejects
+effectful descriptors, checks publisher/provider trust and revocation, ignores
+stale provider sequences, falls back across providers, and fails closed if
+reachable trusted publishers return different result CIDs. A successful hit is
+then promoted into the existing local semantic cache under the same key.
+
+`compile --build-cache` uses the same protocol directly. Its pre-emission key
+binds the semantic project root, exact compiler git revision from the active
+tools.deps basis, target profile, package lock, trust policy, package admission
+receipt, and source witness CIDs. A hit restores a linked artifact bundle and
+then re-verifies the complete semantic supply-chain receipt and canonical SPDX
+bytes before writing output. A miss performs the normal build and can publish
+the resulting bundle:
+
+```clojure
+{:block-store ".kotoba/cache-blocks"
+ :provider-records [#_signed-provider-record]
+ :trust {:trusted-publishers #{"did:key:z6Mk..."}
+         :trusted-providers #{"did:key:z6Mk..."}
+         :trusted-signers #{"did:key:z6Mk..."}}
+ :required? false
+ :publish {:issued-at 1785100000
+           :expires-at 1785186400
+           :provider-record-output ".kotoba/provider.edn"
+           :provider {:url "https://cache.example"
+                      :sequence 7
+                      :issued-at 1785100000
+                      :expires-at 1785186400
+                      :signing-key "provider-signing-key.edn"}}}
+```
+
+`required? true` turns an unavailable or invalid provider catalog into a build
+failure. With the default false, ordinary absence is a local build miss;
+publisher/result equivocation still always fails closed. A local-root
+development compiler is deliberately ineligible for shared hits because it
+lacks an immutable compiler revision.
+
+The same cache can carry signed semantic test receipts:
+
+```bash
+kotoba check src/math.kotoba --kind semantic-test \
+  --test-manifest test/math-tests.edn \
+  --test-receipt target/math.test-receipt.edn \
+  --signing-key semantic-test-key.edn \
+  --build-cache build-cache.edn
+```
+
+```clojure
+{:kotoba.test/version 1
+ :kotoba.test/tests
+ [{:name "addition" :function add :args [20 22] :expect 42}
+  {:name "identity" :function identity :args [7] :expect 7}]}
+```
+
+The v1 runner accepts only effect-free definition closures. Its descriptor
+binds the semantic root, suite CID, exact compiler revision, runner contract,
+package/policy inputs, and declared effects. Each pass or failure outcome is
+signed; cached failures remain failures. A hit verifies both the shared-cache
+publisher signature and the independent test-receipt signer, including
+revocation, before returning outcomes. This slice deliberately does not cache
+tests that need clocks, randomness, network, graph, filesystem, or other host
+effects until those inputs and host receipts can be represented completely.
+
+IPFS is appropriate for public immutable blocks and availability, but a CID is
+only byte identity: it does not prove publisher authority, freshness, safety,
+or continued pinning. Keep secrets, signing keys, private source, trust policy,
+and mutable heads out of public IPFS; encrypt private payloads before
+replication. Git remains the reviewable authoring/history and policy channel.
+The intended split is Git for human-reviewed source and trust metadata, IPLD/
+IPFS for immutable CID bytes, and signed receipts for the arrows between
+source, semantic identity, build, SPDX, deployment, and cache results.
 
 Multi-module projects use an explicit closed manifest; the compiler never scans
 the filesystem or delegates module lookup to JavaScript:

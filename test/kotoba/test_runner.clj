@@ -14,6 +14,10 @@
             [kotoba.compositional-negative-test]
             [kotoba.cap-typed-test]
             [kotoba.cljs-backend-test]
+            [kotoba.codebase-actor-test]
+            [kotoba.codebase-network-cli-test]
+            [kotoba.codebase-private-test]
+            [kotoba.codebase-resolver-test]
             [kotoba.cold-tier-admission-test]
             [kotoba.control-adoption-test]
             [kotoba.crypto-qualification-test]
@@ -26,6 +30,7 @@
             [kotoba.git-adapter-test]
             [kotoba.grade-a-test]
             [kotoba.host-providers-test]
+            [kotoba.ipld-block-store-test]
             [kotoba.kami-game-test]
             [kotoba.kgraph-test]
             [kotoba.key-hierarchy-test]
@@ -46,6 +51,7 @@
             [kotoba.sensing-host-test]
             [kotoba.semantic-code-test]
             [kotoba.semantic-codebase-test]
+            [kotoba.shared-semantic-cache-test]
             [kotoba.threat-model-test]
             [kotoba.supply-chain-test]
             [kotoba.type-contract-adapter-test]
@@ -78,6 +84,10 @@
                                         'kotoba.compositional-negative-test
                                         'kotoba.cap-typed-test
                                         'kotoba.cljs-backend-test
+                                        'kotoba.codebase-actor-test
+                                        'kotoba.codebase-network-cli-test
+                                        'kotoba.codebase-private-test
+                                        'kotoba.codebase-resolver-test
                                         'kotoba.cold-tier-admission-test
                                         'kotoba.control-adoption-test
                                         'kotoba.crypto-qualification-test
@@ -90,6 +100,7 @@
                                         'kotoba.git-adapter-test
                                         'kotoba.grade-a-test
                                         'kotoba.host-providers-test
+                                        'kotoba.ipld-block-store-test
                                         'kotoba.kami-game-test
                                         'kotoba.kgraph-test
                                         'kotoba.key-hierarchy-test
@@ -110,6 +121,7 @@
                                         'kotoba.sensing-host-test
                                         'kotoba.semantic-code-test
                                         'kotoba.semantic-codebase-test
+                                        'kotoba.shared-semantic-cache-test
                                         'kotoba.threat-model-test
                                         'kotoba.supply-chain-test
                                         'kotoba.type-contract-adapter-test
