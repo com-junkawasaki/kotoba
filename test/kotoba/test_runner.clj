@@ -14,6 +14,7 @@
             [kotoba.cap-affine-test]
             [kotoba.cap-passing-test]
             [kotoba.cap-table-test]
+            [kotoba.cap-use-kotoba-parity-test]
             [kotoba.capability-cross-layer-test]
             [kotoba.cap-typed-test]
             [kotoba.cljs-backend-test]
@@ -43,6 +44,7 @@
             [kotoba.raw-memory-test]
             [kotoba.real-host-providers-test]
             [kotoba.reproducible-emit-test]
+            [kotoba.resource-scope-kotoba-parity-test]
             [kotoba.runtime-test]
             [kotoba.security-by-design-assurance-test]
             [kotoba.security-kaizen-test]
@@ -79,6 +81,7 @@
                                         'kotoba.cap-affine-test
                                         'kotoba.cap-passing-test
                                         'kotoba.cap-table-test
+                                        'kotoba.cap-use-kotoba-parity-test
                                         'kotoba.capability-cross-layer-test
                                         'kotoba.cap-typed-test
                                         'kotoba.cljs-backend-test
@@ -108,6 +111,7 @@
                                         'kotoba.raw-memory-test
                                         'kotoba.real-host-providers-test
                                         'kotoba.reproducible-emit-test
+                                        'kotoba.resource-scope-kotoba-parity-test
                                         'kotoba.runtime-test
                                         'kotoba.security-by-design-assurance-test
                                         'kotoba.security-kaizen-test

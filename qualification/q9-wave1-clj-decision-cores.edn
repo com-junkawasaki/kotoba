@@ -1,0 +1,136 @@
+{:kotoba.q9-clj-cores/version 1
+ :repository "kotoba-lang/kotoba"
+ :status :shadow-running
+ :as-of "2026-08-23"
+ :baseline-commit "2beaada20ea746f2fd5fd1f95b9f0589047e1315"
+ :classification :split
+ :source-extension ".cljk"
+ :rationale
+ "q9-wave1-pilot ported purpose-built reference slices. This record covers
+  the first port of decisions that were already load-bearing in .clj: the
+  unit is the decision core, not the namespace. Parsing, tables, atoms and
+  receipts stay on the host; what a grant covers and when a handle stops
+  working crossed over."
+
+ :baseline-paths
+ ["src/kotoba/resource_scope.clj"
+  "src/kotoba/cap_table.clj"]
+
+ :classifications
+ {"src/kotoba/resource_scope.clj"
+  {:disposition :split
+   :native-tcb-boundary "java.net.URI parsing, URI.normalize, percent-decoding"
+   :decision "grant/resource containment over HTTP(S) origin and path"}
+  "src/kotoba/cap_table.clj"
+  {:disposition :split
+   :native-tcb-boundary "the per-run handle table (atom), acquisition-time
+                         policy n grants n requested intersection, receipts"
+   :decision "the use-time gate: unknown handle, kind mismatch, expiry"}}
+
+ :path-mapping
+ [{:decision-core "cores/resource_scope_core.cljk"
+   :oracle "src/kotoba/resource_scope.clj"
+   :host-seam "kotoba.resource-scope/parts"
+   :parity "test/kotoba/resource_scope_kotoba_parity_test.clj"}
+  {:decision-core "cores/cap_use_core.cljk"
+   :oracle "src/kotoba/cap_table.clj"
+   :host-seam "kotoba.cap-table/decide-use"
+   :parity "test/kotoba/cap_use_kotoba_parity_test.clj"}]
+
+ :consumers
+ {:cutover :none
+  :note "kotoba.runtime, kotoba.wasm-exec and kotoba.host-providers still call
+         resource-scope/covers?, and host-providers still calls
+         cap-table/resolve-use. Neither call site changed. Consumer selection
+         of the Kotoba source is a separate step gated on soak."}
+
+ :verification
+ {:source-check
+  {:result :pass
+   :command "kotoba -M check kotoba/<core>.cljk"
+   :observed {:ok true :effects #{} :required-capabilities #{}}}
+  :target-compile
+  {:result :pass
+   :command "kotoba -M compile kotoba/<core>.cljk --target wasm32-browser"
+   :observed {:target :wasm32-browser-kotoba-v1}}
+  :oracle-parity
+  {:result :pass
+   :command "clojure -M:test (both *_kotoba_parity_test namespaces)"
+   :observed {:tests 7 :assertions 268 :failures 0 :errors 0}
+   :bound "Corpus-bounded. 37 grant/resource pairs and 16 capability rows,
+           not a proof over all inputs."}
+  :discrimination
+  {:result :pass
+   :method "Each core was broken at the clause its test names, and the named
+            assertion went red; restoring the byte-identical file returned
+            the suite to 268/268."
+   :observed
+   [{:break "path-covers? else-arm reduced to a bare prefix test"
+     :caught ["p_longer (/alice must not cover /alice-evil)"
+              "covers-matches-the-jvm-oracle corpus row"]}
+    {:break "expired-at? never fires"
+     :caught ["three decide-use rows flipped :expired -> :ok"
+              "the outcome-coverage floor lost :expired"]}]}
+  :capability-denial
+  {:result :pass
+   :method "Both cores admit with :effects #{} and :minimal-policy {:allow #{}},
+            so there is no capability to deny -- a decision core that needed
+            one would be the wrong shape for this tranche."}
+  :consumer-resolution
+  {:result :not-applicable
+   :note "No consumer was cut over. See :consumers."}
+  :repository-tests
+  {:result :pass-with-known-unrelated-failures
+   :command "clojure -M:test"
+   :observed {:tests 635 :assertions 9196 :failures 9 :errors 0}
+   :failures
+   {:namespace "kotoba.backend-qualification-test"
+    :assertion "q8-report-is-machine-checkable-and-does-not-overclaim"
+    :cause "The q8 report cites evidence in SIBLING checkouts (../amu,
+            ../kotoba-lang, ../kototama). This tranche was built in an
+            isolated worktree under /tmp, where those siblings do not
+            exist. All nine paths were confirmed present next to the
+            shared checkout."
+    :related-to-this-change false}}
+  :reproducibility
+  {:result :pass
+   :method "Each core compiled twice to wasm32-browser; artifacts byte-identical."
+   :observed {"cores/resource_scope_core.cljk"
+              "sha1:1f15576d6ac5ec5aa0f5a6393c4a61893e1f9eae"
+              "cores/cap_use_core.cljk"
+              "sha1:db7bcb609cc50f681268243514a1ac86bc96baed"}}}
+
+ :deliberate-narrowing
+ [{:core "cores/resource_scope_core.cljk"
+   :rule "path-covers? refuses an empty grant path"
+   :why "The host normalizes an absent path to \"/\", so the oracle cannot
+         produce \"\" and parity is unaffected. Without it a directly-called
+         core would let \"\" cover every absolute path. An assertion in the
+         parity test pins that the host never produces one."}]
+
+ :rollback
+ {:oracle-retained true
+  :method :consumers-already-select-the-oracle
+  :data-migration-required false
+  :note "Nothing was deleted. Reverting means deleting the .cljk files and
+         the parity tests; no call site depends on them."}
+
+ :residual-risk
+ ["Parity is over a corpus, not over all strings. Percent-encoded paths and
+   non-ASCII hosts are outside it: the oracle's URI.getPath decodes %XX and
+   its lower-case is locale-sensitive, and neither is exercised."
+  "The capability core compares timestamps lexicographically over code
+   points, which equals String.compareTo only for ASCII. ISO-8601 always is,
+   and nothing enforces that an :cap/expires string is ISO-8601."
+  "Two implementations of each decision now exist. The parity tests are the
+   only thing preventing one-sided drift, so a change to either side that
+   does not run them can still diverge."
+  "This tranche has no soak. q9-migration.edn requires 3 CI runs over 7
+   calendar days before promotion, and CI for this repository is the
+   murakumo fleet, not GitHub Actions."]
+
+ :promotion
+ {:wave-expansion false
+  :oracle-retirement false
+  :consumer-cutover false
+  :blocked-by #{:soak :independent-review}}}

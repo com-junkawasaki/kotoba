@@ -74,6 +74,21 @@
   [expires now]
   (and (some? expires) (some? now) (neg? (compare expires now))))
 
+(defn decide-use
+  "The use-time decision with no table around it: CAP is the stored concrete
+  capability (nil for a handle that was never issued), KIND the op's kind,
+  NOW the use-time clock.
+
+  Split out so the decision has a shape a Kotoba port can hold. The rule is
+  unchanged and `resolve-use` is still the only caller a table has.
+  Mirror of cores/cap_use_core.cljk."
+  [cap kind now]
+  (cond
+    (nil? cap) {:denied :unknown-cap-handle}
+    (not= kind (:cap/kind cap)) {:denied :cap-kind-mismatch}
+    (expired-at? (:cap/expires cap) now) {:denied :expired}
+    :else {:ok? true :cap cap}))
+
 (defn resolve-use
   "Resolve HANDLE for a host call of capability kind KIND at time NOW.
 
@@ -84,12 +99,7 @@
   passed at use time ({:denied :expired}). On success returns
   {:ok? true :cap <concrete capability>}."
   [table handle kind now]
-  (let [cap (resolve-cap table handle)]
-    (cond
-      (nil? cap) {:denied :unknown-cap-handle}
-      (not= kind (:cap/kind cap)) {:denied :cap-kind-mismatch}
-      (expired-at? (:cap/expires cap) now) {:denied :expired}
-      :else {:ok? true :cap cap})))
+  (decide-use (resolve-cap table handle) kind now))
 
 (defn consume-use!
   "S2 runtime affinity: resolve HANDLE like `resolve-use`, then DROP it from
