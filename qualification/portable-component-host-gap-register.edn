@@ -1,141 +1,137 @@
-{:portable-component-host/version 4
- :portable-component-host/as-of "2026-07-26"
+{:portable-component-host/version 1
+ :portable-component-host/as-of "2026-07-25"
  :portable-component-host/adr
  "docs/ADR-portable-component-host-execution-identity.md"
+ :portable-component-host/status-values #{:open :in-progress :pass :accepted-risk}
 
  :portable-component-host/invariant
  {:format :kotoba.execution-identity/v1
-  :required
-  #{:plan-cid :code-closure-cid :artifact-cid :compiler-contract
-    :component-cid :wit-world-cid :package-lock-cid :policy-cid
-    :policy-decision-cid :db-basis :grant-cids :approval-cids
-    :runtime-identity :input-cid :outcome-cid :host-receipt-cids}
-  :rules
-  #{:no-ambient-wasi :no-runtime-escalation :closed-descriptors
-    :opaque-host-capabilities :basis-bound-query :immutable-receipts
-    :wit-owned-capabilities :durable-at-most-once-consumption
-    :witnessed-transparency :key-epoch-rotation
-    :retention-legal-hold :scheduled-requalification}}
+  :summary
+  "Every effectful production run is bound to one immutable identity containing the plan, code closure, artifact/component and WIT contract, policy decision, immutable data basis, scoped grants, approvals, runtime identity, inputs, outcome and host receipts."
+  :required-fields #{:plan-cid :code-closure-cid :artifact-cid :compiler-contract
+                     :package-lock-cid :policy-cid :policy-decision-cid :db-basis
+                     :grant-cids :approval-cids :runtime-identity :input-cid
+                     :outcome-cid :host-receipt-cids}
+  :component-required-fields #{:component-cid :wit-world-cid}
+  :production-rules #{:no-ambient-wasi
+                       :no-runtime-permission-escalation
+                       :opaque-host-managed-capabilities
+                       :basis-bound-query
+                       :receipt-before-effect-outcome}}
 
  :portable-component-host/gaps
  {:G-01
-  {:status :pass
-   :control :shared-portable-execution-abi
+  {:status :in-progress
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/compiler" "kotoba-lang/abi"
+             "kotoba-lang/kototama" "kotoba-lang/aiueos" "kotoba-lang/kotobase"}
+   :summary "No single versioned cross-repository schema defines plan, policy decision, capability resource, execution identity, and receipt linkage."
+   :existing-foundation #{:abi-portable-execution-v1
+                          :kotoba-semantic-closure-cid :compiler-artifact-provenance
+                          :aiueos-run-plan :kototama-session :kotobase-execution-receipt}
    :evidence
-   ["kotoba-lang/abi:schemas/portable-execution-v1.schema.json"
-    "kotoba-lang/abi:src/kotoba/abi/contract.cljc"
-    "kotoba-lang/abi:test/kotoba/abi/contract_test.cljc"]
-   :qualification "closed plan, decision, approval, lease and identity shapes; positive and mutation vectors"}
+   {:command "cd orgs/kotoba-lang/abi && clojure -M:test"
+    :result "5 tests, 24 assertions, 0 failures, 0 errors"
+    :artifacts ["../abi/src/kotoba/abi/contract.cljc"
+                "../abi/schemas/portable-execution-v1.schema.json"
+                "../abi/test/kotoba/abi/contract_test.cljc"]}
+   :exit-criteria
+   ["Publish canonical EDN/DAG-CBOR schemas and CID rules in kotoba-lang/abi."
+    "Reject unknown fields and incompatible versions in every production host."
+    "Provide positive, mutation, and cross-language conformance vectors."]}
 
   :G-02
-  {:status :pass
-   :control :single-execution-identity
+  {:status :in-progress
+   :depends-on #{:G-01}
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/compiler" "kotoba-lang/kotobase"
+             "kotoba-lang/kototama" "kotoba-lang/aiueos"}
+   :summary "Semantic execution receipts, compiler provenance, host receipts, and data facts are not yet one canonical execution identity."
+   :existing-foundation #{:kototama-link-time-execution-identity-validation
+                          :aiueos-plan-and-receipt-identity-validation
+                          :kotobase-execution-identity-fact-projection}
    :evidence
-   ["kotoba-lang/kototama:src/kototama/component_platform.clj"
-    "kotoba-lang/aiueos:src/aiueos/contract.cljc"
-    "kotoba-lang/kotobase:src/kotobase/code_graph.cljc"]
-   :qualification "link-time validation, broker/receipt validation, CID verification and immutable fact projection"}
+   {:artifacts ["../kototama/src/kototama/component_platform.clj"
+                "../aiueos/src/aiueos/contract.cljc"
+                "../kotobase/src/kotobase/code_graph.cljc"]}
+   :exit-criteria
+   ["Every effectful production path emits one CID-addressed kotoba.execution-identity/v1 object."
+    "The object binds code, artifact, component/WIT when present, policy decision, db basis, grants, approvals, runtime, input, outcome, and host receipts."
+    "Kotobase stores its fields as immutable facts and can reconstruct an execution by identity CID."
+    "Changing any bound field invalidates the receipt or yields a distinct CID."]}
 
   :G-03
-  {:status :pass
-   :control :host-managed-capability-lifecycle
-   :evidence
-   ["kotoba-lang/kototama:test/kototama/tender_test.clj"
-    "kotoba-lang/kototama:test/kototama/component_authority_test.clj"
-    "kotoba-lang/wasm-webcomponent:test/verify-actor-host.mjs"]
-   :qualification "identity/component binding, expiry, atomic bounded use, revoke/drop and live control-plane epoch"}
+  {:status :in-progress
+   :depends-on #{:G-01}
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/kototama" "kotoba-lang/aiueos"
+             "kotoba-lang/compiler"}
+   :summary "One-shot consumption, session revocation, and capability provenance exist in slices, but no common resource lifecycle covers every host import and transfer boundary."
+   :existing-foundation #{:kotoba-cap-table-consume-on-use
+                          :kototama-session-revoke-drop
+                          :kototama-capability-lease-use-budget
+                          :aiueos-broker-grant-deny}
+   :exit-criteria
+   ["Define resource scope, purpose, expiry, transfer policy, delegation depth, and use-budget fields in the shared schema."
+    "Component profiles represent destructive authority with WIT resource and own<resource>."
+    "Compatibility profiles expose only opaque session handles with equivalent observable semantics."
+    "A table-driven suite proves every host import rejects forged, expired, revoked, cross-run, cross-component, and exhausted handles."
+    "Control-plane revocation reaches already running sessions without restart."]}
 
   :G-04
-  {:status :pass
-   :control :exact-component-execution
-   :evidence
-   ["kotoba-lang/amu:src/kotoba/compiler/core.clj"
-    "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
-    "kotoba-lang/kototama:test/kototama/component_e2e_test.clj"]
-   :qualification "compiler-produced Component executes in Wasmtime with exact named imports, no general WASI, fuel and memory bounds"}
+  {:status :in-progress
+   :depends-on #{:G-01 :G-03}
+   :owners #{"kotoba-lang/compiler" "kotoba-lang/kototama" "kotoba-lang/abi"}
+   :summary "Component/WIT admission exists, but production Component Model execution and import lifecycle qualification are not complete; Chicory/core-Wasm remains compatibility evidence."
+   :existing-foundation #{:compiler-wasm-component-kotoba-v1
+                          :kototama-exact-wit-admission
+                          :wasi-0-3-component-baseline}
+   :exit-criteria
+   ["Execute compiler-produced Components in a qualified Component Model engine."
+    "Prove inspected imports equal compiler descriptor, WIT world, and policy/grant intersection."
+    "Prove absence of undeclared and ambient WASI imports."
+    "Enforce fuel, memory, deadline, I/O bytes, output bytes, concurrency, and cancellation on malicious-component fixtures."
+    "Keep core-Wasm/Chicory explicitly versioned as compatibility, never fallback."]}
 
   :G-05
-  {:status :pass
-   :control :typed-basis-bound-admission
-   :evidence
-   ["kotoba-lang/amu:src/kotoba/compiler/plan.cljc"
-    "kotoba-lang/aiueos:src/aiueos/execution_decision.cljc"
-    "kotoba-lang/abi:src/kotoba/abi/contract.cljc"]
-   :qualification "KIR-derived effects, deterministic permit/deny, exact approval binding and no caller-selected result"}
+  {:status :open
+   :depends-on #{:G-01 :G-02 :G-03 :G-04}
+   :owners #{"kotoba-lang/compiler" "kotoba-lang/kotoba" "kotoba-lang/kototama"
+             "kotoba-lang/aiueos" "kotoba-lang/kotobase"}
+   :summary "KIR effects, manifests, broker decisions, and approvals are not yet a single typed, basis-bound plan and canonical policy-decision object."
+   :exit-criteria
+   ["Compile a bounded plan from KIR effects, resource requirements, and requested domain actions."
+    "Evaluate it against a policy CID and immutable db basis, producing a canonical decision CID with reasons."
+    "Bind approval facts to plan, resource scope, policy, basis, expiry, and execution-identity inputs."
+    "Reject runtime permission escalation; an authority change creates a new plan and run."
+    "Test permit, deny, expiry, stale-basis, policy-substitution, approval-substitution, and confused-deputy cases."]}
 
   :G-06
-  {:status :pass
-   :control :authorized-query-gateway
-   :evidence
-   ["kotoba-lang/kotobase:src/kotobase/authorized_query.cljc"
-    "kotoba-lang/kotobase:src/kotobase/code_graph.cljc"
-    "kotoba-lang/kotobase:test/kotobase/authorized_query_test.cljc"]
-   :qualification "bounded AST, projection narrowing, immutable basis, query/result receipt and execution-identity reverse binding"}
+  {:status :in-progress
+   :depends-on #{:G-01 :G-02 :G-05}
+   :owners #{"kotoba-lang/kotobase" "kotoba-lang/kotoba" "kotoba-lang/kototama"}
+   :summary "Kotobase has operation/ABAC gates but not a shared authorization-aware query AST compiler that binds every data read to scope, purpose, projection, limit, and immutable basis."
+   :existing-foundation #{:kotobase-authorized-query-gateway}
+   :exit-criteria
+   ["Define a bounded query AST with tenant, resource scope, purpose, projection, limit, and basis."
+    "Compile it through a policy membrane before Datalog evaluation; unrestricted guest Datalog is unavailable."
+    "Record query/result provenance CIDs in execution identity and immutable facts."
+    "Test tenant escape, over-broad projection, unbounded result, stale basis, and query-rewrite attacks."]}
 
   :G-07
-  {:status :pass
-   :control :cross-host-qualification
-   :evidence
-   ["kotoba-lang/wasm-webcomponent:src/actor-host.js"
-    "kotoba-lang/wasm-webcomponent:src/http-post-bridge.js"
-    "kotoba-lang/wasm-webcomponent:test/verify-actor-host.mjs"
-    "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
-    "kotoba-lang/kototama:native/jco-component-host.mjs"
-    "kotoba-lang/kototama:test/kototama/component_e2e_test.clj"
-    "kotoba-lang/kototama:docs/adr/0010-independent-component-host-qualification.md"
-    "kotoba-lang/amu:test/kotoba/compiler/effectful_component_source_test.clj"]
-   :qualification
-   ["identical host-free Wasm across Chicory, Wasmtime and Node"
-    "14/14 actor-host imports share browser use/revoke/drop/exhaust semantics"
-    "the same compiler-produced effectful Component executes in independent Wasmtime and jco hosts"
-    "portable receipts match decision semantics, execution identity, abilities, resource bounds, capability consumption and outcome"
-    "concrete host executable hashes remain distinct and pinned in full receipts"
-    "policy denial, live epoch revocation and one-shot exhaustion reject equivalently"]}
+  {:status :open
+   :depends-on #{:G-02 :G-03 :G-04 :G-05 :G-06}
+   :owners #{"kotoba-lang/kotoba" "kotoba-lang/compiler" "kotoba-lang/kotobase"
+             "kotoba-lang/kototama" "kotoba-lang/aiueos"}
+   :summary "The portable host contract has no end-to-end cross-host qualification proving equivalent authority and receipt semantics across browser, server, and device profiles."
+   :exit-criteria
+   ["Publish shared positive and negative component fixtures."
+    "Run the same fixtures through at least two independent host implementations."
+    "Compare decisions, denied imports, resource exhaustion, revocation behavior, and execution-identity fields."
+    "Publish versioned evidence per supported deployment profile."]}}
 
-  :G-08
-  {:status :pass
-   :control :wit-owned-linear-capability
-   :evidence
-   ["kotoba-lang/amu:src/kotoba/compiler/component_wit.clj"
-    "kotoba-lang/amu:src/kotoba/compiler/component_core.clj"
-    "kotoba-lang/amu:test/kotoba/compiler/effectful_component_source_test.clj"
-    "kotoba-lang/kototama:native/wasmtime-component-host/src/main.rs"
-    "kotoba-lang/kototama:native/jco-component-host.mjs"]
-   :qualification "issue returns own<resource>; execute moves and consumes it; artifacts declare the capability mode"}
-
-  :G-09
-  {:status :pass
-   :control :third-browser-component-surface
-   :evidence
-   ["kotoba-lang/kototama:qualification/browser-component.kotoba"
-    "kotoba-lang/kototama:web/verify-component-browser.html"
-    "kotoba-lang/kototama:.github/workflows/ci.yml"]
-   :qualification "the compiler-produced Component is jco-transpiled and executed in Chromium; explicitly not claimed as browser-native Component support"}
-
-  :G-10
-  {:status :pass
-   :control :concurrent-crash-safe-linearity
-   :evidence
-   ["kotoba-lang/kototama:src/kototama/linear_journal.clj"
-    "kotoba-lang/kototama:test/kototama/linear_journal_test.clj"
-    "kotoba-lang/kototama:src/kototama/aiueos_adapter.clj"]
-   :qualification "independent budgets for multiple capability imports survive concurrent claims; claims serialize and fsync before effects, and recovery spends an indeterminate claim instead of replaying it"}
-
-  :G-11
-  {:status :pass
-   :control :transparency-key-retention
-   :evidence
-   ["kotoba-lang/kotobase:src/kotobase/transparency_log.clj"
-    "kotoba-lang/kotobase:qualification/transparency-policy.edn"
-    "kotoba-lang/kotobase:test/kotobase/transparency_log_test.clj"]
-   :qualification "witnessed append-only checkpoints, cross-signed monotonic key epochs, legal holds, class retention and post-checkpoint crypto-shredding"}
-
-  :G-12
-  {:status :pass
-   :control :component-model-requalification
-   :evidence
-   ["kotoba-lang/kototama:qualification/component-requalification.edn"
-    "kotoba-lang/kototama:.github/workflows/component-requalification.yml"]
-   :qualification "weekly upstream drift detection opens a deduplicated qualification issue; pin changes require the complete host and negative matrix"}}
-
- :portable-component-host/open-gaps []}
+ :portable-component-host/sequence
+ [[:G-01 :shared-schema]
+  [:G-02 :execution-identity]
+  [:G-03 :capability-resource-lifecycle]
+  [:G-04 :component-execution]
+  [:G-05 :typed-plan-admission]
+  [:G-06 :basis-bound-query]
+  [:G-07 :cross-host-qualification]]}
