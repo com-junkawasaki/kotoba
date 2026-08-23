@@ -52,3 +52,31 @@
        (string? resource)
        (or (= grant resource)
            (http-scope-covers? grant resource))))
+
+(defn parts
+  "Structural view of S for a decision this namespace no longer has to make.
+
+  Parsing is mechanism; what a grant covers is the decision, and that moved
+  to `cores/resource_scope_core.cljk` (Q9 wave 1). The core takes these
+  fields and nothing else, so it never has to reimplement java.net.URI.
+
+  `:scheme \"\"` means S did not parse at all, and `:host \"\"` that the
+  authority was not server-based. Both fail closed in the core through the
+  ordinary path rather than through a sentinel every caller has to test for.
+  `:port -1` is URI.getPort's own encoding of an absent port."
+  [s]
+  (if-not (string? s)
+    {:scheme "" :host "" :port -1 :path "/"
+     :userinfo? false :query? false :fragment? false}
+    (try
+      (let [^URI u (URI/create s)]
+        {:scheme (or (.getScheme u) "")
+         :host (or (.getHost u) "")
+         :port (.getPort u)
+         :path (normalized-path u)
+         :userinfo? (some? (.getUserInfo u))
+         :query? (some? (.getQuery u))
+         :fragment? (some? (.getFragment u))})
+      (catch Exception _
+        {:scheme "" :host "" :port -1 :path "/"
+         :userinfo? false :query? false :fragment? false}))))

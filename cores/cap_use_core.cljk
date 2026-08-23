@@ -1,0 +1,88 @@
+(ns cap-use-core
+  (:export [reason-ok reason-unknown-handle reason-kind-mismatch reason-expired
+            string<? expired-at? resolve-use-reason resolve-use-code]))
+
+;; Decision core for kotoba.cap-table's use-time gate (Q9 wave 1,
+;; `.clj` -> `.cljk`).
+;;
+;; What moved: the three ways a capability handle fails closed at use time.
+;; What stayed on the host: the handle table itself (an atom), the
+;; acquisition-time policy n grants n requested intersection, and receipts.
+;; A stored capability is ALREADY the intersected one, so nothing here
+;; re-intersects -- it re-checks the two things that can change after
+;; acquisition: which surface presented the handle, and what time it is.
+;;
+;; Reasons are strings, and they are the literal the oracle's keywords name.
+;; Pinning the reason rather than just "denied" is what makes a rename
+;; upstream fail this test instead of passing it for a new reason.
+;;
+;; Timestamps are compared lexicographically, which is what `compare` does
+;; to the oracle's ISO-8601 strings. That is only the same order for ASCII
+;; input; ISO-8601 always is, and the parity corpus stays inside it.
+;; "" means absent for both :cap/expires and now, matching the oracle's nil.
+;;
+;; Oracle retained: src/kotoba/cap_table.clj (`decide-use`).
+;; Parity: test/kotoba/cap_use_kotoba_parity_test.clj
+
+(defn reason-ok [] :string "ok")
+(defn reason-unknown-handle [] :string "unknown-cap-handle")
+(defn reason-kind-mismatch [] :string "cap-kind-mismatch")
+(defn reason-expired [] :string "expired")
+
+;; -- lexicographic order --------------------------------------------------
+
+(defn less-from? [a :string b :string i :i64] :bool
+  (let [na (string-byte-length a)
+        nb (string-byte-length b)]
+    (if (= i na)
+      ;; A ran out first: shorter is less, equal length is not less.
+      (< na nb)
+      (if (= i nb)
+        false
+        (let [ca (string-code-point-at a i)
+              cb (string-code-point-at b i)]
+          (if (< ca cb)
+            true
+            (if (> ca cb)
+              false
+              (less-from? a b (+ i 1)))))))))
+
+(defn string<? [a :string b :string] :bool
+  (less-from? a b 0))
+
+;; -- the decision ---------------------------------------------------------
+
+(defn expired-at? [expires :string now :string] :bool
+  ;; Absent on either side is NOT expired, matching the oracle: a capability
+  ;; with no expiry does not go stale, and a caller who supplied no clock
+  ;; does not get one invented. Both still have to pass the kind check.
+  (if (= (string-byte-length expires) 0)
+    false
+    (if (= (string-byte-length now) 0)
+      false
+      (string<? expires now))))
+
+(defn resolve-use-reason [handle-known :bool
+                          stored-kind :string requested-kind :string
+                          expires :string now :string] :string
+  (if (not handle-known)
+    (reason-unknown-handle)
+    (if (not (string=? requested-kind stored-kind))
+      (reason-kind-mismatch)
+      (if (expired-at? expires now)
+        (reason-expired)
+        (reason-ok)))))
+
+(defn resolve-use-code [handle-known :bool
+                        stored-kind :string requested-kind :string
+                        expires :string now :string] :i64
+  ;; Same decision, read out as a code. Derived from the reason rather than
+  ;; decided again, so the two cannot disagree.
+  (let [r (resolve-use-reason handle-known stored-kind requested-kind expires now)]
+    (if (string=? r (reason-ok))
+      0
+      (if (string=? r (reason-unknown-handle))
+        1
+        (if (string=? r (reason-kind-mismatch))
+          2
+          3)))))

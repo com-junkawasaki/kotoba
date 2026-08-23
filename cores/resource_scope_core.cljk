@@ -1,0 +1,171 @@
+(ns resource-scope-core
+  (:schemas {;; A URL the host has already parsed. Parsing is mechanism and
+             ;; stays on the host; what a grant covers is the decision and
+             ;; lives here.
+             ;;
+             ;; :scheme "" means the host could not parse the input at all
+             ;; (java.net.URI.create threw). It fails closed through the
+             ;; ordinary path -- `http-scheme?` is false for "" -- rather
+             ;; than through a sentinel every caller has to remember.
+             ;; :port -1 means absent, matching URI.getPort.
+             :scope/url [:record :scope/url
+                         [[:scheme :string]
+                          [:host :string]
+                          [:port :i64]
+                          [:path :string]
+                          [:userinfo :bool]
+                          [:query :bool]
+                          [:fragment :bool]]]})
+  (:export [http-scheme? default-port effective-port
+            starts-with? ends-with-slash?
+            scheme-ok? host-ok? port-ok? presentation-ok?
+            path-covers? covers-http? exact? covers?]))
+
+;; Decision core for kotoba.resource-scope (Q9 wave 1, `.clj` -> `.cljk`).
+;;
+;; What moved: the rule that decides whether a granted resource covers a
+;; requested one. What stayed on the host: java.net.URI parsing, path
+;; normalization (URI.normalize), and percent-decoding -- all mechanism,
+;; none of it a decision.
+;;
+;; This is the comparison that authority.scope's docstring names as the
+;; fleet's recurring hazard: a prefix test that can let one name cover a
+;; longer, different name. Here the `/` boundary is the whole content of
+;; `path-covers?`, so it is one exported function a test can pin rather
+;; than a clause buried in a `boolean (and ...)`.
+;;
+;; Oracle retained: src/kotoba/resource_scope.clj (q9 rollback policy --
+;; the old source is not deleted before soak).
+;; Parity: test/kotoba/resource_scope_kotoba_parity_test.clj
+
+;; -- scheme ---------------------------------------------------------------
+
+(defn http-scheme? [s :string] :bool
+  (if (string=? s "http")
+    true
+    (string=? s "https")))
+
+(defn default-port [scheme :string] :i64
+  ;; kotoba.resource-scope/effective-port: the scheme default when the
+  ;; authority carried no port. -1 for anything that is not HTTP(S); such a
+  ;; scheme never reaches here because scheme-ok? rejects it first.
+  (if (string=? scheme "http")
+    80
+    (if (string=? scheme "https")
+      443
+      -1)))
+
+(defn effective-port [scheme :string port :i64] :i64
+  (if (< port 0)
+    (default-port (string-fold-case scheme))
+    port))
+
+(defn scheme-ok? [grant-scheme :string resource-scheme :string] :bool
+  ;; HTTP(S) only, and both sides the same scheme. An unparseable input
+  ;; arrives as "" and is rejected here.
+  (let [g (string-fold-case grant-scheme)]
+    (if (http-scheme? g)
+      (string=? g (string-fold-case resource-scheme))
+      false)))
+
+;; -- authority ------------------------------------------------------------
+
+(defn host-ok? [grant-host :string resource-host :string] :bool
+  ;; Both hosts must be present. URI.getHost returns nil for an authority
+  ;; that is not server-based; the host passes "" for that, and an absent
+  ;; host must never compare equal to another absent host.
+  (if (= (string-byte-length grant-host) 0)
+    false
+    (if (= (string-byte-length resource-host) 0)
+      false
+      (string=? (string-fold-case grant-host)
+                (string-fold-case resource-host)))))
+
+(defn port-ok? [grant-scheme :string grant-port :i64
+                resource-scheme :string resource-port :i64] :bool
+  (= (effective-port grant-scheme grant-port)
+     (effective-port resource-scheme resource-port)))
+
+;; -- presentation ---------------------------------------------------------
+
+(defn presentation-ok? [grant-userinfo :bool resource-userinfo :bool
+                        grant-fragment :bool resource-fragment :bool
+                        grant-query :bool] :bool
+  ;; Userinfo and fragments are rejected on both sides so authority cannot be
+  ;; hidden in presentation syntax. A query on the GRANT is rejected because
+  ;; the containment rule below says nothing about queries -- a grant that
+  ;; carried one would be claiming a narrowing this order cannot enforce. A
+  ;; query on the RESOURCE is allowed: it does not widen what is reached.
+  (if grant-userinfo
+    false
+    (if resource-userinfo
+      false
+      (if grant-fragment
+        false
+        (if resource-fragment
+          false
+          (not grant-query))))))
+
+;; -- path containment -----------------------------------------------------
+
+(defn starts-with? [s :string prefix :string] :bool
+  (let [n (string-byte-length s)
+        m (string-byte-length prefix)]
+    (if (> m n)
+      false
+      (string=? (string-substring s 0 m) prefix))))
+
+(defn ends-with-slash? [p :string] :bool
+  (let [n (string-byte-length p)]
+    (if (= n 0)
+      false
+      (string=? (string-substring p (- n 1) n) "/"))))
+
+(defn path-covers? [grant-path :string resource-path :string] :bool
+  ;; The whole hazard lives in the last arm. A bare prefix test would let
+  ;;   /alice   cover   /alice-evil
+  ;; so a grant that does not already end in `/` only covers paths below a
+  ;; `/` boundary it appends itself. Equality is checked before that so a
+  ;; grant covers exactly itself even without a trailing slash.
+  ;;
+  ;; An empty grant path reaches NOTHING, not everything. The host never
+  ;; produces one -- `resource-scope/parts` normalizes an absent path to
+  ;; "/" -- so this narrows nothing the oracle can decide. It is here
+  ;; because a decision this file exports is callable by anything, and
+  ;; "" appending "/" would otherwise cover every absolute path there is.
+  (if (= (string-byte-length grant-path) 0)
+    false
+    (if (string=? grant-path resource-path)
+      true
+      (if (ends-with-slash? grant-path)
+        (starts-with? resource-path grant-path)
+        (starts-with? resource-path (string-concat grant-path "/"))))))
+
+;; -- the decision ---------------------------------------------------------
+
+(defn covers-http? [g [:ref :scope/url] r [:ref :scope/url]] :bool
+  (if (not (scheme-ok? (record-get g :scheme) (record-get r :scheme)))
+    false
+    (if (not (presentation-ok? (record-get g :userinfo)
+                               (record-get r :userinfo)
+                               (record-get g :fragment)
+                               (record-get r :fragment)
+                               (record-get g :query)))
+      false
+      (if (not (host-ok? (record-get g :host) (record-get r :host)))
+        false
+        (if (not (port-ok? (record-get g :scheme) (record-get g :port)
+                           (record-get r :scheme) (record-get r :port)))
+          false
+          (path-covers? (record-get g :path) (record-get r :path)))))))
+
+(defn exact? [grant :string resource :string] :bool
+  ;; Exact match is scheme-blind on purpose: it is the only thing a
+  ;; non-HTTP resource string gets. No other scheme gains prefix semantics.
+  (string=? grant resource))
+
+(defn covers? [grant :string resource :string
+               g [:ref :scope/url] r [:ref :scope/url]] :bool
+  (if (exact? grant resource)
+    true
+    (covers-http? g r)))
