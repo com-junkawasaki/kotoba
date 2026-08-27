@@ -67,7 +67,9 @@
           (testing "POSIX mode is 0600"
             (is (= "rw-------"
                    (PosixFilePermissions/toString
-                    (Files/getPosixFilePermissions (.toPath (io/file path)))))))))
+                    (Files/getPosixFilePermissions
+                     (.toPath (io/file path))
+                     (make-array java.nio.file.LinkOption 0))))))))
       (finally (delete-tree path)))))
 
 (deftest identity-new-refuses-to-overwrite-without-force
