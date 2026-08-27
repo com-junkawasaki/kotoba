@@ -232,6 +232,42 @@ clojure -M -m kotoba.launcher check --kind cli-contract --json
 bin/kotoba-clj deploy --manifest package-manifest.edn --target dev
 ```
 
+`deploy` against a murakumo target is the Deno-like one-command publish:
+checked wasm → IPNS name → murakumo public URL. Default `--dry-run` is
+true. `apply` is what publishes. Deno Deploy, Cloudflare, and Vercel are
+not targets. Hosted billed deploy of capability grants is not live.
+
+```bash
+# safe first step — prints the URL apply would publish, writes nothing
+bin/kotoba-clj deploy --manifest package-manifest.edn --target murakumo:asher
+
+# publish the admitted wasm (needs KOTOBA_CODEBASE_SEED + MURAKUMO_ROOT)
+bin/kotoba-clj deploy apply \
+  --manifest package-manifest.edn \
+  --target murakumo:asher \
+  --dry-run false \
+  --release-evidence release-evidence.edn \
+  --component target/app.wasm
+```
+
+Successful apply prints EDN whose `:kotoba.cli/message` is
+
+```
+published https://murakumo.cloud/ipns/k51…
+```
+
+and whose receipt carries the same value as `:kotoba.deploy/public-url`,
+plus `:kotoba.deploy/ipns-url` (`ipns://k51…`) and
+`:kotoba.deploy/ipfs-url` (`ipfs://<component-cid>`). The IPNS name is
+the existing `kotoba codebase publish --ipns` stack
+(`kotoba.codebase-ipns/publish-cid!`), not a second naming system.
+Compute reside shells `clojure -M -m murakumo.core deploy <manifest> [node]`
+in `$MURAKUMO_ROOT`. If that checkout is missing or the process exits
+non-zero, apply fails closed and does not write a success receipt.
+
+Operator of the public host: 運営元 [awai.network](https://awai.network),
+営業 Ryo Awai.
+
 Side-effecting commands return EDN/JSON data for host adapters. They do not
 invent independent Rust behavior. There is no Rust code or `crates/` tree left
 in this repository (removed `604896171b`, 2026-07-01) — the CLJC launcher
@@ -465,9 +501,12 @@ executes each one.
 `graph` / `git` / `rad` / `deploy` are host adapters over the same CLI contract.
 `git` and `rad` shell or re-dispatch; `graph` runs Datomic-shaped
 connect/query/transact/pull/status on the language EAVT store (`kgraph`);
-`deploy` plans and applies a package receipt to a named target (default
-`--dry-run`). `hinshitsu` is still a planned contract surface. Consult
-`lang/cli.edn` for option shape.
+`deploy` plans and applies a package receipt to a named local target or a
+murakumo fleet reside target (default `--dry-run`). Murakumo `apply`
+names the admitted wasm in IPNS and prints
+`https://murakumo.cloud/ipns/<name>`. Deno Deploy and Cloudflare are not
+targets. `hinshitsu` is still a planned contract surface. Consult
+`lang/cli.edn` for option shape. The CLI contract was not changed.
 
 ## Language — kotoba-lang & kotoba wasm
 

@@ -75,6 +75,22 @@
              (finally (stop))))
       (finally ((:stop router)) (run! delete-tree [author host follower])))))
 
+(deftest publish-cid-names-an-admitted-wasm-without-a-second-ipns-stack
+  (let [router (routing-server)
+        cid "bafkreidemoartifact"]
+    (try
+      (let [published (ipns-cli/publish-cid! (seed 1) cid {:routers [(:url router)]})
+            resolved (ipns-cli/resolve-namespace (:ipns-name published)
+                                                 {:routers [(:url router)]})]
+        (is (true? (:published? published)))
+        (is (= cid (:value-cid published)))
+        (is (= (ipns-core/pubkey->name (ed/pubkey-from-seed (seed 1)))
+               (:ipns-name published)))
+        (is (true? (:ok? resolved)))
+        (is (= cid (:record-cid resolved))
+            "deploy names the wasm CID itself, not a namespace head record"))
+      (finally ((:stop router))))))
+
 (deftest a-namespace-publishes-under-the-name-its-key-derives
   (with-nodes
     (fn [{:keys [author routers]}]

@@ -94,6 +94,39 @@
                          :minute (.getMinute at) :second (.getSecond at)
                          :nanos (.getNano at)})))
 
+(defn publish-cid!
+  "Point this key's IPNS name at an already-addressed CID.
+
+  This is the same record format and `/routing/v1` publish path as
+  `publish-namespace!`. It does not open a second IPNS stack. The value is
+  `/ipfs/<cid>` so a resolver that follows the name lands on the artifact
+  itself — the deploy adapter uses that for an admitted wasm CID.
+
+  Sequence defaults to unix-epoch milliseconds so a later publish of the same
+  name is newer than an earlier one without a local sequence store."
+  [^bytes seed cid {:keys [routers validity-days timeout-ms sequence]
+                    :or {validity-days default-validity-days
+                         timeout-ms default-timeout-ms}}]
+  (when-not (and (string? cid) (not (str/blank? cid)))
+    (fail! :ipns/cid-required {:cid cid}))
+  (let [ipns-name (name-of seed)
+        sequence (or sequence (System/currentTimeMillis))
+        ipns-record (ipns/create {:value (str "/ipfs/" cid)
+                                  :validity (eol validity-days)
+                                  :sequence sequence
+                                  :sign-fn (fn [octets]
+                                             (ed/sign seed (byte-array (map unchecked-byte octets))))})
+        published (kad/publish (http-fn {:timeout-ms timeout-ms})
+                               ipns-name
+                               (ipns/serialize ipns-record)
+                               (cond-> {} routers (assoc :routers routers)))]
+    {:ipns-name ipns-name
+     :value-cid cid
+     :sequence sequence
+     :published? (:ok? published)
+     :accepted-by (:accepted published)
+     :rejected-by (mapv :router (:rejected published))}))
+
 (defn publish-namespace!
   "Sign NAMESPACE's head record, then point this key's IPNS name at it.
 

@@ -321,9 +321,19 @@
         (when (.exists f)
           (slurp f))))))
 
+(defn- ipns-routers-from-env
+  "Optional comma-separated `/routing/v1` routers. Unset ⇒ the kad default
+  (same as `kotoba codebase publish --ipns`)."
+  []
+  (let [raw (System/getenv "KOTOBA_IPNS_ROUTERS")]
+    (when (and (string? raw) (not (str/blank? raw)))
+      (vec (remove str/blank? (str/split raw #","))))))
+
 (defn deploy-host-port
-  "JVM host capabilities for the deploy adapter: filesystem, env, process.
-  Reside apply shells murakumo.core in $MURAKUMO_ROOT; local apply writes receipts."
+  "JVM host capabilities for the deploy adapter: filesystem, env, process,
+  and the existing IPNS publish path. Reside apply shells murakumo.core in
+  $MURAKUMO_ROOT; local apply writes receipts. IPNS reuses
+  `kotoba.codebase-ipns/publish-cid!` — not a second naming stack."
   []
   (reify deploy-adapter/IDeployHost
     (-read-file [_ path]
@@ -347,6 +357,45 @@
       (if (and (string? dir) (not (str/blank? dir)))
         (apply shell/sh (concat argv [:dir dir]))
         (apply shell/sh argv)))
+    (-ipns-identity [_]
+      (let [hex (signing-seed-hex)]
+        (when (and hex (= 64 (count hex)))
+          {:ipns-name (codebase-ipns/name-of (ed25519/unhex hex))})))
+    (-publish-ipns [_ _planned receipt]
+      (let [hex (signing-seed-hex)
+            cid (:kotoba.deploy/component-cid receipt)
+            routers (ipns-routers-from-env)]
+        (cond
+          (not (and hex (= 64 (count hex))))
+          {:ok? false
+           :error :deploy/ipns-seed-required
+           :message (str "reside apply needs KOTOBA_CODEBASE_SEED (32-byte hex"
+                         " Ed25519 seed) to name the wasm in IPNS. This is the"
+                         " same seed as `kotoba codebase publish --ipns`.")}
+
+          (not (and (string? cid) (not (str/blank? cid))))
+          {:ok? false
+           :error :deploy/missing-component-cid
+           :message "admitted release did not yield a component CID"}
+
+          :else
+          (try
+            (let [published (codebase-ipns/publish-cid!
+                             (ed25519/unhex hex) cid
+                             (cond-> {} routers (assoc :routers routers)))]
+              (if (:published? published)
+                (assoc published :ok? true)
+                {:ok? false
+                 :error :deploy/ipns-publish-failed
+                 :message (str "IPNS routers did not accept the wasm name."
+                               " Set KOTOBA_IPNS_ROUTERS or use the kad default;"
+                               " do not invent a second naming stack.")
+                 :ipns published}))
+            (catch Exception e
+              {:ok? false
+               :error :deploy/ipns-publish-failed
+               :message (.getMessage e)
+               :exception-class (.getName (class e))})))))
     (-admit-release [_ {:keys [release-evidence-path component-path]} manifest]
       (try
         (when-not (and (string? release-evidence-path)
