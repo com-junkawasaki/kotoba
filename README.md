@@ -232,6 +232,45 @@ clojure -M -m kotoba.launcher check --kind cli-contract --json
 bin/kotoba-clj deploy --manifest package-manifest.edn --target dev
 ```
 
+`deploy` against a murakumo target is the Deno-like one-command publish:
+checked wasm → IPNS name → murakumo public URL. Default `--dry-run` is
+true. `apply` is what publishes. Deno Deploy, Cloudflare, and Vercel are
+not targets. Hosted billed deploy of capability grants is not live.
+
+```bash
+# safe first step — prints the URL apply would publish, writes nothing
+bin/kotoba-clj deploy --manifest package-manifest.edn --target murakumo:asher
+
+# one local identity — prints did:key + ipns-name, never the seed
+bin/kotoba-clj identity new
+
+# publish the admitted wasm (same identity; MURAKUMO_ROOT for reside)
+bin/kotoba-clj deploy apply \
+  --manifest package-manifest.edn \
+  --target murakumo:asher \
+  --dry-run false \
+  --release-evidence release-evidence.edn \
+  --component target/app.wasm
+```
+
+Successful apply prints EDN whose `:kotoba.cli/message` is
+
+```
+published https://murakumo.cloud/ipns/k51…
+```
+
+and whose receipt carries the same value as `:kotoba.deploy/public-url`,
+plus `:kotoba.deploy/ipns-url` (`ipns://k51…`) and
+`:kotoba.deploy/ipfs-url` (`ipfs://<component-cid>`). The IPNS name is
+the existing `kotoba codebase publish --ipns` stack
+(`kotoba.codebase-ipns/publish-cid!`), not a second naming system.
+Compute reside shells `clojure -M -m murakumo.core deploy <manifest> [node]`
+in `$MURAKUMO_ROOT`. If that checkout is missing or the process exits
+non-zero, apply fails closed and does not write a success receipt.
+
+Operator of the public host: 運営元 [awai.network](https://awai.network),
+営業 Ryo Awai.
+
 Side-effecting commands return EDN/JSON data for host adapters. They do not
 invent independent Rust behavior. There is no Rust code or `crates/` tree left
 in this repository (removed `604896171b`, 2026-07-01) — the CLJC launcher
@@ -283,7 +322,9 @@ kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir --write
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
 kotoba codebase follow-name k51… --endpoint URL --store dir            # resolve a name through the DHT; no publisher argument
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
-kotoba codebase identity --store dir                                   # the DID your signing seed derives
+kotoba identity new                                                    # write the shared local operator seed (did:key only)
+kotoba identity                                                        # the DID that seed derives (env overrides the file)
+kotoba codebase identity --store dir                                   # the same DID your signing seed derives
 kotoba codebase import src.kotoba --store dir --namespace ns           # import semantic blocks from a source file
 kotoba codebase inspect <cid> --store dir                              # inspect one semantic block
 kotoba codebase resolve --store dir --namespace ns <name>              # resolve a name to its current CID
@@ -396,10 +437,21 @@ says which head is current, and the head record carries the sequence and
 predecessor link that make a rollback detectable. Two signatures over two
 different claims, both checked.
 
-The signing seed is read from `KOTOBA_CODEBASE_SEED` (32-byte hex) and is never
-echoed; `identity` prints only the DID it derives. Announcing to the IPFS DHT
-still needs a libp2p node, so a namespace is reachable at the nodes that host it
-rather than from the public network (see
+Local identity is one command. `kotoba identity new` writes a 32-byte Ed25519
+seed to the shared file
+
+```
+${XDG_DATA_HOME:-$HOME/.local/share}/kotoba/operator.seed
+```
+
+at mode 0600 and prints only `did:key` + the IPNS name. A second generate
+without `--force` refuses to overwrite. `KOTOBA_CODEBASE_SEED` still overrides
+the file when set. The seed is never echoed. `kotoba codebase identity` and
+`kotoba deploy` read the same seed, so a developer does not export two env
+names. Murakumo should treat this path as the `MURAKUMO_OPERATOR_SEED`
+fallback (sibling PR). Announcing to the IPFS DHT still needs a libp2p node,
+so a namespace is reachable at the nodes that host it rather than from the
+public network (see
 [`docs/ADR-kotoba-content-addressed-codebase-gap.md`](docs/ADR-kotoba-content-addressed-codebase-gap.md)).
 
 Multi-module projects use an explicit closed manifest; the compiler never scans
@@ -465,9 +517,16 @@ executes each one.
 `graph` / `git` / `rad` / `deploy` are host adapters over the same CLI contract.
 `git` and `rad` shell or re-dispatch; `graph` runs Datomic-shaped
 connect/query/transact/pull/status on the language EAVT store (`kgraph`);
-`deploy` plans and applies a package receipt to a named target (default
-`--dry-run`). `hinshitsu` is still a planned contract surface. Consult
-`lang/cli.edn` for option shape.
+`deploy` plans and applies a package receipt to a named local target or a
+murakumo fleet reside target (default `--dry-run`). Murakumo `apply`
+names the admitted wasm in IPNS and prints
+`https://murakumo.cloud/ipns/<name>`. Deno Deploy and Cloudflare are not
+targets. `hinshitsu` is still a planned contract surface. Consult
+`lang/cli.edn` for option shape. Contract delta (this repo only, not yet in
+the kotoba-lang pin): launcher-owned `identity` / `identity new [--force]`.
+Propose that command to `lang/cli.edn`; until the authority pin moves, this
+launcher intercepts `identity` the same way it intercepts `codebase`. No
+Deno, Cloudflare, or Vercel targets were added.
 
 ## Language — kotoba-lang & kotoba wasm
 
@@ -477,7 +536,9 @@ The language itself is not defined in this repository. **[`kotoba-lang/kotoba-la
 ("Kotoba language design, source profile, and conformance contract") is the
 semantic authority — see [Repository boundary](#repository-boundary) above.
 This repo hosts launchers and adapters that consume that contract; it does
-not define new command shape or language semantics of its own.
+not define new command shape or language semantics of its own, except the
+launcher-owned `identity` / `identity new` local-seed command documented
+above (contract delta vs the current `lang/cli.edn` pin).
 
 - **Not a Clojure superset or dialect in the full sense — a Clojure-family
   *profile/subset*** with its own compatibility contract. Primary source

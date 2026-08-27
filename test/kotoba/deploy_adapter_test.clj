@@ -10,11 +10,13 @@
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
 
+(def demo-ipns-name "k51qdemotestname")
+
 (defn- fake-host
   "Recording deploy host over an atom of path → content.
   Optional :env map and :run fn (argv dir → {:exit :out :err})."
   ([files calls] (fake-host files calls {}))
-  ([files calls {:keys [env run admit]}]
+  ([files calls {:keys [env run admit ipns-identity publish-ipns]}]
    (reify deploy-adapter/IDeployHost
      (-read-file [_ path]
        (swap! calls conj [:read path])
@@ -37,6 +39,20 @@
        (if run
          (run argv dir)
          {:exit 0 :out "" :err ""}))
+     (-ipns-identity [_]
+       (swap! calls conj [:ipns-identity])
+       (cond
+         (false? ipns-identity) nil
+         (map? ipns-identity) ipns-identity
+         :else {:ipns-name demo-ipns-name}))
+     (-publish-ipns [_ planned receipt]
+       (swap! calls conj [:publish-ipns planned receipt])
+       (if publish-ipns
+         (publish-ipns planned receipt)
+         {:ok? true
+          :ipns-name demo-ipns-name
+          :published? true
+          :value-cid (:kotoba.deploy/component-cid receipt)}))
      (-admit-release [_ planned manifest]
        (swap! calls conj [:admit planned manifest])
        (if admit
@@ -225,6 +241,16 @@
     (is (= "MURAKUMO_ROOT" (get-in p [:invoke :dir-env])))
     (is (true? (:dry-run? p)))))
 
+(deftest public-urls-are-murakumo-https-and-ipns
+  (let [urls (deploy-adapter/public-urls "k51qabc" "bafkreidemo")]
+    (is (= "k51qabc" (:kotoba.deploy/ipns-name urls)))
+    (is (= "ipns://k51qabc" (:kotoba.deploy/ipns-url urls)))
+    (is (= "ipfs://bafkreidemo" (:kotoba.deploy/ipfs-url urls)))
+    (is (= "https://murakumo.cloud/ipns/k51qabc"
+           (:kotoba.deploy/public-url urls))))
+  (is (nil? (deploy-adapter/public-urls "" "bafkreidemo")))
+  (is (nil? (deploy-adapter/public-urls nil "bafkreidemo"))))
+
 (deftest execute-reside-dry-run-does-not-shell
   (let [files (atom {"app.edn" sample-manifest})
         calls (atom [])
@@ -233,7 +259,12 @@
                 (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"]))]
     (is (= :deploy/planned (:kotoba.cli/code result)))
     (is (= :reside (get-in result [:kotoba.cli/data :substrate])))
+    (is (= "https://murakumo.cloud/ipns/k51qdemotestname"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url])))
+    (is (= "dry-run https://murakumo.cloud/ipns/k51qdemotestname"
+           (:kotoba.cli/message result)))
     (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
 (deftest execute-reside-apply-fails-closed-without-murakumo-root
@@ -245,7 +276,10 @@
                           "--dry-run" "false"]))]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :deploy/missing-control-plane (:kotoba.cli/code result)))
+    (is (re-find #"MURAKUMO_ROOT" (:kotoba.cli/message result)))
+    (is (re-find #"not Deno Deploy or Cloudflare" (:kotoba.cli/message result)))
     (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
 (deftest execute-reside-apply-shells-murakumo-and-writes-receipt
@@ -258,6 +292,15 @@
     (is (= :deploy/executed (:kotoba.cli/code result)))
     (is (= :reside (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/substrate])))
     (is (= "asher" (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/node])))
+    (is (= "https://murakumo.cloud/ipns/k51qdemotestname"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url])))
+    (is (= "ipns://k51qdemotestname"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/ipns-url])))
+    (is (= "ipfs://bafkreidemo"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/ipfs-url])))
+    (is (= "published https://murakumo.cloud/ipns/k51qdemotestname"
+           (:kotoba.cli/message result)))
+    (is (some #(= :publish-ipns (first %)) @calls))
     (is (some #{[:run ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
                  "/murakumo"]}
               @calls))
@@ -273,6 +316,9 @@
                           "--dry-run" "false"]))]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :deploy/reside-failed (:kotoba.cli/code result)))
+    (is (= "https://murakumo.cloud/ipns/k51qdemotestname"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url])))
+    (is (some #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
 (deftest execute-reside-rollback-is-unsupported
@@ -324,3 +370,86 @@
         (is (= "asher" (get-in reside [:kotoba.cli/data :node])))
         (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" (.getPath manifest) "asher"]
                (get-in reside [:kotoba.cli/data :invoke :argv])))))))
+
+(deftest launcher-murakumo-plan-prints-public-url-when-seed-present
+  (let [dir (str (Files/createTempDirectory "kotoba-deploy-ipns" (make-array FileAttribute 0)))
+        manifest (io/file dir "package.edn")]
+    (spit manifest "{:kotoba.package/name \"demo-app\" :kotoba.package/version \"0.1.0\"}\n")
+    (binding [launcher/*codebase-seed-hex* (apply str (repeat 64 "1"))]
+      (let [result (launcher/dispatch
+                    ["deploy" "plan" "--manifest" (.getPath manifest)
+                     "--target" "murakumo:asher"])
+            url (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url])]
+        (is (= :deploy/planned (:kotoba.cli/code result)))
+        (is (string? url))
+        (is (str/starts-with? url "https://murakumo.cloud/ipns/k51"))
+        (is (= (str "dry-run " url) (:kotoba.cli/message result)))))))
+
+(deftest launcher-murakumo-apply-fails-closed-without-reside
+  (let [dir (str (Files/createTempDirectory "kotoba-deploy-no-reside" (make-array FileAttribute 0)))
+        manifest (io/file dir "package.edn")
+        component (io/file dir "component.wasm")
+        evidence (io/file dir "release-evidence.edn")]
+    (spit manifest "{:kotoba.package/name \"demo-app\" :kotoba.package/version \"0.1.0\"}\n")
+    (spit component "component-bytes")
+    (spit evidence (pr-str (release-packet (Files/readAllBytes (.toPath component))
+                                            "demo-app" "0.1.0")))
+    (binding [launcher/*codebase-seed-hex* (apply str (repeat 64 "1"))]
+      (let [result (launcher/dispatch
+                    ["deploy" "apply" "--manifest" (.getPath manifest)
+                     "--target" "murakumo:asher" "--dry-run" "false"
+                     "--release-evidence" (.getPath evidence)
+                     "--component" (.getPath component)])]
+        (is (false? (:kotoba.cli/ok? result)))
+        (is (= :deploy/missing-control-plane (:kotoba.cli/code result)))
+        (is (re-find #"MURAKUMO_ROOT" (:kotoba.cli/message result)))
+        (is (re-find #"not Deno Deploy or Cloudflare" (:kotoba.cli/message result)))
+        (is (str/starts-with?
+             (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url] "")
+             "https://murakumo.cloud/ipns/k51"))))))
+
+(deftest execute-reside-apply-fails-closed-when-ipns-publish-fails
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls
+                           {:env {"MURAKUMO_ROOT" "/murakumo"}
+                            :publish-ipns
+                            (fn [_ _]
+                              {:ok? false
+                               :error :deploy/ipns-publish-failed
+                               :message "routers refused"})})
+                (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"
+                          "--dry-run" "false"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/ipns-publish-failed (:kotoba.cli/code result)))
+    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-reside-apply-fails-closed-without-ipns-seed
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls
+                           {:env {"MURAKUMO_ROOT" "/murakumo"}
+                            :ipns-identity false
+                            :publish-ipns
+                            (fn [_ _]
+                              {:ok? false
+                               :error :deploy/ipns-seed-required
+                               :message "need KOTOBA_CODEBASE_SEED"})})
+                (planned ["apply" "--manifest" "app.edn" "--target" "fleet:judah"
+                          "--dry-run" "false"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/ipns-seed-required (:kotoba.cli/code result)))
+    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest parse-target-rejects-deno-cloudflare-vercel
+  (doseq [target ["https://deno.com"
+                  "deno:project"
+                  "cloudflare:pages"
+                  "cf:workers"
+                  "vercel:prod"]]
+    (is (= :deploy/unknown-target-scheme
+           (:error (deploy-adapter/parse-target "pkg.edn" target))))))

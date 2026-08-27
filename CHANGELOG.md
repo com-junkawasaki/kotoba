@@ -6,6 +6,25 @@ user-visible or architecturally significant changes.
 
 ## Unreleased
 
+- `kotoba identity new` writes one local Ed25519 seed to
+  `${XDG_DATA_HOME:-$HOME/.local/share}/kotoba/operator.seed` (mode 0600)
+  and prints only `did:key` + the IPNS name. A second generate without
+  `--force` fails. `KOTOBA_CODEBASE_SEED` still overrides the file.
+  `kotoba codebase identity` and `kotoba deploy` read the same seed, so a
+  developer does not export two env names for kotoba and murakumo. The
+  seed is never echoed. Launcher-owned command; contract delta vs
+  kotoba-lang `lang/cli.edn` is documented in the README.
+
+- `kotoba deploy apply --target murakumo:<node>` now names the admitted wasm
+  in IPNS (reusing `kotoba.codebase-ipns`, the same stack as
+  `kotoba codebase publish --ipns`) and prints
+  `published https://murakumo.cloud/ipns/k51…`. Default `--dry-run` still
+  plans that URL without publishing. Apply fails closed when
+  `$MURAKUMO_ROOT` is unset, IPNS publish fails, or the live
+  `murakumo.core deploy <manifest> [node]` process exits non-zero. Deno
+  Deploy, Cloudflare, and Vercel remain rejected target schemes. Not a
+  billed hosting product.
+
 - `kotoba -e '(+ 1 2)'` works. The README has opened with that line since it
   was written and documents it in four more places, but no released binary ever
   carried the flag: the CLI command vocabulary is
