@@ -366,11 +366,13 @@
       token)))
 
 (defn identity-result
-  "Launcher-owned local identity. Not yet in kotoba-lang `lang/cli.edn`.
+  "Launcher-owned Ed25519 operator identity, separate from public `kotoba id`.
 
   `identity` prints did:key + ipns-name from env or the shared file.
   `identity new` writes the file once (refuses overwrite unless `--force`).
-  The seed never appears in the result map."
+  The seed never appears in the result map. Public human identity is
+  wallet-first (`kotoba id --address 0x...` -> did:pkh); this command remains
+  explicit because IPNS and artifact signing still require the Ed25519 key."
   [argv]
   (let [action (identity-action argv)
         force? (boolean (some #{"--force"} argv))]
@@ -396,6 +398,46 @@
       :else
       {:kotoba.cli/ok? false :kotoba.cli/code :identity/unknown-command
        :kotoba.cli/data {:hint "identity | identity new [--force]"}})))
+
+(def ^:private ethereum-address-re #"^0x[0-9A-Fa-f]{40}$")
+
+(defn web3-id-result
+  "Public wallet identity adapter for the canonical `kotoba id` contract.
+
+  The kotoba-lang authority owns the command shape. This adapter is kept
+  locally until the language/grammar pins can advance together; it accepts
+  only a public EVM address and never reads or returns private key material."
+  [argv]
+  (let [address (or (option-value argv "--address")
+                    (when-let [candidate (second argv)]
+                      (when-not (str/starts-with? candidate "-") candidate)))
+        chain-text (or (option-value argv "--chain-id") "8453")
+        chain-id (try
+                   (Long/parseLong chain-text)
+                   (catch Exception _ nil))]
+    (cond
+      (not (and (string? address) (re-matches ethereum-address-re address)))
+      {:kotoba.cli/ok? false
+       :kotoba.cli/code :id/address-invalid
+       :kotoba.cli/message "id requires a public 0x Ethereum wallet address"
+       :kotoba.cli/data {:address address}}
+
+      (not (and (integer? chain-id) (pos? chain-id)))
+      {:kotoba.cli/ok? false
+       :kotoba.cli/code :id/chain-invalid
+       :kotoba.cli/message "chain-id must be a positive EIP-155 integer"
+       :kotoba.cli/data {:chain-id chain-text}}
+
+      :else
+      (let [address (str/lower-case address)]
+        {:kotoba.cli/ok? true
+         :kotoba.cli/code :id/generated
+         :kotoba.cli/data {:method :did:pkh
+                           :network :eip155
+                           :chain-id chain-id
+                           :address address
+                           :did (str "did:pkh:eip155:" chain-id ":" address)
+                           :proof :siwe-required}}))))
 
 (defn- ipns-routers-from-env
   "Optional comma-separated `/routing/v1` routers. Unset ⇒ the kad default
@@ -568,6 +610,7 @@
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
                                "identity" (identity-result argv)
+                               "id" (web3-id-result argv)
                                nil)]
       launcher-result
       (let [contract (read-cli-contract-resource "lang/cli.edn")
