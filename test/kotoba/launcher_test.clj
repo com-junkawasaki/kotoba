@@ -76,15 +76,41 @@
     (is (true? (get (json/read-str (launcher/render-result result true))
                     "kotoba.cli/ok?")))))
 
-(deftest public-id-is-wallet-first-and-never-returns-key-material
-  (let [result (launcher/dispatch
-                ["id" "--address" "0xA00366234D29d4F882088048c0B2fa0dB7302D4E"])]
+(deftest public-id-is-passkey-first-chain-neutral-and-never-returns-key-material
+  (let [result (launcher/dispatch ["id" "new" "--rp-id" "itonami.cloud"])]
     (is (:kotoba.cli/ok? result))
-    (is (= :id/generated (:kotoba.cli/code result)))
-    (is (= "did:pkh:eip155:8453:0xa00366234d29d4f882088048c0b2fa0db7302d4e"
-           (get-in result [:kotoba.cli/data :did])))
-    (is (= :siwe-required (get-in result [:kotoba.cli/data :proof])))
+    (is (= :id/enrollment-planned (:kotoba.cli/code result)))
+    (is (re-matches #"urn:kotoba:principal:[0-9a-f-]{36}"
+                    (get-in result [:kotoba.cli/data :principal])))
+    (is (= :passkey-smart-account (get-in result [:kotoba.cli/data :method])))
+    (is (= :webauthn-registration-required
+           (get-in result [:kotoba.cli/data :proof])))
+    (is (nil? (get-in result [:kotoba.cli/data :chain-default])))
+    (is (nil? (get-in result [:kotoba.cli/data :host-action])))
     (is (nil? (get-in result [:kotoba.cli/data :private-key])))))
+
+(deftest public-id-keeps-base-an-explicit-smart-account-link
+  (let [base "eip155:8453:0xa00366234d29d4f882088048c0b2fa0db7302d4e"
+        result (launcher/dispatch ["id" "new" "--rp-id" "itonami.cloud"
+                                   "--account" base])]
+    (is (:kotoba.cli/ok? result))
+    (is (= base (get-in result [:kotoba.cli/data :accounts 0 :identity.account/id])))
+    (is (= :erc4337
+           (get-in result [:kotoba.cli/data :accounts 0 :identity.account/protocol])))
+    (is (= #{:erc1271 :erc6492}
+           (get-in result [:kotoba.cli/data :accounts 0
+                           :identity.account/signature-verifiers])))))
+
+(deftest compatibility-address-requires-an-explicit-chain
+  (let [address "0xA00366234D29d4F882088048c0B2fa0dB7302D4E"
+        refused (launcher/dispatch ["id" "account" "--address" address])
+        described (launcher/dispatch ["id" "account" "--address" address
+                                      "--chain-id" "1"])]
+    (is (= :id/chain-required (:kotoba.cli/code refused)))
+    (is (= :id/account-described (:kotoba.cli/code described)))
+    (is (false? (get-in described [:kotoba.cli/data :principal?])))
+    (is (= "eip155:1:0xa00366234d29d4f882088048c0b2fa0db7302d4e"
+           (get-in described [:kotoba.cli/data :account-id])))))
 
 (deftest deploy-without-manifest-fails-closed
   (let [result (launcher/dispatch ["deploy" "--manifest" "package-manifest.edn" "--target" "dev"])]
