@@ -1018,6 +1018,7 @@ by [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 |---|---|
 | [`docs/index.html`](docs/index.html) | docs-site landing page (hub) |
 | [`docs/DEMONSTRATIONS.md`](docs/DEMONSTRATIONS.md) | **demonstrations** — index of real programs built with `.kotoba` (mesh apps, capability demos, browser/kototama-hosted tools, kami-lineage games) and the hosts that execute them |
+| [`docs/INDEPENDENT-REVIEW-KIT.md`](docs/INDEPENDENT-REVIEW-KIT.md) | fixed-commit independent technical review entry point, including negative cases and editorial-independence rules ([EDN](docs/independent-review-kit.edn), [ADR](docs/ADR-independent-review-boundary.md)) |
 | [`docs/HISTORICAL-RUST-ARCHITECTURE.md`](docs/HISTORICAL-RUST-ARCHITECTURE.md) | pre-migration Rust crate table, architecture, query surfaces, and benchmarks (design-vocabulary reference) |
 | [`docs/paper/`](docs/paper/) | arXiv-style research paper (LaTeX source) — full system description |
 | [`docs/explainer/`](docs/explainer/) | the two interactive explainer videos |

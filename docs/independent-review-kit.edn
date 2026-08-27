@@ -1,0 +1,36 @@
+{:review-kit/version 1
+ :review-kit/status :affiliated-input-not-independent-source
+ :review-kit/prepared-at "2026-08-27"
+ :review-kit/target
+ {:repository "https://github.com/kotoba-lang/kotoba"
+  :commit "0e5e36de39b28d3617e19a8b0abe89dcb7008716"
+  :language-authority-repository "https://github.com/kotoba-lang/kotoba-lang"
+  :language-authority-commit "6588ff5e744cd846823b9930b82636544f4e17d5"}
+ :review-kit/commands
+ ["bin/kotoba-clj -e '(+ 1 2)'"
+  "bin/kotoba-clj check --kind cli-contract --json"
+  "bin/kotoba-clj selfhost check --json"
+  "bin/kotoba-clj package verify --lock test/fixtures/package/positive-lock.edn --trust test/fixtures/package/trust.edn --json"
+  "bin/kotoba-clj package verify --lock test/fixtures/package/version-only-lock.edn --json"]
+ :review-kit/project-observation
+ {:expression-value 3
+  :cli-contract :valid
+  :cli-command-count 8
+  :cli-option-count 44
+  :selfhost-expected-seeds 17
+  :selfhost-observed-seeds 17
+  :selfhost-problems []
+  :positive-lock :accepted
+  :version-only-lock :rejected
+  :version-only-lock-problem :missing-repo-rid}
+ :review-kit/independence
+ {:reviewer-controls #{:scope :method :conclusion :title :publication}
+  :project-prepublication-approval false
+  :payment-for-coverage false
+  :reciprocal-coverage false
+  :negative-results-publishable true
+  :material-support-must-be-disclosed true}
+ :review-kit/publication-readiness
+ {:independent-significant-sources 0
+  :wikipedia-afc-ready false
+  :wikipedia-mainspace-ready false}}
