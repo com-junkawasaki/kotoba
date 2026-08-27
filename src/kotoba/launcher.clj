@@ -321,6 +321,18 @@
         (when (.exists f)
           (slurp f))))))
 
+(def ^:dynamic *codebase-seed-hex* nil)
+
+(defn signing-seed-hex
+  "The Ed25519 seed used to sign namespace heads, as hex, or nil.
+
+  Read through a function rather than inline so it has one definition and one
+  place to look: a seed that could be supplied by several routes would be a
+  seed with several places to leak from. Defined before `deploy-host-port`
+  because reside apply names wasm in IPNS with this same seed."
+  []
+  (or *codebase-seed-hex* (System/getenv "KOTOBA_CODEBASE_SEED")))
+
 (defn- ipns-routers-from-env
   "Optional comma-separated `/routing/v1` routers. Unset ⇒ the kad default
   (same as `kotoba codebase publish --ipns`)."
@@ -513,15 +525,6 @@
   (some-> (io/file path) .getParentFile .mkdirs)
   (with-open [out (io/output-stream path)]
     (.write out ^bytes bytes)))
-
-(defn signing-seed-hex
-  "The Ed25519 seed used to sign namespace heads, as hex, or nil.
-
-  Read through a function rather than inline so it has one definition and one
-  place to look: a seed that could be supplied by several routes would be a
-  seed with several places to leak from."
-  []
-  (System/getenv "KOTOBA_CODEBASE_SEED"))
 
 (defn read-write-token-file
   "Read one bounded codebase write token from PATH without returning its path

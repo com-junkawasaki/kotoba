@@ -375,7 +375,7 @@
   (let [dir (str (Files/createTempDirectory "kotoba-deploy-ipns" (make-array FileAttribute 0)))
         manifest (io/file dir "package.edn")]
     (spit manifest "{:kotoba.package/name \"demo-app\" :kotoba.package/version \"0.1.0\"}\n")
-    (with-redefs [launcher/signing-seed-hex (fn [] (apply str (repeat 64 "11")))]
+    (binding [launcher/*codebase-seed-hex* (apply str (repeat 64 "1"))]
       (let [result (launcher/dispatch
                     ["deploy" "plan" "--manifest" (.getPath manifest)
                      "--target" "murakumo:asher"])
@@ -394,7 +394,7 @@
     (spit component "component-bytes")
     (spit evidence (pr-str (release-packet (Files/readAllBytes (.toPath component))
                                             "demo-app" "0.1.0")))
-    (with-redefs [launcher/signing-seed-hex (fn [] (apply str (repeat 64 "11")))]
+    (binding [launcher/*codebase-seed-hex* (apply str (repeat 64 "1"))]
       (let [result (launcher/dispatch
                     ["deploy" "apply" "--manifest" (.getPath manifest)
                      "--target" "murakumo:asher" "--dry-run" "false"
