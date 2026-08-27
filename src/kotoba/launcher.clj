@@ -38,6 +38,7 @@
             [kotoba.codebase-ipns :as codebase-ipns]
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
+            [kotoba.operator-identity :as operator-identity]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.selfhost.analyzer :as selfhost-analyzer]
             [kotoba.wasm-exec :as wasm-exec]
@@ -323,15 +324,78 @@
 
 (def ^:dynamic *codebase-seed-hex* nil)
 
+(defn env-codebase-seed-hex
+  "KOTOBA_CODEBASE_SEED, or nil. Isolated so tests can redef the env without
+  mutating the process environment."
+  []
+  (System/getenv "KOTOBA_CODEBASE_SEED"))
+
 (defn signing-seed-hex
   "The Ed25519 seed used to sign namespace heads, as hex, or nil.
 
-  Read through a function rather than inline so it has one definition and one
-  place to look: a seed that could be supplied by several routes would be a
-  seed with several places to leak from. Defined before `deploy-host-port`
-  because reside apply names wasm in IPNS with this same seed."
+  One definition, one place to look: a seed that could be supplied by several
+  routes would be a seed with several places to leak from. Order:
+
+  1. `*codebase-seed-hex*` (test / in-process binding)
+  2. `KOTOBA_CODEBASE_SEED` — any non-blank value wins, even if malformed,
+     so a typo does not silently fall through to a different key
+  3. the shared local file `${XDG_DATA_HOME:-$HOME/.local/share}/kotoba/operator.seed`
+
+  Defined before `deploy-host-port` because reside apply names wasm in IPNS
+  with this same seed. Never logs or returns the hex through a CLI result;
+  callers that print identity must pass it through
+  `operator-identity/public-identity` only."
   []
-  (or *codebase-seed-hex* (System/getenv "KOTOBA_CODEBASE_SEED")))
+  (or *codebase-seed-hex*
+      (let [env (env-codebase-seed-hex)]
+        (when (and (string? env) (not (str/blank? env)))
+          env))
+      (operator-identity/read-operator-seed-hex)))
+
+(defn- seed-required-hint
+  []
+  (str "run `kotoba identity new` or set KOTOBA_CODEBASE_SEED "
+       "(shared file " (operator-identity/operator-seed-path) ")"))
+
+(defn- identity-action
+  "The identity subcommand token, or nil for show. Flags (`--json`) are not
+  actions, so `kotoba identity --json` still prints the current DID."
+  [argv]
+  (let [token (second argv)]
+    (when (and (string? token) (not (str/starts-with? token "-")))
+      token)))
+
+(defn identity-result
+  "Launcher-owned local identity. Not yet in kotoba-lang `lang/cli.edn`.
+
+  `identity` prints did:key + ipns-name from env or the shared file.
+  `identity new` writes the file once (refuses overwrite unless `--force`).
+  The seed never appears in the result map."
+  [argv]
+  (let [action (identity-action argv)
+        force? (boolean (some #{"--force"} argv))]
+    (cond
+      (contains? #{nil "show"} action)
+      (let [hex (signing-seed-hex)]
+        (if (and hex (= 64 (count hex)))
+          {:kotoba.cli/ok? true :kotoba.cli/code :identity/shown
+           :kotoba.cli/data (operator-identity/public-identity hex)}
+          {:kotoba.cli/ok? false :kotoba.cli/code :identity/seed-required
+           :kotoba.cli/data {:hint (seed-required-hint)
+                             :path (operator-identity/operator-seed-path)}}))
+
+      (= action "new")
+      (let [created (operator-identity/create-operator-seed! {:force? force?})]
+        (if (:ok? created)
+          {:kotoba.cli/ok? true :kotoba.cli/code :identity/created
+           :kotoba.cli/data (select-keys created [:publisher :ipns-name :path])}
+          {:kotoba.cli/ok? false :kotoba.cli/code :identity/exists
+           :kotoba.cli/data {:path (:path created)
+                             :hint "pass --force to replace the local operator seed"}}))
+
+      :else
+      {:kotoba.cli/ok? false :kotoba.cli/code :identity/unknown-command
+       :kotoba.cli/data {:hint "identity | identity new [--force]"}})))
 
 (defn- ipns-routers-from-env
   "Optional comma-separated `/routing/v1` routers. Unset ⇒ the kad default
@@ -381,9 +445,12 @@
           (not (and hex (= 64 (count hex))))
           {:ok? false
            :error :deploy/ipns-seed-required
-           :message (str "reside apply needs KOTOBA_CODEBASE_SEED (32-byte hex"
-                         " Ed25519 seed) to name the wasm in IPNS. This is the"
-                         " same seed as `kotoba codebase publish --ipns`.")}
+           :message (str "reside apply needs a 32-byte hex Ed25519 seed to name"
+                         " the wasm in IPNS. Run `kotoba identity new` or set"
+                         " KOTOBA_CODEBASE_SEED (shared file "
+                         (operator-identity/operator-seed-path)
+                         "). This is the same seed as"
+                         " `kotoba codebase publish --ipns`.")}
 
           (not (and (string? cid) (not (str/blank? cid))))
           {:ok? false
@@ -500,6 +567,7 @@
                                "cljs" (cljs-result argv)
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
+                               "identity" (identity-result argv)
                                nil)]
       launcher-result
       (let [contract (read-cli-contract-resource "lang/cli.edn")
@@ -868,12 +936,11 @@
         (cond
           (not (and hex (= 64 (count hex))))
           {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
-           :kotoba.cli/data {:hint "set KOTOBA_CODEBASE_SEED to a 32-byte hex Ed25519 seed"}}
+           :kotoba.cli/data {:hint (seed-required-hint)}}
 
           (= action "identity")
           {:kotoba.cli/ok? true :kotoba.cli/code :codebase/identity
-           :kotoba.cli/data {:publisher (ed25519/did-key-from-seed-hex hex)
-                             :ipns-name (codebase-ipns/name-of (ed25519/unhex hex))}}
+           :kotoba.cli/data (operator-identity/public-identity hex)}
 
           (nil? namespace)
           {:kotoba.cli/ok? false :kotoba.cli/code :codebase/namespace-required}
