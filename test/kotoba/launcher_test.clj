@@ -76,6 +76,16 @@
     (is (true? (get (json/read-str (launcher/render-result result true))
                     "kotoba.cli/ok?")))))
 
+(deftest public-id-is-wallet-first-and-never-returns-key-material
+  (let [result (launcher/dispatch
+                ["id" "--address" "0xA00366234D29d4F882088048c0B2fa0dB7302D4E"])]
+    (is (:kotoba.cli/ok? result))
+    (is (= :id/generated (:kotoba.cli/code result)))
+    (is (= "did:pkh:eip155:8453:0xa00366234d29d4f882088048c0b2fa0db7302d4e"
+           (get-in result [:kotoba.cli/data :did])))
+    (is (= :siwe-required (get-in result [:kotoba.cli/data :proof])))
+    (is (nil? (get-in result [:kotoba.cli/data :private-key])))))
+
 (deftest deploy-without-manifest-fails-closed
   (let [result (launcher/dispatch ["deploy" "--manifest" "package-manifest.edn" "--target" "dev"])]
     (is (false? (:kotoba.cli/ok? result)))

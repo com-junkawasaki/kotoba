@@ -15,6 +15,19 @@ brew tap kotoba-lang/kotoba && brew trust kotoba-lang/kotoba && brew install kot
 kotoba -e '(+ 1 2)'
 ```
 
+Web3 identity starts from the wallet that already holds custody. Base mainnet
+is the default EIP-155 chain; `kotoba` consumes only the public address and
+derives a chain-bound DID. Proof of control happens with SIWE at the relying
+service, so no private key or seed crosses this CLI boundary.
+
+```sh
+kotoba id --address 0xA00366234D29d4F882088048c0B2fa0dB7302D4E
+# did:pkh:eip155:8453:0xa00366234d29d4f882088048c0b2fa0db7302d4e
+```
+
+`kotoba identity new` remains an explicit Ed25519 operator-key command for
+IPNS namespace and artifact signing. It is not the default human login ID.
+
 An empty policy denies every host effect, including `:host/http`. Hosted billed
 deploy of those grants is not live. Wasm Component is the primary portable
 profile. Bounded native AOT (x86-64/AArch64) is a supported, explicitly selected
