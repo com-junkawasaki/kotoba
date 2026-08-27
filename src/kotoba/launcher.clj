@@ -50,6 +50,7 @@
            [java.nio.charset CodingErrorAction StandardCharsets]
            [java.nio.file Files OpenOption Path StandardOpenOption]
            [java.nio.file.attribute PosixFilePermissions]
+           [java.util UUID]
            [java.util.concurrent ConcurrentHashMap])
   (:gen-class))
 
@@ -371,8 +372,9 @@
   `identity` prints did:key + ipns-name from env or the shared file.
   `identity new` writes the file once (refuses overwrite unless `--force`).
   The seed never appears in the result map. Public human identity is
-  wallet-first (`kotoba id --address 0x...` -> did:pkh); this command remains
-  explicit because IPNS and artifact signing still require the Ed25519 key."
+  a chain-neutral principal controlled through Passkey enrollment; this
+  command remains explicit because IPNS and artifact signing still require
+  the separate Ed25519 operator key."
   [argv]
   (let [action (identity-action argv)
         force? (boolean (some #{"--force"} argv))]
@@ -399,45 +401,22 @@
       {:kotoba.cli/ok? false :kotoba.cli/code :identity/unknown-command
        :kotoba.cli/data {:hint "identity | identity new [--force]"}})))
 
-(def ^:private ethereum-address-re #"^0x[0-9A-Fa-f]{40}$")
+(defn finalize-principal-id
+  "Fulfil the CLJC authority's explicit secure-random host request.
 
-(defn web3-id-result
-  "Public wallet identity adapter for the canonical `kotoba id` contract.
-
-  The kotoba-lang authority owns the command shape. This adapter is kept
-  locally until the language/grammar pins can advance together; it accepts
-  only a public EVM address and never reads or returns private key material."
-  [argv]
-  (let [address (or (option-value argv "--address")
-                    (when-let [candidate (second argv)]
-                      (when-not (str/starts-with? candidate "-") candidate)))
-        chain-text (or (option-value argv "--chain-id") "8453")
-        chain-id (try
-                   (Long/parseLong chain-text)
-                   (catch Exception _ nil))]
-    (cond
-      (not (and (string? address) (re-matches ethereum-address-re address)))
-      {:kotoba.cli/ok? false
-       :kotoba.cli/code :id/address-invalid
-       :kotoba.cli/message "id requires a public 0x Ethereum wallet address"
-       :kotoba.cli/data {:address address}}
-
-      (not (and (integer? chain-id) (pos? chain-id)))
-      {:kotoba.cli/ok? false
-       :kotoba.cli/code :id/chain-invalid
-       :kotoba.cli/message "chain-id must be a positive EIP-155 integer"
-       :kotoba.cli/data {:chain-id chain-text}}
-
-      :else
-      (let [address (str/lower-case address)]
-        {:kotoba.cli/ok? true
-         :kotoba.cli/code :id/generated
-         :kotoba.cli/data {:method :did:pkh
-                           :network :eip155
-                           :chain-id chain-id
-                           :address address
-                           :did (str "did:pkh:eip155:" chain-id ":" address)
-                           :proof :siwe-required}}))))
+  The generated value is a public logical identifier, not key material. The
+  Passkey registration ceremony remains pending at the named RP and no chain,
+  account, or capability is granted by this step."
+  [result]
+  (if (and (:kotoba.cli/ok? result)
+           (= :secure-random-principal-id
+              (get-in result [:kotoba.cli/data :host-action])))
+    (-> result
+        (assoc :kotoba.cli/code :id/enrollment-planned)
+        (assoc-in [:kotoba.cli/data :principal]
+                  (str "urn:kotoba:principal:" (UUID/randomUUID)))
+        (update :kotoba.cli/data dissoc :host-action))
+    result))
 
 (defn- ipns-routers-from-env
   "Optional comma-separated `/routing/v1` routers. Unset ⇒ the kad default
@@ -610,12 +589,12 @@
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
                                "identity" (identity-result argv)
-                               "id" (web3-id-result argv)
                                nil)]
       launcher-result
       (let [contract (read-cli-contract-resource "lang/cli.edn")
             normalized-argv (normalize-source-argv argv)
-            result (cli/dispatch contract normalized-argv)
+            result (cond-> (cli/dispatch contract normalized-argv)
+                     (= "id" (command-name normalized-argv)) finalize-principal-id)
             plan (source-argv-plan normalized-argv)]
         (if-let [executed (and plan
                                (runtime-result (command-name normalized-argv)

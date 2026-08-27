@@ -15,15 +15,23 @@ brew tap kotoba-lang/kotoba && brew trust kotoba-lang/kotoba && brew install kot
 kotoba -e '(+ 1 2)'
 ```
 
-Web3 identity starts from the wallet that already holds custody. Base mainnet
-is the default EIP-155 chain; `kotoba` consumes only the public address and
-derives a chain-bound DID. Proof of control happens with SIWE at the relying
-service, so no private key or seed crosses this CLI boundary.
+Web3 identity starts from a chain-neutral Kotoba principal controlled by a
+Passkey. EVM smart accounts are explicit CAIP-10 links verified by ERC-1271 or
+ERC-6492 when counterfactual; neither Base nor any provider is the identity
+root. No private key or seed crosses this CLI boundary, and authentication does
+not grant an agent authority without a separately scoped capability.
 
 ```sh
-kotoba id --address 0xA00366234D29d4F882088048c0B2fa0dB7302D4E
-# did:pkh:eip155:8453:0xa00366234d29d4f882088048c0b2fa0db7302d4e
+kotoba id new --rp-id itonami.cloud
+# urn:kotoba:principal:<random id> + Passkey registration plan
+
+kotoba id new --rp-id itonami.cloud \
+  --account eip155:8453:0xA00366234D29d4F882088048c0B2fa0dB7302D4E
 ```
+
+Base remains a useful Murakumo settlement link, but it appears only when
+`eip155:8453` is supplied. `kotoba id account --address 0x… --chain-id 1`
+describes a compatibility account alias; it never replaces the principal.
 
 `kotoba identity new` remains an explicit Ed25519 operator-key command for
 IPNS namespace and artifact signing. It is not the default human login ID.
