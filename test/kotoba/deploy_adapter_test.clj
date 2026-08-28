@@ -2,7 +2,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is use-fixtures]]
             [kotoba.cli :as cli]
             [kotoba.deploy-adapter :as deploy-adapter]
             [kotoba.launcher :as launcher]
@@ -12,11 +12,29 @@
 
 (def demo-ipns-name "k51qdemotestname")
 
+(def control-plane-profile
+  {:schema deploy-adapter/control-plane-schema
+   :roles {:control {:origin "https://api.kotoba.cloud"}
+           :identity {:origin "https://auth.kotoba.cloud"
+                      :rpId "auth.kotoba.cloud"}
+           :storage {:origin "https://kotobase.net"}
+           :compute {:origin "https://api.murakumo.cloud"
+                     :publicOrigin "https://murakumo.cloud"}
+           :agentWork {:origin "https://itonami.cloud"}}
+   :deploy {:hostedApply false}})
+
+(use-fixtures :each
+  (fn [test-fn]
+    (binding [launcher/*control-plane-profile-fetch*
+              (constantly control-plane-profile)]
+      (test-fn))))
+
 (defn- fake-host
   "Recording deploy host over an atom of path → content.
   Optional :env map and :run fn (argv dir → {:exit :out :err})."
   ([files calls] (fake-host files calls {}))
-  ([files calls {:keys [env run admit ipns-identity publish-ipns]}]
+  ([files calls {:keys [env run admit ipns-identity publish-ipns control-profile]
+                 :as options}]
    (reify deploy-adapter/IDeployHost
      (-read-file [_ path]
        (swap! calls conj [:read path])
@@ -39,6 +57,11 @@
        (if run
          (run argv dir)
          {:exit 0 :out "" :err ""}))
+     (-control-plane-profile [_]
+       (swap! calls conj [:control-plane-profile])
+       (if (contains? options :control-profile)
+         control-profile
+         control-plane-profile))
      (-ipns-identity [_]
        (swap! calls conj [:ipns-identity])
        (cond
@@ -251,6 +274,18 @@
   (is (nil? (deploy-adapter/public-urls "" "bafkreidemo")))
   (is (nil? (deploy-adapter/public-urls nil "bafkreidemo"))))
 
+(deftest control-plane-profile-pins-domain-roles
+  (is (:ok? (deploy-adapter/validate-control-plane-profile control-plane-profile)))
+  (is (= [:authority-origin-mismatch]
+         (:problems
+          (deploy-adapter/validate-control-plane-profile
+           (assoc-in control-plane-profile [:roles :storage :origin]
+                     "https://api.murakumo.cloud")))))
+  (is (= [:hosted-apply-overclaim]
+         (:problems
+          (deploy-adapter/validate-control-plane-profile
+           (assoc-in control-plane-profile [:deploy :hostedApply] true))))))
+
 (deftest execute-reside-dry-run-does-not-shell
   (let [files (atom {"app.edn" sample-manifest})
         calls (atom [])
@@ -263,9 +298,29 @@
            (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url])))
     (is (= "dry-run https://murakumo.cloud/ipns/k51qdemotestname"
            (:kotoba.cli/message result)))
+    (is (= "https://api.kotoba.cloud"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/control-plane-origin])))
+    (is (= "https://kotobase.net"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/storage-origin])))
+    (is (= "https://api.murakumo.cloud"
+           (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/compute-origin])))
+    (is (some #{[:control-plane-profile]} @calls))
     (is (not-any? #(= :run (first %)) @calls))
     (is (not-any? #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-reside-fails-closed-without-kotoba-cloud-profile
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls {:control-profile
+                                        {:error :control-plane-unavailable}})
+                (planned ["apply" "--manifest" "app.edn"
+                          "--target" "murakumo:asher"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/control-plane-unavailable (:kotoba.cli/code result)))
+    (is (not-any? #(= :publish-ipns (first %)) @calls))
+    (is (not-any? #(= :run (first %)) @calls))))
 
 (deftest execute-reside-apply-fails-closed-without-murakumo-root
   (let [files (atom {"app.edn" sample-manifest})
