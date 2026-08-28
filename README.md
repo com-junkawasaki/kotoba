@@ -101,6 +101,25 @@ runtime compatibility:
 
 ## Stack topology
 
+### Public service domains
+
+[`kotoba.cloud`](https://kotoba.cloud) is the CLI's public control, identity,
+and deploy-discovery entrance. It deliberately does not collapse the services
+it coordinates:
+
+- [`kotobase.net`](https://kotobase.net) persists artifacts, state, and
+  receipts;
+- [`murakumo.cloud`](https://murakumo.cloud) places and executes CPU/GPU work;
+- [`itonami.cloud`](https://itonami.cloud) carries agent work: workspaces,
+  goals, tools, and approvals; and
+- [`kotoba-lang.org`](https://kotoba-lang.org) remains the language,
+  specification, and conformance surface.
+
+The machine-readable contract is
+[`/.well-known/kotoba-cloud.json`](https://kotoba.cloud/.well-known/kotoba-cloud.json).
+Discovery is not ambient authority: each deploy receipt records the origins
+separately and the CLI refuses a profile whose pinned role assignments drift.
+
 The canonical dependency topology of the stack (compiler at the foundation;
 `kotoba` → compiler; `kototama` → `aiueos` ("decides ⊣ enforces") ; `kotobase`
 → `kotoba`, never the reverse; `aiueos` dependency-minimal, consuming compiler
