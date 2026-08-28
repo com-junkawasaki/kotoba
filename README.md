@@ -258,6 +258,15 @@ checked wasm → IPNS name → murakumo public URL. Default `--dry-run` is
 true. `apply` is what publishes. Deno Deploy, Cloudflare, and Vercel are
 not targets. Hosted billed deploy of capability grants is not live.
 
+Before planning or applying a Murakumo target, the CLI fetches
+`https://kotoba.cloud/.well-known/kotoba-cloud.json` and fails closed unless
+it names `auth.kotoba.cloud` as identity, `kotobase.net` as storage,
+`api.murakumo.cloud` as compute, and `itonami.cloud` as agent work. The
+discovery dependency does not turn those domains into one authority boundary;
+the resulting receipt records each origin separately. The live profile states
+`hostedApply: false`: admission remains local and compute placement remains a
+Murakumo operation until a hosted apply API is implemented and qualified.
+
 ```bash
 # safe first step — prints the URL apply would publish, writes nothing
 bin/kotoba-clj deploy --manifest package-manifest.edn --target murakumo:asher

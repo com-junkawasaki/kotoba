@@ -45,11 +45,14 @@
             [kototama.contract :as kototama-contract]
             [kototama.tender :as tender])
   (:import [java.io ByteArrayOutputStream File FileInputStream PushbackReader]
+           [java.net URI]
+           [java.net.http HttpClient HttpRequest HttpResponse$BodyHandlers]
            [java.nio ByteBuffer]
            [java.nio.channels FileChannel]
            [java.nio.charset CodingErrorAction StandardCharsets]
            [java.nio.file Files OpenOption Path StandardOpenOption]
            [java.nio.file.attribute PosixFilePermissions]
+           [java.time Duration]
            [java.util UUID]
            [java.util.concurrent ConcurrentHashMap])
   (:gen-class))
@@ -426,6 +429,31 @@
     (when (and (string? raw) (not (str/blank? raw)))
       (vec (remove str/blank? (str/split raw #","))))))
 
+(defn fetch-control-plane-profile
+  "Fetch the live, unauthenticated Kotoba Cloud topology document. Authority
+  validation stays in deploy-adapter; this function only supplies bytes from
+  the fixed discovery URL."
+  []
+  (try
+    (let [client (.build (HttpClient/newBuilder))
+          request (-> (HttpRequest/newBuilder
+                       (URI/create deploy-adapter/control-plane-profile-url))
+                      (.timeout (Duration/ofSeconds 5))
+                      (.header "accept" "application/json")
+                      (.GET)
+                      (.build))
+          response (.send client request (HttpResponse$BodyHandlers/ofString))]
+      (if (= 200 (.statusCode response))
+        (json/read-str (.body response) :key-fn keyword)
+        {:error :control-plane-http-error
+         :status (.statusCode response)}))
+    (catch Exception _
+      {:error :control-plane-unavailable})))
+
+(def ^:dynamic *control-plane-profile-fetch*
+  "Test seam for the network boundary; production always uses the live URL."
+  fetch-control-plane-profile)
+
 (defn deploy-host-port
   "JVM host capabilities for the deploy adapter: filesystem, env, process,
   and the existing IPNS publish path. Reside apply shells murakumo.core in
@@ -454,6 +482,8 @@
       (if (and (string? dir) (not (str/blank? dir)))
         (apply shell/sh (concat argv [:dir dir]))
         (apply shell/sh argv)))
+    (-control-plane-profile [_]
+      (*control-plane-profile-fetch*))
     (-ipns-identity [_]
       (let [hex (signing-seed-hex)]
         (when (and hex (= 64 (count hex)))

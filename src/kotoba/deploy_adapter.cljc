@@ -40,6 +40,7 @@
   (-list [this path])
   (-env [this name])
   (-run [this argv dir])
+  (-control-plane-profile [this])
   (-admit-release [this planned manifest])
   (-ipns-identity [this])
   (-publish-ipns [this planned receipt]))
@@ -47,6 +48,61 @@
 (def operations #{:plan :apply :status :rollback})
 
 (def murakumo-root-env "MURAKUMO_ROOT")
+
+(def control-plane-profile-url
+  "https://kotoba.cloud/.well-known/kotoba-cloud.json")
+
+(def control-plane-schema
+  "https://kotoba.cloud/schemas/control-plane/v1")
+
+(def expected-control-plane
+  {:control-origin "https://api.kotoba.cloud"
+   :identity-origin "https://auth.kotoba.cloud"
+   :passkey-rp-id "auth.kotoba.cloud"
+   :storage-origin "https://kotobase.net"
+   :compute-origin "https://api.murakumo.cloud"
+   :public-compute-origin "https://murakumo.cloud"
+   :agent-work-origin "https://itonami.cloud"})
+
+(defn validate-control-plane-profile
+  "Validate the live Kotoba Cloud topology without letting DNS-discovered data
+  silently widen deploy authority. The domain is the availability dependency;
+  these exact origins remain the authority floor for this CLI release."
+  [profile]
+  (let [actual {:control-origin (get-in profile [:roles :control :origin])
+                :identity-origin (get-in profile [:roles :identity :origin])
+                :passkey-rp-id (get-in profile [:roles :identity :rpId])
+                :storage-origin (get-in profile [:roles :storage :origin])
+                :compute-origin (get-in profile [:roles :compute :origin])
+                :public-compute-origin (get-in profile [:roles :compute :publicOrigin])
+                :agent-work-origin (get-in profile [:roles :agentWork :origin])}
+        problems (cond-> []
+                   (not (map? profile)) (conj :profile-not-a-map)
+                   (not= control-plane-schema (:schema profile))
+                   (conj :schema-mismatch)
+                   (not= expected-control-plane actual)
+                   (conj :authority-origin-mismatch)
+                   (not= false (get-in profile [:deploy :hostedApply]))
+                   (conj :hosted-apply-overclaim))]
+    (if (seq problems)
+      {:ok? false :problems problems :actual actual}
+      {:ok? true
+       :receipt-extra
+       {:kotoba.deploy/control-plane-origin (:control-origin actual)
+        :kotoba.deploy/identity-origin (:identity-origin actual)
+        :kotoba.deploy/passkey-rp-id (:passkey-rp-id actual)
+        :kotoba.deploy/storage-origin (:storage-origin actual)
+        :kotoba.deploy/compute-origin (:compute-origin actual)
+        :kotoba.deploy/agent-work-origin (:agent-work-origin actual)}})))
+
+(defn control-plane-decision [host]
+  (try
+    (let [profile (-control-plane-profile host)]
+      (if (:error profile)
+        {:ok? false :problems [(:error profile)]}
+        (validate-control-plane-profile profile)))
+    (catch #?(:clj Exception :cljs :default) _
+      {:ok? false :problems [:control-plane-unavailable]})))
 
 (def murakumo-public-host
   "Public HTTPS host for IPNS names. Domain is murakumo's own public host
@@ -357,8 +413,17 @@
             (assoc (dissoc planned :error) :request request))
       (let [{:keys [operation manifest-path target target-dir revision dry-run? substrate]} planned
             manifest (read-edn host manifest-path)
-            extra (receipt-extra planned)]
-        (case operation
+            control (when (and (= :reside substrate)
+                               (#{:plan :apply} operation))
+                      (control-plane-decision host))]
+        (if (and control (not (:ok? control)))
+          (fail :deploy/control-plane-unavailable
+                (str "kotoba deploy requires the live " control-plane-profile-url
+                     " profile with the pinned Kotoba identity, Kotobase storage,"
+                     " Murakumo compute, and Itonami agent-work origins")
+                (assoc planned :problems (:problems control)))
+          (let [extra (merge (receipt-extra planned) (:receipt-extra control))]
+           (case operation
           :plan
           (if (nil? manifest)
             (fail :deploy/missing-manifest
@@ -432,4 +497,4 @@
                     (write-edn host (previous-path target-dir) cur))
                   (write-edn host (current-path target-dir) prev)
                   (ok :deploy/rolled-back
-                      (assoc planned :receipt prev :rolled-back-from cur)))))))))))
+                      (assoc planned :receipt prev :rolled-back-from cur)))))))))))))
