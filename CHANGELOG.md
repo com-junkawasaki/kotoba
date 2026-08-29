@@ -12,6 +12,9 @@ user-visible or architecturally significant changes.
   Passkey device flow. `kotoba id new` opens the browser ceremony, persists
   only the verified public projection, and `kotoba id show` reads the same
   Stable Principal without introducing a chain or wallet-provider default.
+- Cryptographic random generators for hybrid X25519 + ML-KEM and ML-DSA are
+  created only at runtime, so native-image cannot capture build-host seeds in
+  the release image heap.
 
 - `kotoba identity new` writes one local Ed25519 seed to
   `${XDG_DATA_HOME:-$HOME/.local/share}/kotoba/operator.seed` (mode 0600)

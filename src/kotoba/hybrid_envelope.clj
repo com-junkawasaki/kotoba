@@ -10,7 +10,12 @@
 
 (def schema :kotoba.hybrid-envelope/v1)
 (def suite :x25519+ml-kem-768+aes-256-gcm)
-(def ^:private random (SecureRandom.))
+
+(defn- secure-random
+  "Create the CSPRNG at operation time so native-image never captures a
+   build-host seed in its image heap."
+  []
+  (SecureRandom.))
 
 (defn- fail! [problem] (throw (ex-info (name problem) {:problem problem})))
 (defn- b64 [^bytes value] (.encodeToString (Base64/getUrlEncoder) value))
@@ -57,7 +62,7 @@
           info (aad {:schema schema :suite suite})
           {:keys [shared-secret handshake]} (pq/hybrid-encapsulate public info)
           nonce (byte-array 12)
-          _ (.nextBytes random nonce)
+          _ (.nextBytes (secure-random) nonce)
           header {:schema schema :suite suite
                   :x25519-recipient-public-key (:x25519-public-key recipient)
                   :ml-kem-768-recipient-public-key (:ml-kem-768-public-key recipient)
