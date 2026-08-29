@@ -61,19 +61,20 @@
   emitted bytes, which is exactly the failure this replaces."
   []
   (let [revisions (into {} (map (fn [[path key]] [key (resource-revision path)])) contract-sources)
-        bound? (every? some? (vals revisions))]
+        bound? (every? some? (vals revisions))
+        source (pr-str {:schema "kotoba.compiler-contract.v2"
+                        :emitter "kotoba.wasm/emit"
+                        :ir "kir-v3-v4"
+                        :revisions (into (sorted-map) revisions)})]
     {:revisions revisions
      :bound? bound?
-     :cid (semantic/source-cid
-           (pr-str {:schema "kotoba.compiler-contract.v2"
-                    :emitter "kotoba.wasm/emit"
-                    :ir "kir-v3-v4"
-                    :revisions (into (sorted-map) revisions)}))}))
+     :source source
+     :cid (semantic/source-cid source)}))
 
 (defn contract-cid [] (:cid (contract)))
 
-(defn- policy-cid [policy]
-  (semantic/source-cid (pr-str (into (sorted-map) (or policy {})))))
+(defn- policy-source [policy]
+  (pr-str (into (sorted-map) (or policy {}))))
 
 (defn- closure-of
   "Definition CIDs the assembled module was built from."
@@ -94,17 +95,36 @@
   "The cache descriptor for compiling CID to TARGET under POLICY."
   [root cid {:keys [target policy package-lock-cid]
              :or {target default-target}}]
-  (let [{:keys [kir interface]} (typed-eval/assemble root cid)
+  (let [{:keys [kir interface entry]} (typed-eval/assemble root cid)
         effects (:effects interface)
-        toolchain (contract)]
+        toolchain (contract)
+        closure-block (semantic/closure-block (closure-of kir))
+        closure-cid (semantic/block-cid closure-block)
+        policy-source (policy-source policy)
+        policy-cid (semantic/source-cid policy-source)
+        default-lock-source "no-package-lock"
+        provided-package-lock-cid package-lock-cid
+        package-lock-cid (or provided-package-lock-cid
+                             (semantic/source-cid default-lock-source))]
     {:kir kir
+     :entry entry
+     :interface interface
      :effects effects
      :toolchain toolchain
-     :descriptor {:code-closure-cid (semantic/closure-cid (closure-of kir))
+     :support-blocks [{:cid closure-cid :block closure-block}]
+     :support-artifacts
+     (cond-> [{:cid policy-cid :bytes (.getBytes ^String policy-source "UTF-8")}]
+       (:source toolchain)
+       (conj {:cid (:cid toolchain)
+              :bytes (.getBytes ^String (:source toolchain) "UTF-8")})
+       (nil? provided-package-lock-cid)
+       (conj {:cid package-lock-cid
+              :bytes (.getBytes ^String default-lock-source "UTF-8")}))
+     :descriptor {:code-closure-cid closure-cid
                   :compiler-contract-cid (:cid toolchain)
                   :target-abi (str target)
-                  :package-lock-cid (or package-lock-cid (semantic/source-cid "no-package-lock"))
-                  :policy-cid (policy-cid policy)
+                  :package-lock-cid package-lock-cid
+                  :policy-cid policy-cid
                   :input-cids []
                   :effects effects}}))
 
@@ -115,7 +135,8 @@
   Returns `{:artifact-cid :bytes :cached? :descriptor}`."
   ([root cid] (compile-definition! root cid {}))
   ([root cid {:keys [target] :or {target default-target} :as opts}]
-   (let [{:keys [kir effects toolchain] :as prepared} (descriptor root cid opts)
+   (let [{:keys [kir entry interface effects toolchain support-blocks support-artifacts]
+          :as prepared} (descriptor root cid opts)
          cache-descriptor (:descriptor prepared)
          ;; No reuse under a toolchain that cannot say what it is. Compiling
          ;; again is a cost; returning bytes emitted by something else is a
@@ -126,7 +147,9 @@
          bytes (when artifact (store/get-artifact root artifact))]
      (if bytes
        {:artifact-cid artifact :bytes bytes :cached? true
-        :descriptor cache-descriptor :effects effects :toolchain toolchain}
+        :descriptor cache-descriptor :entry entry :interface interface
+        :support-blocks support-blocks :support-artifacts support-artifacts
+        :effects effects :toolchain toolchain}
        (let [emitted (wasm/emit kir target {})
              artifact-cid (store/put-artifact! root emitted)]
          ;; `cache-put!` itself refuses an effectful descriptor; calling it
@@ -134,7 +157,9 @@
          (when reusable?
            (store/cache-put! root cache-descriptor {"artifactCid" artifact-cid}))
          {:artifact-cid artifact-cid :bytes emitted :cached? false
-          :descriptor cache-descriptor :effects effects :toolchain toolchain})))))
+          :descriptor cache-descriptor :entry entry :interface interface
+          :support-blocks support-blocks :support-artifacts support-artifacts
+          :effects effects :toolchain toolchain})))))
 
 (defn receipt!
   "Bind a compilation to everything it depended on and persist the receipt.
@@ -143,8 +168,14 @@
   `grant-cids` and `host-receipt-cids` stay empty here because compilation
   grants nothing and calls nobody -- an execution receipt for an effectful RUN
   is a different record with different evidence."
-  [root cid {:keys [artifact-cid descriptor effects outcome]
+  [root cid {:keys [artifact-cid descriptor effects outcome support-blocks support-artifacts]
              :or {outcome :ok}}]
+  (doseq [{:keys [cid block]} support-blocks]
+    (store/put-block! root cid block))
+  (doseq [{expected-cid :cid bytes :bytes} support-artifacts]
+    (let [actual (store/put-artifact! root bytes)]
+      (when-not (= expected-cid actual)
+        (fail! :compile/support-cid-mismatch {:expected expected-cid :actual actual}))))
   (let [record (semantic/execution-receipt
                 {:code-root-cid cid
                  :code-closure-cid (:code-closure-cid descriptor)

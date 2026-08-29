@@ -131,6 +131,46 @@
                                             (some multiaddr->base-url (:Addrs record)))
                                           records)))})))))
 
+(defn provider-records->identities
+  "Collapse delegated-routing records by peer ID, preserving all addresses."
+  [records]
+  (->> records
+       (keep (fn [record]
+               (when-let [peer-id (:ID record)]
+                 {:peer-id peer-id
+                  :addrs (vec (distinct (:Addrs record)))})))
+       (reduce (fn [by-peer {:keys [peer-id addrs]}]
+                 (update by-peer peer-id
+                         (fn [old]
+                           {:peer-id peer-id
+                            :addrs (vec (distinct (concat (:addrs old) addrs)))})))
+               (sorted-map))
+       vals
+       vec))
+
+(defn provider-identities
+  "Ask a delegated router for distinct libp2p provider identities.
+
+  Unlike `providers`, this does not filter to HTTP gateway transports.  It is
+  used as network-level evidence: multiple gateway URLs can belong to one
+  peer, while one peer can announce many addresses.  The peer ID is therefore
+  the unit counted for distributed availability qualification."
+  ([cid] (provider-identities cid {}))
+  ([cid {:keys [router timeout-ms] :or {router default-router
+                                        timeout-ms default-timeout-ms}}]
+   (let [url (str router "/routing/v1/providers/" cid)
+         response (.send (client timeout-ms)
+                         (request url "application/json" timeout-ms)
+                         (HttpResponse$BodyHandlers/ofString))]
+     (if-not (= 200 (.statusCode response))
+       {:cid cid :router router :providers [] :status (.statusCode response)}
+       (let [body (json/read-str (.body response) :key-fn keyword)
+             records (take max-providers (:Providers body))]
+         {:cid cid
+          :router router
+          :status 200
+          :providers (provider-records->identities records)})))))
+
 (defn fetch-block-from
   "Fetch one block's raw bytes from BASE-URL, or nil.
 

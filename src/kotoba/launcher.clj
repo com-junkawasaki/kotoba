@@ -38,6 +38,7 @@
             [kotoba.codebase-ipns :as codebase-ipns]
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
+            [kotoba.library-release :as library-release]
             [kotoba.operator-identity :as operator-identity]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.selfhost.analyzer :as selfhost-analyzer]
@@ -772,7 +773,7 @@
       (cond->
        {:schema "https://kotoba-lang.org/schemas/library-publication/v1"
         :namespace namespace
-        :release-cid head
+        :namespace-head-cid head
         :catalog-url (library-catalog-url namespace)
         :control-url (str library-control-origin "/#libraries")
         :definitions definitions
@@ -801,6 +802,37 @@
                                             StandardCharsets/UTF_8))]
     (str library-control-origin "/#publish=" encoded)))
 
+(defn- release-cid-from [subject]
+  (when subject
+    (if (str/starts-with? subject "ipfs://")
+      (subs subject (count "ipfs://"))
+      subject)))
+
+(defn- provider-descriptors
+  "Parse repeated `--provider id=https://host` values.
+
+  Write tokens are aligned by position with repeated `--provider-token-file`.
+  Verify/run do not read tokens; publish requires one bounded token per
+  provider and never places it in a result value."
+  [argv write?]
+  (let [specs (vec (option-values argv "--provider"))
+        token-files (vec (option-values argv "--provider-token-file"))]
+    (when (and write? (not= (count specs) (count token-files)))
+      (throw (ex-info "each provider requires one token file"
+                      {:problem :library/provider-token-count
+                       :providers (count specs)
+                       :token-files (count token-files)})))
+    (mapv
+     (fn [index spec]
+       (let [[id endpoint extra] (str/split spec #"=" 3)]
+         (when (or extra (str/blank? id) (str/blank? endpoint))
+           (throw (ex-info "provider must be id=https://endpoint"
+                           {:problem :library/invalid-provider :provider spec})))
+         (cond-> {:id id :endpoint endpoint}
+           write? (assoc :write-token (read-write-token-file
+                                       (nth token-files index))))))
+     (range (count specs)) specs)))
+
 (defn library-result
   "Human-facing library workflow over the existing hash-native codebase.
 
@@ -816,14 +848,17 @@
         dry-run? (not= "false" (option-value argv "--dry-run"))
         hosted? (some #{"--hosted"} argv)]
     (cond
-      (not (#{"inspect" "publish"} action))
+      (not (#{"inspect" "publish" "verify" "run"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :library/unknown-command}
 
       (nil? root)
       {:kotoba.cli/ok? false :kotoba.cli/code :library/store-required}
 
-      (nil? namespace)
+      (and (#{"inspect" "publish"} action) (nil? namespace))
       {:kotoba.cli/ok? false :kotoba.cli/code :library/namespace-required}
+
+      (and (#{"verify" "run"} action) (nil? subject))
+      {:kotoba.cli/ok? false :kotoba.cli/code :library/release-required}
 
       (= "inspect" action)
       (try
@@ -832,6 +867,62 @@
          :kotoba.cli/data (library-descriptor root namespace subject github)}
         (catch clojure.lang.ExceptionInfo error
           (codebase-error :library/inspect-failed error)))
+
+      (= "verify" action)
+      (try
+        (let [release-cid (release-cid-from subject)
+              providers (provider-descriptors argv false)
+              gateways (mapv :endpoint providers)
+              pulled (codebase-routing/pull!
+                      root [release-cid]
+                      {:router (or (option-value argv "--router")
+                                   codebase-routing/default-router)
+                       :gateways gateways})]
+          (when-not (:complete? pulled)
+            (throw (ex-info "release closure is incomplete"
+                            {:problem :library/release-incomplete
+                             :missing (:missing pulled)})))
+          {:kotoba.cli/ok? true
+           :kotoba.cli/code :library/availability-verified
+           :kotoba.cli/data
+           (library-release/verify-availability!
+            root release-cid providers
+            {:router (or (option-value argv "--router")
+                         codebase-routing/default-router)
+             :min-network-providers
+             (positive-long-option argv "--min-network-providers" 2)})})
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :library/availability-unqualified error)))
+
+      (= "run" action)
+      (try
+        (let [release-cid (release-cid-from subject)
+              entry (or (option-value argv "--entry")
+                        (throw (ex-info "release entry is required"
+                                        {:problem :library/entry-required})))
+              providers (provider-descriptors argv false)
+              router (or (option-value argv "--router")
+                         codebase-routing/default-router)
+              pulled (codebase-routing/pull!
+                      root [release-cid]
+                      {:router router :gateways (mapv :endpoint providers)})]
+          (when-not (:complete? pulled)
+            (throw (ex-info "release closure is incomplete"
+                            {:problem :library/release-incomplete
+                             :missing (:missing pulled)})))
+          (let [availability
+                (library-release/verify-availability!
+                 root release-cid providers
+                 {:router router
+                  :min-network-providers
+                  (positive-long-option argv "--min-network-providers" 2)})]
+            {:kotoba.cli/ok? true
+             :kotoba.cli/code :library/executed
+             :kotoba.cli/data
+             {:availability availability
+              :execution (library-release/execute! root release-cid entry {})}}))
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :library/run-refused error)))
 
       dry-run?
       (try
@@ -847,6 +938,8 @@
                   (cond-> {:dry-run true
                            :mode (if hosted? :hosted-passkey :local-signed-ipns)
                            :storage-origin "https://kotobase.net"
+                           :minimum-independent-providers 2
+                           :availability-proof-required true
                            :hosted-passkey-publish true
                            :apply-flag "--dry-run false"}
                     identity (assoc :publisher (:publisher identity)
@@ -861,13 +954,14 @@
           {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
            :kotoba.cli/data {:hint (seed-required-hint)}}
           (try
-            (let [write-token (read-write-token-file
-                               (option-value argv "--write-token-file"))
+            (let [release (library-release/build! root namespace)
+                  providers (provider-descriptors argv true)
                   publication (codebase-ipns/prepare-hosted!
                                root namespace (ed25519/unhex hex)
                                {:endpoint (or (option-value argv "--endpoint")
                                               "https://kotobase.net")
-                                :write-token write-token})]
+                                :release-cid (:release-cid release)
+                                :providers providers})]
               {:kotoba.cli/ok? true
                :kotoba.cli/code :library/passkey-approval-required
                :kotoba.cli/data
@@ -881,20 +975,30 @@
               (codebase-error :library/hosted-publish-failed error)))))
 
       :else
-      (let [cleaned (remove-value-options argv #{"--dry-run" "--github"})
-            delegated (vec (concat ["codebase" "publish"]
-                                   (drop 2 cleaned)
-                                   (when-not (some #{"--ipns"} cleaned) ["--ipns"])))
-            result (codebase-result delegated)]
-        (if-not (:kotoba.cli/ok? result)
-          result
-          (update result :kotoba.cli/data
-                  merge
-                  {:library-namespace namespace
-                   :catalog-url (library-catalog-url namespace)
-                   :control-url (str library-control-origin "/#libraries")
-                   :publication-mode :local-signed-ipns
-                   :hosted-passkey-publish true}))))))
+      (let [hex (signing-seed-hex)]
+        (if-not (and hex (= 64 (count hex)))
+          {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
+           :kotoba.cli/data {:hint (seed-required-hint)}}
+          (try
+            (let [release (library-release/build! root namespace)
+                  providers (provider-descriptors argv true)
+                  published (codebase-ipns/publish-namespace!
+                             root namespace (ed25519/unhex hex)
+                             (cond-> {:release-cid (:release-cid release)
+                                      :providers providers}
+                               (seq (option-values argv "--router"))
+                               (assoc :routers (vec (option-values argv "--router")))))]
+              {:kotoba.cli/ok? true
+               :kotoba.cli/code :library/published-pending-availability
+               :kotoba.cli/data
+               (merge published release
+                      {:library-namespace namespace
+                       :catalog-url (library-catalog-url namespace)
+                       :control-url (str library-control-origin "/#libraries")
+                       :publication-mode :local-signed-ipns
+                       :availability-proof-required true})})
+            (catch clojure.lang.ExceptionInfo error
+              (codebase-error :library/publish-failed error))))))))
 
 (defn- read-arguments
   "Positional arguments after `--` for `codebase run`.
