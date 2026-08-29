@@ -6,6 +6,11 @@ user-visible or architecturally significant changes.
 
 ## Unreleased
 
+- Expose Amu's sealed x86-64 and AArch64 KEXE targets through the public
+  `kotoba compile` command, advance the Amu performance closure, and repair
+  `--json` rendering for the pinned JSON shim. Native execution stays refused
+  until the measured receipt workflow is wired into this CLI.
+
 ## 0.7.3 — 2026-08-29
 
 - Published the first packaged CLI with the canonical `auth.kotoba.cloud`

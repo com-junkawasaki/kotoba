@@ -116,10 +116,11 @@
                                                 (subs (str v) 1)
                                                 v)]))
                                     diagnostic))))]
-       (json/write-str result :key-fn (fn [k]
-                                      (if (keyword? k)
-                                        (subs (str k) 1)
-                                        (str k)))))
+       (json/write-str result
+                       {:key-fn (fn [k]
+                                  (if (keyword? k)
+                                    (subs (str k) 1)
+                                    (str k)))}))
      (pr-str result))))
 
 (defn command-name
@@ -1952,6 +1953,34 @@
           {:ok? false :message (or (not-empty err) (str "node exit " exit))
            :error err})))))
 
+(def ^:private compile-targets
+  {"web" :js-kotoba-v1
+   "wasm" :wasm32-kotoba-v1
+   "x86_64" :x86_64-kotoba-v1
+   "aarch64" :aarch64-kotoba-v1
+   "x86_64-linux" :x86_64-linux-kotoba-v1
+   "x86_64-macos" :x86_64-macos-kotoba-v1
+   "x86_64-windows" :x86_64-windows-kotoba-v1
+   "aarch64-linux" :aarch64-linux-kotoba-v1
+   "aarch64-macos" :aarch64-macos-kotoba-v1
+   "aarch64-windows" :aarch64-windows-kotoba-v1
+   "aarch64-android" :aarch64-android-kotoba-v1
+   "aarch64-ios" :aarch64-ios-kotoba-v1})
+
+(def ^:private compile-target-names (vec (keys compile-targets)))
+
+(defn- compile-backend [target]
+  (cond
+    (= target :js-kotoba-v1) :kotoba-script
+    (= target :wasm32-kotoba-v1) :kotoba-wasm
+    :else :kotoba-native))
+
+(defn- compile-output-extension [target]
+  (case (compile-backend target)
+    :kotoba-script ".mjs"
+    :kotoba-wasm ".wasm"
+    ".kexe"))
+
 (defn compile-result
   "Compile Kotoba-owned source through kotoba-lang/amu. Web output is
   restricted ESM emitted from checked KIR by kotoba-script; it never routes
@@ -1974,14 +2003,14 @@
         policy-result (compile-policy-result argv)
         policy (:kotoba.policy/data policy-result)
         target-name (or (option-value argv "--target") "wasm")
-        target (case target-name "web" :js-kotoba-v1 "wasm" :wasm32-kotoba-v1 nil)
+        target (get compile-targets target-name)
         output (or (option-value argv "--output")
                    (option-value argv "-o")
                    (when (or entry project-path)
                      (let [input (or entry project-path)
                            suffix (if project-path ".edn" extension)]
                        (str (subs input 0 (- (count input) (count suffix)))
-                            (if (= target-name "web") ".mjs" ".wasm")))))]
+                           (compile-output-extension target)))))]
     (cond
       (not (:kotoba.policy/ok? policy-result))
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/policy-not-readable
@@ -2020,6 +2049,11 @@
 
       (nil? target)
       {:kotoba.cli/ok? false :kotoba.cli/code :compile/unsupported-target
+       :kotoba.cli/data {:target target-name :allowed compile-target-names}}
+
+      (and (some #{"--run"} argv)
+           (not (contains? #{:js-kotoba-v1 :wasm32-kotoba-v1} target)))
+      {:kotoba.cli/ok? false :kotoba.cli/code :compile/run-unsupported-target
        :kotoba.cli/data {:target target-name :allowed ["web" "wasm"]}}
 
       (and (some #{"--run"} argv)
@@ -2045,12 +2079,23 @@
                          (compiler/compile-project (:sources project) (:root project) target
                                                    compile-policy (or (:supply-chain project) {}))
                          (compiler/compile-source (slurp entry) target compile-policy))]
-          (if (= target :js-kotoba-v1)
+          (case (:format compiled)
+            :javascript/v1
             (do
               (some-> (io/file output) .getParentFile .mkdirs)
               (spit output (:source compiled))
               (spit (str output ".manifest.edn") (pr-str (:manifest compiled))))
-            (write-bytes! output (:bytes compiled)))
+
+            :wasm/v1
+            (write-bytes! output (:bytes compiled))
+
+            :kexe/v1
+            (do
+              (some-> (io/file output) .getParentFile .mkdirs)
+              (spit output (pr-str (:artifact compiled))))
+
+            (throw (ex-info "compiler returned an unsupported artifact format"
+                            {:phase :compile :format (:format compiled)})))
           (let [emitted {:entry (or entry (:root project))
                          :kotoba.compile/inputs (cond manifest-project :project-manifest
                                                       source-root :unpinned-source-path
@@ -2061,14 +2106,13 @@
                                            [:kotoba.artifact/limits :fuel])
                                    (get-in compiled [:limits :fuel]))
                          :output output :target target-name
-                         :backend (if (= target :js-kotoba-v1)
-                                    :kotoba-script :kotoba-wasm)
+                         :backend (compile-backend target)
                          :value-profile (:value-profile compiled)
                          :value-abi (:value-abi compiled)
                          :wasm-features (:wasm-features compiled)
                          :project-digest (:project-digest compiled)
                          :compatibility (:compatibility compiled)
-                         :manifest (:manifest compiled)
+                         :manifest (or (:manifest compiled) (:artifact compiled))
                          :package-receipt (:package-receipt project)}]
             (if-not (some #{"--run"} argv)
               {:kotoba.cli/ok? true :kotoba.cli/code :compile/emitted
@@ -2102,7 +2146,7 @@
   (let [project-path (option-value argv "--project")
         entry (first-source-arg argv)
         target-name (or (option-value argv "--target") "web")
-        target (case target-name "web" :js-kotoba-v1 "wasm" :wasm32-kotoba-v1 nil)]
+        target (get compile-targets target-name)]
     (cond
       entry
       {:kotoba.cli/ok? false :kotoba.cli/code :check/ambiguous-input}
@@ -2113,7 +2157,7 @@
 
       (nil? target)
       {:kotoba.cli/ok? false :kotoba.cli/code :check/unsupported-target
-       :kotoba.cli/data {:target target-name :allowed ["web" "wasm"]}}
+       :kotoba.cli/data {:target target-name :allowed compile-target-names}}
 
       :else
       (try
@@ -2123,8 +2167,7 @@
           {:kotoba.cli/ok? true :kotoba.cli/code :check/project-valid
            :kotoba.cli/data {:entry (:root project) :project project-path
                              :target target-name
-                             :backend (if (= target :js-kotoba-v1)
-                                        :kotoba-script :kotoba-wasm)
+                             :backend (compile-backend target)
                              :project-digest (:project-digest compiled)
                              :module-order (get-in compiled [:project :kotoba.module/order])
                              :module-source-digests

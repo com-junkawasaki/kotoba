@@ -197,6 +197,26 @@
       (is (re-find #"kotoba-js-artifact/v1" (slurp (str (.getPath output) ".manifest.edn"))))
       (is (re-find #"export" (slurp output))))))
 
+(deftest compile-native-vector-through-the-public-kotoba-cli
+  (let [source (doto (java.io.File/createTempFile "kotoba-native-vector" ".kotoba")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-native-vector" ".kexe")
+                 (.deleteOnExit))]
+    (spit source "(defn main [] :i64
+                    (let [values (vector-i64 11 22 33 44)]
+                      (vector-at values 2)))")
+    (let [result (launcher/dispatch ["compile" (.getPath source)
+                                     "--target" "aarch64-macos"
+                                     "--output" (.getPath output)])
+          artifact (edn/read-string (slurp output))]
+      (is (:kotoba.cli/ok? result) (:kotoba.cli/message result))
+      (is (= :compile/emitted (:kotoba.cli/code result)))
+      (is (= :kotoba-native (get-in result [:kotoba.cli/data :backend])))
+      (is (= :aarch64-macos-kotoba-v1 (:target artifact)))
+      (is (seq (:code artifact)))
+      (is (string? (launcher/render-result result true))
+          "--json renders through the public CLI without a shim arity error"))))
+
 (deftest compile-fuel-reaches-the-emitted-wasm-contract
   (let [source (doto (java.io.File/createTempFile "kotoba-fuel" ".kotoba")
                  (.deleteOnExit))

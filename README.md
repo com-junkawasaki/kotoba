@@ -397,6 +397,7 @@ kotoba test --project hello --profile test
 kotoba build --project hello --profile release
 kotoba run path/to/entry.kotoba             # compile and run a Kotoba entry point
 kotoba compile app.kotoba --target web -o app.mjs # checked KIR → kotoba-script
+kotoba compile app.kotoba --target aarch64-macos -o app.kexe # checked KIR → sealed native KEXE
 kotoba compile app.kotoba --target web --run      # Node instantiateKotoba (js-kotoba-v1); cap 7 hosted
 kotoba compile app.kotoba --target wasm --run     # kototama.tender for kotoba:cap guests
 kotoba compile --project kotoba-project.edn --target web -o app.mjs # closed multi-module build
@@ -1129,16 +1130,22 @@ an assembler, LLVM, a JVM JIT, or a Wasm runtime. The output is a sealed KEXE
 artifact rather than an implicitly trusted OS executable.
 
 ```bash
-# In a kotoba-lang/amu checkout
-bin/kotoba -M compile example.kotoba --target aarch64-macos --output app.kexe
-bin/kotoba -M compile example.kotoba --target x86_64-linux --output app.kexe
-bin/kotoba -M verify app.kexe
-bin/kotoba -M test example.kotoba --json  # every test-* export on qualified targets
-# After signing the KEXE and pinning a measured runtime:
-bin/kotoba -M run app.signed.kexe --trust pinned-trust.edn \
+# Public Kotoba CLI (no Clojure command or -M compatibility switch)
+kotoba compile example.kotoba --target aarch64-macos --output app.kexe
+kotoba compile example.kotoba --target x86_64-linux --output app.kexe
+
+# Signing, verification, and measured native execution remain the lower-level
+# Amu/Kototama operator surface until their receipt workflow joins this CLI:
+amu verify app.kexe
+amu run app.signed.kexe --trust pinned-trust.edn \
   --runtime runtime.edn --loader kotoba-loader --policy policy.edn \
   --input input.edn --executor-key executor-key.edn --output run.receipt.edn
 ```
+
+Native compilation supports generic and explicit x86-64/AArch64 targets for
+Linux, macOS, Windows, Android, and iOS. `--run` remains limited to `web` and
+`wasm`; the CLI refuses native `--run` rather than silently using a different
+runtime or an unmeasured loader.
 
 The verifier treats embedded KIR as hostile, independently validates its
 structure, lexical scope, call arities, transitive capability effects, ABI and
