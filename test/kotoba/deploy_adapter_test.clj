@@ -274,6 +274,46 @@
   (is (nil? (deploy-adapter/public-urls "" "bafkreidemo")))
   (is (nil? (deploy-adapter/public-urls nil "bafkreidemo"))))
 
+(deftest public-urls-support-independent-gateways-and-ipns-only
+  (let [gateways (deploy-adapter/parse-ipns-gateways
+                  "https://gw1.example/, https://gw2.example")
+        urls (deploy-adapter/public-urls "k51qabc" "bafkreidemo" gateways)]
+    (is (= ["https://gw1.example" "https://gw2.example"] gateways))
+    (is (= ["https://gw1.example/ipns/k51qabc"
+            "https://gw2.example/ipns/k51qabc"]
+           (:kotoba.deploy/gateway-urls urls)))
+    (is (= "https://gw1.example/ipns/k51qabc"
+           (:kotoba.deploy/public-url urls))))
+  (let [urls (deploy-adapter/public-urls
+              "k51qabc" "bafkreidemo"
+              (deploy-adapter/parse-ipns-gateways "ipns-only"))]
+    (is (= "ipns://k51qabc" (:kotoba.deploy/ipns-url urls)))
+    (is (= [] (:kotoba.deploy/gateway-urls urls)))
+    (is (nil? (:kotoba.deploy/public-url urls)))))
+
+(deftest control-profile-mirrors-are-explicit-and-ordered
+  (is (= [deploy-adapter/control-plane-profile-url]
+         (launcher/parse-control-plane-profile-sources nil)))
+  (is (= ["file:/etc/kotoba/control.json"
+          "https://control.example.net/kotoba.json"]
+         (launcher/parse-control-plane-profile-sources
+          "file:/etc/kotoba/control.json, https://control.example.net/kotoba.json"))))
+
+(deftest control-profile-can-come-from-a-local-mirror
+  (let [f (java.io.File/createTempFile "kotoba-control" ".json")]
+    (spit f (str "{\"schema\":\"" deploy-adapter/control-plane-schema "\","
+                 "\"roles\":{"
+                 "\"control\":{\"origin\":\"https://api.kotoba.cloud\"},"
+                 "\"identity\":{\"origin\":\"https://auth.kotoba.cloud\",\"rpId\":\"auth.kotoba.cloud\"},"
+                 "\"storage\":{\"origin\":\"https://kotobase.net\"},"
+                 "\"compute\":{\"origin\":\"https://api.murakumo.cloud\",\"publicOrigin\":\"https://murakumo.cloud\"},"
+                 "\"agentWork\":{\"origin\":\"https://itonami.cloud\"}},"
+                 "\"deploy\":{\"hostedApply\":false}}"))
+    (let [source (str (.toURI f))
+          profile (#'launcher/fetch-control-plane-profile-source source)]
+      (is (= source (:kotoba.control/profile-source profile)))
+      (is (:ok? (deploy-adapter/validate-control-plane-profile profile))))))
+
 (deftest control-plane-profile-pins-domain-roles
   (is (:ok? (deploy-adapter/validate-control-plane-profile control-plane-profile)))
   (is (= [:authority-origin-mismatch]
@@ -309,7 +349,7 @@
     (is (not-any? #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
-(deftest execute-reside-fails-closed-without-kotoba-cloud-profile
+(deftest execute-reside-uses-pinned-profile-when-mirrors-are-unavailable
   (let [files (atom {"app.edn" sample-manifest})
         calls (atom [])
         result (deploy-adapter/execute!
@@ -317,10 +357,48 @@
                                         {:error :control-plane-unavailable}})
                 (planned ["apply" "--manifest" "app.edn"
                           "--target" "murakumo:asher"]))]
-    (is (false? (:kotoba.cli/ok? result)))
-    (is (= :deploy/control-plane-unavailable (:kotoba.cli/code result)))
+    (is (:kotoba.cli/ok? result))
+    (is (= :deploy/planned (:kotoba.cli/code result)))
+    (is (= :embedded-pinned
+           (get-in result [:kotoba.cli/data :receipt
+                           :kotoba.deploy/control-profile-source])))
+    (is (true? (get-in result [:kotoba.cli/data :receipt
+                               :kotoba.deploy/control-profile-degraded?])))
+    (is (= :control-plane-unavailable
+           (get-in result [:kotoba.cli/data :receipt
+                           :kotoba.deploy/control-profile-fetch-problem])))
     (is (not-any? #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :run (first %)) @calls))))
+
+(deftest execute-reside-still-fails-closed-for-a-conflicting-profile
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls
+                           {:control-profile
+                            (assoc-in control-plane-profile
+                                      [:roles :compute :origin]
+                                      "https://attacker.invalid")})
+                (planned ["apply" "--manifest" "app.edn"
+                          "--target" "murakumo:asher"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/control-plane-unavailable (:kotoba.cli/code result)))
+    (is (= [:authority-origin-mismatch]
+           (get-in result [:kotoba.cli/data :problems])))
+    (is (not-any? #(= :publish-ipns (first %)) @calls))
+    (is (not-any? #(= :run (first %)) @calls))))
+
+(deftest execute-reside-can-be-ipns-only
+  (let [files (atom {"app.edn" sample-manifest})
+        result (deploy-adapter/execute!
+                (fake-host files (atom [])
+                           {:env {"KOTOBA_IPNS_GATEWAYS" "ipns-only"}})
+                (planned ["apply" "--manifest" "app.edn"
+                          "--target" "murakumo:asher"]))]
+    (is (= :deploy/planned (:kotoba.cli/code result)))
+    (is (= "dry-run ipns://k51qdemotestname" (:kotoba.cli/message result)))
+    (is (= [] (get-in result [:kotoba.cli/data :receipt
+                              :kotoba.deploy/gateway-urls])))))
 
 (deftest execute-reside-apply-fails-closed-without-murakumo-root
   (let [files (atom {"app.edn" sample-manifest})

@@ -441,29 +441,63 @@
     (when (and (string? raw) (not (str/blank? raw)))
       (vec (remove str/blank? (str/split raw #","))))))
 
-(defn fetch-control-plane-profile
-  "Fetch the live, unauthenticated Kotoba Cloud topology document. Authority
-  validation stays in deploy-adapter; this function only supplies bytes from
-  the fixed discovery URL."
-  []
+(defn parse-control-plane-profile-sources
+  "Comma-separated profile mirrors. Unset keeps the compatibility discovery
+  URL. Each fetched profile is still checked against the CLI's pinned topology."
+  [raw]
+  (if (and (string? raw) (not (str/blank? raw)))
+    (vec (remove str/blank? (map str/trim (str/split raw #","))))
+    [deploy-adapter/control-plane-profile-url]))
+
+(defn- fetch-control-plane-profile-source [source]
   (try
-    (let [client (.build (HttpClient/newBuilder))
-          request (-> (HttpRequest/newBuilder
-                       (URI/create deploy-adapter/control-plane-profile-url))
-                      (.timeout (Duration/ofSeconds 5))
-                      (.header "accept" "application/json")
-                      (.GET)
-                      (.build))
-          response (.send client request (HttpResponse$BodyHandlers/ofString))]
-      (if (= 200 (.statusCode response))
-        (json/read-str (.body response) :key-fn keyword)
-        {:error :control-plane-http-error
-         :status (.statusCode response)}))
+    (cond
+      (or (str/starts-with? source "file:")
+          (not (str/includes? source ":")))
+      (assoc (json/read-str (slurp (if (str/starts-with? source "file:")
+                                    (URI/create source)
+                                    source))
+                            :key-fn keyword)
+             :kotoba.control/profile-source source)
+
+      (str/starts-with? source "https://")
+      (let [client (.build (HttpClient/newBuilder))
+            request (-> (HttpRequest/newBuilder (URI/create source))
+                        (.timeout (Duration/ofSeconds 5))
+                        (.header "accept" "application/json")
+                        (.GET)
+                        (.build))
+            response (.send client request (HttpResponse$BodyHandlers/ofString))]
+        (if (= 200 (.statusCode response))
+          (assoc (json/read-str (.body response) :key-fn keyword)
+                 :kotoba.control/profile-source source)
+          {:error :control-plane-http-error
+           :source source
+           :status (.statusCode response)}))
+
+      :else
+      {:error :control-plane-unsupported-source :source source})
     (catch Exception _
-      {:error :control-plane-unavailable})))
+      {:error :control-plane-unavailable :source source})))
+
+(defn fetch-control-plane-profile
+  "Try operator-selected independent mirrors before the embedded pinned
+  topology takes over in deploy-adapter. An invalid fetched profile is returned
+  for fail-closed authority validation; only transport failures try the next."
+  []
+  (let [sources (parse-control-plane-profile-sources
+                 (System/getenv "KOTOBA_CONTROL_PLANE_PROFILES"))]
+    (loop [[source & more] sources
+           last-error {:error :control-plane-unavailable}]
+      (if-not source
+        last-error
+        (let [result (fetch-control-plane-profile-source source)]
+          (if (:error result)
+            (recur more result)
+            result))))))
 
 (def ^:dynamic *control-plane-profile-fetch*
-  "Test seam for the network boundary; production always uses the live URL."
+  "Test seam for profile mirrors and their embedded-pinned fallback."
   fetch-control-plane-profile)
 
 (defn deploy-host-port

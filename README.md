@@ -304,14 +304,20 @@ checked wasm → IPNS name → murakumo public URL. Default `--dry-run` is
 true. `apply` is what publishes. Deno Deploy, Cloudflare, and Vercel are
 not targets. Hosted billed deploy of capability grants is not live.
 
-Before planning or applying a Murakumo target, the CLI fetches
-`https://kotoba.cloud/.well-known/kotoba-cloud.json` and fails closed unless
-it names `auth.kotoba.cloud` as identity, `kotobase.net` as storage,
-`api.murakumo.cloud` as compute, and `itonami.cloud` as agent work. The
-discovery dependency does not turn those domains into one authority boundary;
-the resulting receipt records each origin separately. The live profile states
-`hostedApply: false`: admission remains local and compute placement remains a
-Murakumo operation until a hosted apply API is implemented and qualified.
+Before planning or applying a Murakumo target, the CLI checks a control-plane
+profile. It tries `https://kotoba.cloud/.well-known/kotoba-cloud.json` by
+default, or the comma-separated file/HTTPS mirrors in
+`KOTOBA_CONTROL_PLANE_PROFILES`. Any fetched profile fails closed unless it
+names `auth.kotoba.cloud` as identity, `kotobase.net` as storage,
+`api.murakumo.cloud` as compute, and `itonami.cloud` as agent work. If every
+mirror is unavailable, deploy continues with the same topology pinned into the
+CLI release and records `:kotoba.deploy/control-profile-degraded? true`; an
+available but conflicting profile is never hidden by that fallback. Cloudflare
+is therefore an optional discovery edge, not an availability dependency of
+this direct-to-Murakumo deploy path.
+The profile states `hostedApply: false`: admission remains local and compute
+placement remains a Murakumo operation until a hosted apply API is implemented
+and qualified.
 
 ```bash
 # safe first step — prints the URL apply would publish, writes nothing
@@ -319,6 +325,11 @@ bin/kotoba deploy --manifest package-manifest.edn --target murakumo:asher
 
 # one local identity — prints did:key + ipns-name, never the seed
 bin/kotoba identity new
+
+# Optional: independent mirrors, or no HTTPS gateway projection at all.
+export KOTOBA_CONTROL_PLANE_PROFILES="file:/etc/kotoba/control-plane.json,https://control.example.net/kotoba.json"
+export KOTOBA_IPNS_GATEWAYS="https://gw1.example.net,https://gw2.example.net"
+# export KOTOBA_IPNS_GATEWAYS=ipns-only
 
 # publish the admitted wasm (same identity; MURAKUMO_ROOT for reside)
 bin/kotoba deploy apply \
@@ -335,9 +346,15 @@ Successful apply prints EDN whose `:kotoba.cli/message` is
 published https://murakumo.cloud/ipns/k51…
 ```
 
-and whose receipt carries the same value as `:kotoba.deploy/public-url`,
-plus `:kotoba.deploy/ipns-url` (`ipns://k51…`) and
-`:kotoba.deploy/ipfs-url` (`ipfs://<component-cid>`). The IPNS name is
+The receipt always carries the canonical `ipns://k51…` name and immutable
+`ipfs://<component-cid>`. HTTPS gateway URLs are replaceable projections; with
+`KOTOBA_IPNS_GATEWAYS=ipns-only`, the CLI prints the IPNS name and does not
+claim an HTTPS publication surface.
+
+The receipt carries `:kotoba.deploy/ipns-url` (`ipns://k51…`),
+`:kotoba.deploy/ipfs-url` (`ipfs://<component-cid>`), and all configured HTTPS
+projections in `:kotoba.deploy/gateway-urls`. Unless IPNS-only mode is selected,
+the first projection is also `:kotoba.deploy/public-url`. The IPNS name is
 the existing `kotoba codebase publish --ipns` stack
 (`kotoba.codebase-ipns/publish-cid!`), not a second naming system.
 Compute reside shells `clojure -M -m murakumo.core deploy <manifest> [node]`
