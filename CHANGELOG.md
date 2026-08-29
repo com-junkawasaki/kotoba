@@ -6,6 +6,13 @@ user-visible or architecturally significant changes.
 
 ## Unreleased
 
+## 0.7.3 — 2026-08-29
+
+- Published the first packaged CLI with the canonical `auth.kotoba.cloud`
+  Passkey device flow. `kotoba id new` opens the browser ceremony, persists
+  only the verified public projection, and `kotoba id show` reads the same
+  Stable Principal without introducing a chain or wallet-provider default.
+
 - `kotoba identity new` writes one local Ed25519 seed to
   `${XDG_DATA_HOME:-$HOME/.local/share}/kotoba/operator.seed` (mode 0600)
   and prints only `did:key` + the IPNS name. A second generate without
