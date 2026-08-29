@@ -270,17 +270,17 @@ executable. Neither a JVM nor Clojure CLI is required at runtime.
 Profile-bound releases are built from a clean commit without GitHub Actions:
 
 ```bash
-scripts/package-native-release.sh 0.7.0 darwin-arm64 ../kotoba-lang/lang/version-policy.edn
+scripts/package-native-release.sh 0.7.3 darwin-arm64 ../kotoba-lang/lang/version-policy.edn
 kagi get kotoba-language-release-ed25519 --compartment personal |
   clojure -M:release-tag sign \
     --policy ../kotoba-lang/lang/version-policy.edn \
     --trust ../kotoba-lang/lang/release-trust.edn \
     --envelope target/release-evidence/unsigned-envelope.edn \
-    > target/release-evidence/kotoba-v0.7.0-envelope.edn
+    > target/release-evidence/kotoba-v0.7.3-envelope.edn
 clojure -M:release-tag verify \
   --policy ../kotoba-lang/lang/version-policy.edn \
   --trust ../kotoba-lang/lang/release-trust.edn \
-  --envelope target/release-evidence/kotoba-v0.7.0-envelope.edn
+  --envelope target/release-evidence/kotoba-v0.7.3-envelope.edn
 ```
 
 The signed envelope binds the implementation commit and tree, source root,
@@ -289,13 +289,10 @@ and active external signer. Publication must stop if any binding fails.
 
 ### npm / npx
 
-The npm launcher is a compatibility adapter. Native Homebrew and shell installs
-are the authoritative JVM-free distribution paths.
-
-```bash
-npm install -g @kotoba-lang/kotoba
-kotoba check --kind cli-contract --json
-```
+An npm compatibility launcher is planned but is not published. Native Homebrew
+and shell installs above are the authoritative JVM-free distribution paths; do
+not rely on an `@kotoba-lang/kotoba` package until this section names a released
+version and registry digest.
 
 ### Source-checkout launcher
 
