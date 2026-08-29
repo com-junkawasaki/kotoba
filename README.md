@@ -2,11 +2,26 @@
   <img src="docs/assets/header.png" alt="kotoba" width="480">
 </p>
 
-# kotoba
+# Kotoba
 
-CLI and implementation for **Kotoba**, a capability-safe language for untrusted
-AI-written code. A compiled program can use only the authority it was granted.
-Deny-by-default. Language contract:
+> **A language AI agents can use, not abuse.**
+
+AI writes freely. Kotoba draws the boundary.
+
+Kotoba is an intuitive, declarative, security-first language and computing
+stack for AI agents—and for humans who vibe-code with them.
+
+> **Existing software adds security around the program. Kotoba makes security
+> a property of the whole computation.**
+
+This repository contains the installable Kotoba CLI and implementation. A
+compiled program can use only the authority it was granted: no implicit
+filesystem, network, process, clock, model, or secrets. Unsupported or
+unverifiable behavior fails closed. This is a confinement direction, not an
+“unhackable” claim; runtime and OS isolation remain part of the trusted
+computing base.
+
+Language contract:
 [`kotoba-lang/kotoba-lang`](https://github.com/kotoba-lang/kotoba-lang) · site:
 [kotoba-lang.org](https://kotoba-lang.org)
 
@@ -231,7 +246,7 @@ brew install --build-from-source ./Formula/kotoba.rb
 ```bash
 git clone https://github.com/kotoba-lang/kotoba.git
 cd kotoba
-bin/kotoba-clj check --kind cli-contract --json
+bin/kotoba check --kind cli-contract --json
 ```
 
 ### Shell installer (macOS / Linux)
@@ -273,14 +288,15 @@ npm install -g @kotoba-lang/kotoba
 kotoba check --kind cli-contract --json
 ```
 
-### Rust-free CLJ launcher
+### Source-checkout launcher
 
-The CLJ launcher delegates to `kotoba-lang/kotoba-lang`'s CLJC CLI authority
-instead of adding new Rust command semantics:
+`bin/kotoba` exposes the same public CLI from a source checkout and delegates
+to `kotoba-lang/kotoba-lang`'s CLJC CLI authority instead of adding independent
+command semantics:
 
 ```bash
-clojure -M -m kotoba.launcher check --kind cli-contract --json
-bin/kotoba-clj deploy --manifest package-manifest.edn --target dev
+bin/kotoba check --kind cli-contract --json
+bin/kotoba deploy --manifest package-manifest.edn --target dev
 ```
 
 `deploy` against a murakumo target is the Deno-like one-command publish:
@@ -299,13 +315,13 @@ Murakumo operation until a hosted apply API is implemented and qualified.
 
 ```bash
 # safe first step — prints the URL apply would publish, writes nothing
-bin/kotoba-clj deploy --manifest package-manifest.edn --target murakumo:asher
+bin/kotoba deploy --manifest package-manifest.edn --target murakumo:asher
 
 # one local identity — prints did:key + ipns-name, never the seed
-bin/kotoba-clj identity new
+bin/kotoba identity new
 
 # publish the admitted wasm (same identity; MURAKUMO_ROOT for reside)
-bin/kotoba-clj deploy apply \
+bin/kotoba deploy apply \
   --manifest package-manifest.edn \
   --target murakumo:asher \
   --dry-run false \
@@ -345,6 +361,9 @@ Commands this repo's launcher currently wires up:
 
 ```bash
 kotoba check --kind cli-contract --json     # validate the CLI/package/lock contract
+kotoba rad new --project hello              # scaffold a Kotoba project
+kotoba rad test --project hello --profile test
+kotoba rad build --project hello --profile release
 kotoba run path/to/entry.kotoba             # compile and run a Kotoba entry point
 kotoba compile app.kotoba --target web -o app.mjs # checked KIR → kotoba-script
 kotoba compile app.kotoba --target web --run      # Node instantiateKotoba (js-kotoba-v1); cap 7 hosted
@@ -1135,34 +1154,27 @@ by [`.github/workflows/pages.yml`](.github/workflows/pages.yml).
 
 The cross-cutting design SSoT remains the parent-monorepo ADR (see [ADR](#adr) below).
 
-## Build
+## Build and test
 
-This repo has no Rust build (see [Current repositories](#current-repositories-cljc-post-migration)
-above). CI (`.github/workflows/ci.yml`) runs two jobs:
+Use the Kotoba CLI for the normal project lifecycle. The source-checkout form
+below is identical to the installed `kotoba` command:
 
 ```bash
-# CLJ launcher gates — checks out pinned kotoba-lang/kotoba-lang, kotoba-lang/amu,
-# and kotoba-lang/kototama refs as qualification evidence, plus the cacao/ed25519/
-# dag-cbor/kotoba-core-contracts/kotoba-selfhost-contracts sibling repos, then:
-clojure -M -m kotoba.security.adoption   # shared security-adoption check (kotoba-lang/security)
-clojure -M:test
-clojure -M:lint                          # clj-kondo
-bin/kotoba-clj check --kind cli-contract --json
-bin/kotoba-clj package verify --lock test/fixtures/package/positive-lock.edn \
-  --trust test/fixtures/package/trust.edn --json
-# negative case: a version-only lock must be rejected, not silently admitted
-bin/kotoba-clj package verify --lock test/fixtures/package/version-only-lock.edn --json && exit 1
-
-# Python SDK gates (sdk/kotoba-modal): pytest + wheel-contents check
+bin/kotoba rad new --project /tmp/hello
+bin/kotoba rad test --project /tmp/hello --profile test
+bin/kotoba rad build --project /tmp/hello --profile release
 ```
 
-The security/assurance surface ([Documentation](#documentation) below —
-`SECURITY.md`, `docs/THREAT-MODEL.md`,
-`docs/ADR-grade-a-security-assurance-program.md`) is exercised separately via
-`deps.edn` aliases, not the default CI job: `:grade-a-check`/`:grade-a-attest`,
-`:crypto-check`, `:threat-model-check`, `:supply-chain-check`,
-`:key-hierarchy-check`, `:control-adoption-check`,
-`:vulnerability-response-check` (e.g. `clojure -M:crypto-check`).
+`rad test` admits and checks the project's Kotoba source. `rad build` admits the
+package lock and emits `target/hello.wasm`; a rejected lock or unsupported
+construct fails the command. This is the public build/test path
+described by [kotoba-lang.org](https://kotoba-lang.org/) and the versioned
+[`kotoba rad` CLI contract](https://github.com/kotoba-lang/kotoba-lang/blob/main/docs/generated/cli.md#kotoba-rad).
+
+Repository-maintainer conformance, lint, security, Python SDK, and release gates
+run on the Murakumo fleet. Their implementation details are internal gates, not
+the user-facing Kotoba project build command. This repository has no Rust build;
+see [Current repositories](#current-repositories-cljc-post-migration).
 
 ## ADR
 
