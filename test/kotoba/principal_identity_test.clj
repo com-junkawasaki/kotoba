@@ -10,6 +10,14 @@
    :activeDid "did:key:z6Mktest"
    :handle "kotoba-test000000"})
 
+(deftest optional-runtime-hooks-default-to-the-production-path
+  ;; A declaration without an init value leaves a Clojure Var unbound.  The
+  ;; public CLI dereferences these hooks before falling back to the production
+  ;; implementation, so their defaults must be the ordinary nil value.
+  (is (nil? principal/*principal-path*))
+  (is (nil? principal/*browser-open!*))
+  (is (nil? principal/*device-authorize!*)))
+
 (deftest principal-path-follows-xdg-then-home
   (is (= "/xdg/kotoba/principal.edn" (principal/principal-path* "/xdg" "/home/jun")))
   (is (= "/home/jun/.local/share/kotoba/principal.edn"

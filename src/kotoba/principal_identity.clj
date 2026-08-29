@@ -21,9 +21,9 @@
 (def canonical-origin (str "https://" canonical-rp-id))
 (def principal-relpath "kotoba/principal.edn")
 
-(def ^:dynamic *principal-path*)
-(def ^:dynamic *browser-open!*)
-(def ^:dynamic *device-authorize!*)
+(def ^:dynamic *principal-path* nil)
+(def ^:dynamic *browser-open!* nil)
+(def ^:dynamic *device-authorize!* nil)
 
 (defn principal-path*
   [xdg-data-home home]
