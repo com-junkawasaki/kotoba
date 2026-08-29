@@ -37,6 +37,11 @@ the existing codebase implementation.
 - With `--hosted`, the CLI requires `--pqc-seed-file` and returns a
   kotoba.cloud approval URL carrying the bounded request plus an ML-DSA-65
   signature; provider credentials and private seeds never enter the URL.
+- `kotoba pq-key rotate` requires both the current and next ML-DSA-65 seeds to
+  sign the exact same short-lived transition request. `pq-key revoke` requires
+  the current seed. Both commands return a fragment-only kotoba.cloud URL and
+  take effect only after the same Principal confirms with a live Passkey
+  session.
 - GitHub is provenance only. A valid CID is content identity only. Neither one
   grants publication or execution authority.
 - `kotoba-lang.org/libraries/` owns public explanation and catalog projection;
@@ -80,12 +85,18 @@ This is application-layer hybrid approval, not a claim that a platform
 authenticator's WebAuthn credential is post-quantum. Initial ML-DSA enrollment
 inherits the classical security of that Passkey ceremony; after enrollment,
 classical Passkey compromise alone cannot replace the pinned ML-DSA key.
+Normal lifecycle changes preserve that invariant: rotation proves possession
+of both old and new keys, advances the epoch atomically, and returns a no-store
+receipt; revocation proves possession of the current key and blocks later
+publication. Exact transition IDs are single-use. Recovery without the current
+key remains blocked until an independent quorum is implemented, and the HTTPS
+receipt is not represented as an externally witnessed transparency proof.
 
 ## Consequences
 
 The common CLI path stays concise while content identity, publisher authority,
 placement, discovery, and execution remain separate checks. A storage receipt
 or Passkey approval alone never qualifies a release as distributed. Durable
-history, catalog ingestion, revocation UI, short-lived storage grants, and a
-second operated public provider remain deployment concerns rather than claims
-hidden inside the CID model.
+externally witnessed history, catalog ingestion, independent recovery,
+short-lived storage grants, and a second operated public provider remain
+deployment concerns rather than claims hidden inside the CID model.
