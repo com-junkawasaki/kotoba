@@ -23,22 +23,22 @@ the existing codebase implementation.
 - `publish` is dry-run by default. The plan reads the exact namespace graph and
   local public identity without writing.
 - `--dry-run false` delegates to the existing signed-head and IPNS publication
-  path. It does not introduce another signing format, block protocol, or name
-  registry.
+  path. With `--hosted`, it first stores the immutable closure and returns a
+  kotoba.cloud Passkey approval URL carrying only a bounded signed record.
 - GitHub is provenance only. A valid CID is content identity only. Neither one
   grants publication or execution authority.
 - `kotoba-lang.org/libraries/` owns public explanation and catalog projection;
   `kotoba.cloud` owns publication-control and deploy-readiness discovery;
   Kotobase remains block and receipt storage.
 
-Passkey-hosted publication is not part of this slice. CLI results and public
-profiles state `hosted-passkey-publish false` until namespace authorization,
-abuse control, receipt persistence, and ingestion are implemented and
-qualified.
+Passkey-hosted publication keeps two independent gates: the local Ed25519 key
+proves namespace authority; a valid Passkey session explicitly approves the
+relay. Kotobase rechecks the signed `k51...` record and monotonic sequence. The
+seed, storage token, and Passkey cookie never cross their respective origins.
 
 ## Consequences
 
 The common CLI path is concise while existing content-addressed semantics stay
-authoritative. Local/IPNS publication is usable now, the public information
-architecture is stable, and a future Passkey adapter can authorize the same
-release graph rather than inventing a new identity.
+authoritative. Local/IPNS and Passkey-relayed publication are usable now. The
+first hosted slice returns an immediate receipt; durable history, catalog
+ingestion, revocation UI, and short-lived storage grants remain follow-ups.

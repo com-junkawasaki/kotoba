@@ -34,6 +34,7 @@
             [clojure.string :as str]
             [ed25519.core :as ed]
             [ipns.core :as ipns-core]
+            [ipns.head :as registry-head]
             [ipns.record :as ipns]
             [kad.routing :as kad]
             [kotoba.codebase-publish :as push]
@@ -168,6 +169,42 @@
      :blocks (:blocks pushed)
      :accepted-by (:accepted published)
      :rejected-by (mapv :router (:rejected published))}))
+
+(defn prepare-hosted!
+  "Store a namespace closure, then return the signed Kotobase head that a
+  Passkey-authenticated control plane may relay.
+
+  The Ed25519 seed never leaves this process. The browser receives only a
+  bounded signed value; Kotobase independently verifies that the key embedded
+  in the `k51...` name signed it and enforces monotonic sequence CAS."
+  [root namespace ^bytes seed {:keys [endpoint write-token timeout-ms validity-days]
+                               :or {endpoint "https://kotobase.net"
+                                    timeout-ms default-timeout-ms
+                                    validity-days default-validity-days}}]
+  (let [record (publication/publish! root namespace seed)
+        _ (store/put-block! root (:record-cid record) (:record record))
+        stored (push/push-blocks! root record {:endpoint endpoint
+                                               :write-token write-token
+                                               :timeout-ms timeout-ms})
+        ipns-name (name-of seed)
+        valid-until (str (.plus (Instant/now) (long validity-days) ChronoUnit/DAYS))
+        signed-head (registry-head/sign
+                     seed
+                     {:name ipns-name
+                      :value (:record-cid record)
+                      :sequence (:sequence record)
+                      :valid_until valid-until
+                      :ttl_secs 3600
+                      :controller_did (:publisher record)})]
+    {:namespace namespace
+     :ipns-name ipns-name
+     :publisher (:publisher record)
+     :sequence (:sequence record)
+     :release-cid (:head record)
+     :record-cid (:record-cid record)
+     :storage-origin endpoint
+     :stored-blocks (:blocks stored)
+     :signed-record signed-head}))
 
 (defn resolve-namespace
   "Resolve an IPNS name to the head record CID it currently points at.

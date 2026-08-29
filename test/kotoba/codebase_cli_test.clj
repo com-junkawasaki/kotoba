@@ -5,7 +5,9 @@
   full CID, and a hash abbreviation are interchangeable ways of saying one
   definition, and none of them is what the definition IS."
   (:require [cbor.core :as cbor]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [kotoba.codebase-ipns]
             [kotoba.codebase-routing :as routing]
             [kotoba.codebase.store :as store]
             [kotoba.launcher :as launcher])
@@ -98,8 +100,8 @@
         (is (true? (get-in planned [:kotoba.cli/data :publication :dry-run])))
         (is (= :local-signed-ipns
                (get-in planned [:kotoba.cli/data :publication :mode])))
-        (is (false? (get-in planned
-                            [:kotoba.cli/data :publication :hosted-passkey-publish])))
+        (is (true? (get-in planned
+                           [:kotoba.cli/data :publication :hosted-passkey-publish])))
         (is (string? (get-in planned [:kotoba.cli/data :publication :publisher])))
         (is (string? (get-in planned [:kotoba.cli/data :publication :ipns-name]))))
       (let [rejected (with-redefs [launcher/signing-seed-hex (constantly nil)]
@@ -108,6 +110,43 @@
                             "--dry-run" "false"))]
         (is (false? (:kotoba.cli/ok? rejected)))
         (is (= :codebase/seed-required (:kotoba.cli/code rejected))))
+      (finally (delete-tree work)))))
+
+(deftest hosted-library-publish-stores-before-emitting-passkey-approval-url
+  (let [work (temp-dir "kotoba-library-hosted-")
+        store-dir (str work "/store")
+        seed-hex (apply str (repeat 64 "a"))]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (run "codebase" "add" (scratch! work "(defn answer [] 42)")
+           "--store" store-dir "--namespace" "demo")
+      (let [called (atom nil)
+            result (with-redefs
+                     [launcher/signing-seed-hex (constantly seed-hex)
+                      launcher/read-write-token-file (constantly "storage-token")
+                      kotoba.codebase-ipns/prepare-hosted!
+                      (fn [_root namespace _seed opts]
+                        (reset! called [namespace opts])
+                        {:namespace namespace :ipns-name "k51demo"
+                         :publisher "did:key:zDemo" :sequence 3
+                         :release-cid "bafyRelease" :record-cid "bafyRecord"
+                         :storage-origin (:endpoint opts) :stored-blocks 4
+                         :signed-record {:name "k51demo" :value "bafyRecord"
+                                         :sequence 3 :valid_until "2099-01-01T00:00:00Z"
+                                         :public_key_multibase "did:key:zDemo"
+                                         :signature_multibase "zSignature"}})]
+                     (run "library" "publish" "--store" store-dir
+                          "--namespace" "demo" "--hosted"
+                          "--dry-run" "false" "--write-token-file" "token.txt"))]
+        (is (:kotoba.cli/ok? result))
+        (is (= :library/passkey-approval-required (:kotoba.cli/code result)))
+        (is (= ["demo" {:endpoint "https://kotobase.net"
+                         :write-token "storage-token"}]
+               @called))
+        (is (str/starts-with? (get-in result [:kotoba.cli/data :approval-url])
+                              "https://kotoba.cloud/#publish="))
+        (is (nil? (get-in result [:kotoba.cli/data :signed-record]))
+            "the signed record is carried only inside the URL fragment"))
       (finally (delete-tree work)))))
 
 (deftest an-update-propagates-to-dependents-through-the-cli
