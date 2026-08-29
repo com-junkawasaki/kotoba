@@ -38,6 +38,7 @@
             [kotoba.codebase-typed-test]
             [kotoba.launcher-test]
             [kotoba.operator-identity-test]
+            [kotoba.principal-identity-test]
             [kotoba.language-conformance-test]
             [kotoba.package-registry-test]
             [kotoba.package-key-revoke-e2e-test]
@@ -106,6 +107,7 @@
                                         'kotoba.codebase-typed-test
                                         'kotoba.launcher-test
                                         'kotoba.operator-identity-test
+                                        'kotoba.principal-identity-test
                                         'kotoba.language-conformance-test
                                         'kotoba.package-registry-test
                                         'kotoba.package-key-revoke-e2e-test

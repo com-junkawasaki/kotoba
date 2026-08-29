@@ -39,6 +39,7 @@
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.operator-identity :as operator-identity]
+            [kotoba.principal-identity :as principal-identity]
             [kotoba.selfhost.contracts :as selfhost]
             [kotoba.selfhost.analyzer :as selfhost-analyzer]
             [kotoba.wasm-exec :as wasm-exec]
@@ -53,7 +54,7 @@
            [java.nio.file Files OpenOption Path StandardOpenOption]
            [java.nio.file.attribute PosixFilePermissions]
            [java.time Duration]
-           [java.util Base64 UUID]
+           [java.util Base64]
            [java.util.concurrent ConcurrentHashMap])
   (:gen-class))
 
@@ -405,21 +406,25 @@
        :kotoba.cli/data {:hint "identity | identity new [--force]"}})))
 
 (defn finalize-principal-id
-  "Fulfil the CLJC authority's explicit secure-random host request.
-
-  The generated value is a public logical identifier, not key material. The
-  Passkey registration ceremony remains pending at the named RP and no chain,
-  account, or capability is granted by this step."
+  "Fulfil the CLJC authority's host request through the canonical browser
+  Passkey device flow.  No local random Principal is minted."
   [result]
   (if (and (:kotoba.cli/ok? result)
            (= :secure-random-principal-id
               (get-in result [:kotoba.cli/data :host-action])))
-    (-> result
-        (assoc :kotoba.cli/code :id/enrollment-planned)
-        (assoc-in [:kotoba.cli/data :principal]
-                  (str "urn:kotoba:principal:" (UUID/randomUUID)))
-        (update :kotoba.cli/data dissoc :host-action))
+    (principal-identity/enroll-result result)
     result))
+
+(defn- default-principal-rp
+  "Make the public happy path `kotoba id new`. An explicit RP still reaches
+  the authority unchanged, where a non-canonical value is refused before any
+  browser opens."
+  [argv]
+  (if (and (= "id" (command-name argv))
+           (= "new" (identity-action argv))
+           (nil? (option-value argv "--rp-id")))
+    (into (vec argv) ["--rp-id" principal-identity/canonical-rp-id])
+    (vec argv)))
 
 (defn- ipns-routers-from-env
   "Optional comma-separated `/routing/v1` routers. Unset ⇒ the kad default
@@ -608,7 +613,7 @@
 (defn dispatch
   "Dispatch argv through the CLJC authority and return a result map."
   [argv]
-  (let [argv (vec argv)]
+  (let [argv (default-principal-rp argv)]
     (if-let [launcher-result (case (command-name argv)
                                "selfhost" (selfhost-result argv)
                                "check" (when (option-value argv "--project")
@@ -620,6 +625,8 @@
                                "codebase" (codebase-result argv)
                                "library" (library-result argv)
                                "identity" (identity-result argv)
+                               "id" (when (contains? #{nil "show"} (identity-action argv))
+                                      (principal-identity/show-result))
                                nil)]
       launcher-result
       (let [contract (read-cli-contract-resource "lang/cli.edn")
