@@ -197,6 +197,19 @@
       (is (re-find #"kotoba-js-artifact/v1" (slurp (str (.getPath output) ".manifest.edn"))))
       (is (re-find #"export" (slurp output))))))
 
+(deftest compile-fuel-reaches-the-emitted-wasm-contract
+  (let [source (doto (java.io.File/createTempFile "kotoba-fuel" ".kotoba")
+                 (.deleteOnExit))
+        output (doto (java.io.File/createTempFile "kotoba-fuel" ".wasm")
+                 (.deleteOnExit))]
+    (spit source "(ns fuel (:export [main])) (defn main [] :i64 42)")
+    (let [result (launcher/dispatch ["compile" (.getPath source)
+                                     "--target" "wasm"
+                                     "--fuel" "4096"
+                                     "--output" (.getPath output)])]
+      (is (:kotoba.cli/ok? result))
+      (is (= 4096 (get-in result [:kotoba.cli/data :fuel]))))))
+
 (deftest compile-cljc-source-path-uses-the-closed-project-linker
   (let [directory (.toFile (java.nio.file.Files/createTempDirectory
                             "kotoba-cljc-source-path"
