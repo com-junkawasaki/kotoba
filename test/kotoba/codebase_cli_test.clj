@@ -75,7 +75,7 @@
             definition (get-in result [:kotoba.cli/data :definitions "quadruple"])]
         (is (:kotoba.cli/ok? result))
         (is (= :library/inspected (:kotoba.cli/code result)))
-        (is (string? (get-in result [:kotoba.cli/data :release-cid])))
+        (is (string? (get-in result [:kotoba.cli/data :namespace-head-cid])))
         (is (string? (:definition-cid definition)))
         (is (= ["double"] (get-in definition [:dependencies 0 :names])))
         (is (= "https://github.com/kotoba-lang/demo"
@@ -140,9 +140,10 @@
                           "--dry-run" "false" "--write-token-file" "token.txt"))]
         (is (:kotoba.cli/ok? result))
         (is (= :library/passkey-approval-required (:kotoba.cli/code result)))
-        (is (= ["demo" {:endpoint "https://kotobase.net"
-                         :write-token "storage-token"}]
-               @called))
+        (is (= "demo" (first @called)))
+        (is (= "https://kotobase.net" (get-in @called [1 :endpoint])))
+        (is (string? (get-in @called [1 :release-cid])))
+        (is (= [] (get-in @called [1 :providers])))
         (is (str/starts-with? (get-in result [:kotoba.cli/data :approval-url])
                               "https://kotoba.cloud/#publish="))
         (is (nil? (get-in result [:kotoba.cli/data :signed-record]))

@@ -23,8 +23,19 @@ the existing codebase implementation.
 - `publish` is dry-run by default. The plan reads the exact namespace graph and
   local public identity without writing.
 - `--dry-run false` delegates to the existing signed-head and IPNS publication
-  path. With `--hosted`, it first stores the immutable closure and returns a
-  kotoba.cloud Passkey approval URL carrying only a bounded signed record.
+  path. Before signing it builds a `kotoba.library-release.v1` IPLD root that
+  binds the namespace head, definitions, raw Wasm artifacts, compile receipts,
+  compiler contract, policy, and package-lock evidence.
+- Publication fails closed on any missing linked DAG-CBOR or raw block and
+  requires at least two distinct provider IDs and endpoints.
+- A successful upload is `published-pending-availability`. `library verify`
+  re-fetches the complete closure from every provider and requires independent
+  delegated-routing observation before emitting an availability-proof CID.
+- `library run ipfs://<release-cid> --entry <name>` hydrates and verifies that
+  same closure, checks the compile receipt binds the definition and artifact,
+  passes the availability gate, and only then executes the Wasm export.
+- With `--hosted`, the CLI returns a kotoba.cloud Passkey approval URL carrying
+  only the bounded signed record; provider credentials never enter the URL.
 - GitHub is provenance only. A valid CID is content identity only. Neither one
   grants publication or execution authority.
 - `kotoba-lang.org/libraries/` owns public explanation and catalog projection;
@@ -38,7 +49,9 @@ seed, storage token, and Passkey cookie never cross their respective origins.
 
 ## Consequences
 
-The common CLI path is concise while existing content-addressed semantics stay
-authoritative. Local/IPNS and Passkey-relayed publication are usable now. The
-first hosted slice returns an immediate receipt; durable history, catalog
-ingestion, revocation UI, and short-lived storage grants remain follow-ups.
+The common CLI path stays concise while content identity, publisher authority,
+placement, discovery, and execution remain separate checks. A storage receipt
+or Passkey approval alone never qualifies a release as distributed. Durable
+history, catalog ingestion, revocation UI, short-lived storage grants, and a
+second operated public provider remain deployment concerns rather than claims
+hidden inside the CID model.

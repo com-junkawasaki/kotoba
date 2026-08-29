@@ -135,19 +135,21 @@
   resolver that landed straight on the commit would have the right bytes and no
   way to check the sequence or the chain, which is the difference between
   knowing a head and being told one."
-  [root namespace ^bytes seed {:keys [routers validity-days timeout-ms endpoint write-token]
+  [root namespace ^bytes seed {:keys [routers validity-days timeout-ms endpoint write-token
+                                      release-cid providers]
                                :or {validity-days default-validity-days
                                     timeout-ms default-timeout-ms}}]
-  (let [record (publication/publish! root namespace seed)
+  (let [record (publication/publish! root namespace seed {:release-cid release-cid})
         ;; Persist the head record as a block so a follower can fetch it by the
         ;; CID the IPNS name resolves to.
         _ (store/put-block! root (:record-cid record) (:record record))
         ;; ONE signature, two destinations. Signing again for the node would
         ;; advance the sequence and produce a second record claiming the same
         ;; head, which is exactly the broken chain a follower rejects.
-        pushed (when endpoint
-                 (push/push! root record {:endpoint endpoint :timeout-ms timeout-ms
-                                          :write-token write-token}))
+        pushed (cond
+                 (seq providers) (push/push-blocks-multi! root record providers)
+                 endpoint (push/push! root record {:endpoint endpoint :timeout-ms timeout-ms
+                                                   :write-token write-token}))
         ipns-name (name-of seed)
         ipns-record (ipns/create {:value (str "/ipfs/" (:record-cid record))
                                   :validity (eol validity-days)
@@ -163,10 +165,14 @@
      :publisher (:publisher record)
      :sequence (:sequence record)
      :head (:head record)
+     :release-cid release-cid
      :record-cid (:record-cid record)
      :published? (:ok? published)
-     :hosted-by (when pushed endpoint)
-     :blocks (:blocks pushed)
+     :hosted-by (when pushed (if (seq providers) (mapv :endpoint providers) endpoint))
+     :blocks (or (:blocks pushed)
+                 (reduce + (map #(get % :blocks 0) (:providers pushed))))
+     :artifacts (or (:artifacts pushed)
+                    (reduce + (map #(get % :artifacts 0) (:providers pushed))))
      :accepted-by (:accepted published)
      :rejected-by (mapv :router (:rejected published))}))
 
@@ -177,15 +183,18 @@
   The Ed25519 seed never leaves this process. The browser receives only a
   bounded signed value; Kotobase independently verifies that the key embedded
   in the `k51...` name signed it and enforces monotonic sequence CAS."
-  [root namespace ^bytes seed {:keys [endpoint write-token timeout-ms validity-days]
+  [root namespace ^bytes seed {:keys [endpoint write-token timeout-ms validity-days
+                                      release-cid providers]
                                :or {endpoint "https://kotobase.net"
                                     timeout-ms default-timeout-ms
                                     validity-days default-validity-days}}]
-  (let [record (publication/publish! root namespace seed)
+  (let [record (publication/publish! root namespace seed {:release-cid release-cid})
         _ (store/put-block! root (:record-cid record) (:record record))
-        stored (push/push-blocks! root record {:endpoint endpoint
-                                               :write-token write-token
-                                               :timeout-ms timeout-ms})
+        stored (if (seq providers)
+                 (push/push-blocks-multi! root record providers)
+                 (push/push-blocks! root record {:endpoint endpoint
+                                                 :write-token write-token
+                                                 :timeout-ms timeout-ms}))
         ipns-name (name-of seed)
         valid-until (str (.plus (Instant/now) (long validity-days) ChronoUnit/DAYS))
         signed-head (registry-head/sign
@@ -200,10 +209,16 @@
      :ipns-name ipns-name
      :publisher (:publisher record)
      :sequence (:sequence record)
-     :release-cid (:head record)
+     :namespace-head-cid (:head record)
      :record-cid (:record-cid record)
+     :release-cid release-cid
      :storage-origin endpoint
-     :stored-blocks (:blocks stored)
+     :stored-blocks (or (:blocks stored)
+                        (reduce + (map #(get % :blocks 0) (:providers stored))))
+     :stored-artifacts (or (:artifacts stored)
+                           (reduce + (map #(get % :artifacts 0) (:providers stored))))
+     :providers (when (:providers stored)
+                  (mapv :endpoint (:providers stored)))
      :signed-record signed-head}))
 
 (defn resolve-namespace

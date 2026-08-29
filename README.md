@@ -370,7 +370,13 @@ kotoba codebase publish --namespace ns --endpoint URL --store dir --write-token-
 kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir --write-token-file token
 kotoba library inspect <name|CID|#hash> --store dir --namespace ns --github https://github.com/org/repo
 kotoba library publish --store dir --namespace ns                 # dry-run: exact graph + identity
-kotoba library publish --store dir --namespace ns --dry-run false # explicit signed-head + IPNS effect
+kotoba library publish --store dir --namespace ns --dry-run false \
+  --provider east=https://provider-a.example --provider-token-file east.token \
+  --provider west=https://provider-b.example --provider-token-file west.token
+kotoba library verify ipfs://<release-cid> --store dir \
+  --provider east=https://provider-a.example --provider west=https://provider-b.example
+kotoba library run ipfs://<release-cid> --entry main --store dir \
+  --provider east=https://provider-a.example --provider west=https://provider-b.example
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
 kotoba codebase follow-name k51… --endpoint URL --store dir            # resolve a name through the DHT; no publisher argument
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
@@ -390,10 +396,20 @@ and optional GitHub provenance. Names, versions and GitHub locations remain
 discovery/provenance. They do not replace CIDs or authorize publication.
 
 `library publish` is safe by default: without `--dry-run false` it performs no
-network write. Explicit apply reuses the existing local operator identity,
-signed namespace head and IPNS publication path. It links to the public catalog
-at `kotoba-lang.org/libraries/` and the control surface at `kotoba.cloud`, but
-Passkey-hosted publication is not live and is reported as false in the result.
+network write. Explicit apply builds an immutable `kotoba.library-release.v1`
+root. It links the exact namespace head, every selected definition, raw Wasm
+artifact, compile receipt, compiler contract, policy, and package-lock
+evidence. Missing linked bytes fail publication. The signed namespace record
+binds both the namespace head and release root, then IPNS names that signed
+record.
+
+Applied publication requires at least two distinct provider IDs and endpoints.
+It returns `published-pending-availability`, not “distributed”, until
+`library verify` re-fetches every DAG-CBOR and raw block from every provider,
+verifies each CID, and observes the configured provider quorum through an
+independent delegated router. Only then is a content-addressed availability
+proof emitted. `library run` applies the same availability gate before loading
+the receipt-bound Wasm artifact and executing its hashed export.
 
 `--typed` selects the identity layer. Without it a definition is hashed from
 the surface IR the codebase normalizes for itself; with it the identity is the

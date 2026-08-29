@@ -27,7 +27,7 @@
         {:git/sha "aa81ef55dd3f97f0fbe372f713d359049bce9bbf"}
         io.github.kotoba-lang/codebase
         {:git/url "https://github.com/kotoba-lang/codebase.git"
-         :git/sha "7392c25f112964e8859c07df8859a7ff98b6f453"}
+         :git/sha "8f47cb0e65d73f6b6688547b85fa8d02b8788d9e"}
         io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "255b8fe79a5ffd5b087d8ce8f4d6108e5109195c"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}

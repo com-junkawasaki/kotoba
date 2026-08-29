@@ -192,12 +192,14 @@
       (fail! :publish/write-unauthorized {:http/status 401}))
     (:principal (first matches))))
 
-(defn- block-present? [root cid]
-  (try (store/get-block root cid) true
-       (catch clojure.lang.ExceptionInfo error
-         (if (= :codebase/block-not-found (:problem (ex-data error)))
-           false
-           (throw error)))))
+(defn- content-present? [root cid]
+  (if (store/raw-cid? cid)
+    (boolean (store/get-artifact root cid))
+    (try (store/get-block root cid) true
+         (catch clojure.lang.ExceptionInfo error
+           (if (= :codebase/block-not-found (:problem (ex-data error)))
+             false
+             (throw error))))))
 
 (defn- quota-state-path [root]
   (-> (io/file root ".kotoba" "security" "codebase-ingress-quota.edn")
@@ -327,13 +329,13 @@
                           :rate-window-start-ms window-start
                           :rate-requests (inc requests))))))))
 
-(defn- store-block-with-quota!
-  [root principal cid block byte-count max-total-upload-bytes
+(defn- store-content-with-quota!
+  [root principal cid content byte-count max-total-upload-bytes
    max-principal-upload-bytes]
   (with-ingress-state
     root
     (fn [channel]
-      (if (block-present? root cid)
+      (if (content-present? root cid)
         :present
         (let [state (read-ingress-state channel)
               used-bytes (:used-bytes state)
@@ -363,7 +365,11 @@
                (assoc-in [:principals principal]
                          (assoc (principal-state state principal)
                                 :used-bytes next-principal-total))))
-          (store/put-block! root cid block)
+          (if (store/raw-cid? cid)
+            (let [actual (store/put-artifact! root content)]
+              (when-not (= cid actual)
+                (fail! :publish/artifact-cid-mismatch {:cid cid :actual actual})))
+            (store/put-block! root cid content))
           :stored)))))
 
 (defn- block-handler
@@ -374,8 +380,10 @@
      (let [cid (path-tail exchange "/ipfs/")
            method (.getRequestMethod exchange)]
        (case method
-         "GET" (let [bytes (try (cbor/encode (store/get-block root cid))
-                                (catch clojure.lang.ExceptionInfo _ nil))]
+         "GET" (let [bytes (if (store/raw-cid? cid)
+                             (store/get-artifact root cid)
+                             (try (cbor/encode (store/get-block root cid))
+                                  (catch clojure.lang.ExceptionInfo _ nil)))]
                  (if bytes (respond! exchange 200 bytes) (respond! exchange 404 nil)))
          "PUT" (let [principal (require-write-authority! exchange authority-entries)
                      _ (consume-write-rate! root principal max-write-requests
@@ -384,9 +392,11 @@
                      ;; The pusher does not get to say what a block is. Bytes
                      ;; that do not hash to the requested CID are refused here
                      ;; exactly as they would be on the way in from a stranger.
-                     block (fetch/verify-bytes cid bytes)
-                     result (store-block-with-quota!
-                             root principal cid block (alength bytes)
+                     content (if (store/raw-cid? cid)
+                               (fetch/verify-raw-bytes cid bytes)
+                               (fetch/verify-bytes cid bytes))
+                     result (store-content-with-quota!
+                             root principal cid content (alength bytes)
                              max-total-upload-bytes max-principal-upload-bytes)]
                  (respond! exchange (if (= :stored result) 201 200) nil))
          (respond! exchange 405 nil))))))
@@ -577,11 +587,11 @@
         builder (if direct? (.proxy builder direct-proxy-selector) builder)]
     (.build builder)))
 
-(defn- put-bytes! [endpoint path ^bytes body timeout-ms write-token]
+(defn- put-bytes! [endpoint path ^bytes body content-type timeout-ms write-token]
   (let [uri (URI/create (str endpoint path))
         builder (-> (HttpRequest/newBuilder uri)
                     (.timeout (Duration/ofMillis timeout-ms))
-                    (.header "Content-Type" "application/vnd.ipld.dag-cbor"))
+                    (.header "Content-Type" content-type))
         builder (if write-token
                   (.header builder "Authorization" (str "Bearer " write-token))
                   builder)
@@ -641,25 +651,60 @@
                      max-write-token-bytes))
     (fail! :publish/write-token-required {}))
   (require-secure-write-endpoint! endpoint)
-  (let [{:keys [blocks]} (store/export-closure root [(:head record)])
+  (let [roots (cond-> [(:head record)] (:release record) (conj (:release record)))
+        {:keys [blocks artifacts missing]} (store/export-closure root roots)
+        _ (when (seq missing)
+            (fail! :publish/closure-incomplete {:missing missing :roots roots}))
         blocks (conj (vec blocks)
                      {:cid (:record-cid record)
                       :bytes (cbor/encode (:record record))})
         pushed (mapv (fn [{:keys [cid bytes]}]
                        (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes
+                                                         "application/vnd.ipld.dag-cbor"
                                                          timeout-ms write-token)]
                          (when-not (#{200 201 204} status)
                            (fail! :publish/block-rejected {:cid cid :status status}))
                          cid))
-                     blocks)]
+                     blocks)
+        pushed-artifacts
+        (mapv (fn [{:keys [cid bytes]}]
+                (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes
+                                                   "application/vnd.ipld.raw"
+                                                   timeout-ms write-token)]
+                  (when-not (#{200 201 204} status)
+                    (fail! :publish/artifact-rejected {:cid cid :status status}))
+                  cid))
+              artifacts)]
     {:namespace (:namespace record)
      :endpoint endpoint
      :publisher (:publisher record)
      :sequence (:sequence record)
      :head (:head record)
+     :release (:release record)
      :record-cid (:record-cid record)
      :blocks (count pushed)
-     :block-cids pushed}))
+     :artifacts (count pushed-artifacts)
+     :block-cids pushed
+     :artifact-cids pushed-artifacts}))
+
+(defn push-blocks-multi!
+  "Store the same verified release closure at independent HTTP providers.
+
+  A provider is `{:endpoint :write-token}`.  Every provider must accept every
+  block and artifact; partial success is returned in the thrown exception so
+  operators can repair it, never collapsed into a successful publication."
+  [root record providers]
+  (when (< (count providers) 2)
+    (fail! :publish/independent-providers-required
+           {:required 2 :provided (count providers)}))
+  (let [endpoints (mapv :endpoint providers)]
+    (when-not (= (count endpoints) (count (distinct endpoints)))
+      (fail! :publish/providers-not-independent {:endpoints endpoints})))
+  {:release (:release record)
+   :providers
+   (mapv (fn [provider]
+           (push-blocks! root record provider))
+         providers)})
 
 (defn push!
   "Push an ALREADY-SIGNED head record and its closure to a node.
@@ -679,7 +724,8 @@
         namespace (:namespace record)
         record-bytes (cbor/encode (:record record))
         {:keys [status body]} (put-bytes! endpoint (str "/heads/" namespace)
-                                          record-bytes timeout-ms write-token)]
+                                          record-bytes "application/vnd.ipld.dag-cbor"
+                                          timeout-ms write-token)]
     (when-not (#{200 201 204} status)
       (fail! :publish/head-rejected {:status status :body body}))
     {:namespace namespace :endpoint endpoint
@@ -705,7 +751,8 @@
                   (fail! :publish/head-not-found {:namespace namespace :endpoint endpoint}))
         record (cbor/decode bytes)
         verified (publication/verify-record record)
-        hydrated (fetch/hydrate! root [(:head verified)]
+        roots (cond-> [(:head verified)] (:release verified) (conj (:release verified)))
+        hydrated (fetch/hydrate! root roots
                                  {:fetch-block (routing/block-source
                                                 {:gateways [endpoint] :router endpoint
                                                  :timeout-ms timeout-ms})})]

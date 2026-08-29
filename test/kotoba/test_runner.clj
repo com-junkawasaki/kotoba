@@ -39,6 +39,8 @@
             [kotoba.launcher-test]
             [kotoba.operator-identity-test]
             [kotoba.language-conformance-test]
+            [kotoba.library-release-test]
+            [kotoba.codebase-routing-provider-test]
             [kotoba.package-registry-test]
             [kotoba.package-key-revoke-e2e-test]
             [kotoba.rad-adapter-test]
@@ -107,6 +109,8 @@
                                         'kotoba.launcher-test
                                         'kotoba.operator-identity-test
                                         'kotoba.language-conformance-test
+             'kotoba.library-release-test
+             'kotoba.codebase-routing-provider-test
                                         'kotoba.package-registry-test
                                         'kotoba.package-key-revoke-e2e-test
                                         'kotoba.rad-adapter-test
