@@ -6,9 +6,9 @@ Owner: crypto/runtime implementation
 
 ## Problem
 
-Kotoba correctly does not claim FIPS validation or production PQC migration
-today. The next step is making crypto policy enforceable through provider
-metadata, inventory, and hybrid-envelope tests.
+Kotoba does not claim FIPS validation or universal PQC migration. A production
+hybrid-envelope slice now exists for new CLI-encrypted objects, while provider
+inventory and FIPS policy enforcement remain open.
 
 ## Risk
 
@@ -22,13 +22,17 @@ epoch migration are implemented.
 - Add provider metadata to cryptographic envelopes and receipts.
 - Add `:crypto-agile`, `:hybrid-required`, and `:fips-required` policy modes.
 - Reject non-FIPS providers when `:fips-required` is configured.
-- Add hybrid KEM wrapping test vectors for new object epochs.
+- [x] Add a fail-closed X25519 + ML-KEM-768 hybrid wrapping path and tests for
+  new CLI-encrypted objects (`kotoba crypto keygen|seal|open`).
+- [x] Require a Principal-pinned ML-DSA-65 co-signature for hosted Passkey
+  library publication; this is not a post-quantum WebAuthn claim.
 
 ## Acceptance criteria
 
 - Crypto inventory is generated or checked in CI.
 - Non-FIPS provider is rejected when `:fips-required` is set.
-- Hybrid envelope test vectors exist for new object epochs.
+- Hybrid envelope round-trip, downgrade, wrong-recipient, and tamper tests
+  exist for new object epochs.
 - `kotoba-lang/security` risks `R-003` and `R-004` have implementation evidence.
 
 ## References
@@ -36,4 +40,3 @@ epoch migration are implemented.
 - `kotoba-lang/security/docs/architecture-review-2026-07-01.md` finding `F-005`
 - `kotoba-lang/security/docs/fips-validation.md`
 - `kotoba-lang/security/docs/pqc-roadmap.md`
-

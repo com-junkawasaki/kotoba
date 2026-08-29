@@ -422,6 +422,8 @@ kotoba library publish --store dir --namespace ns                 # dry-run: exa
 kotoba library publish --store dir --namespace ns --dry-run false \
   --provider east=https://provider-a.example --provider-token-file east.token \
   --provider west=https://provider-b.example --provider-token-file west.token
+kotoba library publish --store dir --namespace ns --hosted --dry-run false \
+  --pqc-seed-file ml-dsa.seed
 kotoba library verify ipfs://<release-cid> --store dir \
   --provider east=https://provider-a.example --provider west=https://provider-b.example
 kotoba library run ipfs://<release-cid> --entry main --store dir \
@@ -431,6 +433,10 @@ kotoba codebase follow-name k51… --endpoint URL --store dir            # resol
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
 kotoba identity new                                                    # write the shared local operator seed (did:key only)
 kotoba identity                                                        # the DID that seed derives (env overrides the file)
+kotoba crypto approval-keygen --secret ml-dsa.seed                     # mode 0600; public key fingerprint is returned
+kotoba crypto keygen --public recipient.edn --secret recipient.secret.edn
+kotoba crypto seal --in artifact.bin --recipient recipient.edn --out artifact.envelope.edn
+kotoba crypto open --in artifact.envelope.edn --secret recipient.secret.edn --out artifact.bin
 kotoba codebase identity --store dir                                   # the same DID your signing seed derives
 kotoba codebase import src.kotoba --store dir --namespace ns           # import semantic blocks from a source file
 kotoba codebase inspect <cid> --store dir                              # inspect one semantic block
@@ -458,6 +464,18 @@ artifact, compile receipt, compiler contract, policy, and package-lock
 evidence. Missing linked bytes fail publication. The signed namespace record
 binds both the namespace head and release root, then IPNS names that signed
 record.
+
+Hosted publication adds an application-layer post-quantum approval. The CLI
+signs the exact publication request with ML-DSA-65 from `--pqc-seed-file`;
+kotoba.cloud requires both a live Passkey session and that signature, then
+atomically pins the ML-DSA key to the Stable Principal. This does not change
+the algorithm inside the platform authenticator and does not make WebAuthn,
+TLS, or the legacy IPNS signature post-quantum.
+
+`kotoba crypto` provides a separate fail-closed data-encryption envelope. It
+combines X25519 and ML-KEM-768 and uses the transcript-bound hybrid secret with
+AES-256-GCM. Missing either KEM half, an unknown suite, header changes, or
+ciphertext changes are rejected; there is no classical-only fallback.
 
 Applied publication requires at least two distinct provider IDs and endpoints.
 It returns `published-pending-availability`, not “distributed”, until

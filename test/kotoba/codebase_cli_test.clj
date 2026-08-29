@@ -5,6 +5,7 @@
   full CID, and a hash abbreviation are interchangeable ways of saying one
   definition, and none of them is what the definition IS."
   (:require [cbor.core :as cbor]
+            [clojure.data.json :as json]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.codebase-ipns]
@@ -115,8 +116,10 @@
 (deftest hosted-library-publish-stores-before-emitting-passkey-approval-url
   (let [work (temp-dir "kotoba-library-hosted-")
         store-dir (str work "/store")
-        seed-hex (apply str (repeat 64 "a"))]
+        seed-hex (apply str (repeat 64 "a"))
+        pq-seed-file (java.io.File. work "pqc.seed")]
     (try
+      (spit pq-seed-file (apply str (repeat 64 "b")))
       (run "codebase" "init" "--store" store-dir)
       (run "codebase" "add" (scratch! work "(defn answer [] 42)")
            "--store" store-dir "--namespace" "demo")
@@ -137,7 +140,8 @@
                                          :signature_multibase "zSignature"}})]
                      (run "library" "publish" "--store" store-dir
                           "--namespace" "demo" "--hosted"
-                          "--dry-run" "false" "--write-token-file" "token.txt"))]
+                          "--dry-run" "false" "--write-token-file" "token.txt"
+                          "--pqc-seed-file" (str pq-seed-file)))]
         (is (:kotoba.cli/ok? result))
         (is (= :library/passkey-approval-required (:kotoba.cli/code result)))
         (is (= "demo" (first @called)))
@@ -146,8 +150,54 @@
         (is (= [] (get-in @called [1 :providers])))
         (is (str/starts-with? (get-in result [:kotoba.cli/data :approval-url])
                               "https://kotoba.cloud/#publish="))
+        (let [fragment (subs (get-in result [:kotoba.cli/data :approval-url])
+                             (count "https://kotoba.cloud/#publish="))
+              request (json/read-str
+                       (String. (.decode (java.util.Base64/getUrlDecoder) fragment) "UTF-8"))]
+          (is (= "https://kotoba.cloud/schemas/library-publication-request/v2"
+                 (get request "schema")))
+          (is (= "passkey+ml-dsa-65" (get-in request ["pqcApproval" "suite"])))
+          (is (string? (get-in request ["pqcApproval" "keyId"])))
+          (is (string? (get-in request ["pqcApproval" "signature"]))))
         (is (nil? (get-in result [:kotoba.cli/data :signed-record]))
             "the signed record is carried only inside the URL fragment"))
+      (finally (delete-tree work)))))
+
+(deftest hosted-library-publish-requires-a-pq-approval-seed
+  (let [work (temp-dir "kotoba-library-pq-required-")
+        store-dir (str work "/store")]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (run "codebase" "add" (scratch! work "(defn answer [] 42)")
+           "--store" store-dir "--namespace" "demo")
+      (with-redefs [launcher/signing-seed-hex (constantly (apply str (repeat 64 "a")))]
+        (let [result (run "library" "publish" "--store" store-dir
+                          "--namespace" "demo" "--hosted" "--dry-run" "false")]
+          (is (false? (:kotoba.cli/ok? result)))
+          (is (= :library/pqc-seed-required (:kotoba.cli/code result)))))
+      (finally (delete-tree work)))))
+
+(deftest crypto-cli-generates-keys-and-round-trips-a-hybrid-envelope
+  (let [work (temp-dir "kotoba-crypto-cli-")
+        approval-secret (str work "/approval.seed")
+        public (str work "/recipient.edn")
+        secret (str work "/recipient.secret.edn")
+        plaintext (str work "/plain.txt")
+        sealed (str work "/sealed.edn")
+        opened (str work "/opened.txt")]
+    (try
+      (let [generated (run "crypto" "approval-keygen" "--secret" approval-secret)]
+        (is (:kotoba.cli/ok? generated))
+        (is (= 64 (count (str/trim (slurp approval-secret)))))
+        (is (str/starts-with? (get-in generated [:kotoba.cli/data :key-id]) "sha256:"))
+        (is (nil? (get-in generated [:kotoba.cli/data :seed]))))
+      (is (:kotoba.cli/ok? (run "crypto" "keygen" "--public" public "--secret" secret)))
+      (spit plaintext "harvest-now-decrypt-never")
+      (is (:kotoba.cli/ok? (run "crypto" "seal" "--in" plaintext
+                                "--recipient" public "--out" sealed)))
+      (is (:kotoba.cli/ok? (run "crypto" "open" "--in" sealed
+                                "--secret" secret "--out" opened)))
+      (is (= "harvest-now-decrypt-never" (slurp opened)))
       (finally (delete-tree work)))))
 
 (deftest an-update-propagates-to-dependents-through-the-cli

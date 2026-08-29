@@ -20,6 +20,7 @@
             [kotoba.deploy-adapter :as deploy-adapter]
             [kotoba.git-adapter :as git-adapter]
             [kotoba.host-providers :as host-providers]
+            [kotoba.hybrid-envelope :as hybrid-envelope]
             [kotoba.rad-adapter :as rad-adapter]
             [kotoba.security.package-admission :as package-admission]
             [kotoba.security.release-evidence :as release-evidence]
@@ -40,6 +41,7 @@
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.library-release :as library-release]
             [kotoba.package-install :as package-install]
+            [kotoba.passkey-pqc :as passkey-pqc]
             [kotoba.operator-identity :as operator-identity]
             [kotoba.principal-identity :as principal-identity]
             [kotoba.selfhost.contracts :as selfhost]
@@ -55,6 +57,7 @@
            [java.nio.charset CodingErrorAction StandardCharsets]
            [java.nio.file Files OpenOption Path StandardOpenOption]
            [java.nio.file.attribute PosixFilePermissions]
+           [java.security SecureRandom]
            [java.time Duration]
            [java.util Base64]
            [java.util.concurrent ConcurrentHashMap])
@@ -123,7 +126,7 @@
   (first argv))
 
 (declare source-plan source-extension accepted-source? selfhost-result runtime-result wasm-result cljs-result
-         codebase-result library-result compile-result project-check-result package-result contract-exports)
+         codebase-result library-result crypto-result compile-result project-check-result package-result contract-exports)
 
 (def source-commands
   #{"run" "check" "compile"})
@@ -665,6 +668,7 @@
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
                                "library" (library-result argv)
+                               "crypto" (crypto-result argv)
                                "identity" (identity-result argv)
                                "id" (when (contains? #{nil "show"} (identity-action argv))
                                       (principal-identity/show-result))
@@ -835,8 +839,8 @@
         (recur (next remaining) (conj result token)))
       result)))
 
-(defn- hosted-approval-url [publication]
-  (let [envelope {:schema "https://kotoba.cloud/schemas/library-publication-request/v1"
+(defn- hosted-approval-url [publication pq-seed]
+  (let [request {:schema passkey-pqc/schema
                   :namespace (:namespace publication)
                   :releaseCid (:release-cid publication)
                   :recordCid (:record-cid publication)
@@ -844,6 +848,7 @@
                   :ipnsName (:ipns-name publication)
                   :storageOrigin (:storage-origin publication)
                   :signedRecord (:signed-record publication)}
+        envelope (assoc request :pqcApproval (passkey-pqc/approval request pq-seed))
         encoded (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
                                  (.getBytes (json/write-str envelope)
                                             StandardCharsets/UTF_8))]
@@ -996,12 +1001,18 @@
           (codebase-error :library/publish-plan-failed error)))
 
       hosted?
-      (let [hex (signing-seed-hex)]
+      (let [hex (signing-seed-hex)
+            pq-seed-file (option-value argv "--pqc-seed-file")]
         (if-not (and hex (= 64 (count hex)))
           {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
            :kotoba.cli/data {:hint (seed-required-hint)}}
-          (try
+          (if-not pq-seed-file
+            {:kotoba.cli/ok? false :kotoba.cli/code :library/pqc-seed-required}
+            (try
             (let [release (library-release/build! root namespace)
+                  pq-seed-hex (str/trim (slurp pq-seed-file))
+                  _ (when-not (re-matches #"[0-9a-f]{64}" pq-seed-hex)
+                      (throw (ex-info "invalid PQ seed" {:problem :library/pqc-seed-invalid})))
                   providers (provider-descriptors argv true)
                   publication (codebase-ipns/prepare-hosted!
                                root namespace (ed25519/unhex hex)
@@ -1014,12 +1025,12 @@
                :kotoba.cli/data
                (-> publication
                    (dissoc :signed-record)
-                   (assoc :approval-url (hosted-approval-url publication)
+                   (assoc :approval-url (hosted-approval-url publication (ed25519/unhex pq-seed-hex))
                           :publication-mode :hosted-passkey
                           :hosted-passkey-publish true
                           :catalog-url (library-catalog-url namespace)))})
             (catch clojure.lang.ExceptionInfo error
-              (codebase-error :library/hosted-publish-failed error)))))
+              (codebase-error :library/hosted-publish-failed error))))))
 
       :else
       (let [hex (signing-seed-hex)]
@@ -1046,6 +1057,75 @@
                        :availability-proof-required true})})
             (catch clojure.lang.ExceptionInfo error
               (codebase-error :library/publish-failed error))))))))
+
+(defn crypto-result [argv]
+  (let [[_ action] argv
+        input (option-value argv "--in")
+        output (option-value argv "--out")]
+    (try
+      (case action
+        "approval-keygen"
+        (let [secret-path (option-value argv "--secret")]
+          (when-not secret-path
+            (throw (ex-info "secret path is required"
+                            {:problem :crypto/key-paths-required})))
+          (let [seed (byte-array 32)
+                _ (.nextBytes (SecureRandom.) seed)
+                info (passkey-pqc/key-info seed)]
+            (spit secret-path
+                  (str (apply str (map #(format "%02x" (bit-and 0xff %)) seed)) "\n"))
+            (try (Files/setPosixFilePermissions (.toPath (io/file secret-path))
+                                                (PosixFilePermissions/fromString "rw-------"))
+                 (catch UnsupportedOperationException _ nil))
+            {:kotoba.cli/ok? true :kotoba.cli/code :crypto/approval-key-generated
+             :kotoba.cli/data (assoc info :secret-path secret-path)}))
+
+        "keygen"
+        (let [public-path (option-value argv "--public")
+              secret-path (option-value argv "--secret")]
+          (when-not (and public-path secret-path)
+            (throw (ex-info "public and secret paths are required"
+                            {:problem :crypto/key-paths-required})))
+          (let [{:keys [public secret]} (hybrid-envelope/generate-recipient)]
+            (spit public-path (str (pr-str public) "\n"))
+            (spit secret-path (str (pr-str secret) "\n"))
+            (try (Files/setPosixFilePermissions (.toPath (io/file secret-path))
+                                                (PosixFilePermissions/fromString "rw-------"))
+                 (catch UnsupportedOperationException _ nil))
+            {:kotoba.cli/ok? true :kotoba.cli/code :crypto/hybrid-key-generated
+             :kotoba.cli/data {:suite hybrid-envelope/suite
+                               :public-path public-path :secret-path secret-path}}))
+
+        "seal"
+        (let [recipient (option-value argv "--recipient")]
+          (when-not (and input output recipient)
+            (throw (ex-info "input, output and recipient are required"
+                            {:problem :crypto/seal-paths-required})))
+          (let [envelope (hybrid-envelope/seal
+                          (Files/readAllBytes (.toPath (io/file input)))
+                          (hybrid-envelope/read-edn recipient))]
+            (spit output (str (pr-str envelope) "\n"))
+            {:kotoba.cli/ok? true :kotoba.cli/code :crypto/sealed
+             :kotoba.cli/data {:suite hybrid-envelope/suite
+                               :envelope-id (hybrid-envelope/envelope-id envelope)
+                               :output output}}))
+
+        "open"
+        (let [secret (option-value argv "--secret")]
+          (when-not (and input output secret)
+            (throw (ex-info "input, output and secret are required"
+                            {:problem :crypto/open-paths-required})))
+          (Files/write (.toPath (io/file output))
+                       (hybrid-envelope/open (hybrid-envelope/read-edn input)
+                                             (hybrid-envelope/read-edn secret))
+                       (make-array OpenOption 0))
+          {:kotoba.cli/ok? true :kotoba.cli/code :crypto/opened
+           :kotoba.cli/data {:suite hybrid-envelope/suite :output output}})
+
+        {:kotoba.cli/ok? false :kotoba.cli/code :crypto/unknown-command})
+      (catch clojure.lang.ExceptionInfo error
+        {:kotoba.cli/ok? false
+         :kotoba.cli/code (or (:problem (ex-data error)) :crypto/rejected)}))))
 
 (defn- read-arguments
   "Positional arguments after `--` for `codebase run`.

@@ -4,6 +4,7 @@
             [kotoba.actor-host-test]
             [kotoba.test-runner-completeness-test]
             [kotoba.kagi-boundary-test]
+            [kotoba.hybrid-envelope-test]
             [kotoba.package-admission-test]
             [kotoba.package-install-test]
             [kotoba.release-build-test]
@@ -76,6 +77,7 @@
   (let [{:keys [fail error]} (run-tests 'kotoba.actor-host-test
                                         'kotoba.test-runner-completeness-test
                                         'kotoba.kagi-boundary-test
+                                        'kotoba.hybrid-envelope-test
                                         'kotoba.package-admission-test
                                         'kotoba.package-install-test
                                         'kotoba.release-build-test
