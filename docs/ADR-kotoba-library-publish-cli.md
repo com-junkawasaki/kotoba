@@ -34,8 +34,9 @@ the existing codebase implementation.
 - `library run ipfs://<release-cid> --entry <name>` hydrates and verifies that
   same closure, checks the compile receipt binds the definition and artifact,
   passes the availability gate, and only then executes the Wasm export.
-- With `--hosted`, the CLI returns a kotoba.cloud Passkey approval URL carrying
-  only the bounded signed record; provider credentials never enter the URL.
+- With `--hosted`, the CLI requires `--pqc-seed-file` and returns a
+  kotoba.cloud approval URL carrying the bounded request plus an ML-DSA-65
+  signature; provider credentials and private seeds never enter the URL.
 - GitHub is provenance only. A valid CID is content identity only. Neither one
   grants publication or execution authority.
 - `kotoba-lang.org/libraries/` owns public explanation and catalog projection;
@@ -66,10 +67,19 @@ relabel the older IPNS namespace-head format, Passkey authenticator signature,
 or every Kotoba encryption provider as post-quantum; those remain separate
 migration boundaries.
 
-Passkey-hosted publication keeps two independent gates: the local Ed25519 key
-proves namespace authority; a valid Passkey session explicitly approves the
-relay. Kotobase rechecks the signed `k51...` record and monotonic sequence. The
+Passkey-hosted publication now keeps three independent gates: the local
+Ed25519 key proves namespace authority; a valid Passkey session confirms the
+Stable Principal; and ML-DSA-65 signs the exact schema, namespace, release CID,
+record CID, publisher, IPNS name, storage origin, and signed record. On first
+valid use kotoba.cloud atomically pins that ML-DSA public key to the Principal.
+Later Passkey sessions may reuse but cannot replace the key. Kotobase rechecks
+the signed `k51...` record and monotonic sequence. The Ed25519 seed, ML-DSA
 seed, storage token, and Passkey cookie never cross their respective origins.
+
+This is application-layer hybrid approval, not a claim that a platform
+authenticator's WebAuthn credential is post-quantum. Initial ML-DSA enrollment
+inherits the classical security of that Passkey ceremony; after enrollment,
+classical Passkey compromise alone cannot replace the pinned ML-DSA key.
 
 ## Consequences
 
