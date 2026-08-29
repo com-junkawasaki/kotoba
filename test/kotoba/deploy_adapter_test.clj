@@ -6,6 +6,7 @@
             [kotoba.cli :as cli]
             [kotoba.deploy-adapter :as deploy-adapter]
             [kotoba.launcher :as launcher]
+            [kekkai.desired-state :as desired-state]
             [kotoba.security.signed-module :as signed-module])
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
@@ -31,9 +32,9 @@
 
 (defn- fake-host
   "Recording deploy host over an atom of path → content.
-  Optional :env map and :run fn (argv dir → {:exit :out :err})."
+  Optional env and publication implementations are injectable."
   ([files calls] (fake-host files calls {}))
-  ([files calls {:keys [env run admit ipns-identity publish-ipns control-profile]
+  ([files calls {:keys [env admit ipns-identity publish-ipns publish-desired control-profile]
                  :as options}]
    (reify deploy-adapter/IDeployHost
      (-read-file [_ path]
@@ -52,11 +53,6 @@
      (-env [_ name]
        (swap! calls conj [:env name])
        (get env name))
-     (-run [_ argv dir]
-       (swap! calls conj [:run argv dir])
-       (if run
-         (run argv dir)
-         {:exit 0 :out "" :err ""}))
      (-control-plane-profile [_]
        (swap! calls conj [:control-plane-profile])
        (if (contains? options :control-profile)
@@ -76,6 +72,12 @@
           :ipns-name demo-ipns-name
           :published? true
           :value-cid (:kotoba.deploy/component-cid receipt)}))
+     (-publish-desired [_ planned receipt]
+       (swap! calls conj [:publish-desired planned receipt])
+       (if publish-desired
+         (publish-desired planned receipt)
+         {:ok? true :desired/cid "bafydesired" :desired/epoch 1
+          :desired/copies 2}))
      (-admit-release [_ planned manifest]
        (swap! calls conj [:admit planned manifest])
        (if admit
@@ -247,21 +249,13 @@
   (is (= :deploy/unknown-target-scheme
          (:error (deploy-adapter/parse-target "pkg.edn" "https://deno.com")))))
 
-(deftest reside-argv-omits-node-when-unspecified
-  (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn"]
-         (deploy-adapter/reside-argv "app.edn" nil)))
-  (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
-         (deploy-adapter/reside-argv "app.edn" "asher"))))
-
-(deftest plan-reside-includes-invoke-without-running
+(deftest plan-reside-selects-explicit-or-canary-node-without-a-process
   (let [p (deploy-adapter/plan {:positionals ["apply"]
                                 :options {:manifest "app.edn"
                                           :target "murakumo:asher"}})]
     (is (= :reside (:substrate p)))
     (is (= "asher" (:node p)))
-    (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
-           (get-in p [:invoke :argv])))
-    (is (= "MURAKUMO_ROOT" (get-in p [:invoke :dir-env])))
+    (is (nil? (:invoke p)))
     (is (true? (:dry-run? p)))))
 
 (deftest public-urls-are-murakumo-https-and-ipns
@@ -345,7 +339,7 @@
     (is (= "https://api.murakumo.cloud"
            (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/compute-origin])))
     (is (some #{[:control-plane-profile]} @calls))
-    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :publish-desired (first %)) @calls))
     (is (not-any? #(= :publish-ipns (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
@@ -368,7 +362,7 @@
            (get-in result [:kotoba.cli/data :receipt
                            :kotoba.deploy/control-profile-fetch-problem])))
     (is (not-any? #(= :publish-ipns (first %)) @calls))
-    (is (not-any? #(= :run (first %)) @calls))))
+    (is (not-any? #(= :publish-desired (first %)) @calls))))
 
 (deftest execute-reside-still-fails-closed-for-a-conflicting-profile
   (let [files (atom {"app.edn" sample-manifest})
@@ -386,7 +380,7 @@
     (is (= [:authority-origin-mismatch]
            (get-in result [:kotoba.cli/data :problems])))
     (is (not-any? #(= :publish-ipns (first %)) @calls))
-    (is (not-any? #(= :run (first %)) @calls))))
+    (is (not-any? #(= :publish-desired (first %)) @calls))))
 
 (deftest execute-reside-can-be-ipns-only
   (let [files (atom {"app.edn" sample-manifest})
@@ -400,26 +394,29 @@
     (is (= [] (get-in result [:kotoba.cli/data :receipt
                               :kotoba.deploy/gateway-urls])))))
 
-(deftest execute-reside-apply-fails-closed-without-murakumo-root
+(deftest execute-reside-apply-fails-closed-without-desired-mirrors
+  (let [files (atom {"app.edn" sample-manifest})
+        calls (atom [])
+        result (deploy-adapter/execute!
+                (fake-host files calls
+                           {:publish-desired
+                            (fn [_ _]
+                              {:ok? false :error :deploy/missing-desired-mirrors
+                               :message "set KOTOBA_DESIRED_MIRRORS"})})
+                (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"
+                          "--dry-run" "false"]))]
+    (is (false? (:kotoba.cli/ok? result)))
+    (is (= :deploy/missing-desired-mirrors (:kotoba.cli/code result)))
+    (is (re-find #"KOTOBA_DESIRED_MIRRORS" (:kotoba.cli/message result)))
+    (is (some #(= :publish-ipns (first %)) @calls))
+    (is (some #(= :publish-desired (first %)) @calls))
+    (is (not-any? #(= :write (first %)) @calls))))
+
+(deftest execute-reside-apply-publishes-signed-desired-state-and-writes-receipt
   (let [files (atom {"app.edn" sample-manifest})
         calls (atom [])
         result (deploy-adapter/execute!
                 (fake-host files calls)
-                (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"
-                          "--dry-run" "false"]))]
-    (is (false? (:kotoba.cli/ok? result)))
-    (is (= :deploy/missing-control-plane (:kotoba.cli/code result)))
-    (is (re-find #"MURAKUMO_ROOT" (:kotoba.cli/message result)))
-    (is (re-find #"not Deno Deploy or Cloudflare" (:kotoba.cli/message result)))
-    (is (not-any? #(= :run (first %)) @calls))
-    (is (not-any? #(= :publish-ipns (first %)) @calls))
-    (is (not-any? #(= :write (first %)) @calls))))
-
-(deftest execute-reside-apply-shells-murakumo-and-writes-receipt
-  (let [files (atom {"app.edn" sample-manifest})
-        calls (atom [])
-        result (deploy-adapter/execute!
-                (fake-host files calls {:env {"MURAKUMO_ROOT" "/murakumo"}})
                 (planned ["apply" "--manifest" "app.edn" "--target" "murakumo:asher"
                           "--dry-run" "false"]))]
     (is (= :deploy/executed (:kotoba.cli/code result)))
@@ -434,21 +431,23 @@
     (is (= "published https://murakumo.cloud/ipns/k51qdemotestname"
            (:kotoba.cli/message result)))
     (is (some #(= :publish-ipns (first %)) @calls))
-    (is (some #{[:run ["clojure" "-M" "-m" "murakumo.core" "deploy" "app.edn" "asher"]
-                 "/murakumo"]}
-              @calls))
+    (is (some #(= :publish-desired (first %)) @calls))
+    (is (= "bafydesired" (get-in result [:kotoba.cli/data :desired-state :desired/cid])))
     (is (some #(= :write (first %)) @calls))))
 
-(deftest execute-reside-apply-does-not-write-on-nonzero-exit
+(deftest execute-reside-apply-does-not-write-when-mirror-quorum-fails
   (let [files (atom {"app.edn" sample-manifest})
         calls (atom [])
         result (deploy-adapter/execute!
-                (fake-host files calls {:env {"MURAKUMO_ROOT" "/murakumo"}
-                                        :run (fn [_ _] {:exit 2 :out "" :err "no seed"})})
+                (fake-host files calls
+                           {:publish-desired
+                            (fn [_ _]
+                              {:ok? false :error :kekkai/desired-mirror-quorum
+                               :message "one mirror unavailable"})})
                 (planned ["apply" "--manifest" "app.edn" "--target" "fleet:judah"
                           "--dry-run" "false"]))]
     (is (false? (:kotoba.cli/ok? result)))
-    (is (= :deploy/reside-failed (:kotoba.cli/code result)))
+    (is (= :kekkai/desired-mirror-quorum (:kotoba.cli/code result)))
     (is (= "https://murakumo.cloud/ipns/k51qdemotestname"
            (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url])))
     (is (some #(= :publish-ipns (first %)) @calls))
@@ -501,8 +500,7 @@
         (is (= :deploy/planned (:kotoba.cli/code reside)))
         (is (= :reside (get-in reside [:kotoba.cli/data :substrate])))
         (is (= "asher" (get-in reside [:kotoba.cli/data :node])))
-        (is (= ["clojure" "-M" "-m" "murakumo.core" "deploy" (.getPath manifest) "asher"]
-               (get-in reside [:kotoba.cli/data :invoke :argv])))))))
+        (is (nil? (get-in reside [:kotoba.cli/data :invoke])))))))
 
 (deftest launcher-murakumo-plan-prints-public-url-when-seed-present
   (let [dir (str (Files/createTempDirectory "kotoba-deploy-ipns" (make-array FileAttribute 0)))
@@ -518,7 +516,7 @@
         (is (str/starts-with? url "https://murakumo.cloud/ipns/k51"))
         (is (= (str "dry-run " url) (:kotoba.cli/message result)))))))
 
-(deftest launcher-murakumo-apply-fails-closed-without-reside
+(deftest launcher-murakumo-apply-fails-closed-without-desired-mirrors
   (let [dir (str (Files/createTempDirectory "kotoba-deploy-no-reside" (make-array FileAttribute 0)))
         manifest (io/file dir "package.edn")
         component (io/file dir "component.wasm")
@@ -534,9 +532,8 @@
                      "--release-evidence" (.getPath evidence)
                      "--component" (.getPath component)])]
         (is (false? (:kotoba.cli/ok? result)))
-        (is (= :deploy/missing-control-plane (:kotoba.cli/code result)))
-        (is (re-find #"MURAKUMO_ROOT" (:kotoba.cli/message result)))
-        (is (re-find #"not Deno Deploy or Cloudflare" (:kotoba.cli/message result)))
+        (is (= :deploy/missing-desired-mirrors (:kotoba.cli/code result)))
+        (is (re-find #"KOTOBA_DESIRED_MIRRORS" (:kotoba.cli/message result)))
         (is (str/starts-with?
              (get-in result [:kotoba.cli/data :receipt :kotoba.deploy/public-url] "")
              "https://murakumo.cloud/ipns/k51"))))))
@@ -546,8 +543,7 @@
         calls (atom [])
         result (deploy-adapter/execute!
                 (fake-host files calls
-                           {:env {"MURAKUMO_ROOT" "/murakumo"}
-                            :publish-ipns
+                           {:publish-ipns
                             (fn [_ _]
                               {:ok? false
                                :error :deploy/ipns-publish-failed
@@ -556,7 +552,7 @@
                           "--dry-run" "false"]))]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :deploy/ipns-publish-failed (:kotoba.cli/code result)))
-    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :publish-desired (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
 (deftest execute-reside-apply-fails-closed-without-ipns-seed
@@ -564,8 +560,7 @@
         calls (atom [])
         result (deploy-adapter/execute!
                 (fake-host files calls
-                           {:env {"MURAKUMO_ROOT" "/murakumo"}
-                            :ipns-identity false
+                           {:ipns-identity false
                             :publish-ipns
                             (fn [_ _]
                               {:ok? false
@@ -575,7 +570,7 @@
                           "--dry-run" "false"]))]
     (is (false? (:kotoba.cli/ok? result)))
     (is (= :deploy/ipns-seed-required (:kotoba.cli/code result)))
-    (is (not-any? #(= :run (first %)) @calls))
+    (is (not-any? #(= :publish-desired (first %)) @calls))
     (is (not-any? #(= :write (first %)) @calls))))
 
 (deftest parse-target-rejects-deno-cloudflare-vercel
@@ -586,3 +581,29 @@
                   "vercel:prod"]]
     (is (= :deploy/unknown-target-scheme
            (:error (deploy-adapter/parse-target "pkg.edn" target))))))
+
+(deftest kotoba-publishes-verifiable-chained-murakumo-desired-state
+  (let [base (str (Files/createTempDirectory "kotoba-desired" (make-array FileAttribute 0)))
+        roots [(str base "/mirror-a") (str base "/mirror-b")]
+        authority-path (str base "/authority.edn")
+        env {"KOTOBA_DESIRED_MIRRORS" (str/join "," roots)
+             "KOTOBA_DESIRED_AUTHORITY" authority-path}
+        receipt {:kotoba.deploy/package-name "demo-app"
+                 :kotoba.deploy/package-version "0.1.0"
+                 :kotoba.deploy/component-cid "bafkreidemo"}]
+    (binding [launcher/*deploy-getenv* env]
+      (let [first-publish (launcher/publish-desired-state! {:node "asher"} receipt)
+            second-publish (launcher/publish-desired-state! {:node "asher"} receipt)
+            pulled (desired-state/pull
+                    roots launcher/desired-subject
+                    (:desired/authority-spki-b64 second-publish)
+                    {:kind launcher/desired-kind})]
+        (is (:ok? first-publish))
+        (is (= 2 (:desired/copies first-publish)))
+        (is (= 2 (:desired/epoch second-publish)))
+        (is (= (:desired/cid first-publish) (:desired/previous-cid pulled)))
+        (is (= ["asher"] (get-in pulled [:desired/payload :apps 0 :assignments])))
+        (is (= "bafkreidemo" (get-in pulled [:desired/payload :apps 0 :cid])))
+        (is (not (str/includes?
+                  (get-in pulled [:desired/payload :apps 0 :manifest/text])
+                  ":src")))))))

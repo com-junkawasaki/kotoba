@@ -97,7 +97,7 @@
 
      "README.md"
      (str "# " name "\n\nScaffolded by `kotoba rad new`.\n\n"
-          "```sh\nkotoba rad test --project .\nkotoba rad build --project .\n```\n")}))
+          "```sh\nkotoba test --project .\nkotoba build --project .\n```\n")}))
 
 (defn plan
   "Pure plan: turn a parsed :rad request into steps

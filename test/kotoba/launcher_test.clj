@@ -8,6 +8,7 @@
             [kotoba.launcher :as launcher]
             [kotoba.package-install :as package-install]
             [kotoba.principal-identity :as principal-identity]
+            [kotoba.rad-adapter :as rad-adapter]
             [kotoba.runtime :as runtime]))
 
 ;; `wasm emit`/`wasm run` require a mandatory package-admission gate (F-001);
@@ -1765,3 +1766,27 @@
       (let [result (launcher/dispatch (launcher/expression-argv ["-e" "(eval '(+ 1 2))"] file))]
         (is (false? (:kotoba.cli/ok? result))))
       (finally (.delete file) (.delete (.toFile directory))))))
+
+(deftest direct-build-and-test-use-the-project-lifecycle-adapter
+  (let [calls (atom [])
+        planned {:kotoba.cli/ok? true
+                 :kotoba.cli/code :command/planned
+                 :kotoba.cli/data {:request {:positionals []
+                                             :options {:project "/tmp/demo"}}}}
+        host (reify rad-adapter/IRadHost
+               (-mkdirs [_ path] (swap! calls conj [:mkdirs path]))
+               (-write-file [_ path content] (swap! calls conj [:write path content]))
+               (-dispatch [_ argv]
+                 (swap! calls conj [:dispatch argv])
+                 {:kotoba.cli/ok? true :kotoba.cli/code :test/ok}))]
+    (with-redefs [launcher/rad-host-port (fn [] host)]
+      (is (= :rad/executed
+             (:kotoba.cli/code (launcher/adapter-result "build" planned))))
+      (is (= :rad/executed
+             (:kotoba.cli/code (launcher/adapter-result "test" planned))))
+      (is (= [[:mkdirs "/tmp/demo/target"]
+              [:dispatch ["wasm" "emit" "/tmp/demo/src/demo.kotoba"
+                          "--package-lock" "/tmp/demo/kotoba.lock.edn"
+                          "--output" "/tmp/demo/target/demo.wasm"]]
+              [:dispatch ["check" "/tmp/demo/src/demo.kotoba"]]]
+             @calls)))))
