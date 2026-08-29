@@ -5,7 +5,7 @@
   kotoba-lang/kotoba-lang. Host-specific launchers call into that namespace and
   render the returned data."
   (:require [cacao.core :as cacao-core]
-            [clojure.data.json :as json]
+            [json.data-json :as json]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
