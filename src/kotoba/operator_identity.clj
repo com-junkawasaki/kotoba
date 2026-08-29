@@ -27,7 +27,8 @@
 
 (def ^:dynamic *operator-seed-path*
   "Test hook. When bound, `operator-seed-path` uses this file and never the
-  real home directory.")
+  real home directory."
+  nil)
 
 (defn operator-seed-path*
   "Resolve the shared seed file from XDG_DATA_HOME and HOME.
