@@ -11,6 +11,15 @@ AI writes freely. Kotoba draws the boundary.
 Kotoba is an intuitive, declarative, security-first language and computing
 stack for AI agents—and for humans who vibe-code with them.
 
+> **Post-quantum cryptography is not an optional mode. It is the admission
+> floor for every new Kotoba cryptographic boundary.**
+
+New confidentiality boundaries require hybrid X25519 + ML-KEM-768; new
+publication and package-admission boundaries require ML-DSA-65 alongside the
+current classical proof. Unknown suites, stripped PQ material, and
+classical-only downgrade fail closed. Development-only legacy paths are not a
+compatibility target and do not define the Kotoba security model.
+
 > **Existing software adds security around the program. Kotoba makes security
 > a property of the whole computation.**
 
@@ -476,6 +485,12 @@ TLS, or the legacy IPNS signature post-quantum.
 combines X25519 and ML-KEM-768 and uses the transcript-bound hybrid secret with
 AES-256-GCM. Missing either KEM half, an unknown suite, header changes, or
 ciphertext changes are rejected; there is no classical-only fallback.
+
+These are instances of the repository-wide default: a newly introduced
+cryptographic boundary is not admitted until it has a named post-quantum suite,
+downgrade rejection, and verification evidence. Classical algorithms may
+remain as one half of a hybrid construction; they are not sufficient alone for
+new protected paths.
 
 Applied publication requires at least two distinct provider IDs and endpoints.
 It returns `published-pending-availability`, not “distributed”, until
