@@ -370,7 +370,7 @@ kotoba compile app.kotoba --target web --run      # Node instantiateKotoba (js-k
 kotoba compile app.kotoba --target wasm --run     # kototama.tender for kotoba:cap guests
 kotoba compile --project kotoba-project.edn --target web -o app.mjs # closed multi-module build
 kotoba run path/to/entry.cljk                # CLJ Kotoba source
-kotoba package add kotoba-lang/reference-math@0.1.0 # catalog discovery → 2-origin byte verification → CID lock
+kotoba package add kotoba-lang/reference-math@0.1.0 --catalog-cid bafkrei... # pinned catalog → dual-signature + 2-origin verification → CID lock
 kotoba package run kotoba-lang/reference-math       # execute the locally locked release CID (returns 42)
 kotoba package verify --lock lock.edn --trust trust.edn --json   # package admission gate
 kotoba package verify --lock lock.edn --trust trust.edn \
@@ -420,6 +420,13 @@ kotoba codebase inspect <cid> --store dir                              # inspect
 kotoba codebase resolve --store dir --namespace ns <name>              # resolve a name to its current CID
 kotoba codebase merge --store dir --namespace ns --base <cid> --left <cid> --right <cid>  # three-way merge
 ```
+
+`package add` fails closed without `--catalog-cid`. The pinned catalog binds
+the release, the classical publisher DID, the ML-DSA-65 key fingerprint, and a
+content-addressed `Ed25519 + ML-DSA-65` attestation. Both signature halves and
+the identical attestation bytes are verified at every configured origin before
+the lock is written. Classical-only package records remain inspectable as
+historical data but are not installable through this path.
 
 `library` is the human-facing publication workflow over this existing
 hash-native codebase; it is not a second registry. `inspect` returns the signed

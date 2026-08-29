@@ -16,6 +16,7 @@
             [kotoba.codebase.store :as store]
             [kotoba.lang.package-registry :as registry]
             [kotoba.library-release :as release]
+            [kotoba.package-pqc :as package-pqc]
             [kotoba.security.package-admission :as admission]
             [multiformats.core :as mf])
   (:import [java.net URI]
@@ -83,10 +84,30 @@
           {:id (:provider/id provider) :endpoint (:provider/endpoint provider)})
         (:registry/providers record)))
 
+(defn- normalized-endpoint [endpoint]
+  (try
+    (let [uri (.normalize (URI/create endpoint))
+          path (str/replace (or (.getPath uri) "") #"/+$" "")]
+      [(some-> (.getScheme uri) str/lower-case)
+       (some-> (.getHost uri) str/lower-case)
+       (.getPort uri) path])
+    (catch Exception _ [:invalid endpoint])))
+
+(defn- require-distinct-providers! [provider-list]
+  (let [ids (mapv :id provider-list)
+        endpoints (mapv (comp normalized-endpoint :endpoint) provider-list)]
+    (when-not (and (= (count ids) (count (distinct ids)))
+                   (= (count endpoints) (count (distinct endpoints))))
+      (fail! :package/providers-not-distinct
+             {:ids ids :endpoints (mapv :endpoint provider-list)}))))
+
 (defn- enriched-dep [record capabilities catalog-cid]
   (assoc (registry/record->lock-dep record capabilities)
          :dep/release-cid (:registry/release-cid record)
          :dep/publication-record-cid (:registry/publication-record-cid record)
+         :dep/pqc-attestation-cid (:registry/pqc-attestation-cid record)
+         :dep/pqc-key-id (:registry/pqc-key-id record)
+         :dep/pqc-suite (:registry/pqc-suite record)
          :dep/default-entry (:registry/default-entry record)
          :dep/provider-endpoints (mapv :provider/endpoint (:registry/providers record))
          :dep/catalog-cid catalog-cid
@@ -120,6 +141,46 @@
          providers)]
     {:record-cid record-cid :providers observations :verified? true}))
 
+(defn verify-pqc-attestation!
+  "Require the same CID-addressed dual-signature attestation at every origin."
+  [root record provider-list publisher]
+  (let [attestation-cid (:registry/pqc-attestation-cid record)
+        expected-key-id (:registry/pqc-key-id record)
+        expected-suite (:registry/pqc-suite record)
+        release-cid (:registry/release-cid record)
+        publication-record-cid (:registry/publication-record-cid record)]
+    (when-not (and (string? attestation-cid)
+                   (string? expected-key-id)
+                   (= package-pqc/suite expected-suite))
+      (fail! :package/pqc-attestation-required {}))
+    (let [observations
+          (mapv
+           (fn [{:keys [id endpoint]}]
+             (let [bytes (or (routing/fetch-block-from endpoint attestation-cid)
+                             (fail! :package/pqc-attestation-missing
+                                    {:provider id :attestation-cid attestation-cid}))
+                   _ (fetch/verify-bytes attestation-cid bytes)
+                   decoded (cbor/decode bytes)
+                   verified (package-pqc/verify decoded)]
+               (when-not (= {:release-cid release-cid
+                             :publication-record-cid publication-record-cid
+                             :publisher publisher
+                             :pq-key-id expected-key-id
+                             :suite expected-suite}
+                            (select-keys verified
+                                         [:release-cid :publication-record-cid
+                                          :publisher :pq-key-id :suite]))
+                 (fail! :package/pqc-attestation-mismatch
+                        {:provider id :attestation-cid attestation-cid}))
+               (store/put-block! root attestation-cid decoded)
+               {:id id :endpoint endpoint :pq-key-id (:pq-key-id verified)}))
+           provider-list)]
+      {:attestation-cid attestation-cid
+       :suite expected-suite
+       :pq-key-id expected-key-id
+       :providers observations
+       :verified? true})))
+
 (defn- read-lock [path]
   (let [file (io/file path)]
     (if (.isFile file)
@@ -143,10 +204,49 @@
                     (into-array java.nio.file.CopyOption
                                 [StandardCopyOption/REPLACE_EXISTING]))))))
 
+(defn- verify-locked-pqc!
+  [root dep]
+  (let [attestation-cid (:dep/pqc-attestation-cid dep)
+        expected {:suite (:dep/pqc-suite dep)
+                  :release-cid (:dep/release-cid dep)
+                  :publication-record-cid (:dep/publication-record-cid dep)
+                  :pq-key-id (:dep/pqc-key-id dep)}]
+    (when-not (and (string? attestation-cid)
+                   (= package-pqc/suite (:suite expected))
+                   (string? (:pq-key-id expected)))
+      (fail! :package/pqc-lock-required {:package (:dep/name dep)}))
+    (let [record (or (store/get-block root attestation-cid)
+                     (fail! :package/pqc-attestation-not-local
+                            {:attestation-cid attestation-cid}))
+          verified (package-pqc/verify record)]
+      (when-not (and (= expected
+                        (select-keys verified
+                                     [:suite :release-cid :publication-record-cid :pq-key-id]))
+                     (contains? (set (:dep/signers dep)) (:publisher verified)))
+        (fail! :package/pqc-lock-mismatch {:package (:dep/name dep)}))
+      verified)))
+
+(defn verify-lock-pqc!
+  "Re-verify every library dependency's local PQ attestation. Legacy
+  non-library locks remain readable, but a library can never fall back to a
+  classical-only admission path."
+  [root lock]
+  (let [libraries (filterv #(= :library (:dep/kind %)) (:deps lock))]
+    (doseq [dep libraries] (verify-locked-pqc! root dep))
+    {:pqc-verified? (boolean (seq libraries))
+     :libraries (count libraries)}))
+
+(defn verify-lock-pqc-path!
+  [root lock-path]
+  (verify-lock-pqc! root (read-lock lock-path)))
+
 (defn install!
   [{:keys [coordinate version catalog-url catalog-cid lock-path root timeout-ms]
     :or {catalog-url default-catalog-url lock-path default-lock-path
          root default-store-path timeout-ms default-timeout-ms}}]
+  (when-not (string? catalog-cid)
+    (fail! :package/catalog-cid-required
+           {:hint "pin the catalog CID shown by kotoba-lang.org"}))
   (let [{:keys [name version]} (parse-coordinate coordinate version)
         discovered (catalog {:url catalog-url :expected-cid catalog-cid
                              :timeout-ms timeout-ms})
@@ -160,9 +260,13 @@
           provider-list (providers record)]
       (when-not (and (string? release-cid)
                      (string? publication-record-cid)
+                     (string? (:registry/pqc-attestation-cid record))
+                     (string? (:registry/pqc-key-id record))
+                     (= package-pqc/suite (:registry/pqc-suite record))
                      (string? (:registry/default-entry record))
                      (<= 2 (count provider-list)))
         (fail! :package/release-contract-incomplete {:name name :version version}))
+      (require-distinct-providers! provider-list)
       (store/initialize! root)
       (let [pulled (routing/pull! root [release-cid]
                                   {:gateways (mapv :endpoint provider-list)})]
@@ -170,6 +274,8 @@
           (fail! :package/release-incomplete {:missing (:missing pulled)})))
       (let [replication (release/verify-replication! root release-cid provider-list)
             publication (verify-publication! root record provider-list)
+            pqc (verify-pqc-attestation! root record provider-list
+                                         (get-in publication [:providers 0 :publisher]))
             capabilities []
             dep (enriched-dep record capabilities (:cid discovered))
             old-lock (read-lock lock-path)
@@ -191,6 +297,7 @@
          :entry (:registry/default-entry record)
          :replication replication
          :publication publication
+         :pqc pqc
          :availability-status (:dep/availability-status dep)}))))
 
 (defn run!
@@ -206,6 +313,7 @@
           _ (when-not (:kotoba.package/verified? receipt)
               (fail! :package/lock-rejected
                      {:problems (:kotoba.package/problems receipt)}))
+          _ (verify-lock-pqc! root lock)
           selected-entry (or entry (:dep/default-entry dep))]
       (when-not (string? selected-entry)
         (fail! :package/entry-required {:package package}))

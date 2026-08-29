@@ -30,6 +30,10 @@
          :git/sha "8f47cb0e65d73f6b6688547b85fa8d02b8788d9e"}
         io.github.kotoba-lang/security {:git/url "https://github.com/kotoba-lang/security.git"
                                         :git/sha "255b8fe79a5ffd5b087d8ce8f4d6108e5109195c"}
+        ;; Production post-quantum provider used by package publication and
+        ;; installation attestations (ML-DSA-65, FIPS 204).
+        io.github.kotoba-lang/pqh {:git/url "https://github.com/kotoba-lang/pqh.git"
+                                   :git/sha "5f09e723aaecf1a2863256473f04f2cf257bc7fe"}
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
         org.clojure/clojurescript {:mvn/version "1.12.134"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}

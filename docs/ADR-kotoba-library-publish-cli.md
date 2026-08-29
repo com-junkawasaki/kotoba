@@ -42,6 +42,30 @@ the existing codebase implementation.
   `kotoba.cloud` owns publication-control and deploy-readiness discovery;
   Kotobase remains block and receipt storage.
 
+### Post-quantum package admission addendum
+
+The practical `kotoba package add` path uses a stricter publication boundary
+than the legacy namespace-head protocol:
+
+- installation requires an explicit catalog CID; mutable HTTPS discovery is
+  not package authority;
+- the pinned catalog binds a release CID, namespace publication-record CID,
+  Ed25519 publisher DID, ML-DSA-65 key fingerprint, and PQ-attestation CID;
+- the attestation signs one canonical DAG-CBOR body with both Ed25519 and
+  ML-DSA-65 (`ed25519+ml-dsa-65`), and both signatures are mandatory;
+- every configured provider must return identical bytes for the attestation
+  CID, and the installer rechecks both signatures before writing the lock;
+- the lock retains the suite, attestation CID, and PQ key fingerprint so local
+  execution remains bound to the admitted publication;
+- v1/classical-only records may be displayed for migration but cannot be
+  installed by this command. Missing PQ fields, signature stripping, unknown
+  suites, key substitution, and an unpinned catalog all fail closed.
+
+This qualifies the package publication/install slice. It does not silently
+relabel the older IPNS namespace-head format, Passkey authenticator signature,
+or every Kotoba encryption provider as post-quantum; those remain separate
+migration boundaries.
+
 Passkey-hosted publication keeps two independent gates: the local Ed25519 key
 proves namespace authority; a valid Passkey session explicitly approves the
 relay. Kotobase rechecks the signed `k51...` record and monotonic sequence. The
