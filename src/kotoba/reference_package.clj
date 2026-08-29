@@ -16,7 +16,6 @@
 (def namespace-name "reference.math")
 (def default-entry "answer")
 (def source-path "examples/reference-math.kotoba")
-(def publisher-seed (byte-array (map unchecked-byte (range 32))))
 (def provider-records
   [{:provider/id "kotoba-lang.org" :provider/endpoint "https://kotoba-lang.org"}
    {:provider/id "kotoba.cloud" :provider/endpoint "https://kotoba.cloud"}])
@@ -26,10 +25,13 @@
   (with-open [out (io/output-stream file)] (.write out bytes)))
 
 (defn export!
-  [{:keys [output commit source]
+  [{:keys [output commit source publisher-seed]
     :or {source source-path}}]
   (when-not (and (string? commit) (re-matches #"[0-9a-f]{40}" commit))
     (throw (ex-info "full git commit required" {:problem :reference/commit-invalid})))
+  (when-not (and publisher-seed (= 32 (alength ^bytes publisher-seed)))
+    (throw (ex-info "32-byte publisher seed required"
+                    {:problem :reference/publisher-seed-required})))
   (let [work (.toFile (java.nio.file.Files/createTempDirectory
                        "kotoba-reference-package-"
                        (make-array java.nio.file.attribute.FileAttribute 0)))]
@@ -82,9 +84,12 @@
       (finally
         (doseq [file (reverse (file-seq work))] (.delete ^java.io.File file))))))
 
-(defn -main [& [output commit source]]
-  (when-not (and output commit)
-    (throw (ex-info "usage: output-dir full-git-commit [source]"
+(defn -main [& [output commit source seed-file]]
+  (when-not (and output commit seed-file)
+    (throw (ex-info "usage: output-dir full-git-commit [source] publisher-seed-file"
                     {:problem :reference/usage})))
-  (println (pr-str (export! {:output output :commit commit
-                             :source (or source source-path)}))))
+  (with-open [in (io/input-stream seed-file)]
+    (let [seed (.readAllBytes in)]
+      (println (pr-str (export! {:output output :commit commit
+                                 :source (or source source-path)
+                                 :publisher-seed seed}))))))
