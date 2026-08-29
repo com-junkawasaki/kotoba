@@ -340,7 +340,12 @@ export KOTOBA_CONTROL_PLANE_PROFILES="file:/etc/kotoba/control-plane.json,https:
 export KOTOBA_IPNS_GATEWAYS="https://gw1.example.net,https://gw2.example.net"
 # export KOTOBA_IPNS_GATEWAYS=ipns-only
 
-# publish the admitted wasm (same identity; MURAKUMO_ROOT for reside)
+# Two independently readable desired-state mirrors; quorum defaults to all.
+export KOTOBA_DESIRED_MIRRORS="ssh://asher/var/lib/kekkai/desired,ssh://judah/var/lib/kekkai/desired"
+# Optional explicit authority path (default: ~/.kotoba/desired-authority.edn)
+export KOTOBA_DESIRED_AUTHORITY="$PWD/.kotoba/desired-authority.edn"
+
+# publish the admitted wasm and signed Murakumo desired state
 bin/kotoba deploy apply \
   --manifest package-manifest.edn \
   --target murakumo:asher \
@@ -366,9 +371,12 @@ projections in `:kotoba.deploy/gateway-urls`. Unless IPNS-only mode is selected,
 the first projection is also `:kotoba.deploy/public-url`. The IPNS name is
 the existing `kotoba codebase publish --ipns` stack
 (`kotoba.codebase-ipns/publish-cid!`), not a second naming system.
-Compute reside shells `clojure -M -m murakumo.core deploy <manifest> [node]`
-in `$MURAKUMO_ROOT`. If that checkout is missing or the process exits
-non-zero, apply fails closed and does not write a success receipt.
+Compute reside publishes a signed Kekkai envelope identified by CIDv1, with a
+monotonic epoch and previous-CID chain, to `KOTOBA_DESIRED_MIRRORS`. Murakumo
+nodes pull and verify this desired state against the pinned authority. No
+Cloudflare service, sibling Murakumo checkout, or `clojure` subprocess is in
+the deploy path. If the mirror quorum is not reached, apply fails closed and
+does not write a success receipt.
 
 Operator of the public host: 運営元 [awai.network](https://awai.network),
 営業 Ryo Awai.
@@ -388,8 +396,8 @@ Commands this repo's launcher currently wires up:
 ```bash
 kotoba check --kind cli-contract --json     # validate the CLI/package/lock contract
 kotoba rad new --project hello              # scaffold a Kotoba project
-kotoba rad test --project hello --profile test
-kotoba rad build --project hello --profile release
+kotoba test --project hello --profile test
+kotoba build --project hello --profile release
 kotoba run path/to/entry.kotoba             # compile and run a Kotoba entry point
 kotoba compile app.kotoba --target web -o app.mjs # checked KIR → kotoba-script
 kotoba compile app.kotoba --target web --run      # Node instantiateKotoba (js-kotoba-v1); cap 7 hosted
@@ -1220,15 +1228,16 @@ below is identical to the installed `kotoba` command:
 
 ```bash
 bin/kotoba rad new --project /tmp/hello
-bin/kotoba rad test --project /tmp/hello --profile test
-bin/kotoba rad build --project /tmp/hello --profile release
+bin/kotoba test --project /tmp/hello --profile test
+bin/kotoba build --project /tmp/hello --profile release
 ```
 
-`rad test` admits and checks the project's Kotoba source. `rad build` admits the
+`kotoba test` admits and checks the project's Kotoba source. `kotoba build` admits the
 package lock and emits `target/hello.wasm`; a rejected lock or unsupported
 construct fails the command. This is the public build/test path
 described by [kotoba-lang.org](https://kotoba-lang.org/) and the versioned
-[`kotoba rad` CLI contract](https://github.com/kotoba-lang/kotoba-lang/blob/main/docs/generated/cli.md#kotoba-rad).
+[`kotoba` CLI contract](https://github.com/kotoba-lang/kotoba-lang/blob/main/docs/generated/cli.md).
+`kotoba rad build` and `kotoba rad test` remain compatibility spellings.
 
 Repository-maintainer conformance, lint, security, Python SDK, and release gates
 run on the Murakumo fleet. Their implementation details are internal gates, not

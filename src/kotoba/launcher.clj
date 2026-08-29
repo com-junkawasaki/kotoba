@@ -40,6 +40,8 @@
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.library-release :as library-release]
+            [kekkai.cacao :as kekkai-cacao]
+            [kekkai.desired-state :as desired-state]
             [kotoba.package-install :as package-install]
             [kotoba.passkey-pqc :as passkey-pqc]
             [kotoba.operator-identity :as operator-identity]
@@ -503,10 +505,88 @@
   "Test seam for profile mirrors and their embedded-pinned fallback."
   fetch-control-plane-profile)
 
+(def desired-subject "murakumo/fleet/apps")
+(def desired-kind :murakumo/apps)
+(def desired-schema "murakumo.desired-apps/v1")
+
+(def ^:dynamic *deploy-getenv*
+  "Narrow environment seam for deterministic desired-state tests."
+  #(System/getenv %))
+
+(defn desired-mirror-roots
+  "Operator-selected independent mirror roots. No hosted provider is implied."
+  [raw]
+  (->> (str/split (or raw "") #",")
+       (map str/trim)
+       (remove str/blank?)
+       distinct
+       vec))
+
+(defn- positive-long [raw fallback]
+  (try
+    (let [n (some-> raw str/trim parse-long)]
+      (if (and n (pos? n)) n fallback))
+    (catch Exception _ fallback)))
+
+(defn publish-desired-state!
+  "Seal one admitted component as Murakumo desired state and publish it to the
+  configured Kekkai mirrors. Existing verified head determines epoch/parent."
+  [planned receipt]
+  (try
+    (let [roots (desired-mirror-roots (*deploy-getenv* "KOTOBA_DESIRED_MIRRORS"))]
+      (when-not (seq roots)
+        (throw (ex-info "set KOTOBA_DESIRED_MIRRORS to comma-separated independent roots"
+                        {:type :deploy/missing-desired-mirrors})))
+      (let [identity-path (or (some-> (*deploy-getenv* "KOTOBA_DESIRED_AUTHORITY")
+                                      str/trim not-empty)
+                              (str (System/getProperty "user.home")
+                                   "/.kotoba/desired-authority.edn"))
+            identity (kekkai-cacao/load-or-create-identity! identity-path)
+            authority (desired-state/authority-spki-b64 identity)
+            current (try
+                      (desired-state/pull roots desired-subject authority
+                                          {:kind desired-kind})
+                      (catch clojure.lang.ExceptionInfo e
+                        (if (= :kekkai/desired-unavailable (:type (ex-data e)))
+                          nil
+                          (throw e))))
+            epoch (inc (or (:desired/epoch current) 0))
+            previous (:desired/cid current)
+            node (or (:node planned) "asher")
+            component-cid (:kotoba.deploy/component-cid receipt)
+            package-name (or (:kotoba.deploy/package-name receipt) "kotoba-app")
+            package-version (or (:kotoba.deploy/package-version receipt) "0.0.0")
+            app-manifest {:kotoba.app/name package-name
+                          :kotoba.app/version package-version
+                          :kotoba.app/components
+                          [{:name package-name :cid component-cid :scale 1
+                            :triggers [] :requires #{}}]}
+            payload {:murakumo/schema desired-schema
+                     :fleet/name "kotoba-cli"
+                     :apps [{:name package-name :cid component-cid :replicas 1
+                             :placement {} :assignments [node]
+                             :manifest/text (pr-str app-manifest)}]}
+            envelope (desired-state/seal
+                      {:kind desired-kind :subject desired-subject :epoch epoch
+                       :previous-cid previous :payload payload}
+                      identity)
+            min-copies (positive-long (*deploy-getenv* "KOTOBA_DESIRED_MIN_COPIES")
+                                      (count roots))
+            published (desired-state/publish! roots min-copies envelope authority)]
+        (assoc published :ok? true
+               :desired/authority-spki-b64 authority
+               :desired/subject desired-subject
+               :desired/node node)))
+    (catch Exception e
+      {:ok? false
+       :error (or (:type (ex-data e)) :deploy/desired-publish-failed)
+       :message (.getMessage e)
+       :details (dissoc (ex-data e) :type)})))
+
 (defn deploy-host-port
-  "JVM host capabilities for the deploy adapter: filesystem, env, process,
-  and the existing IPNS publish path. Reside apply shells murakumo.core in
-  $MURAKUMO_ROOT; local apply writes receipts. IPNS reuses
+  "JVM host capabilities for the deploy adapter: filesystem, signed desired
+  state mirrors, and the existing IPNS publish path. Local apply writes
+  receipts. IPNS reuses
   `kotoba.codebase-ipns/publish-cid!` — not a second naming stack."
   []
   (reify deploy-adapter/IDeployHost
@@ -527,10 +607,6 @@
           [])))
     (-env [_ name]
       (System/getenv name))
-    (-run [_ argv dir]
-      (if (and (string? dir) (not (str/blank? dir)))
-        (apply shell/sh (concat argv [:dir dir]))
-        (apply shell/sh argv)))
     (-control-plane-profile [_]
       (*control-plane-profile-fetch*))
     (-ipns-identity [_]
@@ -574,7 +650,9 @@
               {:ok? false
                :error :deploy/ipns-publish-failed
                :message (.getMessage e)
-               :exception-class (.getName (class e))})))))
+                 :exception-class (.getName (class e))})))))
+    (-publish-desired [_ planned receipt]
+      (publish-desired-state! planned receipt))
     (-admit-release [_ {:keys [release-evidence-path component-path]} manifest]
       (try
         (when-not (and (string? release-evidence-path)
@@ -629,6 +707,12 @@
     (case command
       "git" (git-adapter/execute! (shell-process-port) result)
       "rad" (rad-adapter/execute! (rad-host-port) result)
+      "build" (rad-adapter/execute!
+               (rad-host-port)
+               (assoc-in result [:kotoba.cli/data :request :positionals] ["build"]))
+      "test" (rad-adapter/execute!
+              (rad-host-port)
+              (assoc-in result [:kotoba.cli/data :request :positionals] ["test"]))
       "graph" (graph-adapter/execute! (graph-host-port) result)
       "deploy" (deploy-adapter/execute! (deploy-host-port) result)
       result)

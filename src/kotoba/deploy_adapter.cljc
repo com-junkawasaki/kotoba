@@ -13,9 +13,10 @@
     disk, not a compute host.
   * **murakumo reside** — `--target murakumo`, `murakumo:<node>`, `fleet`,
     or `fleet:<node>`. Compute lives on the murakumo Mac mini fleet. kotoba
-    does not take a murakumo library dependency; apply shells
-    `clojure -M -m murakumo.core deploy <manifest> [node]` in `$MURAKUMO_ROOT`.
-    Omitting `<node>` leaves murakumo's own default (canary `asher`).
+    publishes a signed, content-addressed Kekkai desired-state envelope to
+    independent mirrors. Murakumo nodes pull it; no sibling checkout or
+    Clojure subprocess is part of the public deploy path. Omitting `<node>`
+    selects the canary `asher`.
     Apply also names the admitted wasm in the existing IPNS stack
     (`kotoba.codebase-ipns/publish-cid!`, the same path as
     `kotoba codebase publish --ipns`) and prints a murakumo HTTPS / IPNS URL.
@@ -23,9 +24,8 @@
     are other substrates (net-kotobase owns Kotobase CF Workers; aozora is
     identify). This command does not invent a billed hosting product.
 
-  `--dry-run` defaults to true. Reside rollback is fail-closed: murakumo
-  has no rollback command. Apply fails closed when `$MURAKUMO_ROOT` is
-  unset or the reside process exits non-zero.
+  `--dry-run` defaults to true. Reside rollback is fail-closed: a new signed
+  desired-state epoch is required rather than mutating an old receipt.
 
   Planning is pure; filesystem, env, process, and IPNS happen only through
   an injected host port."
@@ -39,15 +39,13 @@
   (-mkdirs [this path])
   (-list [this path])
   (-env [this name])
-  (-run [this argv dir])
   (-control-plane-profile [this])
   (-admit-release [this planned manifest])
   (-ipns-identity [this])
-  (-publish-ipns [this planned receipt]))
+  (-publish-ipns [this planned receipt])
+  (-publish-desired [this planned receipt]))
 
 (def operations #{:plan :apply :status :rollback})
-
-(def murakumo-root-env "MURAKUMO_ROOT")
 
 (def ipns-gateways-env "KOTOBA_IPNS_GATEWAYS")
 
@@ -191,17 +189,6 @@
       "."
       (subs path 0 idx))))
 
-(defn reside-argv
-  "Argv for murakumo's JVM control plane. Node omitted ⇒ murakumo default.
-
-  Live murakumo.core `deploy` is still `<app.edn> [publish-node]`: compile or
-  take an explicit CID, block-put the wasm onto reachable fleet nodes, then
-  `kotoba app deploy --publish` through a port-forward. This adapter does not
-  reimplement that; it shells the same argv."
-  [manifest node]
-  (cond-> ["clojure" "-M" "-m" "murakumo.core" "deploy" manifest]
-    (and (string? node) (not (str/blank? node))) (conj node)))
-
 (defn parse-ipns-gateways
   "Parse replaceable HTTPS gateway bases. Unset keeps the compatibility
   gateway; `ipns-only` makes the content name the only public address."
@@ -321,9 +308,7 @@
             (if (= :reside (:substrate parsed))
               (assoc base
                      :control-plane (:control-plane parsed)
-                     :node (:node parsed)
-                     :invoke {:argv (reside-argv manifest (:node parsed))
-                              :dir-env murakumo-root-env})
+                     :node (or (:node parsed) "asher"))
               base)))))))
 
 (defn receipt
@@ -411,20 +396,10 @@
 
 (defn- reside-apply!
   [host planned next]
-  (let [root (-env host murakumo-root-env)
-        invoke (:invoke planned)
-        preview (attach-public-urls next (identity-urls host next))]
+  (let [preview (attach-public-urls next (identity-urls host next))]
     (cond
       (:dry-run? planned)
       (ok :deploy/planned (assoc planned :receipt preview))
-
-      (or (nil? root) (and (string? root) (str/blank? root)))
-      (fail :deploy/missing-control-plane
-            (str "reside apply needs $" murakumo-root-env
-                 " (kotoba-lang/murakumo checkout). Compute destination is the"
-                 " murakumo Mac mini fleet, not Deno Deploy or Cloudflare."
-                 " Hosted billed deploy of capability grants is not live.")
-            (assoc planned :receipt preview))
 
       :else
       (let [published (-publish-ipns host planned preview)]
@@ -442,24 +417,18 @@
                                                       (:kotoba.deploy/component-cid preview)
                                                       (parse-ipns-gateways
                                                        (-env host ipns-gateways-env))))
-                {:keys [exit out err]} (-run host (:argv invoke) root)]
-            (if (and (number? exit) (zero? exit))
+                distributed (-publish-desired host planned named)]
+            (if (:ok? distributed)
               (do
                 (write-receipt! host planned named)
                 (ok :deploy/executed
-                    (assoc planned :receipt named
-                           :ipns published
-                           :invoke-result {:exit exit :out (str out) :err (str err)})))
-              (fail :deploy/reside-failed
-                    (str "murakumo reside command exited non-zero after IPNS"
-                         " publish. The wasm is named at "
-                         (or (:kotoba.deploy/public-url named)
-                             (:kotoba.deploy/ipns-url named)
-                             "the IPNS name")
-                         " but the fleet did not accept the reside.")
-                    (assoc planned :receipt named
-                           :ipns published
-                           :invoke-result {:exit exit :out (str out) :err (str err)})))))))))
+                    (assoc planned :receipt named :ipns published
+                           :desired-state (dissoc distributed :ok?))))
+              (fail (or (:error distributed) :deploy/desired-publish-failed)
+                    (or (:message distributed)
+                        "signed desired state did not reach its mirror quorum")
+                    (assoc planned :receipt named :ipns published
+                           :desired-state (dissoc distributed :ok?))))))))))
 
 (defn execute!
   "Execute a `:command/planned` result for :deploy through the injected host
