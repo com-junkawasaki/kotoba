@@ -141,7 +141,8 @@
                      (run "library" "publish" "--store" store-dir
                           "--namespace" "demo" "--hosted"
                           "--dry-run" "false" "--write-token-file" "token.txt"
-                          "--pqc-seed-file" (str pq-seed-file)))]
+                          "--pqc-seed-file" (str pq-seed-file)
+                          "--pqc-key-epoch" "3"))]
         (is (:kotoba.cli/ok? result))
         (is (= :library/passkey-approval-required (:kotoba.cli/code result)))
         (is (= "demo" (first @called)))
@@ -154,8 +155,12 @@
                              (count "https://kotoba.cloud/#publish="))
               request (json/read-str
                        (String. (.decode (java.util.Base64/getUrlDecoder) fragment) "UTF-8"))]
-          (is (= "https://kotoba.cloud/schemas/library-publication-request/v2"
+          (is (= "https://kotoba.cloud/schemas/library-publication-request/v3"
                  (get request "schema")))
+          (is (string? (get request "requestId")))
+          (is (string? (get request "issuedAt")))
+          (is (string? (get request "expiresAt")))
+          (is (= 3 (get request "keyEpoch")))
           (is (= "passkey+ml-dsa-65" (get-in request ["pqcApproval" "suite"])))
           (is (string? (get-in request ["pqcApproval" "keyId"])))
           (is (string? (get-in request ["pqcApproval" "signature"]))))

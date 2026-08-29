@@ -488,6 +488,10 @@ kotoba.cloud requires both a live Passkey session and that signature, then
 atomically pins the ML-DSA key to the Stable Principal. This does not change
 the algorithm inside the platform authenticator and does not make WebAuthn,
 TLS, or the legacy IPNS signature post-quantum.
+Publication request schema v3 also signs a random single-use request ID,
+issuance/expiry timestamps, and a monotonic `--pqc-key-epoch` (default `1`).
+Kotoba Cloud atomically consumes that ID; replay, expiry, or an old epoch is a
+hard failure before the Kotobase relay.
 
 `kotoba crypto` provides a separate fail-closed data-encryption envelope. It
 combines X25519 and ML-KEM-768 and uses the transcript-bound hybrid secret with

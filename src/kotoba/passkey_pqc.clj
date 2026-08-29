@@ -7,7 +7,7 @@
   (:import [java.nio.charset StandardCharsets]
            [java.util Base64]))
 
-(def schema "https://kotoba.cloud/schemas/library-publication-request/v2")
+(def schema "https://kotoba.cloud/schemas/library-publication-request/v3")
 (def suite "passkey+ml-dsa-65")
 
 (defn- b64url [^bytes value]
@@ -28,11 +28,15 @@
   (binding [pq/*pq* (pq-bc/bc-pq)]
     (let [pair (pq/generate-ml-dsa-key-pair seed)
           payload (sorted-map
+                   "expiresAt" (:expiresAt request)
+                   "issuedAt" (:issuedAt request)
                    "ipnsName" (:ipnsName request)
+                   "keyEpoch" (:keyEpoch request)
                    "namespace" (:namespace request)
                    "publisher" (:publisher request)
                    "purpose" "library-publish"
                    "recordCid" (:recordCid request)
+                   "requestId" (:requestId request)
                    "releaseCid" (:releaseCid request)
                    "schema" schema
                    "signedRecord" (:signedRecord request)

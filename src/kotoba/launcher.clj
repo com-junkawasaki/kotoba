@@ -923,8 +923,13 @@
         (recur (next remaining) (conj result token)))
       result)))
 
-(defn- hosted-approval-url [publication pq-seed]
-  (let [request {:schema passkey-pqc/schema
+(defn- hosted-approval-url [publication pq-seed key-epoch]
+  (let [issued-at (java.time.Instant/now)
+        request {:schema passkey-pqc/schema
+                  :requestId (str (java.util.UUID/randomUUID))
+                  :issuedAt (str issued-at)
+                  :expiresAt (str (.plusSeconds issued-at 600))
+                  :keyEpoch key-epoch
                   :namespace (:namespace publication)
                   :releaseCid (:release-cid publication)
                   :recordCid (:record-cid publication)
@@ -1086,7 +1091,8 @@
 
       hosted?
       (let [hex (signing-seed-hex)
-            pq-seed-file (option-value argv "--pqc-seed-file")]
+            pq-seed-file (option-value argv "--pqc-seed-file")
+            pq-key-epoch-text (or (option-value argv "--pqc-key-epoch") "1")]
         (if-not (and hex (= 64 (count hex)))
           {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
            :kotoba.cli/data {:hint (seed-required-hint)}}
@@ -1094,6 +1100,13 @@
             {:kotoba.cli/ok? false :kotoba.cli/code :library/pqc-seed-required}
             (try
             (let [release (library-release/build! root namespace)
+                  pq-key-epoch (try (Long/parseLong pq-key-epoch-text)
+                                    (catch NumberFormatException _
+                                      (throw (ex-info "invalid PQ key epoch"
+                                                      {:problem :library/pqc-key-epoch-invalid}))))
+                  _ (when-not (pos? pq-key-epoch)
+                      (throw (ex-info "invalid PQ key epoch"
+                                      {:problem :library/pqc-key-epoch-invalid})))
                   pq-seed-hex (str/trim (slurp pq-seed-file))
                   _ (when-not (re-matches #"[0-9a-f]{64}" pq-seed-hex)
                       (throw (ex-info "invalid PQ seed" {:problem :library/pqc-seed-invalid})))
@@ -1109,7 +1122,9 @@
                :kotoba.cli/data
                (-> publication
                    (dissoc :signed-record)
-                   (assoc :approval-url (hosted-approval-url publication (ed25519/unhex pq-seed-hex))
+                   (assoc :approval-url (hosted-approval-url
+                                         publication (ed25519/unhex pq-seed-hex)
+                                         pq-key-epoch)
                           :publication-mode :hosted-passkey
                           :hosted-passkey-publish true
                           :catalog-url (library-catalog-url namespace)))})
