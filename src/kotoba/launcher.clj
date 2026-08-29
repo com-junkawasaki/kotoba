@@ -2017,7 +2017,19 @@
   "Verify a package lock through the kotoba.lang.package-contract admission
   gate and emit the package-verification receipt."
   [argv]
-  (package-admission/cli-result (admission-options argv "--lock")))
+  (let [base (package-admission/cli-result (admission-options argv "--lock"))]
+    (if-not (:kotoba.cli/ok? base)
+      base
+      (try
+        (update base :kotoba.cli/data (fnil assoc {})
+                :kotoba.package/pqc
+                (package-install/verify-lock-pqc-path!
+                 (or (option-value argv "--store") package-install/default-store-path)
+                 (option-value argv "--lock")))
+        (catch clojure.lang.ExceptionInfo e
+          {:kotoba.cli/ok? false
+           :kotoba.cli/code (or (:problem (ex-data e)) :package/pqc-rejected)
+           :kotoba.cli/data (dissoc (ex-data e) :problem)})))))
 
 (defn package-resolve-result
   "Resolve name+version requests through a CID-addressed network registry."
@@ -2051,8 +2063,9 @@
 
 (defn package-add-result
   "Install a named immutable library release from the public discovery
-  catalog, verifying the complete closure at two independent origins before
-  writing the local CID lock."
+  catalog, requiring its caller-supplied CID, verifying the complete closure
+  and Ed25519+ML-DSA-65 publication attestation at two independent origins,
+  then writing the local CID lock."
   [argv]
   (let [timeout-ms (positive-timeout argv)]
     (if-not timeout-ms
@@ -2663,7 +2676,16 @@
   `:wasm/package-rejected`) so a non-wasm caller's rejection is reported
   under its own namespace instead of silently borrowing wasm's."
   [argv lock-option reject-code unguarded-fn]
-  (let [admission (package-admission/admit (admission-options argv lock-option))]
+  (let [admission (package-admission/admit (admission-options argv lock-option))
+        pqc (when (:kotoba.admission/ok? admission)
+              (try
+                {:ok? true
+                 :result (package-install/verify-lock-pqc-path!
+                          (or (option-value argv "--store")
+                              package-install/default-store-path)
+                          (option-value argv lock-option))}
+                (catch clojure.lang.ExceptionInfo e
+                  {:ok? false :error (ex-data e)})))]
     (if-not (:kotoba.admission/ok? admission)
       {:kotoba.cli/ok? false
        :kotoba.cli/code reject-code
@@ -2673,10 +2695,17 @@
 
                           (:kotoba.admission/error admission)
                           (assoc :kotoba.package/error (:kotoba.admission/error admission)))}
-      (update (unguarded-fn argv)
-              :kotoba.cli/data
-              (fnil assoc {})
-              :kotoba.package/receipt (:kotoba.admission/receipt admission)))))
+      (if-not (:ok? pqc)
+        {:kotoba.cli/ok? false
+         :kotoba.cli/code reject-code
+         :kotoba.cli/data {:kotoba.package/admission-code
+                           (or (:problem (:error pqc)) :package/pqc-rejected)
+                           :kotoba.package/error (dissoc (:error pqc) :problem)}}
+        (update (unguarded-fn argv)
+                :kotoba.cli/data
+                (fnil assoc {})
+                :kotoba.package/receipt (:kotoba.admission/receipt admission)
+                :kotoba.package/pqc (:result pqc))))))
 
 (defn wasm-emit-result
   "Safe-build entry point for `wasm emit`. `--package-lock <path>` is

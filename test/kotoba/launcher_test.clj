@@ -28,6 +28,7 @@
     (let [added (launcher/dispatch
                  ["package" "add" "kotoba-lang/reference-math@0.1.0"
                   "--catalog" "https://catalog.example/registry.edn"
+                  "--catalog-cid" "bafkreiexample"
                   "--timeout-ms" "1000"])
           run (launcher/dispatch
                ["package" "run" "kotoba-lang/reference-math" "--entry" "answer"])]
@@ -35,6 +36,24 @@
       (is (= 1000 (get-in added [:kotoba.cli/data :timeout-ms])))
       (is (= :package/executed (:kotoba.cli/code run)))
       (is (= 42 (get-in run [:kotoba.cli/data :execution :value]))))))
+
+(deftest package-verification-and-safe-build-share-the-pqc-library-gate
+  (with-redefs [package-install/verify-lock-pqc-path!
+                (fn [& _]
+                  (throw (ex-info "pqc lock required"
+                                  {:problem :package/pqc-lock-required})))]
+    (let [verified (launcher/package-verify-result
+                    ["package" "verify" "--lock" positive-lock
+                     "--trust" trust])
+          emitted (launcher/dispatch
+                   ["wasm" "emit" "src/demo.kotoba"
+                    "--package-lock" positive-lock "--trust" trust])]
+      (is (false? (:kotoba.cli/ok? verified)))
+      (is (= :package/pqc-lock-required (:kotoba.cli/code verified)))
+      (is (false? (:kotoba.cli/ok? emitted)))
+      (is (= :wasm/package-rejected (:kotoba.cli/code emitted)))
+      (is (= :package/pqc-lock-required
+             (get-in emitted [:kotoba.cli/data :kotoba.package/admission-code]))))))
 
 (def ^:private node-validate-source
   "Refuse any module the WebAssembly spec validator rejects. V8's validator
