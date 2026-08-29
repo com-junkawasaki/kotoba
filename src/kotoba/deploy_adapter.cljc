@@ -49,6 +49,8 @@
 
 (def murakumo-root-env "MURAKUMO_ROOT")
 
+(def ipns-gateways-env "KOTOBA_IPNS_GATEWAYS")
+
 (def control-plane-profile-url
   "https://kotoba.cloud/.well-known/kotoba-cloud.json")
 
@@ -64,10 +66,24 @@
    :public-compute-origin "https://murakumo.cloud"
    :agent-work-origin "https://itonami.cloud"})
 
+(def pinned-control-plane-profile
+  "Offline-safe copy of the topology this CLI release already pins below.
+  It is an availability fallback, not a second authority: a fetched document
+  may not widen any origin, and an invalid fetched document still fails closed."
+  {:schema control-plane-schema
+   :roles {:control {:origin (:control-origin expected-control-plane)}
+           :identity {:origin (:identity-origin expected-control-plane)
+                      :rpId (:passkey-rp-id expected-control-plane)}
+           :storage {:origin (:storage-origin expected-control-plane)}
+           :compute {:origin (:compute-origin expected-control-plane)
+                     :publicOrigin (:public-compute-origin expected-control-plane)}
+           :agentWork {:origin (:agent-work-origin expected-control-plane)}}
+   :deploy {:hostedApply false}})
+
 (defn validate-control-plane-profile
-  "Validate the live Kotoba Cloud topology without letting DNS-discovered data
-  silently widen deploy authority. The domain is the availability dependency;
-  these exact origins remain the authority floor for this CLI release."
+  "Validate a discovered topology without letting fetched data silently widen
+  deploy authority. These exact origins remain the authority floor for this
+  CLI release, including when the embedded availability fallback is used."
   [profile]
   (let [actual {:control-origin (get-in profile [:roles :control :origin])
                 :identity-origin (get-in profile [:roles :identity :origin])
@@ -99,10 +115,31 @@
   (try
     (let [profile (-control-plane-profile host)]
       (if (:error profile)
-        {:ok? false :problems [(:error profile)]}
-        (validate-control-plane-profile profile)))
+        (-> (validate-control-plane-profile pinned-control-plane-profile)
+            (assoc :profile-source :embedded-pinned
+                   :profile-degraded? true
+                   :profile-fetch-problem (:error profile))
+            (update :receipt-extra assoc
+                    :kotoba.deploy/control-profile-source :embedded-pinned
+                    :kotoba.deploy/control-profile-degraded? true
+                    :kotoba.deploy/control-profile-fetch-problem (:error profile)))
+        (let [source (or (:kotoba.control/profile-source profile)
+                         control-plane-profile-url)]
+          (-> (validate-control-plane-profile profile)
+              (assoc :profile-source source :profile-degraded? false)
+              (update :receipt-extra assoc
+                      :kotoba.deploy/control-profile-source source
+                      :kotoba.deploy/control-profile-degraded? false)))))
     (catch #?(:clj Exception :cljs :default) _
-      {:ok? false :problems [:control-plane-unavailable]})))
+      (-> (validate-control-plane-profile pinned-control-plane-profile)
+          (assoc :profile-source :embedded-pinned
+                 :profile-degraded? true
+                 :profile-fetch-problem :control-plane-unavailable)
+          (update :receipt-extra assoc
+                  :kotoba.deploy/control-profile-source :embedded-pinned
+                  :kotoba.deploy/control-profile-degraded? true
+                  :kotoba.deploy/control-profile-fetch-problem
+                  :control-plane-unavailable)))))
 
 (def murakumo-public-host
   "Public HTTPS host for IPNS names. Domain is murakumo's own public host
@@ -165,19 +202,38 @@
   (cond-> ["clojure" "-M" "-m" "murakumo.core" "deploy" manifest]
     (and (string? node) (not (str/blank? node))) (conj node)))
 
+(defn parse-ipns-gateways
+  "Parse replaceable HTTPS gateway bases. Unset keeps the compatibility
+  gateway; `ipns-only` makes the content name the only public address."
+  [raw]
+  (cond
+    (or (nil? raw) (str/blank? raw)) [(str "https://" murakumo-public-host)]
+    (= "ipns-only" (str/lower-case (str/trim raw))) []
+    :else (->> (str/split raw #",")
+               (map str/trim)
+               (remove str/blank?)
+               (map #(str/replace % #"/+$" ""))
+               distinct
+               vec)))
+
 (defn public-urls
   "Deno-like public names for an admitted wasm CID.
 
-  IPNS is the distribution name (`k51…` is the key). The HTTPS form is the
-  murakumo public host plus `/ipns/<name>`. Missing name ⇒ nil."
-  [ipns-name component-cid]
-  (when (and (string? ipns-name) (not (str/blank? ipns-name)))
-    (cond-> {:kotoba.deploy/ipns-name ipns-name
-             :kotoba.deploy/ipns-url (str "ipns://" ipns-name)
-             :kotoba.deploy/public-url (str "https://" murakumo-public-host
-                                            "/ipns/" ipns-name)}
-      (and (string? component-cid) (not (str/blank? component-cid)))
-      (assoc :kotoba.deploy/ipfs-url (str "ipfs://" component-cid)))))
+  IPNS is the canonical distribution name (`k51…` is the key). HTTPS forms
+  are replaceable projections and may be omitted for an IPNS-only deployment."
+  ([ipns-name component-cid]
+   (public-urls ipns-name component-cid [(str "https://" murakumo-public-host)]))
+  ([ipns-name component-cid gateway-bases]
+   (when (and (string? ipns-name) (not (str/blank? ipns-name)))
+     (let [gateway-urls (mapv #(str % "/ipns/" ipns-name) gateway-bases)]
+       (cond-> {:kotoba.deploy/ipns-name ipns-name
+                :kotoba.deploy/ipns-url (str "ipns://" ipns-name)
+                :kotoba.deploy/gateway-urls gateway-urls}
+         (seq gateway-urls)
+         (assoc :kotoba.deploy/public-url (first gateway-urls))
+
+         (and (string? component-cid) (not (str/blank? component-cid)))
+         (assoc :kotoba.deploy/ipfs-url (str "ipfs://" component-cid)))))))
 
 (defn parse-target
   "Classify `--target` into a local receipt dir or a murakumo reside target.
@@ -285,7 +341,8 @@
    extra))
 
 (defn- public-url-of [data]
-  (get-in data [:receipt :kotoba.deploy/public-url]))
+  (or (get-in data [:receipt :kotoba.deploy/public-url])
+      (get-in data [:receipt :kotoba.deploy/ipns-url])))
 
 (defn- fail [code message data]
   {:kotoba.cli/ok? false
@@ -311,7 +368,8 @@
 
 (defn- identity-urls [host receipt]
   (public-urls (:ipns-name (-ipns-identity host))
-               (:kotoba.deploy/component-cid receipt)))
+               (:kotoba.deploy/component-cid receipt)
+               (parse-ipns-gateways (-env host ipns-gateways-env))))
 
 (defn- read-edn [host path]
   (let [text (-read-file host path)]
@@ -381,7 +439,9 @@
           :else
           (let [named (attach-public-urls preview
                                          (public-urls (:ipns-name published)
-                                                      (:kotoba.deploy/component-cid preview)))
+                                                      (:kotoba.deploy/component-cid preview)
+                                                      (parse-ipns-gateways
+                                                       (-env host ipns-gateways-env))))
                 {:keys [exit out err]} (-run host (:argv invoke) root)]
             (if (and (number? exit) (zero? exit))
               (do
@@ -418,8 +478,8 @@
                       (control-plane-decision host))]
         (if (and control (not (:ok? control)))
           (fail :deploy/control-plane-unavailable
-                (str "kotoba deploy requires the live " control-plane-profile-url
-                     " profile with the pinned Kotoba identity, Kotobase storage,"
+                (str "kotoba deploy rejected a control profile that does not match"
+                     " this CLI release's pinned Kotoba identity, Kotobase storage,"
                      " Murakumo compute, and Itonami agent-work origins")
                 (assoc planned :problems (:problems control)))
           (let [extra (merge (receipt-extra planned) (:receipt-extra control))]
