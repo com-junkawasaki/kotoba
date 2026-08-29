@@ -625,6 +625,42 @@
              {:scheme scheme
               :required :https-or-loopback-http}))))
 
+(defn push-blocks!
+  "Push an ALREADY-SIGNED head record and its immutable closure.
+
+  This is the storage half of publication. It deliberately does not mutate a
+  friendly `/heads/` ref, so a separate authority plane can approve and relay
+  the signed mutable record after every referenced CID is retrievable."
+  [root record {:keys [endpoint timeout-ms write-token]
+                :or {timeout-ms default-timeout-ms}}]
+  (when-not (string? endpoint) (fail! :publish/endpoint-required {}))
+  (when-not (and (string? write-token)
+                 (not (str/blank? write-token))
+                 (= write-token (str/trim write-token))
+                 (<= (count (.getBytes ^String write-token "UTF-8"))
+                     max-write-token-bytes))
+    (fail! :publish/write-token-required {}))
+  (require-secure-write-endpoint! endpoint)
+  (let [{:keys [blocks]} (store/export-closure root [(:head record)])
+        blocks (conj (vec blocks)
+                     {:cid (:record-cid record)
+                      :bytes (cbor/encode (:record record))})
+        pushed (mapv (fn [{:keys [cid bytes]}]
+                       (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes
+                                                         timeout-ms write-token)]
+                         (when-not (#{200 201 204} status)
+                           (fail! :publish/block-rejected {:cid cid :status status}))
+                         cid))
+                     blocks)]
+    {:namespace (:namespace record)
+     :endpoint endpoint
+     :publisher (:publisher record)
+     :sequence (:sequence record)
+     :head (:head record)
+     :record-cid (:record-cid record)
+     :blocks (count pushed)
+     :block-cids pushed}))
+
 (defn push!
   "Push an ALREADY-SIGNED head record and its closure to a node.
 
@@ -638,23 +674,9 @@
   serve it yet."
   [root record {:keys [endpoint timeout-ms write-token]
                 :or {timeout-ms default-timeout-ms}}]
-  (when-not (string? endpoint) (fail! :publish/endpoint-required {}))
-  (when-not (and (string? write-token)
-                 (not (str/blank? write-token))
-                 (= write-token (str/trim write-token))
-                 (<= (count (.getBytes ^String write-token "UTF-8"))
-                     max-write-token-bytes))
-    (fail! :publish/write-token-required {}))
-  (require-secure-write-endpoint! endpoint)
-  (let [namespace (:namespace record)
-        {:keys [blocks]} (store/export-closure root [(:head record)])
-        pushed (mapv (fn [{:keys [cid bytes]}]
-                       (let [{:keys [status]} (put-bytes! endpoint (str "/ipfs/" cid) bytes
-                                                         timeout-ms write-token)]
-                         (when-not (#{200 201 204} status)
-                           (fail! :publish/block-rejected {:cid cid :status status}))
-                         cid))
-                     blocks)
+  (let [stored (push-blocks! root record {:endpoint endpoint :timeout-ms timeout-ms
+                                          :write-token write-token})
+        namespace (:namespace record)
         record-bytes (cbor/encode (:record record))
         {:keys [status body]} (put-bytes! endpoint (str "/heads/" namespace)
                                           record-bytes timeout-ms write-token)]
@@ -663,7 +685,7 @@
     {:namespace namespace :endpoint endpoint
      :publisher (:publisher record) :sequence (:sequence record)
      :head (:head record) :record-cid (:record-cid record)
-     :blocks (count pushed)}))
+     :blocks (:blocks stored)}))
 
 (defn publish!
   "Sign NAMESPACE's head and push it to a node."

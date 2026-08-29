@@ -53,7 +53,7 @@
            [java.nio.file Files OpenOption Path StandardOpenOption]
            [java.nio.file.attribute PosixFilePermissions]
            [java.time Duration]
-           [java.util UUID]
+           [java.util Base64 UUID]
            [java.util.concurrent ConcurrentHashMap])
   (:gen-class))
 
@@ -787,6 +787,20 @@
         (recur (next remaining) (conj result token)))
       result)))
 
+(defn- hosted-approval-url [publication]
+  (let [envelope {:schema "https://kotoba.cloud/schemas/library-publication-request/v1"
+                  :namespace (:namespace publication)
+                  :releaseCid (:release-cid publication)
+                  :recordCid (:record-cid publication)
+                  :publisher (:publisher publication)
+                  :ipnsName (:ipns-name publication)
+                  :storageOrigin (:storage-origin publication)
+                  :signedRecord (:signed-record publication)}
+        encoded (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
+                                 (.getBytes (json/write-str envelope)
+                                            StandardCharsets/UTF_8))]
+    (str library-control-origin "/#publish=" encoded)))
+
 (defn library-result
   "Human-facing library workflow over the existing hash-native codebase.
 
@@ -799,7 +813,8 @@
         root (option-value argv "--store")
         namespace (option-value argv "--namespace")
         github (option-value argv "--github")
-        dry-run? (not= "false" (option-value argv "--dry-run"))]
+        dry-run? (not= "false" (option-value argv "--dry-run"))
+        hosted? (some #{"--hosted"} argv)]
     (cond
       (not (#{"inspect" "publish"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :library/unknown-command}
@@ -830,15 +845,40 @@
            (assoc descriptor
                   :publication
                   (cond-> {:dry-run true
-                           :mode :local-signed-ipns
+                           :mode (if hosted? :hosted-passkey :local-signed-ipns)
                            :storage-origin "https://kotobase.net"
-                           :hosted-passkey-publish false
+                           :hosted-passkey-publish true
                            :apply-flag "--dry-run false"}
                     identity (assoc :publisher (:publisher identity)
                                     :ipns-name (:ipns-name identity))
                     (nil? identity) (assoc :identity-required true)))})
         (catch clojure.lang.ExceptionInfo error
           (codebase-error :library/publish-plan-failed error)))
+
+      hosted?
+      (let [hex (signing-seed-hex)]
+        (if-not (and hex (= 64 (count hex)))
+          {:kotoba.cli/ok? false :kotoba.cli/code :codebase/seed-required
+           :kotoba.cli/data {:hint (seed-required-hint)}}
+          (try
+            (let [write-token (read-write-token-file
+                               (option-value argv "--write-token-file"))
+                  publication (codebase-ipns/prepare-hosted!
+                               root namespace (ed25519/unhex hex)
+                               {:endpoint (or (option-value argv "--endpoint")
+                                              "https://kotobase.net")
+                                :write-token write-token})]
+              {:kotoba.cli/ok? true
+               :kotoba.cli/code :library/passkey-approval-required
+               :kotoba.cli/data
+               (-> publication
+                   (dissoc :signed-record)
+                   (assoc :approval-url (hosted-approval-url publication)
+                          :publication-mode :hosted-passkey
+                          :hosted-passkey-publish true
+                          :catalog-url (library-catalog-url namespace)))})
+            (catch clojure.lang.ExceptionInfo error
+              (codebase-error :library/hosted-publish-failed error)))))
 
       :else
       (let [cleaned (remove-value-options argv #{"--dry-run" "--github"})
@@ -854,7 +894,7 @@
                    :catalog-url (library-catalog-url namespace)
                    :control-url (str library-control-origin "/#libraries")
                    :publication-mode :local-signed-ipns
-                   :hosted-passkey-publish false}))))))
+                   :hosted-passkey-publish true}))))))
 
 (defn- read-arguments
   "Positional arguments after `--` for `codebase run`.

@@ -7,6 +7,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [ed25519.core :as ed]
             [ipns.core :as ipns-core]
+            [ipns.head :as registry-head]
             [ipns.record :as ipns]
             [kotoba.codebase-ipns :as ipns-cli]
             [kotoba.codebase-publish :as publish]
@@ -102,6 +103,34 @@
         (testing "the name is the key -- there is nothing to register"
           (is (= (vec (ipns-core/name->pubkey (:ipns-name result)))
                  (vec (map #(bit-and % 0xff) (ed/pubkey-from-seed (seed 1)))))))))))
+
+(deftest hosted-preparation-produces-a-kotobase-verifiable-head-after-storage
+  (let [author (temp-store)
+        stored (atom nil)]
+    (try
+      (store/initialize! author)
+      (authoring/update-namespace! author "demo" '[(defn f [x] x)])
+      (let [result (with-redefs
+                     [publish/push-blocks!
+                      (fn [_root record opts]
+                        (reset! stored [(:record-cid record) opts])
+                        {:blocks 3})]
+                     (ipns-cli/prepare-hosted!
+                      author "demo" (seed 1)
+                      {:endpoint "https://kotobase.net"
+                       :write-token test-write-token}))]
+        (is (= {:valid? true :name (:ipns-name result)}
+               (registry-head/verify (:signed-record result))))
+        (is (= (:record-cid result) (get-in result [:signed-record :value])))
+        (is (= (:publisher result)
+               (get-in result [:signed-record :controller_did])))
+        (is (= [(:record-cid result)
+                {:endpoint "https://kotobase.net"
+                 :write-token test-write-token
+                 :timeout-ms 20000}]
+               @stored)
+            "all immutable bytes are stored before the approval value is returned"))
+      (finally (delete-tree author)))))
 
 (deftest a-published-name-resolves-to-the-head-record-it-points-at
   (with-nodes
