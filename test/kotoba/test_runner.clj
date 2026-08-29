@@ -38,6 +38,7 @@
             [kotoba.codebase-typed-test]
             [kotoba.launcher-test]
             [kotoba.operator-identity-test]
+            [kotoba.principal-identity-test]
             [kotoba.language-conformance-test]
             [kotoba.library-release-test]
             [kotoba.codebase-routing-provider-test]
@@ -108,6 +109,7 @@
                                         'kotoba.codebase-typed-test
                                         'kotoba.launcher-test
                                         'kotoba.operator-identity-test
+                                        'kotoba.principal-identity-test
                                         'kotoba.language-conformance-test
              'kotoba.library-release-test
              'kotoba.codebase-routing-provider-test

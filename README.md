@@ -22,12 +22,23 @@ root. No private key or seed crosses this CLI boundary, and authentication does
 not grant an agent authority without a separately scoped capability.
 
 ```sh
-kotoba id new --rp-id itonami.cloud
-# urn:kotoba:principal:<random id> + Passkey registration plan
+kotoba id new
+# browser opens → approve with Passkey → verified username + Stable Principal saved locally
 
-kotoba id new --rp-id itonami.cloud \
+kotoba id show
+
+kotoba id new \
   --account eip155:8453:0xA00366234D29d4F882088048c0B2fa0dB7302D4E
 ```
+
+`auth.kotoba.cloud` is the automatic canonical RP; no username or RP input is
+required. The CLI uses a ten-minute, single-use device authorization request. The
+Passkey ceremony and browser session remain on `auth.kotoba.cloud`; the CLI
+receives only `{username, principalId, accountDid, activeDid}` and stores that
+public projection at `${XDG_DATA_HOME:-$HOME/.local/share}/kotoba/principal.edn`.
+It does not mint an unrelated local UUID and never receives a Passkey private
+key, wallet seed, browser cookie, or long-lived bearer token. A non-canonical
+`--rp-id` is refused before the browser opens.
 
 Base remains a useful Murakumo settlement link, but it appears only when
 `eip155:8453` is supplied. `kotoba id account --address 0x… --chain-id 1`

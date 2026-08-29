@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests testing]]
             [kotoba.launcher :as launcher]
+            [kotoba.principal-identity :as principal-identity]
             [kotoba.runtime :as runtime]))
 
 ;; `wasm emit`/`wasm run` require a mandatory package-admission gate (F-001);
@@ -77,29 +78,54 @@
                     "kotoba.cli/ok?")))))
 
 (deftest public-id-is-passkey-first-chain-neutral-and-never-returns-key-material
-  (let [result (launcher/dispatch ["id" "new" "--rp-id" "itonami.cloud"])]
-    (is (:kotoba.cli/ok? result))
-    (is (= :id/enrollment-planned (:kotoba.cli/code result)))
-    (is (re-matches #"urn:kotoba:principal:[0-9a-f-]{36}"
-                    (get-in result [:kotoba.cli/data :principal])))
-    (is (= :passkey-smart-account (get-in result [:kotoba.cli/data :method])))
-    (is (= :webauthn-registration-required
-           (get-in result [:kotoba.cli/data :proof])))
-    (is (nil? (get-in result [:kotoba.cli/data :chain-default])))
-    (is (nil? (get-in result [:kotoba.cli/data :host-action])))
-    (is (nil? (get-in result [:kotoba.cli/data :private-key])))))
+  (let [directory (java.nio.file.Files/createTempDirectory
+                   "kotoba-principal-launcher" (make-array java.nio.file.attribute.FileAttribute 0))
+        path (.toString (.resolve directory "principal.edn"))
+        identity {:valid true
+                  :principalId "urn:kotoba:principal:verified"
+                  :accountDid "did:web:kotoba.cloud:tenant:u_verified"
+                  :activeDid "did:key:z6Mkverified"
+                  :handle "kotoba-verified000"}]
+    (binding [principal-identity/*principal-path* path
+              principal-identity/*device-authorize!* (fn [] identity)]
+      (let [result (launcher/dispatch ["id" "new"])]
+        (is (:kotoba.cli/ok? result))
+        (is (= :id/enrolled (:kotoba.cli/code result)))
+        (is (= (:principalId identity) (get-in result [:kotoba.cli/data :principal])))
+        (is (= "kotoba-verified000" (get-in result [:kotoba.cli/data :username])))
+        (is (= :passkey-smart-account (get-in result [:kotoba.cli/data :method])))
+        (is (= :webauthn-passkey (get-in result [:kotoba.cli/data :proof])))
+        (is (nil? (get-in result [:kotoba.cli/data :chain-default])))
+        (is (nil? (get-in result [:kotoba.cli/data :host-action])))
+        (is (nil? (get-in result [:kotoba.cli/data :private-key])))))))
 
 (deftest public-id-keeps-base-an-explicit-smart-account-link
   (let [base "eip155:8453:0xa00366234d29d4f882088048c0b2fa0db7302d4e"
-        result (launcher/dispatch ["id" "new" "--rp-id" "itonami.cloud"
-                                   "--account" base])]
-    (is (:kotoba.cli/ok? result))
-    (is (= base (get-in result [:kotoba.cli/data :accounts 0 :identity.account/id])))
-    (is (= :erc4337
-           (get-in result [:kotoba.cli/data :accounts 0 :identity.account/protocol])))
-    (is (= #{:erc1271 :erc6492}
-           (get-in result [:kotoba.cli/data :accounts 0
-                           :identity.account/signature-verifiers])))))
+        directory (java.nio.file.Files/createTempDirectory
+                   "kotoba-principal-account" (make-array java.nio.file.attribute.FileAttribute 0))
+        path (.toString (.resolve directory "principal.edn"))
+        identity {:valid true :principalId "urn:kotoba:principal:account"
+                  :accountDid "did:web:kotoba.cloud:tenant:u_account"
+                  :activeDid "did:key:z6Mkaccount" :handle "kotoba-account000"}]
+    (binding [principal-identity/*principal-path* path
+              principal-identity/*device-authorize!* (fn [] identity)]
+      (let [result (launcher/dispatch ["id" "new" "--rp-id" "auth.kotoba.cloud"
+                                       "--account" base])]
+        (is (:kotoba.cli/ok? result))
+        (is (= base (get-in result [:kotoba.cli/data :accounts 0 :identity.account/id])))
+        (is (= :erc4337
+               (get-in result [:kotoba.cli/data :accounts 0 :identity.account/protocol])))
+        (is (= #{:erc1271 :erc6492}
+               (get-in result [:kotoba.cli/data :accounts 0
+                               :identity.account/signature-verifiers])))))))
+
+(deftest public-id-refuses-a-noncanonical-passkey-rp-before-opening-a-browser
+  (let [called? (atom false)]
+    (binding [principal-identity/*device-authorize!* (fn [] (reset! called? true))]
+      (let [result (launcher/dispatch ["id" "new" "--rp-id" "itonami.cloud"])]
+        (is (false? (:kotoba.cli/ok? result)))
+        (is (= :id/noncanonical-rp (:kotoba.cli/code result)))
+        (is (false? @called?))))))
 
 (deftest compatibility-address-requires-an-explicit-chain
   (let [address "0xA00366234D29d4F882088048c0B2fa0dB7302D4E"
