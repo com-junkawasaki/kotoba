@@ -25,6 +25,8 @@
   (not (str/includes? (str text) hex)))
 
 (deftest operator-seed-path-follows-xdg-then-home
+  (is (nil? identity/*operator-seed-path*)
+      "the unbound test seam must not replace the production path")
   (is (= (.getPath (io/file "/xdg" "kotoba" "operator.seed"))
          (identity/operator-seed-path* "/xdg" "/home/jun")))
   (is (= (.getPath (io/file "/home/jun" ".local" "share" "kotoba" "operator.seed"))
