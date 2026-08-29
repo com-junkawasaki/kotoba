@@ -18,6 +18,13 @@
   (is (nil? principal/*browser-open!*))
   (is (nil? principal/*device-authorize!*)))
 
+(deftest device-polling-honors-server-backoff-with-a-bounded-fallback
+  (is (= 2 (principal/device-retry-delay-seconds 428 2 nil)))
+  (is (= 7 (principal/device-retry-delay-seconds 429 2 nil)))
+  (is (= 45 (principal/device-retry-delay-seconds 429 2 45)))
+  (is (= 300 (principal/device-retry-delay-seconds 429 2 3600)))
+  (is (nil? (principal/device-retry-delay-seconds 410 2 nil))))
+
 (deftest principal-path-follows-xdg-then-home
   (is (= "/xdg/kotoba/principal.edn" (principal/principal-path* "/xdg" "/home/jun")))
   (is (= "/home/jun/.local/share/kotoba/principal.edn"

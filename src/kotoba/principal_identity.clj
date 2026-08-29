@@ -104,11 +104,29 @@
                     (.header "content-type" "application/json")
                     (.POST (HttpRequest$BodyPublishers/ofString (json/write-str body)))
                     (.build))
-        response (.send client request (HttpResponse$BodyHandlers/ofString))]
+        response (.send client request (HttpResponse$BodyHandlers/ofString))
+        retry-after-value (.firstValue (.headers response) "retry-after")
+        retry-after (when (.isPresent retry-after-value)
+                      (try
+                        (Long/parseLong (.get retry-after-value))
+                        (catch NumberFormatException _ nil)))]
     {:status (.statusCode response)
+     :retry-after retry-after
      :body (try
              (json/read-str (.body response) :key-fn keyword)
              (catch Exception _ {}))}))
+
+(defn device-retry-delay-seconds
+  "Return the bounded delay for a retryable device-token response.  428 keeps
+  the advertised interval; 429 honors Retry-After and otherwise applies the
+  OAuth device-flow slow-down rule."
+  [status interval retry-after]
+  (when (#{428 429} status)
+    (long (max 1
+               (min 300
+                    (if (= 429 status)
+                      (max interval (or retry-after (+ interval 5)))
+                      interval))))))
 
 (defn open-browser!
   [url]
@@ -144,11 +162,14 @@
       (loop []
         (when (>= (System/currentTimeMillis) deadline)
           (throw (ex-info "Kotoba Passkey approval timed out" {:error :expired-token})))
-        (let [{poll-status :status poll-body :body}
+        (let [{poll-status :status poll-body :body poll-retry-after :retry-after}
               (post-json "/v1/device/token" {:deviceCode code})]
           (cond
             (= 200 poll-status) (:identity poll-body)
-            (= 428 poll-status) (do (Thread/sleep (* 1000 interval)) (recur))
+            (#{428 429} poll-status)
+            (do (Thread/sleep (* 1000 (device-retry-delay-seconds
+                                       poll-status interval poll-retry-after)))
+                (recur))
             :else (throw (ex-info "Kotoba Passkey approval failed"
                                   {:status poll-status :error (:error poll-body)}))))))))
 
