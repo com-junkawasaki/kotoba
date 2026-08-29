@@ -39,6 +39,7 @@
             [kotoba.codebase-publish :as codebase-publish]
             [kotoba.codebase-typed :as codebase-typed]
             [kotoba.library-release :as library-release]
+            [kotoba.package-install :as package-install]
             [kotoba.operator-identity :as operator-identity]
             [kotoba.principal-identity :as principal-identity]
             [kotoba.selfhost.contracts :as selfhost]
@@ -132,6 +133,9 @@
     "--kind"
     "--lock"
     "--manifest"
+    "--catalog"
+    "--catalog-cid"
+    "--entry"
     "--output"
     "--package-lock"
     "--policy"
@@ -141,6 +145,8 @@
     "--source-path"
     "--store"
     "--namespace"
+    "--version"
+    "--timeout-ms"
     "--expected-head"
     "--base"
     "--left"
@@ -2035,16 +2041,76 @@
          :lock-output (option-value argv "--lock-output")
          :receipt-path (option-value argv "--receipt")})))))
 
+(defn- positive-timeout [argv]
+  (if-let [text (option-value argv "--timeout-ms")]
+    (try
+      (let [value (Long/parseLong text)]
+        (when (pos? value) value))
+      (catch NumberFormatException _ nil))
+    package-install/default-timeout-ms))
+
+(defn package-add-result
+  "Install a named immutable library release from the public discovery
+  catalog, verifying the complete closure at two independent origins before
+  writing the local CID lock."
+  [argv]
+  (let [timeout-ms (positive-timeout argv)]
+    (if-not timeout-ms
+      {:kotoba.cli/ok? false
+       :kotoba.cli/code :package/timeout-invalid
+       :kotoba.cli/data {:kotoba.package/timeout-ms
+                         (option-value argv "--timeout-ms")}}
+      (try
+        {:kotoba.cli/ok? true
+         :kotoba.cli/code :package/installed
+         :kotoba.cli/data
+         (package-install/install!
+          {:coordinate (nth argv 2 nil)
+           :version (option-value argv "--version")
+           :catalog-url (or (option-value argv "--catalog")
+                            package-install/default-catalog-url)
+           :catalog-cid (option-value argv "--catalog-cid")
+           :lock-path (or (option-value argv "--lock")
+                          package-install/default-lock-path)
+           :root (or (option-value argv "--store")
+                     package-install/default-store-path)
+           :timeout-ms timeout-ms})}
+        (catch clojure.lang.ExceptionInfo e
+          {:kotoba.cli/ok? false
+           :kotoba.cli/code (or (:problem (ex-data e)) :package/install-failed)
+           :kotoba.cli/data (dissoc (ex-data e) :problem)})))))
+
+(defn package-run-result
+  "Execute an entry from an already installed, CID-locked library release."
+  [argv]
+  (try
+    {:kotoba.cli/ok? true
+     :kotoba.cli/code :package/executed
+     :kotoba.cli/data
+     (package-install/run!
+      {:package (nth argv 2 nil)
+       :entry (option-value argv "--entry")
+       :lock-path (or (option-value argv "--lock")
+                      package-install/default-lock-path)
+       :root (or (option-value argv "--store")
+                 package-install/default-store-path)})}
+    (catch clojure.lang.ExceptionInfo e
+      {:kotoba.cli/ok? false
+       :kotoba.cli/code (or (:problem (ex-data e)) :package/run-failed)
+       :kotoba.cli/data (dissoc (ex-data e) :problem)})))
+
 (defn package-result
   "Handle launcher-owned package admission commands."
   [argv]
   (case (second argv)
+    "add" (package-add-result argv)
+    "run" (package-run-result argv)
     "verify" (package-verify-result argv)
     "resolve" (package-resolve-result argv)
     {:kotoba.cli/ok? false
      :kotoba.cli/code :package/unknown-command
      :kotoba.cli/data {:kotoba.package/command (second argv)
-                       :kotoba.package/commands ["verify" "resolve"]
+                       :kotoba.package/commands ["add" "run" "verify" "resolve"]
                        :kotoba.package/usage package-admission/usage}}))
 
 (defn policy-result

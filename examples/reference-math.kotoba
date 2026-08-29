@@ -1,0 +1,3 @@
+(ns reference.math (:export [answer]))
+
+(defn answer [] :i64 42)

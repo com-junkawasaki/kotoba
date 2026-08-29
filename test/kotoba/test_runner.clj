@@ -5,6 +5,7 @@
             [kotoba.test-runner-completeness-test]
             [kotoba.kagi-boundary-test]
             [kotoba.package-admission-test]
+            [kotoba.package-install-test]
             [kotoba.release-build-test]
             [kotoba.wasm-multi-source-map-test]
             [kotoba.wasm-string-literal-operation-test]
@@ -76,6 +77,7 @@
                                         'kotoba.test-runner-completeness-test
                                         'kotoba.kagi-boundary-test
                                         'kotoba.package-admission-test
+                                        'kotoba.package-install-test
                                         'kotoba.release-build-test
                                         'kotoba.wasm-multi-source-map-test
                                         'kotoba.wasm-string-literal-operation-test

@@ -114,16 +114,13 @@
            :value (wasm-exec/run-export bytes export [] [] policy result-type)
            :executed? true)))
 
-(defn verify-availability!
-  "Issue a local proof only after every provider serves every release byte.
+(defn verify-replication!
+  "Verify that every named storage origin serves the exact release closure.
 
-  PROVIDERS carry stable operator-chosen IDs and distinct HTTPS endpoints.
-  The independent delegated router must also observe MIN-NETWORK-PROVIDERS for
-  the release root.  A pinning-service acknowledgement is deliberately not
-  accepted as evidence."
-  [root release-cid providers {:keys [router min-network-providers]
-                               :or {router routing/default-router
-                                    min-network-providers 2}}]
+  This proves byte-complete replication, not network decentralization.  The
+  latter additionally requires distinct routed libp2p peers and is issued by
+  `verify-availability!`."
+  [root release-cid providers]
   (when (< (count providers) 2)
     (fail! :library/independent-providers-required
            {:required 2 :provided (count providers)}))
@@ -133,13 +130,11 @@
                    (= (count endpoints) (count (distinct endpoints))))
       (fail! :library/providers-not-independent
              {:provider-ids ids :endpoints endpoints})))
-  (let [ids (mapv :id providers)
-        endpoints (mapv :endpoint providers)
-        {:keys [blocks artifacts missing]} (store/export-closure root [release-cid])
+  (let [{:keys [blocks artifacts missing]} (store/export-closure root [release-cid])
         _ (when (seq missing)
             (fail! :library/release-incomplete {:missing missing}))
-        expected (concat (map #(assoc % :codec :dag-cbor) blocks)
-                         (map #(assoc % :codec :raw) artifacts))
+        expected (vec (concat (map #(assoc % :codec :dag-cbor) blocks)
+                              (map #(assoc % :codec :raw) artifacts)))
         observations
         (mapv
          (fn [{:keys [id endpoint]}]
@@ -159,7 +154,28 @@
                       cid))
                   expected)]
              {:id id :endpoint endpoint :verified-cids checks}))
-         providers)
+         providers)]
+    {:release-cid release-cid
+     :provider-ids (mapv :id providers)
+     :provider-endpoints (mapv :endpoint providers)
+     :verified-cid-count (count expected)
+     :storage-providers observations
+     :replicated? true}))
+
+(defn verify-availability!
+  "Issue a local proof only after every provider serves every release byte.
+
+  PROVIDERS carry stable operator-chosen IDs and distinct HTTPS endpoints.
+  The independent delegated router must also observe MIN-NETWORK-PROVIDERS for
+  the release root.  A pinning-service acknowledgement is deliberately not
+  accepted as evidence."
+  [root release-cid providers {:keys [router min-network-providers]
+                               :or {router routing/default-router
+                                    min-network-providers 2}}]
+  (let [replication (verify-replication! root release-cid providers)
+        ids (:provider-ids replication)
+        endpoints (:provider-endpoints replication)
+        observations (:storage-providers replication)
         routed (routing/provider-identities release-cid {:router router})
         network-providers (:providers routed)
         network-peer-ids (mapv :peer-id network-providers)]
@@ -177,7 +193,7 @@
                  "providerEndpoints" (vec (sort endpoints))
                  "router" router
                  "networkPeerIds" (vec (sort network-peer-ids))
-                 "verifiedCidCount" (count expected)}
+                 "verifiedCidCount" (:verified-cid-count replication)}
           proof-cid (semantic/block-cid proof)]
       (store/put-block! root proof-cid proof)
       {:qualified? true
