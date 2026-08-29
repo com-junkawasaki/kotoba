@@ -370,6 +370,8 @@ kotoba compile app.kotoba --target web --run      # Node instantiateKotoba (js-k
 kotoba compile app.kotoba --target wasm --run     # kototama.tender for kotoba:cap guests
 kotoba compile --project kotoba-project.edn --target web -o app.mjs # closed multi-module build
 kotoba run path/to/entry.cljk                # CLJ Kotoba source
+kotoba package add kotoba-lang/reference-math@0.1.0 # catalog discovery → 2-origin byte verification → CID lock
+kotoba package run kotoba-lang/reference-math       # execute the locally locked release CID (returns 42)
 kotoba package verify --lock lock.edn --trust trust.edn --json   # package admission gate
 kotoba package verify --lock lock.edn --trust trust.edn \
   --key-register key-register.edn --json   # fold non-active key-register signers into trust
