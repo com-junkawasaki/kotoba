@@ -77,7 +77,7 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "b6f40d506872b0b06a2986677cfe2a1c68a820e2"}
+         :git/sha "663bdf8c2a9fafeac683b15b2428083e5ee44024"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
