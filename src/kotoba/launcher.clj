@@ -141,6 +141,7 @@
     "--catalog"
     "--catalog-cid"
     "--entry"
+    "--fuel"
     "--output"
     "--package-lock"
     "--policy"
@@ -2029,14 +2030,21 @@
 
       :else
       (try
-        (let [manifest-project (when project-path (project-input project-path))
+        (let [fuel-text (option-value argv "--fuel")
+              fuel (when fuel-text (Long/parseLong fuel-text))
+              _ (when (and fuel (not (pos? fuel)))
+                  (throw (ex-info "--fuel must be a positive integer"
+                                  {:phase :compile :option "--fuel" :value fuel-text})))
+              compile-policy (cond-> policy
+                               fuel (assoc-in [:budgets :fuel] fuel))
+              manifest-project (when project-path (project-input project-path))
               discovered-project (when source-root
                                    (project-files/load-closed-graph entry source-root))
               project (or manifest-project discovered-project)
               compiled (if project
                          (compiler/compile-project (:sources project) (:root project) target
-                                                   policy (or (:supply-chain project) {}))
-                         (compiler/compile-source (slurp entry) target policy))]
+                                                   compile-policy (or (:supply-chain project) {}))
+                         (compiler/compile-source (slurp entry) target compile-policy))]
           (if (= target :js-kotoba-v1)
             (do
               (some-> (io/file output) .getParentFile .mkdirs)
@@ -2049,6 +2057,9 @@
                                                       :else :single-file)
                          :project project-path :source-path source-root
                          :policy (:kotoba.policy/path policy-result)
+                         :fuel (or (get-in (:manifest compiled)
+                                           [:kotoba.artifact/limits :fuel])
+                                   (get-in compiled [:limits :fuel]))
                          :output output :target target-name
                          :backend (if (= target :js-kotoba-v1)
                                     :kotoba-script :kotoba-wasm)

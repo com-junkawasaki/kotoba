@@ -40,7 +40,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "a635509e723bc13a2a5628471b138a7983611d55"}
+         :git/sha "1e9b99617871f19fc28fa1bba80fc17544571b64"}
         ;; Direct pin so amu's transitive kotoba-script (ee6a1b7a) cannot keep
         ;; typed-cap-call as an unsupported KIR op on js-kotoba-v1. d4b34e79
         ;; hosts i64 typed-cap-call as callCapability (clock/now).
@@ -86,7 +86,7 @@
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
         {:git/url "https://github.com/kotoba-lang/kotoba-sema.git"
-         :git/sha "a8b0cbb37a4568a5a1061729340fa43c080eedbb"}
+         :git/sha "8676e3d60a8372667b3b427b01d214f7684d443f"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}
