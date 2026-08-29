@@ -368,6 +368,9 @@ kotoba codebase diff --base <c> --left <c> --right <c> --store dir     # list me
 kotoba codebase serve --store dir --port 8080 --namespace-owners owners.edn --write-authorities-file authorities.edn --max-upload-bytes 268435456 --max-principal-upload-bytes 67108864 --max-write-requests 4096 --write-rate-window-ms 60000
 kotoba codebase publish --namespace ns --endpoint URL --store dir --write-token-file token
 kotoba codebase publish --namespace ns --ipns --endpoint URL --store dir --write-token-file token
+kotoba library inspect <name|CID|#hash> --store dir --namespace ns --github https://github.com/org/repo
+kotoba library publish --store dir --namespace ns                 # dry-run: exact graph + identity
+kotoba library publish --store dir --namespace ns --dry-run false # explicit signed-head + IPNS effect
 kotoba codebase follow ns --endpoint URL --publisher did:key:z… --store dir  # pin a publisher, hydrate, accept
 kotoba codebase follow-name k51… --endpoint URL --store dir            # resolve a name through the DHT; no publisher argument
 kotoba codebase unfollow ns --store dir                                # drop the pin; re-following must name a key again
@@ -379,6 +382,18 @@ kotoba codebase inspect <cid> --store dir                              # inspect
 kotoba codebase resolve --store dir --namespace ns <name>              # resolve a name to its current CID
 kotoba codebase merge --store dir --namespace ns --base <cid> --left <cid> --right <cid>  # three-way merge
 ```
+
+`library` is the human-facing publication workflow over this existing
+hash-native codebase; it is not a second registry. `inspect` returns the signed
+release-head CID, definition CIDs, exact dependency CID edges, identity layer,
+and optional GitHub provenance. Names, versions and GitHub locations remain
+discovery/provenance. They do not replace CIDs or authorize publication.
+
+`library publish` is safe by default: without `--dry-run false` it performs no
+network write. Explicit apply reuses the existing local operator identity,
+signed namespace head and IPNS publication path. It links to the public catalog
+at `kotoba-lang.org/libraries/` and the control surface at `kotoba.cloud`, but
+Passkey-hosted publication is not live and is reported as false in the result.
 
 `--typed` selects the identity layer. Without it a definition is hashed from
 the surface IR the codebase normalizes for itself; with it the identity is the

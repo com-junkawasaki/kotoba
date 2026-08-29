@@ -58,6 +58,58 @@
                    (get-in viewed [:kotoba.cli/data :source]))))))
       (finally (delete-tree work)))))
 
+(deftest library-inspect-keeps-names-provenance-and-cids-distinct
+  (let [work (temp-dir "kotoba-library-")
+        store-dir (str work "/store")]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (run "codebase" "add"
+           (scratch! work "(defn double [x] (* x 2))
+                           (defn quadruple [x] (double (double x)))")
+           "--store" store-dir "--namespace" "demo")
+      (let [result (run "library" "inspect" "quadruple"
+                        "--store" store-dir "--namespace" "demo"
+                        "--github" "https://github.com/kotoba-lang/demo")
+            definition (get-in result [:kotoba.cli/data :definitions "quadruple"])]
+        (is (:kotoba.cli/ok? result))
+        (is (= :library/inspected (:kotoba.cli/code result)))
+        (is (string? (get-in result [:kotoba.cli/data :release-cid])))
+        (is (string? (:definition-cid definition)))
+        (is (= ["double"] (get-in definition [:dependencies 0 :names])))
+        (is (= "https://github.com/kotoba-lang/demo"
+               (get-in result [:kotoba.cli/data :provenance :github])))
+        (is (re-find #"namespace=demo"
+                     (get-in result [:kotoba.cli/data :catalog-url]))))
+      (finally (delete-tree work)))))
+
+(deftest library-publish-plans-before-performing-the-existing-ipns-operation
+  (let [work (temp-dir "kotoba-library-publish-")
+        store-dir (str work "/store")
+        seed-hex (apply str (repeat 64 "a"))]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (run "codebase" "add" (scratch! work "(defn answer [] 42)")
+           "--store" store-dir "--namespace" "demo")
+      (let [planned (with-redefs [launcher/signing-seed-hex (constantly seed-hex)]
+                      (run "library" "publish"
+                           "--store" store-dir "--namespace" "demo"))]
+        (is (:kotoba.cli/ok? planned))
+        (is (= :library/publication-planned (:kotoba.cli/code planned)))
+        (is (true? (get-in planned [:kotoba.cli/data :publication :dry-run])))
+        (is (= :local-signed-ipns
+               (get-in planned [:kotoba.cli/data :publication :mode])))
+        (is (false? (get-in planned
+                            [:kotoba.cli/data :publication :hosted-passkey-publish])))
+        (is (string? (get-in planned [:kotoba.cli/data :publication :publisher])))
+        (is (string? (get-in planned [:kotoba.cli/data :publication :ipns-name]))))
+      (let [rejected (with-redefs [launcher/signing-seed-hex (constantly nil)]
+                       (run "library" "publish"
+                            "--store" store-dir "--namespace" "demo"
+                            "--dry-run" "false"))]
+        (is (false? (:kotoba.cli/ok? rejected)))
+        (is (= :codebase/seed-required (:kotoba.cli/code rejected))))
+      (finally (delete-tree work)))))
+
 (deftest an-update-propagates-to-dependents-through-the-cli
   (let [work (temp-dir "kotoba-cli-")
         store-dir (str work "/store")]

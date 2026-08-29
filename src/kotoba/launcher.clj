@@ -45,7 +45,7 @@
             [kototama.contract :as kototama-contract]
             [kototama.tender :as tender])
   (:import [java.io ByteArrayOutputStream File FileInputStream PushbackReader]
-           [java.net URI]
+           [java.net URI URLEncoder]
            [java.net.http HttpClient HttpRequest HttpResponse$BodyHandlers]
            [java.nio ByteBuffer]
            [java.nio.channels FileChannel]
@@ -120,7 +120,7 @@
   (first argv))
 
 (declare source-plan source-extension accepted-source? selfhost-result runtime-result wasm-result cljs-result
-         codebase-result compile-result project-check-result package-result contract-exports)
+         codebase-result library-result compile-result project-check-result package-result contract-exports)
 
 (def source-commands
   #{"run" "check" "compile"})
@@ -618,6 +618,7 @@
                                "cljs" (cljs-result argv)
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
+                               "library" (library-result argv)
                                "identity" (identity-result argv)
                                nil)]
       launcher-result
@@ -723,6 +724,137 @@
    :kotoba.cli/code code
    :kotoba.cli/message (.getMessage ^Exception error)
    :kotoba.cli/data (ex-data error)})
+
+(def library-catalog-origin "https://kotoba-lang.org")
+(def library-control-origin "https://kotoba.cloud")
+
+(defn- query-encode [value]
+  (URLEncoder/encode (str value) StandardCharsets/UTF_8))
+
+(defn- library-catalog-url [namespace]
+  (str library-catalog-origin "/libraries/?namespace=" (query-encode namespace)))
+
+(defn- library-descriptor
+  "Describe one content-addressed namespace without turning its human name into
+  identity. The namespace head is the release graph; every selected definition
+  and dependency remains an exact CID. GitHub, when supplied, is provenance
+  only and cannot authorize publication or replace a CID."
+  [root namespace subject github]
+  (let [head (semantic-codebase/head root namespace)]
+    (when-not head
+      (throw (ex-info "library namespace has no head"
+                      {:problem :library/namespace-not-found
+                       :namespace namespace})))
+    (let [bindings (:bindings (semantic-codebase/namespace-view root head))
+          selected (if subject
+                     (let [{:keys [cid name resolved-by scope]}
+                           (codebase-names/resolve-token root namespace subject)]
+                       {(or name subject) {:cid cid
+                                           :resolved-by resolved-by
+                                           :scope scope}})
+                     (into (sorted-map)
+                           (map (fn [[name cid]] [name {:cid cid :resolved-by :namespace}]))
+                           bindings))
+          definitions
+          (into
+           (sorted-map)
+           (map (fn [[name {:keys [cid resolved-by scope]}]]
+                  (let [block (semantic-codebase/get-block root cid)]
+                    [name (cond-> {:definition-cid cid
+                                   :identity-layer (if (codebase-typed/typed-block? block)
+                                                     :checked-kir
+                                                     :semantic)
+                                   :resolved-by resolved-by
+                                   :dependencies (codebase-names/dependencies
+                                                  root namespace cid)}
+                            scope (assoc :resolution-scope scope))])))
+           selected)]
+      (cond->
+       {:schema "https://kotoba-lang.org/schemas/library-publication/v1"
+        :namespace namespace
+        :release-cid head
+        :catalog-url (library-catalog-url namespace)
+        :control-url (str library-control-origin "/#libraries")
+        :definitions definitions
+        :identity-note "Names and GitHub locations are discovery and provenance; CIDs identify content."}
+        github (assoc :provenance {:github github})))))
+
+(defn- remove-value-options [argv options]
+  (loop [remaining (seq argv) result []]
+    (if-let [token (first remaining)]
+      (if (contains? options token)
+        (recur (nnext remaining) result)
+        (recur (next remaining) (conj result token)))
+      result)))
+
+(defn library-result
+  "Human-facing library workflow over the existing hash-native codebase.
+
+  `inspect` projects a namespace or one name/CID as a dependency descriptor.
+  `publish` is dry-run by default. Explicit apply delegates to the existing
+  signed-head + IPNS implementation; this command does not invent a second
+  registry or pretend the not-yet-live Passkey hosted publisher exists."
+  [argv]
+  (let [[_ action subject] argv
+        root (option-value argv "--store")
+        namespace (option-value argv "--namespace")
+        github (option-value argv "--github")
+        dry-run? (not= "false" (option-value argv "--dry-run"))]
+    (cond
+      (not (#{"inspect" "publish"} action))
+      {:kotoba.cli/ok? false :kotoba.cli/code :library/unknown-command}
+
+      (nil? root)
+      {:kotoba.cli/ok? false :kotoba.cli/code :library/store-required}
+
+      (nil? namespace)
+      {:kotoba.cli/ok? false :kotoba.cli/code :library/namespace-required}
+
+      (= "inspect" action)
+      (try
+        {:kotoba.cli/ok? true
+         :kotoba.cli/code :library/inspected
+         :kotoba.cli/data (library-descriptor root namespace subject github)}
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :library/inspect-failed error)))
+
+      dry-run?
+      (try
+        (let [descriptor (library-descriptor root namespace nil github)
+              seed-hex (signing-seed-hex)
+              identity (when (and seed-hex (= 64 (count seed-hex)))
+                         (operator-identity/public-identity seed-hex))]
+          {:kotoba.cli/ok? true
+           :kotoba.cli/code :library/publication-planned
+           :kotoba.cli/data
+           (assoc descriptor
+                  :publication
+                  (cond-> {:dry-run true
+                           :mode :local-signed-ipns
+                           :storage-origin "https://kotobase.net"
+                           :hosted-passkey-publish false
+                           :apply-flag "--dry-run false"}
+                    identity (assoc :publisher (:publisher identity)
+                                    :ipns-name (:ipns-name identity))
+                    (nil? identity) (assoc :identity-required true)))})
+        (catch clojure.lang.ExceptionInfo error
+          (codebase-error :library/publish-plan-failed error)))
+
+      :else
+      (let [cleaned (remove-value-options argv #{"--dry-run" "--github"})
+            delegated (vec (concat ["codebase" "publish"]
+                                   (drop 2 cleaned)
+                                   (when-not (some #{"--ipns"} cleaned) ["--ipns"])))
+            result (codebase-result delegated)]
+        (if-not (:kotoba.cli/ok? result)
+          result
+          (update result :kotoba.cli/data
+                  merge
+                  {:library-namespace namespace
+                   :catalog-url (library-catalog-url namespace)
+                   :control-url (str library-control-origin "/#libraries")
+                   :publication-mode :local-signed-ipns
+                   :hosted-passkey-publish false}))))))
 
 (defn- read-arguments
   "Positional arguments after `--` for `codebase run`.

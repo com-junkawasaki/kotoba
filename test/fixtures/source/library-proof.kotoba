@@ -1,0 +1,5 @@
+(defn double [value]
+  (* value 2))
+
+(defn quadruple [value]
+  (double (double value)))
