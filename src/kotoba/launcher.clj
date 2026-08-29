@@ -128,7 +128,7 @@
   (first argv))
 
 (declare source-plan source-extension accepted-source? selfhost-result runtime-result wasm-result cljs-result
-         codebase-result library-result crypto-result compile-result project-check-result package-result contract-exports)
+         codebase-result library-result pq-key-result crypto-result compile-result project-check-result package-result contract-exports)
 
 (def source-commands
   #{"run" "check" "compile"})
@@ -752,6 +752,7 @@
                                "package" (package-result argv)
                                "codebase" (codebase-result argv)
                                "library" (library-result argv)
+                               "pq-key" (pq-key-result argv)
                                "crypto" (crypto-result argv)
                                "identity" (identity-result argv)
                                "id" (when (contains? #{nil "show"} (identity-action argv))
@@ -942,6 +943,58 @@
                                  (.getBytes (json/write-str envelope)
                                             StandardCharsets/UTF_8))]
     (str library-control-origin "/#publish=" encoded)))
+
+(defn- read-pq-seed [path]
+  (when-not path
+    (throw (ex-info "PQ seed file is required" {:problem :pq-key/seed-required})))
+  (let [seed-hex (str/trim (slurp path))]
+    (when-not (re-matches #"[0-9a-f]{64}" seed-hex)
+      (throw (ex-info "invalid PQ seed" {:problem :pq-key/seed-invalid})))
+    (ed25519/unhex seed-hex)))
+
+(defn- pq-key-approval-url [action current-seed next-seed expected-epoch]
+  (let [issued-at (java.time.Instant/now)
+        current-key (passkey-pqc/key-info current-seed)
+        next-key (when next-seed (passkey-pqc/key-info next-seed))
+        request (cond-> {:schema passkey-pqc/transition-schema
+                         :transitionId (str (java.util.UUID/randomUUID))
+                         :issuedAt (str issued-at)
+                         :expiresAt (str (.plusSeconds issued-at 600))
+                         :action action
+                         :expectedEpoch expected-epoch
+                         :currentKeyId (:key-id current-key)}
+                  next-key (assoc :nextKeyId (:key-id next-key)))
+        envelope (cond-> (assoc request :currentApproval
+                               (passkey-pqc/transition-approval request current-seed))
+                   next-seed (assoc :nextApproval
+                                    (passkey-pqc/transition-approval request next-seed)))
+        encoded (.encodeToString (.withoutPadding (Base64/getUrlEncoder))
+                                 (.getBytes (json/write-str envelope)
+                                            StandardCharsets/UTF_8))]
+    (str library-control-origin "/#pq-key-transition=" encoded)))
+
+(defn pq-key-result [argv]
+  (let [[_ action] argv]
+    (try
+      (when-not (contains? #{"rotate" "revoke"} action)
+        (throw (ex-info "unknown PQ key command" {:problem :pq-key/unknown-command})))
+      (let [epoch-text (option-value argv "--expected-epoch")
+            _ (when-not epoch-text
+                (throw (ex-info "expected epoch is required"
+                                {:problem :pq-key/expected-epoch-required})))
+            epoch (positive-long-option argv "--expected-epoch" 1)
+            current-seed (read-pq-seed (option-value argv "--current-pqc-seed-file"))
+            next-seed (when (= "rotate" action)
+                        (read-pq-seed (option-value argv "--next-pqc-seed-file")))]
+        {:kotoba.cli/ok? true
+         :kotoba.cli/code :pq-key/passkey-approval-required
+         :kotoba.cli/data {:action (keyword action)
+                           :expected-epoch epoch
+                           :approval-url (pq-key-approval-url action current-seed next-seed epoch)
+                           :confirmation :passkey-required}})
+      (catch Exception error
+        {:kotoba.cli/ok? false
+         :kotoba.cli/code (or (:problem (ex-data error)) :pq-key/rejected)}))))
 
 (defn- release-cid-from [subject]
   (when subject

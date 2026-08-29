@@ -448,6 +448,10 @@ kotoba codebase unfollow ns --store dir                                # drop th
 kotoba identity new                                                    # write the shared local operator seed (did:key only)
 kotoba identity                                                        # the DID that seed derives (env overrides the file)
 kotoba crypto approval-keygen --secret ml-dsa.seed                     # mode 0600; public key fingerprint is returned
+kotoba pq-key rotate --current-pqc-seed-file ml-dsa.seed \
+  --next-pqc-seed-file ml-dsa-next.seed --expected-epoch 1             # opens Passkey confirmation
+kotoba pq-key revoke --current-pqc-seed-file ml-dsa-next.seed \
+  --expected-epoch 2                                                    # opens Passkey confirmation
 kotoba crypto keygen --public recipient.edn --secret recipient.secret.edn
 kotoba crypto seal --in artifact.bin --recipient recipient.edn --out artifact.envelope.edn
 kotoba crypto open --in artifact.envelope.edn --secret recipient.secret.edn --out artifact.bin
@@ -489,6 +493,14 @@ Publication request schema v3 also signs a random single-use request ID,
 issuance/expiry timestamps, and a monotonic `--pqc-key-epoch` (default `1`).
 Kotoba Cloud atomically consumes that ID; replay, expiry, or an old epoch is a
 hard failure before the Kotobase relay.
+
+`pq-key rotate` signs one short-lived transition payload with both the current
+and next ML-DSA-65 keys; `pq-key revoke` signs it with the current key. Neither
+command sends a seed. Each returns a fragment-only kotoba.cloud URL, where the
+same Principal must explicitly confirm with Passkey. Rotation increments the
+key epoch atomically, revocation fails future publication closed, and exact
+transition IDs cannot be replayed. Independent recovery quorum and an
+externally witnessed transparency log remain separate, not-yet-live gates.
 
 `kotoba crypto` provides a separate fail-closed data-encryption envelope. It
 combines X25519 and ML-KEM-768 and uses the transcript-bound hybrid secret with

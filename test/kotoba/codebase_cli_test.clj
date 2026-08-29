@@ -182,6 +182,72 @@
           (is (= :library/pqc-seed-required (:kotoba.cli/code result)))))
       (finally (delete-tree work)))))
 
+(defn- approval-envelope [result marker]
+  (let [url (get-in result [:kotoba.cli/data :approval-url])
+        encoded (subs url (+ (.indexOf url marker) (count marker)))]
+    (json/read-str
+     (String. (.decode (java.util.Base64/getUrlDecoder) encoded) "UTF-8"))))
+
+(deftest pq-key-rotation-requires-current-and-next-key-approval
+  (let [work (temp-dir "kotoba-pq-key-rotate-")
+        current (java.io.File. work "current.seed")
+        next-key (java.io.File. work "next.seed")]
+    (try
+      (spit current (apply str (repeat 64 "b")))
+      (spit next-key (apply str (repeat 64 "c")))
+      (let [result (run "pq-key" "rotate"
+                        "--current-pqc-seed-file" (str current)
+                        "--next-pqc-seed-file" (str next-key)
+                        "--expected-epoch" "3")
+            envelope (approval-envelope result "#pq-key-transition=")]
+        (is (:kotoba.cli/ok? result))
+        (is (= :pq-key/passkey-approval-required (:kotoba.cli/code result)))
+        (is (= "https://kotoba.cloud/schemas/pq-key-transition-request/v1"
+               (get envelope "schema")))
+        (is (= "rotate" (get envelope "action")))
+        (is (= 3 (get envelope "expectedEpoch")))
+        (is (= (get envelope "currentKeyId")
+               (get-in envelope ["currentApproval" "keyId"])))
+        (is (= (get envelope "nextKeyId")
+               (get-in envelope ["nextApproval" "keyId"])))
+        (is (= (get-in envelope ["currentApproval" "payload"])
+               (get-in envelope ["nextApproval" "payload"])))
+        (is (not= (get-in envelope ["currentApproval" "signature"])
+                  (get-in envelope ["nextApproval" "signature"]))))
+      (finally (delete-tree work)))))
+
+(deftest pq-key-revocation-requires-current-key-approval
+  (let [work (temp-dir "kotoba-pq-key-revoke-")
+        current (java.io.File. work "current.seed")]
+    (try
+      (spit current (apply str (repeat 64 "d")))
+      (let [result (run "pq-key" "revoke"
+                        "--current-pqc-seed-file" (str current)
+                        "--expected-epoch" "4")
+            envelope (approval-envelope result "#pq-key-transition=")]
+        (is (:kotoba.cli/ok? result))
+        (is (= "revoke" (get envelope "action")))
+        (is (= 4 (get envelope "expectedEpoch")))
+        (is (= (get envelope "currentKeyId")
+               (get-in envelope ["currentApproval" "keyId"])))
+        (is (nil? (get envelope "nextKeyId")))
+        (is (nil? (get envelope "nextApproval"))))
+      (finally (delete-tree work)))))
+
+(deftest pq-key-transition-rejects-incomplete-cli-input
+  (let [work (temp-dir "kotoba-pq-key-reject-")
+        current (java.io.File. work "current.seed")]
+    (try
+      (spit current (apply str (repeat 64 "e")))
+      (is (= :pq-key/expected-epoch-required
+             (:kotoba.cli/code
+              (run "pq-key" "revoke" "--current-pqc-seed-file" (str current)))))
+      (is (= :pq-key/seed-required
+             (:kotoba.cli/code
+              (run "pq-key" "rotate" "--current-pqc-seed-file" (str current)
+                   "--expected-epoch" "1"))))
+      (finally (delete-tree work)))))
+
 (deftest crypto-cli-generates-keys-and-round-trips-a-hybrid-envelope
   (let [work (temp-dir "kotoba-crypto-cli-")
         approval-secret (str work "/approval.seed")
