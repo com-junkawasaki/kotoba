@@ -2,7 +2,7 @@
   "Build-time construction of an unsigned, fully bound implementation release
   envelope. Signing remains in kotoba-lang/release and receives its seed only
   on stdin."
-  (:require [clojure.data.json :as json]
+  (:require [json.data-json :as json]
             [clojure.edn :as edn]
             [clojure.java.shell :as shell]
             [clojure.string :as str]

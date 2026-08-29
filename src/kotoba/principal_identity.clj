@@ -5,7 +5,7 @@
   public projection after the signed-in user approves the displayed device
   code; no Passkey private key, session cookie, wallet seed, or bearer token
   is written here."
-  (:require [clojure.data.json :as json]
+  (:require [json.data-json :as json]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str])

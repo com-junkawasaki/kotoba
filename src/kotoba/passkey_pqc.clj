@@ -1,6 +1,6 @@
 (ns kotoba.passkey-pqc
   "ML-DSA-65 approval bound to one hosted Passkey publication request."
-  (:require [clojure.data.json :as json]
+  (:require [json.data-json :as json]
             [kotoba.package-pqc :as package-pqc]
             [kotoba.lang.pqh.pq :as pq]
             [kotoba.lang.pqh.pq-bc :as pq-bc])
