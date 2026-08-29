@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests testing]]
             [kotoba.launcher :as launcher]
+            [kotoba.package-install :as package-install]
             [kotoba.principal-identity :as principal-identity]
             [kotoba.runtime :as runtime]))
 
@@ -15,6 +16,25 @@
 ;; kotoba.security.package-admission-test's positive-lock/trust).
 (def positive-lock "test/fixtures/package/positive-lock.edn")
 (def trust "test/fixtures/package/trust.edn")
+
+(deftest package-add-and-run-dispatch-to-cid-installer
+  (with-redefs [package-install/install!
+                (fn [opts]
+                  {:installed? true :coordinate (:coordinate opts)
+                   :catalog (:catalog-url opts) :timeout-ms (:timeout-ms opts)})
+                package-install/run!
+                (fn [opts] {:package (:package opts) :entry (:entry opts)
+                            :execution {:value 42}})]
+    (let [added (launcher/dispatch
+                 ["package" "add" "kotoba-lang/reference-math@0.1.0"
+                  "--catalog" "https://catalog.example/registry.edn"
+                  "--timeout-ms" "1000"])
+          run (launcher/dispatch
+               ["package" "run" "kotoba-lang/reference-math" "--entry" "answer"])]
+      (is (= :package/installed (:kotoba.cli/code added)))
+      (is (= 1000 (get-in added [:kotoba.cli/data :timeout-ms])))
+      (is (= :package/executed (:kotoba.cli/code run)))
+      (is (= 42 (get-in run [:kotoba.cli/data :execution :value]))))))
 
 (def ^:private node-validate-source
   "Refuse any module the WebAssembly spec validator rejects. V8's validator
