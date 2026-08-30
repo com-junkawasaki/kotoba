@@ -5,6 +5,7 @@
             [clojure.java.shell :as shell]
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests testing]]
+            [kotoba.kbb :as kbb]
             [kotoba.launcher :as launcher]
             [kotoba.package-install :as package-install]
             [kotoba.principal-identity :as principal-identity]
@@ -17,6 +18,105 @@
 ;; kotoba.security.package-admission-test's positive-lock/trust).
 (def positive-lock "test/fixtures/package/positive-lock.edn")
 (def trust "test/fixtures/package/trust.edn")
+
+(defn- delete-tree!
+  [^java.io.File root]
+  (doseq [file (reverse (file-seq root))]
+    (.delete ^java.io.File file)))
+
+(deftest kbb-admits-only-explicitly-governed-kotoba-source
+  (is (= :kbb/usage (:kotoba.cli/code (kbb/dispatch []))))
+  (is (= :kbb/source-extension-denied
+         (:kotoba.cli/code (kbb/dispatch ["script.cljs" "--policy" "policy.edn"]))))
+  (is (= :kbb/policy-required
+         (:kotoba.cli/code (kbb/dispatch ["script.kotoba"]))))
+  (is (= :kbb/unsupported-option
+         (:kotoba.cli/code
+          (kbb/dispatch ["script.kotoba" "--policy" "policy.edn" "--reader-target" "cljs"]))))
+  (is (= :kbb/script-arguments-unsupported
+         (:kotoba.cli/code
+          (kbb/dispatch ["script.kotoba" "--policy" "policy.edn" "ambient-arg"])))))
+
+(deftest kbb-rejects-wildcard-and-unhosted-capability-policies
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kbb-policy-test"
+                    (into-array java.nio.file.attribute.FileAttribute [])))
+        source (io/file directory "script.kotoba")
+        wildcard (io/file directory "wildcard.edn")
+        unhosted (io/file directory "unhosted.edn")]
+    (try
+      (spit source "(ns example)(defn main [] 42)")
+      (spit wildcard
+            (pr-str {:kotoba.policy/capabilities #{:fs/app-data}
+                     :kotoba.policy/forbid-wildcard true
+                     :kotoba.policy/capability-resources {:fs/app-data :any}}))
+      (spit unhosted
+            (pr-str {:kotoba.policy/capabilities #{:clock/monotonic}
+                     :kotoba.policy/forbid-wildcard true}))
+      (is (= :kbb/wildcard-resource-denied
+             (:kotoba.cli/code
+              (kbb/dispatch [(.getPath source) "--policy" (.getPath wildcard)]))))
+      (is (= :kbb/capability-not-hosted
+             (:kotoba.cli/code
+              (kbb/dispatch [(.getPath source) "--policy" (.getPath unhosted)]))))
+      (finally (delete-tree! directory)))))
+
+(deftest kbb-runs-scoped-filesystem-kotoba-without-an-nbb-fallback
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kbb-scoped-fs"
+                    (into-array java.nio.file.attribute.FileAttribute [])))
+        source (io/file directory "copy.kotoba")
+        policy (io/file directory "policy.edn")
+        input (io/file directory "input.txt")
+        output (io/file directory "output.txt")]
+    (try
+      (spit input "hello kbb")
+      (spit source
+            (str "(ns kbb-copy)\n"
+                 "(defn main []\n"
+                 "  (let [content (fs-read " (pr-str (.getPath input)) ")\n"
+                 "        _written (fs-write " (pr-str (.getPath output)) " content)]\n"
+                 "    (count content)))\n"))
+      (spit policy
+            (pr-str {:kotoba.policy/capabilities #{:fs/app-data}
+                     :kotoba.policy/forbid-wildcard true
+                     :kotoba.policy/capability-resources
+                     {:fs/app-data #{(.getPath input) (.getPath output)}}}))
+      (let [executed (kbb/dispatch [(.getPath source) "--policy" (.getPath policy)])]
+        (is (true? (:kotoba.cli/ok? executed)))
+        (is (= :run/completed (:kotoba.cli/code executed)))
+        (is (= 9 (get-in executed [:kotoba.cli/data
+                                   :kotoba.runtime/result
+                                   :kotoba.runtime/value])))
+        (is (= "hello kbb" (slurp output)))
+        (is (= :bootstrap-jvm (get-in executed [:kotoba.cli/data :kotoba.kbb/host])))
+        (is (false? (get-in executed [:kotoba.cli/data :kotoba.kbb/nbb-loaded?]))))
+      (finally (delete-tree! directory)))))
+
+(deftest kbb-denies-out-of-scope-files-before-writing
+  (let [directory (.toFile
+                   (java.nio.file.Files/createTempDirectory
+                    "kbb-denial"
+                    (into-array java.nio.file.attribute.FileAttribute [])))
+        source (io/file directory "write.kotoba")
+        policy (io/file directory "policy.edn")
+        allowed (io/file directory "allowed.txt")
+        denied (io/file directory "denied.txt")]
+    (try
+      (spit source
+            (str "(ns kbb-denial)\n"
+                 "(defn main [] (fs-write " (pr-str (.getPath denied)) " \"must-not-land\"))\n"))
+      (spit policy
+            (pr-str {:kotoba.policy/capabilities #{:fs/app-data}
+                     :kotoba.policy/forbid-wildcard true
+                     :kotoba.policy/capability-resources
+                     {:fs/app-data #{(.getPath allowed)}}}))
+      (let [executed (kbb/dispatch [(.getPath source) "--policy" (.getPath policy)])]
+        (is (false? (:kotoba.cli/ok? executed)))
+        (is (not (.exists denied))))
+      (finally (delete-tree! directory)))))
 
 (deftest package-add-and-run-dispatch-to-cid-installer
   (with-redefs [package-install/install!

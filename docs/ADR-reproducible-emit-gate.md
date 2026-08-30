@@ -69,19 +69,18 @@ The two that do not emit today:
 
 | source | reason |
 | --- | --- |
-| `src/demo_kbb_fs_report.kotoba` | `:unknown-form "str"` — the legacy emitter has no number-to-string primitive, so `(str n)` cannot lower. A language gap, not a policy question |
+| `src/demo_kbb_fs_report.kotoba` | `:wasm/binary-unsupported` — the checker passes, but the legacy Wasm binary emitter cannot lower the filesystem host ABI used by this kbb demo |
 | `src/demo_string_host_sugar.kotoba` | `:wasm/binary-unsupported` — the checker **passes** and the L2 sugar lowers to `(sha256-hex (str-ptr "") (str-len ""))`; the full `sha256-hex` ABI still needs out-buffer params after the input head, which is what the source's own comment says |
 
 `src/q8_capability_port.kotoba` emits since `q8_capability_port_policy.edn`
 granted the `graph/kotoba` its `kgraph-assert!` needs.
 
 These are recorded, not hidden. "This source needs `fs/app-data` and nothing
-grants it" and "this source hits `:unknown-form`" are different facts with
-different owners; an opaque code collapses them, and that is how a gate ends up
-locking in a baseline nobody reviewed. `:unknown-forms` extends the same
-reasoning one level down: `[:unknown-form]` says a primitive is missing without
-saying which, so the record cannot tell anyone what to implement — `["str"]`
-can.
+grants it" and "this source reaches a host ABI the binary emitter cannot lower"
+are different facts with different owners; an opaque code collapses them, and
+that is how a gate ends up locking in a baseline nobody reviewed.
+`:unknown-forms` preserves the same rule for any future checker rejection:
+`[:unknown-form]` alone is not enough; the missing primitive must be named.
 
 ### Usage
 
