@@ -412,7 +412,8 @@ kotoba package resolve --registry-cid bafkrei... --requests requests.edn \
 kotoba wasm emit cell.kotoba --policy policy.edn --package-lock lock.edn -o cell.wasm  # capability-confined build, see Language below
 kotoba wasm run cell.kotoba --policy policy.edn --package-lock lock.edn                # source: admission + wasm-exec
 kotoba wasm run cell.wasm                                                              # kotoba:cap artifact: tender; else refused
-kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs                      # ClojureScript source, see Language below
+bin/kbb script.kotoba --policy policy.edn --json                                       # grant-scoped Kotoba script; no nbb/CLJS fallback
+kotoba cljs emit cell.kotoba --package-lock lock.edn -o cell.cljs                      # deprecated compatibility output only
 kotoba codebase init --store dir                                       # content-addressed codebase store
 kotoba codebase add scratch.kotoba --store dir --namespace ns          # compile a scratch buffer in, propagating to dependents
 kotoba codebase add scratch.kotoba --typed --store dir --namespace ns  # hash the definition from the compiler's checked KIR
@@ -679,11 +680,36 @@ package admission gate always runs first, and a missing or rejected lock aborts
 the build/run with the admission receipt in the error payload — there is no way
 to opt out (F-001).
 
+### `kbb` — deny-by-default Kotoba scripts
+
+`bin/kbb` is the first executable replacement slice for nbb-hosted operational
+scripts. It accepts one `.kotoba` file and an explicit policy:
+
+```bash
+bin/kbb src/demo_kbb_fs_report.kotoba \
+  --policy src/demo_kbb_fs_report_policy.edn --json
+```
+
+The v1 boundary is intentionally small. The policy must set
+`:kotoba.policy/forbid-wildcard true`; only exact resource-scoped
+`:fs/app-data` is hosted. `.clj`, `.cljc`, `.cljs`, inline eval, reader-target
+overrides, script arguments, unscoped filesystem access, and capabilities with
+no real kbb provider fail before execution. Every host call still crosses the
+ordinary static capability/effect gate and produces the ordinary receipt.
+
+This first command uses the JVM launcher as an explicitly named
+`:bootstrap-jvm` host. It does not load nbb or ClojureScript, and this repo no
+longer declares `org.clojure/clojurescript`; it is not yet a self-hosted native
+kbb. Process, git, named-secret, and deploy capabilities must be added one
+vertical slice at a time with real providers and denial tests before their nbb
+consumers move.
+
 `cljs emit` currently compiles a NARROW backend slice of `.kotoba` (arithmetic/comparison/
 boolean forms, `pair`, map `get`/`assoc` — the ops ADR-2607150000's
 narrow-slice governor ports actually use) to plain ClojureScript source text,
 not a WASM binary — a second execution target alongside `wasm`, added in
-ADR-2607151500 addendum 6. There is no `cljs run`: the emitted source is meant
+ADR-2607151500 addendum 6. It is now a deprecated compatibility output, not the
+safe scripting path. There is no `cljs run`: the emitted source is meant
 to be `require`d by a real cljs host (nbb, a browser bundle, Node), not
 executed in-process by this JVM launcher. i64/f32/bitwise/string/memory/
 capability ops are valid `.kotoba` (and pass the same `check` gate `wasm emit`
@@ -751,8 +777,9 @@ above (contract delta vs the current `lang/cli.edn` pin).
   `instantiateKotoba` (capability 7 / clock hosted; other kit ids refused).
   `compile --target wasm --run` and `wasm run <file.wasm>` of a `kotoba:cap`
   guest use kototama.tender. Source `.kotoba` `wasm run` stays on
-  `wasm-exec`. Kit `:wasm-aot` stays pending. The launcher is still JVM
-  (`kbb` does not exist).
+  `wasm-exec`. Kit `:wasm-aot` stays pending. The launcher and kbb v1 bootstrap
+  host are still JVM; `bin/kbb` exists but is not yet a self-hosted native
+  executable.
   `kotoba -e '(+ 1 2)'` is compile-and-run
   sugar (wraps the expression as an exported `main`, compiles Kotoba → core
   Wasm, runs it) — not a runtime `eval`. Amu additionally emits sealed KEXE

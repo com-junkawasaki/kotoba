@@ -26,10 +26,14 @@
               (vals (:emit-digests/wasm (repro/read-manifest))))))
 
 (deftest an-unknown-form-is-named-not-just-counted
-  (let [entry (get-in (repro/read-manifest)
-                      [:emit-digests/wasm "src/demo_kbb_fs_report.kotoba"])]
-    (is (= [:unknown-form] (:problem-kinds entry)))
-    (is (= ["str"] (:unknown-forms entry))
+  (let [detail (repro/failure-detail
+                {:kotoba.cli/data
+                 {:kotoba.runtime/result
+                  {:kotoba.runtime/problems
+                   [{:kotoba.runtime/problem :unknown-form
+                     :kotoba.runtime/form "future-primitive"}]}}})]
+    (is (= [:unknown-form] (:problem-kinds detail)))
+    (is (= ["future-primitive"] (:unknown-forms detail))
         "a record that says a primitive is missing without saying which one
          cannot tell anyone what to implement")))
 

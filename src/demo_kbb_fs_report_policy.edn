@@ -1,8 +1,9 @@
 ;; Grants exactly :fs/app-data (the single contract capability shared by
 ;; fs-read/fs-write, kotoba-core-contracts capability_contract.edn), scoped
 ;; to exactly the two paths demo_kbb_fs_report.kotoba touches -- least
-;; privilege, not a wildcard grant. Paths are relative to the `kotoba run`
-;; invocation's cwd (repo root), matching the source file.
+;; privilege, not a wildcard grant. Paths are relative to the bootstrap kbb
+;; home (the repo root in this first slice), matching the source file.
 {:kotoba.policy/capabilities #{:fs/app-data}
+ :kotoba.policy/forbid-wildcard true
  :kotoba.policy/capability-resources
  {:fs/app-data #{"src/demo_kbb_fixture.txt" "demo_kbb_report.txt"}}}

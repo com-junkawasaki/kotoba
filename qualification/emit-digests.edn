@@ -151,9 +151,7 @@
                  "sha256:08625af153cbc01b64d2b2275f478601b3bb43b24196953f7b643438b82c4d18"},
                 "src/demo_kbb_fs_report.kotoba"
                 {:policy "src/demo_kbb_fs_report_policy.edn",
-                 :unsupported :wasm/check-failed,
-                 :problem-kinds [:unknown-form],
-                 :unknown-forms ["str"]},
+                 :unsupported :wasm/binary-unsupported},
                 "src/demo_kgraph.kotoba"
                 {:policy "src/demo_kgraph_policy.edn",
                  :digest

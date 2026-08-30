@@ -10,18 +10,18 @@
 ;; a single literal path each -- there is no directory-listing host-import
 ;; op yet. This is a deliberate v0.1 scope reduction, not an oversight.
 ;;
-;; Reads src/demo_kbb_fixture.txt (relative to the `kotoba run` invocation's
-;; cwd, exactly like a real ops script resolves paths against the caller's
-;; cwd, not its own script location), counts its bytes, and writes that
-;; count as a decimal string to demo_kbb_report.txt -- a REAL round trip
+;; Reads src/demo_kbb_fixture.txt (relative to the bootstrap kbb home, which is
+;; the repository root in this first slice), copies the bounded report body to
+;; demo_kbb_report.txt, and returns its byte count -- a REAL round trip
 ;; through kotoba.host-providers/default-handlers' now-real fs-read/fs-write
 ;; handlers (previously 0-returning stubs), guarded by a --policy granting
 ;; exactly :fs/app-data (the one capability both ops share), scoped to
-;; exactly these two paths.
+;; exactly these two paths. An installed caller-cwd-preserving package is not
+;; claimed yet.
 (ns demo-kbb-fs-report)
 
 (defn main []
   (let [content (fs-read "src/demo_kbb_fixture.txt")
         n (count content)
-        _written (fs-write "demo_kbb_report.txt" (str n))]
+        _written (fs-write "demo_kbb_report.txt" content)]
     n))
