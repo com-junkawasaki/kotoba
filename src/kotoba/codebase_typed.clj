@@ -18,6 +18,9 @@
             [kotoba.compiler.project :as project]
             [kotoba.kir :as kir]))
 
+(def default-eval-fuel typed-eval/default-fuel)
+(def default-eval-depth typed-eval/default-eval-depth)
+
 (defn source->kir
   "Check and lower SOURCE, returning the KIR a definition identity is taken from.
 
@@ -79,3 +82,14 @@
   "Execute a KIR-derived definition through the language oracle."
   ([root cid args] (typed-eval/invoke root cid args {}))
   ([root cid args opts] (typed-eval/invoke root cid args opts)))
+
+(defn admit-eval
+  "Bind a checked definition, its interface/effects, and execution limits."
+  ([root cid] (typed-eval/admit root cid {}))
+  ([root cid opts] (typed-eval/admit root cid opts)))
+
+(defn invoke-admitted
+  "Execute a previously admitted definition and return result identity evidence."
+  ([root admission args] (typed-eval/invoke-admitted root admission args {}))
+  ([root admission args opts]
+   (typed-eval/invoke-admitted root admission args opts)))

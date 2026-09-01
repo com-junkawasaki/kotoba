@@ -2,7 +2,8 @@
   "Fail-closed X25519 + ML-KEM-768 hybrid encryption envelopes."
   (:require [clojure.edn :as edn]
             [kotoba.lang.pqh.pq :as pq]
-            [kotoba.lang.pqh.pq-bc :as pq-bc])
+            [kotoba.lang.pqh.pq-bc :as pq-bc]
+            [kotoba.security.crypto-policy :as crypto-policy])
   (:import [java.security MessageDigest SecureRandom]
            [java.util Base64]
            [javax.crypto Cipher]
@@ -11,6 +12,19 @@
 (def schema :kotoba.hybrid-envelope/v1)
 (def suite :x25519+ml-kem-768+aes-256-gcm)
 
+(def ^:private production-crypto-policy
+  {:kotoba.security/crypto-policy-version 1
+   :mode :hybrid-required
+   :hybrid-epoch-floor 1})
+
+(def ^:private production-envelope-metadata
+  {:envelope/provider {:provider/id :bouncy-castle-pqc
+                       :provider/fips-validated false}
+   :envelope/algorithms [:x25519 :ml-kem-768 :aes-256-gcm]
+   :envelope/kem? true
+   :envelope/hybrid? true
+   :envelope/epoch 1})
+
 (defn- secure-random
   "Create the CSPRNG at operation time so native-image never captures a
    build-host seed in its image heap."
@@ -18,6 +32,16 @@
   (SecureRandom.))
 
 (defn- fail! [problem] (throw (ex-info (name problem) {:problem problem})))
+
+(defn- require-production-suite!
+  []
+  (let [decision (crypto-policy/check-production-envelope
+                  production-crypto-policy production-envelope-metadata)]
+    (when-not (:valid? decision)
+      (throw (ex-info "hybrid envelope rejected by shared crypto policy"
+                      {:problem :crypto/policy-rejected
+                       :decision decision})))))
+
 (defn- b64 [^bytes value] (.encodeToString (Base64/getUrlEncoder) value))
 (defn- unb64 [value]
   (when-not (string? value) (fail! :crypto/envelope-incomplete))
@@ -40,6 +64,7 @@
                 :ml-kem-768-secret-key (b64 (:mlkem-secret-key secret-bundle))}})))
 
 (defn- public-bundle [recipient]
+  (require-production-suite!)
   (when-not (and (= schema (:schema recipient)) (= suite (:suite recipient)))
     (fail! :crypto/hybrid-suite-required))
   {:suite pq/PQ-SUITE
@@ -49,6 +74,7 @@
                                    pq/MLKEM768-PUBLIC-BYTES :crypto/ml-kem-key-invalid)})
 
 (defn- secret-bundle [recipient]
+  (require-production-suite!)
   (when-not (and (= schema (:schema recipient)) (= suite (:suite recipient)))
     (fail! :crypto/hybrid-suite-required))
   {:suite pq/PQ-SUITE

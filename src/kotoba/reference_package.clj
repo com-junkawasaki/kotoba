@@ -42,7 +42,6 @@
     (try
       (store/initialize! work)
       (let [source-text (slurp source)
-            source-bytes (.getBytes source-text "UTF-8")
             _ (typed/update-namespace! work namespace-name source-text)
             {:keys [release-cid namespace-head-cid manifest]}
             (release/build! work namespace-name)

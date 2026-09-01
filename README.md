@@ -423,6 +423,7 @@ kotoba codebase artifact <cid> --store dir --output f.wasm              # read a
 kotoba codebase plan scratch.kotoba --store dir --namespace ns         # what `add` would do, without doing it
 kotoba codebase view <name|#hash> --store dir --namespace ns           # render a stored definition back to source
 kotoba codebase run <name|#hash> --store dir --namespace ns -- 3       # evaluate it, hydrating dependencies by CID
+kotoba codebase eval <name|#hash> --store dir --namespace ns -- 3      # checked KIR only; return AdmissionCID + ValueCID
 kotoba codebase list --store dir --namespace ns                        # what the namespace selects
 kotoba codebase find <query> --store dir --namespace ns                # names containing a substring
 kotoba codebase dependents <name|#hash> --store dir --namespace ns     # what an update would carry along
@@ -531,6 +532,17 @@ Prefer `--typed` for anything that will also be compiled: it is what makes
 `kotoba codebase run f` and `kotoba compile` the same definition rather than two
 that happen to agree. `run` reads which layer a definition belongs to from its
 block, so the flag is only needed when writing.
+
+`codebase eval` is the strict public evaluation path. It refuses the legacy
+surface-IR identity layer, resolves a human name or hash abbreviation to a
+DefCID before admission, and binds the checked interface, complete effect row,
+allowed effects, fuel, and nested-eval depth into an AdmissionCID. Successful
+typed output is stored as a ValueCID. `(eval request)` in Kotoba source reaches
+the same mechanism through typed capability 30 (`:code/eval`) and a bounded
+`:document`; it never accepts source text or a host namespace. `apply` remains
+ordinary bounded application of an already checked closure. A DefCID identifies
+code, an AdmissionCID records authority and limits, and a ValueCID records the
+result—none substitutes for either of the other two.
 
 `compile` starts from a CID, not a file: the closure is hydrated into one KIR
 module whose functions are named by their own hashes, and the backend consumes
