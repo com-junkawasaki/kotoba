@@ -1,7 +1,6 @@
 (ns kotoba.library-release-test
   (:require [cbor.core :as cbor]
             [clojure.test :refer [deftest is testing]]
-            [ed25519.core :as ed]
             [kotoba.codebase-publish :as publish]
             [kotoba.codebase-routing :as routing]
             [kotoba.codebase.publication :as publication]

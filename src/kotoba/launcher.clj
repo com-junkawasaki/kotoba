@@ -466,7 +466,7 @@
       (assoc (json/read-str (slurp (if (str/starts-with? source "file:")
                                     (URI/create source)
                                     source))
-                            :key-fn keyword)
+                            {:key-fn keyword})
              :kotoba.control/profile-source source)
 
       (str/starts-with? source "https://")
@@ -478,7 +478,7 @@
                         (.build))
             response (.send client request (HttpResponse$BodyHandlers/ofString))]
         (if (= 200 (.statusCode response))
-          (assoc (json/read-str (.body response) :key-fn keyword)
+          (assoc (json/read-str (.body response) {:key-fn keyword})
                  :kotoba.control/profile-source source)
           {:error :control-plane-http-error
            :source source
@@ -919,14 +919,6 @@
         :definitions definitions
         :identity-note "Names and GitHub locations are discovery and provenance; CIDs identify content."}
         github (assoc :provenance {:github github})))))
-
-(defn- remove-value-options [argv options]
-  (loop [remaining (seq argv) result []]
-    (if-let [token (first remaining)]
-      (if (contains? options token)
-        (recur (nnext remaining) result)
-        (recur (next remaining) (conj result token)))
-      result)))
 
 (defn- hosted-approval-url [publication pq-seed key-epoch]
   (let [issued-at (java.time.Instant/now)

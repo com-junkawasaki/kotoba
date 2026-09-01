@@ -82,7 +82,7 @@
     (throw (ex-info "usage: version platform archive evidence test-log policy output"
                     {:code :release/usage})))
   (let [policy (edn/read-string (slurp policy-path))
-        evidence (json/read-str (slurp evidence-path) :key-fn keyword)
+        evidence (json/read-str (slurp evidence-path) {:key-fn keyword})
         envelope (unsigned-envelope
                   policy {:version version-name
                           :platform platform

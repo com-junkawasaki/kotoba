@@ -122,7 +122,7 @@
                          (HttpResponse$BodyHandlers/ofString))]
      (if-not (= 200 (.statusCode response))
        {:cid cid :router router :providers [] :status (.statusCode response)}
-       (let [body (json/read-str (.body response) :key-fn keyword)
+       (let [body (json/read-str (.body response) {:key-fn keyword})
              records (take max-providers (:Providers body))]
          {:cid cid
           :router router
@@ -164,7 +164,7 @@
                          (HttpResponse$BodyHandlers/ofString))]
      (if-not (= 200 (.statusCode response))
        {:cid cid :router router :providers [] :status (.statusCode response)}
-       (let [body (json/read-str (.body response) :key-fn keyword)
+       (let [body (json/read-str (.body response) {:key-fn keyword})
              records (take max-providers (:Providers body))]
          {:cid cid
           :router router
@@ -264,7 +264,7 @@
         status (.statusCode response)]
     (if-not (#{200 202} status)
       {:cid cid :endpoint endpoint :accepted? false :status status :body (.body response)}
-      (let [parsed (json/read-str (.body response) :key-fn keyword)]
+      (let [parsed (json/read-str (.body response) {:key-fn keyword})]
         {:cid cid :endpoint endpoint :accepted? true :status status
          :request-id (:requestid parsed)
          :pin-status (:status parsed)

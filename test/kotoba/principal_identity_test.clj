@@ -1,6 +1,6 @@
 (ns kotoba.principal-identity-test
   (:require [clojure.edn :as edn]
-            [clojure.test :refer [deftest is testing]]
+            [clojure.test :refer [deftest is]]
             [kotoba.principal-identity :as principal]))
 
 (def verified

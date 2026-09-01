@@ -22,7 +22,7 @@
                                        (catch Exception e e))))))))))
 
 (deftest a-different-hybrid-recipient-cannot-open-the-envelope
-  (let [{public :public secret :secret} (envelope/generate-recipient)
+  (let [{public :public} (envelope/generate-recipient)
         other-secret (:secret (envelope/generate-recipient))
         sealed (envelope/seal (.getBytes "secret" "UTF-8") public)]
     (is (= :crypto/envelope-authentication-failed

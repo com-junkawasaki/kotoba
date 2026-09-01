@@ -113,7 +113,7 @@
     {:status (.statusCode response)
      :retry-after retry-after
      :body (try
-             (json/read-str (.body response) :key-fn keyword)
+             (json/read-str (.body response) {:key-fn keyword})
              (catch Exception _ {}))}))
 
 (defn device-retry-delay-seconds
