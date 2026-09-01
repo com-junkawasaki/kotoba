@@ -70,7 +70,7 @@
 (declare invoke-request)
 
 (defn- nested-dispatch
-  [root {:keys [allowed-effects typed-cap-call receipt-sink] :as options} depth fuel]
+  [root {:keys [allowed-effects typed-cap-call] :as options} depth fuel]
   (fn [id request-type result-type request]
     (if (= capability-id id)
       (do
