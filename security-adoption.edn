@@ -7,8 +7,15 @@
  ;; `kotoba.package-admission` was registered here after the namespace had moved
  ;; into the shared security package as `kotoba.security.package-admission`; the
  ;; entry was stale and `kotoba.launcher`, which imports it, was unregistered.
+ ;; `kotoba.package-install` joined 2026-09-01. It requires
+ ;; `kotoba.security.package-admission` and was never declared, so
+ ;; `source-security-inventory` reported it as an unregistered importer and the
+ ;; gate denied -- the same shape as the stale-entry note above, from the other
+ ;; direction: there the declaration outlived the import, here the import
+ ;; arrived without the declaration.
  :security-sensitive-entrypoints
  {kotoba.launcher [kotoba.security.package-admission kotoba.security.release-evidence]
+  kotoba.package-install [kotoba.security.package-admission]
   kotoba.host-providers [kotoba.security.information-flow]
   kotoba.kagi-boundary [kotoba.security.information-flow]
   kotoba.runtime [kotoba.security.abac]}
