@@ -9,6 +9,9 @@
  ;; entry was stale and `kotoba.launcher`, which imports it, was unregistered.
  :security-sensitive-entrypoints
  {kotoba.launcher [kotoba.security.package-admission kotoba.security.release-evidence]
+  kotoba.package-install [kotoba.security.package-admission]
+  kotoba.hybrid-envelope [kotoba.security.crypto-policy]
+  kotoba.principal-identity [kotoba.security.information-flow]
   kotoba.host-providers [kotoba.security.information-flow]
   kotoba.kagi-boundary [kotoba.security.information-flow]
   kotoba.runtime [kotoba.security.abac]}
@@ -16,7 +19,10 @@
  ;; scans src/ for def/defn names matching its sensitive-name pattern. Each
  ;; entry names the shared control that owns its decision.
  :sensitive-operations
- {kotoba.kagi-boundary/secret-ref? [kotoba.security.information-flow]
+ {kotoba.hybrid-envelope/secret-bundle [kotoba.security.crypto-policy]
+  kotoba.principal-identity/*device-authorize!* [kotoba.security.information-flow]
+  kotoba.principal-identity/device-authorize! [kotoba.security.information-flow]
+  kotoba.kagi-boundary/secret-ref? [kotoba.security.information-flow]
   kotoba.kagi-boundary/secret-value-keys [kotoba.security.information-flow]
   kotoba.runtime/raw-memory-authorized? [kotoba.security.abac]}
  :exceptions []}

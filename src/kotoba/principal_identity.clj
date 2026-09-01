@@ -8,7 +8,8 @@
   (:require [json.data-json :as json]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [kotoba.security.information-flow :as information-flow])
   (:import [java.awt Desktop Desktop$Action]
            [java.net URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers HttpResponse$BodyHandlers]
@@ -24,6 +25,8 @@
 (def ^:dynamic *principal-path* nil)
 (def ^:dynamic *browser-open!* nil)
 (def ^:dynamic *device-authorize!* nil)
+
+(declare public-identity?)
 
 (defn principal-path*
   [xdg-data-home home]
@@ -49,6 +52,20 @@
 (defn write-principal!
   "Persist only the verified public projection, mode 0600."
   [path identity]
+  (when-not (public-identity? identity)
+    (throw (ex-info "principal projection is not verified public identity"
+                    {:problem :id/invalid-principal-projection})))
+  (let [flow-decision
+        (information-flow/evaluate-egress
+         {:subject (:principalId identity)
+          :purpose :kotoba.principal/store-public-projection
+          :now (str (Instant/now))
+          :input-classifications [:public]
+          :output-classification :public})]
+    (when-not (:information-flow/allowed? flow-decision)
+      (throw (ex-info "principal projection rejected by information-flow policy"
+                      {:problem :id/information-flow-denied
+                       :decision flow-decision}))))
   (let [nio (.toPath (io/file path))
         parent (.getParent nio)
         record {:kotoba.principal/version 1
