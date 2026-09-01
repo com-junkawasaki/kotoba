@@ -918,14 +918,6 @@
         :identity-note "Names and GitHub locations are discovery and provenance; CIDs identify content."}
         github (assoc :provenance {:github github})))))
 
-(defn- remove-value-options [argv options]
-  (loop [remaining (seq argv) result []]
-    (if-let [token (first remaining)]
-      (if (contains? options token)
-        (recur (nnext remaining) result)
-        (recur (next remaining) (conj result token)))
-      result)))
-
 (defn- hosted-approval-url [publication pq-seed key-epoch]
   (let [issued-at (java.time.Instant/now)
         request {:schema passkey-pqc/schema
