@@ -143,6 +143,8 @@
     "--catalog-cid"
     "--entry"
     "--fuel"
+    "--max-depth"
+    "--allow-effect"
     "--output"
     "--package-lock"
     "--policy"
@@ -464,7 +466,7 @@
       (assoc (json/read-str (slurp (if (str/starts-with? source "file:")
                                     (URI/create source)
                                     source))
-                            :key-fn keyword)
+                            {:key-fn keyword})
              :kotoba.control/profile-source source)
 
       (str/starts-with? source "https://")
@@ -476,7 +478,7 @@
                         (.build))
             response (.send client request (HttpResponse$BodyHandlers/ofString))]
         (if (= 200 (.statusCode response))
-          (assoc (json/read-str (.body response) :key-fn keyword)
+          (assoc (json/read-str (.body response) {:key-fn keyword})
                  :kotoba.control/profile-source source)
           {:error :control-plane-http-error
            :source source
@@ -1274,7 +1276,7 @@
          :kotoba.cli/code (or (:problem (ex-data error)) :crypto/rejected)}))))
 
 (defn- read-arguments
-  "Positional arguments after `--` for `codebase run`.
+  "Positional arguments after `--` for `codebase run` or `codebase eval`.
 
   A definition's arguments are read as Kotoba source, not as strings: `run f 1`
   should pass the number one."
@@ -1286,7 +1288,7 @@
   "Hash-native codebase commands.
 
   A definition is addressed by CID; a name is a lookup, not an identity. That
-  shapes the whole surface: `run` and `view` accept a name, a full CID, or a
+  shapes the whole surface: `run`, `eval`, and `view` accept a name, a full CID, or a
   `#`-abbreviation interchangeably, and nothing here needs the source that
   produced a definition to still exist.
 
@@ -1296,6 +1298,8 @@
   - `plan <scratch>`     the same, reported without writing anything
   - `view <name|#hash>`  render a stored definition back to source
   - `run <name|#hash> [-- args]`  evaluate it, hydrating dependencies by CID
+  - `eval <name|#hash> [-- args]` admit and evaluate checked KIR only, returning
+                                  AdmissionCID and ValueCID evidence
   - `list` / `find <q>`  what the namespace selects
   - `dependents <name>`  what an update to it would carry along
   - `pull <cid>...`      discover providers globally and hydrate the closure"
@@ -1309,7 +1313,7 @@
         right (option-value argv "--right")]
     (cond
       (not (#{"init" "import" "inspect" "resolve" "merge" "add" "plan" "view"
-              "run" "list" "find" "dependents" "pull" "publish" "follow"
+              "run" "eval" "list" "find" "dependents" "pull" "publish" "follow"
               "identity" "serve" "unfollow" "compile" "artifact" "diff"
               "announce" "follow-name"} action))
       {:kotoba.cli/ok? false :kotoba.cli/code :codebase/unknown-command}
@@ -1449,7 +1453,7 @@
           (catch clojure.lang.ExceptionInfo error
             (codebase-error :codebase/view-failed error))))
 
-      (= action "run")
+      (#{"run" "eval"} action)
       (if-not subject
         {:kotoba.cli/ok? false :kotoba.cli/code :codebase/target-required}
         (try
@@ -1458,19 +1462,49 @@
                 ;; Which layer a definition belongs to is a property OF the
                 ;; stored block, not a flag the caller has to remember.
                 typed? (codebase-typed/typed-block? (semantic-codebase/get-block root cid))
-                result (if typed?
-                         (codebase-typed/invoke root cid args)
-                         (evaluator/invoke root cid args))]
-            {:kotoba.cli/ok? true :kotoba.cli/code :codebase/run-completed
+                strict? (= "eval" action)
+                _ (when (and strict? (not typed?))
+                    (throw (ex-info "typed eval requires a checked KIR definition"
+                                    {:problem :codebase/typed-definition-required
+                                     :cid cid})))
+                result (if strict?
+                         (let [allowed-effects
+                               (into #{} (map keyword)
+                                     (option-values argv "--allow-effect"))
+                               admission
+                               (codebase-typed/admit-eval
+                                root cid
+                                {:allowed-effects allowed-effects
+                                 :fuel (positive-long-option
+                                        argv "--fuel"
+                                        codebase-typed/default-eval-fuel)
+                                 :max-depth (positive-long-option
+                                             argv "--max-depth"
+                                             codebase-typed/default-eval-depth)})]
+                           (codebase-typed/invoke-admitted root admission args))
+                         (if typed?
+                           (codebase-typed/invoke root cid args)
+                           (evaluator/invoke root cid args)))]
+            {:kotoba.cli/ok? true
+             :kotoba.cli/code (if strict?
+                                :codebase/eval-completed
+                                :codebase/run-completed)
              :kotoba.cli/data (cond-> {:cid cid :name name
                                        :identity (if typed? :kir :semantic)
                                        :value (:value result)}
+                                strict?
+                                (assoc :admission-cid (:admission-cid result)
+                                       :value-cid (:value-cid result))
                                 (:fuel-remaining result)
                                 (assoc :fuel-remaining (:fuel-remaining result))
                                 (seq (:effects result))
                                 (assoc :effects (:effects result)))})
           (catch clojure.lang.ExceptionInfo error
-            (codebase-error :codebase/run-failed error))))
+            (codebase-error (if (= "eval" action)
+                              (or (:problem (ex-data error))
+                                  :codebase/eval-failed)
+                              :codebase/run-failed)
+                            error))))
 
       (= action "list")
       (try

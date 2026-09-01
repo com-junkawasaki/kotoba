@@ -34,12 +34,19 @@
                         problems)))))
 
 (deftest catalog-forbidden-always-denied
-  (let [forms (runtime/read-forms "(ns t)\n(defn main [] (eval 1))" :kotoba)
+  (let [forms (runtime/read-forms "(ns t)\n(defn main [] (require 'foo))" :kotoba)
         problems (guest-grammar/strict-problems forms {:kotoba.policy/strict-grammar false})
         denied (first (filter #(= :denied-form (:kotoba.runtime/problem %)) problems))]
     (is denied)
-    (is (= "eval" (:kotoba.runtime/form denied)))
+    (is (= "require" (:kotoba.runtime/form denied)))
     (is (string? (:kotoba.lang/hint denied)))))
+
+(deftest typed-eval-is-an-admitted-effect-not-an-ambient-form
+  (let [forms (runtime/read-forms "(ns t)\n(defn run [request] (eval request))" :kotoba)
+        problems (guest-grammar/strict-problems forms nil)]
+    (is (empty? (filter #(and (= :denied-form (:kotoba.runtime/problem %))
+                              (= "eval" (:kotoba.runtime/form %)))
+                        problems)))))
 
 (deftest multi-body-when-still-emits-under-strict
   (let [forms (runtime/read-file "src/demo_guest_maturity_l2.kotoba" :kotoba)

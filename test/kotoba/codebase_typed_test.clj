@@ -9,7 +9,8 @@
             [kotoba.codebase-typed :as typed]
             [kotoba.codebase.store :as store]
             [kotoba.kir :as kir]
-            [kotoba.launcher :as launcher]))
+            [kotoba.launcher :as launcher]
+            [kotoba.typed-eval :as typed-eval]))
 
 (defn- temp-dir [prefix]
   (.toFile (java.nio.file.Files/createTempDirectory
@@ -47,6 +48,66 @@
         (is (= through-compiler (get-in through-codebase [:kotoba.cli/data :value])))
         (is (= 12 through-compiler))
         (is (= cid (get-in through-codebase [:kotoba.cli/data :cid]))))
+      (finally (delete-tree work)))))
+
+(deftest typed-eval-returns-admission-and-value-identities
+  (let [work (temp-dir "kotoba-typed-eval-")
+        store-dir (str work "/store")]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (let [added (run "codebase" "add" (scratch! work "scratch.kotoba" module-source)
+                       "--typed" "--store" store-dir "--namespace" "demo")
+            cid (get-in added [:kotoba.cli/data :definitions "quadruple" :cid])
+            evaluated (run "codebase" "eval" "quadruple" "--store" store-dir
+                           "--namespace" "demo" "--fuel" "5000"
+                           "--max-depth" "1" "--" "3")]
+        (is (:kotoba.cli/ok? evaluated))
+        (is (= :codebase/eval-completed (:kotoba.cli/code evaluated)))
+        (is (= 12 (get-in evaluated [:kotoba.cli/data :value])))
+        (is (= cid (get-in evaluated [:kotoba.cli/data :cid])))
+        (is (re-matches #"bafy[a-z2-7]+"
+                        (get-in evaluated [:kotoba.cli/data :admission-cid])))
+        (is (re-matches #"bafy[a-z2-7]+"
+                        (get-in evaluated [:kotoba.cli/data :value-cid]))))
+      (finally (delete-tree work)))))
+
+(deftest eval-provider-accepts-only-a-bounded-cid-and-argument-document
+  (let [work (temp-dir "kotoba-typed-eval-provider-")
+        store-dir (str work "/store")
+        receipts (atom [])]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (let [added (run "codebase" "add" (scratch! work "scratch.kotoba" module-source)
+                       "--typed" "--store" store-dir "--namespace" "demo")
+            cid (get-in added [:kotoba.cli/data :definitions "quadruple" :cid])
+            ;; A document map's payload is a vector of [key value] entries.
+            request ["map" [[["keyword" :arguments] ["vector" [["i64" 3]]]]
+                             [["keyword" :definition-cid] ["string" cid]]]]
+            provider (typed-eval/provider
+                      store-dir :i64 {:receipt-sink #(swap! receipts conj %)})]
+        (is (= :document (:request-type provider)))
+        (is (= 12 ((:invoke provider) request)))
+        (is (= #{:cid :admission-cid :value-cid :effects}
+               (set (keys (first @receipts)))))
+        (is (= :typed-eval/request-field-required
+               (:problem
+                (ex-data
+                 (try ((:invoke provider) ["map" []])
+                      (catch clojure.lang.ExceptionInfo e e)))))))
+      (finally (delete-tree work)))))
+
+(deftest strict-eval-refuses-the-legacy-semantic-identity-layer
+  (let [work (temp-dir "kotoba-typed-eval-strict-")
+        store-dir (str work "/store")]
+    (try
+      (run "codebase" "init" "--store" store-dir)
+      (run "codebase" "add"
+           (scratch! work "surface.kotoba" "(defn triple [x] (* x 3))")
+           "--store" store-dir "--namespace" "surface")
+      (let [rejected (run "codebase" "eval" "triple" "--store" store-dir
+                          "--namespace" "surface" "--" "3")]
+        (is (false? (:kotoba.cli/ok? rejected)))
+        (is (= :codebase/typed-definition-required (:kotoba.cli/code rejected))))
       (finally (delete-tree work)))))
 
 (deftest a-typed-update-propagates-to-a-dependent-whose-source-is-absent
