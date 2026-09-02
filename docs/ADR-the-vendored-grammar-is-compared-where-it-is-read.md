@@ -30,7 +30,7 @@ its authority to all 114 on the same day.
 Five copies of `kotoba/lang/guest-grammar.edn` are on this classpath —
 `resources/`, `vendor/grammar/resources/`, and one each from the pinned amu,
 kotoba-lang and kotoba-sema. **All five agree with each other**, at
-`e20f3e50…`, and all five are one wave behind the authority's `3e3f9748…`.
+`e20f3e50…`, and all five are one wave behind the authority's `67561e57…`.
 
 So 111 heads the compiler admits are reported here as `:unknown-form`.
 
@@ -75,7 +75,7 @@ already has a better one.*
 smoke-freshness ratchet uses:
 
 - **both digests are named** — the one the copies are at and the one they owe
-  — so the gap is a number rather than a feeling, and so `3e3f9748…` appears
+  — so the gap is a number rather than a feeling, and so `67561e57…` appears
   in all four repositories of the wave (in three as the digest they *are*, here
   as the digest this one *owes*);
 - **the recorded kernel-head count is asserted through the LOADER**, not from
@@ -106,12 +106,12 @@ digest pinned in the other three repositories.
 ## Verification
 
 ```
-COMPARED 5  classpath copies  AUTHORITY-GAP e20f3e50727e -> 3e3f9748e245
+COMPARED 5  classpath copies  AUTHORITY-GAP e20f3e50727e -> 67561e57ad2b
 SCANNED  431 admitted heads through kotoba.grammar (3 kernel, authority names 114)
 2 tests, 11 assertions, 0 failures
 ```
 
 Red, by copying the authority over `resources/` alone: **8 failures** —
-`a copy moved off the recorded baseline: #{"3e3f9748…" "e20f3e50…"}`, the head
+`a copy moved off the recorded baseline: #{"67561e57…" "e20f3e50…"}`, the head
 count `(not (= 3 114))`, and each of the four sampled heads reporting that the
 resync has happened.
