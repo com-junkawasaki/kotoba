@@ -45,6 +45,77 @@
  :core-special-forms
  #{ns def defn defprotocol definterface defrecord extend-type extend-protocol let if do main}
 
+ ;; The SHAPE each core form has after desugaring, and what a consumer that
+ ;; reads it must do when it sees another shape.
+ ;;
+ ;; This is here because "one body form" used to be an assumption rather than a
+ ;; rule. Six passes in the frontend destructured `(let [bindings body] ...)`,
+ ;; two of them REBUILT the form from `body` alone, and the validator then
+ ;; measured the already-shortened form and admitted it. Measured 2026-09-02
+ ;; against amu b1fdaad2:
+ ;;
+ ;;   (defn run [n :i64] :i64 (let [x (+ n 1)] (+ x 10) (+ x 100)))
+ ;;     -> :ok true, wasm32 answers 16   (should be 106)
+ ;;   (defn run [n :i64] :i64 (if (> n 0) (+ n 10) (+ n 100) (+ n 1000)))
+ ;;     -> :ok true, wasm32 answers 15   (should not compile)
+ ;;
+ ;; Truncating a form is never an admitted response to an unexpected shape: the
+ ;; result is a shorter program that compiles clean. Refuse, or sequence.
+ :core-form-shapes
+ {:let {:arity 2
+        :shape "(let BINDINGS BODY)"
+        :body-forms 1
+        :source-body :implicit-do
+        :collapse do
+        :never-collapse-to "nested let"
+        :why-not-nested-let
+        "A non-final body form encoded as a `let` binding is an UNUSED binding, and an unused binding is exactly what a later pass may drop. The forms that must survive are the effectful ones -- a kernel store, a cap-call. `do` is kept first-class through desugaring for this reason."
+        :on-other-shape :refuse
+        :refusal-codes {:several-body-forms :kotoba.error/let-body-multiple-forms
+                        :empty-body :kotoba.error/let-body-empty}}
+  :if {:arity 3
+       :shape "(if TEST THEN ELSE)"
+       :on-other-shape :refuse
+       :refusal-codes {:wrong-arity :kotoba.error/if-arity}
+       :note "No one-armed `if`. `when` / `when-not` supply the missing arm during desugaring."}
+  :do {:arity :one-or-more
+       :shape "(do FORM ...)"
+       :value :last-form
+       :on-other-shape :refuse
+       :refusal-codes {:empty-body :kotoba.error/do-empty}}}
+
+ ;; Heads whose SOURCE body is several forms, and what each one does with them.
+ ;; Split by behaviour, because the two halves are different promises and a
+ ;; reader who assumes one gets the other silently.
+ :implicit-body-forms
+ {:sequences #{let when when-not when-let}
+  :refuses #{defn defn- fn loop try catch}
+  :unmeasured #{when-some doseq dotimes}
+  :not-body-taking #{if-let if-some}
+  :note "`:sequences` collapse to `do`; `:refuses` take exactly one body expression and say so. Nothing truncates. Measured 2026-09-02: `let` was in neither set -- it accepted several forms and kept the first."
+  ;; The first version of this entry put all nine heads in `:sequences`. Four
+  ;; of them had not been measured, and writing the unmeasured ones next to
+  ;; the measured ones is the same error this whole entry exists to record --
+  ;; a claim that was never checked, sitting where a checked one belongs.
+  ;;
+  ;; `:sequences` is now only what was executed and compared to the expected
+  ;; answer: `(when (> n 0) (+ n 10) (+ n 100))` and its `when-not` /
+  ;; `when-let` twins each answered 105 on wasm32, and `let` answers 106.
+  ;;
+  ;; `:unmeasured` is not `:refuses`. `dotimes` and `doseq` compile with
+  ;; several body forms, but their body's VALUE is discarded by construction,
+  ;; so answering correctly does not show that the non-final forms ran -- the
+  ;; measurement needs an observable effect and has not been made.
+  ;; `when-some` was probed three times on 2026-09-02 and every probe was
+  ;; refused for a reason about the probe (an `[:option T]` scrutinee this
+  ;; author could not spell), never about the body.
+  ;;
+  ;; `:not-body-taking` is a separate correction: `if-let` and `if-some` take
+  ;; a then and an else, each one expression. They were never candidates.
+  :measurement {:as-of "2026-09-02"
+                :method "amu compile --target wasm32 --jvm-free, artifact executed under Node WebAssembly, answer compared to the expected value"
+                :sequences-evidence {let 106 when 105 when-not 105 when-let 105 do 105}}}
+
  ;; Surface sugar: admitted in source, must desugar before/during emit.
  :sugar
  {:bytes {:desugars-to "canonical bounded empty :bytes value"
@@ -88,6 +159,35 @@
    :note "unqualified dispatch function; bounded literal keys; identical plain parameter vectors; optional :default; no hierarchy, preferences, or runtime extension"}
   :match {:desugars-to "single-evaluation nested let/if tests" :level "L2"
           :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  ;; Abort ability, slice 1 -- lang/abort-ability.edn is the contract. Neither
+  ;; head survives elaboration: an aborting function is lowered to return
+  ;; `[:result T E]`, and its inferred effect row carries `:abort`. The row
+  ;; member does not encode E; E is the elaborated interface's business.
+  :throw {:desugars-to "result-err-of into the enclosing [:result T E] scope; the function acquires :abort in its inferred effect row"
+          :forms [throw]
+          :level "L2" :backends #{:compiler}
+          :status :slice-1-implemented
+          :contract "lang/abort-ability.edn"
+          :note "exactly one error value; every throw in one function must agree on E; admitted in tail position or as a let binding value; refused inside loop/doseq/dotimes bodies, lazy thunks and fn literals until :checked-lexical-facet-unwind is met; an aborting function cannot be exported"}
+  :try {:desugars-to "one result-match-of over the body's [:result T E] value; ok arm the value, err arm the handler with the binder bound to E; removes :abort from the row the body contributed"
+        :forms [try catch]
+        :level "L2" :backends #{:compiler}
+        :status :slice-1-implemented
+        :contract "lang/abort-ability.edn"
+        :note "exactly one body expression and one (catch [error-type] binder handler) clause; E is the explicit error-type or the single error type the body can abort with; a body that cannot abort is refused; nested try is fine"}
+  ;; Local state, slice 1 -- lang/local-state.edn is the contract. No head
+  ;; survives elaboration: `(atom init)` becomes an ordinary let binding, each
+  ;; `swap!`/`reset!` REBINDS it, `deref` reads the current binding, and a
+  ;; branch that writes is emitted once per mutated cell so the join is the
+  ;; rebinding the enclosing scope takes. Nothing reaches the effect row --
+  ;; there is no cell at runtime and no authority to declare -- so
+  ;; `:named-operations` carries `:local-state` instead.
+  :atom-local {:desugars-to "let-bound value rebound after every write; deref reads the current binding; branching forms are copied once per mutated cell"
+               :forms [atom swap! reset! deref]
+               :level "L2" :backends #{:compiler}
+               :status :slice-1-implemented
+               :contract "lang/local-state.edn"
+               :note "the atom must be the init of a let binding and its name may appear only as the first argument of swap!/reset!/deref in the same function body; passing it, returning it, storing it, capturing it in fn, or reading it inside loop/doseq/dotimes is refused; @a reads as (clojure.core/deref a) and is normalised"}
   :defdesugar {:desugars-to "registered pure bounded template expansion" :level "L2"
                :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :cond {:desugars-to "left-to-right nested if; final :else is syntax" :level "L2"
@@ -121,22 +221,85 @@
               :note "two arguments: Option value and payload fallback; payload descriptor is inferred from locals, record fields, constructors, or function signatures"}
   :variadic-comparison {:desugars-to "short-circuit adjacent binary comparisons" :level "L2"
                         :forms [= not= < > <= >=] :backends #{:compiler}}
+  ;; Type-directed name resolution (Unison resolves `+` to Nat.+ / Float.+ by
+  ;; operand type; here the same rule picks the width-named form). All-:i64
+  ;; operands are untouched; all-:f64 → f64-add f64-sub f64-mul f64-div f64-lt
+  ;; f64-le f64-gt f64-ge f64-eq (unary - → f64-neg); all-:f32 → the f32-*
+  ;; family. `/` has NO i64 reading -- integer division is quot -- so `/` on
+  ;; i64 is refused, and quot / bit operations are integer-only. Mixed operand
+  ;; types are refused naming both types and the explicit conversion
+  ;; (:no-implicit-numeric-conversion in surface-status). The explicit f64-*/
+  ;; f32-* spellings stay admitted. Measured 2026-09-02, kotoba-sema f9764cb1.
+  :type-directed-arithmetic {:desugars-to "width-named float operator chosen by operand type; i64 operands unchanged; mixed types refused"
+                             :forms [+ - * / < > <= >= =] :level "L2" :backends #{:compiler}
+                             :note "runs after :variadic-comparison and before validation, in the same pass as :option-or; a decimal literal beside an :f32 operand is narrowed exactly-or-refused"}
   :not= {:desugars-to "binary (not (= …))" :level "L2"
          :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
-  :do {:desugars-to "sequential drop + last value (wasm) or nested let (compiler)"
-       :level "L2" :backends #{:kotoba-wasm :compiler}}
+  ;; NOT "nested let". That reading was in this file until 2026-09-02 and it is
+  ;; the encoding the frontend deliberately refuses to use: a non-final
+  ;; subexpression bound by a `let` is an unused binding, and dropping unused
+  ;; bindings is legal. `do` survives desugaring as a first-class head on every
+  ;; backend, which is what keeps a kernel store in non-final position.
+  :do {:desugars-to "kept as a first-class `do` head; sequential drop + last value"
+       :level "L2" :backends #{:kotoba-wasm :compiler}
+       :value :last-form
+       :empty :refused}
   :get {:desugars-to "pair-list map scan helper" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :assoc {:desugars-to "persistent pair-chain update" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :document {:desugars-to "existing bounded document constructors"
              :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
              :note "exactly one inert closed EDN-shaped tree; nested forms are document lists, never calls; no new runtime representation or capability"}
-  :map-literal {:desugars-to "pair cons-list of pairs" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  ;; NOT keyword-only. That reading was in this file until 2026-09-03 and the
+  ;; refusal it described -- `map keys must be bounded keywords` -- lived in the
+  ;; LITERAL and nowhere else: `[:map K V]` had been generic in K since the
+  ;; typed map landed, and every `typed-map-*` operation already admitted :i64,
+  ;; :string, :bool and record keys. Measured 2026-09-03 against kotoba-sema
+  ;; `cc2f5139` and kotoba-kir `ad6db332`.
+  :map-literal
+  {:desugars-to "keyword keys: pair cons-list of pairs (map-new, byte for byte what it always was); :i64 and :string keys: canonical typed map (typed-map-new [:map K :i64])"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :key-kinds
+   {:admitted #{:keyword :i64 :string}
+    :value-type "always :i64. A literal has no annotation and inference runs after desugaring, so the value half cannot be read off the source; typed-map-new is the spelling that says both halves"
+    :one-kind-per-literal "a literal carries exactly one key kind; {1 2 :a 3} is refused with `map literal keys must all be one kind; this literal mixes i64 and keyword`, the kinds named in sorted order so the message does not depend on host map iteration order"
+    :refused-by-name
+    {:bool "`map literal keys must be keywords, integers or strings; this literal has a key of kind: boolean`. :bool IS an admitted typed-map key type -- it has no literal form"
+     :float "`... this literal has a floating point key, which has no portable key identity -- NaN compares unequal to itself, and +0.0 and -0.0 are equal while differing in bits, so neither the entry order nor duplicate-key detection is decidable`. The KIND is named rather than the value shown, because pr-str prints 1.5 for a JVM double and (f64-from-bits ...) for the same literal read JVM-free"
+     :other "symbol, expression, vector, map, set, nil -- each named by kind, not fallen through a generic arm, because 1.5 and :a fail for entirely different reasons"}
+    :refusal-code :kotoba.error/map-literal-key}
+   :entry-limits
+   {:keyword 128 :i64 31 :string 31
+    :measured "2026-09-03: 128 keyword entries admit and 129 are refused `map entry count exceeds admission limit` (max-list-items); 31 typed-keyed entries admit and 32 are refused `map literal with <kind> keys exceeds the typed map entry limit` (max-typed-map-entries). The typed refusal happens at compile time rather than as a :map-too-large trap at run time"}
+   :order
+   {:by "kotoba.kir.value/compare-typed-values on the key type, which is the order bounded-typed-value! keeps the entry chain in, so the KIR is reproducible without hashing identity and a duplicate key is a construction-time refusal"
+    :i64 "signed numeric. -5 leads; a comparator ordering the two-complement bit patterns as unsigned would put it last"
+    :string "UTF-16 code-unit order. NOT a locale collation and not case-insensitive: upper case sorts BEFORE lower case, C (0x43) before a (0x61)"
+    :keyword "printed text"
+    :symbol "printed text"
+    :bool "false before true"
+    :record "field by field, in declared field order"}}
   :vector-literal {:desugars-to "persistent pair-chain" :level "L2"
                    :backends #{:compiler :kotoba-wasm :kotoba-cljs}
                    :note "portable literal admission bound 128; same runtime representation as list"}
   :set-literal {:desugars-to "bounded unique pair-chain" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
                 :note "deterministic source ordering; runtime-equal duplicates removed"}
-  :contains? {:desugars-to "bounded set membership scan" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  ;; NOT set membership. That reading was in this file from the day the head was
+  ;; declared until 2026-09-03, and it described an operation that had no
+  ;; desugar arm at all: `(contains? #{:a} :a)` reached validation as an unknown
+  ;; call and was refused `operation has no admitted lowering`, on every
+  ;; receiver. Measured 2026-09-03 against kotoba-sema `cc2f5139` -- before the
+  ;; change, on both a set and a map receiver; after it, as recorded here.
+  :contains?
+  {:desugars-to "typed-map presence: (typed-map-contains [:map K V] receiver key)"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :admits "a canonical [:map K V] receiver, on every key type the typed map admits -- :i64, :string, :bool, :keyword and record keys"
+   :arity 2
+   :refuses
+   {:receiver "anything that is not a canonical [:map K V]: a typed set, and the legacy keyword-keyed bounded map, whose type is :map rather than [:map K V]"
+    :message "contains? requires a canonical typed map [:map key-type value-type]; got <type>. A typed set answers to typed-set-contains, and the bounded keyword map has no presence primitive at all"
+    :code :kotoba.error/map-presence-receiver
+    :arity "contains? requires a map and one key"}
+   :note "reserved as well as implemented -- the rewrite dispatches on the head before signatures are consulted, so (defn contains? ...) is refused `reserved function name` rather than silently shadowed. A receiver whose own type inference refuses has that refusal rethrown, not swallowed into `got nil`"}
   :conj {:desugars-to "pair prepend after duplicate removal" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :disj {:desugars-to "bounded set removal" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :nested-destructuring
@@ -219,7 +382,20 @@
   :pop {:desugars-to "empty-safe pair-second" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :keys {:desugars-to "persistent map-key projection" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
   :vals {:desugars-to "persistent map-value projection" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
-  :dissoc {:desugars-to "persistent bounded map filter" :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}}
+  ;; NOT a map filter. Same measurement as :contains? above: `dissoc` had no
+  ;; desugar arm either, and was refused `operation has no admitted lowering` on
+  ;; every receiver until 2026-09-03.
+  :dissoc
+  {:desugars-to "typed-map removal, folded left over the keys: (typed-map-dissoc [:map K V] receiver key)"
+   :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
+   :admits "a canonical [:map K V] receiver and one or more keys, on every key type the typed map admits"
+   :arity "2 or more"
+   :refuses
+   {:receiver "anything that is not a canonical [:map K V]: a typed set, and the legacy keyword-keyed bounded map"
+    :message "dissoc requires a canonical typed map [:map key-type value-type]; got <type>. A typed set answers to typed-set-disj, and the bounded keyword map has no removal primitive at all"
+    :code :kotoba.error/map-dissoc-receiver
+    :arity "dissoc requires a map and at least one key"}
+   :note "reserved as well as implemented: (defn dissoc ...) is refused `reserved function name`"}
   :record-constructor
   {:desugars-to "nominal record constructors ->Type and map->Type"
    :level "L2" :backends #{:compiler :kotoba-wasm :kotoba-cljs}
@@ -265,12 +441,29 @@
  ;; the harm is fully covered by grant-intersection dispatch). Authority-axis
  ;; heads relax only when their widening preconditions land (superproject
  ;; adr-2608301500-guest-syntax-restrictions-classified-by-shielding-mechanism).
+ ;; `throw try catch` left this set on 2026-09-02 (lang/abort-ability.edn,
+ ;; slice 1). They are not ambient any more: the compiler admits them only
+ ;; through the `:throw` / `:try` sugar entries above, which lower them to
+ ;; `[:result T E]` values and put `:abort` on the inferred effect row. The
+ ;; invariant `:explicit-errors` names -- no UNTRACKED control effect -- is
+ ;; what that elaboration enforces; the heads are not what it forbids.
+ ;; `atom` / `reset!` / `swap!` left this set on 2026-09-02: local-state slice 1
+ ;; (lang/local-state.edn) admits a NON-ESCAPING, function-local atom by
+ ;; elaboration -- the cell becomes ordinary `let` rebindings, so it does not
+ ;; exist at runtime, needs no grant and adds nothing to the effect row. See
+ ;; :sugar :atom-local below, and :no-ambient-mutation in surface-status.edn,
+ ;; whose invariant is that state must not be AMBIENT rather than that mutation
+ ;; is forbidden. `ref` / `dosync` / `volatile!` / `set!` / `binding` / `var` /
+ ;; `alter-var-root` stay here: they have no ability model decided.
  :forbidden-heads
  #{load load-file load-string read-string compile require use import ns-resolve resolve alter-var-root
-   future pmap agent send send-off new . .. set! defmacro throw try catch
-   locking dosync atom ref reset! swap! volatile! binding var}
+   future pmap agent send send-off new . .. set! defmacro
+   locking dosync ref volatile! binding var}
 
  ;; Arithmetic / comparison / predicates admitted after validation.
+ ;; These are the INTEGER heads. Floating point is not spelled `+` and is not
+ ;; here; see :floating-point below for why the two sets are separate and what
+ ;; the float heads actually are.
  :arithmetic #{+ - * quot bit-xor bit-and bit-or}
  :comparisons #{= < > <= >=}
  :predicates #{not zero? pos? neg? string? symbol? keyword? string-length string=
@@ -333,9 +526,9 @@
   "swap!" "forbidden: guest is pure; host owns atoms"
   "reset!" "forbidden: guest is pure; host owns atoms"
   "defmacro" "forbidden: no macros in safe guest surface"
-  "try" "forbidden: exceptions hide effects; use Result-style i64 codes"
-  "catch" "forbidden: exceptions hide effects"
-  "throw" "forbidden: use explicit error codes / host log"
+  "try" "admitted (abort slice 1): one body, one (catch [error-type] binder handler) clause; lowers to result-match-of over [:result T E]"
+  "catch" "admitted only as the clause of a try"
+  "throw" "admitted (abort slice 1): one error value, tail position or let binding value; the function acquires :abort and returns [:result T E]"
   "future" "forbidden: no threads in WASM guest"
   "agent" "forbidden: no agents in WASM guest"
   "new" "forbidden: no interop constructors"
@@ -378,6 +571,15 @@
  :admitted-builtins
  #{"alloc" "alloc-checked" "str-ptr" "str-len" "bytes-ptr" "bytes-len" "byte-at" "mem-byte-at" "mem-i32-at"
    "byte-store!" "i32-store!" "memory-pages" "memory-grow"
+   ;; The "i64*" and "f32*" families below are the LEGACY WASM EMITTER's builtin
+   ;; spelling, not the canonical operation vocabulary. The canonical spelling of
+   ;; integer addition in this same file is plain `+`, in :arithmetic -- not
+   ;; "i64+" -- and the canonical spelling of binary32 addition is `f32-add`,
+   ;; which is what `kotoba.compiler.frontend`'s `f32-operations` accepts and
+   ;; what `kotoba.kir` evaluates. See :floating-point below and
+   ;; docs/adr/ADR-kotoba-floating-point-on-native.md. Neither set is removed:
+   ;; removing these would break the legacy emitter, and promoting them would
+   ;; give one operation two names.
    "i64" "i64+" "i64-" "i64*" "i64and" "i64or" "i64xor" "i64shl" "i64shr" "i64ushr"
    "f32" "f32+" "f32-" "f32*" "f32/" "f32div" "f32sqrt" "f32neg"
    "f32=" "f32<" "f32>" "f32<=" "f32>="
@@ -387,8 +589,171 @@
    "bit-shift-left" "bit-shift-right" "unsigned-bit-shift-right" "host-i64-roundtrip"
    "pair" "pair-first" "pair-second" "list" "cons" "first" "second" "rest" "empty?"
    "quot" "bit-and" "bit-xor"
-   "kernel-load-u8" "kernel-store-u8" "kernel-boot-info"
+
+   ;; ------------------------------------------------------------------
+   ;; The kernel families. Admitted as builtins -- no host import, no
+   ;; capability grant, no registration -- by `kotoba.compiler.frontend`
+   ;; (kotoba-sema), which is the only thing that decides what the COMPILER
+   ;; admits.
+   ;;
+   ;; This set is read in exactly one place: `kotoba.grammar/admitted-heads`
+   ;; in kotoba-lang/kotoba's vendored grammar loader, where it feeds
+   ;; `strict-problems`' known-head set. So a head missing from here is
+   ;; reported by that repository as `:unknown-form` even though the compiler
+   ;; admits it, and a head added here stops being reported there -- the
+   ;; compiler still decides whether it has a lowering. Nothing in
+   ;; kotoba-lang, kotoba-sema or amu reads it at all.
+   ;;
+   ;; (Measured 2026-09-03. The first draft of this comment said "this set
+   ;; decides nothing", from a grep that covered `src test scripts` in each
+   ;; repository and not `vendor/` -- which is where the one reader lives.
+   ;; Corrected before landing.)
+   ;;
+   ;; Measured 2026-09-03 against kotoba-sema `1afff23`:
+   ;;
+   ;;   kernel-memory-operations       53
+   ;;   slice-value-operations          8
+   ;;   kernel-privileged-operations   53
+   ;;                                 ---
+   ;;                                 114
+   ;;
+   ;; and this set named THREE of them -- `kernel-load-u8`, `kernel-store-u8`,
+   ;; `kernel-boot-info`. The understatement predates the memwidth wave by
+   ;; seven operations: the 4 KiB and 16 KiB tiers, the u32 pair,
+   ;; `kernel-subregion` and the lock pair were all shipped on both native
+   ;; ISAs without ever reaching this list. An authority that lags its
+   ;; frontend is the same defect as one that runs ahead of it, in the other
+   ;; direction -- and a reader asking "can Kotoba address a NIC ring?" got
+   ;; "no" from the only file that claims to answer.
+   ;;
+   ;; What each family MEANS is in lang/surface-status.edn `:checked-memory`.
+   ;; The privileged family has no surface-status entry yet; that gap is
+   ;; recorded there by name rather than left to `:default-for-missing`.
+
+   ;; Checked kernel memory, byte-indexed. Four transfer widths by four window
+   ;; tiers. `base length index [value]`; `length` is capped at the tier
+   ;; (512 / 4096 / 16384 / 65536) and every access is bounds-checked.
+   "kernel-load-u8"       "kernel-store-u8"
+   "kernel-load-u8-4k"    "kernel-store-u8-4k"
+   "kernel-load-u8-16k"   "kernel-store-u8-16k"
+   "kernel-load-u8-64k"   "kernel-store-u8-64k"
+   "kernel-load-u16"      "kernel-store-u16"
+   "kernel-load-u16-4k"   "kernel-store-u16-4k"
+   "kernel-load-u16-16k"  "kernel-store-u16-16k"
+   "kernel-load-u16-64k"  "kernel-store-u16-64k"
+   "kernel-load-u32"      "kernel-store-u32"
+   "kernel-load-u32-4k"   "kernel-store-u32-4k"
+   "kernel-load-u32-16k"  "kernel-store-u32-16k"
+   "kernel-load-u32-64k"  "kernel-store-u32-64k"
+   "kernel-load-u64"      "kernel-store-u64"
+   "kernel-load-u64-4k"   "kernel-store-u64-4k"
+   "kernel-load-u64-16k"  "kernel-store-u64-16k"
+   "kernel-load-u64-64k"  "kernel-store-u64-64k"
+   ;; The machine layer of the slice family: same shape, but `length` and
+   ;; `index` count ELEMENTS and the ceiling is an address-space bound.
+   "slice-load-u8"        "slice-store-u8"
+   "slice-load-u16"       "slice-store-u16"
+   "slice-load-u32"       "slice-store-u32"
+   "slice-load-u64"       "slice-store-u64"
+   ;; A derived window, and the binary try-lock the value runtime holds.
+   "kernel-subregion" "kernel-try-lock-u32" "kernel-unlock-u32"
+   ;; The general atomics a descriptor ring needs and a try-lock cannot say.
+   ;; All six answer with the word memory held BEFORE the operation.
+   "kernel-atomic-add-u32" "kernel-atomic-add-u64"
+   "kernel-xchg-u32" "kernel-xchg-u64"
+   "kernel-cmpxchg-u32" "kernel-cmpxchg-u64"
+   ;; Two regions, not one: the only entries whose provenance is not
+   ;; "argument 0". The f32 dot product and the fused dequantize-and-dot.
+   "kernel-dot-f32"
+   "kernel-dequant-dot-q8-0" "kernel-dequant-dot-q4-k" "kernel-dequant-dot-q6-k"
+
+   ;; The CARRIED slice family: a `[:slice T]` value rather than three words.
+   ;; A type of the source syntax and of nothing else -- kotoba-sema erases
+   ;; these into the eight machine operations above before HIR, so no backend
+   ;; and no verifier ever sees one.
+   "slice-of-u8" "slice-of-u16" "slice-of-u32" "slice-of-u64"
+   "slice-length" "slice-get" "slice-set!" "slice-sub"
+
+   ;; Privileged machine operations. Ring-0 instructions and firmware state:
+   ;; each is an effect in at least one direction, none is ever oracled at
+   ;; compile time, and a compile-time answer for any of them would be an
+   ;; invention the kernel then branches on.
+   "kernel-boot-info" "kernel-system-table" "kernel-scratch-region"
+   "kernel-read-cr0" "kernel-write-cr0" "kernel-read-cr2"
+   "kernel-read-cr3" "kernel-write-cr3" "kernel-read-cr4" "kernel-write-cr4"
+   "kernel-read-cs" "kernel-invlpg" "kernel-load-idt" "kernel-load-gdt-tss"
+   "kernel-cli" "kernel-sti" "kernel-hlt" "kernel-pause" "kernel-swapgs"
+   "kernel-fence-full" "kernel-fence-load" "kernel-fence-store"
+   "kernel-rdtsc" "kernel-rdtscp"
+   "kernel-out-u8" "kernel-out-u32" "kernel-in-u8" "kernel-in-u32"
+   "kernel-read-msr" "kernel-write-msr"
+   "kernel-cpuid-eax" "kernel-cpuid-ebx" "kernel-cpuid-ecx" "kernel-cpuid-edx"
+   "kernel-xgetbv" "kernel-xsetbv"
+   "kernel-page-fault-handler-address" "kernel-page-fault-recovery-handler-address"
+   "kernel-configure-page-fault-recovery"
+   "kernel-double-fault-handler-address" "kernel-configure-double-fault-ist"
+   "kernel-rt-timer-handler-address" "kernel-isr-entry-address"
+   "kernel-probe-guard-write" "kernel-probe-text-write" "kernel-probe-nx-execute"
+   "kernel-probe-recoverable-guard-write" "kernel-probe-double-fault"
+   "kernel-load-ptr" "kernel-jump-to"
+   "kernel-uefi-call2" "kernel-uefi-call4" "kernel-uefi-call6"
+
    "not=" "cond" "case" "if-let" "when-let" "->" "->>"}
+
+ ;; Floating point. Decided by docs/adr/ADR-kotoba-floating-point-on-native.md;
+ ;; classified in surface-status as :native-binary32-arithmetic.
+ ;;
+ ;; These heads are NOT in :arithmetic / :comparisons / :admitted-builtins, and
+ ;; that is the point. Floating point is not `+` under another name: it is a
+ ;; named operation family with its own width, its own rounding contract, and
+ ;; its own NaN behaviour, and giving it the integer spelling would make
+ ;; `(+ a b)` mean two different machine operations depending on a type the
+ ;; source does not show.
+ :floating-point
+ {:widths {:f32 :ieee-754-binary32 :f64 :ieee-754-binary64}
+  :canonical-spelling :hyphenated-named-operations
+  ;; The measurement behind :canonical-spelling: the head `f32-add` resolves
+  ;; through kotoba.compiler.frontend's `f32-operations`; `f32+` resolves
+  ;; through nothing in that path. `f32+` and its family remain listed in
+  ;; :admitted-builtins because that set is the legacy wasm emitter's builtin
+  ;; vocabulary -- the neighbours are "i64+", "alloc", "str-ptr" -- and is a
+  ;; different surface, not a second name for these.
+  :arithmetic #{f32-add f32-sub f32-mul f32-div f32-min f32-max
+                f64-add f64-sub f64-mul f64-div f64-min f64-max}
+  :unary #{f32-neg f32-abs f32-sqrt f64-neg f64-abs f64-sqrt}
+  :comparisons #{f32-eq f32-lt f32-le f32-gt f32-ge f32-unordered
+                 f64-eq f64-lt f64-le f64-gt f64-ge f64-unordered}
+  :reinterpretation #{f32-from-bits f32-to-bits f64-from-bits f64-to-bits}
+  :conversions #{f32-to-f64-exact f64-to-f32-rounded
+                 i64-to-f32-rounded i64-to-f64-rounded
+                 i64-to-f32-checked i64-to-f64-checked
+                 f32-to-i64-checked f32-to-i64-truncating
+                 f64-to-i64-checked f64-to-i64-truncating}
+  ;; f64 only -- there is no f32 twin of any of these, and inventing one is not
+  ;; a naming decision but a numerics decision (each has its own domain bound).
+  :bounded-transcendental #{f64-sin-quarter-turn f64-cos-quarter-turn
+                            f64-sin-bounded f64-cos-bounded
+                            f64-exp-near-zero f64-log-near-one
+                            f64-exp-bounded f64-log-bounded f64-atan2-bounded}
+  :decimal-parse #{decimal-f64-parse decimal-f64x3-parse}
+  :equality "`=` is not admitted between floats. Use the width's own head
+             (f32-eq / f64-eq) or compare bit patterns, so that NaN and -0.0
+             behave the way IEEE-754 says rather than the way integer equality
+             on a word would."
+  :rounding {:mode :round-to-nearest-ties-to-even
+             :contraction :forbidden
+             :fast-math :forbidden}
+  :literals {:rule :exact-or-refused
+             :note "a decimal literal arrives as a host binary64, so a literal
+                    is admitted in an :f32 context only when that binary64
+                    round-trips exactly through binary32. 1.5 and 2.0 are
+                    admitted; 0.1 is refused, because the value the reader hands
+                    over is not the float the author wrote. The explicit
+                    spellings are (f64-to-f32-rounded 0.1) and
+                    (f32-from-bits 0x3DCCCCCD)."}
+  :backend-note "Not every head above reaches every backend. surface-status
+                 :native-binary32-arithmetic names the native slice and the six
+                 heads refused there, each with its reason."}
 
  :maturity
  {:current "L1-L6-landed"
