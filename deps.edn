@@ -39,7 +39,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "682709abb3e00df3b95f983603b198c90f7a09dd"}
+         :git/sha "b822a01b6f9877e6ab763baaab9acaebeb92ad04"}
         ;; Direct pin so amu's transitive kotoba-script (ee6a1b7a) cannot keep
         ;; typed-cap-call as an unsupported KIR op on js-kotoba-v1. d4b34e79
         ;; hosts i64 typed-cap-call as callCapability (clock/now).
@@ -80,12 +80,12 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "02e03ba67a6c1b5d62405016092237f570571373"}
+         :git/sha "ca2e595a5d883d32f93caa9b8f6b6b1bad5a7f8e"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
         {:git/url "https://github.com/kotoba-lang/kotoba-sema.git"
-         :git/sha "6f0b0e01e1bdf49f0d9fd0be3cc8281f69f78de8"}
+         :git/sha "62ecebf0bdad9af036787dbe58398eea39d1c5de"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}
