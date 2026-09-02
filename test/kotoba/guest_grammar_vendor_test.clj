@@ -19,7 +19,7 @@
 
   | | |
   |---|---|
-  | kotoba-lang `lang/guest-grammar.edn`, 2026-09-03 | `3e3f9748...` |
+  | kotoba-lang `lang/guest-grammar.edn`, 2026-09-03 | `67561e57...` |
   | every copy on this classpath | `e20f3e50...` |
 
   `:admitted-builtins` names THREE kernel heads here -- `kernel-load-u8`,
@@ -70,7 +70,7 @@
   "sha256 of kotoba-lang `lang/guest-grammar.edn` as of 2026-09-03. The same
   literal is pinned in kotoba-lang, kotoba-sema and amu, where it is the
   digest those repositories ARE. Here it is the digest this repository OWES."
-  "3e3f9748e245386fc2c89bbadabddfebb4bf02190e137494feacec6a12b4500a")
+  "67561e57ad2b135d848eac75b46ab430d4404a463159f43775e01134e569988f")
 
 (def classpath-grammar-sha256
   "sha256 of every copy on this classpath, 2026-09-03. Behind the authority by
