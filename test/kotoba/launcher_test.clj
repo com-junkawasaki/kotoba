@@ -24,6 +24,36 @@
   (doseq [file (reverse (file-seq root))]
     (.delete ^java.io.File file)))
 
+(deftest rad-project-dot-resolves-to-the-working-directory
+  ;; `cd hello && kotoba build` used to plan `./src/kotoba_app.kotoba` and fail
+  ;; with :wasm/source-not-readable, because "." has no last path segment for
+  ;; `rad-adapter/project-name` to derive a package name from and it fell back
+  ;; to the literal `kotoba-app`. The README `rad new` scaffolds tells the
+  ;; reader to run `--project .`, so the scaffold's own instructions failed.
+  ;;
+  ;; Pinning the resulting SOURCE PATH, not just "it did not throw": the bug
+  ;; was a wrong path that the planner reported as a successful plan.
+  (let [prior (System/getProperty "user.dir")
+        dir (str (java.nio.file.Files/createTempDirectory
+                  "kotoba-rad-project" (into-array java.nio.file.attribute.FileAttribute [])))
+        plan (fn [argv]
+               (get-in (launcher/resolve-rad-project
+                        {:kotoba.cli/code :command/planned
+                         :kotoba.cli/data {:request {:options {:project (first argv)}}}})
+                       [:kotoba.cli/data :request :options :project]))]
+    (try
+      (System/setProperty "user.dir" dir)
+      (testing "an absent or self-referential project becomes the working directory"
+        (doseq [given [nil "" "." "./" "  .  "]]
+          (is (= (.getCanonicalPath (io/file dir)) (plan [given]))
+              (str "project " (pr-str given) " should resolve to the working directory"))))
+      (testing "an explicit project is left exactly as written"
+        (is (= "hello" (plan ["hello"])))
+        (is (= "./hello" (plan ["./hello"])))
+        (is (= "/tmp/hello" (plan ["/tmp/hello"]))))
+      (finally
+        (System/setProperty "user.dir" prior)))))
+
 (deftest kbb-admits-only-explicitly-governed-kotoba-source
   (is (= :kbb/usage (:kotoba.cli/code (kbb/dispatch []))))
   (is (= :kbb/source-extension-denied
