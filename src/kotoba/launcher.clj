@@ -703,6 +703,29 @@
                               :message (.getMessage e)}
                              (select-keys (ex-data e) [:problem]))]})))))
 
+(defn resolve-rad-project
+  "Replace an absent or self-referential `--project` with the working
+  directory's real path, before the pure rad planner sees it.
+
+  `kotoba.rad-adapter/project-name` derives the package name from the last
+  path segment, and `\".\"` has no segment to derive from — it fell back to the
+  literal `kotoba-app`. So `cd hello && kotoba build` planned
+  `./src/kotoba_app.kotoba` and failed with `:wasm/source-not-readable`, in a
+  project whose source `rad new` had just written to `src/hello.kotoba`. The
+  README that `rad new` scaffolds tells the reader to run `--project .`, so
+  the scaffold's own instructions did not work.
+
+  The planner cannot fix this itself and should not: a working directory is
+  host state, and `plan` is pure. The host knows what `\".\"` means, so the
+  host says it — here, once, for every rad operation rather than per command."
+  [result]
+  (update-in result [:kotoba.cli/data :request :options :project]
+             (fn [p]
+               (if (or (nil? p)
+                       (and (string? p) (contains? #{"" "." "./"} (str/trim p))))
+                 (.getCanonicalPath (io/file (System/getProperty "user.dir")))
+                 p))))
+
 (defn adapter-result
   "Execute host-adapter-backed commands from their CLJC-planned result.
   Non-adapter commands pass through unchanged."
@@ -710,13 +733,17 @@
   (if (= :command/planned (:kotoba.cli/code result))
     (case command
       "git" (git-adapter/execute! (shell-process-port) result)
-      "rad" (rad-adapter/execute! (rad-host-port) result)
+      "rad" (rad-adapter/execute! (rad-host-port) (resolve-rad-project result))
       "build" (rad-adapter/execute!
                (rad-host-port)
-               (assoc-in result [:kotoba.cli/data :request :positionals] ["build"]))
+               (-> result
+                   resolve-rad-project
+                   (assoc-in [:kotoba.cli/data :request :positionals] ["build"])))
       "test" (rad-adapter/execute!
               (rad-host-port)
-              (assoc-in result [:kotoba.cli/data :request :positionals] ["test"]))
+              (-> result
+                  resolve-rad-project
+                  (assoc-in [:kotoba.cli/data :request :positionals] ["test"])))
       "graph" (graph-adapter/execute! (graph-host-port) result)
       "deploy" (deploy-adapter/execute! (deploy-host-port) result)
       result)
