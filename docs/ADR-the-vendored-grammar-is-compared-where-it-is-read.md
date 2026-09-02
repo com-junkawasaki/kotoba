@@ -1,7 +1,8 @@
 # ADR: The vendored grammar is compared where it is read
 
 - Status: accepted
-- Date: 2026-09-03 (gap recorded), amended 2026-09-03 (gap closed)
+- Date: 2026-09-03 (gap recorded), amended 2026-09-03 (111 of 112 heads
+  carried; one-head gap re-opened behind it, and the two blockers decided)
 - Authority: kotoba-lang
   `docs/adr/ADR-the-authority-names-every-head-the-frontend-admits.md`
 - Part of the 2026-09-03 resync wave (kotoba-lang, kotoba-sema, amu, grammar,
@@ -66,17 +67,71 @@ already has a better one.*
 ## What the pin advance surfaced — measured, and not caused by the bytes
 
 Advancing the three pins was, as this ADR predicted, more than a grammar
-resync. Ten tests fail on the advanced pins:
+resync. Ten tests failed on the advanced pins:
 
 - `q6-historical-and-almost-valid-corpus-fails-closed` / `ambient-mutation`:
   `(defn main [] (let [x (atom 0)] (swap! x inc)))` is no longer rejected.
   kotoba-lang landed local-state slice 1 — a function-local atom that is
   compiled away, the second widening path on `:no-ambient-mutation` — and this
-  repository's adversarial corpus still expects the old refusal.
-- `authority-positive-cases-run-on-primary-wasm`, nine cases: every abort
-  slice 1 / slice 2 conformance case. The primary wasm emitter answers
-  `:unsupported-op "try"` and `:unsupported-top-level-form` on `throw`. The
-  authority declares the cases; this backend has not consumed them.
+  repository's adversarial corpus still expected the old refusal.
+- `authority-positive-cases-run-on-primary-wasm`, nine cases. An earlier draft
+  of this section called them "every abort slice 1 / slice 2 conformance case,
+  refused on `throw`". **Both halves of that were wrong, and the correction is
+  the useful part.** Measured: they are the **six** abort run cases plus the
+  **three** local-state run cases, and only **one** of the nine is refused on an
+  abort head at all (`:unsupported-op "try"`). Five are refused earlier, at
+  `defn-` — a private-definition surface this emitter has never had — and three
+  at `atom`. Teaching this emitter `try` would therefore not by itself qualify
+  eight of the nine. *A blocker described from the family a case belongs to,
+  rather than from the refusal it actually answered, points at the wrong fix.*
+
+## The two decisions, and where they landed
+
+**The two emitters are not the same program**, which is what makes "this
+backend has not qualified" a real statement rather than an excuse:
+
+| | primary wasm | compile route |
+|---|---|---|
+| entry point | `kotoba.runtime/wasm-binary` (`src/kotoba/runtime.clj`) | `kotoba.compiler.core/compile-source`, target `:wasm32-kotoba-v1` |
+| CLI | `kotoba wasm emit` → `kotoba.launcher/wasm-emit-result` | `amu compile --target wasm32` |
+| frontend | its own form walker | amu + kotoba-sema elaboration |
+
+**`ambient-mutation`: the assertion moved to the invariant that survived.** The
+corpus still states a blanket `:expect :reject`, so the corpus statement is no
+longer an invariant for that case. Rather than delete the case or assert a
+refusal the language deliberately gave up, `q6-widened-cases` names it — and
+`q6-ambient-mutation-is-about-escape-not-mutation` asserts what still holds: the
+function-local atom is admitted **and evaluates to 1**; an **escaping** atom is
+refused by the exact landed message ``atom `a` escapes its let scope (atom slice
+1 admits swap!/reset!/deref in straight-line code of the binding function
+only)`` with code `:kotoba.error/local-state-escape`, in both the argument and
+the fn-capture shape; the seven other mutation heads (`ref` `dosync` `volatile!`
+`set!` `binding` `var` `alter-var-root`) are still refused by `dynamic loading,
+interop, mutation, and metaprogramming are forbidden` /
+`:kotoba.error/ambient-forbidden`; and the primary wasm emitter still refuses
+`atom` outright, so a widening on one backend is not read as a widening
+everywhere. That is one admitted value and nine pinned refusals in place of one
+refusal — deliberately a stronger test than the one it replaces.
+
+**The nine conformance cases: backend-pending, in the form the authority already
+uses.** All nine carry `:class :compiler-run`, whose declared backends are
+`:required #{:kir}` and `:optional #{:js-kotoba-v1 :wasm32-kotoba-v1}` — the
+authority does not require a wasm backend to run them. `primary-wasm-pending` in
+`test/kotoba/language_conformance_test.clj` makes that checkable here, against
+the emitter this namespace drives, naming the operation each case is refused on.
+
+It is not a skip list. Each entry must **actually refuse, with exactly the
+recorded refusal**, so "has not qualified" and "passed" are different outputs;
+an entry may not name a case the authority requires of a wasm backend; an entry
+that names nothing is refused; and `QUALIFIED n` is printed with a floor under
+it. Break-checks: dropping a real entry makes that case demanded and red;
+adding a case that passes reports `it now answers :admitted`; adding a case with
+`:wasm32-kotoba-v1` in `:required-backends` is refused as ineligible.
+
+Option (a) — teaching the primary emitter `try` — was rejected on the
+measurement above: it is not a small lowering of the same monadic
+`[:result T E]` elaboration, because five of the nine never reach an abort head,
+and the elaboration itself lives in kotoba-sema on the other route.
 
 **Control**, so the attribution is measured rather than asserted: with the three
 pins set to the PARENTS of the four commits in this wave (kotoba-lang
@@ -91,11 +146,16 @@ grammar bytes; all of them are upstream work this repository has not consumed.
 `test/kotoba/guest_grammar_vendor_test.clj`, rewritten from a gap baseline into
 a pin:
 
-- **the authority digest is pinned** — `67561e57…`, the same literal kotoba-lang,
-  kotoba-sema and amu each carry. Here it is the digest this repository *is*,
-  not one it *owes*, which is the fourth pin kotoba-lang's own failure message
-  asks for by name. An authority edit not carried here goes red **here**, in a
-  clone with no sibling checkout to compare against;
+- **two digests, because the gap did not reach zero** — `classpath-grammar-sha256`
+  is `67561e57…`, the literal kotoba-lang, kotoba-sema and amu each carried at
+  the pins this change advances to, and what all five copies here now are.
+  `authority-grammar-sha256` is `6e1202fd…`: while this change was open the
+  authority added one admitted builtin, `kernel-uefi-alloc-region`
+  (kotoba-gmir ADR-0030 / kotoba-sema ADR-0030), measured independently by
+  hashing `lang/guest-grammar.edn` on kotoba-lang main. **112 heads → 1.** The
+  file asserts the two are *not* equal, so the day they are, the second literal
+  must be retired rather than left to linger. An authority edit not carried here
+  goes red **here**, in a clone with no sibling checkout to compare against;
 - **the kernel-head count is asserted through the LOADER**, not from the file,
   because `kotoba.grammar/admitted-heads` is what actually decides whether a
   guest is told its head is unknown. It is 114, and four sampled heads across
@@ -114,11 +174,18 @@ a pin:
 ## Verification
 
 ```
-COMPARED 5   classpath copies of kotoba/lang/guest-grammar.edn  AGAINST 67561e57ad2b
-SCANNED  546 admitted heads through kotoba.grammar (114 kernel)
-2 tests, 9 assertions, 0 failures
+COMPARED 5  classpath copies of kotoba/lang/guest-grammar.edn  AT 67561e57ad2b
+            AUTHORITY-GAP 6e1202fd23bc  (114 -> 115 kernel heads)
+SCANNED  546 admitted heads through kotoba.grammar (114 kernel, authority names 115)
 ```
 
-Full suite: 700 tests, 12 failures — the ten named above plus the two
-`../kototama` sibling-absence ones. `every-guest-grammar-on-the-classpath-is-the-same-bytes`,
-which was red the moment the copies moved and green before, is green here.
+Full suite, 2026-09-03, fresh clone at the advanced pins:
+
+- **before** the two decisions: 702 tests, 9555 assertions, **19 failures**,
+  exit 1 — the ten named above plus nine `.isFile` checks on evidence paths
+  under sibling checkouts (`../kotoba-lang`, `../amu`, `../kototama`) that a
+  fresh clone does not have;
+- **after**, with `KOTOBA_LANG_AUTHORITY_ROOT` / `KOTOBA_COMPILER_EVIDENCE_ROOT`
+  / `KOTOTAMA_EVIDENCE_ROOT` pointed at the pinned checkouts: **0 failures**,
+  exit 0. The nine `.isFile` failures are environmental — they resolve on the
+  same pins the classpath already carries, and are not touched by this change.

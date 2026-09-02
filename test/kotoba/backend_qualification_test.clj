@@ -208,14 +208,112 @@
            (:source-suffix case)
            (apply str (repeat (:repeat-count case) ")")))))
 
+(defn- refusal
+  "The refusal message `f` answers `source` with, or nil if it did not refuse.
+  A refusal that is not an ex-info still counts, and reports its class, so a
+  crash cannot be read as the refusal a test was written to demonstrate."
+  [f source]
+  (try
+    (f source)
+    nil
+    (catch clojure.lang.ExceptionInfo e (ex-message e))
+    (catch Throwable t (str "NOT-AN-EX-INFO " (.getName (class t)) ": " (ex-message t)))))
+
+(defn- refusal-code [f source]
+  (try (f source) nil
+       (catch clojure.lang.ExceptionInfo e (:kotoba.error/code (ex-data e)))
+       (catch Throwable _ ::not-an-ex-info)))
+
+;; kotoba-lang deliberately widened one head in this corpus, so the corpus's
+;; blanket ":expect :reject" no longer states an invariant for it. The case is
+;; not dropped -- it moves to `q6-ambient-mutation-is-about-escape-not-mutation`
+;; below, which asserts what IS invariant now. Anything else in the corpus is
+;; still a blanket refusal on both backends.
+(def ^:private q6-widened-cases
+  {:ambient-mutation "local-state slice 1"})
+
 (deftest q6-historical-and-almost-valid-corpus-fails-closed
-  (let [corpus (adversarial)]
-    (doseq [case (concat (:historical-regressions corpus)
-                         (:almost-valid corpus))]
+  (let [corpus (adversarial)
+        cases (concat (:historical-regressions corpus) (:almost-valid corpus))
+        ids (set (map :id cases))
+        exercised (atom 0)]
+    ;; The widening list may not drift into excusing a case that was renamed or
+    ;; removed upstream: an entry that names nothing would silently excuse
+    ;; nothing while looking like a considered exception.
+    (doseq [[id _] q6-widened-cases]
+      (is (contains? ids id)
+          (str "widened case " id " is no longer in the adversarial corpus")))
+    (doseq [case cases
+            :when (not (contains? q6-widened-cases (:id case)))]
       (testing (name (:id case))
+        (swap! exercised inc)
         (let [source (materialize-adversarial-source case)]
           (is (rejects? kotoba-result source) "kotoba must reject adversarial input")
-          (is (rejects? compiler-result source) "compiler must reject adversarial input"))))))
+          (is (rejects? compiler-result source) "compiler must reject adversarial input"))))
+    (println "EXERCISED" @exercised "adversarial cases as blanket refusals; WIDENED"
+             (count q6-widened-cases) (pr-str (keys q6-widened-cases)))
+    ;; Evidence floor: every corpus case is either exercised as a blanket
+    ;; refusal or named in the widening list. Nothing may fall between them.
+    (is (= (count cases) (+ @exercised (count q6-widened-cases))))
+    (is (<= 8 (count cases))
+        "the adversarial corpus must not shrink to nothing")))
+
+(deftest ^{:doc "The corpus case :ambient-mutation asserts `(atom 0)` is refused. Since
+  2026-09-02 that is no longer what the language forbids, so asserting it here
+  would pin a refusal the language has deliberately given up.
+
+  WHAT CHANGED. kotoba-lang landed local-state slice 1 (kotoba-sema 60341cc5,
+  kotoba-lang 95bc01ae; superproject ADR
+  adr-2609021600-kotoba-unison-deepening-five-priorities, section 6). A
+  function-local, non-escaping atom is admitted and elaborated away by source
+  state passing: the cell becomes an ordinary let rebinding, so there is no
+  host, no grant, and nothing at runtime.
+
+  WHY THAT IS NOT A WEAKENING OF THE INVARIANT. The invariant `:no-ambient-
+  mutation` protects is that state must not be AMBIENT, not that mutation is
+  forbidden. A cell that cannot leave the body that binds it is not ambient.
+  What this test pins instead is the boundary that actually still holds:
+
+    1. an ESCAPING atom is still refused, by the exact landed message;
+    2. the other mutation heads are still in :forbidden-heads, refused by the
+       exact ambient-forbidden message;
+    3. the legacy `kotoba wasm emit` emitter still refuses `atom` outright, so
+       widening on one backend is not read as widening everywhere;
+    4. the widened program's VALUE is pinned, so the widening cannot silently
+       change meaning either.
+
+  This is deliberately a stronger test than the one it replaces: the case it
+  replaces asserted one refusal, this asserts one admitted value plus nine
+  refusals pinned by message."}
+  q6-ambient-mutation-is-about-escape-not-mutation
+  (let [local-atom "(defn main [] (let [x (atom 0)] (swap! x inc)))"
+        escape-as-argument
+        "(defn takes [x :i64] :i64 x) (defn main [] :i64 (let [a (atom 0)] (takes a)))"
+        escape-into-a-fn
+        "(defn main [] :i64 (let [a (atom 0)] (vector-at (map (fn [x] (+ x @a)) [1 2 3]) 0)))"
+        escape-message
+        (str "atom `a` escapes its let scope (atom slice 1 admits swap!/reset!/deref "
+             "in straight-line code of the binding function only)")
+        ambient-message
+        "dynamic loading, interop, mutation, and metaprogramming are forbidden"]
+    (testing "the function-local atom is admitted, and evaluates to what it means"
+      (is (= {:result 1 :effects #{}} (compiler-result local-atom))))
+    (testing "the legacy wasm emitter has not widened"
+      (is (rejects? kotoba-result local-atom)))
+    (testing "an escaping atom is still refused, by the exact landed message"
+      (doseq [source [escape-as-argument escape-into-a-fn]]
+        (is (= escape-message (refusal compiler-result source)))
+        (is (= :kotoba.error/local-state-escape (refusal-code compiler-result source)))))
+    (testing "the other mutation heads are untouched in :forbidden-heads"
+      (doseq [source ["(defn main [] (ref 0))"
+                      "(defn main [] (dosync 1))"
+                      "(defn main [] (volatile! 0))"
+                      "(defn main [] (set! *warn-on-reflection* true))"
+                      "(defn main [] (binding [*x* 1] 1))"
+                      "(defn main [] (var main))"
+                      "(defn main [] (alter-var-root (var main) identity))"]]
+        (is (= ambient-message (refusal compiler-result source)) source)
+        (is (= :kotoba.error/ambient-forbidden (refusal-code compiler-result source)) source)))))
 
 (deftest q6-repeated-compilation-is-byte-reproducible
   (doseq [{:keys [id source]} (:positive (qualification))]
