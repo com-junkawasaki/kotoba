@@ -13,43 +13,57 @@
   kotoba-lang and kotoba-sema -- agreed with each other while being one wave
   behind kotoba-lang, and this file was written to record that gap as a number.
 
-  ## The gap is closed, so the number became a pin
+  ## The 112-head gap is closed; a one-head gap opened behind it
 
   Closing it was the one change the earlier version of this namespace said it
   would be: advance the amu pin (and with it kotoba-lang and kotoba-sema),
   resync BOTH copies this repository ships, in one commit. Done 2026-09-03 at
-  authority `67561e57`.
+  authority `67561e57`, which is what every copy on this classpath now is and
+  what the three pins carry.
 
-  So `authority-grammar-sha256` is now the same kind of literal kotoba-lang,
-  kotoba-sema and amu each carry -- the digest this repository IS, not the one
-  it OWES -- which is the fourth pin kotoba-lang's own failure message asks for
-  by name. An authority edit that is not carried here goes red HERE, in a clone
-  with no sibling checkout to compare against.
+  **While that change was open, the authority moved again.** kotoba-lang main
+  added one admitted builtin, `kernel-uefi-alloc-region` (kotoba-gmir ADR-0030,
+  kotoba-sema ADR-0030), taking it to `6e1202fd` and 115 kernel heads. So the
+  gap is not zero -- it is ONE head, measured, and recorded here as two literals
+  rather than collapsed into one. Recording it is the point of this file: five
+  copies that are stale together are five copies that agree, and the check next
+  door reports green in exactly that state.
 
-  ## What the gap had cost, for the record
+  ## What the gap costs, for the record
 
   `kotoba.grammar/admitted-heads` unions `:admitted-builtins` into the
   known-head set `strict-problems` checks a guest program against, and nothing
   in kotoba-lang, kotoba-sema or amu reads that key at all. While the copies
-  were behind, `:admitted-builtins` named THREE kernel heads where the frontend
-  admits 114, so 111 heads the compiler admits were reported here as
-  `:unknown-form`. It names all 114 now."
+  were at `e20f3e50`, `:admitted-builtins` named THREE kernel heads where the
+  frontend admits 114, so 111 heads the compiler admits were reported here as
+  `:unknown-form`. It names 114 now, and the residual cost is the one head
+  above."
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.grammar :as guest-grammar]))
 
 (def authority-grammar-sha256
-  "sha256 of kotoba-lang `lang/guest-grammar.edn` as of the 2026-09-03 resync
-  wave. The same literal is pinned in kotoba-lang, kotoba-sema and amu. Change
-  it only as part of that wave, in all four repositories, and resync both
-  copies this repository ships in the same commit."
+  "sha256 of kotoba-lang `lang/guest-grammar.edn` on kotoba-lang main, measured
+  2026-09-03. The digest this repository OWES."
+  "6e1202fd23bc5a2ed6ef432114585c1813f5143d643eb4c8ee9a00b6e798b922")
+
+(def classpath-grammar-sha256
+  "sha256 of every copy on this classpath, 2026-09-03: the two this repository
+  ships and one each from the pinned amu, kotoba-lang and kotoba-sema. Ahead of
+  where it was by 111 heads, behind the authority by one. Change it only as part
+  of a resync wave, in all four repositories, and resync both copies this
+  repository ships in the same commit."
   "67561e57ad2b135d848eac75b46ab430d4404a463159f43775e01134e569988f")
 
 (def recorded-kernel-head-count
-  "Kernel heads `:admitted-builtins` names in the copies on this classpath.
-  Equal to what kotoba-sema's frontend admits, which is the point of the pin."
+  "Kernel heads `:admitted-builtins` names in the copies on this classpath."
   114)
+
+(def authority-kernel-head-count
+  "Kernel heads kotoba-lang main names, 2026-09-03. One more than the copies
+  here: `kernel-uefi-alloc-region`. The difference IS the residual gap."
+  115)
 
 (def ^:private resource-path "kotoba/lang/guest-grammar.edn")
 
@@ -64,22 +78,31 @@
                 :sha256 (sha256-hex
                          (with-open [in (.openStream url)] (.readAllBytes in)))}))))
 
-(deftest every-classpath-copy-is-the-pinned-authority
+(deftest every-classpath-copy-is-the-pinned-grammar
   (let [copies (classpath-copies)
         digests (into #{} (map :sha256) copies)]
-    (println (format "COMPARED\t%d\tclasspath copies of %s\tAGAINST\t%s"
+    (println (format "COMPARED\t%d\tclasspath copies of %s\tAT\t%s\tAUTHORITY-GAP\t%s\t(%d -> %d kernel heads)"
                      (count copies) resource-path
-                     (subs authority-grammar-sha256 0 12)))
+                     (subs classpath-grammar-sha256 0 12)
+                     (subs authority-grammar-sha256 0 12)
+                     recorded-kernel-head-count authority-kernel-head-count))
     (is (>= (count copies) 2)
         (str "found " (count copies) " copies; a run that opened fewer than two"
              " has measured nothing about a repository that ships two"))
-    (is (= #{authority-grammar-sha256} digests)
-        (str "a copy is not the pinned authority: " (pr-str digests) "\n"
-             "  pinned " authority-grammar-sha256 "\n"
+    (is (= #{classpath-grammar-sha256} digests)
+        (str "a copy moved off the recorded baseline: " (pr-str digests) "\n"
+             "  recorded  " classpath-grammar-sha256 "\n"
+             "  authority " authority-grammar-sha256 "\n"
              "Resyncing one copy alone is what"
              " `every-guest-grammar-on-the-classpath-is-the-same-bytes` exists"
              " to refuse: the two this repository ships move together with the"
-             " amu, kotoba-lang and kotoba-sema pins, in one commit."))))
+             " amu, kotoba-lang and kotoba-sema pins, in one commit."))
+    (is (not= classpath-grammar-sha256 authority-grammar-sha256)
+        "the recorded baseline and the authority digest are equal, so this gap
+         is closed -- delete `authority-grammar-sha256`,
+         `authority-kernel-head-count` and this assertion, and let
+         `every-guest-grammar-on-the-classpath-is-the-same-bytes` and the other
+         three repositories' digest pins carry it")))
 
 (deftest the-authority-reaches-the-one-place-that-reads-it
   ;; `kotoba.grammar/admitted-heads` is the one reader of `:admitted-builtins`
@@ -89,8 +112,8 @@
         kernel (into #{} (filter #(or (str/starts-with? (name %) "kernel-")
                                       (str/starts-with? (name %) "slice-")))
                      admitted)]
-    (println (format "SCANNED\t%d\tadmitted heads through kotoba.grammar (%d kernel)"
-                     (count admitted) (count kernel)))
+    (println (format "SCANNED\t%d\tadmitted heads through kotoba.grammar (%d kernel, authority names %d)"
+                     (count admitted) (count kernel) authority-kernel-head-count))
     (is (pos? (count admitted))
         "the grammar catalog did not load; `kotoba.grammar` falls back to a
          `:status :missing` map with every set empty, and an empty admitted set
