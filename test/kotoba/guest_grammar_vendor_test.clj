@@ -19,17 +19,17 @@
 
   | | |
   |---|---|
-  | kotoba-lang `lang/guest-grammar.edn`, 2026-09-03 | `67561e57...` |
+  | kotoba-lang `lang/guest-grammar.edn`, 2026-09-03 | `6e1202fd...` |
   | every copy on this classpath | `e20f3e50...` |
 
   `:admitted-builtins` names THREE kernel heads here -- `kernel-load-u8`,
   `kernel-store-u8`, `kernel-boot-info` -- where kotoba-sema's frontend admits
-  114 (53 memory, 8 carried slice, 53 privileged) and the authority now names
-  all 114.
+  115 (53 memory, 8 carried slice, 54 privileged) and the authority now names
+  all 115.
 
   That matters in this repository specifically, and only here.
   `kotoba.grammar/admitted-heads` unions `:admitted-builtins` into the
-  known-head set `strict-problems` checks a guest program against, so 111
+  known-head set `strict-problems` checks a guest program against, so 112
   heads the compiler admits are reported here as `:unknown-form`. Nothing in
   kotoba-lang, kotoba-sema or amu reads that key at all.
 
@@ -70,7 +70,7 @@
   "sha256 of kotoba-lang `lang/guest-grammar.edn` as of 2026-09-03. The same
   literal is pinned in kotoba-lang, kotoba-sema and amu, where it is the
   digest those repositories ARE. Here it is the digest this repository OWES."
-  "67561e57ad2b135d848eac75b46ab430d4404a463159f43775e01134e569988f")
+  "6e1202fd23bc5a2ed6ef432114585c1813f5143d643eb4c8ee9a00b6e798b922")
 
 (def classpath-grammar-sha256
   "sha256 of every copy on this classpath, 2026-09-03. Behind the authority by
@@ -80,8 +80,8 @@
 
 (def recorded-kernel-head-count
   "Kernel heads `:admitted-builtins` names in the copies on this classpath.
-  kotoba-sema's frontend admits 114; the authority now names all 114. The
-  difference, 111, is the number of heads `strict-problems` reports here as
+  kotoba-sema's frontend admits 115; the authority now names all 115. The
+  difference, 112, is the number of heads `strict-problems` reports here as
   `:unknown-form` although the compiler admits them."
   3)
 
@@ -133,7 +133,7 @@
         kernel (into #{} (filter #(or (str/starts-with? (name %) "kernel-")
                                       (str/starts-with? (name %) "slice-")))
                      admitted)]
-    (println (format "SCANNED\t%d\tadmitted heads through kotoba.grammar (%d kernel, authority names 114)"
+    (println (format "SCANNED\t%d\tadmitted heads through kotoba.grammar (%d kernel, authority names 115)"
                      (count admitted) (count kernel)))
     (is (pos? (count admitted))
         "the grammar catalog did not load; `kotoba.grammar` falls back to a
