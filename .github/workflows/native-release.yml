@@ -29,7 +29,7 @@ jobs:
           repository: kotoba-lang/kotoba-lang
           # kotoba-lang main 2026-08-13: guest-grammar sha256 ed2012db matches
           # kotoba 2e6d6367. Pre-profile-6 pin 7adcda58 cannot qualify this line.
-          ref: 7467693c35ce8c9343434e42824753b6be9d8101
+          ref: dd8bcb62dee18ee9b1ca126ad7a2f1fbf55c7ecb
           path: _authority/kotoba-lang
           persist-credentials: false
       - name: Checkout pinned Amu qualification evidence

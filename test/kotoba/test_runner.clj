@@ -21,6 +21,7 @@
             [kotoba.release-build-test]
             [kotoba.wasm-multi-source-map-test]
             [kotoba.wasm-string-literal-operation-test]
+            [kotoba.typed-collection-wasm-test]
             [kotoba.backend-qualification-test]
             [kotoba.aiueos-kernel-caps-test]
             [kotoba.cacao-run-test]
@@ -106,6 +107,7 @@
                                         'kotoba.release-build-test
                                         'kotoba.wasm-multi-source-map-test
                                         'kotoba.wasm-string-literal-operation-test
+                                        'kotoba.typed-collection-wasm-test
                                         'kotoba.backend-qualification-test
                                         'kotoba.aiueos-kernel-caps-test
                                         'kotoba.cacao-run-test
