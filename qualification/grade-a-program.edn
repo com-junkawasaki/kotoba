@@ -1,0 +1,617 @@
+{:grade-a/version 1
+ :grade-a/as-of "2026-07-23"
+ :grade-a/adr "docs/ADR-grade-a-security-assurance-program.md"
+ :grade-a/status-values #{:open :in-progress :pass :accepted-risk}
+ :grade-a/pass-requires #{:evidence/as-of :evidence/command :evidence/result
+                          :evidence/artifacts}
+ :grade-a/rescoring {:maximum-evidence-age-days 1
+                     :exception-expiry-required true}
+
+ ;; A score never overrides these gates. `attest` succeeds only when every
+ ;; gate and every gap below is :pass.
+ :grade-a/hard-gates
+ {:H-01 {:status :open :summary "clean-checkout verification is green"}
+  :H-02 {:status :open :summary "no unresolved Critical/High vulnerability"}
+  :H-03 {:status :open :summary "no production fail-open authority or sealing path"}
+  :H-04
+  {:status :pass
+   :summary "versioned end-to-end threat model covers every scoped product and composition, asset, actor, trust boundary, STRIDE abuse, side channel, supply chain and recovery with evidence-linked controls and owned residual risks"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:threat-model-check && clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.threat-model-test))(clojure.test/run-tests (quote kotoba.threat-model-test))'"
+   :evidence/result "valid: 9 assets, 9 actors, 10 boundaries, 11 threats, 18 controls, 3 residual risks; 4 tests, 15 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["qualification/threat-model.edn"
+    "src/kotoba/threat_model.clj"
+    "test/kotoba/threat_model_test.clj"
+    "docs/THREAT-MODEL.md"
+    "docs/ADR-grade-a-security-assurance-program.md"]}
+  :H-05 {:status :open :summary "SBOM, provenance, signed reproducible release"}
+  :H-06 {:status :open :summary "fuzz/property/adversarial boundary coverage"}
+  :H-07 {:status :open :summary "independent audit and penetration retest"}
+  :H-08 {:status :open :summary "exercised operations, recovery and key lifecycle"}
+  :H-09 {:status :open :summary "90-day production-profile soak and SLO"}
+  :H-10 {:status :open :summary "content-addressed release evidence bundle"}}
+
+ :grade-a/gaps
+ {:K-01
+  {:owner "kotoba-lang/kotoba"
+   :status :pass
+   :summary "real host-provider ABI descriptor drift"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test"
+   :evidence/result "336 tests, 1696 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["deps.edn"
+    "src/kotoba/wasm_exec.clj"
+    "test/kotoba/wasm_exec_test.clj"]}
+  :K-02
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "versioned authority policy denies private production startup/replication without an active descriptor-backed 32-byte block key and confines unsealed startup to an explicit synthetic development profile; host-adapter store wiring remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \".\"]}' -M -e '(require (quote kotoba.cold-tier-admission-test))(clojure.test/run-tests (quote kotoba.cold-tier-admission-test))'"
+   :evidence/result "3 tests, 22 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["qualification/cold-tier-policy.edn"
+    "src/kotoba/cold_tier_admission.clj"
+    "test/kotoba/cold_tier_admission_test.clj"]}
+  :K-03
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "one AES-256-GCM KSB1 envelope with authenticated key version now guards the declared cold-store, CAR-export, DHT-durability and peer-replication seams; plaintext canaries and unknown seams fail closed, while host-adapter wiring remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.sealed-egress-test))(clojure.test/run-tests (quote kotoba.sealed-egress-test))'"
+   :evidence/result "3 tests, 26 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["qualification/sealed-egress-policy.edn"
+    "src/kotoba/sealed_egress.clj"
+    "test/kotoba/sealed_egress_test.clj"
+    "test/kotoba/test_runner.clj"]}
+  :K-04
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "origin-side Ed25519 verification now binds short-lived edge assertions to active issuer, audience, subject, method, path, body digest and an atomically single-use nonce; production XRPC ingress wiring remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.origin-assertion-test))(clojure.test/run-tests (quote kotoba.origin-assertion-test))'"
+   :evidence/result "4 tests, 10 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["qualification/origin-edge-assertion.edn"
+    "src/kotoba/origin_assertion.clj"
+    "test/kotoba/origin_assertion_test.clj"
+    "test/kotoba/test_runner.clj"]}
+  :K-05
+  {:owner "kotoba-lang/kotoba"
+   :status :pass
+   :summary "compiler effect rows, package capability declarations, runtime acquisition and handle use are checked against the shared normative capability model; exhaustive resource matrices preserve concrete intersection/denial and production wildcard authority is impossible"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.capability-cross-layer-test))(clojure.test/run-tests (quote kotoba.capability-cross-layer-test))'"
+   :evidence/result "3 tests, 151 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotoba-lang/lang/capability-semantics.edn"
+    "../kotoba-lang/src/kotoba/lang/capability_values.cljc"
+    "src/kotoba/cap_table.clj"
+    "src/kotoba/host_providers.clj"
+    "src/kotoba/runtime.clj"
+    "src/kotoba/package_admission.clj"
+    "test/kotoba/capability_cross_layer_test.clj"]}
+  :K-06
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "deterministic bounded mutation covers reader, EDN, DAG-CBOR, CID, manifest and compiler/host-ABI boundaries with prior-finding seeds; it found and closed a sub-256-byte DAG-CBOR gigabyte-allocation path, while coverage-guided instrumentation across every boundary remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.bounded-cbor-test) (quote kotoba.security-boundary-fuzz-test))(clojure.test/run-tests (quote kotoba.bounded-cbor-test) (quote kotoba.security-boundary-fuzz-test))'"
+   :evidence/result "6 tests, 6,020 assertions, 0 failures, 0 errors; malicious declared-length allocation rejected before upstream decode"
+   :evidence/artifacts
+   ["qualification/security-fuzz-corpus.edn"
+    "src/kotoba/bounded_cbor.clj"
+    "test/kotoba/bounded_cbor_test.clj"
+    "test/kotoba/security_boundary_fuzz_test.clj"
+    "../compiler/test/kotoba/compiler/frontend_fuzz_test.clj"
+    "../compiler/test/kotoba/compiler/security_fuzz_test.clj"]}
+  :K-07
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "every guarded interpreter run has a fail-closed expression budget; Wasm calibration and wall deadline remain"}
+  :K-08
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "machine inventory qualifies AES-256-GCM, Ed25519 and SHA-256 purposes, providers, key lifecycle, nonce policy, forbidden algorithms and NIST/FIPS/RFC vectors; no FIPS claim is made and independent crypto review remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:crypto-check && clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.crypto-qualification-test))(clojure.test/run-tests (quote kotoba.crypto-qualification-test))'"
+   :evidence/result "inventory valid; providers SunJCE/SUN; 5 tests, 9 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["qualification/crypto-policy.edn"
+    "src/kotoba/crypto_qualification.clj"
+    "test/kotoba/crypto_qualification_test.clj"
+    "qualification/cold-tier-policy.edn"
+    "qualification/origin-edge-assertion.edn"]}
+  :K-09
+  {:owner "kotoba-lang/kotoba"
+   :status :in-progress
+   :summary "authenticated digest-idempotent anchor jobs now have bounded retry/backoff, tx/finality confirmation, duplicate/missing/mismatch reconciliation and monitoring snapshots; production chain adapter, alert routing and exercised operations remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.anchor-relayer-test))(clojure.test/run-tests (quote kotoba.anchor-relayer-test))'"
+   :evidence/result "4 tests, 16 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["qualification/anchor-relayer-policy.edn"
+    "src/kotoba/anchor_relayer.clj"
+    "test/kotoba/anchor_relayer_test.clj"
+    "qualification/origin-edge-assertion.edn"]}
+  :K-10 {:owner "kotoba-lang/kotoba" :status :open}
+
+  :T-01
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "role/digest TCB inventory pins 23 authority-bearing files, six external dependencies, and unsafe/native boundaries; independent review and mutation campaign remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test -n kototama.tcb-test"
+   :evidence/result "TCB valid: 23 files, 6 external boundaries; 3 tests, 6 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["../kototama/qualification/tcb-inventory.edn"
+    "../kototama/src/kototama/tcb.clj"
+    "../kototama/test/kototama/tcb_test.clj"
+    "../kototama/docs/grade-a-tcb-inventory.md"]}
+  :T-02
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "every host function now shares a session-scoped atomic use/revocation/drop chokepoint; all-import runtime matrix and fleet policy propagation remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.tender-test"
+   :evidence/result "35 tests, 90 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/tender.clj"
+    "../kototama/test/kototama/tender_test.clj"
+    "../kototama/docs/grade-a-capability-lifecycle.md"]}
+  :T-03
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "JVM production tender enforces the per-host support matrix before parsing/instantiation and forbids implicit store/LLM fallbacks; browser/Node runtime integration remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.browser-test -n kototama.tender-test"
+   :evidence/result "37 tests, 100 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/browser.cljc"
+    "../kototama/src/kototama/tender.clj"
+    "../kototama/test/kototama/browser_test.cljc"
+    "../kototama/test/kototama/tender_test.clj"
+    "../kototama/docs/grade-a-host-support-admission.md"]}
+  :T-04
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "production fleet now mandates bounded reports combining fuel, memory, host-call/storage-byte caps, deadline cancellation, and non-queuing concurrency admission; malicious multi-guest/provider stress remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.fleet-store-test -n kototama.tender-test"
+   :evidence/result "55 tests, 174 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/tender.clj"
+    "../kototama/src/kototama/fleet_exec.clj"
+    "../kototama/test/kototama/tender_test.clj"
+    "../kototama/test/kototama/fleet_store_test.clj"
+    "../kototama/docs/grade-a-resource-containment.md"]}
+  :T-05
+  {:owner "kotoba-lang/kototama"
+   :status :pass
+   :summary "production tender/fleet admission requires a digest-bound signed manifest; root-authorized monotonic live registry enforces authorization, rotation, validity windows, revocation, emergency distrust and downgrade rejection"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.fleet-store-test -n kototama.signer-lifecycle-test -n kototama.tender-test"
+   :evidence/result "60 tests, 195 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/signer_lifecycle.clj"
+    "../kototama/src/kototama/tender.clj"
+    "../kototama/src/kototama/fleet_exec.clj"
+    "../kototama/test/kototama/signer_lifecycle_test.clj"
+    "../kototama/test/kototama/tender_test.clj"
+    "../kototama/test/kototama/fleet_store_test.clj"
+    "../kototama/docs/grade-a-signer-lifecycle.md"]}
+  :T-06
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "production HTTP authority is exact-endpoint/method/purpose/opaque-credential/quota bound and rechecked per call; consolidated database corpus and DNS-rebinding-safe connector remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.browser-test -n kototama.network-authority-test -n kototama.tender-test"
+   :evidence/result "45 tests, 132 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/network_authority.clj"
+    "../kototama/src/kototama/browser.cljc"
+    "../kototama/src/kototama/tender.clj"
+    "../kototama/test/kototama/network_authority_test.clj"
+    "../kototama/test/kototama/tender_test.clj"
+    "../kototama/docs/grade-a-network-authority.md"]}
+  :T-07
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "compiler-produced and adversarial host-free corpus agrees across Chicory, Wasmtime and Node for results, memory growth and traps; full actor:host/component-profile release gate remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.runtime-conformance-test && node web/verify-actor-host.mjs"
+   :evidence/result "2 tests, 17 assertions, 0 failures/errors; independent JS actor-host smoke passed clock/log/sha256"
+   :evidence/artifacts
+   ["../kototama/src/kototama/runtime_conformance.clj"
+    "../kototama/test/kototama/runtime_conformance_test.clj"
+    "../kototama/web/verify-actor-host.mjs"
+    "../kototama/docs/grade-a-runtime-differential.md"]}
+  :T-08
+  {:owner "kotoba-lang/kototama"
+   :status :in-progress
+   :summary "deterministic signed JAR, CycloneDX SBOM, in-toto/SLSA provenance and tamper verifier are implemented; protected CI publication and independent audit retest remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.release-evidence-test"
+   :evidence/result "2 tests, 8 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/release_evidence.clj"
+    "../kototama/test/kototama/release_evidence_test.clj"
+    "../kototama/docs/grade-a-release-evidence.md"
+    "../kototama/deps.edn"]}
+
+  :A-01
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "versioned sensitive-local and regulated profiles reject every missing hardening control before PID-1 launches components"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test && clojure -M:lint"
+   :evidence/result "TCB valid; 343 tests, 1009 assertions, 0 failures/errors; lint 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/deployment_profile.cljc"
+    "../aiueos/src/aiueos/pid1.cljc"
+    "../aiueos/test/aiueos/deployment_profile_test.cljc"
+    "../aiueos/test/aiueos/pid1_test.cljc"
+    "../aiueos/docs/deployment-profiles.md"]}
+  :A-02
+  {:owner "kotoba-lang/aiueos"
+   :status :in-progress
+   :summary "versioned role/digest TCB inventory fails on source drift and regulated admission binds it; formal grant/link models and independent escape audit/retest remain"}
+  :A-03
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "every production deployment supplies a versioned timing/cache/Spectre decision, enforced mitigations and named residual-risk acceptance"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n aiueos.deployment-profile-test -n aiueos.pid1-test"
+   :evidence/result "21 tests, 37 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/deployment_profile.cljc"
+    "../aiueos/test/aiueos/deployment_profile_test.cljc"
+    "../aiueos/docs/threat-models/side-channels-v1.md"
+    "../aiueos/docs/deployment-profiles.md"]}
+  :A-04
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "root-signed monotonic lifecycle epochs enforce delegation, rotation, revocation, expiry, compromise recovery, rollback protection and node convergence"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test && clojure -M:lint"
+   :evidence/result "TCB valid; 337 tests, 988 assertions, 0 failures/errors; lint 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/key_lifecycle.clj"
+    "../aiueos/src/aiueos/signing.cljc"
+    "../aiueos/src/aiueos/launcher.cljc"
+    "../aiueos/test/aiueos/key_lifecycle_test.clj"
+    "../aiueos/docs/key-lifecycle.md"
+    "../aiueos/src/aiueos/deployment_profile.cljc"]}
+  :A-05
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "typed bounded entropy capability uses an attested strong OS provider and withholds samples until continuous health checks pass"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test && clojure -M:lint"
+   :evidence/result "TCB valid; 330 tests, 969 assertions, 0 failures/errors; lint 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/entropy.clj"
+    "../aiueos/src/aiueos/execute.cljc"
+    "../aiueos/test/aiueos/entropy_test.clj"
+    "../aiueos/test/aiueos/execute_test.cljc"
+    "../aiueos/docs/entropy-profile.md"
+    "../aiueos/src/aiueos/deployment_profile.cljc"]}
+  :A-06
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "sealed audit and component state provide confidentiality, separated keys, integrity/completeness, retention/deletion and verified restore"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test && clojure -M:lint"
+   :evidence/result "TCB valid; 343 tests, 1009 assertions, 0 failures/errors; lint 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/sealed_audit.clj"
+    "../aiueos/src/aiueos/sealed_state.clj"
+    "../aiueos/test/aiueos/sealed_audit_test.clj"
+    "../aiueos/test/aiueos/sealed_state_test.clj"
+    "../aiueos/docs/sealed-storage.md"
+    "../aiueos/src/aiueos/deployment_profile.cljc"]}
+  :A-07
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "declared non-real-time profile has bounded hard watchdog termination"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test && clojure -M:lint"
+   :evidence/result "TCB valid; 318 tests, 926 assertions, 0 failures/errors; lint 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/watchdog.clj"
+    "../aiueos/src/aiueos/execute.cljc"
+    "../aiueos/src/aiueos/manifest.cljc"
+    "../aiueos/test/aiueos/watchdog_test.clj"
+    "../aiueos/test/aiueos/execute_test.cljc"
+    "../aiueos/docs/deployment-profiles.md"]}
+  :A-08
+  {:owner "kotoba-lang/aiueos"
+   :status :in-progress
+   :summary "AIUEOS HVT, VFIO and VirtIO boundary tests now exercise device assignment and guest isolation contracts; supported-device hardware IOMMU enforcement, DMA fault injection and audited unsafe-driver isolation remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n aiueos.vfio-test -n aiueos.virtio-test -n aiueos.hvt-test"
+   :evidence/result "43 tests, 163 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/vfio.clj"
+    "../aiueos/src/aiueos/virtio.clj"
+    "../aiueos/src/aiueos/hvt.clj"
+    "../aiueos/test/aiueos/vfio_test.clj"
+    "../aiueos/test/aiueos/virtio_test.clj"
+    "../aiueos/test/aiueos/hvt_test.clj"]}
+  :A-09
+  {:owner "kotoba-lang/aiueos"
+   :status :pass
+   :summary "cross-machine topic protocol authenticates publisher/channel, authorizes topics, rejects replay and applies partition backlog atomically"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:tcb-check && clojure -M:test && clojure -M:lint"
+   :evidence/result "TCB valid; 325 tests, 953 assertions, 0 failures/errors; lint 0 errors"
+   :evidence/artifacts
+   ["../aiueos/src/aiueos/network_topic.clj"
+    "../aiueos/test/aiueos/network_topic_test.clj"
+    "../aiueos/docs/network-topic-protocol.md"
+    "../aiueos/src/aiueos/deployment_profile.cljc"]}
+  :A-10 {:owner "kotoba-lang/aiueos" :status :open}
+
+  :L-01
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :in-progress
+   :summary "Q9 now has a fail-closed six-wave state machine that rejects dependency skips, evidence-free qualification, premature fleet completion and implicit production authorization; Wave 1 soak and Waves 2–5 remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:q9-check && clojure -M:test -n kotoba.lang.q9-migration-test"
+   :evidence/result "state valid: 1 qualified, 1 authorized-in-progress, 4 not-authorized; 6 tests, 24 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["../kotoba-lang/lang/q9-migration.edn"
+    "../kotoba-lang/src/kotoba/lang/q9_migration.clj"
+    "../kotoba-lang/test/kotoba/lang/q9_migration_test.clj"
+    "../kotoba-lang/lang/q9-wave1-tranche-1-soak.edn"]}
+  :L-02
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :pass
+   :summary "all 1,082 discovered .kotoba paths are content-bound as verified canonical or machine-enforced typed deny; all 792 collisions and 66 unverified candidates are denied"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:extension-audit && clojure -M:test -n kotoba.lang.extension-audit-test"
+   :evidence/result "valid: 1,082 paths, 792 collisions, 858 typed exceptions; 3 tests, 11 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["../kotoba-lang/lang/q9-kotoba-extension-audit.edn"
+    "../kotoba-lang/src/kotoba/lang/extension_audit.clj"
+    "../kotoba-lang/test/kotoba/lang/extension_audit_test.clj"
+    "../kotoba-lang/scripts/generate-q9-kotoba-extension-audit.bb"
+    "../kotoba-lang/docs/grade-a-extension-admission.md"]}
+  :L-03
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :in-progress
+   :summary "interpreter/Wasm/CLJS KIR truthiness is unified; numeric, trap, capability and resource differential suites remain"}
+  :L-04
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :pass
+   :summary "all 275 machine-readable safety, capability, package-trust, malicious-source, guest-grammar and version-policy rules map exactly once to existing executable tests with profile/package compatibility bounds"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:normative-coverage && clojure -M:test -n kotoba.lang.normative-coverage-test"
+   :evidence/result "registry valid and attestable: 275/275 rules mapped; 3 tests, 8 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["../kotoba-lang/lang/normative-coverage.edn"
+    "../kotoba-lang/src/kotoba/lang/normative_coverage.clj"
+    "../kotoba-lang/test/kotoba/lang/normative_coverage_test.clj"]}
+  :L-05
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :pass
+   :summary "machine SemVer/support/deprecation policy enforces 180-day notice, deterministic compatibility reports, strict package versions and Ed25519 tags bound to version/commit/tree/source/time"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:compatibility 4 1 0.4.0 && clojure -M:test -n kotoba.lang.version-policy-test -n kotoba.lang.package-contract-test"
+   :evidence/result "policy/report compatible; 7 tests, 80 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotoba-lang/lang/version-policy.edn"
+    "../kotoba-lang/src/kotoba/lang/version_policy.clj"
+    "../kotoba-lang/src/kotoba/lang/package_contract.cljc"
+    "../kotoba-lang/test/kotoba/lang/version_policy_test.clj"
+    "../kotoba-lang/test/kotoba/lang/package_contract_test.clj"
+    "../kotoba-lang/docs/grade-a-version-policy.md"]}
+  :L-06
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :in-progress
+   :summary "Kotoba's production dependency graph is now immutable-SHA based and standalone classpath prefetch plus the central security dependency resolve without sibling checkouts; the compiler/authority-grammar lockstep needed to reproduce the complete Q1–Q9 suite remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -P -M:test && clojure -M -e '(require (quote kotoba.security.abac))(println :standalone-dependency-resolution-ok)'"
+   :evidence/result "standalone-dependency-resolution-ok"
+   :evidence/artifacts
+   ["deps.edn"
+    "qualification/supply-chain-manifest.edn"
+    "src/kotoba/supply_chain.clj"]}
+  :L-07
+  {:owner "kotoba-lang/kotoba-lang"
+   :status :in-progress
+   :summary "normative data-driven negative corpus covers reader escape, effect laundering, confused deputy, resource escalation and parser exhaustion with stable fail-closed codes; production compiler/CLJS/component lanes remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kotoba.lang.malicious-source-test"
+   :evidence/result "3 tests, 9 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotoba-lang/lang/malicious-source/manifest.edn"
+    "../kotoba-lang/src/kotoba/lang/malicious_source.clj"
+    "../kotoba-lang/test/kotoba/lang/malicious_source_test.clj"
+    "../kotoba-lang/docs/grade-a-malicious-source-corpus.md"]}
+  :L-08 {:owner "kotoba-lang/kotoba-lang" :status :open}
+
+  :B-01
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "a versioned five-product release-input BOM now binds immutable source revisions to SHA-256 dependency descriptors and rejects workspace-only production dependencies; all five current production descriptors are immutable, while signed deployed-service digest and security-owner provenance remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:supply-chain-check"
+   :evidence/result "five scoped products evaluated; all five current production dependency descriptors are immutable; aiueos remote-pin regression suite: 343 tests, 1,009 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["qualification/supply-chain-manifest.edn"
+    "src/kotoba/supply_chain.clj"
+    "test/kotoba/supply_chain_test.clj"]}
+  :B-02
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "production client profile now requires ABAC and signed capability; audience/tenant/purpose end-to-end proofs remain"}
+  :B-03
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "production client cannot omit ABAC; generated endpoint inventory and cross-tenant suite remain"}
+  :B-04
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "production client profile now denies an unsealed remote store; replication/export/cache/backup seams remain"}
+  :B-05
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :pass
+   :summary "atomic revision-CAS transactions are model-tested under retry, duplicate, reorder, partition, stale revision, tx-id conflict and crash recovery; malformed and oversized Byzantine batches are rejected before swap"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test"
+   :evidence/result "41 tests, 2,366 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotobase/src/kotobase/local.cljc"
+    "../kotobase/src/kotobase/store.cljc"
+    "../kotobase/test/kotobase/hostile_fault_model_test.clj"
+    "../kotobase/test/kotobase/store_test.cljc"]}
+  :B-06
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "production authorization membrane now requires CID integrity, verified package lock, delegated/local concrete capability intersection and durable independent audit before hydrate/execute/pin effects; legacy code-graph entry-point migration remains"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test"
+   :evidence/result "45 tests, 2,406 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotobase/src/kotobase/admission.cljc"
+    "../kotobase/test/kotobase/admission_test.clj"
+    "../kotobase/src/kotobase/code_graph.cljc"]}
+  :B-07
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "versioned production recovery policy now validates encrypted immutable digest-verified backups, multi-region RTO/RPO targets, restore receipts, corruption repair and lost-key recovery; scheduled restore exercises and independent production evidence remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test"
+   :evidence/result "47 tests, 2,418 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotobase/qualification/recovery-policy.edn"
+    "../kotobase/src/kotobase/recovery_qualification.clj"
+    "../kotobase/test/kotobase/recovery_qualification_test.clj"
+    "../security/src/kotoba/security/resilience.cljc"]}
+  :B-08
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "retention change qualification now fails closed unless a GC dry-run exactly matches the plan, legal holds are checked, two distinct principals approve, recovery is restorable and audit evidence is durable; adapter-level enforcement and production recovery evidence remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kotobase.retention-qualification-test"
+   :evidence/result "2 tests, 14 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotobase/qualification/retention-policy.edn"
+    "../kotobase/src/kotobase/retention_qualification.clj"
+    "../kotobase/test/kotobase/retention_qualification_test.clj"
+    "../kotobase/src/kotobase/code_graph.cljc"]}
+  :B-09
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "production client now requires request bounds; edge/origin WAF, concurrency and DoS evidence remain"}
+  :B-10
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "audit qualification now fails closed unless every receipt links to its predecessor, verifies under the injected signing authority and the head exactly matches an independently observed external anchor; production signer/anchor adapters, monitoring and reconciliation operations remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kotobase.audit-anchor-test"
+   :evidence/result "2 tests, 8 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotobase/qualification/audit-anchor-policy.edn"
+    "../kotobase/src/kotobase/audit_anchor.clj"
+    "../kotobase/test/kotobase/audit_anchor_test.clj"
+    "src/kotoba/anchor_relayer.clj"]}
+  :B-11
+  {:owner "kotoba-stack/kotobase-data-plane"
+   :status :in-progress
+   :summary "an operational readiness gate now fails closed without SLO, alert routing, on-call, exercised incident playbook, clean secret scan and exercised key-rotation evidence; production telemetry, on-call ownership and 90-day operating evidence remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kotobase.operations-qualification-test"
+   :evidence/result "2 tests, 10 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kotobase/qualification/operations-policy.edn"
+    "../kotobase/src/kotobase/operations_qualification.clj"
+    "../kotobase/test/kotobase/operations_qualification_test.clj"]}
+  :B-12 {:owner "kotoba-stack/kotobase-data-plane" :status :open}
+
+  :X-01
+  {:owner "kotoba-stack/security"
+   :status :pass
+   :summary "one normative versioned end-to-end threat-model EDN covers every product and the composition, with a drift-tested Markdown rendering tied to the same version and date"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:threat-model-check && clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.threat-model-test))(clojure.test/run-tests (quote kotoba.threat-model-test))'"
+   :evidence/result "model valid; rendered authority/version/scope match; 4 tests, 15 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["qualification/threat-model.edn"
+    "docs/THREAT-MODEL.md"
+    "src/kotoba/threat_model.clj"
+    "test/kotoba/threat_model_test.clj"]}
+  :X-02
+  {:owner "kotoba-stack/security"
+   :status :in-progress
+   :summary "a versioned shared control catalog now binds all five products by catalog SHA and requires adoption of capability intersection, sealed egress, bounded input, signed audit, key lifecycle, recovery, supply-chain pinning and vulnerability response; per-repository CI adoption SHA and exception workflow integration remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:control-adoption-check"
+   :evidence/result "five products and eight controls qualified; 2 tests, 4 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["qualification/control-catalog.edn"
+    "qualification/control-adoption.edn"
+    "src/kotoba/control_adoption.clj"
+    "test/kotoba/control_adoption_test.clj"]}
+  :X-03
+  {:owner "kotoba-stack/release"
+   :status :in-progress
+   :summary "Kototama now produces and independently verifies deterministic artifacts, CycloneDX SBOM, in-toto/SLSA provenance and Ed25519 signatures, including tamper rejection; the universal five-product signed bundle still lacks test/coverage/fuzz reports, risk register and deployed digest"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:test -n kototama.release-evidence-test"
+   :evidence/result "2 tests, 8 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["../kototama/src/kototama/release_evidence.clj"
+    "../kototama/test/kototama/release_evidence_test.clj"
+    "../kototama/docs/grade-a-release-evidence.md"
+    "qualification/supply-chain-manifest.edn"]}
+  :X-04
+  {:owner "kotoba-stack/security"
+   :status :in-progress
+   :summary "a versioned five-product hierarchy now requires organization and recovery roots plus purpose separation for release/package/audit signing, storage sealing and transport identity, with issuance/rotation/revocation/compromise recovery for every product; root-of-trust integration and real key migration remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:key-hierarchy-check"
+   :evidence/result "five products, five key purposes and four lifecycle controls qualified; 2 tests, 4 assertions, 0 failures/errors"
+   :evidence/artifacts
+   ["qualification/key-hierarchy.edn"
+    "src/kotoba/key_hierarchy.clj"
+    "test/kotoba/key_hierarchy_test.clj"]}
+  :X-05
+  {:owner "kotoba-stack/security"
+   :status :pass
+   :summary "private vulnerability reporting, severity acknowledgement/triage/mitigation/release SLAs, supported-version window, advisory/CVE workflow and Critical/High clean retest requirements are versioned and machine-checked"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:vulnerability-response-check && clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.vulnerability-response-test))(clojure.test/run-tests (quote kotoba.vulnerability-response-test))'"
+   :evidence/result "policy valid; 2 tests, 7 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["SECURITY.md"
+    "qualification/vulnerability-response.edn"
+    "src/kotoba/vulnerability_response.clj"
+    "test/kotoba/vulnerability_response_test.clj"]}
+  :X-06
+  {:owner "kotoba-stack/qualification"
+   :status :in-progress
+   :summary "a versioned compositional malicious corpus now fails closed unless reader escape, effect laundering, confused deputy, resource escalation and parser exhaustion are denied at component, compiler, package, tender, OS and database boundaries; real cross-repository execution receipts remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -Sdeps '{:paths [\"src\" \"test\" \"resources\"]}' -M -e '(require (quote kotoba.compositional-negative-test))(clojure.test/run-tests (quote kotoba.compositional-negative-test))'"
+   :evidence/result "2 tests, 6 assertions, 0 failures, 0 errors"
+   :evidence/artifacts
+   ["qualification/compositional-negative-corpus.edn"
+    "src/kotoba/compositional_negative.clj"
+    "test/kotoba/compositional_negative_test.clj"]}
+  :X-07 {:owner "kotoba-stack/security" :status :open}
+  :X-08
+  {:owner "kotoba-stack/release"
+   :status :in-progress
+   :summary "Grade A rescoring now automatically fails attestation when pass evidence is older than the configured one-day window or a time-bounded exception expires; CI scheduling, dependency support-status feeds and release publication remain"
+   :evidence/as-of "2026-07-23"
+   :evidence/command "clojure -M:grade-a-check && clojure -M:grade-a-attest"
+   :evidence/result "registry check validates rescoring policy; stale evidence and expired exception tests fail closed (4 tests, 8 assertions, 0 failures/errors)"
+   :evidence/artifacts
+   ["qualification/grade-a-program.edn"
+    "src/kotoba/grade_a.clj"
+    "test/kotoba/grade_a_test.clj"]}}}

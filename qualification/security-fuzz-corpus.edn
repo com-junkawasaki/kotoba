@@ -1,0 +1,26 @@
+{:kotoba.security-fuzz-corpus/version 1
+ :deterministic-seed 5426642805209052762
+ :maximum-input-bytes 256
+ :boundaries
+ {:reader {:handler :kotoba.runtime/read-forms}
+  :edn {:handler :clojure.edn/read-string}
+  :dag-cbor {:handler :cbor.core/decode}
+  :cid {:handler :multiformats.core/cid?}
+  :manifest {:handler :kotoba.lang.package-contract/package-manifest-error}
+  :compiler-host-abi {:handler :kotoba.runtime/wasm-binary}}
+ :prior-finding-seeds
+ [{:id :reader-eval-rce :text "#=(java.lang.System/exit 0)"}
+  {:id :runtime-require-escape :text "(require 'clojure.java.shell)"}
+  {:id :host-constructor-escape :text "(new java.io.File \"/tmp/escape\")"}
+  {:id :cid-shape-only :text "bafynotreallyacid"}
+  {:id :manifest-unsigned :path "test/fixtures/package/unsigned-manifest.edn"}
+  {:id :manifest-bad-algorithm
+   :path "test/fixtures/package/bad-signature-alg-manifest.edn"}]
+ :external-coverage-guided-lanes
+ [{:repository "kotoba-lang/compiler"
+   :test "kotoba.compiler.frontend-fuzz-test"
+   :cases 600}
+  {:repository "kotoba-lang/compiler"
+   :test "kotoba.compiler.security-fuzz-test"
+   :cases 600}]
+ :status :bounded-cross-boundary-in-progress}

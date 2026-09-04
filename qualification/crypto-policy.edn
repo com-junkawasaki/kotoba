@@ -1,0 +1,30 @@
+{:kotoba.crypto-policy/version 1
+ :fips {:claimed false
+        :reason "No Grade A FIPS deployment claim is made by this profile."}
+ :algorithms
+ {:aes-256-gcm
+  {:jca "AES/GCM/NoPadding"
+   :purpose #{:private-block-confidentiality :authenticated-encryption}
+   :key-bits 256 :nonce-bytes 12 :tag-bits 128
+   :known-vector :nist-gcm-empty-plaintext
+   :key-lifecycle "qualification/cold-tier-policy.edn"}
+  :ed25519
+  {:implementation "io.github.kotoba-lang/ed25519"
+   :purpose #{:package-signature :release-signature :edge-assertion}
+   :known-vector :rfc8032-test-1
+   :key-lifecycle "qualification/origin-edge-assertion.edn"}
+  :sha-256
+  {:jca "SHA-256"
+   :purpose #{:content-digest :request-binding}
+   :known-vector :fips-180-4-abc
+   :key-lifecycle :not-applicable}}
+ :forbidden #{:md5 :sha-1 :des :triple-des :rc4 :aes-ecb
+              :rsa-pkcs1v1_5-encryption}
+ :nonce-policy
+ {:aes-256-gcm :fresh-secure-random-per-envelope
+  :reuse :forbidden}
+ :provider-policy
+ {:runtime-provider-discovery true
+  :algorithm-availability-required-at-startup true
+  :silent-fallback false}
+ :independent-review {:status :required-not-complete}}

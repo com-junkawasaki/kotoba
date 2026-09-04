@@ -1,0 +1,5 @@
+{:kotoba.compositional-negative-corpus/version 1
+ :scenarios #{:reader-escape :effect-laundering :confused-deputy
+              :resource-escalation :parser-exhaustion}
+ :stages [:component :compiler :package :tender :os :database]
+ :required-outcome :denied}

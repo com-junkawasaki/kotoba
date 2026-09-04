@@ -2,6 +2,17 @@
   "Aggregate test entry point for `clojure -M:test`."
   (:require [clojure.test :refer [run-tests]]
             [kotoba.actor-host-test]
+            [kotoba.anchor-relayer-test]
+            [kotoba.bounded-cbor-test]
+            [kotoba.cold-tier-admission-test]
+            [kotoba.compositional-negative-test]
+            [kotoba.control-adoption-test]
+            [kotoba.crypto-qualification-test]
+            [kotoba.grade-a-test]
+            [kotoba.key-hierarchy-test]
+            [kotoba.origin-assertion-test]
+            [kotoba.sealed-egress-test]
+            [kotoba.semantic-codebase-test]
             [kotoba.test-runner-completeness-test]
             [kotoba.kagi-boundary-test]
             [kotoba.hybrid-envelope-test]
@@ -76,6 +87,17 @@
 
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests 'kotoba.actor-host-test
+                                        'kotoba.anchor-relayer-test
+                                        'kotoba.bounded-cbor-test
+                                        'kotoba.cold-tier-admission-test
+                                        'kotoba.compositional-negative-test
+                                        'kotoba.control-adoption-test
+                                        'kotoba.crypto-qualification-test
+                                        'kotoba.grade-a-test
+                                        'kotoba.key-hierarchy-test
+                                        'kotoba.origin-assertion-test
+                                        'kotoba.sealed-egress-test
+                                        'kotoba.semantic-codebase-test
                                         'kotoba.test-runner-completeness-test
                                         'kotoba.kagi-boundary-test
                                         'kotoba.hybrid-envelope-test
