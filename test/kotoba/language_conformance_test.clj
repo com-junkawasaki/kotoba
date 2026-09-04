@@ -152,6 +152,14 @@
              "authority cases on kotoba.runtime/wasm-binary; PENDING"
              (count pending-ids) (pr-str (sort pending-ids)))
     ;; Evidence floor: the pending ledger must not be able to grow into the
-    ;; whole manifest, and the manifest must not shrink to nothing.
-    (is (<= 25 (- (count runnable) (count pending-ids)))
-        "too few authority cases actually qualified on the primary wasm emitter")))
+    ;; whole manifest, and the manifest must not shrink to nothing. The 25
+    ;; is not a magic number: it is runnability minus the pending ledger,
+    ;; so both sides of the ledger (qualified vs pending) stay readable off
+    ;; the manifest whenever the gate moves.
+    (let [qualified (- (count runnable) (count pending-ids))]
+      (is (<= 25 qualified)
+          (str "too few authority cases actually qualified on the primary wasm "
+               "emitter (floor 25 vs manifest runnable " (count runnable)
+               ", pending ledger " (count pending-ids) ")"))
+      (is (pos? qualified)
+          "a fully-pending ledger would excuse the whole manifest"))))
