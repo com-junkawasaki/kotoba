@@ -104,8 +104,8 @@
         ;; pure-JVM WASM runtime (no native toolchain) — actually EXECUTES the
         ;; bytes runtime/wasm-binary emits (kotoba.wasm-exec), closing the
         ;; compile -> emit -> run loop instead of stopping at byte-shape checks.
-        com.dylibso.chicory/wasm {:mvn/version "1.4.0"}
-        com.dylibso.chicory/runtime {:mvn/version "1.4.0"}
+        com.dylibso.chicory/wasm {:mvn/version "1.7.5"}
+        com.dylibso.chicory/runtime {:mvn/version "1.7.5"}
         ;; Production host for amu wasm32-kotoba-v1 (`compile --target wasm --run`).
         ;; Distinct from kotoba.wasm-exec, which runs legacy `wasm emit` (kgraph /
         ;; actor:host) and is intentionally not kototama.
