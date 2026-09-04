@@ -1,0 +1,10 @@
+{:kotoba.sealed-egress-policy/version 1
+ :private-egress-seams #{:cold-store :car-export :dht-durability
+                         :peer-replication}
+ :envelope {:magic "KSB1"
+            :algorithm :aes-256-gcm
+            :nonce-bytes 12
+            :tag-bits 128
+            :key-version-required true}
+ :plaintext-egress-forbidden true
+ :unknown-seam :deny}

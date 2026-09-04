@@ -1,0 +1,18 @@
+{:kotoba.key-hierarchy/version 1
+ :roots #{:organization-root :recovery-root}
+ :required-lifecycles #{:issuance :rotation :revocation :compromise-recovery}
+ :required-purpose-keys #{:release-signing :package-signing :storage-sealing
+                          :audit-signing :transport-identity}
+ :products
+ {:kotoba {:purposes #{:release-signing :package-signing :storage-sealing
+                       :audit-signing :transport-identity}
+           :lifecycles #{:issuance :rotation :revocation :compromise-recovery}}
+  :kototama {:purposes #{:release-signing :package-signing :transport-identity}
+             :lifecycles #{:issuance :rotation :revocation :compromise-recovery}}
+  :aiueos {:purposes #{:package-signing :storage-sealing :audit-signing
+                       :transport-identity}
+            :lifecycles #{:issuance :rotation :revocation :compromise-recovery}}
+  :kotoba-lang {:purposes #{:package-signing :release-signing}
+                :lifecycles #{:issuance :rotation :revocation :compromise-recovery}}
+  :kotobase {:purposes #{:storage-sealing :audit-signing :transport-identity}
+             :lifecycles #{:issuance :rotation :revocation :compromise-recovery}}}}

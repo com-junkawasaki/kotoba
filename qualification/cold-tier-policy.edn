@@ -1,0 +1,21 @@
+{:kotoba.cold-tier-policy/version 1
+ :profiles
+ {:production-private
+  {:environment :production
+   :data-classification :private
+   :sealing-required true
+   :replication-requires-sealing true
+   :allowed-key-sources #{:kms :file-descriptor :custody-quorum}}
+  :development-unsealed
+  {:environment :development
+   :data-classification :synthetic
+   :sealing-required false
+   :replication-requires-sealing true
+   :unsealed-explicit true
+   :replication-allowed false}}
+ :block-key
+ {:algorithm :aes-256-gcm
+  :required-bytes 32
+  :accepted-status #{:active}
+  :raw-key-in-config-forbidden true}}
+ :deny-by-default true}

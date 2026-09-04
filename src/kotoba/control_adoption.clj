@@ -1,0 +1,42 @@
+(ns kotoba.control-adoption
+  "Fail-closed cross-product adoption verifier for shared security controls."
+  (:require [clojure.edn :as edn]
+            [clojure.set :as set])
+  (:import [java.math BigInteger]
+           [java.security MessageDigest]))
+
+(def catalog-path "qualification/control-catalog.edn")
+(def adoption-path "qualification/control-adoption.edn")
+(def required-products #{:kotoba :kototama :aiueos :kotoba-lang :kotobase})
+
+(defn read-edn [path] (edn/read-string (slurp path)))
+(defn sha256-file [path]
+  (format "%064x" (BigInteger. 1 (.digest (MessageDigest/getInstance "SHA-256")
+                                            (.getBytes (slurp path) "UTF-8")))))
+
+(defn report [catalog adoption]
+  (let [required (:controls catalog)
+        adoptions (:adoptions adoption)
+        product-errors
+        (into {}
+              (map (fn [[id entry]]
+                     [id (cond-> []
+                           (not (set/subset? required (:controls entry)))
+                           (conj :control-adoption/missing-control)
+                           (some #(not (.isAfter (java.time.LocalDate/parse %)
+                                                 (java.time.LocalDate/now)))
+                                 (:exception/until entry))
+                           (conj :control-adoption/expired-exception))])
+                   adoptions))
+        errors (cond-> []
+                 (not= required-products (set (keys adoptions)))
+                 (conj :control-adoption/product-scope)
+                 (not= (sha256-file catalog-path) (:catalog/sha256 adoption))
+                 (conj :control-adoption/catalog-digest)
+                 (some seq (vals product-errors))
+                 (conj :control-adoption/coverage))]
+    {:control-adoption/valid? (empty? errors)
+     :control-adoption/errors errors
+     :control-adoption/product-errors product-errors}))
+
+(defn -main [& _] (prn (report (read-edn catalog-path) (read-edn adoption-path))))

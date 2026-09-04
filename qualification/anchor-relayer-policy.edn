@@ -1,0 +1,11 @@
+{:kotoba.anchor-relayer-policy/version 1
+ :audience "anchor-relayer.kotoba.internal"
+ :authorized-subjects #{"did:key:kotoba-audit-anchor"}
+ :maximum-attempts 8
+ :backoff-ms [1000 2000 5000 10000 30000 60000 300000 900000]
+ :confirmation-depth 12
+ :stale-after-ms 900000
+ :idempotency :anchor-digest
+ :reconciliation {:duplicate :critical
+                  :digest-mismatch :critical
+                  :missing :high}}

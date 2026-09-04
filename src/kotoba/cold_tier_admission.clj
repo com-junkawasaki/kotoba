@@ -1,0 +1,48 @@
+(ns kotoba.cold-tier-admission
+  "Admission authority for private cold-tier startup and replication."
+  (:require [clojure.edn :as edn]))
+
+(def policy-path "qualification/cold-tier-policy.edn")
+
+(defn read-policy []
+  (edn/read-string (slurp policy-path)))
+
+(defn valid-key?
+  [policy key-descriptor]
+  (and (map? key-descriptor)
+       (not (contains? key-descriptor :raw-key))
+       (= (get-in policy [:block-key :required-bytes])
+          (:key-bytes key-descriptor))
+       (contains? (get-in policy [:block-key :accepted-status])
+                  (:status key-descriptor))
+       (contains? (get-in policy
+                          [:profiles :production-private
+                           :allowed-key-sources])
+                  (:source key-descriptor))
+       (string? (:key-id key-descriptor))
+       (not (empty? (:key-id key-descriptor)))))
+
+(defn decide
+  [policy {:keys [profile operation key-descriptor]}]
+  (let [p (get-in policy [:profiles profile])
+        sealed? (valid-key? policy key-descriptor)
+        code (cond
+               (nil? p) :cold-tier/unknown-profile
+               (and (= :development (:environment p))
+                    (not (:unsealed-explicit p)))
+               :cold-tier/implicit-unsealed
+               (and (:sealing-required p) (not sealed?))
+               :cold-tier/block-key-required
+               (and (= :replicate operation)
+                    (:replication-requires-sealing p)
+                    (not sealed?))
+               :cold-tier/unsealed-replication-forbidden
+               (and (= :replicate operation)
+                    (false? (:replication-allowed p)))
+               :cold-tier/profile-forbids-replication
+               :else nil)]
+    {:allowed? (nil? code)
+     :code code
+     :profile profile
+     :operation operation
+     :sealed? sealed?}))
