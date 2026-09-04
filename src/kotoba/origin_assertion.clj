@@ -36,7 +36,7 @@
 
 (defn verify!
   [policy trust replay-store
-   {:keys [audience now-ms method path body] :as request}
+   {:keys [audience now-ms method path body]}
    assertion]
   (let [required (:required-claims policy)
         missing (remove #(contains? assertion %) required)

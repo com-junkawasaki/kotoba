@@ -11,7 +11,7 @@
   {:jobs {} :events []})
 
 (defn enqueue
-  [policy state verified-auth {:keys [anchor-digest payload-cid] :as request}
+  [policy state verified-auth {:keys [anchor-digest payload-cid]}
    now-ms]
   (cond
     (not (:valid? verified-auth))

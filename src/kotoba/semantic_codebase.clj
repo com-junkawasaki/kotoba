@@ -111,7 +111,7 @@
     (with-open [channel (FileChannel/open lock-path
                                           (into-array StandardOpenOption
                                                       [StandardOpenOption/CREATE StandardOpenOption/WRITE]))
-                lock (.lock channel)]
+                _lock (.lock channel)]
       (let [actual (head root namespace)]
         (when-not (= expected actual)
           (throw (ex-info "namespace head changed"
@@ -223,8 +223,8 @@
   cache hit conditional on code, compiler, ABI, dependency package lock,
   policy, and immutable inputs—not merely source text."
   [descriptor]
-  (let [{:strs [codeClosureCid compilerContractCid targetAbi packageLockCid policyCid inputCids effects]
-         :as normalized} (cache-descriptor descriptor)]
+  (let [{:strs [codeClosureCid compilerContractCid targetAbi packageLockCid policyCid inputCids effects]}
+        (cache-descriptor descriptor)]
     (when (empty? effects)
     (semantic/block-cid
      {"schema" "kotoba.semantic-cache-key.v1"

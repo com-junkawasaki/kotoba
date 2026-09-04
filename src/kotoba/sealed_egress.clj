@@ -4,7 +4,7 @@
             [kotoba.cold-tier-admission :as admission])
   (:import [java.nio ByteBuffer]
            [java.security SecureRandom]
-           [javax.crypto AEADBadTagException Cipher]
+           [javax.crypto Cipher]
            [javax.crypto.spec GCMParameterSpec SecretKeySpec]))
 
 (def policy-path "qualification/sealed-egress-policy.edn")

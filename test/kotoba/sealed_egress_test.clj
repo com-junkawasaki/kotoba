@@ -1,5 +1,5 @@
 (ns kotoba.sealed-egress-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is]]
             [kotoba.cold-tier-admission :as admission]
             [kotoba.sealed-egress :as egress])
   (:import [javax.crypto AEADBadTagException]))

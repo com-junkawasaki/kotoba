@@ -1,7 +1,6 @@
 (ns kotoba.compositional-negative
   "Fail-closed verifier for malicious input evidence spanning all product layers."
-  (:require [clojure.edn :as edn]
-            [clojure.set :as set]))
+  (:require [clojure.edn :as edn]))
 
 (def corpus-path "qualification/compositional-negative-corpus.edn")
 (defn read-corpus [] (edn/read-string (slurp corpus-path)))

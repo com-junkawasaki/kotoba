@@ -1,6 +1,5 @@
 (ns kotoba.semantic-codebase-test
-  (:require [clojure.java.io :as io]
-            [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is]]
             [kotoba.semantic-code :as semantic]
             [kotoba.semantic-codebase :as codebase]))
 

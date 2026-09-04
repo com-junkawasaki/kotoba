@@ -20,7 +20,7 @@
                            :allowed-key-sources])
                   (:source key-descriptor))
        (string? (:key-id key-descriptor))
-       (not (empty? (:key-id key-descriptor)))))
+       (boolean (seq (:key-id key-descriptor)))))
 
 (defn decide
   [policy {:keys [profile operation key-descriptor]}]
