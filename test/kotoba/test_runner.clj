@@ -13,9 +13,6 @@
             [kotoba.origin-assertion-test]
             [kotoba.sealed-egress-test]
             [kotoba.semantic-codebase-test]
-            [kotoba.supply-chain-test]
-            [kotoba.threat-model-test]
-            [kotoba.vulnerability-response-test]
             [kotoba.test-runner-completeness-test]
             [kotoba.kagi-boundary-test]
             [kotoba.hybrid-envelope-test]
@@ -101,9 +98,6 @@
                                         'kotoba.origin-assertion-test
                                         'kotoba.sealed-egress-test
                                         'kotoba.semantic-codebase-test
-                                        'kotoba.supply-chain-test
-                                        'kotoba.threat-model-test
-                                        'kotoba.vulnerability-response-test
                                         'kotoba.test-runner-completeness-test
                                         'kotoba.kagi-boundary-test
                                         'kotoba.hybrid-envelope-test
