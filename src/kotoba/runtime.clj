@@ -4240,6 +4240,104 @@
                 (list 'pair (list 'pair key value) tail))
               0 (reverse (partition 2 entries))))))
 
+;; Typed collection / option / record surface (2026-09-04): the authority's
+;; conformance manifest declares `:required-backends #{:kir
+;; :wasm32-kotoba-v1}` on cases that exercise `typed-set-contains`,
+;; `typed-map-get`, `option-value-of`, `record-new` and `record-get`, so the
+;; primary wasm emitter has to answer them, not only the KIR interpreter.
+;;
+;; Encoding, on this repo's existing primitives (ADR-2607150000 pairs -- 8
+;; bytes, left i32 @0, right i32 @4, pointer or scalar in an i32; 0 is the
+;; empty collection):
+;; - option   none = 0, some = `(pair 1 payload)` -- tag 1 doubles as a
+;;   truthy marker, so `option-some?` is a zero test and `option-value-of`
+;;   is one branch. The type argument is admission vocabulary and is not
+;;   needed at run time: every value is an i32 (scalar or pointer).
+;; - record   `(pair f1 (pair f2 ... 0))` in declared field order, no tag --
+;;   `record-get` reads the field INDEX off the type vector spelled at the
+;;   access site, so a tag would be a second copy of the same fact.
+;; - typed-map-get lowers to the same bounded unroll `get` uses, but answers
+;;   an OPTION (some = pair(1, value), none = 0) instead of a default, which
+;;   is the one behaviour `get` cannot express (a stored 0 is a value).
+(def ^:private option-some-expr
+  "The `some` tag constant."
+  1)
+
+(defn- option-some-of-expr [payload-expr]
+  (list 'pair option-some-expr payload-expr))
+
+(defn- typed-map-get-expr [args]
+  (let [[type m k] args
+        m-sym (gensym "tmap__")
+        k-sym (gensym "tmap-k__")]
+    (if (or (not (vector? type)) (not= 3 (count type)) (not= :map (first type)))
+      ::invalid-typed-map-get
+      (list 'let [m-sym m k-sym k]
+            (list 'if (list '= m-sym 0)
+                  0
+                  ((fn unroll [cur depth]
+                     (if (zero? depth)
+                       0
+                       (list 'if (list '= cur 0)
+                             0
+                             (list 'if (list '= (list 'pair-first (list 'pair-first cur)) k-sym)
+                                   (option-some-of-expr (list 'pair-second (list 'pair-first cur)))
+                                   (unroll (list 'pair-second cur) (dec depth))))))
+                   m-sym max-get-unroll-depth))))))
+
+(defn- option-value-of-expr [args]
+  (let [[type option fallback] args
+        o-sym (gensym "opt__")]
+    (if (or (not (vector? type)) (not= 2 (count type)) (not= :option (first type)))
+      ::invalid-option-value-of
+      (list 'let [o-sym option]
+            (list 'if (list '= o-sym 0)
+                  fallback
+                  (list 'pair-second o-sym))))))
+
+(defn- record-field-index
+  "The position of FIELD in a `[:record :ns/name [[:f1 :t] ...]]` type
+  vector, or nil when the field is not declared there."
+  [type field]
+  (let [fields (nth type 2 nil)]
+    (when (and (vector? fields) (keyword? field))
+      (some (fn [[i f]] (when (= (first f) field) i))
+            (map-indexed vector fields)))))
+
+(defn- record-new-expr [args]
+  (let [[type & field-vals] args
+        declared (and (vector? type)
+                      (= 3 (count type))
+                      (= :record (first type))
+                      (nth type 2 nil))]
+    (cond
+      (not declared)
+      ::invalid-record-new
+
+      (not= (count declared) (count field-vals))
+      ::record-arity
+
+      :else
+      (reduce (fn [tail v] (list 'pair v tail)) 0 (reverse field-vals)))))
+
+(defn- record-get-expr [args]
+  (let [[type record field] args
+        idx (when (vector? type) (record-field-index type field))
+        r-sym (gensym "rec__")]
+    (cond
+      (or (not (vector? type)) (nil? idx))
+      ::invalid-record-get
+
+      :else
+      ;; The record is `(pair f1 (pair f2 ... 0))` in declared field order:
+      ;; walk `idx` pair-seconds, then read pair-first once. idx 0 on a
+      ;; 1-field record is pair-first of the record itself.
+      (list 'let [r-sym record]
+            (list 'if (list '= r-sym 0)
+                  0
+                  (list 'pair-first
+                        (nth (iterate (fn [cur] (list 'pair-second cur)) r-sym) idx)))))))
+
 (defn- decimal-digit-count-expr [magnitude]
   (reduce (fn [fallback [threshold digits]]
             (list 'if (list '< magnitude threshold) digits fallback))
@@ -4547,11 +4645,29 @@
         (compile-wasm-expr lowered locals fns)))
 
     (symbol? form)
-    (if-let [entry (get locals (symbol-key form))]
-      {:bytes (bcat [0x20] (uleb (local-index entry)))
-       :result-type (local-type entry)}
-      {:problem {:kotoba.wasm/problem :unknown-local
-                 :kotoba.wasm/symbol (str form)}})
+    (cond
+      (= 'true form)
+      {:bytes (bcat [0x41] (sleb32 1))
+       :result-type :i32}
+
+      (= 'false form)
+      {:bytes (bcat [0x41] (sleb32 0))
+       :result-type :i32}
+
+      :else
+      (if-let [entry (get locals (symbol-key form))]
+        {:bytes (bcat [0x20] (uleb (local-index entry)))
+         :result-type (local-type entry)}
+        {:problem {:kotoba.wasm/problem :unknown-local
+                   :kotoba.wasm/symbol (str form)}}))
+
+    ;; The reader produces Boolean objects for `true`/`false` literals (they
+    ;; are never symbols), so the guest boolean spelling lands here. 1/0
+    ;; matches this emitter's comparison convention -- `not` and `zero?` are
+    ;; both i32.eqz over the same 0/1 domain.
+    (instance? Boolean form)
+    {:bytes (bcat [0x41] (sleb32 (if form 1 0)))
+     :result-type :i32}
 
     (seq? form)
     (let [[op & args] form]
@@ -4734,6 +4850,92 @@
                        :kotoba.wasm/expected "type plus key/value pairs"
                        :kotoba.wasm/actual (count args)}}
             (compile-wasm-expr lowered locals fns)))
+
+        typed-set-contains
+        (if (not= 3 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "typed-set-contains"
+                     :kotoba.wasm/expected "type, set, value"
+                     :kotoba.wasm/actual (count args)}}
+          (let [[type s v] args
+                ss (gensym "tset__") vv (gensym "tset-v__")]
+            (if (or (not (vector? type)) (not= 2 (count type)) (not= :set (first type)))
+              {:problem {:kotoba.wasm/problem :arity
+                         :kotoba.wasm/op "typed-set-contains"
+                         :kotoba.wasm/expected "a [:set T] type as first argument"}}
+              (compile-wasm-expr
+               (list 'let [ss s vv v] (bounded-set-contains ss vv)) locals fns))))
+
+        typed-map-get
+        (if (not= 3 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "typed-map-get"
+                     :kotoba.wasm/expected "type, map, key"
+                     :kotoba.wasm/actual (count args)}}
+          (let [lowered (typed-map-get-expr args)]
+            (if (= ::invalid-typed-map-get lowered)
+              {:problem {:kotoba.wasm/problem :arity
+                         :kotoba.wasm/op "typed-map-get"
+                         :kotoba.wasm/expected "a [:map K V] type as first argument"}}
+              (compile-wasm-expr lowered locals fns))))
+
+        option-value-of
+        (if (not= 3 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "option-value-of"
+                     :kotoba.wasm/expected "type, option, fallback"
+                     :kotoba.wasm/actual (count args)}}
+          (let [lowered (option-value-of-expr args)]
+            (if (= ::invalid-option-value-of lowered)
+              {:problem {:kotoba.wasm/problem :arity
+                         :kotoba.wasm/op "option-value-of"
+                         :kotoba.wasm/expected "an [:option T] type as first argument"}}
+              (compile-wasm-expr lowered locals fns))))
+
+        option-some-of
+        (if (not= 2 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "option-some-of"
+                     :kotoba.wasm/expected "type, payload"
+                     :kotoba.wasm/actual (count args)}}
+          (compile-wasm-expr (option-some-of-expr (second args)) locals fns))
+
+        option-none-of
+        (if (not= 1 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "option-none-of"
+                     :kotoba.wasm/expected "type"
+                     :kotoba.wasm/actual (count args)}}
+          (compile-wasm-expr 0 locals fns))
+
+        record-new
+        (let [lowered (record-new-expr args)]
+          (cond
+            (= ::invalid-record-new lowered)
+            {:problem {:kotoba.wasm/problem :arity
+                       :kotoba.wasm/op "record-new"
+                       :kotoba.wasm/expected "a [:record :ns/name [[:field :type] ...]] type as first argument"}}
+
+            (= ::record-arity lowered)
+            {:problem {:kotoba.wasm/problem :arity
+                       :kotoba.wasm/op "record-new"
+                       :kotoba.wasm/expected "one value per declared field"
+                       :kotoba.wasm/actual (dec (count args))}}
+
+            :else (compile-wasm-expr lowered locals fns)))
+
+        record-get
+        (if (not= 3 (count args))
+          {:problem {:kotoba.wasm/problem :arity
+                     :kotoba.wasm/op "record-get"
+                     :kotoba.wasm/expected "type, record, field keyword"
+                     :kotoba.wasm/actual (count args)}}
+          (let [lowered (record-get-expr args)]
+            (if (= ::invalid-record-get lowered)
+              {:problem {:kotoba.wasm/problem :arity
+                         :kotoba.wasm/op "record-get"
+                         :kotoba.wasm/expected "a declared field keyword of the [:record ...] type"}}
+              (compile-wasm-expr lowered locals fns))))
 
         ;; get is a BOUNDED unroll (not a synthesized recursive helper like
         ;; compiler/'s __kotoba_map_get) -- this repo's function-table has

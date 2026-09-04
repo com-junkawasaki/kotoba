@@ -79,5 +79,5 @@
     (is (re-find #"KOTOBA_COMPILER_EVIDENCE_ROOT" workflow))
     (is (re-find #"KOTOTAMA_EVIDENCE_ROOT" workflow))
     (is (re-find #"if: startsWith\(github\.ref, 'refs/tags/'\)" workflow))
-    (is (re-find #"7467693c35ce8c9343434e42824753b6be9d8101" workflow))
+    (is (re-find #"dd8bcb62dee18ee9b1ca126ad7a2f1fbf55c7ecb" workflow))
     (is (not (re-find #"7adcda5873e1c473a8ab326e70701dd836476f21" workflow)))))
