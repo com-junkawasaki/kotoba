@@ -6,6 +6,18 @@ user-visible or architecturally significant changes.
 
 ## Unreleased
 
+- Fixed: the emitter wrote a WebAssembly `call` operand as a single byte, so
+  any module needing function index 128 or above got an operand with the
+  LEB128 continuation bit set and no continuation byte. `kotoba compile
+  --target wasm` exited 0 and produced a module that will not load
+  (`function index #15872 is out of bounds`), which means 0.7.3 silently
+  mis-compiles any single file with more than 128 functions. The count of
+  truncated operands is exactly `functions - 128`. Local indices were always
+  encoded correctly, so the emitter had a working multi-byte LEB writer that
+  the call operand did not use. Carried in via the pinned Amu closure
+  (kotoba-wasm `2cec282`); no change in this repository was required.
+  Reported as #526.
+
 - Expose Amu's sealed x86-64 and AArch64 KEXE targets through the public
   `kotoba compile` command, advance the Amu performance closure, and repair
   `--json` rendering for the pinned JSON shim. Native execution stays refused

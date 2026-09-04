@@ -1,5 +1,5 @@
 {:paths ["src" "resources"]
- :deps {io.github.kotoba-lang/json {:git/sha "b47b06486b3ad53051bc7d8bf361f4176f467202"}
+ :deps {io.github.kotoba-lang/json {:git/sha "d5137c7bbd029e4c09964e8241899d2c286302bf"}
         ;; ADR-2607266000 Phase B: the datom model and the safe-subset grammar
         ;; gate moved out; the language repo consumes them instead of owning them.
         io.github.kotoba-lang/kgraph
