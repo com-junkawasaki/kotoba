@@ -7,7 +7,7 @@
   (:require [cbor.core :as cbor]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [kotoba.semantic-code :as semantic]
+            [kotoba.codebase.semantic-code :as semantic]
             [multiformats.core :as mf])
   (:import [java.nio.channels FileChannel]
            [java.nio.charset StandardCharsets]

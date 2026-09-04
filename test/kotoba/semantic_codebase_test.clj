@@ -1,6 +1,6 @@
 (ns kotoba.semantic-codebase-test
   (:require [clojure.test :refer [deftest is]]
-            [kotoba.semantic-code :as semantic]
+            [kotoba.codebase.semantic-code :as semantic]
             [kotoba.semantic-codebase :as codebase]))
 
 (defn- temp-store []
