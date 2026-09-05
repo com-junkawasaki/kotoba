@@ -1,4 +1,5 @@
-{:kotoba.policy/capabilities #{:fs/app-data}
+{:kotoba.policy/capabilities #{:fs/app-data :data/edn}
  :kotoba.policy/forbid-wildcard true
  :kotoba.policy/capability-resources
- {:fs/app-data #{"test/fixtures/kbb_scripts/deps_sample.edn"}}}
+ {:fs/app-data #{"test/fixtures/kbb_scripts/deps_sample.edn"}
+  :data/edn #{"read"}}}
