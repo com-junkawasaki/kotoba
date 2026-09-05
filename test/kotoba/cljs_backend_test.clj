@@ -260,8 +260,22 @@
                    (defn main [] (+ (choose 3) (choose 4 5)))")))
   (is (= 7 (run "(defn tally ([x] x) ([x & more] (+ x (count more))))
                   (defn main [] (tally 5 8 9))")))
-  (is (= 40 (run "(defn add ([] 40) ([a b] (+ a b)))
-                   (defn main [] (reduce add []))"))))
+  (is (= 40 (run "(defn add ([] 40) ([a b] (+ a b)))\n                   (defn main [] (reduce add []))"))))
+
+(deftest docstring-defns-are-not-misdetected-as-multi-arity
+  ;; The Clojure convention `(defn name "doc" ...)` used to route every
+  ;; documented defn to the multi-arity expander (the docstring is not a
+  ;; params vector), which rejected it. Regression: docstrings compile and
+  ;; run on both single- and multi-arity defns, with and without a result
+  ;; descriptor, and parity with the undocumented forms holds.
+  (is (= 3 (run "(defn inc2 \"Doubles-plus-one docs.\" [x] (+ 1 x))\n                (defn main [] (inc2 2))")))
+  (is (= 12 (run "(defn choose \"Doc before clauses.\" ([x] x) ([x y] (+ x y)))\n                 (defn main [] (+ (choose 3) (choose 4 5)))")))
+  (is (= 7 (run "(defn tally \"Doc on a variadic.\" ([x] x) ([x & more] (+ x (count more))))\n                (defn main [] (tally 5 8 9))")))
+  ;; documented and undocumented forms produce identical expansion output
+  (let [documented (compile-cljs "(ns t) (defn f \"doc\" ([x] x) ([x y] (+ x y)))\n                                  (defn main [] (f 1))")
+        plain (compile-cljs "(ns t) (defn f ([x] x) ([x y] (+ x y)))\n                             (defn main [] (f 1))")]
+    (is (= (clojure.string/replace documented "t " "")
+           (clojure.string/replace plain "t " "")))))
 
 (deftest first-class-closures-invoke-and-apply-run-in-cljs-backend
   (is (= 7 (run "(defn main []

@@ -1257,10 +1257,17 @@
 
 (defn function-def
   "Parse a top-level `(defn name [params] body...)` form into
-  `[name {:kind :kotoba.runtime/fn ...}]`, or nil if form isn't a defn."
+  `[name {:kind :kotoba.runtime/fn ...}]`, or nil if form isn't a defn.
+  A leading docstring string — `(defn name \"doc\" [params] body...)` — is
+  accepted and dropped, matching the Clojure convention (the lowered fn has
+  no docstring slot)."
   [form]
   (when (and (seq? form) (= 'defn (first form)))
-    (let [[_ name raw-params & raw-body] form
+    (let [form (if (string? (nth form 2 nil))
+                 ;; leading docstring: drop it, keep (defn name <rest>)
+                 (concat (take 2 form) (nthnext form 3))
+                 form)
+          [_ name raw-params & raw-body] form
           {:keys [params destructuring]} (parse-source-params raw-params)
           result-descriptor (when (source-type-descriptor? (first raw-body))
                               (first raw-body))
@@ -1378,12 +1385,30 @@
              (sort-by (comp str key) methods)))
       (sort-by (comp str key) protocols)))))
 
+(defn- docstring-led-defn?
+  "True when FORM is a defn whose second element is a docstring string, i.e.
+  the Clojure convention `(defn name \"doc\" [params] body...)` /
+  `(defn name \"doc\" ([params] body...) ...)`. The compiler previously
+  routed every such form to the multi-arity expander (the docstring is not a
+  params vector), which rejected ordinary documented single-arity defns."
+  [form]
+  (and (seq? form) (= 'defn (first form))
+       (string? (nth form 2 nil))))
+
 (defn- multi-arity-defn? [form]
   (and (seq? form) (= 'defn (first form))
-       (not (vector? (nth form 2 nil)))))
+       (if (docstring-led-defn? form)
+         ;; docstring: multi-arity iff a clause list follows it
+         (and (seq (nthnext form 3)) (seq? (nth form 3 nil)))
+         (not (vector? (nth form 2 nil))))))
 
 (defn- expand-multi-arity-defn [form]
-  (let [[_ function-name & clauses] form]
+  (let [form (if (docstring-led-defn? form)
+               ;; the docstring is dropped: kbb guests document with comments
+               ;; elsewhere, and the lowered defs have no docstring slot
+               (concat (take 2 form) (nthnext form 3))
+               form)]
+    (let [[_ function-name & clauses] form]
     (when-not (and (symbol? function-name) (seq clauses)
                    (every? #(and (seq? %) (vector? (first %))
                                  (= 2 (count %))) clauses))
@@ -1433,7 +1458,7 @@
                                          body)))))
                        arities)]
         {:name function-name :dispatch (into {} (map (fn [a] [a (target a)]) arities))
-         :defs defs}))))
+         :defs defs})))))
 
 (defn- rewrite-multi-arity-calls [dispatch form]
   (cond
