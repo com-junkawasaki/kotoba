@@ -335,6 +335,10 @@
    'sha256-hex :host/hash-sha256
    'http-post :host/http-post
    'log-read :host/log-read
+   ;; kbb ops-script surface (ADR-2607181900 readiness gate): env-read,
+   ;; capability id 258 (kotoba-core-contracts). Resource scope = granted
+   ;; env var NAMES, enforced in kotoba.host-providers/default-handlers.
+   'env-read :host/env-read
    ;; kami-* game-engine ECS surface (kotoba-core-contracts "kami/engine",
    ;; one shared capability id 233 -> one kind for the family, mirroring
    ;; topic-* mapping three ops to :host/topic-subscribe). The matching

@@ -5,7 +5,7 @@
 (deftest checked-in-emit-digests-reproduce-here
   (let [result (repro/verify)]
     (is (:valid? result) (pr-str (:errors result)))
-    (is (= 74 (:sources result)))
+    (is (= 75 (:sources result)))
     (is (= 72 (:reproducible result)))))
 
 (deftest every-source-is-recorded
