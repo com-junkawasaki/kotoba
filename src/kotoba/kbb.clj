@@ -8,7 +8,9 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [kotoba.launcher :as launcher])
+            [kotoba.kbb-native :as kbb-native]
+            [kotoba.launcher :as launcher]
+            [kotoba.runtime :as runtime])
   (:import [java.nio.file Files])
   (:gen-class))
 
@@ -16,7 +18,7 @@
 (def ^:private max-policy-bytes 65536)
 (def ^:private admitted-capabilities
   "Capabilities with a real, bounded provider in the kbb v1 bootstrap host."
-  #{:fs/app-data :env/read :fs/browse :proc/exec :data/json})
+  #{:fs/app-data :env/read :fs/browse :proc/exec :data/json :http/fetch})
 
 (defn- result
   ([ok? code message]
@@ -46,6 +48,17 @@
             (or (empty? more) (str/starts-with? (first more) "--"))
             {:problem :kbb/missing-option-value :option token}
             :else (recur (next more) (assoc parsed :policy (first more))))
+
+          "--backend"
+          (cond
+            (:backend parsed) {:problem :kbb/duplicate-option :option token}
+            (or (empty? more) (str/starts-with? (first more) "--"))
+            {:problem :kbb/missing-option-value :option token}
+            :else (recur (next more)
+                         (let [value (first more)]
+                           (if (contains? #{"interpreter" "native"} value)
+                             (assoc parsed :backend (keyword value))
+                             {:problem :kbb/unsupported-option :option token}))))
 
           (if (str/starts-with? token "-")
             {:problem :kbb/unsupported-option :option token}
@@ -145,6 +158,13 @@
                          (every? string? (get resources :data/json))))))
       {:problem :kbb/data-json-resource-scope-required}
 
+      (and (contains? capabilities :http/fetch)
+           (not (or (string? (get resources :http/fetch))
+                    (and (set? (get resources :http/fetch))
+                         (seq (get resources :http/fetch))
+                         (every? string? (get resources :http/fetch))))))
+      {:problem :kbb/http-resource-scope-required}
+
       :else nil)))
 
 (defn dispatch
@@ -190,13 +210,35 @@
                 (result false (:problem problem) "kbb policy was rejected"
                         (dissoc problem :problem))
                 (let [run-argv (cond-> ["run" source "--policy" (:policy options)]
-                                 (:json? options) (conj "--json"))
-                      executed (launcher/safe-dispatch run-argv)]
-                  (update executed :kotoba.cli/data
-                          (fnil assoc {})
-                          :kotoba.kbb/version version
-                          :kotoba.kbb/host :bootstrap-jvm
-                          :kotoba.kbb/nbb-loaded? false))))))))))
+                                 (:json? options) (conj "--json"))]
+                  (if (= :native (:backend options))
+                    ;; kbb v2 native backend slice (ADR-2607181900): policy-
+                    ;; side pre-exec + native AOT execution. Refusals throw
+                    ;; ex-info with a :phase :kbb-native/* and fail the run
+                    ;; closed below.
+                    (try
+                      (let [forms (runtime/read-file source :kotoba)
+                            outcome (kbb-native/dispatch (:policy loaded)
+                                                         (slurp source)
+                                                         forms)]
+                        (result true :run/completed "kbb native backend run completed"
+                                {:kotoba.kbb/version (:kotoba.kbb/version outcome)
+                                 :kotoba.kbb/host :native-aot
+                                 :kotoba.kbb/backend :native
+                                 :kotoba.kbb/target (:kotoba.kbb/target outcome)
+                                 :kotoba.kbb/result (:kotoba.kbb/result outcome)
+                                 :kotoba.kbb/status (:kotoba.kbb/status outcome)
+                                 :kotoba.kbb/receipts (:kotoba.kbb/receipts outcome)}))
+                      (catch Exception e
+                        (result false :kbb-native/refused
+                                (or (ex-message e) "kbb native backend refused the script")
+                                {:phase (:phase (ex-data e))})))
+                    (let [executed (launcher/safe-dispatch run-argv)]
+                      (update executed :kotoba.cli/data
+                              (fnil assoc {})
+                              :kotoba.kbb/version version
+                              :kotoba.kbb/host :bootstrap-jvm
+                              :kotoba.kbb/nbb-loaded? false))))))))))))
 
 (defn -main
   [& argv]

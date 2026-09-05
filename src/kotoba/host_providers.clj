@@ -277,6 +277,38 @@
                      :kotoba.host/call 'env-read
                      :kotoba.host/name name}))))
 
+(defn- http-url-permitted?
+  "True when URL (the guest-supplied literal http-fetch argument) is inside
+  CONCRETE's granted resource scope. Scope entries are URL PREFIXES
+  (e.g. \"https://api.github.com/\"): the URL must start with one of them.
+  Prefix matching is exact string starts-with -- no wildcard, no
+  normalization, so a scope of \"https://api.github.com/\" admits
+  \"https://api.github.com/repos\" but not \"https://api.github.com.evil.io\"
+  (prefix boundary falls inside the URL string, which the operator chose).
+  A scope of :any (universal grant) admits everything -- the same meaning
+  resource-scope :any has for the other kinds."
+  [concrete url]
+  (let [scope (:cap/resource concrete)]
+    (boolean
+     (or (nil? concrete)
+         (= :any scope)
+         (cond
+           (string? scope) (clojure.string/starts-with? url scope)
+           (set? scope) (some #(clojure.string/starts-with? url %) scope)
+           :else false)))))
+
+(defn- http-check-permitted!
+  "Throws (fail closed) when URL is outside CONCRETE's granted resource
+  scope. Called from inside an already-GRANTED http-fetch handler; thrown
+  from inside the :handler fn passed to guard-call, so the normal :error
+  receipt records it."
+  [concrete url]
+  (when-not (http-url-permitted? concrete url)
+    (throw (ex-info "http-fetch: url outside granted capability resource scope"
+                    {:kotoba.host/denied :resource-not-permitted
+                     :kotoba.host/call 'http-fetch
+                     :kotoba.host/url url}))))
+
 (defn- proc-command-permitted?
   "True when COMMAND (the resolved command name for the guest-supplied grant
   INDEX) is inside CONCRETE's :cap/resource scope. Same per-call narrowing
@@ -444,7 +476,33 @@
    'clipboard-read (fn [_cap _args] 0)
    'clipboard-write (fn [_cap _args] 0)
    'clipboard-write-str (fn [_cap _args] 0)
-   'http-fetch (fn [_cap _args] 0)
+   ;; kbb ops-script surface slice 3 (ADR-2607181900 readiness gate): real
+   ;; GET fetch, URL allowlisted by the policy's resource scope (URL
+   ;; prefixes). Mirrors kotoba.wasm-exec's real http-fetch semantics
+   ;; (java.net.http.HttpClient GET) but in interpreter mode: the guest
+   ;; passes the URL literal and receives the response BODY as a string
+   ;; (the same string-result convention as fs-read). Non-2xx answers and
+   ;; transport failures return the sentinel -1 (the guest sees a failure
+   ;; VALUE, not an exception). ⚠ -1 is TRUTHY in this language — guests
+   ;; must distinguish success with `string?` (the body is a string, the
+   ;; sentinel is a number), never with a bare `if`. A URL outside the
+   ;; granted prefixes fails closed BEFORE any network I/O happens.
+   'http-fetch (fn [concrete args]
+                 (let [url (str (first args))]
+                   (http-check-permitted! concrete url)
+                   (try
+                     (let [req (-> (java.net.http.HttpRequest/newBuilder
+                                    (java.net.URI/create url))
+                                   (.timeout java.time.Duration/ofSeconds 30)
+                                   (.GET)
+                                   (.build))
+                           resp (.send (java.net.http.HttpClient/newHttpClient)
+                                       req
+                                       (java.net.http.HttpResponse$BodyHandlers/ofString))]
+                       (if (<= 200 (.statusCode resp) 299)
+                         (.body resp)
+                         -1))
+                     (catch Exception _ -1))))
    'keychain-read (fn [_cap _args] 0)
    'keychain-write (fn [_cap _args] 0)
    'fs-read (fn [concrete args]

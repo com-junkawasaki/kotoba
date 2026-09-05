@@ -1,0 +1,10 @@
+;; Deny-path demo: the policy grants only https://example.com/ but the
+;; guest asks for another URL. kbb must refuse this at the capability
+;; boundary BEFORE any network I/O (fail closed, receipt recorded).
+(ns demo-kbb-http-deny)
+
+(defn main []
+  (let [body (http-fetch "https://definitely-not-granted.example/")]
+    (if (> (str-len body) 2)
+      (str-len body)
+      -1)))
