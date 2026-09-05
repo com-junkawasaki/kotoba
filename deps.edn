@@ -97,7 +97,7 @@
          ;; kbb slice 3: bf01d4a8 carries :env/read + :fs/browse wire ids
          ;; 33/34 in the vendored catalog + cljs fallback, and the slice-2
          ;; guest grammar (9d701ea: env-read/fs-browse string heads).
-         :git/sha "bf01d4a87e7b266754d64f79fa75e84542c07954"}
+         :git/sha "51d90395767dda94d3d9e9e940f76dd584345c05"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}

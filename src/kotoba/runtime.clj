@@ -113,6 +113,46 @@
                                          {:kotoba.runtime/problem :string-substring-range
                                           :start start :end end :length (count s)})))
                        (subs s start end))
+   ;; String search surface (grammar authority resync, kbb scripts-port wave 2):
+   ;; UTF-8 byte-index semantics matching the compiler/KIR lowering. Empty
+   ;; needle/separator refused, matching the KIR traps
+   ;; :empty-string-search-needle / :empty-string-split-separator.
+   'string-index-of (fn [haystack needle]
+                      (when-not (and (string? haystack) (string? needle))
+                        (throw (ex-info "string-index-of requires two strings"
+                                        {:kotoba.runtime/problem :string-index-of-args})))
+                      (when (zero? (count needle))
+                        (throw (ex-info "string-index-of needle must not be empty"
+                                        {:kotoba.runtime/problem :empty-string-search-needle})))
+                      ;; UTF-8 BYTE offset: the host index is UTF-16 units;
+                      ;; convert by counting UTF-8 bytes of the prefix (the
+                      ;; wasm/KIR lowering is the byte oracle).
+                      (let [host-idx (.indexOf ^String haystack ^String needle)]
+                        (if (neg? host-idx)
+                          -1
+                          (let [bytes (.getBytes (subs haystack 0 host-idx) "UTF-8")]
+                            (count bytes)))))
+   'string-contains? (fn [haystack needle]
+                       (when-not (and (string? haystack) (string? needle))
+                         (throw (ex-info "string-contains? requires two strings"
+                                         {:kotoba.runtime/problem :string-contains-args})))
+                       (when (zero? (count needle))
+                         (throw (ex-info "string-contains? needle must not be empty"
+                                         {:kotoba.runtime/problem :empty-string-search-needle})))
+                       (.contains ^String haystack ^String needle))
+   'string-split-count (fn [haystack sep]
+                         (when-not (and (string? haystack) (string? sep))
+                           (throw (ex-info "string-split-count requires two strings"
+                                           {:kotoba.runtime/problem :string-split-count-args})))
+                         (when (zero? (count sep))
+                           (throw (ex-info "string-split-count separator must not be empty"
+                                           {:kotoba.runtime/problem :empty-string-split-separator})))
+                         (let [sep-len (count sep)]
+                           (loop [i 0 acc 1]
+                             (let [idx (.indexOf ^String haystack ^String sep i)]
+                               (if (neg? idx)
+                                 acc
+                                 (recur (+ idx sep-len) (inc acc)))))))
    ;; kbb slice 2: vector indexing for fs-browse results (the listing is a
    ;; Clojure vector; the guest iterates with fuel-bounded self-recursion).
    'nth (fn [coll idx]
