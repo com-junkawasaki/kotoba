@@ -5,7 +5,10 @@
 #:emit-digests{:version 1,
                :lock "kotoba.lock.edn",
                :wasm
-               {"src/demo.kotoba"
+               {"src/bb_edn_sweep.kotoba"
+                {:policy "src/bb_edn_sweep_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
+                "src/demo.kotoba"
                 {:policy "src/demo_policy.edn",
                  :digest
                  "sha256:e080db23ca70523231ea82d8ec3a51bd844d22ea44091866469d3fc6160d09cb"},
@@ -156,6 +159,14 @@
                 "src/demo_kbb_fs_report.kotoba"
                 {:policy "src/demo_kbb_fs_report_policy.edn",
                  :unsupported :wasm/binary-unsupported},
+                "src/demo_kbb_http_deny.kotoba"
+                {:policy "src/demo_kbb_http_deny_policy.edn",
+                 :unsupported :wasm/check-failed,
+                 :problem-kinds [:resource-not-allowed],
+                 :ungranted-capabilities ["http/fetch"]},
+                "src/demo_kbb_http_fetch.kotoba"
+                {:policy "src/demo_kbb_http_fetch_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
                 "src/demo_kbb_proc_exec.kotoba"
                 {:policy "src/demo_kbb_proc_exec_policy.edn",
                  :unsupported :wasm/binary-unsupported},
@@ -266,6 +277,12 @@
                 "src/demo_when_short_circuit.kotoba"
                 {:digest
                  "sha256:fcbcec85aa2abf018da42001d8f2c370a12903dcda7482e1d69edf6f32337122"},
+                "src/edn_pin_check.kotoba"
+                {:policy "src/edn_pin_check_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
+                "src/edn_validate.kotoba"
+                {:policy "src/edn_validate_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
                 "src/kami_survivors.kotoba"
                 {:policy "src/kami_survivors_policy.edn",
                  :digest
