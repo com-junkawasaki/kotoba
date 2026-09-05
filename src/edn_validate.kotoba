@@ -1,0 +1,155 @@
+;; edn_validate.kotoba — kbb port wave 1 (ADR-2607181900): a bounded EDN
+;; well-formedness validator that RUNS ON kbb with zero capability grants
+;; beyond fs-read of one fixture file.
+;;
+;; The guest implements a recursive-descent checker for the EDN subset the
+;; superproject's policies and manifests actually use: lists (), vectors [],
+;; maps {}, strings with \\-escapes, keywords, numbers, symbols, commas as
+;; whitespace, and #{} sets (the discard form #_ and tagged literals #tag are
+;; rejected — the fixtures keep to the subset). It answers ONE question:
+;; does clojure.edn/read-string accept this text? The nbb twin
+;; (test/fixtures/kbb_scripts/edn_validate.cljs) uses clojure.edn/read-string
+;; directly; parity = both return the same accept/reject verdict per fixture.
+;;
+;; Language constraints honored (same as src/verify_no_bb.kotoba):
+;;   no loop/recur (interpreter special forms are do/let/if/quote/def/defn —
+;;   iteration is plain self-recursion), no regex, no string library beyond
+;;   string-length/string-concat/string-substring/string=, 127-byte string
+;;   literal bound, :max-parameters 5.
+(ns edn-validate)
+
+;; ---- character classification via 1-char substrings ----
+
+(defn char-at
+  [s i]
+  (string-substring s i (+ i 1)))
+
+(defn whitespace?
+  [c]
+  (or (= c " ")
+      (= c "\n")
+      (= c "\t")
+      (= c "\r")
+      (= c ",")))
+
+;; ---- skipping whitespace ----
+
+(defn skip-ws
+  [s i n]
+  (if (>= i n)
+    n
+    (if (whitespace? (char-at s i))
+      (skip-ws s (+ i 1) n)
+      i)))
+
+;; ---- dispatch on opener/closer characters ----
+
+(defn opener-closer
+  [c]
+  (if (= c "(")
+    ")"
+    (if (= c "[")
+      "]"
+      (if (= c "{")
+        "}"
+        ""))))
+
+(defn closer?
+  [c]
+  (or (= c ")") (= c "]") (= c "}")))
+
+;; ---- string literal: find the closing quote, honoring \\-escapes ----
+
+(defn skip-string
+  [s i n]
+  (if (>= i n)
+    -1
+    (let [c (char-at s i)]
+      (if (= c "\\")
+        (if (>= (+ i 1) n)
+          -1
+          (skip-string s (+ i 2) n))
+        (if (= c "\"")
+          (+ i 1)
+          (skip-string s (+ i 1) n))))))
+
+;; ---- atom: consume until a delimiter ----
+
+(defn atom-char?
+  [c]
+  (if (whitespace? c)
+    0
+    (if (closer? c)
+      0
+      1)))
+
+(defn skip-atom
+  [s i n]
+  (if (>= i n)
+    n
+    (if (= (atom-char? (char-at s i)) 1)
+      (skip-atom s (+ i 1) n)
+      i)))
+
+(defn parse-value
+  [s i n depth]
+  (if (> depth 64)
+    -1
+    (let [j (skip-ws s i n)]
+      (if (>= j n)
+        -1
+        (let [c (char-at s j)]
+          (if (closer? c)
+            -1
+            (if (= c "#")
+              (if (and (< (+ j 1) n) (= (char-at s (+ j 1)) "{"))
+                (parse-seq s (+ j 2) n "}" depth)
+                (let [k (skip-atom s j n)]
+                  (if (= k j)
+                    -1
+                    (parse-value s k n depth))))
+              (if (= c "\"")
+                (let [k (skip-string s (+ j 1) n)]
+                  (if (< k 0) -1 k))
+                (if (= (opener-closer c) "")
+                  (skip-atom s j n)
+                  (parse-seq s (+ j 1) n (opener-closer c) depth))))))))))
+
+(defn parse-seq
+  [s i n closer depth]
+  (parse-seq-loop s i n closer depth))
+
+(defn parse-seq-loop
+  [s i n closer depth]
+  (let [j (skip-ws s i n)]
+    (if (>= j n)
+      -1
+      (let [c (char-at s j)]
+        (if (= c closer)
+          (+ j 1)
+          (if (closer? c)
+            -1
+            (let [k (parse-value s j n (+ depth 1))]
+              (if (< k 0)
+                -1
+                (parse-seq-loop s k n closer depth)))))))))
+
+(defn validate-edn
+  [text]
+  (let [n (string-length text)
+        k (parse-value text 0 n 0)]
+    (if (< k 0)
+      0
+      (if (= (skip-ws text k n) n) 1 0))))
+
+(defn validate-path
+  [path]
+  (let [text (fs-read path)]
+    (if text
+      (validate-edn text)
+      -1)))
+
+(defn main []
+  [(validate-path "test/fixtures/kbb_scripts/edn/valid.edn")
+   (validate-path "test/fixtures/kbb_scripts/edn/invalid_unbalanced.edn")
+   (validate-path "test/fixtures/kbb_scripts/edn/invalid_tagged.edn")])
