@@ -1,0 +1,13 @@
+(ns kbb-docstring-demo)
+
+(defn wrap
+  "Wraps VALUE in angle brackets. This docstring must be skipped."
+  [value]
+  (string-concat "<" (string-concat value ">")))
+
+(defn shout
+  "Adds an exclamation mark. Documented single-arity fn on the kbb path."
+  [value]
+  (string-concat value "!"))
+
+(defn main [] (shout (wrap "ok")))

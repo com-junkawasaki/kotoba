@@ -107,11 +107,8 @@
                                         'kotoba.kbb-env-read-test
                                         'kotoba.kbb-gate-scripts-test
                                         'kotoba.kbb-scripts-port-test
-<<<<<<< HEAD
-                                        'kotoba.string-search-test
-=======
                                         'kotoba.kbb-http-fetch-test
->>>>>>> origin/main
+                                        'kotoba.string-search-test
                                         'kotoba.kbb-proc-exec-test
                                         'kotoba.kbb-native-test
                                         'kotoba.key-hierarchy-test

@@ -152,6 +152,13 @@
                 "src/demo_indirect.kotoba"
                 {:digest
                  "sha256:08625af153cbc01b64d2b2275f478601b3bb43b24196953f7b643438b82c4d18"},
+                "src/demo_kbb_data_json.kotoba"
+                {:policy "src/demo_kbb_data_json_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
+                "src/demo_kbb_docstring.kotoba"
+                {:policy "src/demo_kbb_docstring_policy.edn",
+                 :digest
+                 "sha256:3966a709c9c2df9d68623e0c920163902d7c76df52592c51db91c73f1c18ea5c"},
                 "src/demo_kbb_env_report.kotoba"
                 {:policy "src/demo_kbb_env_report_policy.edn",
                  :digest
@@ -283,6 +290,13 @@
                 "src/edn_validate.kotoba"
                 {:policy "src/edn_validate_policy.edn",
                  :unsupported :wasm/binary-unsupported},
+                "src/json_validate.kotoba"
+                {:policy "src/json_validate_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
+                "src/json_validate_deny.kotoba"
+                {:unsupported :wasm/check-failed,
+                 :problem-kinds [:capability-not-granted],
+                 :ungranted-capabilities ["data/json" "fs/app-data"]},
                 "src/kami_survivors.kotoba"
                 {:policy "src/kami_survivors_policy.edn",
                  :digest
