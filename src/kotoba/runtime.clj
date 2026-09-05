@@ -429,6 +429,13 @@
    ;; the (ptr,len) WASM ABI -- see the handlers in kotoba.host-providers.
    'json-encode :host/data-json
    'json-extract-field :host/data-json
+   ;; data/edn (capability id 260, kotoba-core-contracts bceabfa): EDN
+   ;; wire read for the kbb ops-script surface (facade/tasks.edn checks,
+   ;; deps.edn pin audits). edn-read takes the EDN text as a plain string
+   ;; and returns the parsed Clojure value (the interpreter slice passes
+   ;; plain values, not the (ptr,len) WASM ABI -- same convention as
+   ;; json-encode). One kind for the family, mirroring :host/data-json.
+   'edn-read :host/data-edn
    ;; kami-* game-engine ECS surface (kotoba-core-contracts "kami/engine",
    ;; one shared capability id 233 -> one kind for the family, mirroring
    ;; topic-* mapping three ops to :host/topic-subscribe). The matching

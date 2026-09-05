@@ -1,0 +1,3 @@
+{:build {:cmd ["bb" "-m" "tasks.build"]}
+ :check {:cmd ["clojure" "-M" "tasks/check"]}
+ :docs  {:cmd ["sh" "-c" "exec bb -m tasks.docs"]}}
