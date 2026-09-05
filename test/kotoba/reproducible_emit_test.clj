@@ -6,7 +6,7 @@
   (let [result (repro/verify)]
     (is (:valid? result) (pr-str (:errors result)))
     (is (= 75 (:sources result)))
-    (is (= 72 (:reproducible result)))))
+    (is (= 73 (:reproducible result)))))
 
 (deftest every-source-is-recorded
   (let [recorded (set (keys (:emit-digests/wasm (repro/read-manifest))))]
