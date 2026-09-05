@@ -86,7 +86,43 @@
    'str str
    'count count
    'keyword keyword
-   'name name})
+   'name name
+   ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): the
+   ;; string heads the guest grammar's :predicates set already admits
+   ;; (kotoba-lang/lang/guest-grammar.edn). The wasm/CLJS lowering path
+   ;; implements string-concat/string-substring (lower-portable-string);
+   ;; the CLJ interpreter slice had no bindings for ANY of them, so a kbb
+   ;; guest could not join paths or compare file contents at all. Bounded:
+   ;; concat takes exactly 2 strings; substring takes a string + 2
+   ;; in-range indices (throws on out-of-range, mirroring subs); both
+   ;; mirror the lowering path's semantics.
+   'string-length (fn [s] (count (str s)))
+   'string= (fn [a b] (= (str a) (str b)))
+   'string-concat (fn [a b]
+                    (when-not (and (string? a) (string? b))
+                      (throw (ex-info "string-concat requires exactly two strings"
+                                      {:kotoba.runtime/problem :string-concat-args})))
+                    (str a b))
+   'string-substring (fn [s start end]
+                       (when-not (string? s)
+                         (throw (ex-info "string-substring requires a string"
+                                         {:kotoba.runtime/problem :string-substring-args})))
+                       (when-not (and (integer? start) (integer? end)
+                                      (<= 0 start end (count s)))
+                         (throw (ex-info "string-substring indices out of range"
+                                         {:kotoba.runtime/problem :string-substring-range
+                                          :start start :end end :length (count s)})))
+                       (subs s start end))
+   ;; kbb slice 2: vector indexing for fs-browse results (the listing is a
+   ;; Clojure vector; the guest iterates with fuel-bounded self-recursion).
+   'nth (fn [coll idx]
+          (when-not (and (integer? idx) (not (neg? idx)))
+            (throw (ex-info "nth index must be a non-negative integer"
+                            {:kotoba.runtime/problem :nth-index})))
+          (when-not (or (vector? coll) (sequential? coll))
+            (throw (ex-info "nth requires a vector or sequential collection"
+                            {:kotoba.runtime/problem :nth-coll})))
+          (nth coll idx nil))})
 
 (def capability-contract
   (core-contracts/capability-contract))
@@ -343,6 +379,10 @@
    ;; capability id 259 (kotoba-core-contracts a6463d4). Resource scope =
    ;; granted command NAMES; the invocation table is policy-side.
    'proc-exec :host/proc-exec
+   ;; fs/browse (capability id 253, kotoba-core-contracts): directory
+   ;; listing narrowed to the granted directory TREE (see the fs-browse
+   ;; handler in kotoba.host-providers for the per-call narrowing).
+   'fs-browse :host/fs-browse
    ;; kami-* game-engine ECS surface (kotoba-core-contracts "kami/engine",
    ;; one shared capability id 233 -> one kind for the family, mirroring
    ;; topic-* mapping three ops to :host/topic-subscribe). The matching

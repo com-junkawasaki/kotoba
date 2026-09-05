@@ -49,11 +49,11 @@
 (def classpath-grammar-sha256
   "sha256 of every copy on this classpath: the two this repository ships and
   the ones the pinned amu, kotoba-lang and kotoba-sema carry. Resynced to the
-  authority 2026-09-05 at kotoba-lang 1266ae1 (#550, 811e3d5e...); NOTE: the pinned kotoba-sema (63d76616) still vendors 871f3873, so the classpath currently carries two digests until the sema-side resync wave lands (kotoba-lang PR #553 ships this repo's two copies; the sema gap is tracked separately), in one commit
+  authority 2026-09-05 at kbb slice 2 (env-read + fs-browse string heads, 9d701ea...; prior #550 811e3d5e); NOTE: the pinned kotoba-sema (63d76616) still vendors 871f3873, so the classpath currently carries two digests until the sema-side resync wave lands (kotoba-lang PR #553 ships this repo's two copies; the sema gap is tracked separately), in one commit
   with the three pins and the ci.yml authority checkout. Change it only as part
   of a resync wave, in all four repositories, and resync both copies this
   repository ships in the same commit."
-  "811e3d5ee4ca3e9d052b59435d4baeeb6095a0df5fb7756cedc2cb598ce58e99")
+  "9d701ea9a803a4b3d7dc4245274a9a901ab4ac506ebd401282b2acdf7747dd9c")
 
 (def recorded-kernel-head-count
   "Kernel heads `:admitted-builtins` names in the copies on this classpath,
