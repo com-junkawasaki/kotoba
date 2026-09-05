@@ -1,0 +1,14 @@
+;; demo_kbb_env_report.kotoba — kbb env-read slice (ADR-2607181900 readiness
+;; gate): a minimal "read a named env var, report its length" round trip
+;; through kotoba.host-providers/default-handlers' real env-read handler,
+;; guarded by a --policy granting exactly :env/read scoped to exactly the
+;; variable names the operator lists. Reading a granted-but-unset variable
+;; returns nil (the guest sees absence); a NON-granted name fails closed
+;; with :resource-not-permitted before any lookup happens.
+(ns demo-kbb-env-report)
+
+(defn main []
+  (let [home (env-read "KBB_DEMO_VAR")]
+    (if home
+      (count home)
+      -1)))

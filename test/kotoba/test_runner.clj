@@ -9,6 +9,7 @@
             [kotoba.control-adoption-test]
             [kotoba.crypto-qualification-test]
             [kotoba.grade-a-test]
+            [kotoba.kbb-env-read-test]
             [kotoba.key-hierarchy-test]
             [kotoba.origin-assertion-test]
             [kotoba.sealed-egress-test]
@@ -95,6 +96,7 @@
                                         'kotoba.control-adoption-test
                                         'kotoba.crypto-qualification-test
                                         'kotoba.grade-a-test
+                                        'kotoba.kbb-env-read-test
                                         'kotoba.key-hierarchy-test
                                         'kotoba.origin-assertion-test
                                         'kotoba.sealed-egress-test

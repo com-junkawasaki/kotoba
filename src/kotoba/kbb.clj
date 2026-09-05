@@ -16,7 +16,7 @@
 (def ^:private max-policy-bytes 65536)
 (def ^:private admitted-capabilities
   "Capabilities with a real, bounded provider in the kbb v1 bootstrap host."
-  #{:fs/app-data})
+  #{:fs/app-data :env/read})
 
 (defn- result
   ([ok? code message]
@@ -102,6 +102,13 @@
                          (seq fs-scope)
                          (every? string? fs-scope)))))
       {:problem :kbb/fs-resource-scope-required}
+
+      (and (contains? capabilities :env/read)
+           (not (or (string? (get resources :env/read))
+                    (and (set? (get resources :env/read))
+                         (seq (get resources :env/read))
+                         (every? string? (get resources :env/read))))))
+      {:problem :kbb/env-resource-scope-required}
 
       :else nil)))
 

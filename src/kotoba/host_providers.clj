@@ -231,6 +231,37 @@
                       :kotoba.host/call op
                       :kotoba.host/path path}))))
 
+(defn- env-name-permitted?
+  "True when NAME (the guest-supplied literal env-read variable name
+  argument) is inside CONCRETE's :cap/resource scope. Same per-call
+  narrowing rationale as `fs-path-permitted?` above: the guard decision
+  runs on the capability KIND before the guest's actual argument exists,
+  so this per-call check is what enforces the policy's env var NAME
+  allowlist. Env var names are compared EXACTLY (case-sensitive, no
+  canonicalization) -- an allowlist of \"PATH\" must not silently admit
+  \"path\" or \"Path\"."
+  [concrete name]
+  (let [scope (:cap/resource concrete)]
+    (boolean
+     (or (nil? concrete)
+         (= :any scope)
+         (cond
+           (string? scope) (= scope name)
+           (set? scope) (contains? scope name)
+           :else false)))))
+
+(defn- env-check-permitted!
+  "Throws (fail closed) when NAME is outside CONCRETE's granted resource
+  scope. Called from inside an already-GRANTED env-read handler, mirroring
+  `fs-check-permitted!` above; thrown from inside the :handler fn passed
+  to guard-call, so the normal :error receipt records it."
+  [concrete name]
+  (when-not (env-name-permitted? concrete name)
+    (throw (ex-info "env-read: variable name outside granted capability resource scope"
+                    {:kotoba.host/denied :resource-not-permitted
+                     :kotoba.host/call 'env-read
+                     :kotoba.host/name name}))))
+
 (def default-handlers
   "Deterministic Rust-free provider stubs, keyed by host-import op, EXCEPT
   fs-read/fs-write and clock-monotonic below, which are real (issue #263 v0.1
@@ -296,6 +327,15 @@
    'log-write (fn [_cap _args] 0)
    'clock-monotonic (fn [_cap _args] (System/nanoTime))
    'random-bytes (fn [_cap _args] 0)
+   ;; kbb ops-script surface (ADR-2607181900 readiness gate): real named
+   ;; env var read, per-name narrowed by `env-check-permitted!` above. A
+   ;; variable that is granted but unset returns nil (the guest sees an
+   ;; absent value, same as a native getenv miss); a NON-granted name
+   ;; fails closed before the lookup ever happens.
+   'env-read (fn [concrete args]
+               (let [name (first args)]
+                 (env-check-permitted! concrete name)
+                 (System/getenv (str name))))
    'topic-publish (fn [_cap _args] 0)
    'topic-poll (fn [_cap _args] 0)
    'topic-take (fn [_cap _args] 0)
