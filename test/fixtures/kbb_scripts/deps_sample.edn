@@ -1,0 +1,8 @@
+;; sample deps.edn fixture
+{:paths ["src" "resources"]
+ :deps {io.github.kotoba-lang/kotoba-core-contracts {:git/sha "adb221fbb8afb517bd33679411ef849186a2cd12"}
+        io.github.kotoba-lang/kotoba-lang {:git/sha "9c3f1b76d09666cb8bce37275b0ae3db26da48de"}
+        io.github.kotoba-lang/datom {:git/sha "d27a5833d59d909367956705f2ec931399c891ee"}
+        ;; short pin: not a valid 40-char sha
+        io.github.kotoba-lang/datom {:git/sha "d27a5833d"}
+        com.dylibso.chicory/wasm {:mvn/version "1.4.0"}}}

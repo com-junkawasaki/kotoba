@@ -10,6 +10,7 @@
             [kotoba.crypto-qualification-test]
             [kotoba.grade-a-test]
             [kotoba.kbb-env-read-test]
+            [kotoba.kbb-scripts-port-test]
             [kotoba.kbb-proc-exec-test]
             [kotoba.key-hierarchy-test]
             [kotoba.origin-assertion-test]
@@ -98,6 +99,7 @@
                                         'kotoba.crypto-qualification-test
                                         'kotoba.grade-a-test
                                         'kotoba.kbb-env-read-test
+                                        'kotoba.kbb-scripts-port-test
                                         'kotoba.kbb-proc-exec-test
                                         'kotoba.key-hierarchy-test
                                         'kotoba.origin-assertion-test

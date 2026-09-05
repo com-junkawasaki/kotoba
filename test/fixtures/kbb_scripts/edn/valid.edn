@@ -1,0 +1,3 @@
+{:kotoba.policy/capabilities #{:fs/browse :fs/app-data}
+ :kotoba.policy/forbid-wildcard true
+ :pins [{:repo "kotoba" :sha "0d9c0b944"} {:repo "datom" :sha "d27a5833d"}]}
