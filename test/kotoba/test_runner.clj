@@ -12,6 +12,7 @@
             [kotoba.kbb-env-read-test]
             [kotoba.kbb-scripts-port-test]
             [kotoba.kbb-proc-exec-test]
+            [kotoba.kbb-native-test]
             [kotoba.key-hierarchy-test]
             [kotoba.origin-assertion-test]
             [kotoba.sealed-egress-test]
@@ -101,6 +102,7 @@
                                         'kotoba.kbb-env-read-test
                                         'kotoba.kbb-scripts-port-test
                                         'kotoba.kbb-proc-exec-test
+                                        'kotoba.kbb-native-test
                                         'kotoba.key-hierarchy-test
                                         'kotoba.origin-assertion-test
                                         'kotoba.sealed-egress-test
