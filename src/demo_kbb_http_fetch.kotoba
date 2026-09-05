@@ -1,0 +1,20 @@
+;; demo_kbb_http_fetch.kotoba — kbb http-fetch slice 3 (ADR-2607181900
+;; readiness gate): runs ONE GET against a policy-allowlisted URL prefix.
+;; The policy's :http/fetch resource scope is the URL PREFIX allowlist
+;; (exact starts-with, no wildcards). A URL outside the granted prefixes
+;; fails closed with :resource-not-permitted BEFORE any network I/O.
+;; Failure convention: non-2xx and transport failures return the sentinel
+;; -1, which is TRUTHY in this language. Measured 2026-09-05: (string? x)
+;; on a host-call result is rejected by the checker (host-result types are
+;; not yet refined to :string at the call site), so the guest distinguishes
+;; a successful body from the sentinel by str-len: the sentinel has length
+;; 2 ("-1"), any real body is its own length. This is a recorded
+;; language-surface gap, not a policy choice.
+(ns demo-kbb-http-fetch)
+
+(defn main []
+  (let [body (http-fetch "https://example.com/")
+        len (str-len body)]
+    (if (> len 2)
+      len
+      -1)))

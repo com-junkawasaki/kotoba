@@ -1,0 +1,68 @@
+;; shebang_scan.kotoba — kbb gate-script wave 2 (ADR-2607181900 condition 2):
+;; a shebang detector in the shape of the superproject's
+;; scripts/verify-no-babashka.cljs, running entirely on kbb. Scans ONE
+;; fixture directory via fs-browse (entry names only), reads each entry
+;; through fs-read inside the capability guard, and classifies each file by
+;; the first 18 bytes of its contents:
+;;   [0] files whose contents start "#!/usr/bin/env bb"
+;;   [1] files with SOME other shebang (#!/...) on line one
+;;   [2] files with no shebang at all
+;; Returns the three counts as a vector. Empty/missing reads count as
+;; no-shebang, matching the nbb twin's tolerant slurp.
+;; Language constraints (same as src/verify_no_bb.kotoba): no loop/recur —
+;; iteration is fuel-bounded self-recursion; no regex; the shebang probe is
+;; string-substring over the head, so no string library beyond
+;; string-length/string-substring/string= is needed.
+(ns shebang-scan)
+
+(defn starts-with?
+  [s prefix plen]
+  (let [n (string-length s)]
+    (if (>= n plen)
+      (if (= (string-substring s 0 plen) prefix) 1 0)
+      0)))
+
+(defn is-shebang?
+  [content]
+  (starts-with? content "#!" 2))
+
+(defn bb-shebang?
+  [content]
+  (starts-with? content "#!/usr/bin/env bb" 17))
+
+(defn classify
+  [content]
+  (if content
+    (if (= 1 (bb-shebang? content))
+      0
+      (if (= 1 (is-shebang? content)) 1 2))
+    2))
+
+(defn add-vec
+  [a b]
+  [(+ (nth a 0) (nth b 0))
+   (+ (nth a 1) (nth b 1))
+   (+ (nth a 2) (nth b 2))])
+
+(defn scan-entries
+  [dir entries idx acc]
+  (if (= idx (count entries))
+    acc
+    (let [path (string-concat (string-concat dir "/") (nth entries idx))
+          content (fs-read path)]
+      (scan-entries dir
+                    entries
+                    (+ idx 1)
+                    (add-vec acc
+                             (let [k (classify content)]
+                               (if (= k 0) [1 0 0] (if (= k 1) [0 1 0] [0 0 1]))))))))
+
+(defn scan-dir
+  [dir]
+  (let [entries (fs-browse dir)]
+    (if (= (count entries) 0)
+      [0 0 0]
+      (scan-entries dir entries 0 [0 0 0]))))
+
+(defn main []
+  (scan-dir "test/fixtures/kbb_gate_scripts/shebang_dir"))

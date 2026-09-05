@@ -1,0 +1,9 @@
+(ns json-validate-deny)
+
+(defn main []
+  (let [raw (fs-read "test/fixtures/kbb_scripts/deps_sample.json")]
+    (if raw
+      (if (json-extract-field raw "description")
+        0
+        -1)
+      -1)))
