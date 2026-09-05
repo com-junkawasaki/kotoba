@@ -159,6 +159,9 @@
                 {:policy "src/demo_kbb_docstring_policy.edn",
                  :digest
                  "sha256:3966a709c9c2df9d68623e0c920163902d7c76df52592c51db91c73f1c18ea5c"},
+                "src/demo_kbb_edn_read.kotoba"
+                {:policy "src/demo_kbb_edn_read_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
                 "src/demo_kbb_env_report.kotoba"
                 {:policy "src/demo_kbb_env_report_policy.edn",
                  :digest

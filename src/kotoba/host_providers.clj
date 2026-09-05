@@ -585,6 +585,31 @@
                            (let [m (json/decode (str json-text))]
                              (when (map? m)
                                (get m field)))))
+   ;; data/edn (capability id 260, kotoba-core-contracts bceabfa): real
+   ;; EDN reader backed by clojure.edn/read-string (already in the closure
+   ;; for the kgraph-* handlers below). edn-read takes the EDN text as a
+   ;; plain string (the interpreter slice has no linear memory, same as
+   ;; json-encode) and returns the fully-parsed Clojure value. The parsed
+   ;; value flows through the interpreter slice's plain Clojure values, so
+   ;; the guest can count/index/navigate it directly. The kind-level grant
+   ;; is the whole authorization boundary (no external resource -- every
+   ;; byte comes from the guest's own argument, exactly like json-encode);
+   ;; the kbb policy still demands an explicit :data/edn resource scope so
+   ;; the capability is never granted anonymously (deny-by-default). Malformed
+   ;; EDN fails closed with an :error receipt, never a partial value.
+   'edn-read (fn [_concrete args]
+               (let [[edn-text] args]
+                 (let [s (str edn-text)]
+                   (try
+                     (edn/read-string s)
+                     (catch clojure.lang.ExceptionInfo e
+                       (throw (ex-info "edn-read: malformed EDN"
+                                       {:kotoba.host/call 'edn-read
+                                        :kotoba.host/cause (ex-message e)})))
+                     (catch Exception e
+                       (throw (ex-info "edn-read: malformed EDN"
+                                       {:kotoba.host/call 'edn-read
+                                        :kotoba.host/cause (ex-message e)})))))))
    ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): real
    ;; directory listing, narrowed to the granted directory TREE by
    ;; `fs-browse-check-permitted!` above (scope = the directory itself or

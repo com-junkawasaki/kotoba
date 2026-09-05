@@ -1,0 +1,18 @@
+;; demo_kbb_edn_read.kotoba — kbb data/edn slice (ADR-2607181900 readiness
+;; gate item ④): the EDN reader replacing clojure.edn in kbb script ports
+;; (facade/tasks.edn checks, deps.edn pin audits). edn-read takes the EDN
+;; text as a plain string (the interpreter slice has no linear memory, same
+;; as json-encode) and returns the fully-parsed Clojure value, which flows
+;; through the interpreter slice's plain values — so the guest can count /
+;; index it. Real byte source: reads the provided fixture file with the
+;; already-landed fs-read capability (the gateway to a real tasks.edn).
+;; Malformed EDN fails closed: an unparseable file is an :error, never a
+;; partial value.
+(ns demo-edn-read)
+
+(defn main []
+  (let [raw (fs-read "test/fixtures/kbb_scripts/tasks_facade_edn/tasks.edn")]
+    (if raw
+      (let [parsed (edn-read raw)]
+        (count parsed))       ;; 3 top-level keys: build / check / docs
+      -1)))

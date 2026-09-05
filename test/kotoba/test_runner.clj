@@ -10,6 +10,7 @@
             [kotoba.crypto-qualification-test]
             [kotoba.grade-a-test]
             [kotoba.kbb-data-json-test]
+            [kotoba.kbb-data-edn-test]
             [kotoba.kbb-env-read-test]
             [kotoba.kbb-gate-scripts-test]
             [kotoba.kbb-scripts-port-test]
@@ -104,6 +105,7 @@
                                         'kotoba.crypto-qualification-test
                                         'kotoba.grade-a-test
                                         'kotoba.kbb-data-json-test
+                                        'kotoba.kbb-data-edn-test
                                         'kotoba.kbb-env-read-test
                                         'kotoba.kbb-gate-scripts-test
                                         'kotoba.kbb-scripts-port-test
