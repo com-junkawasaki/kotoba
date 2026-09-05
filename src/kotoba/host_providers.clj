@@ -34,6 +34,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as cstr]
+            [json.core :as json]
             [kotoba.cap-table :as cap-table]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.kgraph :as kgraph]
@@ -338,6 +339,85 @@
                      :kotoba.host/call 'fs-browse
                      :kotoba.host/dir dir}))))
 
+(defn- json-permitted?
+  "True when the guest-supplied JSON OP-ARGUMENT (a field name for
+  json-extract-field; json-encode takes no external resource) is inside
+  CONCRETE's :cap/resource scope. Same per-call narrowing rationale as
+  `env-name-permitted?` above: the guard decision runs on the capability
+  KIND before the guest's actual argument exists. Field names are compared
+  EXACTLY. json-encode builds output FROM guest-supplied pairs, so its
+  authorization surface is the capability kind alone; json-extract-field
+  reads out of a guest-supplied buffer but the FIELD allowlist bounds what
+  may be pulled out (the contract's bounded string scan), so a scope entry
+  narrows the extractable field NAMES."
+  [concrete field]
+  (let [scope (:cap/resource concrete)]
+    (boolean
+     (or (nil? concrete)
+         (= :any scope)
+         (cond
+           (string? scope) (= scope field)
+           (set? scope) (contains? scope field)
+           :else false)))))
+
+(defn- json-check-permitted!
+  "Throws (fail closed) when FIELD is outside CONCRETE's granted resource
+  scope. Called from inside an already-GRANTED json-extract-field handler,
+  mirroring `env-check-permitted!`; thrown from inside the :handler fn
+  passed to guard-call, so the normal :error receipt records it."
+  [concrete field]
+  (when-not (json-permitted? concrete field)
+    (throw (ex-info "json-extract-field: field outside granted capability resource scope"
+                    {:kotoba.host/denied :resource-not-permitted
+                     :kotoba.host/call 'json-extract-field
+                     :kotoba.host/field field}))))
+
+(defn- json-encode-handler
+  "data/json (capability id 246) json-encode provider. Takes the contract's
+  flat wire buffer AS A STRING (key<TAB>value pairs, one per LF-separated
+  line, dotted-path keys addressing one level of object/array nesting --
+  exactly the format the contract documents) and returns the JSON object
+  text. A malformed buffer (a line with no TAB, or an empty key) fails
+  closed with an ex-info -- receipted as :error -- never a partially-built
+  object. No ambient input: every byte comes from the guest's own
+  arguments, so the resource scope does not narrow this op (the KIND-level
+  grant is the whole authorization)."
+  [_concrete args]
+  (let [pairs (str (first args))
+        insert (fn insert [m path v]
+                 (if (= 1 (count path))
+                   (assoc m (first path) v)
+                   (let [k (first path)]
+                     (assoc m k (insert (get m k {}) (rest path) v)))))]
+    (try
+      (let [obj (reduce (fn [m line]
+                          (if (pos? (count (cstr/trim line)))
+                            (let [tab (cstr/index-of line "	")]
+                              (when (or (nil? tab) (zero? tab))
+                                (throw (ex-info "json-encode: malformed pairs buffer"
+                                                {:kotoba.host/call 'json-encode})))
+                              (insert m (cstr/split (subs line 0 tab) #"\.")
+                                      (subs line (inc tab))))
+                            m))
+                        {} (cstr/split pairs #"
+"))]
+        ;; canonical emit: keys sorted (deterministic bytes; the guest
+        ;; must not depend on JVM map iteration order)
+        (let [sort-keys (fn sort-keys [m]
+                          (into (sorted-map)
+                                (map (fn [[k v]]
+                                       [k (cond
+                                            (map? v) (sort-keys v)
+                                            :else v)]))
+                                m))]
+          (json/encode (sort-keys obj))))
+      (catch Exception e
+        (if (:kotoba.host/call (ex-data e))
+          (throw e)
+          (throw (ex-info (str "json-encode: " (ex-message e))
+                          {:kotoba.host/call 'json-encode
+                           :kotoba.host/cause (ex-message e)})))))))
+
 (def default-handlers
   "Deterministic Rust-free provider stubs, keyed by host-import op, EXCEPT
   fs-read/fs-write and clock-monotonic below, which are real (issue #263 v0.1
@@ -422,6 +502,31 @@
    ;; by guarded-host-call (see host-call below). No shell is ever spawned:
    ;; argv goes straight to ProcessBuilder, arg-by-arg.
 'proc-exec (fn [_concrete _args] 0)
+   ;; data/json (capability id 246, kotoba-core-contracts): real JSON
+   ;; wire-format handlers backed by the JVM's json.data-json
+   ;; (cheshire-compatible) parser/encoder -- NOT the interpreter's stub
+   ;; convention. The interpreter slice has no linear memory, so like
+   ;; fs-browse/fs-read these take plain values instead of the contract's
+   ;; (ptr,len) ABI:
+   ;;   json-encode takes the contract's flat wire buffer AS A STRING
+   ;;   (key<TAB>value pairs, one per LF-separated line, dotted-path keys
+   ;;   addressing one level of nesting -- exactly the format the contract
+   ;;   documents) and returns the JSON object text; a malformed buffer
+   ;;   fails closed with an ex-info (receipted as :error), never a
+   ;;   partially-written buffer. No ambient input: every byte comes from
+   ;;   the guest's own arguments.
+   ;;   json-extract-field takes (json-string field-name) and returns the
+   ;;   extracted string value or nil (field not found), narrowed per call
+   ;;   to the granted FIELD NAMES by `json-check-permitted!` -- the
+   ;;   contract's bounded `"field":"value"` scan, fail closed.
+   'json-encode json-encode-handler
+   'json-extract-field (fn [concrete args]
+                         (let [[json-text field] args
+                               field (str field)]
+                           (json-check-permitted! concrete field)
+                           (let [m (json/decode (str json-text))]
+                             (when (map? m)
+                               (get m field)))))
    ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): real
    ;; directory listing, narrowed to the granted directory TREE by
    ;; `fs-browse-check-permitted!` above (scope = the directory itself or
