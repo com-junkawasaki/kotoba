@@ -81,7 +81,7 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "d198dea9433f6eed432d64fc88a21a0f73b46890"}
+         :git/sha "1b7efdf1bb232449db7cd53d879e708ee988b22f"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
@@ -89,7 +89,7 @@
          ;; kbb slice 3: bf01d4a8 carries :env/read + :fs/browse wire ids
          ;; 33/34 in the vendored catalog + cljs fallback, and the slice-2
          ;; guest grammar (9d701ea: env-read/fs-browse string heads).
-         :git/sha "bf01d4a87e7b266754d64f79fa75e84542c07954"}
+         :git/sha "51d90395767dda94d3d9e9e940f76dd584345c05"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}

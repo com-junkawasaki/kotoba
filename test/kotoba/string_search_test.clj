@@ -60,10 +60,10 @@
 
 (deftest string-search-127-byte-literal-bound-test
   (testing "both arguments up to the 127-byte string literal bound work"
-    (let [hay (apply str (concat (repeat 113 "a") ["marker"]))
-          _ (assert (= 120 (count hay)))
+    (let [hay (apply str (concat (repeat 121 "a") ["marker"]))
+          _ (assert (= 127 (count hay)))
           needle "marker"]
-      (is (= 113 (:kotoba.runtime/value
+      (is (= 121 (:kotoba.runtime/value
                   (run-src (str "(defn main [] (string-index-of \"" hay "\" \"" needle "\"))"))))))))
 
 (deftest string-search-heads-are-grammar-admitted-test

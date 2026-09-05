@@ -124,7 +124,14 @@
                       (when (zero? (count needle))
                         (throw (ex-info "string-index-of needle must not be empty"
                                         {:kotoba.runtime/problem :empty-string-search-needle})))
-                      (.indexOf ^String haystack ^String needle))
+                      ;; UTF-8 BYTE offset: the host index is UTF-16 units;
+                      ;; convert by counting UTF-8 bytes of the prefix (the
+                      ;; wasm/KIR lowering is the byte oracle).
+                      (let [host-idx (.indexOf ^String haystack ^String needle)]
+                        (if (neg? host-idx)
+                          -1
+                          (let [bytes (.getBytes (subs haystack 0 host-idx) "UTF-8")]
+                            (count bytes)))))
    'string-contains? (fn [haystack needle]
                        (when-not (and (string? haystack) (string? needle))
                          (throw (ex-info "string-contains? requires two strings"
