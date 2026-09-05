@@ -33,6 +33,7 @@
   an HTTP client, ...) plug in by passing a :handlers map to `host-call`."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as cstr]
             [kotoba.cap-table :as cap-table]
             [kotoba.core.contracts :as core-contracts]
             [kotoba.kgraph :as kgraph]
@@ -204,17 +205,30 @@
   than shared because kotoba.wasm-exec already requires this namespace, so
   the reverse require would be circular. Comparison is on the canonicalized
   path so a granted resource string can't be trivially defeated by a
-  `./`-prefixed or symlinked spelling of the same file."
+  `./`-prefixed or symlinked spelling of the same file.
+
+  kbb slice 2 (ADR-2607181900): a scope entry that names a DIRECTORY also
+  admits the files strictly beneath it (prefix boundary on a path
+  separator, same rule as `fs-dir-permitted?`). This keeps the kbb verify
+  gate's grant shape uniform — one granted directory covers
+  fs-browse(dir) + fs-read(dir/file) — while a per-FILE scope entry keeps
+  its exact per-file equality semantics. Escaping via `dir/..` is
+  impossible: both sides are canonicalized before the prefix compare."
   [concrete path]
   (let [scope (:cap/resource concrete)]
     (boolean
      (or (nil? concrete)
          (= :any scope)
-         (let [target (canonical-path path)]
-           (cond
-             (string? scope) (= (canonical-path scope) target)
-             (set? scope) (some #(= (canonical-path %) target) scope)
-             :else false))))))
+         (let [target (canonical-path path)
+               scopes (cond
+                        (string? scope) [scope]
+                        (set? scope) scope
+                        :else [])]
+           (some (fn [s]
+                   (let [s (canonical-path s)]
+                     (or (= s target)
+                         (cstr/starts-with? target (str s java.io.File/separator)))))
+                 scopes))))))
 
 (defn- fs-check-permitted!
   "Throws (fail closed) when PATH is outside CONCRETE's granted resource
@@ -261,6 +275,41 @@
                     {:kotoba.host/denied :resource-not-permitted
                      :kotoba.host/call 'env-read
                      :kotoba.host/name name}))))
+
+(defn- fs-dir-permitted?
+  "True when DIR (the guest-supplied literal fs-browse directory argument)
+  equals CONCRETE's granted resource scope, or is a strict descendant of a
+  granted scope directory. Unlike fs-read/fs-write (per-FILE path
+  equality), browse grants name a directory tree: a scope of \"src\"
+  admits \"src\", \"src/kotoba\", ... but NOT \"srcs\" (prefix boundary must
+  fall on a path separator) and not \"..\" (canonicalized first, so a
+  granted \"src\" cannot be escaped via \"src/..\"). Comparison runs on
+  canonicalized paths exactly like `fs-path-permitted?`."
+  [concrete dir]
+  (let [scope (:cap/resource concrete)]
+    (boolean
+     (or (nil? concrete)
+         (= :any scope)
+         (let [target (canonical-path dir)
+               scopes (cond
+                        (string? scope) [scope]
+                        (set? scope) scope
+                        :else [])]
+           (some (fn [s]
+                   (let [s (canonical-path s)]
+                     (or (= s target)
+                         (cstr/starts-with? target (str s java.io.File/separator)))))
+                 scopes))))))
+
+(defn- fs-browse-check-permitted!
+  "Throws (fail closed) when DIR is outside CONCRETE's granted directory
+  scope. Called from inside an already-GRANTED fs-browse handler."
+  [concrete dir]
+  (when-not (fs-dir-permitted? concrete dir)
+    (throw (ex-info "fs-browse: directory outside granted capability resource scope"
+                    {:kotoba.host/denied :resource-not-permitted
+                     :kotoba.host/call 'fs-browse
+                     :kotoba.host/dir dir}))))
 
 (def default-handlers
   "Deterministic Rust-free provider stubs, keyed by host-import op, EXCEPT
@@ -336,6 +385,23 @@
                (let [name (first args)]
                  (env-check-permitted! concrete name)
                  (System/getenv (str name))))
+   ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): real
+   ;; directory listing, narrowed to the granted directory TREE by
+   ;; `fs-browse-check-permitted!` above (scope = the directory itself or
+   ;; any descendant, prefix boundary on a path separator). Returns the
+   ;; entry NAMES of a directory as a vector of strings (not paths); a
+   ;; granted-but-missing directory returns nil (absent, like env-read's
+   ;; unset miss). The result flows through the interpreter slice's plain
+   ;; Clojure values, so the guest can (count ...) it and index it —
+   ;; pairs/vectors are interpreter-native. Bounded: one directory per
+   ;; call, names only, no recursion (the guest recurses through fs-browse
+   ;; + fs-read, which keeps every step inside the capability guard).
+   'fs-browse (fn [concrete args]
+                (let [dir (first args)]
+                  (fs-browse-check-permitted! concrete dir)
+                  (let [f (io/file dir)]
+                    (when (.isDirectory f)
+                      (vec (.list f))))))
    'topic-publish (fn [_cap _args] 0)
    'topic-poll (fn [_cap _args] 0)
    'topic-take (fn [_cap _args] 0)
