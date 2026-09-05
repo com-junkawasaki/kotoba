@@ -29,9 +29,7 @@
             [kotoba.host-providers :as host-providers]
             [kotoba.verifier.signing :as signing]
             [kototama.native.executor :as executor])
-  (:import [java.io File]
-           [java.nio.file Files]
-           [java.nio.file.attribute FileAttribute]))
+  (:import [java.io File]))
 
 (def ^:private version 2)
 
@@ -57,10 +55,6 @@
     (if (contains? #{"aarch64" "arm64"} arch)
       :aarch64-kotoba-v1
       :x86_64-kotoba-v1)))
-
-(defn- isa-name
-  [target]
-  (if (= :aarch64-kotoba-v1 target) "aarch64" "x86_64"))
 
 (defn- pre-exec-invocation!
   "Run ONE allowlisted invocation through the guarded host-call path (the
@@ -147,7 +141,7 @@
   policy-problem gate; FORMS are the launcher-read script forms; SOURCE-TEXT
   is the original script text (the compiler reads text, not forms).
   Returns {:kotoba.kbb/result <exit word> :kotoba.kbb/receipts [...]}."
-  [policy source-text forms]
+  [policy _source-text forms]
   (when-not (has-proc-exec? forms)
     (throw (ex-info "kbb-native: script uses no hostable capability on the native backend"
                     {:phase :kbb-native/source})))

@@ -435,6 +435,7 @@
 "))]
         ;; canonical emit: keys sorted (deterministic bytes; the guest
         ;; must not depend on JVM map iteration order)
+        #_:clj-kondo/ignore
         (let [sort-keys (fn sort-keys [m]
                           (into (sorted-map)
                                 (map (fn [[k v]]

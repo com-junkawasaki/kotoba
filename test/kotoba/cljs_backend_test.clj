@@ -15,7 +15,8 @@
   is valid, semantically identical Clojure AND ClojureScript. Real nbb
   execution of the exact same generated sources was independently
   verified by hand before this commit; see ADR-2607151500."
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
             [kotoba.runtime :as runtime]))
 
 (defn- eval-cljs-source
