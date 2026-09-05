@@ -1,0 +1,79 @@
+;; edn_pin_check.kotoba — kbb port wave 1 (ADR-2607181900): a text-level
+;; git-pin audit for deps.edn files, running on kbb. This is the kbb-portable
+;; slice of the superproject's scripts/check-foundation-deps.cljs (which uses
+;; the GitHub API — out of kbb's capability surface): read ONE deps.edn
+;; fixture via fs-read and count the `io.github.kotoba-lang/<repo>
+;; {:git/sha "..."}` pins, returning the count of pins whose sha is a
+;; plausible 40-char hex string.
+;;
+;; The check is deliberately TEXT-level (the guest surface has no EDN
+;; reader): find each occurrence of the "io.github.kotoba-lang/" needle, then
+;; scan forward for the opening quote of the :git/sha value and measure the
+;; run of [0-9a-f] characters. The nbb twin
+;; (test/fixtures/kbb_scripts/edn_pin_check.cljs) uses re-seq over the same
+;; file; parity = identical pin counts.
+(ns edn-pin-check)
+
+(defn char-at
+  [s i]
+  (string-substring s i (+ i 1)))
+
+(defn hex-char?
+  [c]
+  (if (string= c "0") 1
+  (if (string= c "1") 1
+  (if (string= c "2") 1
+  (if (string= c "3") 1
+  (if (string= c "4") 1
+  (if (string= c "5") 1
+  (if (string= c "6") 1
+  (if (string= c "7") 1
+  (if (string= c "8") 1
+  (if (string= c "9") 1
+  (if (string= c "a") 1
+  (if (string= c "b") 1
+  (if (string= c "c") 1
+  (if (string= c "d") 1
+  (if (string= c "e") 1
+  (if (string= c "f") 1
+  0)))))))))))))))))
+
+;; sha length counting from index i
+(defn sha-run
+  [s i n]
+  (if (and (< i n) (= 1 (hex-char? (char-at s i))))
+    (+ 1 (sha-run s (+ i 1) n))
+    0))
+
+;; does S contain NEEDLE starting at or after i? returns first index or -1
+(defn find-from
+  [s needle nlen n i]
+  (if (> (+ i nlen) n)
+    -1
+    (if (= (string-substring s i (+ i nlen)) needle)
+      i
+      (find-from s needle nlen n (+ i 1)))))
+
+;; length of the sha value starting just after a `"` at index q
+(defn sha-length-after-quote
+  [s q n]
+  (sha-run s (+ q 1) n))
+
+(defn count-pins
+  [text n i acc]
+  (let [j (find-from text "io.github.kotoba-lang/" 22 n i)]
+    (if (< j 0)
+      acc
+      (let [q (find-from text "\"" 1 n (+ j 22))]
+        (if (< q 0)
+          acc
+          (let [L (sha-length-after-quote text q n)]
+            (if (= L 40)
+              (count-pins text n (+ q 1) (+ acc 1))
+              (count-pins text n (+ q 1) acc))))))))
+
+(defn main []
+  (let [text (fs-read "test/fixtures/kbb_scripts/deps_sample.edn")]
+    (if text
+      (count-pins text (string-length text) 0 0)
+      -1)))

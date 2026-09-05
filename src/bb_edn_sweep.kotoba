@@ -1,0 +1,100 @@
+;; bb_edn_sweep.kotoba — kbb port wave 1 (ADR-2607181900): the
+;; verify-no-babashka gate (src/verify_no_bb.kotoba, dd8cf58) generalized
+;; from a single violation total to a per-class breakdown, still running
+;; entirely on kbb.
+;;
+;; Scans ONE directory (fs-browse, names only — the guest recurses via
+;; fs-read/fs-browse, every step inside the capability guard) and returns a
+;; vector of five integer counts:
+;;   [0] names ending ".bb"
+;;   [1] names exactly "bb.edn"
+;;   [2] files whose contents start "#!/usr/bin/env bb"
+;;   [3] names ending ".bb.edn" (misspelled bb.edn copies, e.g. foo.bb.edn)
+;;   [4] files whose contents contain "#!/usr/bin/env bb" but NOT at byte 0
+;;       (a babashka mention buried mid-file)
+;; The nbb twin (test/fixtures/kbb_scripts/bb_edn_sweep.cljs) computes the
+;; same five counts with full Clojure(Script) string ops; parity = identical
+;; vectors on the same fixture tree.
+;;
+;; Constraint notes: substring search is built from string-substring windows
+;; (no regex, no string-index-of in the guest surface). The mid-file probe
+;; uses a bounded window (first 256 chars) so a long file cannot blow the
+;; interpreter step budget; files longer than the window are clipped, which
+;; the fixtures exercise with a shebang placed inside the first 256 bytes.
+(ns bb-edn-sweep)
+
+(defn ends-with?
+  [name suffix slen]
+  (let [n (string-length name)]
+    (if (>= n slen)
+      (if (= (string-substring name (- n slen) n) suffix) 1 0)
+      0)))
+
+(defn starts-with?
+  [s prefix plen]
+  (let [n (string-length s)]
+    (if (>= n plen)
+      (if (= (string-substring s 0 plen) prefix) 1 0)
+      0)))
+
+;; contains-in-window: does S contain PREFIX anywhere in [0,len)?
+(defn window-contains?
+  [s prefix plen n]
+  (if (> plen n)
+    0
+    (let [limit (- n plen)]
+      (window-contains-loop s prefix plen limit 0))))
+
+(defn window-contains-loop
+  [s prefix plen limit i]
+  (if (> i limit)
+    0
+    (if (= (string-substring s i (+ i plen)) prefix)
+      1
+      (window-contains-loop s prefix plen limit (+ i 1)))))
+
+(defn min2 [a b] (if (< a b) a b))
+
+(defn entry-counts
+  [dir name]
+  (let [path (string-concat (string-concat dir "/") name)
+        content (fs-read path)
+        head (if content
+               (string-substring content 0 (min2 256 (string-length content)))
+               "")]
+    [(ends-with? name ".bb" 3)
+     (if (= name "bb.edn") 1 0)
+     (if content (starts-with? content "#!/usr/bin/env bb" 17) 0)
+     (if (= name "bb.edn") 0 (ends-with? name ".bb.edn" 7))
+     (if content
+       (if (= (starts-with? content "#!/usr/bin/env bb" 17) 1)
+         0
+         (window-contains? head "#!/usr/bin/env bb" 17 (string-length head)))
+       0)]))
+
+(defn add-vec
+  [a b]
+  [(+ (nth a 0) (nth b 0))
+   (+ (nth a 1) (nth b 1))
+   (+ (nth a 2) (nth b 2))
+   (+ (nth a 3) (nth b 3))
+   (+ (nth a 4) (nth b 4))])
+
+(defn scan-entries
+  [dir entries idx acc]
+  (if (= idx (count entries))
+    acc
+    (scan-entries dir
+                  entries
+                  (+ idx 1)
+                  (add-vec acc (entry-counts dir (nth entries idx))))))
+
+(defn scan-dir
+  [dir]
+  (let [entries (fs-browse dir)]
+    (if (= (count entries) 0)
+      [0 0 0 0 0]
+      (scan-entries dir entries 0 [0 0 0 0 0]))))
+
+(defn main []
+  (scan-dir "test/fixtures/kbb_scripts/bb_sweep"))

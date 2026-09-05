@@ -1,0 +1,2 @@
+# notes
+#!/usr/bin/env bb appears mid-file
