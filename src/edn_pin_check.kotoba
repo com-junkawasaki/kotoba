@@ -1,79 +1,75 @@
-;; edn_pin_check.kotoba — kbb port wave 1 (ADR-2607181900): a text-level
-;; git-pin audit for deps.edn files, running on kbb. This is the kbb-portable
-;; slice of the superproject's scripts/check-foundation-deps.cljs (which uses
-;; the GitHub API — out of kbb's capability surface): read ONE deps.edn
-;; fixture via fs-read and count the `io.github.kotoba-lang/<repo>
-;; {:git/sha "..."}` pins, returning the count of pins whose sha is a
-;; plausible 40-char hex string.
+;; edn_pin_check.kotoba — kbb port wave 2 (ADR-2607181900): the deps.edn
+;; git-pin audit UPGRADED from text-level to a real EDN-parsed scan.
 ;;
-;; The check is deliberately TEXT-level (the guest surface has no EDN
-;; reader): find each occurrence of the "io.github.kotoba-lang/" needle, then
-;; scan forward for the opening quote of the :git/sha value and measure the
-;; run of [0-9a-f] characters. The nbb twin
-;; (test/fixtures/kbb_scripts/edn_pin_check.cljs) uses re-seq over the same
-;; file; parity = identical pin counts.
+;; The wave-1 version (text-level) counted 40-hex runs after
+;; "io.github.kotoba-lang/" with no EDN reader on the guest surface. Now
+;; that data/edn (edn-read) + pure keys/get landed, this reads the deps.edn
+;; from the fixture, edn-reads it into a real Clojure map, enumerates the
+;; :deps entries via `keys`, and checks each dependency's :git/sha value is
+;; a 40-hex string. A dependency with a non-map value (e.g. a :mvn/version
+;; library) or a short sha is not a valid git pin and is not counted —
+;; same verdict as the text-level scan, but structurally: no text-pattern
+;; blind spots, and it would catch a sha that is 40 chars but NOT hex.
+;;
+;; Returns the count of 40-hex git pins; -1 on read/parse failure (fail
+;; closed — an unparseable deps.edn is an error, not a silent 0).
+;;
+;; Language constraints (unchanged since verify_no_bb): no loop/recur —
+;; iteration is fuel-bounded self-recursion; no seq/map over keys — walk
+;; with `nth`, `count`, `get`, `keys` on the :deps map.
 (ns edn-pin-check)
 
-(defn char-at
-  [s i]
-  (string-substring s i (+ i 1)))
-
-(defn hex-char?
+(defn hexc
   [c]
-  (if (string= c "0") 1
-  (if (string= c "1") 1
-  (if (string= c "2") 1
-  (if (string= c "3") 1
-  (if (string= c "4") 1
-  (if (string= c "5") 1
-  (if (string= c "6") 1
-  (if (string= c "7") 1
-  (if (string= c "8") 1
-  (if (string= c "9") 1
-  (if (string= c "a") 1
-  (if (string= c "b") 1
-  (if (string= c "c") 1
-  (if (string= c "d") 1
-  (if (string= c "e") 1
-  (if (string= c "f") 1
+  (if (= c "0") 1
+  (if (= c "1") 1
+  (if (= c "2") 1
+  (if (= c "3") 1
+  (if (= c "4") 1
+  (if (= c "5") 1
+  (if (= c "6") 1
+  (if (= c "7") 1
+  (if (= c "8") 1
+  (if (= c "9") 1
+  (if (= c "a") 1
+  (if (= c "b") 1
+  (if (= c "c") 1
+  (if (= c "d") 1
+  (if (= c "e") 1
+  (if (= c "f") 1
   0)))))))))))))))))
 
-;; sha length counting from index i
-(defn sha-run
+(defn hex?
   [s i n]
-  (if (and (< i n) (= 1 (hex-char? (char-at s i))))
-    (+ 1 (sha-run s (+ i 1) n))
+  (if (>= i n)
+    1
+    (if (= 1 (hexc (string-substring s i (+ i 1))))
+      (hex? s (+ i 1) n)
+      0)))
+
+(defn valid-sha?
+  [v]
+  ;; nil (no :git/sha) or a non-40-length value is not a valid pin.
+  ;; string-substring on nil would fail, so guard by length via count.
+  (if (and (= 40 (count v)) (= 40 (string-length v)))
+    (hex? v 0 40)
     0))
 
-;; does S contain NEEDLE starting at or after i? returns first index or -1
-(defn find-from
-  [s needle nlen n i]
-  (if (> (+ i nlen) n)
-    -1
-    (if (= (string-substring s i (+ i nlen)) needle)
-      i
-      (find-from s needle nlen n (+ i 1)))))
-
-;; length of the sha value starting just after a `"` at index q
-(defn sha-length-after-quote
-  [s q n]
-  (sha-run s (+ q 1) n))
-
-(defn count-pins
-  [text n i acc]
-  (let [j (find-from text "io.github.kotoba-lang/" 22 n i)]
-    (if (< j 0)
-      acc
-      (let [q (find-from text "\"" 1 n (+ j 22))]
-        (if (< q 0)
-          acc
-          (let [L (sha-length-after-quote text q n)]
-            (if (= L 40)
-              (count-pins text n (+ q 1) (+ acc 1))
-              (count-pins text n (+ q 1) acc))))))))
+(defn deps-count
+  [deps ks idx n acc]
+  (if (< idx n)
+    (let [key (nth ks idx)
+          entry (get deps key)
+          sha-chk (valid-sha? (get entry :git/sha))]
+      (deps-count deps ks (+ idx 1) n (+ acc sha-chk)))
+    acc))
 
 (defn main []
-  (let [text (fs-read "test/fixtures/kbb_scripts/deps_sample.edn")]
-    (if text
-      (count-pins text (string-length text) 0 0)
+  (let [raw (fs-read "test/fixtures/kbb_scripts/deps_sample.edn")]
+    (if raw
+      (let [m (edn-read raw)
+            deps (:deps m)]
+        (if deps
+          (deps-count deps (keys deps) 0 (count deps) 0)
+          -1))
       -1)))
