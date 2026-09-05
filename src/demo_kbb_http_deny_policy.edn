@@ -1,0 +1,4 @@
+{:kotoba.policy/capabilities #{:http/fetch}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources
+ {:http/fetch #{"https://example.com/"}}}
