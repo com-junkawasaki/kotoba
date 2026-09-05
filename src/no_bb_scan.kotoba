@@ -1,0 +1,75 @@
+;; no_bb_scan.kotoba — kbb gate-script wave 2 (ADR-2607181900 condition 2):
+;; the directory-argument generalization of src/verify_no_bb.kotoba.
+;; verify_no_bb scans ONE hardcoded directory; kbb has no script-argv
+;; surface (v1: no inline eval, no script argv), so the generalization runs
+;; here is a policy-side one: the guest scans a LIST of directories, each
+;; of which the policy must grant explicitly — a new directory needs a new
+;; grant, never a wider one. Per directory it counts babashka residue the
+;; same three ways as verify_no_bb:
+;;   (a) entry names ending ".bb"
+;;   (b) entries named exactly "bb.edn"
+;;   (c) files whose contents start "#!/usr/bin/env bb"
+;; and returns one flat violation TOTAL, so the gate shape (0 = pass) is
+;; unchanged from verify_no_bb. A directory fs-browse reports as absent
+;; (nil) contributes 0 and is not an error: an absent granted directory is
+;; a clean miss, matching env-read's unset-variable semantics.
+;; Language constraints (same as verify_no_bb): no loop/recur — iteration
+;; is fuel-bounded self-recursion; docstrings kept short for the 127-byte
+;; string-literal bound.
+(ns no-bb-scan)
+
+(defn ends-with-bb?
+  [name]
+  (let [n (string-length name)]
+    (if (> n 3)
+      (if (= (string-substring name (- n 3) n) ".bb") 1 0)
+      0)))
+
+(defn is-bb-edn?
+  [name]
+  (if (= name "bb.edn") 1 0))
+
+(defn shebang-bb?
+  [content]
+  (let [n (string-length content)]
+    (if (>= n 17)
+      (if (= (string-substring content 0 17) "#!/usr/bin/env bb") 1 0)
+      0)))
+
+(defn entry-violations
+  [dir name]
+  (let [path (string-concat (string-concat dir "/") name)
+        content (fs-read path)]
+    (+ (ends-with-bb? name)
+       (is-bb-edn? name)
+       (if content (shebang-bb? content) 0))))
+
+(defn scan-entries
+  [dir entries idx acc]
+  (if (= idx (count entries))
+    acc
+    (scan-entries dir
+                  entries
+                  (+ idx 1)
+                  (+ acc (entry-violations dir (nth entries idx))))))
+
+(defn scan-dir
+  [dir]
+  (let [entries (fs-browse dir)]
+    (if entries
+      (if (= (count entries) 0)
+        0
+        (scan-entries dir entries 0 0))
+      0)))
+
+(defn scan-dirs
+  [dirs idx acc]
+  (if (= idx (count dirs))
+    acc
+    (scan-dirs dirs (+ idx 1) (+ acc (scan-dir (nth dirs idx))))))
+
+(defn main []
+  (scan-dirs ["test/fixtures/kbb_gate_scripts/clean_dir"
+              "test/fixtures/kbb_gate_scripts/dirty_dir"]
+             0
+             0))
