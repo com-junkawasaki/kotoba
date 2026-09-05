@@ -9,6 +9,7 @@
             [kotoba.control-adoption-test]
             [kotoba.crypto-qualification-test]
             [kotoba.grade-a-test]
+            [kotoba.kbb-data-json-test]
             [kotoba.kbb-env-read-test]
             [kotoba.kbb-scripts-port-test]
             [kotoba.kbb-http-fetch-test]
@@ -100,6 +101,7 @@
                                         'kotoba.control-adoption-test
                                         'kotoba.crypto-qualification-test
                                         'kotoba.grade-a-test
+                                        'kotoba.kbb-data-json-test
                                         'kotoba.kbb-env-read-test
                                         'kotoba.kbb-scripts-port-test
                                         'kotoba.kbb-http-fetch-test

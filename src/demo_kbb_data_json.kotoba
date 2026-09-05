@@ -1,0 +1,17 @@
+;; demo_kbb_data_json.kotoba — kbb data-json slice (ADR-2607181900 readiness
+;; gate): JSON wire-format ops on capability id 246. json-encode takes the
+;; contract's flat pairs buffer (key<TAB>value per LF-separated line, dotted
+;; keys for one level of nesting) and returns the JSON object text;
+;; json-extract-field is the contract's bounded "field":"value" scan, narrowed
+;; per call to the FIELD NAMES the policy grants (:kotoba.policy/
+;; capability-resources :data/json). The interpreter slice has no linear
+;; memory, so the guest passes the buffer and field name directly instead of
+;; the (ptr,len) ABI — the host-provider handlers document this mapping.
+(ns demo-kbb-data-json)
+
+(defn main []
+  (let [encoded (json-encode "name\tsumire\ncontact.city\tkyoto")
+        city (json-extract-field encoded "name")]
+    (if encoded
+      (string-length city)
+      -1)))

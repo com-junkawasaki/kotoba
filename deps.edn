@@ -87,7 +87,9 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "d198dea9433f6eed432d64fc88a21a0f73b46890"}
+         ;; bumped for the data-json slice: :host/data-json effect row
+         ;; (data/json capability id 246, kbb readiness gate)
+         :git/sha "45c7d0fccb30c70437225bf47016e9f8a9508497"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
