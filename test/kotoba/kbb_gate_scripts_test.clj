@@ -13,7 +13,8 @@
   same path the kbb CLI binary uses) and asserts the exact value against a
   real fixture directory (no symlinks). Policies are deny-by-default with
   concrete per-directory resource scopes and forbid-wildcard true."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.edn :as edn]
+            [clojure.test :refer [deftest is testing]]
             [kotoba.kbb :as kbb]))
 
 (def ^:private base-dir (System/getProperty "user.dir"))

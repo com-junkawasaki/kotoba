@@ -1408,6 +1408,7 @@
                ;; elsewhere, and the lowered defs have no docstring slot
                (concat (take 2 form) (nthnext form 3))
                form)]
+    #_:clj-kondo/ignore
     (let [[_ function-name & clauses] form]
     (when-not (and (symbol? function-name) (seq clauses)
                    (every? #(and (seq? %) (vector? (first %))

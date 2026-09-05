@@ -12,4 +12,5 @@
     kotoba.runtime/bounded-eager-reduce
     kotoba.runtime/bounded-map-project
     kotoba.runtime/bounded-map-without
-    kotoba.runtime/bounded-map-contains-key]}}}
+    kotoba.runtime/bounded-map-contains-key]}}
+ :output {:exclude-files ["test/fixtures/kbb_scripts/.*"]}}

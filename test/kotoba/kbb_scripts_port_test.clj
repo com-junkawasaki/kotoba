@@ -12,7 +12,8 @@
   same path the kbb CLI binary uses) and asserts the exact value. The nbb
   parity assertions run only when a local `nbb` executable exists, so the
   JVM suite stays hermetic on machines without Node."
-  (:require [clojure.java.shell :as shell]
+  (:require [clojure.edn :as edn]
+            [clojure.java.shell :as shell]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.kbb :as kbb]))
