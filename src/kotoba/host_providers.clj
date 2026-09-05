@@ -276,6 +276,33 @@
                      :kotoba.host/call 'env-read
                      :kotoba.host/name name}))))
 
+(defn- proc-command-permitted?
+  "True when COMMAND (the resolved command name for the guest-supplied grant
+  INDEX) is inside CONCRETE's :cap/resource scope. Same per-call narrowing
+  rationale as `env-name-permitted?`: the guard decision runs on the
+  capability KIND before the resolved command name exists. Command names
+  are compared EXACTLY (no canonicalization, no path expansion)."
+  [concrete command]
+  (let [scope (:cap/resource concrete)]
+    (boolean
+     (or (nil? concrete)
+         (= :any scope)
+         (cond
+           (string? scope) (= scope command)
+           (set? scope) (contains? scope command)
+           :else false)))))
+
+(defn- proc-check-permitted!
+  "Throws (fail closed) when the invocation resolved from the guest-supplied
+  grant INDEX is outside CONCRETE's granted resource scope. Called from
+  inside an already-GRANTED proc-exec handler; thrown from inside the
+  :handler fn passed to guard-call, so the normal :error receipt records it."
+  [concrete command]
+  (when-not (proc-command-permitted? concrete command)
+    (throw (ex-info "proc-exec: command outside granted capability resource scope"
+                    {:kotoba.host/denied :resource-not-permitted
+                     :kotoba.host/call 'proc-exec
+                     :kotoba.host/command command}))))
 (defn- fs-dir-permitted?
   "True when DIR (the guest-supplied literal fs-browse directory argument)
   equals CONCRETE's granted resource scope, or is a strict descendant of a
@@ -385,6 +412,16 @@
                (let [name (first args)]
                  (env-check-permitted! concrete name)
                  (System/getenv (str name))))
+   ;; kbb ops-script surface slice 2 (ADR-2607181900 readiness gate): real
+   ;; process exec of ONE allowlisted invocation. The guest passes a grant
+   ;; INDEX (a decimal string) into the policy's fixed invocation table;
+   ;; argv, cwd, and timeout are POLICY-side literals -- the guest supplies
+   ;; zero command bytes and can never compose an unlisted invocation. The
+   ;; handler needs the policy's table, which host-call threads through
+   ;; :kotoba.policy/*; the closure reads it from the dynamic binding set
+   ;; by guarded-host-call (see host-call below). No shell is ever spawned:
+   ;; argv goes straight to ProcessBuilder, arg-by-arg.
+'proc-exec (fn [_concrete _args] 0)
    ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): real
    ;; directory listing, narrowed to the granted directory TREE by
    ;; `fs-browse-check-permitted!` above (scope = the directory itself or
@@ -447,6 +484,42 @@
     (fn [cap]
       (contains? caps (core-contracts/capability-name cap)))))
 
+(defn proc-exec-handler
+  "Real proc-exec handler for kbb slice 2 (ADR-2607181900 readiness gate):
+  runs ONE allowlisted invocation. INVOCATIONS is the policy's fixed
+  invocation table (a vector of {:command :argv :cwd :timeout-seconds});
+  the guest passes a grant INDEX (decimal string) into it -- the guest
+  supplies zero command bytes and can never compose an unlisted
+  invocation. argv goes straight to ProcessBuilder arg-by-arg: no shell
+  is ever spawned. The command name is re-checked against the concrete
+  cap's resource scope (fail closed) before exec."
+  [invocations]
+  (fn [concrete args]
+    (let [idx-str (str (first args))
+          idx (parse-long idx-str)
+          {:keys [command argv cwd timeout-seconds]}
+          (when idx (nth invocations idx nil))]
+      (when (nil? command)
+        (throw (ex-info "proc-exec: grant index out of range"
+                        {:kotoba.host/denied :resource-not-permitted
+                         :kotoba.host/call 'proc-exec
+                         :kotoba.host/index idx-str})))
+      (proc-check-permitted! concrete command)
+      (let [pb (java.lang.ProcessBuilder. ^java.util.List (vec argv))]
+        (when cwd (.directory pb (java.io.File. ^String cwd)))
+        (.redirectErrorStream pb true)
+        (let [p (.start pb)
+              done (.waitFor p
+                             (or timeout-seconds 30)
+                             java.util.concurrent.TimeUnit/SECONDS)]
+          (if-not done
+            (do (.destroyForcibly p)
+                (throw (ex-info "proc-exec: timeout"
+                                {:kotoba.host/call 'proc-exec
+                                 :kotoba.host/command command})))
+            {:exit (.exitValue p)
+             :stdout (slurp (.getInputStream p))}))))))
+
 (defn host-call
   "Build the guarded host-call fn handed to kotoba.runtime/run:
   (fn [op args] result). Every invocation goes through
@@ -466,7 +539,15 @@
          now (or now (str (java.time.LocalDate/now)))
          information-flow-context
          (or information-flow-context (:kotoba.policy/information-flow policy))
-         handlers (or handlers default-handlers)]
+         ;; kbb slice 2 (ADR-2607181900): the policy's fixed invocation
+         ;; table closes over the proc-exec handler, so the guest never
+         ;; carries command bytes -- it names a grant INDEX.
+         invocations (:kotoba.policy/proc-exec-invocations policy)
+         handlers (or handlers
+                      (if invocations
+                        (assoc default-handlers
+                               'proc-exec (proc-exec-handler invocations))
+                        default-handlers))]
      (fn guarded-host-call [op args]
        (let [kind (get op->kind op)
              handler (get handlers op)]

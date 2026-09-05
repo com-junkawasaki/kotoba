@@ -69,7 +69,8 @@
         ;; ahead of its contract and broke the launcher gate in CI.
         io.github.kotoba-lang/kotoba-core-contracts
         {:git/url "https://github.com/kotoba-lang/kotoba-core-contracts.git"
-         :git/sha "0cdac65a12af248f75d4a922cda55882039be3da"}
+         ;; bumped for kbb slice 2: proc/exec capability id 259 (ADR-2607181900)
+         :git/sha "a6463d45a951d3d0e62b570aa6faae48b5210e6f"}
         ;; ships the compiled self-host decisions
         ;; (resources/kotoba/selfhost/oracle/*.kir.edn) and
         ;; kotoba.selfhost.analyzer, which `selfhost analyze` calls. Brings
@@ -80,7 +81,7 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         :git/sha "1266ae1daedd579021e07b6097326633f3877704"}
+         :git/sha "d198dea9433f6eed432d64fc88a21a0f73b46890"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema

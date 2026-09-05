@@ -1,0 +1,13 @@
+;; demo_kbb_proc_exec.kotoba — kbb proc-exec slice 2 (ADR-2607181900 readiness
+;; gate): runs ONE allowlisted invocation by grant INDEX. The guest supplies
+;; zero command bytes: argv, cwd, and timeout are policy-side literals
+;; (:kotoba.policy/proc-exec-invocations). A grant index out of range, or a
+;; command outside the policy's :proc/exec resource scope, fails closed
+;; with :resource-not-permitted before any process starts.
+(ns demo-kbb-proc-exec)
+
+(defn main []
+  (let [r (proc-exec "0")]
+    (if r
+      0
+      -1)))

@@ -16,7 +16,7 @@
 (def ^:private max-policy-bytes 65536)
 (def ^:private admitted-capabilities
   "Capabilities with a real, bounded provider in the kbb v1 bootstrap host."
-  #{:fs/app-data :env/read :fs/browse})
+  #{:fs/app-data :env/read :fs/browse :proc/exec})
 
 (defn- result
   ([ok? code message]
@@ -110,6 +110,27 @@
                          (every? string? (get resources :env/read))))))
       {:problem :kbb/env-resource-scope-required}
 
+      (and (contains? capabilities :proc/exec)
+           (not (or (string? (get resources :proc/exec))
+                    (and (set? (get resources :proc/exec))
+                         (seq (get resources :proc/exec))
+                         (every? string? (get resources :proc/exec))))))
+      {:problem :kbb/proc-resource-scope-required}
+
+      (and (contains? capabilities :proc/exec)
+           (let [invocations (:kotoba.policy/proc-exec-invocations policy)]
+             (not (and (vector? invocations)
+                       (seq invocations)
+                       (every? (fn [i]
+                                 (and (map? i)
+                                      (string? (:command i))
+                                      (not (str/includes? (:command i) "/"))
+                                      (vector? (:argv i))
+                                      (seq (:argv i))
+                                      (every? string? (:argv i))
+                                      (= (:command i) (first (:argv i)))))
+                               invocations)))))
+      {:problem :kbb/proc-invocations-required}
       (and (contains? capabilities :fs/browse)
            (not (or (string? (get resources :fs/browse))
                     (and (set? (get resources :fs/browse))

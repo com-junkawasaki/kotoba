@@ -375,6 +375,10 @@
    ;; capability id 258 (kotoba-core-contracts). Resource scope = granted
    ;; env var NAMES, enforced in kotoba.host-providers/default-handlers.
    'env-read :host/env-read
+   ;; kbb ops-script surface slice 2 (ADR-2607181900): proc-exec,
+   ;; capability id 259 (kotoba-core-contracts a6463d4). Resource scope =
+   ;; granted command NAMES; the invocation table is policy-side.
+   'proc-exec :host/proc-exec
    ;; fs/browse (capability id 253, kotoba-core-contracts): directory
    ;; listing narrowed to the granted directory TREE (see the fs-browse
    ;; handler in kotoba.host-providers for the per-call narrowing).

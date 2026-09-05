@@ -1,0 +1,7 @@
+{:kotoba.policy/capabilities #{:proc/exec}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources {:proc/exec #{"echo"}}
+ :kotoba.policy/proc-exec-invocations
+ [{:command "echo"
+   :argv ["echo" "kbb-proc-exec-ok"]
+   :timeout-seconds 10}]}
