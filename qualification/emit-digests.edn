@@ -293,6 +293,9 @@
                 "src/edn_validate.kotoba"
                 {:policy "src/edn_validate_policy.edn",
                  :unsupported :wasm/binary-unsupported},
+                "src/facade_edn_scan.kotoba"
+                {:policy "src/facade_edn_scan_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
                 "src/json_validate.kotoba"
                 {:policy "src/json_validate_policy.edn",
                  :unsupported :wasm/binary-unsupported},

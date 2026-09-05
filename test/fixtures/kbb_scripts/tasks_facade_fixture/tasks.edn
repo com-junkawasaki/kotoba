@@ -1,0 +1,4 @@
+{:build {:cmd ["bb" "-m" "tasks.build"]}
+ :check {:cmd ["clojure" "-M" "tasks/check"]}
+ :upload {:cmd ["bb" "-m" "tasks.upload"]}
+ :start {:cmd ["sh" "-c" "exec bb -m tasks.server"]}}

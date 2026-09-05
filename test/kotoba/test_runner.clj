@@ -11,6 +11,7 @@
             [kotoba.grade-a-test]
             [kotoba.kbb-data-json-test]
             [kotoba.kbb-data-edn-test]
+            [kotoba.kbb-facade-scan-test]
             [kotoba.kbb-env-read-test]
             [kotoba.kbb-gate-scripts-test]
             [kotoba.kbb-scripts-port-test]
@@ -106,6 +107,7 @@
                                         'kotoba.grade-a-test
                                         'kotoba.kbb-data-json-test
                                         'kotoba.kbb-data-edn-test
+                                        'kotoba.kbb-facade-scan-test
                                         'kotoba.kbb-env-read-test
                                         'kotoba.kbb-gate-scripts-test
                                         'kotoba.kbb-scripts-port-test
