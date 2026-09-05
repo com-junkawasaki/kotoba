@@ -151,7 +151,8 @@
                  "sha256:08625af153cbc01b64d2b2275f478601b3bb43b24196953f7b643438b82c4d18"},
                 "src/demo_kbb_env_report.kotoba"
                 {:policy "src/demo_kbb_env_report_policy.edn",
-                 :unsupported :wasm/binary-unsupported},
+                 :digest
+                 "sha256:f2bb68e9c1f84f9cd8a7910a9b0e3bd7909fabaffa24a86e6a2e8d1eea5df201"},
                 "src/demo_kbb_fs_report.kotoba"
                 {:policy "src/demo_kbb_fs_report_policy.edn",
                  :unsupported :wasm/binary-unsupported},
