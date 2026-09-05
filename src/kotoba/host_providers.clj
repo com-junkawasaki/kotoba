@@ -598,18 +598,17 @@
    ;; the capability is never granted anonymously (deny-by-default). Malformed
    ;; EDN fails closed with an :error receipt, never a partial value.
    'edn-read (fn [_concrete args]
-               (let [[edn-text] args]
-                 (let [s (str edn-text)]
-                   (try
-                     (edn/read-string s)
-                     (catch clojure.lang.ExceptionInfo e
-                       (throw (ex-info "edn-read: malformed EDN"
-                                       {:kotoba.host/call 'edn-read
-                                        :kotoba.host/cause (ex-message e)})))
-                     (catch Exception e
-                       (throw (ex-info "edn-read: malformed EDN"
-                                       {:kotoba.host/call 'edn-read
-                                        :kotoba.host/cause (ex-message e)})))))))
+               (let [s (str (first args))]
+                 (try
+                   (edn/read-string s)
+                   (catch clojure.lang.ExceptionInfo e
+                     (throw (ex-info "edn-read: malformed EDN"
+                                     {:kotoba.host/call 'edn-read
+                                      :kotoba.host/cause (ex-message e)})))
+                   (catch Exception e
+                     (throw (ex-info "edn-read: malformed EDN"
+                                     {:kotoba.host/call 'edn-read
+                                      :kotoba.host/cause (ex-message e)}))))))
    ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): real
    ;; directory listing, narrowed to the granted directory TREE by
    ;; `fs-browse-check-permitted!` above (scope = the directory itself or
