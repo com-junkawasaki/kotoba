@@ -9,10 +9,14 @@
             [kotoba.control-adoption-test]
             [kotoba.crypto-qualification-test]
             [kotoba.grade-a-test]
+            [kotoba.kbb-data-json-test]
             [kotoba.kbb-env-read-test]
+            [kotoba.kbb-gate-scripts-test]
             [kotoba.kbb-scripts-port-test]
+            [kotoba.kbb-http-fetch-test]
             [kotoba.string-search-test]
             [kotoba.kbb-proc-exec-test]
+            [kotoba.kbb-native-test]
             [kotoba.key-hierarchy-test]
             [kotoba.origin-assertion-test]
             [kotoba.sealed-egress-test]
@@ -99,10 +103,17 @@
                                         'kotoba.control-adoption-test
                                         'kotoba.crypto-qualification-test
                                         'kotoba.grade-a-test
+                                        'kotoba.kbb-data-json-test
                                         'kotoba.kbb-env-read-test
+                                        'kotoba.kbb-gate-scripts-test
                                         'kotoba.kbb-scripts-port-test
+<<<<<<< HEAD
                                         'kotoba.string-search-test
+=======
+                                        'kotoba.kbb-http-fetch-test
+>>>>>>> origin/main
                                         'kotoba.kbb-proc-exec-test
+                                        'kotoba.kbb-native-test
                                         'kotoba.key-hierarchy-test
                                         'kotoba.origin-assertion-test
                                         'kotoba.sealed-egress-test

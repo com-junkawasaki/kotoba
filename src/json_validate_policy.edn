@@ -1,0 +1,5 @@
+{:kotoba.policy/capabilities #{:data/json :fs/app-data}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources
+ {:data/json #{"name" "version" "deps"}
+  :fs/app-data #{"test/fixtures/kbb_scripts/deps_sample.json"}}}

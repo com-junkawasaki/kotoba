@@ -1,0 +1,25 @@
+;; json_validate.kotoba — kbb data-json slice measurement (ADR-2607181900):
+;; a practical guest in the edn_validate.kotoba mold. Reads one JSON file
+;; (fs-read, granted to the fixture path), then pulls the fields a caller
+;; names — each field separately narrowed by the :data/json resource scope.
+;; Returns 0 when every required field is present as a string, -1 otherwise.
+;; This is the guest-side shape the contract's json-extract-field comment
+;; gives for XRPC response bodies (accessJwt/uri/cid), run over a local
+;; manifest instead of the network.
+(ns json-validate)
+
+(defn check-field
+  [json field]
+  (if (json-extract-field json field)
+    0
+    -1))
+
+(defn main []
+  (let [raw (fs-read "test/fixtures/kbb_scripts/deps_sample.json")]
+    (if raw
+      (let [a (check-field raw "name")
+            b (check-field raw "version")]
+        (if (and (= 0 a) (= 0 b))
+          0
+          -1))
+      -1)))

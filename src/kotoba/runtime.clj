@@ -423,6 +423,12 @@
    ;; listing narrowed to the granted directory TREE (see the fs-browse
    ;; handler in kotoba.host-providers for the per-call narrowing).
    'fs-browse :host/fs-browse
+   ;; data/json (capability id 246, kotoba-core-contracts): JSON wire-format
+   ;; ops. One kind for the family (same convention as topic-* ->
+   ;; :host/topic-subscribe). The interpreter slice passes plain values, not
+   ;; the (ptr,len) WASM ABI -- see the handlers in kotoba.host-providers.
+   'json-encode :host/data-json
+   'json-extract-field :host/data-json
    ;; kami-* game-engine ECS surface (kotoba-core-contracts "kami/engine",
    ;; one shared capability id 233 -> one kind for the family, mirroring
    ;; topic-* mapping three ops to :host/topic-subscribe). The matching
