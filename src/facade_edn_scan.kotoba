@@ -1,0 +1,59 @@
+;; facade_edn_scan.kotoba — kbb gate-script wave 3 (ADR-2607181900 gate item
+;; ④): the tasks.edn facade check, ported to run ENTIRELY on kbb.
+;;
+;; verify-no-babashka.cljs finds facades — task-registry entries whose :cmd
+;; shells back out to the retired `bb` binary — that the .bb/bb.edn/shebang
+;; checks miss. This is that arm, as a real EDN scan rather than a text
+;; lookalike: the guest fs-reads a tasks.edn, edn-reads it into a real
+;; Clojure map, enumerates the task entries via the pure `keys` builtin,
+;; and inspects each :cmd vector.
+;;
+;; Two documented facade shapes (from verify-no-babashka.cljs):
+;;   (a) argv head is "bb"          ["bb" "-m" "ns"]
+;;   (b) a shell string that execs bb   ["sh" "-c" "exec bb -m ns"]
+;; A task's :cmd is a facade if head == "bb" OR any argv element is a
+;; command-position "bb" (here: argv[0]=="bb", or an element containing
+;; "exec bb" — the bounded subset the interpreter's string heads express).
+;;
+;; Returns [entry-count facade-count]; -1 on read/parse failure (fail
+;; closed). The capability boundary is the fs-read path grant + data/edn
+;; kind grant; every byte the guest inspects came from a file the policy
+;; named.
+;;
+;; Language constraints (unchanged since verify_no_bb): no loop/recur —
+;; iteration is fuel-bounded self-recursion; no regex — substring search
+;; is string-contains? / string-substring.
+(ns facade-edn-scan)
+
+(defn argv-bb?
+  [argv idx n]
+  (if (< idx n)
+    (let [arg (nth argv idx)
+          has (if (and (> (string-length arg) 0) (string-contains? arg "exec bb")) 1 0)]
+      (if (= 1 has) 1 (argv-bb? argv (+ idx 1) n)))
+    0))
+
+(defn cmd-facade?
+  [cmd]
+  (if (> (count cmd) 0)
+    (if (= (nth cmd 0) "bb") 1 (argv-bb? cmd 1 (count cmd)))
+    0))
+
+(defn scan-tasks
+  [tasks idx n acc-entries acc-facades]
+  (if (< idx n)
+    (let [k (nth (keys tasks) idx)
+          v (get tasks k)
+          entries (+ acc-entries 1)
+          is-facade (cmd-facade? (get v :cmd))]
+      (scan-tasks tasks (+ idx 1) n entries (+ acc-facades is-facade)))
+    [acc-entries acc-facades]))
+
+(defn main []
+  (let [raw (fs-read "test/fixtures/kbb_scripts/tasks_facade_fixture/tasks.edn")]
+    (if raw
+      (let [tasks (edn-read raw)]
+        (if tasks
+          (scan-tasks tasks 0 (count tasks) 0 0)
+          [-1 0]))
+      [-1 0])))

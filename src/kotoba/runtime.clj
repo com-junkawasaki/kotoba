@@ -87,6 +87,17 @@
    'count count
    'keyword keyword
    'name name
+   'keys keys
+   'get get
+   ;; kbb ops-script surface (ADR-2607181900 readiness gate): pure map
+   ;; accessors so a guest can navigate an edn-read-parsed value (a real
+   ;; Clojure map) and enumerate its entries. `keys` and `get` are both
+   ;; grammar-admitted heads (guest-grammar :admitted-builtins /
+   ;; `:get {:desugars-to ...}`) with pure, capability-free semantics —
+   ;; they read from the guest's own value, no external resource. Without
+   ;; them a parsed tasks.edn / deps.edn could only be `count`ed, not
+   ;; scanned for a specific `:cmd` — which is exactly what the gate-item-④
+   ;; facade check needs.
    ;; kbb ops-script surface (ADR-2607181900 readiness gate slice 2): the
    ;; string heads the guest grammar's :predicates set already admits
    ;; (kotoba-lang/lang/guest-grammar.edn). The wasm/CLJS lowering path
