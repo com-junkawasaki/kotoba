@@ -339,6 +339,10 @@
    ;; capability id 258 (kotoba-core-contracts). Resource scope = granted
    ;; env var NAMES, enforced in kotoba.host-providers/default-handlers.
    'env-read :host/env-read
+   ;; kbb ops-script surface slice 2 (ADR-2607181900): proc-exec,
+   ;; capability id 259 (kotoba-core-contracts a6463d4). Resource scope =
+   ;; granted command NAMES; the invocation table is policy-side.
+   'proc-exec :host/proc-exec
    ;; kami-* game-engine ECS surface (kotoba-core-contracts "kami/engine",
    ;; one shared capability id 233 -> one kind for the family, mirroring
    ;; topic-* mapping three ops to :host/topic-subscribe). The matching
