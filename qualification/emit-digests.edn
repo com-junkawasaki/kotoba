@@ -156,6 +156,9 @@
                 "src/demo_kbb_fs_report.kotoba"
                 {:policy "src/demo_kbb_fs_report_policy.edn",
                  :unsupported :wasm/binary-unsupported},
+                "src/demo_kbb_proc_exec.kotoba"
+                {:policy "src/demo_kbb_proc_exec_policy.edn",
+                 :unsupported :wasm/binary-unsupported},
                 "src/demo_kgraph.kotoba"
                 {:policy "src/demo_kgraph_policy.edn",
                  :digest
