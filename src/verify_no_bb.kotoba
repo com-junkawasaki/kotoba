@@ -1,0 +1,61 @@
+;; verify_no_bb.kotoba — kbb gate for ADR-2607181900 condition 3:
+;; a verify-no-babashka equivalent that RUNS ON kbb. Scans one directory
+;; (bare strings stay under the 127-byte literal bound; docstrings are
+;; short for the same reason) and counts:
+;;   (a) names ending ".bb"
+;;   (b) the name "bb.edn"
+;;   (c) file contents starting "#!/usr/bin/env bb"
+;; Returns the total violation count; 0 = pass.
+;; Constraints (deliberate slice): fs-browse is one directory, no
+;; recursion — the guest recurses via fs-browse/fs-read, every step
+;; inside the capability guard. tasks.edn facade checks stay in the nbb
+;; original (no EDN reader here yet). No loop/recur: the interpreter's
+;; special forms are do/let/if/quote/def/defn, so iteration is plain
+;; self-recursion (fuel-bounded, like demo_kbb_fs_report).
+(ns verify-no-bb)
+
+(defn ends-with-bb?
+  [name]
+  (let [n (string-length name)]
+    (if (> n 3)
+      (if (= (string-substring name (- n 3) n) ".bb") 1 0)
+      0)))
+
+(defn is-bb-edn?
+  [name]
+  (if (= name "bb.edn") 1 0))
+
+(defn shebang-bb?
+  [content]
+  (let [n (string-length content)]
+    (if (>= n 17)
+      (if (= (string-substring content 0 17) "#!/usr/bin/env bb") 1 0)
+      0)))
+
+(defn entry-violations
+  [dir name]
+  (let [path (string-concat (string-concat dir "/") name)
+        content (fs-read path)]
+    (+ (ends-with-bb? name)
+       (is-bb-edn? name)
+       (if content (shebang-bb? content) 0))))
+
+(defn scan-entries
+  [dir entries idx rem acc]
+  (if (or (= rem 0) (= idx (count entries)))
+    acc
+    (scan-entries dir
+                  entries
+                  (+ idx 1)
+                  (- rem 1)
+                  (+ acc (entry-violations dir (nth entries idx))))))
+
+(defn scan-dir
+  [dir fuel]
+  (let [entries (fs-browse dir)]
+    (if (or (= (count entries) 0) (= fuel 0))
+      0
+      (scan-entries dir entries 0 fuel 0))))
+
+(defn main []
+  (scan-dir "scripts-test-fixture" 128))

@@ -273,4 +273,8 @@
                  "sha256:749a455366a8341ab2f8e05cdf0e1c2fcad09eff883bbdc4315d715e4a195389"},
                 "src/qualification_reference.kotoba"
                 {:digest
-                 "sha256:b3f0a657c3149f183e5f6201f81b410df4df82e1a5a0199a5e1b6fefe0ac5777"}}}
+                 "sha256:b3f0a657c3149f183e5f6201f81b410df4df82e1a5a0199a5e1b6fefe0ac5777"},
+                "src/verify_no_bb.kotoba"
+                {:unsupported :wasm/check-failed,
+                 :problem-kinds [:capability-not-granted],
+                 :ungranted-capabilities ["fs/app-data" "fs/browse"]}}}
