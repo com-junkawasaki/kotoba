@@ -10,10 +10,14 @@
 ;;     なら amu compile --jvm-free + loader 実行。それ以外は明示 fallback して
 ;;     JVM kotoba.kbb に delegate (silent fallback 禁止)。
 ;;   --backend interpreter: 既存 JVM kotoba.kbb に明示 delegate。
+;;   --backend js: bin/kbb_js.cljs (amu --target js --jvm-free + Node host、
+;;     ADR-2609062200) に argv ごと delegate。native の oracle であって配布形では
+;;     ない。--source-path / --fuel / --json はそのまま渡る。
 ;;   出力は kbb v1 と同じ {:kotoba.cli/ok? ...} receipt 形。
 (ns kbb-shim
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [nbb.core :refer [*file*]]))
 
 (def fs (js/require "fs"))
 (def path (js/require "path"))
@@ -178,7 +182,7 @@
 (defn -main [& argv]
   (let [{:keys [script policy backend]} (resolve-section-args argv)]
     (when-not script
-      (die :kbb/usage "usage: kbb <script.kotoba> --policy <policy.edn> [--backend native|interpreter]"))
+      (die :kbb/usage "usage: kbb <script.kotoba> --policy <policy.edn> [--backend native|interpreter|js]"))
     (when-not policy
       (die :kbb/policy-required "kbb requires an explicit deny-by-default policy"))
     (let [policy (try (edn/read-string (.readFileSync fs policy "utf8"))
@@ -189,6 +193,22 @@
         (let [r (node-run "clojure" ["-M" "-m" "kotoba.kbb" script "--policy" policy])]
           (print (:stdout r))
           (.exit js/process (:status r)))
+
+        ;; js backend: hand the whole argv (minus this flag) to the JS host,
+        ;; which owns its own policy admission and receipt. KBB_HOME lets it
+        ;; find deps.edn's amu pin; the shim's own dir is bin/, so home is
+        ;; one level up.
+        (= backend :js)
+        (let [js-host (.join path (.dirname path (.resolve path *file*)) "kbb_js.cljs")
+              home (or (.-KBB_HOME js/process.env) (.dirname path (.dirname path js-host)))
+              forwarded (vec (remove nil? (map-indexed (fn [i t] (when-not (or (= t "--backend") (and (pos? i) (= (nth argv (dec i)) "--backend"))) t)) argv)))
+              r (.spawnSync cp "nbb" (into-array (into [js-host] forwarded))
+                              (clj->js {:encoding "utf8" :maxBuffer (* 64 1024 1024)
+                                        :env (js/Object.assign #js {} (.-env js/process) #js {:KBB_HOME home})}))]
+          ;; synchronous writes: `print` + process.exit loses the receipt on a pipe
+          (.writeSync fs 1 (str (or (.-stdout r) "")))
+          (when (seq (str (.-stderr r))) (.writeSync fs 2 (str (.-stderr r))))
+          (.exit js/process (or (.-status r) 1)))
 
         (not (policy-admitted? policy))
         (do

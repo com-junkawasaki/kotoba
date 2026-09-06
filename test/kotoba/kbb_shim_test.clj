@@ -42,3 +42,33 @@
       (let [r (run-shim)]
         (is (not (zero? (:exit r))))
         (is (= :kbb/usage (get-in (edn/read-string (:out r)) [:kotoba.cli/code])))))))
+
+(deftest jvm-free-shim-delegates-the-js-backend
+  ;; --backend js hands argv to bin/kbb_js.cljs (ADR-2609062200): same script
+  ;; and policy answer 84 there too, the receipt names the backend, and a
+  ;; --source-path / --json pass through untouched.
+  (when (shim-enabled?)
+    (testing "demo_kbb_fs_read_native through bin/kbb --backend js"
+      (let [r (run-shim "src/demo_kbb_fs_read_native.kotoba"
+                        "--policy" "src/demo_kbb_fs_read_native_policy.edn"
+                        "--backend" "js")
+            receipt (edn/read-string (:out r))]
+        (is (zero? (:exit r)) (str "exit=" (:exit r) " err=" (:err r)))
+        (is (= 84 (get-in receipt [:kotoba.cli/data :kotoba.kbb/result])))
+        (is (= :js (get-in receipt [:kotoba.cli/data :kotoba.kbb/backend])))))
+    (testing "--source-path and --json reach the js host"
+      (let [r (run-shim "examples/kbb/no_bb_scan.kotoba"
+                        "--policy" "examples/kbb/no_bb_scan_policy.edn"
+                        "--backend" "js" "--source-path" "lib" "--json")]
+        (is (zero? (:exit r)) (str "exit=" (:exit r) " err=" (:err r)))
+        (is (re-find #"\"result\":3" (:out r)) (:out r))))
+    (testing "a js-host refusal keeps its exit code through the shim"
+      (let [tmp (java.io.File/createTempFile "kbb-shim-js" ".edn")]
+        (try
+          (spit tmp (pr-str {:kotoba.policy/capabilities #{:fs/app-data}
+                             :kotoba.policy/forbid-wildcard true
+                             :kotoba.policy/capability-resources {:fs/app-data #{"README.md"}}}))
+          (let [r (run-shim "src/demo_kbb_fs_read_native.kotoba" "--policy" (.getPath tmp) "--backend" "js")]
+            (is (= 1 (:exit r)))
+            (is (= :kbb-js/guest-failed (:kotoba.cli/code (edn/read-string (:out r))))))
+          (finally (.delete tmp)))))))
