@@ -39,7 +39,7 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "1e5b7b8f53ad68db1d0d1aa76dc3ada62f976c85"}
+         :git/sha "8d5a70cfd42532c0afd80d7e1a8c1ea982139877"}
         ;; kbb native backend slice (ADR-2607181900): the measured native
         ;; executor (loader build + verify + invoke) behind `kbb --backend
         ;; native`. Same pin amu :test / :native-run carry.
