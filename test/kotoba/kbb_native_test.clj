@@ -9,10 +9,19 @@
 
 (def ^:private demo "src/demo_kbb_proc_exec.kotoba")
 (def ^:private demo-policy "src/demo_kbb_proc_exec_policy.edn")
+(def ^:private fs-demo "src/demo_kbb_fs_read_native.kotoba")
 
 (defn- dispatch-native
   [& argv]
   (kbb/dispatch (vec argv)))
+
+(deftest native-backend-runs-fs-app-data-read
+  (testing "demo_kbb_fs_read_native.kotoba reads a file through the loader's
+            wire-35 fs/app-data provider (byte length 84)"
+    (let [r (dispatch-native fs-demo "--policy" "src/demo_kbb_fs_read_native_policy.edn"
+                             "--backend" "native")]
+      (is (:kotoba.cli/ok? r) (pr-str r))
+      (is (= 84 (get-in r [:kotoba.cli/data :kotoba.kbb/result]))))))
 
 (deftest native-backend-runs-the-proc-exec-demo
   (testing "demo_kbb_proc_exec.kotoba produces the interpreter slice's result on native"

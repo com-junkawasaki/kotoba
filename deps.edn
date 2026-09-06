@@ -39,13 +39,13 @@
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "6d3e53444a2dea422651761cef75d5ba559617e0"}
+         :git/sha "8d5a70cfd42532c0afd80d7e1a8c1ea982139877"}
         ;; kbb native backend slice (ADR-2607181900): the measured native
         ;; executor (loader build + verify + invoke) behind `kbb --backend
         ;; native`. Same pin amu :test / :native-run carry.
         io.github.kotoba-lang/kototama-native
         {:git/url "https://github.com/kotoba-lang/kototama-native.git"
-         :git/sha "ec4d182e5f0118ecaca54b66295eb6a9cf3f9536"}
+         :git/sha "bdace7e23491704beb29b7f7ee0de889e8a7541a"}
         ;; Direct pin so amu's transitive kotoba-script (ee6a1b7a) cannot keep
         ;; typed-cap-call as an unsupported KIR op on js-kotoba-v1. d4b34e79
         ;; hosts i64 typed-cap-call as callCapability (clock/now).
