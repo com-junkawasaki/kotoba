@@ -88,18 +88,22 @@
          :git/sha "5e46bdcf4e8374584f2da03e909232be099315f8"}
         io.github.kotoba-lang/kotoba-lang
         {:git/url "https://github.com/kotoba-lang/kotoba-lang.git"
-         ;; bumped for the data-json slice: :host/data-json effect row
-         ;; (data/json capability id 246, kbb readiness gate) + data/edn
-         ;; :host/data-edn effect row (gate item ④)
-         :git/sha "41d8fd7a7e2c1eb99a54af370f73e4a670300b86"}
+         ;; ADR-544 step 1: the authority admits the four pure S-expression
+         ;; heads (:sugar :pure-s-expression-core) and `ref` leaves
+         ;; :forbidden-heads. This pin moves in the SAME commit as the two
+         ;; vendored copies in this tree, because this repository puts
+         ;; kotoba-lang and kotoba-sema on its classpath -- so their copies
+         ;; are on it too, and `every-guest-grammar-on-the-classpath-is-the-
+         ;; same-bytes` sees four copies, not two.
+         :git/sha "d977a9c6e250283df1d33af5c21d0da060dcf11f"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
         {:git/url "https://github.com/kotoba-lang/kotoba-sema.git"
-         ;; kbb slice 3: bf01d4a8 carries :env/read + :fs/browse wire ids
-         ;; 33/34 in the vendored catalog + cljs fallback, and the slice-2
-         ;; guest grammar (9d701ea: env-read/fs-browse string heads).
-         :git/sha "51d90395767dda94d3d9e9e940f76dd584345c05"}
+         ;; Same wave: the vendored guest-grammar copy this frontend reads
+         ;; carries the pure-head bytes. It also carries the pure-head
+         ;; lowering itself (lam/app/ref/perform) and the beta-redex fix.
+         :git/sha "86b9229b0f1dc73f2b1015fd0b0ed532b2f1287c"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}
