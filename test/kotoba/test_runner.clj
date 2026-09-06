@@ -19,6 +19,8 @@
             [kotoba.string-search-test]
             [kotoba.kbb-proc-exec-test]
             [kotoba.kbb-native-test]
+            [kotoba.kbb-shim-test]
+            [kotoba.kbb-js-test]
             [kotoba.key-hierarchy-test]
             [kotoba.origin-assertion-test]
             [kotoba.sealed-egress-test]
@@ -115,6 +117,8 @@
                                         'kotoba.string-search-test
                                         'kotoba.kbb-proc-exec-test
                                         'kotoba.kbb-native-test
+                                        'kotoba.kbb-shim-test
+                                        'kotoba.kbb-js-test
                                         'kotoba.key-hierarchy-test
                                         'kotoba.origin-assertion-test
                                         'kotoba.sealed-egress-test
