@@ -1,0 +1,38 @@
+;; examples/kbb/shebang_scan.kotoba — the interpreter gate script
+;; src/shebang_scan.kotoba (verify-no-babashka's shebang arm: per-file class
+;; bb-shebang / other-shebang / no-shebang) ported to the COMPILE route
+;; through the kbb library. Same fixtures, same policy, same classes.
+;;
+;; The interpreter twin answers a 3-vector [bb other none]; a compiled main
+;; answers ONE i64, so the three counts are packed as bb*100 + other*10 +
+;; none (each count < 10 for the fixture dir). [1 2 2] <-> 122. The test
+;; unpacks it and compares against the interpreter's vector.
+(ns examples.kbb.shebang-scan
+  (:require [kbb.fs :as fs] [kbb.browse :as browse])
+  (:export [main]))
+
+(defn starts-with? [s :string prefix :string plen :i64] :bool
+  (if (>= (string-byte-length s) plen)
+    (string=? (string-substring s 0 plen) prefix)
+    false))
+
+(defn classify [content :string] :i64
+  (if (starts-with? content "#!/usr/bin/env bb" 17)
+    100
+    (if (starts-with? content "#!" 2) 10 1)))
+
+(defn scan-listing [dir :string listing :string acc :i64] :i64
+  (if (= (string-byte-length listing) 0)
+    acc
+    (let [i (string-index-of listing "\n")]
+      (if (< i 0)
+        (+ acc (classify (fs/read-file (string-concat (string-concat dir "/") listing))))
+        (scan-listing dir
+                      (string-substring listing (+ i 1) (string-byte-length listing))
+                      (+ acc (classify (fs/read-file (string-concat (string-concat dir "/")
+                                                                    (string-substring listing 0 i))))))))))
+
+(defn main [] :i64
+  (scan-listing "test/fixtures/kbb_gate_scripts/shebang_dir"
+                (browse/entries "test/fixtures/kbb_gate_scripts/shebang_dir")
+                0))

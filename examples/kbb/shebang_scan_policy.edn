@@ -1,0 +1,5 @@
+{:kotoba.policy/capabilities #{:fs/app-data :fs/browse}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources
+ {:fs/app-data #{"test/fixtures/kbb_gate_scripts/shebang_dir"}
+  :fs/browse #{"test/fixtures/kbb_gate_scripts/shebang_dir"}}}
