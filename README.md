@@ -726,6 +726,7 @@ beside `--backend native`: the same script and policy answer the same number
 on both (demo_kbb_fs_read_native → 84).
 
 ```bash
+bin/kbb src/demo_kbb_fs_read_native.kotoba --policy src/demo_kbb_fs_read_native_policy.edn --backend js   # via the v2 shim
 nbb bin/kbb_js.cljs src/demo_kbb_fs_read_native.kotoba   --policy src/demo_kbb_fs_read_native_policy.edn --json
 nbb bin/kbb_js.cljs examples/kbb/fs_report.kotoba   --policy examples/kbb/fs_report_policy.edn --source-path lib
 ```
