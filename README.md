@@ -748,7 +748,10 @@ loader's wire-34/20 providers are still stubs (ADR-2609051100 task 5). amu is
 located through `$AMU_HOME` or this repo's `deps.edn` pin under `~/.gitlibs`,
 and a checkout without `node_modules/nbb` is a named refusal.
 `test/kotoba/kbb_js_test.clj` drives the host as a process and SKIPS visibly
-when `nbb` or amu is missing.
+when `nbb` or amu is missing. `examples/kbb/no_bb_scan.kotoba` is the first
+gate script ported to the compile route (ADR-2607181900 item ②): the test
+measures it and the interpreter twin `src/no_bb_scan.kotoba` in one place
+(both 3).
 
 `cljs emit` currently compiles a NARROW backend slice of `.kotoba` (arithmetic/comparison/
 boolean forms, `pair`, map `get`/`assoc` — the ops ADR-2607150000's

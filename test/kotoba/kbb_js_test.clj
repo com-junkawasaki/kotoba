@@ -22,7 +22,8 @@
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]]
+            [kotoba.kbb :as kbb]))
 
 (def ^:private home (System/getProperty "user.dir"))
 
@@ -109,3 +110,22 @@
          (let [r (kbb-js "src/demo_kbb_fs_read_native.kotoba" "--policy" (.getPath tmp))]
            (is (= :kbb/wildcard-resource-denied (:kotoba.cli/code r)))))
        (finally (.delete tmp))))))
+
+(deftest the-gate-script-port-agrees-with-the-interpreter
+  ;; ADR-2607181900 gate item ②, one representative: src/no_bb_scan.kotoba
+  ;; (interpreter builtins) and examples/kbb/no_bb_scan.kotoba (compile route
+  ;; through kbb.fs / kbb.browse) scan the same two fixture directories under
+  ;; the same policy. Both numbers are MEASURED here, in one test, so a drift
+  ;; on either side is a red test rather than a stale comment.
+  (when-ready
+   (let [interpreter (kbb/dispatch ["src/no_bb_scan.kotoba" "--policy" "src/no_bb_scan_policy.edn"])
+         js (kbb-js "examples/kbb/no_bb_scan.kotoba" "--policy" "examples/kbb/no_bb_scan_policy.edn" "--source-path" "lib")]
+     (is (:kotoba.cli/ok? interpreter) (pr-str interpreter))
+     (is (:kotoba.cli/ok? js) (pr-str js))
+     (is (= 3 (get-in interpreter [:kotoba.cli/data :kotoba.runtime/result :kotoba.runtime/value])))
+     (is (= 3 (get-in js [:kotoba.cli/data :kotoba.kbb/result])))
+     (is (= [34 35] (get-in js [:kotoba.cli/data :kotoba.kbb/required-capabilities])))
+     ;; 2 browse calls + 6 reads (2 clean + 4 dirty entries), all :ok
+     (is (= {:fs/browse 2 :fs/app-data 6}
+            (frequencies (map :capability (get-in js [:kotoba.cli/data :kotoba.kbb/receipts])))))
+     (is (every? #(= :ok (:outcome %)) (get-in js [:kotoba.cli/data :kotoba.kbb/receipts]))))))
