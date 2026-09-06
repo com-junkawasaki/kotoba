@@ -204,33 +204,33 @@
 
 (defn dispatch
   "The kbb --backend native path. POLICY has already passed kbb's
-  policy-problem gate; FORMS are the launcher-read script forms; SOURCE-TEXT
-  is the original script text (the compiler reads text, not forms).
+  policy-problem gate; FORMS are the launcher-read script forms.
   Returns {:kotoba.kbb/result <exit word> :kotoba.kbb/receipts [...]}."
-  [policy source-text forms]
+  [policy _source-text forms]
   (let [has-fs (has-fs-app-data? forms)
-        has-proc (has-proc-exec? forms)]
-    (when-not (or has-fs has-proc)
-      (throw (ex-info "kbb-native: script uses no hostable capability on the native backend"
-                      {:phase :kbb-native/source})))
-    (let [target (host-target)
-          {:keys [forms receipts]} (rewrite-proc-exec-forms policy forms)
-          rewritten-text (cstr/join "\n" (map pr-str forms))
-          exec-policy (native-exec-policy policy forms)]
-      (let [{:keys [envelope trust]} (compile-native! rewritten-text target
-                                                     (:compile exec-policy))
-            {:keys [runtime loader-bytes]}
-            (executor/measure-runtime {:loader-source-dir (str (amu-root) "/tools")})
-            loader (File/createTempFile "kbb-native-loader-" "")
-            _ (.setExecutable loader true)
-            _ (atomic-output/write-bytes! (.getPath loader) loader-bytes
-                                          {:executable? true})
-            trust (assoc trust :trusted-runtime-sha256
-                         #{(runtime-identity/identity-sha256 runtime)})
-            execution (run-native! envelope trust (.getPath loader) runtime
-                                   'main (:policy exec-policy) (:opts exec-policy))]
-        {:kotoba.kbb/result (get-in execution [:evidence :result])
-         :kotoba.kbb/status (get-in execution [:evidence :status])
-         :kotoba.kbb/receipts receipts
-         :kotoba.kbb/target target
-         :kotoba.kbb/version version}))))
+        has-proc (has-proc-exec? forms)
+        _ (when-not (or has-fs has-proc)
+            (throw (ex-info
+                    "kbb-native: script uses no hostable capability on the native backend"
+                    {:phase :kbb-native/source})))
+        target (host-target)
+        {:keys [forms receipts]} (rewrite-proc-exec-forms policy forms)
+        rewritten-text (cstr/join "\n" (map pr-str forms))
+        exec-policy (native-exec-policy policy forms)
+        {:keys [envelope trust]} (compile-native! rewritten-text target
+                                                 (:compile exec-policy))
+        {:keys [runtime loader-bytes]}
+        (executor/measure-runtime {:loader-source-dir (str (amu-root) "/tools")})
+        loader (File/createTempFile "kbb-native-loader-" "")
+        _ (.setExecutable loader true)
+        _ (atomic-output/write-bytes! (.getPath loader) loader-bytes
+                                      {:executable? true})
+        trust (assoc trust :trusted-runtime-sha256
+                     #{(runtime-identity/identity-sha256 runtime)})
+        execution (run-native! envelope trust (.getPath loader) runtime
+                               'main (:policy exec-policy) (:opts exec-policy))]
+    {:kotoba.kbb/result (get-in execution [:evidence :result])
+     :kotoba.kbb/status (get-in execution [:evidence :status])
+     :kotoba.kbb/receipts receipts
+     :kotoba.kbb/target target
+     :kotoba.kbb/version version}))
