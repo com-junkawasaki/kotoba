@@ -218,8 +218,10 @@
                json? (conj "--json")
                true (into (mapcat (fn [d] ["--source-path" d]) source-paths)))
         r (node-run "nbb" args {:env-extra {"KBB_HOME" (or kbb-home ".")}})]
-    (print (:stdout r))
-    (binding [*out* *err*] (print (:stderr r)))
+    ;; synchronous writes: `print` + process.exit loses the receipt on a pipe
+    ;; (measured by the parallel --backend js slice, ADR-2609062200).
+    (.writeSync fs 1 (str (:stdout r)))
+    (when (seq (str (:stderr r))) (.writeSync fs 2 (str (:stderr r))))
     (.exit js/process (or (:status r) 1))))
 
 ;; ------------------------------------------------------------------ main
@@ -265,8 +267,8 @@
         ;; so this delegate could not shadow it into the argv.
         :interpreter
         (let [r (node-run "clojure" ["-M" "-m" "kotoba.kbb" script "--policy" policy])]
-          (print (:stdout r))
-          (binding [*out* *err*] (print (:stderr r)))
+          (.writeSync fs 1 (str (:stdout r)))
+          (when (seq (str (:stderr r))) (.writeSync fs 2 (str (:stderr r))))
           (.exit js/process (or (:status r) 1)))
 
         :js (run-js! opts)
