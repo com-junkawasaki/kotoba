@@ -1,0 +1,68 @@
+;; examples/kbb/edn_depth_scan.kotoba — scripts/docs-edn-depth-profile.cljs
+;; (superproject) ported to kbb. The original's `scan` advances
+;; [depth in-string?] across a 90-docs EDN document honouring escapes, char
+;; literals and `;` comments, and prints the END DEPTH -- 0 for a well-formed
+;; document, the drift for a broken one. That end depth is what this port
+;; answers, summed over the two fixtures the nbb original is run against, so
+;; the two hosts can be compared on one i64.
+;;
+;; Capability: :fs/app-data (wire 35) only, so this runs on BOTH JVM-free
+;; backends -- `kbb --backend native` (the distribution artifact) and
+;; `kbb --backend js`. Two hosts answering the same number is the evidence.
+;;
+;; The original walks characters with `nth`; here a character is one byte of
+;; `string-substring` (every delimiter, quote, backslash and semicolon is
+;; ASCII, so byte offsets and character offsets coincide for the class of
+;; input this checks). `in-string?` is carried as an i64 flag rather than a
+;; second function because the guest grammar admits self-recursion, not
+;; mutual recursion.
+(ns examples.kbb.edn-depth-scan
+  (:require [kbb.fs :as fs])
+  (:export [main]))
+
+(defn char-at [s :string i :i64] :string
+  (string-substring s i (+ i 1)))
+
+(defn opener? [c :string] :bool
+  (if (string=? c "[") true (if (string=? c "{") true (if (string=? c "(") true false))))
+
+(defn closer? [c :string] :bool
+  (if (string=? c "]") true (if (string=? c "}") true (if (string=? c ")") true false))))
+
+;; `;` ends the original's per-line scan, so a comment runs to the newline.
+(defn skip-comment [s :string i :i64 n :i64] :i64
+  (if (>= i n)
+    n
+    (if (string=? (char-at s i) "\n")
+      (+ i 1)
+      (skip-comment s (+ i 1) n))))
+
+(defn scan [s :string i :i64 n :i64 d :i64 instr :i64] :i64
+  (if (>= i n)
+    d
+    (let [c (char-at s i)]
+      (if (= instr 1)
+        (if (string=? c "\\")
+          (scan s (+ i 2) n d 1)
+          (if (string=? c "\"")
+            (scan s (+ i 1) n d 0)
+            (scan s (+ i 1) n d 1)))
+        (if (string=? c "\"")
+          (scan s (+ i 1) n d 1)
+          (if (string=? c "\\")
+            (scan s (+ i 2) n d 0)
+            (if (string=? c ";")
+              (scan s (skip-comment s i n) n d 0)
+              (if (opener? c)
+                (scan s (+ i 1) n (+ d 1) 0)
+                (if (closer? c)
+                  (scan s (+ i 1) n (- d 1) 0)
+                  (scan s (+ i 1) n d 0))))))))))
+
+(defn end-depth [path :string] :i64
+  (let [content (fs/read-file path)]
+    (scan content 0 (string-byte-length content) 0 0)))
+
+(defn main [] :i64
+  (+ (end-depth "test/fixtures/kbb_ports/depth_dir/balanced.edn")
+     (end-depth "test/fixtures/kbb_ports/depth_dir/unbalanced.edn")))

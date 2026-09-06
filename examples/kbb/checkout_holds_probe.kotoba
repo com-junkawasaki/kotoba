@@ -1,0 +1,58 @@
+;; examples/kbb/checkout_holds_probe.kotoba — scripts/checkout-holds.cljs
+;; (superproject) ported to kbb, exercising all three of the js host's
+;; non-fs capabilities.
+;;
+;; The original answers "what does this checkout hold" in five items and
+;; exits 0 (all empty) / 1 (something held) / 2 (something could not be
+;; judged). Its second recorded bug is the arm ported here: a directory with
+;; NO `.git` must be answered NO_GIT, because running git in it makes git walk
+;; UP to the superproject and report someone else's HEAD -- a broken checkout
+;; that reads as alive. Detecting that is a directory listing, not a git call,
+;; and this port makes the same distinction from `kbb.browse` alone.
+;;
+;; One i64 carries the three things the original establishes:
+;;   verdict * 100    2 = a scanned path has no .git (the original's exit 2)
+;;                    0 = every scanned path has one
+;;   + git-exit * 10  exit status of the policy's invocation 0 (`git --version`),
+;;                    the tool the original depends on
+;;   + home?          1 when HOME is set, the original's ambient-environment read
+;;
+;; The five per-path counts (branches / untracked / dirty / stashes / annex)
+;; are NOT ported: they are line counts of `git status --porcelain` output, and
+;; :proc/exec answers an exit STATUS, never stdout. That is a capability gap,
+;; stated rather than approximated.
+;;
+;; Capabilities: :fs/browse (34) + :proc/exec (20) + :env/read (33) -> js.
+(ns examples.kbb.checkout-holds-probe
+  (:require [kbb.browse :as browse] [kbb.proc :as proc] [kbb.env :as env])
+  (:export [main]))
+
+;; An exact entry-name match: a substring search would let ".gitignore"
+;; answer for ".git", which is the very confusion this check exists to avoid.
+(defn listing-has? [listing :string name :string] :bool
+  (if (= (string-byte-length listing) 0)
+    false
+    (let [i (string-index-of listing "\n")]
+      (if (< i 0)
+        (string=? listing name)
+        (if (string=? (string-substring listing 0 i) name)
+          true
+          (listing-has? (string-substring listing (+ i 1) (string-byte-length listing)) name))))))
+
+(defn no-git? [dir :string] :bool
+  (if (listing-has? (browse/entries dir) ".git") false true))
+
+;; Both arms run, and they must disagree: "." is a real checkout (its .git is
+;; a directory here, a file in a worktree -- either way the entry is listed),
+;; the fixture is a checkout-shaped directory with none. A `.git` entry cannot
+;; be committed as a fixture (git rejects the path), so the positive case is
+;; the repository this script ships in.
+(defn verdict [] :i64
+  (if (no-git? ".")
+    2
+    (if (no-git? "test/fixtures/kbb_ports/holds_dir/plain") 2 0)))
+
+(defn main [] :i64
+  (+ (* (verdict) 100)
+     (+ (* (proc/exec "0") 10)
+        (if (env/present? "HOME") 1 0))))

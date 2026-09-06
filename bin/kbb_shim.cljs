@@ -1,16 +1,37 @@
 #!/usr/bin/env nbb
-;; kbb v2 JVM-free shim (ADR-2609051100 task 4).
+;; bin/kbb_shim.cljs — the kbb front door (ADR-2607181900 gate item ①,
+;; ADR-2609051100 task 4). `bin/kbb` execs this under nbb, so the DRIVER
+;; never starts a JVM; only an explicit `--backend interpreter` does, and
+;; it says so by name.
 ;;
-;; bin/kbb の差し替え: 既存 JVM kotoba.kbb の ~10-18s 起動税をなくし、amu の
-;; JVM-free CLI (Node/nbb) で .kotoba を native KEXE に compile し、計測済み
-;; kexe_loader で実行する。scope (KEXE_CAP_RESOURCES_35) は policy の
-;; fs/app-data resource から realpath して渡す。
+;; Two JVM-free backends sit behind this door and they host different
+;; capability surfaces. Routing between them is the whole job:
 ;;
-;;   --backend native (既定): capability surface が fs/app-data (wire 35) のみ
-;;     なら amu compile --jvm-free + loader 実行。それ以外は明示 fallback して
-;;     JVM kotoba.kbb に delegate (silent fallback 禁止)。
-;;   --backend interpreter: 既存 JVM kotoba.kbb に明示 delegate。
-;;   出力は kbb v1 と同じ {:kotoba.cli/ok? ...} receipt 形。
+;;   native  amu compile --target <isa> --jvm-free -> KEXE -> the measured
+;;           kexe_loader. Hosts :fs/app-data (wire 35) only; the wire-34/33/20
+;;           providers are still stubs (ADR-2609051100 task 5). This is the
+;;           DISTRIBUTION artifact.
+;;   js      bin/kbb_js.cljs: amu compile --target js --jvm-free -> restricted
+;;           ESM instantiated in this Node process. Hosts :fs/app-data,
+;;           :env/read, :fs/browse and :proc/exec (wire 35/33/34/20).
+;;
+;; Dispatch, with `--backend` absent (the default, :auto):
+;;   caps subset of {:fs/app-data}                        -> native
+;;   caps subset of the js host's four                    -> js
+;;   anything else                                        -> REFUSE, exit 3
+;;
+;; NO SILENT FALLBACK (ADR-2609051100). A surface no JVM-free backend hosts
+;; is refused BY NAME with a distinct exit code (3, neither 0 nor 1) that
+;; says which capabilities forced it and that `--backend interpreter` --
+;; the JVM -- is where they live. Before this, the default route refused
+;; every surface outside {:fs/app-data} and pointed at the JVM even when
+;; the JVM-free js host could run it; :data/json, :data/edn and :http/fetch
+;; are the surfaces that genuinely still need the interpreter, because they
+;; are absent from kotoba-lang capability-catalog.edn altogether and so have
+;; no wire id for any compiled guest to call.
+;;
+;; Exit codes: 0 ok | 1 the run failed | 3 no JVM-free backend hosts this
+;; surface | the interpreter's own code when --backend interpreter is asked.
 (ns kbb-shim
   (:require [clojure.edn :as edn]
             [clojure.string :as str]))
@@ -20,211 +41,243 @@
 (def os (js/require "os"))
 (def cp (js/require "child_process"))
 
-;; Normalize cwd to the kotoba repo root (parent of bin/) so relative guest
-;; paths, the amu gitlibs resolution, and the JVM interpreter delegate all
-;; share one working directory regardless of where bin/kbb is invoked from.
-(let [argv (.-argv js/process)
-      entry (aget argv 2)]
-  (when entry
-    (let [bin-dir ((.-dirname path) entry)
-          root ((.-dirname path) bin-dir)]
-      (when (.existsSync fs root)
-        (.chdir js/process root)))))
+;; Wire ids come from kotoba-lang capability-catalog.edn; the js host's table
+;; is bin/kbb_js.cljs `wire-ids`, the native loader's is kexe_loader.c.
+(def native-hosted #{:fs/app-data})
+(def js-hosted #{:fs/app-data :env/read :fs/browse :proc/exec})
+(def interpreter-only #{:data/json :data/edn :http/fetch})
 
-(def amu-pin "8d5a70cfd42532c0afd80d7e1a8c1ea982139877")
+(def exit-unsupported-surface 3)
+
+;; Normalize cwd to the kotoba repo root (parent of bin/) so relative guest
+;; paths, the amu resolution and the interpreter delegate share one working
+;; directory regardless of where bin/kbb was invoked from.
+(def kbb-home
+  (let [entry (aget (.-argv js/process) 2)]
+    (when entry
+      (let [root ((.-dirname path) ((.-dirname path) entry))]
+        (when (.existsSync fs root) (.chdir js/process root) root)))))
+
+(defn- emit! [r code]
+  (println (pr-str r))
+  (.exit js/process code))
 
 (defn- die [code message data]
-  (println (pr-str (cond-> {:kotoba.cli/ok? false
-                            :kotoba.cli/code code
-                            :kotoba.cli/message message}
-                     data (assoc :kotoba.cli/data data))))
-  (.exit js/process 1))
+  (emit! (cond-> {:kotoba.cli/ok? false :kotoba.cli/code code :kotoba.cli/message message}
+           data (assoc :kotoba.cli/data data))
+         1))
 
-(defn- amu-home
-  "Locate the pinned amu checkout. AMU_HOME overrides; default is the gitlibs
-  path for the pinned sha (the amu copy kotoba's deps pull)."
+;; ------------------------------------------------------------------ amu
+(defn- deps-amu-sha
+  "The amu pin this checkout's deps.edn names. Read, never hardcoded: a
+  constant here drifts from deps.edn silently and compiles the guest against
+  a compiler nobody pinned."
   []
-  (let [env-var (get (js->clj (.-env js/process)) "AMU_HOME")]
-    (if env-var
-      env-var
-      (let [root (str (.homedir os) "/.gitlibs/libs/io.github.kotoba-lang/amu/" amu-pin)]
-        (when-not (.existsSync fs (.join path root "bin" "amu"))
-          (die :kbb-shim/amu-not-found
-               (str "amu pin " amu-pin " not found under gitlibs; set AMU_HOME")
-               {:amu-pin amu-pin :path root}))
-        root))))
+  (try
+    (second (re-find #"kotoba-lang/amu\s*\{[^}]*:git/sha\s+\"([0-9a-f]{40})\""
+                     (.readFileSync fs (.join path (or kbb-home ".") "deps.edn") "utf8")))
+    (catch :default _ nil)))
 
-(defn- node-run
-  "Run a Node child command, returning {:status :stdout :stderr}."
-  [cmd args & [opts]]
-  (let [extra-env (:env-extra opts)
-        envobj (js/Object.assign (js-obj) (.-env js/process))]
-    (when extra-env
-      (doseq [[k v] extra-env]
-        (aset envobj k (str v))))
+(defn- amu-home []
+  (let [home (or (.-AMU_HOME js/process.env)
+                 (when-let [sha (deps-amu-sha)]
+                   (.join path (.homedir os) ".gitlibs" "libs" "io.github.kotoba-lang" "amu" sha)))]
+    (when-not (and home (.existsSync fs (.join path home "bin" "amu")))
+      (die :kbb-shim/amu-not-found
+           "amu not found; set AMU_HOME, or run from a kbb home whose deps.edn pins io.github.kotoba-lang/amu"
+           {:path home :pin (deps-amu-sha)}))
+    home))
+
+;; ------------------------------------------------------------------ argv
+(defn- parse-argv [argv]
+  (loop [a (seq argv) parsed {:source-paths [] :json? false :backend :auto}]
+    (if-not a
+      parsed
+      (let [[t & more] a
+            value (when (and (seq more) (not (str/starts-with? (first more) "--"))) (first more))]
+        (case t
+          "--json" (recur more (assoc parsed :json? true))
+          "--policy" (if value (recur (next more) (assoc parsed :policy value))
+                         (assoc parsed :problem :kbb/missing-option-value :option t))
+          "--fuel" (if value (recur (next more) (assoc parsed :fuel value))
+                       (assoc parsed :problem :kbb/missing-option-value :option t))
+          "--source-path" (if value (recur (next more) (update parsed :source-paths conj value))
+                              (assoc parsed :problem :kbb/missing-option-value :option t))
+          "--backend" (if (contains? #{"native" "js" "interpreter"} value)
+                        (recur (next more) (assoc parsed :backend (keyword value)))
+                        (assoc parsed :problem :kbb/unsupported-option :option t :value value))
+          (cond
+            (str/starts-with? t "-") (assoc parsed :problem :kbb/unsupported-option :option t)
+            (:script parsed) (assoc parsed :problem :kbb/script-arguments-unsupported :argument t)
+            :else (recur more (assoc parsed :script t))))))))
+
+;; ------------------------------------------------------------------ child
+(defn- node-run [cmd args & [opts]]
+  (let [envobj (js/Object.assign (js-obj) (.-env js/process))]
+    (doseq [[k v] (:env-extra opts)] (aset envobj k (str v)))
     (let [res (.spawnSync cp cmd (clj->js args)
-                          (clj->js (merge {:encoding "utf8"
-                                           :maxBuffer (* 64 1024 1024)
-                                           :env envobj}
+                          (clj->js (merge {:encoding "utf8" :maxBuffer (* 64 1024 1024) :env envobj}
                                           (dissoc opts :env-extra))))]
-      {:status (.-status res)
-       :stdout (or (.-stdout res) "")
-       :stderr (or (.-stderr res) "")})))
+      {:status (.-status res) :stdout (or (.-stdout res) "") :stderr (or (.-stderr res) "")})))
 
-(defn- host-isa
-  "The loader ISA matching this host."
-  []
-  (let [arch (str/lower-case (.arch os))]
-    (if (or (= arch "arm64") (= arch "aarch64"))
-      "aarch64"
-      "x86_64")))
+(defn- host-isa []
+  (if (contains? #{"arm64" "aarch64"} (str/lower-case (.arch os))) "aarch64" "x86_64"))
 
-(defn- resolve-section-args
-  "Split argv into [script policy-path json? backend]."
-  [argv]
-  (loop [a (vec argv) script nil policy nil json? false backend :native]
-    (if (empty? a)
-      {:script script :policy policy :json? json? :backend backend}
-      (let [t (first a) rest-args (vec (rest a))]
-        (cond
-          (= t "--policy") (recur rest-args script (first rest-args) json? backend)
-          (= t "--json") (recur rest-args script policy true backend)
-          (= t "--backend") (recur rest-args script policy json? (keyword (first rest-args)))
-          (and (nil? script) (not (str/starts-with? t "-"))) (recur rest-args t policy json? backend)
-          :else (recur rest-args script policy json? backend))))))
+;; ------------------------------------------------------------------ native
+(defn- realpath-or-nil [p] (try (.realpathSync fs p) (catch :default _ nil)))
+
+(defn- within? [resolved scope]
+  (some (fn [d] (or (= d resolved) (str/starts-with? resolved (str d (.-sep path))))) scope))
 
 (defn- absolutize-script
-  "Rewrite the typed-cap-call fs/app-data path literal in SCRIPT to an
-  absolute path (cwd-based), and write it to DATA-DIR/<scriptname>-abs.kotoba.
-  The loader's scope provider compares both sides canonically, so the guest
-  path must be absolute to match the realpath'd scope. Returns the temp path."
-  [script data-dir]
+  "The native loader REFUSES a relative request outright (kexe_loader.c
+  fs_app_data_read_provider: `bytes[0] != '/'` raises SIGILL), so a guest
+  bound for native must spell absolute paths. Rewrite exactly those string
+  literals in the entry source that already resolve INSIDE the granted
+  :fs/app-data scope -- the set the loader would admit anyway -- and leave
+  every other literal alone. The rewrites are returned so the receipt can
+  show them; a rewrite nobody can see is the kind of silent help this file
+  exists to refuse."
+  [script scope tmp]
   (let [content (.readFileSync fs script "utf8")
-        cwd (.cwd js/process)
-        re (js/RegExp. "typed-cap-call :fs/app-data :string :string\\s+\"([^\"]*)\"" "g")
-        newc (.replace content re
+        rewrites (atom [])
+        out (.join path tmp "absoluted.kotoba")
+        newc (.replace content (js/RegExp. "\"([^\"\\n]*)\"" "g")
                        (fn [full p & _]
-                         (let [abs (if (str/starts-with? p "/")
-                                     p
-                                     (.join path cwd p))]
-                           (str "typed-cap-call :fs/app-data :string :string \""
-                                abs "\""))))
-        out (.join path data-dir "absoluted.kotoba")]
+                         (if (or (str/blank? p) (str/starts-with? p "/"))
+                           full
+                           (let [resolved (realpath-or-nil (.resolve path p))]
+                             (if (and resolved (within? resolved scope))
+                               (do (swap! rewrites conj {:from p :to resolved})
+                                   (str "\"" resolved "\""))
+                               full)))))]
     (.writeFileSync fs out newc)
-    out))
+    {:source out :rewrites @rewrites}))
 
-(defn- fs-app-data-scope
-  "Extract the fs/app-data realpath'd scope from kbb policy."
-  [policy]
-  (let [resources (:kotoba.policy/capability-resources policy)
-        caps (or (:kotoba.policy/capabilities policy) #{})]
-    (when (contains? caps :fs/app-data)
-      (->> (get resources :fs/app-data #{})
-           (map #(.realpathSync fs %))
-           set))))
+(defn- build-loader [amu]
+  (let [src (.join path amu "tools" "kexe_loader.c")
+        bin "/tmp/kbb-shim-kexe-loader"]
+    (if (and (.existsSync fs bin) (<= (.-mtimeMs (.statSync fs src)) (.-mtimeMs (.statSync fs bin))))
+      bin
+      (let [r (node-run "cc" [src "-std=c11" "-O2" "-o" bin])]
+        (when (not= 0 (:status r)) (die :kbb-shim/loader-build-failed (:stderr r) {:status (:status r)}))
+        bin))))
 
-(defn- policy-admitted?
-  "True when every granted capability is one the native loader provider
-  surface hosts (fs/app-data, wire 35). Anything else must fall back."
-  [policy]
-  (let [caps (or (:kotoba.policy/capabilities policy) #{})]
-    (every? #{:fs/app-data} caps)))
+(defn- run-native! [{:keys [script policy source-paths fuel]} amu isa]
+  ;; The loader's fuel is a compile-time constant in kexe_loader.c
+  ;; (`:fuel {:initial 512 ...}` in every report it prints), not a policy
+  ;; budget: measured 2026-09-06, a guest that runs past it dies with
+  ;; SIGTRAP whatever `--fuel` says. Accepting the flag here would be a
+  ;; knob that does nothing, so it is refused by name.
+  (when fuel
+    (die :kbb-shim/fuel-not-adjustable-on-native
+         "the native loader's fuel is fixed in kexe_loader.c; --fuel only applies to --backend js"
+         {:requested fuel :backend :native}))
+  (let [scope (set (keep realpath-or-nil (get (:kotoba.policy/capability-resources policy)
+                                              :fs/app-data #{})))
+        tmp (.mkdtempSync fs (.join path (.tmpdir os) "kbb-native-"))]
+    (when (empty? scope)
+      (die :kbb-shim/no-scope ":fs/app-data granted but no resource scope resolves" {:policy policy}))
+    (let [{:keys [source rewrites]} (absolutize-script script scope tmp)
+          policy-file (.join path tmp "compile-policy.edn")
+          kexe (.join path tmp "guest.kexe")
+          bin (.join path tmp "guest.bin")
+          _ (.writeFileSync fs policy-file (pr-str {:allow #{[:cap/call 35]}}))
+          amu-bin (.join path amu "bin" "amu")
+          compile (node-run (.-execPath js/process)
+                            (into [amu-bin "compile" source "--target" isa "--jvm-free"
+                                   "--policy" policy-file "--output" kexe]
+                                  (mapcat (fn [d] ["--source-path" d]) source-paths)))
+          _ (when (not= 0 (:status compile))
+              (die :kbb-shim/compile-failed (:stderr compile) {:status (:status compile)}))
+          extract (node-run (.-execPath js/process)
+                            [amu-bin "extract-native" kexe "--symbol" "main" "--output" bin])
+          _ (when (not= 0 (:status extract))
+              (die :kbb-shim/extract-failed (:stderr extract) {:status (:status extract)}))
+          report (edn/read-string (:stdout extract))
+          loader (build-loader amu)
+          r (node-run loader [bin (str (get report :offset 0)) (str (get report :arity 0)) isa "35"]
+                      {:env-extra {"KEXE_CAP_RESOURCES_35" (str/join ":" (sort scope))}})]
+      (when (not= 0 (:status r))
+        (die :kbb-shim/loader-failed (:stderr r) {:status (:status r) :rewrites rewrites}))
+      (emit! {:kotoba.cli/ok? true
+              :kotoba.cli/code :run/completed
+              :kotoba.cli/message "kbb native backend run completed"
+              :kotoba.cli/data {:kotoba.kbb/result (edn/read-string (:stdout r))
+                                :kotoba.kbb/host :native-aot
+                                :kotoba.kbb/backend :native
+                                :kotoba.kbb/target (str isa "-kotoba-v1")
+                                :kotoba.kbb/scope (vec (sort scope))
+                                :kotoba.kbb/path-rewrites rewrites}}
+             0))))
 
-(defn- compile-native!
-  "amu compile --jvm-free -> KEXE, then extract-native -> bin. Returns
-  {:bin :offset :arity}."
-  [amu script policy target out-kexe out-bin]
-  (let [bin (.join path amu "bin" "amu")
-        src (.realpathSync fs script)
-        compile (node-run "node"
-                          [bin "compile" src "--target" target "--jvm-free"
-                           "--policy" policy "--output" out-kexe])]
-    (when (not= 0 (:status compile))
-      (die :kbb-shim/compile-failed (:stderr compile) {:status (:status compile)}))
-    (let [extract (node-run "node"
-                            [bin "extract-native" out-kexe "--symbol" "main"
-                             "--output" out-bin])]
-      (when (not= 0 (:status extract))
-        (die :kbb-shim/extract-failed (:stderr extract) {:status (:status extract)}))
-      (let [report (edn/read-string (:stdout extract))]
-        {:bin out-bin
-         :offset (get report :offset 0)
-         :arity (get report :arity 0)}))))
+;; ------------------------------------------------------------------ js
+(defn- run-js! [{:keys [script policy-path source-paths fuel json?]}]
+  (let [args (cond-> [(.join path (or kbb-home ".") "bin" "kbb_js.cljs") script "--policy" policy-path]
+               fuel (into ["--fuel" fuel])
+               json? (conj "--json")
+               true (into (mapcat (fn [d] ["--source-path" d]) source-paths)))
+        r (node-run "nbb" args {:env-extra {"KBB_HOME" (or kbb-home ".")}})]
+    (print (:stdout r))
+    (binding [*out* *err*] (print (:stderr r)))
+    (.exit js/process (or (:status r) 1))))
 
-(defn- build-loader
-  "Compile the measured kexe_loader.c into a cached binary."
-  [amu]
-  (let [loader-src (.join path amu "tools" "kexe_loader.c")
-          loader-bin "/tmp/kbb-shim-kexe-loader"
-          src-mtime (.-mtimeMs (.statSync fs loader-src))]
-      (if (and (.existsSync fs loader-bin)
-               (<= src-mtime (.-mtimeMs (.statSync fs loader-bin))))
-      loader-bin
-      (let [r (node-run "cc" [loader-src "-std=c11" "-O2" "-o" loader-bin])]
-        (when (not= 0 (:status r))
-          (die :kbb-shim/loader-build-failed (:stderr r) {:status (:status r)}))
-        loader-bin))))
-
-(defn- run-loader!
-  "Execute the KEXE under the loader with the granted allow bitmap and
-  fs/app-data scope. Returns the loader stdout (supervisor report)."
-  [loader bin offset arity isa scope]
-  (let [res (node-run loader [bin (str offset) (str arity) isa "35"]
-                      {:env-extra {"KEXE_CAP_RESOURCES_35" scope}})]
-    (when (not= 0 (:status res))
-      (die :kbb-shim/loader-failed (:stderr res) {:status (:status res)}))
-    (:stdout res)))
+;; ------------------------------------------------------------------ main
+(defn- refuse-surface!
+  "Refuse by name. `backend` is what the caller asked for, so an explicit
+  --backend native that the js host COULD have run is told so rather than
+  routed there behind the caller's back: an explicit backend is honoured or
+  refused, never substituted."
+  [caps backend]
+  (let [missing (vec (sort (remove (if (= backend :native) native-hosted js-hosted) caps)))
+        why (vec (sort (filter interpreter-only caps)))
+        js-would-run? (and (= backend :native) (every? js-hosted caps))]
+    (emit! {:kotoba.cli/ok? false
+            :kotoba.cli/code :kbb/no-jvm-free-backend
+            :kotoba.cli/message
+            (str "the " (name backend) " backend does not host " (pr-str missing)
+                 (when (seq why)
+                   (str "; " (pr-str why) " have no compiler wire id, so no compiled guest can call them"))
+                 (if js-would-run?
+                   ". The JVM-free js backend does host this surface: kbb --backend js (or drop --backend for auto)"
+                   ". Ask for the JVM explicitly: kbb --backend interpreter"))
+            :kotoba.cli/data {:capabilities (vec (sort caps))
+                              :requested-backend backend
+                              :native-hosted (vec (sort native-hosted))
+                              :js-hosted (vec (sort js-hosted))}}
+           exit-unsupported-surface)))
 
 (defn -main [& argv]
-  (let [{:keys [script policy backend]} (resolve-section-args argv)]
+  (let [{:keys [script policy backend problem] :as opts} (parse-argv argv)]
+    (when problem
+      (die problem "invalid kbb arguments" (dissoc opts :problem :source-paths :json? :backend)))
     (when-not script
-      (die :kbb/usage "usage: kbb <script.kotoba> --policy <policy.edn> [--backend native|interpreter]"))
+      (die :kbb/usage "usage: kbb <script.kotoba> --policy <policy.edn> [--backend native|js|interpreter] [--source-path <dir>]... [--fuel <n>] [--json]" nil))
     (when-not policy
-      (die :kbb/policy-required "kbb requires an explicit deny-by-default policy"))
-    (let [policy (try (edn/read-string (.readFileSync fs policy "utf8"))
-                      (catch js/Error e (die :kbb/policy-invalid (str e) {})))
-          caps (or (:kotoba.policy/capabilities policy) #{})]
-      (cond
-        (= backend :interpreter)
+      (die :kbb/policy-required "kbb requires an explicit deny-by-default policy" nil))
+    (let [parsed (try (edn/read-string (.readFileSync fs policy "utf8"))
+                      (catch js/Error e (die :kbb/policy-invalid (str e) {:policy policy})))
+          caps (or (:kotoba.policy/capabilities parsed) #{})
+          opts (assoc opts :policy parsed :policy-path policy)]
+      (case backend
+        ;; Explicit, named, and the only path that starts a JVM. `policy` is
+        ;; the PATH here, not the parsed map: the map was a separate binding
+        ;; so this delegate could not shadow it into the argv.
+        :interpreter
         (let [r (node-run "clojure" ["-M" "-m" "kotoba.kbb" script "--policy" policy])]
           (print (:stdout r))
-          (.exit js/process (:status r)))
+          (binding [*out* *err*] (print (:stderr r)))
+          (.exit js/process (or (:status r) 1)))
 
-        (not (policy-admitted? policy))
-        (do
-          (println (pr-str {:kotoba.cli/ok? false
-                            :kotoba.cli/code :kbb-shim/unsupported-surface
-                            :kotoba.cli/message
-                            (str "capability surface outside native provider table: " (pr-str caps)
-                                 "; use --backend interpreter")
-                            :kotoba.cli/data {:capabilities caps :backend :native}}))
-          (.exit js/process 1))
+        :js (run-js! opts)
 
-        :else
-        (let [amu (amu-home)
-              isa (host-isa)
-              tmp (str "/tmp/kbb-shim-" (js/Date.now))
-              out-kexe (str tmp ".kexe")
-              out-bin (str tmp ".bin")
-              scope (fs-app-data-scope policy)
-              amu-policy-path (str tmp "-policy.edn")]
-          (when (or (nil? scope) (empty? scope))
-            (die :kbb-shim/no-scope "fs/app-data granted but no resource scope" {:policy policy}))
-          (.writeFileSync fs amu-policy-path
-                          (pr-str {:allow #{[:cap/call 35]}}))
-          (.mkdirSync fs tmp (clj->js {:recursive true}))
-          (let [abs-script (absolutize-script script tmp)
-                {:keys [offset arity]} (compile-native! amu abs-script amu-policy-path isa out-kexe out-bin)
-                loader (build-loader amu)
-                scope-str (str/join ":" (sort scope))
-                stdout (run-loader! loader out-bin offset arity isa scope-str)]
-            (println (pr-str {:kotoba.cli/ok? true
-                               :kotoba.cli/code :ok
-                               :kotoba.cli/message "kbb native (JVM-free) completed"
-                               :kotoba.cli/data {:kotoba.kbb/result (edn/read-string stdout)
-                                                 :kotoba.kbb/host :native-aot
-                                                 :kotoba.kbb/target (str isa "-kotoba-v1")
-                                                 :kotoba.kbb/backend :native}}))
-            (.exit js/process 0)))))))
+        :native (if (every? native-hosted caps)
+                  (run-native! opts (amu-home) (host-isa))
+                  (refuse-surface! caps :native))
+
+        (cond
+          (every? native-hosted caps) (run-native! opts (amu-home) (host-isa))
+          (every? js-hosted caps) (run-js! opts)
+          :else (refuse-surface! caps :auto))))))
 
 (apply -main *command-line-args*)

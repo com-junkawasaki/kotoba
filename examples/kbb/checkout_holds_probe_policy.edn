@@ -1,0 +1,8 @@
+{:kotoba.policy/capabilities #{:fs/browse :proc/exec :env/read}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources
+ {:fs/browse #{"test/fixtures/kbb_ports/holds_dir/plain" "."}
+  :proc/exec #{"git"}
+  :env/read #{"HOME"}}
+ :kotoba.policy/proc-exec-invocations
+ [{:command "git" :argv ["git" "--version"] :timeout-seconds 10}]}
