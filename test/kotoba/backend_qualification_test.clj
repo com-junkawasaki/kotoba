@@ -338,6 +338,47 @@
       (is (= {:result 7 :effects #{}}
              (compiler-result "(defn seven [] :i64 7) (defn main [] :i64 (app (ref seven)))"))))))
 
+(deftest the-legacy-emitter-has-not-widened-to-the-pure-heads
+  ;; `lang/guest-grammar.edn` `:sugar :pure-s-expression-core` claims
+  ;; `:backends #{:compiler}` -- the frontend only, not this repository's
+  ;; legacy emitter. This measures that claim in BOTH directions, because it
+  ;; landed as `#{:compiler :kotoba-wasm}` and nothing caught it:
+  ;; `sugar-portability` only flags a FULL three-backend claim, and
+  ;; `portable-without-evidence` needs a `:conformance` key before it looks at
+  ;; anything, so a two-backend claim with neither is checked by nothing.
+  ;;
+  ;; The control matters as much as the assertion. Four heads that DO claim
+  ;; `:kotoba-wasm` compile here, and `atom-local`, which claims `:compiler`
+  ;; alone, does not -- so a rejection below is evidence about the pure heads
+  ;; and not evidence that this emitter rejects everything.
+  (testing "the pure heads are rejected here, by name"
+    (doseq [[head source] [["app" "(defn seven [] :i64 7) (defn main [] :i64 (app (ref seven)))"]
+                           ["lam" "(defn main [] :i64 (let [f (lam [x] (+ x 1))] (f 1)))"]
+                           ["perform" "(ns m (:capabilities #{:clock/now})) (defn main [] :i64 (perform :clock/now 0))"]]]
+      (is (rejects? kotoba-result source)
+          (str head " must be refused by the legacy emitter -- the authority "
+               "claims :compiler only for :pure-s-expression-core"))))
+  (testing "and the compiler accepts what the legacy emitter refuses"
+    ;; Without this the assertions above pass for a source that is broken for
+    ;; some other reason, which is the shape a one-sided backend claim has.
+    (is (= {:result 7 :effects #{}}
+           (compiler-result "(defn seven [] :i64 7) (defn main [] :i64 (app (ref seven)))"))))
+  (testing "the control: heads that claim :kotoba-wasm do compile here"
+    ;; If this ever goes red, the rejections above stop being evidence about
+    ;; the pure heads and become evidence about the emitter or the harness.
+    (doseq [[head source] [["cond" "(defn main [] :i64 (cond (> 1 0) 1 :else 2))"]
+                           ["when" "(defn main [] :i64 (when (> 1 0) 5))"]
+                           ["doseq" "(defn main [] :i64 (do (doseq [x [1 2]] x) 0))"]
+                           ["assert" "(defn main [] :i64 (do (assert (> 1 0)) 0))"]]]
+      (is (not (rejects? kotoba-result source))
+          (str head " claims :kotoba-wasm and must compile here"))))
+  (testing "and the token means THIS emitter: a :compiler-only head is refused"
+    (is (rejects? kotoba-result
+                  "(defn main [] :i64 (let [a (atom 0)] (swap! a + 1) (deref a)))")
+        ":atom-local claims :compiler alone; if the legacy emitter accepted it
+         the :kotoba-wasm token would not mean this emitter and nothing above
+         would follow")))
+
 (deftest q6-repeated-compilation-is-byte-reproducible
   (doseq [{:keys [id source]} (:positive (qualification))]
     (testing (name id)
