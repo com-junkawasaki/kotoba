@@ -129,3 +129,21 @@
      (is (= {:fs/browse 2 :fs/app-data 6}
             (frequencies (map :capability (get-in js [:kotoba.cli/data :kotoba.kbb/receipts])))))
      (is (every? #(= :ok (:outcome %)) (get-in js [:kotoba.cli/data :kotoba.kbb/receipts]))))))
+
+(deftest the-shebang-scan-port-agrees-with-the-interpreter
+  ;; Gate item ②, second representative. The interpreter twin answers a
+  ;; 3-vector [bb other none]; the compiled twin packs the same counts into
+  ;; one i64 (bb*100 + other*10 + none). Both measured here.
+  (when-ready
+   (let [interpreter (kbb/dispatch ["src/shebang_scan.kotoba" "--policy" "src/shebang_scan_policy.edn"])
+         js (kbb-js "examples/kbb/shebang_scan.kotoba" "--policy" "examples/kbb/shebang_scan_policy.edn" "--source-path" "lib")
+         packed (get-in js [:kotoba.cli/data :kotoba.kbb/result])
+         unpacked [(quot packed 100) (quot (rem packed 100) 10) (rem packed 10)]]
+     (is (:kotoba.cli/ok? interpreter) (pr-str interpreter))
+     (is (:kotoba.cli/ok? js) (pr-str js))
+     (is (= [1 2 2] (get-in interpreter [:kotoba.cli/data :kotoba.runtime/result :kotoba.runtime/value])))
+     (is (= 122 packed))
+     (is (= (get-in interpreter [:kotoba.cli/data :kotoba.runtime/result :kotoba.runtime/value]) unpacked))
+     ;; 1 browse + 5 reads, all :ok
+     (is (= {:fs/browse 1 :fs/app-data 5}
+            (frequencies (map :capability (get-in js [:kotoba.cli/data :kotoba.kbb/receipts]))))))))
