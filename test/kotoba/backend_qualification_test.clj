@@ -305,15 +305,38 @@
         (is (= escape-message (refusal compiler-result source)))
         (is (= :kotoba.error/local-state-escape (refusal-code compiler-result source)))))
     (testing "the other mutation heads are untouched in :forbidden-heads"
-      (doseq [source ["(defn main [] (ref 0))"
-                      "(defn main [] (dosync 1))"
+      (doseq [source ["(defn main [] (dosync 1))"
                       "(defn main [] (volatile! 0))"
                       "(defn main [] (set! *warn-on-reflection* true))"
                       "(defn main [] (binding [*x* 1] 1))"
                       "(defn main [] (var main))"
                       "(defn main [] (alter-var-root (var main) identity))"]]
         (is (= ambient-message (refusal compiler-result source)) source)
-        (is (= :kotoba.error/ambient-forbidden (refusal-code compiler-result source)) source)))))
+        (is (= :kotoba.error/ambient-forbidden (refusal-code compiler-result source)) source)))
+    ;; `ref` moved out of this list on 2026-09-06 and kept the CODE. ADR-544's
+    ;; pure S-expression core spells a definition reference `(ref name)`, so
+    ;; `ref` is no longer in `:forbidden-heads` -- it is excused through
+    ;; `:no-ambient-mutation :admitted-via-pure-core-elaboration` and refused
+    ;; by the rewrite instead, which can see the shape and says so.
+    ;;
+    ;; The classification is what this test is for, and it did not move:
+    ;; `:kotoba.error/ambient-forbidden`, same as its six neighbours above.
+    ;; Only the wording is more specific, and that is the improvement -- the
+    ;; generic message does not tell an author that `(ref name)` exists.
+    ;; Both are pinned, because a code with an unpinned message drifts and a
+    ;; message with an unpinned code can be re-classified without notice.
+    (testing "`ref` keeps the ambient CODE and gains a message naming both readings"
+      (let [source "(defn main [] (ref 0))"]
+        (is (= :kotoba.error/ambient-forbidden (refusal-code compiler-result source)))
+        (is (= (str "ref names one definition this module defines: (ref name). "
+                    "Every other shape of `ref` is Clojure's STM constructor, "
+                    "and state must not be ambient")
+               (refusal compiler-result source)))))
+    (testing "and the admitted shape is the ONLY one that gets through"
+      ;; Without this the assertion above passes for a `ref` that is refused
+      ;; everywhere, which is what it looked like before ADR-544 step 1.
+      (is (= {:result 7 :effects #{}}
+             (compiler-result "(defn seven [] :i64 7) (defn main [] :i64 (app (ref seven)))"))))))
 
 (deftest q6-repeated-compilation-is-byte-reproducible
   (doseq [{:keys [id source]} (:positive (qualification))]
