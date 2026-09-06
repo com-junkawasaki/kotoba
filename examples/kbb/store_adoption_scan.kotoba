@@ -1,0 +1,59 @@
+;; examples/kbb/store_adoption_scan.kotoba — scripts/langchain-store-adoption-scan.cljs
+;; (superproject) ported to kbb. The original walks a root for `store.cljc`
+;; files and buckets each by content: :adopted when it requires the shared
+;; `langchain-store.core` seam, :hand-rolled when it still carries the local
+;; EDN-blob codec, :other otherwise (ADR-2607141600).
+;;
+;; Same three predicates, same substrings, same directory. A compiled `main`
+;; answers ONE i64, so the three counts are packed adopted*100 +
+;; hand-rolled*10 + other -- each count is below 10 for this fixture, so the
+;; packing is lossless and the original's three numbers read straight off it.
+;;
+;; The original recurses into subdirectories; this scans ONE directory,
+;; because the host's :fs/browse answers entry NAMES and gives a guest no way
+;; to ask "is this one a directory". That is a capability gap, not a design
+;; choice: it is why the fixture is flat, and the nbb original is run against
+;; that same flat directory so the two answers are comparable.
+;;
+;; Capabilities: :fs/browse (34) + :fs/app-data (35) -> the js backend.
+(ns examples.kbb.store-adoption-scan
+  (:require [kbb.fs :as fs] [kbb.browse :as browse])
+  (:export [main]))
+
+(defn contains-sub? [hay :string needle :string] :bool
+  (if (>= (string-index-of hay needle) 0) true false))
+
+(defn store-file? [name :string] :bool
+  (let [n (string-byte-length name)]
+    (if (> n 10)
+      (string=? (string-substring name (- n 10) n) "store.cljc")
+      false)))
+
+(defn classify [content :string] :i64
+  (if (contains-sub? content "langchain-store.core")
+    100
+    (if (contains-sub? content "(defn- enc [v] (pr-str v))")
+      10
+      (if (contains-sub? content "(defn- dec* ")
+        10
+        1))))
+
+(defn entry-score [dir :string name :string] :i64
+  (if (store-file? name)
+    (classify (fs/read-file (string-concat (string-concat dir "/") name)))
+    0))
+
+(defn scan-listing [dir :string listing :string acc :i64] :i64
+  (if (= (string-byte-length listing) 0)
+    acc
+    (let [i (string-index-of listing "\n")]
+      (if (< i 0)
+        (+ acc (entry-score dir listing))
+        (scan-listing dir
+                      (string-substring listing (+ i 1) (string-byte-length listing))
+                      (+ acc (entry-score dir (string-substring listing 0 i))))))))
+
+(defn main [] :i64
+  (scan-listing "test/fixtures/kbb_ports/store_dir"
+                (browse/entries "test/fixtures/kbb_ports/store_dir")
+                0))
