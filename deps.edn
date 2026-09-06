@@ -95,7 +95,7 @@
          ;; kotoba-lang and kotoba-sema on its classpath -- so their copies
          ;; are on it too, and `every-guest-grammar-on-the-classpath-is-the-
          ;; same-bytes` sees four copies, not two.
-         :git/sha "0823634089c9f7c343645f94cbb35df1b93adb57"}
+         :git/sha "5fdbcc3af478cc653e3e0488fb6c301f5c7ee7f1"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
@@ -103,7 +103,7 @@
          ;; Same wave: the vendored guest-grammar copy this frontend reads
          ;; carries the pure-head bytes. It also carries the pure-head
          ;; lowering itself (lam/app/ref/perform) and the beta-redex fix.
-         :git/sha "24c53b764e8d62afe7cdcf4bdba549a74a08ccd3"}
+         :git/sha "3378b1d3b24534982c4c90b59f9aeda894009653"}
         io.github.kotoba-lang/org-chainagnostic-cacao
         {:git/url "https://github.com/kotoba-lang/org-chainagnostic-cacao.git"
          :git/sha "3aaab02fb993a1d0b716c8fc1aefe37e4e3ab850"}
