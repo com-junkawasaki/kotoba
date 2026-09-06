@@ -1,0 +1,8 @@
+;; examples/kbb/fs_report.kotoba — the demo_kbb_fs_report pattern written
+;; against the kbb library instead of interpreter builtins: read one
+;; policy-scoped file, answer its byte count. Compiles on the js and native
+;; backends (kbb --backend js / native) through `--source-path lib`.
+(ns examples.kbb.fs-report (:require [kbb.fs :as fs]) (:export [main]))
+
+(defn main [] :i64
+  (fs/read-bytes-count "src/demo_kbb_fixture.txt"))

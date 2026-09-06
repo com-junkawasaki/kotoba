@@ -1,0 +1,8 @@
+{:kotoba.policy/capabilities #{:env/read :fs/browse :proc/exec}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources
+ {:env/read #{"HOME"}
+  :fs/browse #{"test/fixtures/kbb_gate_scripts/clean_dir"}
+  :proc/exec #{"echo"}}
+ :kotoba.policy/proc-exec-invocations
+ [{:command "echo" :argv ["echo" "kbb-js-proc-ok"] :timeout-seconds 10}]}

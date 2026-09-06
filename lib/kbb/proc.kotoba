@@ -1,0 +1,14 @@
+;; kbb.proc — run ONE allowlisted invocation by grant INDEX. Wire id 20
+;; (:process/spawn). The guest supplies zero command bytes: argv, cwd and
+;; timeout are policy literals (:kotoba.policy/proc-exec-invocations, the
+;; kbb v1 table); the index names a row. The result is the exit status.
+;;
+;; Backend note (2026-09-06): the js host implements this; the native
+;; loader's wire-20 provider is still pending (ADR-2609051100 task 5).
+(ns kbb.proc (:export [exec ok?]))
+
+(defn exec [grant-index :string] :i64
+  (typed-cap-call :process/spawn :string :i64 grant-index))
+
+(defn ok? [grant-index :string] :bool
+  (if (= (exec grant-index) 0) true false))

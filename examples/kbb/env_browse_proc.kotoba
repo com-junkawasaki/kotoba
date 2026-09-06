@@ -1,0 +1,13 @@
+;; examples/kbb/env_browse_proc.kotoba — the three other library modules in
+;; one script: how many entries `src/` has, whether HOME is set, and the
+;; exit status of the policy's invocation 0 (`echo`). Answers
+;;   entries * 1000 + (home-set? 100 : 0) + exit
+;; so one i64 carries all three measurements.
+(ns examples.kbb.env-browse-proc
+  (:require [kbb.env :as env] [kbb.browse :as browse] [kbb.proc :as proc])
+  (:export [main]))
+
+(defn main [] :i64
+  (+ (* (browse/entry-count "test/fixtures/kbb_gate_scripts/clean_dir") 1000)
+     (+ (if (env/present? "HOME") 100 0)
+        (proc/exec "0"))))
