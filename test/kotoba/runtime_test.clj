@@ -131,3 +131,58 @@
       (is (= [{:kotoba.runtime/problem :stack-overflow}]
              (get-in result [:kotoba.cli/data :kotoba.runtime/result
                              :kotoba.runtime/problems]))))))
+
+(def ^:private docstring-plan
+  (launcher/source-plan "inline.kotoba"))
+
+(defn- lowered-ok [source]
+  (runtime/lower-language-forms (runtime/read-forms source :kotoba)))
+
+(deftest defn-docstring-is-not-multi-arity-false-positive
+  (testing "a docstring'd single-arity defn lowers (was: 'multi-arity defn
+            requires ([params] body) clauses' — the string sat in the slot
+            multi-arity-defn? probed for the params vector)"
+    (let [lowered (lowered-ok "(ns t) (defn f \"adds one\" [x] (+ x 1)) (defn main [] (f 41))")]
+      (is (some #(and (seq? %) (= 'defn (first %))) lowered))
+      (is (not-any? #(string? %) lowered)))))
+
+(deftest defn-docstring-never-reaches-the-parameter-list
+  (testing "the single-arity parser discards the docstring instead of
+            destructuring it as a parameter"
+    (let [[name {:keys [params]}]
+          (runtime/function-def
+           (first (runtime/read-forms "(defn f \"doc\" [x] (+ x 1))" :kotoba)))]
+      (is (= 'f name))
+      (is (= '[x] params)))))
+
+(deftest multi-arity-defn-with-docstring-has-without-parity
+  (testing "docstring'd and bare multi-arity defns lower to the same
+            dispatch shapes (docstring is inert metadata, nothing else)"
+    (let [with-doc    (lowered-ok "(ns t) (defn g \"doc\" ([x] x) ([x y] (+ x y))) (defn main [] (g 3 4))")
+          without-doc (lowered-ok "(ns t) (defn g ([x] x) ([x y] (+ x y))) (defn main [] (g 3 4))")]
+      (is (= (count without-doc) (count with-doc)))
+      (is (= (vec (remove string? without-doc))
+             (vec (remove string? with-doc)))))))
+
+(deftest docstring-defn-runs-in-the-interpreter
+  (testing "a docstring'd defn compiles and runs end-to-end (the kbb gate):
+            41 + 1 = 42, same as its docstring-free twin"
+    (doseq [source ["(ns t) (defn f \"adds one\" [x] (+ x 1)) (defn main [] (f 41))"
+                    "(ns t) (defn f [x] (+ x 1)) (defn main [] (f 41))"]]
+      (let [result (runtime/run
+                    (launcher/safe-analyzer-fact-classification)
+                    docstring-plan
+                    (runtime/read-forms source :kotoba))]
+        (is (true? (:kotoba.runtime/ok? result)) (pr-str (:kotoba.runtime/problems result)))
+        (is (= 42 (:kotoba.runtime/value result)) source)))))
+
+(deftest multi-arity-with-docstring-dispatches-after-lowering
+  (testing "a docstring'd multi-arity defn's calls still resolve to the
+            arity-specialized defs after lowering"
+    (let [result (runtime/run
+                  (launcher/safe-analyzer-fact-classification)
+                  docstring-plan
+                  (lowered-ok "(ns t) (defn g \"doc\" ([x] x) ([x y] (+ x y))) (defn main [] (g 3 4))"))]
+      (is (true? (:kotoba.runtime/ok? result)) (pr-str (:kotoba.runtime/problems result)))
+      (is (= 7 (:kotoba.runtime/value result))))))
+
