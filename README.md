@@ -716,6 +716,40 @@ kbb. Process, git, named-secret, and deploy capabilities must be added one
 vertical slice at a time with real providers and denial tests before their nbb
 consumers move.
 
+#### `kbb --backend js` — the JVM-free JS host, and the kbb library
+
+`bin/kbb_js.cljs` runs the same `.kotoba` + policy through the compiler's
+JS route and Node instead of the JVM interpreter (superproject
+ADR-2609062200; `amu compile --target js --jvm-free`, amu ADR 0340). Cold
+start is sub-second where `bin/kbb` is ~10 s, and it is the second oracle
+beside `--backend native`: the same script and policy answer the same number
+on both (demo_kbb_fs_read_native → 84).
+
+```bash
+nbb bin/kbb_js.cljs src/demo_kbb_fs_read_native.kotoba   --policy src/demo_kbb_fs_read_native_policy.edn --json
+nbb bin/kbb_js.cljs examples/kbb/fs_report.kotoba   --policy examples/kbb/fs_report_policy.edn --source-path lib
+```
+
+Providers are keyed by compiler wire id and re-check the policy scope on every
+call: `35 :fs/app-data` (read one file inside the realpath'd scope), `33
+:env/read` (a granted name; unset answers `""`), `34 :fs/browse` (sorted entry
+names of one scoped directory, `"\n"`-joined), `20 :proc/exec` (one policy
+invocation by grant index; exit status). `:data/json`, `:data/edn` and
+`:http/fetch` have no compiler wire id, so the host refuses them by name and
+points at the interpreter backend — never a silent fallback. Every refusal is
+a receipt with `:outcome :denied`.
+
+`lib/kbb/` is the library scripts write against — `kbb.fs/read-file`,
+`kbb.env/read`, `kbb.browse/entries`, `kbb.proc/exec` and friends — so a script
+never spells a `typed-cap-call` or a wire id. It is consumed through the
+project route (`--source-path lib`) and compiles on the js and native
+backends alike; `kbb.browse` and `kbb.proc` run on js today because the native
+loader's wire-34/20 providers are still stubs (ADR-2609051100 task 5). amu is
+located through `$AMU_HOME` or this repo's `deps.edn` pin under `~/.gitlibs`,
+and a checkout without `node_modules/nbb` is a named refusal.
+`test/kotoba/kbb_js_test.clj` drives the host as a process and SKIPS visibly
+when `nbb` or amu is missing.
+
 `cljs emit` currently compiles a NARROW backend slice of `.kotoba` (arithmetic/comparison/
 boolean forms, `pair`, map `get`/`assoc` — the ops ADR-2607150000's
 narrow-slice governor ports actually use) to plain ClojureScript source text,

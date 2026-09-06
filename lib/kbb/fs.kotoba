@@ -1,0 +1,20 @@
+;; kbb.fs — the filesystem half of the kbb script library (ADR-2607181900
+;; gate item ①, js/native backends). A script says `(fs/read-file path)`;
+;; the wire id (35 = :fs/app-data, kotoba-lang capability-catalog) and the
+;; typed request/result shape live HERE, once, so a script never spells a
+;; `typed-cap-call` and never learns a wire id.
+;;
+;; Read-only on purpose: the native loader's wire-35 provider is read-only
+;; (ADR-2609051100 slice 4; write is the next slice) and a library that
+;; offered `write-file` on one backend only would be a portability lie.
+;; The path is resolved by the HOST against the policy's :fs/app-data
+;; scope; outside the scope the host refuses before any byte is read.
+;;
+;; Consumed through the project route: `--source-path lib`.
+(ns kbb.fs (:export [read-file read-bytes-count]))
+
+(defn read-file [path :string] :string
+  (typed-cap-call :fs/app-data :string :string path))
+
+(defn read-bytes-count [path :string] :i64
+  (string-byte-length (read-file path)))

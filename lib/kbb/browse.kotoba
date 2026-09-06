@@ -1,0 +1,30 @@
+;; kbb.browse — directory listing for kbb scripts. Wire id 34 (:fs/browse).
+;; The host answers the entry NAMES of one directory, sorted, joined by a
+;; single "\n" (empty string for an empty directory), so the result stays one
+;; :string on the wire. Scope is the policy's :fs/browse directory trees.
+;;
+;; `entry-count` walks the listing with string-index-of / string-substring
+;; (self-recursion, fuel-bounded): `string-split-count` is admitted by the
+;; guest grammar but not yet lowered by the js emitter (kotoba-script,
+;; measured 2026-09-06), and a library must run on every backend it names.
+;;
+;; Backend note (2026-09-06): the js host implements this; the native
+;; loader's wire-34 provider is still the identity stub (ADR-2609051100
+;; task 5), so a script using kbb.browse runs on `--backend js` today.
+(ns kbb.browse (:export [entries entry-count]))
+
+(defn entries [dir :string] :string
+  (typed-cap-call :fs/browse :string :string dir))
+
+(defn count-separators [listing :string acc :i64] :i64
+  (let [i (string-index-of listing "\n")]
+    (if (< i 0)
+      acc
+      (count-separators (string-substring listing (+ i 1) (string-byte-length listing))
+                        (+ acc 1)))))
+
+(defn entry-count [dir :string] :i64
+  (let [listing (entries dir)]
+    (if (= (string-byte-length listing) 0)
+      0
+      (+ 1 (count-separators listing 0)))))
