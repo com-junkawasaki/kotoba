@@ -16,6 +16,7 @@
             [kotoba.kbb-gate-scripts-test]
             [kotoba.kbb-scripts-port-test]
             [kotoba.kbb-http-fetch-test]
+            [kotoba.kbb-js-test]
             [kotoba.string-search-test]
             [kotoba.kbb-proc-exec-test]
             [kotoba.kbb-native-test]
@@ -112,6 +113,7 @@
                                         'kotoba.kbb-gate-scripts-test
                                         'kotoba.kbb-scripts-port-test
                                         'kotoba.kbb-http-fetch-test
+                                        'kotoba.kbb-js-test
                                         'kotoba.string-search-test
                                         'kotoba.kbb-proc-exec-test
                                         'kotoba.kbb-native-test
