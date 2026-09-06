@@ -37,6 +37,11 @@ the JS route itself needed a JDK (`kotoba-script` was `.clj`).
 
 ## Measured (2026-09-06)
 
+- Gate item ② first port: `examples/kbb/no_bb_scan.kotoba` (compile route,
+  kbb.fs + kbb.browse) and `src/no_bb_scan.kotoba` (interpreter) both answer
+  3 over the same fixtures and policy; asserted together in
+  `kbb_js_test/the-gate-script-port-agrees-with-the-interpreter`.
+
 - js backend cold run of demo_kbb_fs_read_native: 1.7 s (JVM kbb: ~10 s).
 - Two emitter defects found by the library and fixed upstream
   (kotoba-script `8a55311b`): `string-index-of` returned a JS Number of code
