@@ -12,5 +12,8 @@ done
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$PRG")" && pwd)
 KBB_HOME=${KBB_HOME:-"$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"}
-cd "$KBB_HOME"
-exec clojure -M -m kotoba.kbb "$@"
+
+# kbb v2 (JVM-free): nbb shim — amu compile --jvm-free + kexe_loader execution
+# for the native provider surface (fs/app-data, wire 35). --backend interpreter
+# delegates to the JVM kotoba.kbb.
+exec nbb "$SCRIPT_DIR/kbb_shim.cljs" "$@"
