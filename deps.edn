@@ -37,9 +37,11 @@
         com.github.clj-easy/graal-build-time {:mvn/version "1.0.5"}
         org.clojure/tools.reader {:mvn/version "1.5.2"}
         ;; Canonical `.kotoba` frontend/KIR and restricted kotoba-script backend.
+        ;; ffd9adfa: `--target js` on the nbb route (amu ADR 0340, PR #827),
+        ;; the compiler bin/kbb_js.cljs runs (ADR-2609062200).
         io.github.kotoba-lang/amu
         {:git/url "https://github.com/kotoba-lang/amu.git"
-         :git/sha "8d5a70cfd42532c0afd80d7e1a8c1ea982139877"}
+         :git/sha "ffd9adfa0ea73a0a17043419521d74c299dc628f"}
         ;; kbb native backend slice (ADR-2607181900): the measured native
         ;; executor (loader build + verify + invoke) behind `kbb --backend
         ;; native`. Same pin amu :test / :native-run carry.
