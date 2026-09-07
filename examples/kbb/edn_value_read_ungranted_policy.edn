@@ -1,0 +1,6 @@
+;; The SAME script with the capability withheld. The guest still requires
+;; wire 35, so the run must be refused BEFORE any byte is read -- not
+;; answered with a zero.
+{:kotoba.policy/capabilities #{}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources {}}

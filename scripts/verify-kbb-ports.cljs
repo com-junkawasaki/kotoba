@@ -51,7 +51,22 @@
     :policy "examples/kbb/checkout_holds_probe_policy.edn"
     :args ["--fuel" "200000"]
     :expect 201
-    :origin "scripts/checkout-holds.cljs — exit 2 (a path has no .git), git --version exit 0, HOME set"}])
+    :origin "scripts/checkout-holds.cljs — exit 2 (a path has no .git), git --version exit 0, HOME set"}
+   ;; Reading EDN needs no capability of its own: the bytes come from
+   ;; :fs/app-data and the parse is computation (lib/kbb/edn.kotoba). The
+   ;; answer packs four independent readings into one i64 so a single number
+   ;; discriminates all of them -- entry-count 6 -> 6000, :count read as a
+   ;; number -> 42, :pins present -> 200, :missing absent -> 0, well-formed
+   ;; -> 30. `--backend js` is EXPLICIT, not a default: the fixture is
+   ;; hostile enough that the module trips amu's export-table verifier on
+   ;; the native route (amu ADR 0288 class, measured 2026-09-07), and the
+   ;; rule here is to name that, never to fall back silently.
+   {:name "edn_value_read/js"
+    :script "examples/kbb/edn_value_read.kotoba"
+    :policy "examples/kbb/edn_value_read_policy.edn"
+    :args ["--backend" "js" "--fuel" "400000"]
+    :expect 6272
+    :origin "kbb.edn — entry-count 6, :count 42, :pins present, :missing absent, well-formed"}])
 
 ;; A surface no JVM-free backend hosts must be REFUSED by name with the
 ;; distinct code, never routed to the JVM behind the caller's back.
@@ -66,6 +81,27 @@
     :policy "examples/kbb/store_adoption_scan_policy.edn"
     :args ["--backend" "native"]
     :exit 3 :code ":kbb/no-jvm-free-backend"}])
+
+;; A capability that cannot refuse is a security hole, so every capability
+;; the gate exercises is run three ways: granted (the cases above), NOT
+;; granted, and granted-but-out-of-scope. The last two must fail with a
+;; NAMED reason -- a run that answered a plausible number with the grant
+;; withheld would be the worst possible pass.
+(def denials
+  [{:name "edn_value_read ungranted -> refuse before the read"
+    :script "examples/kbb/edn_value_read.kotoba"
+    :policy "examples/kbb/edn_value_read_ungranted_policy.edn"
+    :args ["--backend" "js" "--fuel" "400000"]
+    :exit 1 :code ":kbb-js/compile-failed"
+    :says "capability policy denies required effects"
+    :why "the guest requires wire 35; admission denies it before a byte is read"}
+   {:name "edn_value_read outside scope -> refuse at the provider"
+    :script "examples/kbb/edn_value_read.kotoba"
+    :policy "examples/kbb/edn_value_read_outside_policy.edn"
+    :args ["--backend" "js" "--fuel" "400000"]
+    :exit 1 :code ":kbb-js/guest-failed"
+    :says "path outside the granted :fs/app-data scope"
+    :why "granted, but scoped to another directory -- a grant is not a key to the filesystem"}])
 
 (defn- stub-dir! []
   (let [d (fs/mkdtempSync (path/join (os/tmpdir) "kbb-nojvm-"))]
@@ -111,7 +147,18 @@
                {:name name
                 :ok? (and (= exit (:status r)) (str/includes? (:out r) code) (not escaped?))
                 :detail (str "expect exit " exit " + " code ", got exit " (:status r)
-                             (when escaped? " JVM-ESCAPED"))})))
+                             (when escaped? " JVM-ESCAPED"))}))
+           (for [{:keys [name script policy args exit code says why]} denials]
+             (let [r (run stub (path/join repo "bin" "kbb")
+                          (into [script "--policy" policy "--source-path" "lib"] args))
+                   escaped? (str/includes? (str (:out r) (:err r)) "JVM ESCAPE")
+                   said? (str/includes? (:out r) says)]
+               (when verbose? (println (str "  " name " -> " (str/trim (:out r)))))
+               {:name name
+                :ok? (and (= exit (:status r)) (str/includes? (:out r) code) said? (not escaped?))
+                :detail (str "expect exit " exit " + " code " saying " (pr-str says)
+                             ", got exit " (:status r) (when-not said? " NOT-SAID")
+                             (when escaped? " JVM-ESCAPED") " | " why)})))
           bad (remove :ok? results)]
       (doseq [{:keys [name ok? detail]} results]
         (println (str (if ok? "ok  " "FAIL") "\t" name "\t" detail)))

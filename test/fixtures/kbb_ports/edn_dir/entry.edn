@@ -1,0 +1,10 @@
+;; A workspace-shaped EDN document: one top-level map, with the three things
+;; a character scanner gets wrong if it is naive -- a `}` inside a string, a
+;; `{` inside a comment, and a `\{` character literal.
+{:name "kotoba-lang/amu"
+ :note "a closing brace } and an opening one { inside a string"
+ ;; a comment with { and } and a stray " quote
+ :delims [\{ \} \; \"]
+ :pins {:kotoba "c5393d04e" :amu "498def2d"}
+ :count 42
+ :vector [1 2 3]}

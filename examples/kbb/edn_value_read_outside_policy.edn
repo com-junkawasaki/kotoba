@@ -1,0 +1,7 @@
+;; Granted, but scoped to a DIFFERENT directory. The fixture the script
+;; names is outside it, so the host's wire-35 provider must refuse the
+;; path -- a grant is not a key to the filesystem.
+{:kotoba.policy/capabilities #{:fs/app-data}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources
+ {:fs/app-data #{"test/fixtures/kbb_ports/holds_dir"}}}

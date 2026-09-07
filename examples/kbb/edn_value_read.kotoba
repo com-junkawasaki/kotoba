@@ -1,0 +1,42 @@
+;; examples/kbb/edn_value_read.kotoba — reading VALUES out of a real EDN file
+;; from a kbb script, the thing most nbb scripts in this workspace do first.
+;;
+;; The point of this example is what it does NOT ask for. There is no
+;; `:data/edn` capability here and there is no wire id for one: the bytes
+;; arrive through `:fs/app-data` (wire 35, already hosted on both JVM-free
+;; backends) and the READING is ordinary computation in `kbb.edn`. Parsing
+;; reaches no socket, no path and no clock, so it is not an authority; a
+;; capability for it would make the guest ask permission for arithmetic, and
+;; -- because the wire carries one typed value -- could only answer a
+;; projection, which puts the query in the request string and turns the
+;; capability into an eval surface.
+;;
+;; The fixture is deliberately hostile to a naive scanner: a `}` inside a
+;; string, a `{` inside a comment, and `\{` / `\;` character literals. If any
+;; of those were mistaken for structure the entry count would move.
+;;
+;; The answer packs four independent readings into one i64 so a single
+;; number discriminates all of them:
+;;
+;;   entry-count   6 -> 6000   (six pairs; the string/comment/char-literal
+;;                              braces must NOT open a collection)
+;;   value-i64     42          (:count read as a number, not as text)
+;;   has-key?      yes -> 200  (:pins found in KEY position)
+;;   has-key?      no  ->   0  (:missing absent -- absence is answered, not trapped)
+;;   well-formed?  yes ->  30  (every collection the document opens is closed)
+;;
+;;   6000 + 42 + 200 + 0 + 30 = 6272
+(ns examples.kbb.edn-value-read
+  (:require [kbb.fs :as fs]
+            [kbb.edn :as edn])
+  (:export [main]))
+
+(defn score [doc :string] :i64
+  (+ (* 1000 (edn/entry-count doc))
+     (+ (edn/value-i64 doc ":count")
+        (+ (if (edn/has-key? doc ":pins") 200 0)
+           (+ (if (edn/has-key? doc ":missing") 500 0)
+              (if (edn/well-formed? doc) 30 0))))))
+
+(defn main [] :i64
+  (score (fs/read-file "test/fixtures/kbb_ports/edn_dir/entry.edn")))
