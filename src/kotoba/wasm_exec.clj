@@ -554,7 +554,19 @@
   FS-ROOT is supplied) that `fs-read`/`fs-write` are confined to — a guest
   can never read or write outside it, however its path argument is spelled
   (see `safe-path`). One state map is meant to live for one `kotoba wasm
-  run` invocation, mirroring kgraph's per-call fresh store."
+  run` invocation, mirroring kgraph's per-call fresh store.
+
+  `:llm-client` is deliberately NIL here. Every other slot above is an
+  inert in-memory/temp-directory sandbox this namespace can safely
+  manufacture, but an LLM client is outbound network authority plus a
+  credential -- so a host that wants `llm-infer` to do anything must
+  inject one on purpose (`(assoc (default-host-state) :llm-client
+  {:infer-fn (fn [prompt] ...)})`). With the default nil, a granted
+  `llm-infer` call returns -1 and makes no network call at all, which is
+  the same in-band failure a guest sees for a missing key or a transport
+  error: it never gets to probe the host's credential state (the
+  fail-closed argument `kototama.tender`'s `llm-infer-host-fn` docstring
+  makes for the same ABI)."
   ([] (default-host-state (Files/createTempDirectory "kotoba-wasm-fs" (into-array java.nio.file.attribute.FileAttribute []))))
   ([fs-root]
    {:clipboard (atom (byte-array 0))
@@ -564,6 +576,7 @@
     :topics (atom {})
     :http-timeout-ms 5000
     :http-max-response-bytes 1048576
+    :llm-client nil
     :fs-root (.toFile fs-root)}))
 
 (defn- bounded-http-send
@@ -601,7 +614,7 @@
   file, malformed URL, ...) so a guest sees a value it can react to instead
   of the whole `main` call dying on an uncaught Java exception."
   [{:keys [clipboard keychain notifications log topics fs-root
-           http-timeout-ms http-max-response-bytes]}]
+           http-timeout-ms http-max-response-bytes llm-client]}]
   {'notify-show
    (fn [_instance args]
      (swap! notifications conj {:code (aget args 0) :at (System/currentTimeMillis)})
@@ -806,6 +819,55 @@
              (if response-body
                (write-bytes! instance (aget args 4) out-cap response-body)
                -1))))
+       (catch Exception _ -1)))
+
+   ;; llm/infer (capability id 225). ABI, identical to kototama.tender's:
+   ;; (prompt-ptr prompt-len out-ptr out-cap) -> bytes-written | -1.
+   ;;
+   ;; NO per-call :cap/resource check, deliberately. Every other
+   ;; resource-scoped provider here (fs-read/fs-write/keychain-*/
+   ;; http-fetch/http-post) scopes on a string the GUEST supplies and that
+   ;; names the thing being reached -- a path, a key, a URL. `llm-infer`
+   ;; has no such argument: the guest supplies only a prompt, and the
+   ;; endpoint, model and credential all live inside the host-injected
+   ;; `:llm-client`, which the guest cannot name, choose or influence.
+   ;; Scoping on the prompt would be a check on the guest's own payload,
+   ;; not on a destination -- authority theatre. This is the same argument
+   ;; kototama.tender's `anthropic-infer` docstring makes for its fixed
+   ;; Anthropic URL ("not guest-controlled, so no destination check is
+   ;; needed here the way http-post-host-fn needs one"). The kind-level
+   ;; grant (`:llm/infer` in the policy, checked by `guard-host-call`
+   ;; before this body ever runs) is therefore the WHOLE boundary, and a
+   ;; host that wants a narrower one narrows the client it injects, not
+   ;; this function. Consequently a scoped grant (:cap/resource other than
+   ;; :any) does NOT restrict which model or endpoint is reached, and this
+   ;; docstring says so rather than implying a check that is not enforced.
+   ;; For the same reason "llm/infer" is deliberately absent from
+   ;; kotoba.host-providers' `network-cap-names` (the require-an-allowlist
+   ;; set): that mechanism narrows a guest-supplied destination string, and
+   ;; there is none here, so listing it would only force every policy to
+   ;; write an allowlist entry that constrains nothing.
+   ;;
+   ;; Fail-closed, -1 for everything: no client injected, `:infer-fn`
+   ;; returning nil (no API key / transport error / empty reply), a reply
+   ;; over `http-max-response-bytes`, a reply over the guest's own
+   ;; `out-cap` (write-bytes!'s existing overflow convention -- a
+   ;; truncated write is never performed), or any thrown exception. A
+   ;; guest cannot tell these apart, which is the point.
+   'llm-infer
+   (fn [instance args]
+     (try
+       (let [prompt (read-str instance (aget args 0) (aget args 1))
+             out-ptr (aget args 2)
+             out-cap (aget args 3)
+             infer-fn (:infer-fn llm-client)
+             reply (when (ifn? infer-fn) (infer-fn prompt))]
+         (if-not (string? reply)
+           -1
+           (let [bs (.getBytes ^String reply "UTF-8")]
+             (if (> (alength bs) (long (or http-max-response-bytes 1048576)))
+               -1
+               (write-bytes! instance out-ptr out-cap bs)))))
        (catch Exception _ -1)))})
 
 (def real-op-ids

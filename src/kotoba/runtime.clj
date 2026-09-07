@@ -422,6 +422,15 @@
    'sha256-hex :host/hash-sha256
    'http-post :host/http-post
    'log-read :host/log-read
+   ;; llm/infer (capability id 225, kotoba-core-contracts): the same
+   ;; actor-host family as the six ops above, declared in the contract
+   ;; since ADR-2607062330's llm-infer addendum and implemented by
+   ;; kototama.tender, but with no implementation on THIS host until
+   ;; kotoba.wasm-exec/real-op-effects grew one. The matching
+   ;; :host/llm-infer entry in kotoba-lang's effect-for-kind landed in
+   ;; the pin bumped for it in deps.edn -- both halves are required, or
+   ;; guard-call denies the op :unsupported-kind at run time.
+   'llm-infer :host/llm-infer
    ;; kbb ops-script surface (ADR-2607181900 readiness gate): env-read,
    ;; capability id 258 (kotoba-core-contracts). Resource scope = granted
    ;; env var NAMES, enforced in kotoba.host-providers/default-handlers.

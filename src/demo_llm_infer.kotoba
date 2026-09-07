@@ -1,0 +1,4 @@
+(ns demo-llm-infer)
+
+(defn main []
+  (llm-infer (str-ptr "ping") (str-len "ping") (alloc 32) 32))
