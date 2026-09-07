@@ -2,46 +2,40 @@
 ;; src/no_bb_scan.kotoba (verify-no-babashka residue scan over two
 ;; policy-granted directories, ADR-2607181900 gate item ②) ported to the
 ;; COMPILE route through the kbb library: same three checks per entry
-;; (name ends in ".bb", name is "bb.edn", content starts "#!/usr/bin/env bb"),
-;; same fixtures, same answer (3). The listing arrives "\n"-joined from
-;; kbb.browse and is walked with string-index-of / string-substring (byte
-;; offsets, ASCII separator); every read is one kbb.fs call inside the scope.
+;; (name ends in ".bb" and is longer than ".bb", name is "bb.edn", content
+;; starts "#!/usr/bin/env bb"), same fixtures, same answer (3). The listing
+;; arrives "\n"-joined from kbb.browse and is walked by index with
+;; kbb.str/line-count + kbb.str/nth-line (byte offsets, ASCII separator);
+;; the prefix / suffix tests are kbb.str's; every read is one kbb.fs call
+;; inside the scope.
 (ns examples.kbb.no-bb-scan
-  (:require [kbb.fs :as fs] [kbb.browse :as browse])
+  (:require [kbb.fs :as fs] [kbb.browse :as browse] [kbb.str :as str])
   (:export [main]))
 
 (defn ends-with-bb? [name :string] :i64
-  (let [n (string-byte-length name)]
-    (if (> n 3)
-      (if (string=? (string-substring name (- n 3) n) ".bb") 1 0)
-      0)))
+  (if (> (string-byte-length name) 3)
+    (if (str/ends-with? name ".bb") 1 0)
+    0))
 
 (defn is-bb-edn? [name :string] :i64
   (if (string=? name "bb.edn") 1 0))
 
 (defn shebang-bb? [content :string] :i64
-  (let [n (string-byte-length content)]
-    (if (>= n 17)
-      (if (string=? (string-substring content 0 17) "#!/usr/bin/env bb") 1 0)
-      0)))
+  (if (str/starts-with? content "#!/usr/bin/env bb") 1 0))
 
 (defn entry-violations [dir :string name :string] :i64
   (+ (ends-with-bb? name)
      (+ (is-bb-edn? name)
         (shebang-bb? (fs/read-file (string-concat (string-concat dir "/") name))))))
 
-(defn scan-listing [dir :string listing :string acc :i64] :i64
-  (if (= (string-byte-length listing) 0)
+(defn scan-entries [dir :string listing :string i :i64 acc :i64] :i64
+  (if (>= i (str/line-count listing))
     acc
-    (let [i (string-index-of listing "\n")]
-      (if (< i 0)
-        (+ acc (entry-violations dir listing))
-        (scan-listing dir
-                      (string-substring listing (+ i 1) (string-byte-length listing))
-                      (+ acc (entry-violations dir (string-substring listing 0 i))))))))
+    (scan-entries dir listing (+ i 1)
+                  (+ acc (entry-violations dir (str/nth-line listing i))))))
 
 (defn scan-dir [dir :string] :i64
-  (scan-listing dir (browse/entries dir) 0))
+  (scan-entries dir (browse/entries dir) 0 0))
 
 (defn main [] :i64
   (+ (scan-dir "test/fixtures/kbb_gate_scripts/clean_dir")

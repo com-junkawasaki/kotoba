@@ -4,9 +4,11 @@
 ;; :string on the wire. Scope is the policy's :fs/browse directory trees.
 ;;
 ;; `entry-count` walks the listing with string-index-of / string-substring
-;; (self-recursion, fuel-bounded): `string-split-count` is admitted by the
-;; guest grammar but not yet lowered by the js emitter (kotoba-script,
-;; measured 2026-09-06), and a library must run on every backend it names.
+;; (self-recursion, fuel-bounded). An earlier reading (2026-09-06, morning)
+;; said `string-split-count` was not lowered by the js emitter; measured
+;; again the same day it IS (`(string-split-count "a\nb" "\n")` answers 2
+;; through kbb_js.cljs), and kbb.str/line-count uses it. The walk here is
+;; kept as written: it is measured on every consumer test.
 ;;
 ;; Backend note (2026-09-06): the js host implements this; the native
 ;; loader's wire-34 provider is still the identity stub (ADR-2609051100
