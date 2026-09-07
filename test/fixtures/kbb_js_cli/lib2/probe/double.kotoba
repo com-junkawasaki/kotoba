@@ -1,0 +1,8 @@
+;; test/fixtures/kbb_js_cli/lib2/probe/double.kotoba — a second, capability-
+;; free library directory for kbb_js_cli_test: `--source-path lib --source-path
+;; test/fixtures/kbb_js_cli/lib2` must link BOTH (kbb.fs from the first,
+;; probe.double from this one) into one module.
+(ns probe.double (:export [twice]))
+
+(defn twice [n :i64] :i64
+  (* n 2))

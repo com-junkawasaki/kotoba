@@ -1,0 +1,32 @@
+;; examples/kbb/probe_str.kotoba — kbb.str measured through one i64, with NO
+;; capability (the policy grants nothing). Each check that holds sets one
+;; bit, so 255 (= 2^8 - 1) means all eight hold and any other value names
+;; the failing checks by its zero bits:
+;;   bit 0  starts-with? "#!/usr/bin/env bb" "#!"        true
+;;   bit 1  starts-with? "ab" "abc"                       false (s shorter than prefix)
+;;   bit 2  ends-with?   "legacy.bb" ".bb"                true
+;;   bit 3  ends-with?   "bb" ".bb"                       false (s shorter than suffix)
+;;   bit 4  line-count   ""                               0
+;;   bit 5  line-count   "a\nb\nc"                        3
+;;   bit 6  count-matches "bb.bb.bb" "bb"                 3
+;;   bit 7  count-matches "" "x"                          0
+;; `nth-line` is NOT here on purpose: a pure module is constant-folded at
+;; lowering by the KIR interpreter, which lacks string-index-of (see the
+;; kbb.str header). probe_str_oracle.kotoba pins that refusal; the effectful
+;; scans (no_bb_scan / shebang_scan / env_scan) measure nth-line for real.
+(ns examples.kbb.probe-str
+  (:require [kbb.str :as str])
+  (:export [main]))
+
+(defn bit [ok :bool weight :i64] :i64
+  (if ok weight 0))
+
+(defn main [] :i64
+  (+ (bit (str/starts-with? "#!/usr/bin/env bb" "#!") 1)
+     (+ (bit (if (str/starts-with? "ab" "abc") false true) 2)
+        (+ (bit (str/ends-with? "legacy.bb" ".bb") 4)
+           (+ (bit (if (str/ends-with? "bb" ".bb") false true) 8)
+              (+ (bit (= (str/line-count "") 0) 16)
+                 (+ (bit (= (str/line-count "a\nb\nc") 3) 32)
+                    (+ (bit (= (str/count-matches "bb.bb.bb" "bb") 3) 64)
+                       (bit (= (str/count-matches "" "x") 0) 128)))))))))

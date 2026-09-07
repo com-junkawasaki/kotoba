@@ -752,7 +752,11 @@ and a checkout without `node_modules/nbb` is a named refusal.
 when `nbb` or amu is missing. `examples/kbb/no_bb_scan.kotoba` is the first
 gate script ported to the compile route (ADR-2607181900 item ②): the test
 measures it and the interpreter twin `src/no_bb_scan.kotoba` in one place
-(both 3).
+(both 3). `kbb.str` (`starts-with?` / `ends-with?` / `line-count` / `nth-line` /
+`count-matches`, all byte-addressed, no capability) is what the ported scans
+walk their listings with; `examples/kbb/env_scan.kotoba` takes its directory
+from `KBB_SCAN_DIR` through `kbb.env` and is measured in
+`test/kotoba/kbb_lib_test.clj` (dirty_dir 3, clean_dir 0, unset → browse denied).
 
 `cljs emit` currently compiles a NARROW backend slice of `.kotoba` (arithmetic/comparison/
 boolean forms, `pair`, map `get`/`assoc` — the ops ADR-2607150000's
