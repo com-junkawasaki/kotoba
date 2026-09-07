@@ -1,0 +1,23 @@
+;; examples/kbb/probe_fuel.kotoba — does `kbb --fuel N` reach the compiled
+;; module? A self-recursive countdown that needs no capability at all
+;; (policy: empty capability set, forbid-wildcard true). Under the host's
+;; default budget (amu's 512) it answers 100, the number of steps taken;
+;; under `--fuel 8` the guest must trap with fuel-exhausted -- the only way
+;; to observe from outside that the flag was handed to the compiler and not
+;; silently dropped. test/kotoba/kbb_js_cli_test.clj measures both.
+;;
+;; Why 100 and not more: an effect-free i64 entry is also EXECUTED once at
+;; compile time by kotoba-kir's `lower` oracle (its own budget, not the
+;; policy's -- `--fuel 100000` does not reach it). Measured 2026-09-06 on
+;; amu ffd9adfa: a countdown of 200 fails there as
+;; :kbb-js/compile-failed / :kotoba/lowering-failed "fuel-exhausted", before
+;; any module exists; 100 clears the oracle and still overruns `--fuel 8`.
+(ns examples.kbb.probe-fuel (:export [main]))
+
+(defn count-down [n :i64 acc :i64] :i64
+  (if (= n 0)
+    acc
+    (count-down (- n 1) (+ acc 1))))
+
+(defn main [] :i64
+  (count-down 100 0))

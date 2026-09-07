@@ -1,0 +1,9 @@
+;; test/fixtures/kbb_js_cli/two_libs.kotoba — links one module from each of
+;; two `--source-path` directories: kbb.fs (lib/) reads the 84-byte fixture,
+;; probe.double (test/fixtures/kbb_js_cli/lib2/) doubles it. Answers 168.
+(ns kbb-js-cli.two-libs
+  (:require [kbb.fs :as fs] [probe.double :as d])
+  (:export [main]))
+
+(defn main [] :i64
+  (d/twice (fs/read-bytes-count "src/demo_kbb_fixture.txt")))
