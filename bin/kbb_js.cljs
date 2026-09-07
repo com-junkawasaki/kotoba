@@ -36,7 +36,9 @@
 ;; same script on two backends and answering the same number is evidence the
 ;; providers agree -- `test/kotoba/kbb_js_test.clj` checks exactly that
 ;; against demo_kbb_fs_read_native (84 on both). This host is not the
-;; artifact kbb ships; it is the one it is measured against.
+;; artifact kbb ships; it is the one it is measured against. The provider
+;; boundaries themselves (what each wire id refuses, and that every refusal
+;; leaves a :denied receipt) are measured by test/kotoba/kbb_js_providers_test.clj.
 (ns kbb-js
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
@@ -183,7 +185,9 @@
 
 ;; ---------------------------------------------------------------- providers
 (defn- deny! [cap why data]
-  (throw (ex-info (str (name cap) ": " why) (merge {:kotoba.kbb/capability cap :kotoba.kbb/denied why} data))))
+  ;; (subs (str cap) 1), not (name cap): the message must say "env/read",
+  ;; not "read" (measured 2026-09-06).
+  (throw (ex-info (str (subs (str cap) 1) ": " why) (merge {:kotoba.kbb/capability cap :kotoba.kbb/denied why} data))))
 
 (defn- realpath-or-nil [p] (try (.realpathSync fs p) (catch :default _ nil)))
 (defn- within? [resolved scope-dirs scope-files]
@@ -214,11 +218,25 @@
                     (when-not (and resolved (within? resolved fs-dirs fs-files))
                       (record! {:capability :fs/app-data :request p :outcome :denied})
                       (deny! :fs/app-data "path outside the granted :fs/app-data scope" {:path p}))
-                    (let [fd (.openSync fs resolved (bit-or (.-O_RDONLY (.-constants fs)) (or (.-O_NOFOLLOW (.-constants fs)) 0)))]
+                    ;; Every refusal below records a :denied receipt BEFORE it
+                    ;; throws (measured 2026-09-06: the directory and
+                    ;; over-limit refusals threw without one, so the receipt
+                    ;; list of a denied run was empty -- indistinguishable
+                    ;; from a run that never reached the provider).
+                    (let [fd (try (.openSync fs resolved (bit-or (.-O_RDONLY (.-constants fs)) (or (.-O_NOFOLLOW (.-constants fs)) 0)))
+                                  (catch :default e
+                                    (record! {:capability :fs/app-data :request p :outcome :denied :reason (.-message e)})
+                                    (deny! :fs/app-data (str "cannot open: " (.-message e)) {:path p})))]
                       (try
                         (let [st (.fstatSync fs fd)]
-                          (when-not (.isFile st) (deny! :fs/app-data "not a regular file" {:path p}))
-                          (when (> (.-size st) max-file-bytes) (deny! :fs/app-data "file exceeds the guest string limit" {:path p :bytes (.-size st) :limit max-file-bytes}))
+                          (when-not (.isFile st)
+                            (record! {:capability :fs/app-data :request p :outcome :denied :reason "not a regular file"})
+                            (deny! :fs/app-data "not a regular file" {:path p}))
+                          (when (> (.-size st) max-file-bytes)
+                            (record! {:capability :fs/app-data :request p :outcome :denied :reason "file exceeds the guest string limit"
+                                      :bytes (.-size st) :limit max-file-bytes})
+                            (deny! :fs/app-data (str "file exceeds the guest string limit (" (.-size st) " > " max-file-bytes " bytes)")
+                                   {:path p :bytes (.-size st) :limit max-file-bytes}))
                           (let [buf (.readFileSync fs fd "utf8")]
                             (record! {:capability :fs/app-data :request p :outcome :ok :bytes (.-size st)})
                             buf))
@@ -240,6 +258,7 @@
                       (record! {:capability :fs/browse :request d :outcome :denied})
                       (deny! :fs/browse "directory outside the granted :fs/browse scope" {:dir d}))
                     (when-not (.isDirectory (.statSync fs resolved))
+                      (record! {:capability :fs/browse :request d :outcome :denied :reason "not a directory"})
                       (deny! :fs/browse "not a directory" {:dir d}))
                     (let [names (vec (sort (js->clj (.readdirSync fs resolved))))]
                       (record! {:capability :fs/browse :request d :outcome :ok :entries (count names)})
@@ -253,15 +272,22 @@
                       (record! {:capability :proc/exec :request idx-text :outcome :denied})
                       (deny! :proc/exec "grant index outside the policy's invocation table or command scope" {:index idx-text}))
                     (let [timeout (* 1000 (or (:timeout-seconds inv) 10))
+                          started (.now js/Date)
                           r (cp/spawnSync (first (:argv inv)) (clj->js (vec (rest (:argv inv))))
                                           #js {:encoding "utf8" :timeout timeout :shell false
                                                :cwd (or (:cwd inv) (.cwd js/process))
-                                               :stdio #js ["ignore" "pipe" "pipe"] :maxBuffer (* 1024 1024)})]
+                                               :stdio #js ["ignore" "pipe" "pipe"] :maxBuffer (* 1024 1024)})
+                          ;; measured, so a receipt can show the :timeout-seconds
+                          ;; bound held (the run's own wall time includes the
+                          ;; compile and cannot tell)
+                          elapsed (- (.now js/Date) started)]
                       (when (.-error r)
-                        (record! {:capability :proc/exec :request idx-text :outcome :failed :error (.-message (.-error r))})
+                        (record! {:capability :proc/exec :request idx-text :outcome :failed :error (.-message (.-error r))
+                                  :timeout-ms timeout :elapsed-ms elapsed})
                         (deny! :proc/exec (str "invocation failed: " (.-message (.-error r))) {:index idx-text}))
                       (record! {:capability :proc/exec :request idx-text :outcome :ok :exit (.-status r)
-                                :stdout-bytes (.byteLength js/Buffer (str (.-stdout r)) "utf8")})
+                                :stdout-bytes (.byteLength js/Buffer (str (.-stdout r)) "utf8")
+                                :elapsed-ms elapsed})
                       (js/BigInt (or (.-status r) -1)))))))))
 
 ;; ---------------------------------------------------------------- run

@@ -1,0 +1,10 @@
+;; examples/kbb/probe_browse_via_env.kotoba — provider boundary probe (:fs/browse).
+;; The directory under test arrives through KBB_PROBE_DIR (policy written by
+;; the test); main answers its entry count, or the host refuses (a file, or a
+;; directory outside the scope) and the LAST receipt says :denied.
+(ns examples.kbb.probe-browse-via-env
+  (:require [kbb.env :as env] [kbb.browse :as browse])
+  (:export [main]))
+
+(defn main [] :i64
+  (browse/entry-count (env/read "KBB_PROBE_DIR")))

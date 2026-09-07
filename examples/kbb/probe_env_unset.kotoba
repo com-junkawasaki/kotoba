@@ -1,0 +1,9 @@
+;; examples/kbb/probe_env_unset.kotoba — provider boundary probe (:env/read).
+;; KBB_PROBE_UNSET is granted by the policy but the test leaves it unset;
+;; the host answers "" (loader parity), so present? is false and main is 0.
+(ns examples.kbb.probe-env-unset
+  (:require [kbb.env :as env])
+  (:export [main]))
+
+(defn main [] :i64
+  (if (env/present? "KBB_PROBE_UNSET") 1 0))

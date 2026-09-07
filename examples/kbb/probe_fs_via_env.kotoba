@@ -1,0 +1,12 @@
+;; examples/kbb/probe_fs_via_env.kotoba — provider boundary probe (:fs/app-data).
+;; A guest has no argv, so the path under test arrives through a granted
+;; env name: the test writes the policy and KBB_PROBE_PATH at run time
+;; (temp dirs), and main answers the byte count of the file -- or the host
+;; refuses (over-limit, directory, symlink escaping the scope) and the LAST
+;; receipt says :denied.
+(ns examples.kbb.probe-fs-via-env
+  (:require [kbb.env :as env] [kbb.fs :as fs])
+  (:export [main]))
+
+(defn main [] :i64
+  (fs/read-bytes-count (env/read "KBB_PROBE_PATH")))
