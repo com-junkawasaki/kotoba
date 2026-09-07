@@ -65,6 +65,14 @@
         ;; effect-for-kind entries -- both required for kotoba.runtime's new
         ;; op->kind entries below to resolve to real (not :unsupported-kind)
         ;; capabilities.
+        ;; Same two-halves rule again for llm/infer (capability id 225): the
+        ;; contract already declared the `llm_infer` host import, but nothing
+        ;; here implemented it and kotoba-lang had no :host/llm-infer entry in
+        ;; effect-for-kind. kotoba-lang@13a8d52 adds that entry; without it,
+        ;; kotoba.runtime/op->kind's new 'llm-infer mapping and
+        ;; kotoba.wasm-exec/real-op-effects' new provider would be denied at
+        ;; RUN time with :kotoba.host/denied :unsupported-kind while every
+        ;; compile-time capability test stayed green.
         ;; kotoba-lang bumped 2607131600 for kotoba-lang PR #16 (package
         ;; manifest signatures-error now does real Ed25519 verification
         ;; instead of shape-only checking; see test/fixtures/package/
@@ -97,7 +105,12 @@
          ;; kotoba-lang and kotoba-sema on its classpath -- so their copies
          ;; are on it too, and `every-guest-grammar-on-the-classpath-is-the-
          ;; same-bytes` sees four copies, not two.
-         :git/sha "5fdbcc3af478cc653e3e0488fb6c301f5c7ee7f1"}
+         ;; 13a8d52 (fast-forward from 5fdbcc3a, verified with
+         ;; `git merge-base --is-ancestor`; the intervening commits touch only
+         ;; bench/, site/ and scripts/, so no `lang/` authority bytes move and
+         ;; the vendored grammar copies stay equal): registers
+         ;; :host/llm-infer in effect-for-kind.
+         :git/sha "13a8d5248a931c92f27578fcc564b16a34c398e8"}
         ;; Direct pin keeps the frontend grammar copy equal to the authority,
         ;; regardless of transitive dependency resolution.
         io.github.kotoba-lang/kotoba-sema
