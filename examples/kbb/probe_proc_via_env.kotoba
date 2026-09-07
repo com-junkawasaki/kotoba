@@ -1,0 +1,11 @@
+;; examples/kbb/probe_proc_via_env.kotoba — provider boundary probe (:proc/exec).
+;; The grant INDEX arrives through KBB_PROBE_INDEX; the invocation table is
+;; the policy the test writes. main answers the exit status, or the host
+;; refuses (index out of range, command outside the scope set) or the
+;; invocation fails within its :timeout-seconds.
+(ns examples.kbb.probe-proc-via-env
+  (:require [kbb.env :as env] [kbb.proc :as proc])
+  (:export [main]))
+
+(defn main [] :i64
+  (proc/exec (env/read "KBB_PROBE_INDEX")))
