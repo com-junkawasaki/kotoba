@@ -194,6 +194,10 @@
                 {:policy "src/demo_kgraph_data_policy.edn",
                  :digest
                  "sha256:f3b9d20696c865b33a225423c8024f97051414841709bea28aaea48499528b3a"},
+                "src/demo_llm_infer.kotoba"
+                {:policy "src/demo_llm_infer_policy.edn",
+                 :digest
+                 "sha256:5769584f52abf376b7508c38f82b37a9ac4ec4a714dfde4fb610159bb181a83d"},
                 "src/demo_loop_forever.kotoba"
                 {:digest
                  "sha256:ea3d25f909822c8e3c30e54c12f73a0f466ceb8f6b7294a4dd9147376b408321"},
