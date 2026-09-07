@@ -1,0 +1,3 @@
+{:kotoba.policy/capabilities #{}
+ :kotoba.policy/forbid-wildcard true
+ :kotoba.policy/capability-resources {}}
