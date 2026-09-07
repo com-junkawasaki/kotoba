@@ -1,0 +1,9 @@
+;; examples/kbb/probe_env_equals.kotoba — provider boundary probe (:env/read).
+;; The name contains "=" -- the policy even grants that exact string, so the
+;; only rule that can refuse it is the host's "=" check. It must.
+(ns examples.kbb.probe-env-equals
+  (:require [kbb.env :as env])
+  (:export [main]))
+
+(defn main [] :i64
+  (string-byte-length (env/read "KBB_PROBE=1")))

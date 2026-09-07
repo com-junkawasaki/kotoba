@@ -1,0 +1,9 @@
+;; examples/kbb/probe_env_outside.kotoba — provider boundary probe (:env/read).
+;; Reads a name the policy does NOT grant (scope is HOME only); the host
+;; refuses before getenv runs, so main never returns.
+(ns examples.kbb.probe-env-outside
+  (:require [kbb.env :as env])
+  (:export [main]))
+
+(defn main [] :i64
+  (string-byte-length (env/read "KBB_PROBE_OUTSIDE")))

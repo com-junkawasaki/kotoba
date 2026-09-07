@@ -1,0 +1,44 @@
+;; examples/kbb/env_scan.kotoba — third gate-script representative
+;; (ADR-2607181900 item ②): no_bb_scan's three checks (name ends ".bb" and is
+;; longer than ".bb", name is "bb.edn", content starts "#!/usr/bin/env bb")
+;; over ONE directory named by the environment variable KBB_SCAN_DIR, read
+;; through kbb.env. The guest never sees argv; the policy grants the name
+;; and BOTH fixture directories, and the caller picks one per run:
+;;   KBB_SCAN_DIR=test/fixtures/kbb_gate_scripts/dirty_dir -> 3
+;;   KBB_SCAN_DIR=test/fixtures/kbb_gate_scripts/clean_dir -> 0
+;; Unset, kbb.env/read answers "" (the env contract: unset is not a trap),
+;; and the "" directory is outside the :fs/browse scope, so the host denies
+;; the browse and the run is a :kbb-js/guest-failed with a :denied receipt —
+;; measured in test/kotoba/kbb_lib_test.clj. Four library modules in one
+;; script: kbb.env + kbb.browse + kbb.fs + kbb.str.
+(ns examples.kbb.env-scan
+  (:require [kbb.env :as env] [kbb.fs :as fs] [kbb.browse :as browse] [kbb.str :as str])
+  (:export [main]))
+
+(defn ends-with-bb? [name :string] :i64
+  (if (> (string-byte-length name) 3)
+    (if (str/ends-with? name ".bb") 1 0)
+    0))
+
+(defn is-bb-edn? [name :string] :i64
+  (if (string=? name "bb.edn") 1 0))
+
+(defn shebang-bb? [content :string] :i64
+  (if (str/starts-with? content "#!/usr/bin/env bb") 1 0))
+
+(defn entry-violations [dir :string name :string] :i64
+  (+ (ends-with-bb? name)
+     (+ (is-bb-edn? name)
+        (shebang-bb? (fs/read-file (string-concat (string-concat dir "/") name))))))
+
+(defn scan-entries [dir :string listing :string i :i64 acc :i64] :i64
+  (if (>= i (str/line-count listing))
+    acc
+    (scan-entries dir listing (+ i 1)
+                  (+ acc (entry-violations dir (str/nth-line listing i))))))
+
+(defn scan-dir [dir :string] :i64
+  (scan-entries dir (browse/entries dir) 0 0))
+
+(defn main [] :i64
+  (scan-dir (env/read "KBB_SCAN_DIR")))

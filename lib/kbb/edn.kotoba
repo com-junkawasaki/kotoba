@@ -1,0 +1,253 @@
+;; kbb.edn — reading VALUES out of an EDN document, in Kotoba, with no
+;; capability at all (ADR-2607181900 gate item ④).
+;;
+;; WHY THIS IS NOT A CAPABILITY. The obvious shape for "kbb can read EDN"
+;; is a `:data/edn` host capability, and that is what the interpreter
+;; backend has: `edn-read` is a JVM builtin in `kotoba.kbb`. Measured
+;; 2026-09-06, that shape cannot be given to a compiled guest from here:
+;;
+;;   - `:data/edn` has no compiler wire id, so no compiled guest can name it;
+;;   - adding it to amu's `resources/kotoba/lang/capability-catalog.edn`
+;;     changes NOTHING on the JVM-free route. Measured: with the entry added,
+;;     `amu compile --target js --jvm-free` still answered exit 65
+;;     "policy names an unregistered capability: :data/edn". The registry the
+;;     nbb compiler reads is `capability-registry-cljs-fallback`, a literal
+;;     map in kotoba-sema's `kotoba/compiler/frontend.cljc`; the EDN catalog
+;;     is read only on the `:clj` branch.
+;;
+;; But the deeper reason is that EDN parsing is not an AUTHORITY. It reaches
+;; nothing outside the guest: no socket, no path, no clock. A capability is
+;; a host-bound ability (`:authority :host-bound-ability` in the catalog's
+;; own elaboration), and handing parsing to the host would make the guest
+;; ask permission for arithmetic. Worse, the wire is one typed value, so a
+;; `:data/edn` capability could only answer a PROJECTION -- which means the
+;; query travels in the request string, and the capability becomes an eval
+;; surface. The authority-shaped answer here is: there is no authority.
+;;
+;; So the bytes come from `:fs/app-data` (wire 35, already hosted on BOTH
+;; JVM-free backends) and the reading is ordinary computation. That is why
+;; this library runs on `--backend native` as well as `--backend js`: it
+;; asks for nothing the native loader does not already provide.
+;;
+;; SCOPE, honestly. This reads the STRUCTURE of an EDN document and hands
+;; back the source text of a value. It is not `clojure.edn/read-string`:
+;; there are no Clojure values here to hand back, and a guest could not hold
+;; one. What workspace scripts actually do with EDN -- count the entries of
+;; a map, pull one top-level value out, read a number or a pin out of it --
+;; is what this does. `value-of` answers TEXT, so `{:a 1}`'s `:a` is "1",
+;; and `value-i64` is the one conversion offered.
+;;
+;; Strings, escapes, character literals and `;` comments are honoured, so a
+;; `{` inside a string or a comment does not open a collection. Nesting is
+;; walked with a depth counter rather than recursive descent because the
+;; guest grammar admits self-recursion, not mutual recursion.
+;;
+;; Consumed through the project route: `--source-path lib`.
+(ns kbb.edn
+  (:export [entry-count value-of value-i64 has-key? well-formed?]))
+
+(defn char-at [s :string i :i64] :string
+  (string-substring s i (+ i 1)))
+
+;; A comma is whitespace in EDN.
+(defn ws? [c :string] :bool
+  (if (string=? c " ") true
+    (if (string=? c "\n") true
+      (if (string=? c "\t") true
+        (if (string=? c "\r") true
+          (if (string=? c ",") true false))))))
+
+(defn opener? [c :string] :bool
+  (if (string=? c "[") true (if (string=? c "{") true (if (string=? c "(") true false))))
+
+(defn closer? [c :string] :bool
+  (if (string=? c "]") true (if (string=? c "}") true (if (string=? c ")") true false))))
+
+;; An atom ends at whitespace, at a delimiter, or at a comment.
+(defn atom-end? [c :string] :bool
+  (if (ws? c) true
+    (if (opener? c) true
+      (if (closer? c) true
+        (if (string=? c ";") true
+          (if (string=? c "\"") true false))))))
+
+(defn skip-comment [s :string i :i64 n :i64] :i64
+  (if (>= i n)
+    n
+    (if (string=? (char-at s i) "\n")
+      (+ i 1)
+      (skip-comment s (+ i 1) n))))
+
+;; Whitespace AND comments: a reader that stopped at `;` would report the
+;; comment as the next value.
+(defn skip-ws [s :string i :i64 n :i64] :i64
+  (if (>= i n)
+    n
+    (let [c (char-at s i)]
+      (if (ws? c)
+        (skip-ws s (+ i 1) n)
+        (if (string=? c ";")
+          (skip-ws s (skip-comment s i n) n)
+          i)))))
+
+;; `i` points JUST PAST the opening quote; answers the index just past the
+;; closing one. Every caller must do the `+ 1` itself -- measured 2026-09-07,
+;; `scan-close` passed the index OF the quote, so this returned `i + 1`
+;; immediately and the walk continued INSIDE the string. The document's
+;; `:note "... } ... { ..."` then closed the top-level map early and
+;; `well-formed?` answered false for a well-formed document. A trailing
+;; backslash at end-of-input cannot run past `n` because the `>= i n` test is
+;; taken first.
+(defn skip-string [s :string i :i64 n :i64] :i64
+  (if (>= i n)
+    n
+    (let [c (char-at s i)]
+      (if (string=? c "\\")
+        (skip-string s (+ i 2) n)
+        (if (string=? c "\"")
+          (+ i 1)
+          (skip-string s (+ i 1) n))))))
+
+;; `i` is just past an opener, `depth` is 1. Answers the index just past the
+;; matching closer, or `n` if the document ends first (unbalanced input is
+;; answered, not trapped: `well-formed?` is how a caller asks about balance).
+(defn scan-close [s :string i :i64 n :i64 depth :i64] :i64
+  (if (>= i n)
+    n
+    (if (= depth 0)
+      i
+      (let [c (char-at s i)]
+        (if (string=? c "\"")
+          (scan-close s (skip-string s (+ i 1) n) n depth)
+          (if (string=? c ";")
+            (scan-close s (skip-comment s i n) n depth)
+            (if (string=? c "\\")
+              (scan-close s (+ i 2) n depth)
+              (if (opener? c)
+                (scan-close s (+ i 1) n (+ depth 1))
+                (if (closer? c)
+                  (scan-close s (+ i 1) n (- depth 1))
+                  (scan-close s (+ i 1) n depth))))))))))
+
+(defn skip-atom [s :string i :i64 n :i64] :i64
+  (if (>= i n)
+    n
+    (if (atom-end? (char-at s i))
+      i
+      (skip-atom s (+ i 1) n))))
+
+;; The index just past the value that starts at `i`. `i` must already be at
+;; a value (call `skip-ws` first).
+(defn skip-value [s :string i :i64 n :i64] :i64
+  (if (>= i n)
+    n
+    (let [c (char-at s i)]
+      (if (opener? c)
+        (scan-close s (+ i 1) n 1)
+        (if (string=? c "\"")
+          (skip-string s (+ i 1) n)
+          ;; `\{` and `\;` are character literals: the escaped char is data.
+          (if (string=? c "\\")
+            (skip-atom s (+ i 2) n)
+            (skip-atom s (+ i 1) n)))))))
+
+;; Values from `i` up to the enclosing closer or end of input.
+(defn count-items [s :string i :i64 n :i64 acc :i64] :i64
+  (let [j (skip-ws s i n)]
+    (if (>= j n)
+      acc
+      (if (closer? (char-at s j))
+        acc
+        (count-items s (skip-value s j n) n (+ acc 1))))))
+
+(defn body-start [doc :string n :i64] :i64
+  (let [start (skip-ws doc 0 n)]
+    (if (>= start n)
+      -1
+      (if (string=? (char-at doc start) "{")
+        (+ start 1)
+        -1))))
+
+;; Entries (key/value PAIRS) in the document's top-level map; -1 when the
+;; document's first value is not a map.
+(defn entry-count [doc :string] :i64
+  (let [n (string-byte-length doc)
+        b (body-start doc n)]
+    (if (< b 0)
+      -1
+      (quot (count-items doc b n 0) 2))))
+
+;; Index of the value whose key text is `key`, or -1. Walks pairs, so a `key`
+;; occurring in VALUE position is not matched.
+(defn find-value [s :string i :i64 n :i64 key :string] :i64
+  (let [k (skip-ws s i n)]
+    (if (>= k n)
+      -1
+      (if (closer? (char-at s k))
+        -1
+        (let [ke (skip-value s k n)
+              v (skip-ws s ke n)]
+          (if (>= v n)
+            -1
+            (if (string=? (string-substring s k ke) key)
+              v
+              (find-value s (skip-value s v n) n key))))))))
+
+;; The SOURCE TEXT of the top-level value for `key`, or "" when absent.
+(defn value-of [doc :string key :string] :string
+  (let [n (string-byte-length doc)
+        b (body-start doc n)]
+    (if (< b 0)
+      ""
+      (let [v (find-value doc b n key)]
+        (if (< v 0)
+          ""
+          (string-substring doc v (skip-value doc v n)))))))
+
+(defn has-key? [doc :string key :string] :bool
+  (let [n (string-byte-length doc)
+        b (body-start doc n)]
+    (if (< b 0)
+      false
+      (if (< (find-value doc b n key) 0) false true))))
+
+(defn digit-val [c :string] :i64
+  (if (string=? c "0") 0
+    (if (string=? c "1") 1
+      (if (string=? c "2") 2
+        (if (string=? c "3") 3
+          (if (string=? c "4") 4
+            (if (string=? c "5") 5
+              (if (string=? c "6") 6
+                (if (string=? c "7") 7
+                  (if (string=? c "8") 8
+                    (if (string=? c "9") 9 -1)))))))))))
+
+(defn digits [s :string i :i64 n :i64 acc :i64] :i64
+  (if (>= i n)
+    acc
+    (let [d (digit-val (char-at s i))]
+      (if (< d 0)
+        acc
+        (digits s (+ i 1) n (+ (* acc 10) d))))))
+
+;; The top-level value for `key` read as a non-negative integer; -1 when the
+;; key is absent or its value does not start with a digit. Fails closed: a
+;; value that is not a number is NOT silently 0.
+(defn value-i64 [doc :string key :string] :i64
+  (let [t (value-of doc key)
+        n (string-byte-length t)]
+    (if (= n 0)
+      -1
+      (if (< (digit-val (char-at t 0)) 0)
+        -1
+        (digits t 0 n 0)))))
+
+;; True when every collection the document opens is closed and no string is
+;; left open -- the `scan-close` walk consumed the whole document.
+(defn well-formed? [doc :string] :bool
+  (let [n (string-byte-length doc)
+        start (skip-ws doc 0 n)]
+    (if (>= start n)
+      false
+      (if (= (skip-ws doc (skip-value doc start n) n) n) true false))))

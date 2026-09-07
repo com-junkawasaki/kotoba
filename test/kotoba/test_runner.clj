@@ -22,6 +22,9 @@
             [kotoba.kbb-shim-test]
             [kotoba.kbb-js-test]
             [kotoba.llm-infer-host-test]
+            [kotoba.kbb-js-providers-test]
+            [kotoba.kbb-js-cli-test]
+            [kotoba.kbb-lib-test]
             [kotoba.key-hierarchy-test]
             [kotoba.origin-assertion-test]
             [kotoba.sealed-egress-test]
@@ -121,6 +124,9 @@
                                         'kotoba.kbb-shim-test
                                         'kotoba.kbb-js-test
                                         'kotoba.llm-infer-host-test
+                                        'kotoba.kbb-js-providers-test
+                                        'kotoba.kbb-js-cli-test
+                                        'kotoba.kbb-lib-test
                                         'kotoba.key-hierarchy-test
                                         'kotoba.origin-assertion-test
                                         'kotoba.sealed-egress-test

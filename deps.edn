@@ -178,14 +178,41 @@
         ;; (kotoba.security.package-admission/manifest-integrity-error): canonical
         ;; DAG-CBOR encoding + CIDv1, matching kotoba-core-contracts'
         ;; package-contract cid? shape (kotoba-lang/kotoba-lang#13).
+        ;;
+        ;; The repository behind BOTH coordinates below was renamed:
+        ;; kotoba-lang/dag-cbor is kotoba-lang/org-ietf-cbor. The old name kept
+        ;; resolving because GitHub redirects it, and a redirect is not a
+        ;; dependency declaration -- it is a courtesy the far side can withdraw,
+        ;; and while it lasts it hides that the coordinate names nothing.
+        ;;
+        ;; The old name is kept here, unlike in org-ietf-ed25519 above, because
+        ;; measurement says it is still load-bearing: the same three pins that
+        ;; carry the codec into this closure -- security 255b8fe7, codebase
+        ;; 40b3d533, kotoba-core-contracts bceabfae -- still request it by the
+        ;; retired name, and their mains have only now been corrected. Drop this
+        ;; pin before those three advance and the transitive 58144e81 wins for
+        ;; one spelling while 4a8a08ef wins for the other: two cbor.core, two
+        ;; canonical key orders, one of them shadowing the Graal-static
+        ;; comparator above. Remove it in the same commit that advances them.
         io.github.kotoba-lang/dag-cbor
         {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
          :git/sha "4a8a08efb8668fae9c1884d390a6610ca42890d8"}
         ;; org-chainagnostic-cacao names the same CBOR repository by its IETF
-        ;; coordinate. Pin both coordinates so an older cbor/core.cljc cannot
-        ;; shadow the Graal-static canonical key comparator above.
+        ;; coordinate, which is now also its real one. Same sha as above, so
+        ;; both spellings resolve to one tree and neither can shadow the other.
+        ;;
+        ;; What is fixed here is this entry's URL: it said the IETF coordinate
+        ;; and pointed the resolver at dag-cbor.git, so the two lines below
+        ;; looked like two repositories and were one. Dropping :git/url entirely
+        ;; -- the reasoning recorded at org-ietf-ed25519 above -- is the tidier
+        ;; move and was tried first, but it is measurably worse here: the
+        ;; production-deps set in scripts/verify-repository-roles.cljs keeps only
+        ;; coordinates carrying a :git/url, so a URL-less entry does not get
+        ;; renamed in that check, it disappears from it. That is why this repo's
+        ;; role check currently reports ed25519 as not-in-production. Both URLs
+        ;; therefore stay, spelled correctly.
         io.github.kotoba-lang/org-ietf-cbor
-        {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
+        {:git/url "https://github.com/kotoba-lang/org-ietf-cbor.git"
          :git/sha "4a8a08efb8668fae9c1884d390a6610ca42890d8"}
         io.github.kotoba-lang/io-multiformats
         {:git/url "https://github.com/kotoba-lang/io-multiformats.git"

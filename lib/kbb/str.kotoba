@@ -1,0 +1,72 @@
+;; kbb.str — the string helpers the ported gate scripts kept re-implementing
+;; (no_bb_scan / shebang_scan each carried their own prefix / suffix test and
+;; listing walk). Every offset and length below is a BYTE (UTF-8) quantity,
+;; because the Kotoba string face is byte-addressed: `string-byte-length`,
+;; `string-substring` (byte offsets, end exclusive), `string-index-of` (byte
+;; offset of the first match, -1 when absent), `string-split-count` (number of
+;; segments a separator cuts the string into; "" is 1 segment).
+;;
+;;   starts-with? s prefix   the first (byte-length prefix) bytes of s equal prefix
+;;   ends-with?   s suffix   the last  (byte-length suffix) bytes of s equal suffix
+;;   line-count   s          "\n"-separated segments; "" -> 0, "a" -> 1,
+;;                           "a\nb" -> 2, "a\n" -> 2 (a trailing separator ends
+;;                           a line AND starts an empty one — kbb.browse never
+;;                           emits a trailing "\n", so a listing's line-count is
+;;                           its entry-count)
+;;   nth-line     s n        0-based segment n by the same cut; n < 0 or
+;;                           n >= (line-count s) -> ""
+;;   count-matches s needle  non-overlapping occurrences of needle in s, i.e.
+;;                           (string-split-count s needle) - 1; needle must be
+;;                           non-empty (the split builtin refuses an empty
+;;                           separator) — "" -> 0
+;;
+;; Pure (no capability, no wire id). `amu check lib/kbb/str.kotoba --jvm-free`
+;; answers `:ok true` with all five exports and their definition CIDs (amu
+;; deps.edn pin, measured 2026-09-06); the js backend runs every export
+;; (examples/kbb/probe_str.kotoba, no_bb_scan, shebang_scan, env_scan).
+;; `string-split-count` lowers on the js emitter — measured the same day
+;; (kbb.browse's earlier note, written hours before, said it did not).
+;;
+;; ⚠ One measured limit, in the COMPILER not the library: kotoba-kir's
+;; `ir/lower` runs a constant oracle (the KIR reference interpreter) over
+;; `main` whenever the module has an :i64/:bool entry and an EMPTY effect
+;; set, and that interpreter has no `string-index-of` case — the op falls
+;; through to invoke-function and the compile fails with `unknown-function`
+;; (kotoba-kir b021a0d via amu ffd9adf). So `nth-line` is usable from any
+;; script that also performs a capability call (every gate script does:
+;; it browses or reads), but a PURE probe that reaches `nth-line` will not
+;; compile today. examples/kbb/probe_str_oracle.kotoba pins that refusal
+;; so the day the interpreter learns the op, the test turns red and this
+;; paragraph goes.
+(ns kbb.str (:export [starts-with? ends-with? line-count nth-line count-matches]))
+
+(defn starts-with? [s :string prefix :string] :bool
+  (let [plen (string-byte-length prefix)]
+    (if (>= (string-byte-length s) plen)
+      (string=? (string-substring s 0 plen) prefix)
+      false)))
+
+(defn ends-with? [s :string suffix :string] :bool
+  (let [n (string-byte-length s)
+        slen (string-byte-length suffix)]
+    (if (>= n slen)
+      (string=? (string-substring s (- n slen) n) suffix)
+      false)))
+
+(defn line-count [s :string] :i64
+  (if (= (string-byte-length s) 0)
+    0
+    (string-split-count s "\n")))
+
+(defn nth-line [s :string n :i64] :string
+  (if (< n 0)
+    ""
+    (let [i (string-index-of s "\n")]
+      (if (= n 0)
+        (if (< i 0) s (string-substring s 0 i))
+        (if (< i 0)
+          ""
+          (nth-line (string-substring s (+ i 1) (string-byte-length s)) (- n 1)))))))
+
+(defn count-matches [s :string needle :string] :i64
+  (- (string-split-count s needle) 1))

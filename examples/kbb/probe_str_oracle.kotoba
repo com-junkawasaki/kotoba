@@ -1,0 +1,15 @@
+;; examples/kbb/probe_str_oracle.kotoba — a PURE module that reaches
+;; kbb.str/nth-line. It does not compile on the amu pin in deps.edn: with an
+;; empty effect set, kotoba-kir's `ir/lower` constant-folds `main` through
+;; the KIR reference interpreter, which has no `string-index-of` case, and
+;; the compile fails with `unknown-function` (measured 2026-09-06).
+;; test/kotoba/kbb_lib_test.clj asserts that exact refusal so the limit is
+;; visible, and goes red the day the interpreter learns the op — at which
+;; point this file and the kbb.str header paragraph should be retired.
+;; (Were it to compile, the answer would be 1: nth-line 1 of "a\nb\nc" is "b".)
+(ns examples.kbb.probe-str-oracle
+  (:require [kbb.str :as str])
+  (:export [main]))
+
+(defn main [] :i64
+  (if (string=? (str/nth-line "a\nb\nc" 1) "b") 1 0))
