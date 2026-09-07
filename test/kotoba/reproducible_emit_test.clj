@@ -5,8 +5,8 @@
 (deftest checked-in-emit-digests-reproduce-here
   (let [result (repro/verify)]
     (is (:valid? result) (pr-str (:errors result)))
-    (is (= 91 (:sources result)))
-    (is (= 74 (:reproducible result)))))
+    (is (= 92 (:sources result)))
+    (is (= 75 (:reproducible result)))))
 
 (deftest every-source-is-recorded
   (let [recorded (set (keys (:emit-digests/wasm (repro/read-manifest))))]
